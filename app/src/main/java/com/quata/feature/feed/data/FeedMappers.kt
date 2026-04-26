@@ -12,9 +12,11 @@ fun WordpressPostDto.toDomain(): Post {
         author = User(author?.toString() ?: "wp", "", "WordPress"),
         text = body.stripHtml().trim().ifBlank { "Publicación de WordPress" },
         imageUrl = null,
+        placeName = null,
+        rankingLabel = "#0",
         createdAt = date ?: "",
         likesCount = 0,
-        commentsCount = 0
+        comments = emptyList()
     )
 }
 
@@ -23,9 +25,11 @@ fun SupabasePostDto.toDomain(): Post = Post(
     author = User(userId ?: "supabase", "", "Qüata user"),
     text = text.orEmpty(),
     imageUrl = imageUrl,
+    placeName = null,
+    rankingLabel = "#0",
     createdAt = createdAt ?: "",
     likesCount = 0,
-    commentsCount = 0
+    comments = emptyList()
 )
 
 private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "")

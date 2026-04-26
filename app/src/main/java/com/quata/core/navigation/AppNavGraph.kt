@@ -36,10 +36,19 @@ fun AppNavGraph(container: AppContainer) {
         bottomBar = {
             if (currentRoute in bottomRoutes) {
                 QuataBottomBar(currentRoute = currentRoute) { route ->
-                    navController.navigate(route) {
-                        popUpTo(AppDestinations.Feed.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (route == AppDestinations.Feed.route) {
+                        val poppedToFeed = navController.popBackStack(AppDestinations.Feed.route, inclusive = false)
+                        if (!poppedToFeed) {
+                            navController.navigate(AppDestinations.Feed.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    } else {
+                        navController.navigate(route) {
+                            popUpTo(AppDestinations.Feed.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 }
             }

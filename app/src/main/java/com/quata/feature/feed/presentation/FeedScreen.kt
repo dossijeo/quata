@@ -1,38 +1,106 @@
 package com.quata.feature.feed.presentation
 
+import android.content.Intent
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
+import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Post
-import com.quata.core.ui.components.QuataCard
+import com.quata.core.model.PostComment
+import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
-import com.quata.core.ui.components.UserHeader
 import com.quata.feature.feed.domain.FeedRepository
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
     padding: PaddingValues,
@@ -40,25 +108,92 @@ fun FeedScreen(
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var commentsPost by remember { mutableStateOf<Post?>(null) }
+    var isLiveOpen by remember { mutableStateOf(false) }
+    val localComments = remember { mutableStateMapOf<String, List<PostComment>>() }
 
-    QuataScreen(padding) {
-        Column(Modifier.padding(horizontal = 16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+    when {
+        state.error != null -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
+        state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, "No hay publicaciones todavia", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
+        else -> {
+            val pagerState = rememberPagerState(pageCount = { state.posts.size })
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(Color.Black)
             ) {
-                Text("Qüata", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                IconButton(onClick = { viewModel.onEvent(FeedUiEvent.Refresh) }) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Refrescar")
+                VerticalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val post = state.posts[page]
+                    val extraComments = localComments[post.id].orEmpty()
+                    ReelPost(
+                        post = post,
+                        isCurrentPage = pagerState.currentPage == page,
+                        extraCommentsCount = extraComments.size,
+                        onOpenComments = { commentsPost = post },
+                        onOpenLive = { isLiveOpen = true },
+                        onShare = {
+                            val shareText = postShareText(post)
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Compartir publicacion"))
+                        },
+                        onReport = {
+                            Toast.makeText(context, "Publicación reportada correctamente", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
 
-            when {
-                state.error != null -> Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
-                state.posts.isEmpty() && !state.isLoading -> Text("No hay publicaciones todavía")
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(state.posts) { post -> PostCard(post) }
-                    item { Spacer(Modifier.height(12.dp)) }
+            commentsPost?.let { post ->
+                CommentsSheet(
+                    post = post,
+                    localComments = localComments[post.id].orEmpty(),
+                    onAddComment = { comment ->
+                        localComments[post.id] = localComments[post.id].orEmpty() + comment
+                    },
+                    onDismiss = { commentsPost = null }
+                )
+            }
+
+            if (isLiveOpen) {
+                LiveRankingDialog(
+                    posts = state.posts,
+                    onDismiss = { isLiveOpen = false },
+                    onOpenPost = { post ->
+                        val index = state.posts.indexOfFirst { it.id == post.id }
+                        if (index >= 0) {
+                            isLiveOpen = false
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedMessageScreen(
+    padding: PaddingValues,
+    message: String,
+    onRefresh: () -> Unit
+) {
+    QuataScreen(padding) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(message, color = MaterialTheme.colorScheme.onBackground)
+                Spacer(Modifier.height(12.dp))
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Refrescar")
                 }
             }
         }
@@ -66,19 +201,932 @@ fun FeedScreen(
 }
 
 @Composable
-private fun PostCard(post: Post) {
-    QuataCard {
-        Column(Modifier.padding(16.dp)) {
-            UserHeader(post.author.displayName, post.createdAt)
-            Spacer(Modifier.height(14.dp))
-            Text(post.text, lineHeight = 22.sp)
-            Spacer(Modifier.height(16.dp))
+private fun LiveRankingDialog(
+    posts: List<Post>,
+    onDismiss: () -> Unit,
+    onOpenPost: (Post) -> Unit
+) {
+    val rankedPosts = remember(posts) {
+        posts.sortedByDescending { it.likesCount }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color(0xFF111827),
+            contentColor = Color.White,
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(580.dp)
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "LIVE · Ranking en directo",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = "Todos los posts ordenados por likes en tiempo real.",
+                            color = Color.White.copy(alpha = 0.66f),
+                            fontSize = 14.sp
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                Surface(
+                    color = Color.White.copy(alpha = 0.04f),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = "${posts.size} publicaciones monitorizadas",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Actualizado 20:45",
+                                color = Color.White.copy(alpha = 0.64f)
+                            )
+                        }
+                        ReelChip(text = "LIVE", highlighted = true)
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(rankedPosts) { post ->
+                        LiveRankingRow(
+                            rank = rankedPosts.indexOf(post) + 1,
+                            post = post,
+                            onOpenPost = { onOpenPost(post) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveRankingRow(
+    rank: Int,
+    post: Post,
+    onOpenPost: () -> Unit
+) {
+    val borderColor = when (rank) {
+        1 -> Color(0xFFE5D45C)
+        2 -> Color.White.copy(alpha = 0.26f)
+        3 -> QuataOrange.copy(alpha = 0.8f)
+        else -> Color.White.copy(alpha = 0.08f)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, borderColor, RoundedCornerShape(20.dp))
+            .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "#$rank",
+            color = Color(0xFFFFF29E),
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 18.sp,
+            modifier = Modifier.width(38.dp)
+        )
+        AvatarLetter(post.author.displayName, modifier = Modifier.size(44.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = post.author.displayName,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = postTypeLabel(post),
+                color = Color.White.copy(alpha = 0.62f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(
+            modifier = Modifier.width(86.dp),
+            horizontalAlignment = Alignment.End
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(" ${post.likesCount}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.weight(1f))
-                Icon(Icons.Filled.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(" ${post.commentsCount}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("♥", color = Color(0xFFFF5A8E), fontSize = 18.sp)
+                Spacer(Modifier.width(4.dp))
+                Text(post.likesCount.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                color = Color.White.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .width(86.dp)
+                    .height(38.dp)
+                    .clickable(onClick = onOpenPost)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("Abrir", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+private fun postTypeLabel(post: Post): String = when {
+    post.videoUrl != null -> "Publicación con vídeo"
+    post.imageUrl != null -> "Publicación con imagen"
+    else -> "Publicación de texto"
+}
+
+@Composable
+private fun ReelPost(
+    post: Post,
+    isCurrentPage: Boolean,
+    extraCommentsCount: Int,
+    onOpenComments: () -> Unit,
+    onOpenLive: () -> Unit,
+    onShare: () -> Unit,
+    onReport: () -> Unit
+) {
+    val isVideo = post.videoUrl != null
+    val isTextOnly = post.videoUrl == null && post.imageUrl == null && post.text.isNotBlank()
+    var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
+    var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        ReelMedia(
+            post = post,
+            isActive = isCurrentPage,
+            isMuted = isVideoMuted,
+            onMuteChange = { isVideoMuted = it }
+        )
+        ReelScrims()
+        ReelTopChips(
+            post = post,
+            interactions = post.comments.size + extraCommentsCount,
+            showLocation = !isTextOnly && !isVideo,
+            isVideo = isVideo,
+            isMuted = isVideoMuted,
+            onToggleMute = { isVideoMuted = !isVideoMuted },
+            onOpenLive = onOpenLive
+        )
+        ReelActions(
+            likes = post.likesCount,
+            comments = post.comments.size + extraCommentsCount,
+            onOpenComments = onOpenComments,
+            onShare = onShare,
+            onReport = onReport,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 18.dp, bottom = 22.dp)
+        )
+        ReelAuthor(
+            post = post,
+            showDescription = isVideo && post.text.isNotBlank(),
+            isDescriptionExpanded = isDescriptionExpanded,
+                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 20.dp, end = 96.dp, bottom = if (isVideo) 82.dp else 20.dp)
+        )
+    }
+}
+
+@Composable
+private fun ReelMedia(
+    post: Post,
+    isActive: Boolean,
+    isMuted: Boolean,
+    onMuteChange: (Boolean) -> Unit
+) {
+    when {
+        post.videoUrl != null -> ReelVideo(
+            videoUrl = post.videoUrl,
+            isActive = isActive,
+            isMuted = isMuted,
+            onMuteChange = onMuteChange
+        )
+        post.imageUrl != null -> {
+            AsyncImage(
+                model = post.imageUrl,
+                contentDescription = post.text,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        post.text.isNotBlank() -> TextOnlyReel(post = post)
+
+        else -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF78B7E8),
+                                Color(0xFF2E6F95),
+                                Color(0xFF16202D)
+                            )
+                        )
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun TextOnlyReel(post: Post) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFF1C5B8F),
+                        Color(0xFFEF7B45),
+                        Color(0xFF25224D)
+                    )
+                )
+            )
+            .padding(horizontal = 30.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = post.text,
+            color = Color.White,
+            fontSize = 34.sp,
+            lineHeight = 42.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+}
+
+@Composable
+private fun ReelVideo(
+    videoUrl: String,
+    isActive: Boolean,
+    isMuted: Boolean,
+    onMuteChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
+    var positionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    var centerFeedbackIcon by remember { mutableStateOf<ImageVector?>(null) }
+    var centerFeedbackTick by remember { mutableLongStateOf(0L) }
+    val player = remember(videoUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUrl))
+            repeatMode = Player.REPEAT_MODE_ONE
+            playWhenReady = false
+            volume = 0f
+            prepare()
+        }
+    }
+
+    LaunchedEffect(player, isActive) {
+        player.playWhenReady = isActive
+        if (isActive) player.play() else player.pause()
+        isPlaying = isActive
+    }
+
+    LaunchedEffect(player, isMuted) {
+        player.volume = if (isMuted) 0f else 1f
+    }
+
+    LaunchedEffect(player, isActive) {
+        while (isActive) {
+            positionMs = player.currentPosition.coerceAtLeast(0L)
+            durationMs = player.duration.takeIf { it > 0 } ?: 0L
+            isPlaying = player.isPlaying
+            delay(500)
+        }
+    }
+
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+
+    LaunchedEffect(centerFeedbackTick) {
+        if (centerFeedbackTick != 0L) {
+            delay(650)
+            centerFeedbackIcon = null
+        }
+    }
+
+    fun togglePlayback(showFeedback: Boolean) {
+        if (player.isPlaying) {
+            player.pause()
+            isPlaying = false
+            if (showFeedback) centerFeedbackIcon = Icons.Filled.Pause
+        } else {
+            player.play()
+            isPlaying = true
+            if (showFeedback) centerFeedbackIcon = Icons.Filled.PlayArrow
+        }
+        if (showFeedback) centerFeedbackTick = System.currentTimeMillis()
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { viewContext ->
+                PlayerView(viewContext).apply {
+                    this.player = player
+                    useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+            }
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable { togglePlayback(showFeedback = true) }
+        )
+        centerFeedbackIcon?.let { icon ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(92.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.38f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(54.dp)
+                )
+            }
+        }
+        VideoControls(
+            isPlaying = isPlaying,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            isMuted = isMuted,
+            onPlayPause = { togglePlayback(showFeedback = false) },
+            onSeek = { targetMs ->
+                player.seekTo(targetMs)
+                positionMs = targetMs
+            },
+            onToggleMute = { onMuteChange(!isMuted) },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun VideoControls(
+    isPlaying: Boolean,
+    positionMs: Long,
+    durationMs: Long,
+    isMuted: Boolean,
+    onPlayPause: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onToggleMute: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val duration = durationMs.coerceAtLeast(1L)
+    val progress = (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                tint = Color.White
+            )
+        }
+        TimelineThumb(
+            progress = progress,
+            onProgressChange = { onSeek((it * duration).toLong()) },
+            modifier = Modifier
+                .weight(1f)
+                .height(30.dp)
+        )
+        Text(
+            text = "${formatVideoTime(positionMs)} / ${formatVideoTime(durationMs)}",
+            color = Color.White,
+            fontSize = 12.sp,
+            modifier = Modifier.width(82.dp)
+        )
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleMute),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = if (isMuted) "Activar sonido" else "Silenciar",
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineThumb(
+    progress: Float,
+    onProgressChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    onProgressChange((offset.x / size.width).coerceIn(0f, 1f))
+                }
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.1f))
+        )
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .offset(x = (maxWidth - 10.dp) * progress)
+                .clip(CircleShape)
+                .background(QuataOrange)
+        )
+    }
+}
+
+private fun formatVideoTime(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "$minutes:${seconds.toString().padStart(2, '0')}"
+}
+
+@Composable
+private fun ReelScrims() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.36f),
+                    0.25f to Color.Transparent,
+                    0.58f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.68f)
+                )
+            )
+    )
+}
+
+@Composable
+private fun ReelTopChips(
+    post: Post,
+    interactions: Int,
+    showLocation: Boolean,
+    isVideo: Boolean,
+    isMuted: Boolean,
+    onToggleMute: () -> Unit,
+    onOpenLive: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(start = 20.dp, top = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (showLocation && post.placeName != null) {
+            ReelChip(text = "📍 ${post.placeName}")
+        }
+        ReelChip(text = "🔥 ${post.rankingLabel} · $interactions", highlighted = true)
+        ReelChip(text = "LIVE", highlighted = true, onClick = onOpenLive)
+        if (isVideo) {
+            ReelRoundChip(
+                text = if (isMuted) "🔇" else "🔊",
+                onClick = onToggleMute
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReelRoundChip(
+    text: String,
+    onClick: () -> Unit
+) {
+    val isMuted = text == "🔇"
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.16f))
+            .border(1.dp, Color(0xFFE5D45C), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+            contentDescription = if (isMuted) "Activar sonido" else "Silenciar",
+            tint = Color(0xFFFFF29E),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun ReelChip(
+    text: String,
+    highlighted: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    val borderColor = if (highlighted) Color(0xFFE5D45C) else Color.White.copy(alpha = 0.22f)
+    val textColor = if (highlighted) Color(0xFFFFF29E) else Color.White
+
+    Surface(
+        color = Color.White.copy(alpha = if (highlighted) 0.16f else 0.12f),
+        contentColor = textColor,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier
+            .border(1.dp, borderColor, RoundedCornerShape(28.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    ) {
+        Text(
+            text = text,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+        )
+    }
+}
+
+@Composable
+private fun ReelActions(
+    likes: Int,
+    comments: Int,
+    onOpenComments: () -> Unit,
+    onShare: () -> Unit,
+    onReport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var liked by rememberSaveable { mutableStateOf(false) }
+    val visibleLikes = likes + if (liked) 1 else 0
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        ReelActionButton(
+            icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = "Me gusta",
+            count = visibleLikes.toString(),
+            tint = if (liked) Color(0xFFFF7EA8) else Color.White,
+            onClick = { liked = !liked }
+        )
+        ReelActionButton(
+            icon = Icons.Filled.ChatBubble,
+            contentDescription = "Comentarios",
+            count = comments.toString(),
+            onClick = onOpenComments
+        )
+        ReelActionButton(
+            icon = Icons.Filled.Share,
+            contentDescription = "Compartir",
+            onClick = onShare
+        )
+        ReelActionButton(
+            icon = Icons.Filled.Flag,
+            contentDescription = "Reportar",
+            tint = Color.White,
+            onClick = onReport
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CommentsSheet(
+    post: Post,
+    localComments: List<PostComment>,
+    onAddComment: (PostComment) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var draft by rememberSaveable(post.id) { mutableStateOf("") }
+    var replyingTo by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.PartiallyExpanded }
+    )
+    val comments = remember(post.id, localComments) {
+        post.comments + localComments
+    }
+
+    LaunchedEffect(post.id) {
+        sheetState.expand()
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color(0xFF11141D),
+        contentColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "COMENTARIOS",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    color = Color.White.copy(alpha = 0.68f)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text("💬", fontSize = 16.sp)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = comments.size.toString(),
+                    color = Color.White.copy(alpha = 0.74f),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(250.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                items(comments) { comment ->
+                    CommentRow(
+                        comment = comment,
+                        onReply = {
+                            replyingTo = comment.authorName
+                            draft = "@${comment.authorName} "
+                        }
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            EmojiPicker { emoji ->
+                draft += emoji
+            }
+            Spacer(Modifier.height(18.dp))
+            replyingTo?.let { author ->
+                Text(
+                    text = "Respondiendo a $author",
+                    color = Color(0xFF83DCFF),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    label = { Text("Escribe un comentario") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(
+                    enabled = draft.isNotBlank(),
+                    onClick = {
+                        onAddComment(
+                            PostComment(
+                                id = "local_${post.id}_${System.currentTimeMillis()}",
+                                authorName = "Tu",
+                                message = draft.trim(),
+                                timestamp = nowCommentTimestamp()
+                            )
+                        )
+                        draft = ""
+                        replyingTo = null
+                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommentRow(
+    comment: PostComment,
+    onReply: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = comment.authorName,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.92f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = comment.message,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp
+                )
+            }
+            Text(
+                text = comment.timestamp,
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 13.sp
+            )
+        }
+        TextButton(
+            onClick = onReply,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text(
+                text = "→ Responder",
+                color = Color(0xFF83DCFF),
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmojiPicker(onEmojiClick: (String) -> Unit) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(listOf("😀", "😍", "😂", "🥰", "👏", "🙌", "🔥", "❤️", "👍", "🙏")) { emoji ->
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .clickable { onEmojiClick(emoji) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = emoji, fontSize = 24.sp)
+            }
+        }
+    }
+}
+
+private fun nowCommentTimestamp(): String =
+    LocalDateTime.now().format(DateTimeFormatter.ofPattern("d/M/yyyy, H:mm:ss"))
+
+@Composable
+private fun ReelActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    count: String? = null,
+    tint: Color = Color.White,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.42f))
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = tint,
+                    modifier = Modifier.size(25.dp)
+                )
+                if (count != null) {
+                    Text(
+                        text = count,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun postShareText(post: Post): String = buildString {
+    append(post.author.displayName)
+    append(": ")
+    append(post.text)
+    post.imageUrl?.let {
+        append("\n")
+        append(it)
+    }
+    post.videoUrl?.let {
+        append("\n")
+        append(it)
+    }
+}
+
+@Composable
+private fun ReelAuthor(
+    post: Post,
+    showDescription: Boolean,
+    isDescriptionExpanded: Boolean,
+    onToggleDescription: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        AvatarLetter(
+            name = post.author.displayName,
+            modifier = Modifier
+                .size(56.dp)
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = post.author.displayName,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp
+            )
+            Text(
+                text = post.createdAt,
+                color = QuataOrange,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (showDescription) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = post.text,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp,
+                    maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(12.dp))
+                        .clickable(onClick = onToggleDescription)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                )
             }
         }
     }
