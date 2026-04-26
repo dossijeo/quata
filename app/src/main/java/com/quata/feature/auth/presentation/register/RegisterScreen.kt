@@ -1,0 +1,69 @@
+package com.quata.feature.auth.presentation.register
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.core.ui.components.QuataLogo
+import com.quata.core.ui.components.QuataPrimaryButton
+import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.QuataSecondaryButton
+import com.quata.core.ui.components.QuataTextField
+import com.quata.feature.auth.domain.AuthRepository
+
+@Composable
+fun RegisterScreen(
+    padding: PaddingValues,
+    authRepository: AuthRepository,
+    onBack: () -> Unit,
+    onRegisterSuccess: () -> Unit,
+    viewModel: RegisterViewModel = viewModel(factory = RegisterViewModel.factory(authRepository))
+) {
+    val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.effects.collect { if (it is RegisterEffect.Success) onRegisterSuccess() }
+    }
+
+    QuataScreen(padding) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            QuataLogo(subtitle = "Crea tu cuenta")
+            Spacer(Modifier.height(28.dp))
+            QuataTextField(state.displayName, { viewModel.onEvent(RegisterUiEvent.DisplayNameChanged(it)) }, "Nombre", Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            QuataTextField(state.email, { viewModel.onEvent(RegisterUiEvent.EmailChanged(it)) }, "Email", Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            QuataTextField(state.password, { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) }, "Contraseña", Modifier.fillMaxWidth(), isPassword = true)
+            if (state.error != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(22.dp))
+            QuataPrimaryButton(if (state.isLoading) "Creando..." else "Crear cuenta", enabled = !state.isLoading) {
+                viewModel.onEvent(RegisterUiEvent.Submit)
+            }
+            Spacer(Modifier.height(10.dp))
+            QuataSecondaryButton("Volver", onClick = onBack)
+        }
+    }
+}
