@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ import com.quata.feature.chat.domain.ChatRepository
 
 @Composable
 fun ChatScreen(
+    padding: PaddingValues,
     conversationId: String,
     repository: ChatRepository,
     onBack: () -> Unit,
@@ -38,7 +40,7 @@ fun ChatScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    QuataScreen {
+    QuataScreen(padding) {
         Column {
             QuataTopBar(title = "Chat", onBack = onBack)
             LazyColumn(

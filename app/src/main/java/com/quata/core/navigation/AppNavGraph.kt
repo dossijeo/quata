@@ -100,6 +100,7 @@ fun AppNavGraph(container: AppContainer) {
             ) { entry ->
                 val conversationId = entry.arguments?.getString("conversationId") ?: ""
                 ChatScreen(
+                    padding = padding,
                     conversationId = conversationId,
                     repository = container.chatRepository,
                     onBack = { navController.popBackStack() }
