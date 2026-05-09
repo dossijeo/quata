@@ -3,23 +3,36 @@ package com.quata.core.navigation
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,10 +46,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -64,6 +80,16 @@ fun AppNavGraph(container: AppContainer) {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val startDestination = if (container.sessionManager.isLoggedIn()) AppDestinations.Feed.route else AppDestinations.Login.route
+    val showAppChrome = currentRoute != null &&
+        currentRoute != AppDestinations.Login.route &&
+        currentRoute != AppDestinations.Register.route
+    var notificationCount by rememberSaveable { mutableStateOf(0) }
+    LaunchedEffect(showAppChrome, currentRoute) {
+        if (showAppChrome) {
+            container.notificationsRepository.getNotificationCount()
+                .onSuccess { count -> notificationCount = count }
+        }
+    }
     val bottomRoutes = setOf(
         AppDestinations.Feed.route,
         AppDestinations.CreatePost.route,
@@ -74,6 +100,11 @@ fun AppNavGraph(container: AppContainer) {
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
+            topBar = {
+                if (showAppChrome) {
+                    QuataAppTopSpacer()
+                }
+            },
             bottomBar = {
                 if (currentRoute in bottomRoutes) {
                     QuataBottomBar(currentRoute = currentRoute) { route ->
@@ -185,43 +216,130 @@ fun AppNavGraph(container: AppContainer) {
             }
         }
 
-        val showSosButton = currentRoute != null &&
-            currentRoute != AppDestinations.Login.route &&
-            currentRoute != AppDestinations.Register.route
-        if (showSosButton) {
-            val sosAlignment = rememberSosButtonAlignment()
+        if (showAppChrome) {
+            val topChromePlacement = rememberTopChromePlacement()
+            QuataAppHeaderActions(
+                notificationCount = notificationCount,
+                onNotificationsClick = {
+                    navController.navigate(AppDestinations.Notifications.route) {
+                        popUpTo(AppDestinations.Feed.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 20.dp, start = topChromePlacement.logoStartPadding)
+            )
             GlobalSosButton(
                 container = container,
                 modifier = Modifier
-                    .align(sosAlignment)
-                    .padding(top = 20.dp, start = 16.dp, end = 16.dp)
+                    .align(Alignment.TopEnd)
+                    .padding(top = 20.dp, end = topChromePlacement.sosEndPadding)
             )
         }
     }
 }
 
 @Composable
-private fun rememberSosButtonAlignment(): Alignment {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    val buttonWidthPx = with(density) { 94.dp.roundToPx() }
-    val marginPx = with(density) { 16.dp.roundToPx() }
-    return remember(view, buttonWidthPx, marginPx) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return@remember Alignment.TopEnd
-        val windowInsets = view.rootWindowInsets ?: return@remember Alignment.TopEnd
-        val displayCutout = windowInsets.displayCutout ?: return@remember Alignment.TopEnd
-        val cutout = displayCutout.boundingRects.minByOrNull { it.top } ?: return@remember Alignment.TopEnd
-        val screenWidth = view.rootView.width.takeIf { it > 0 } ?: view.resources.displayMetrics.widthPixels
-        val rightSpace = screenWidth - cutout.right
-        val leftSpace = cutout.left
-        when {
-            rightSpace >= buttonWidthPx + marginPx -> Alignment.TopEnd
-            leftSpace >= buttonWidthPx + marginPx -> Alignment.TopStart
-            rightSpace >= leftSpace -> Alignment.TopEnd
-            else -> Alignment.TopStart
+private fun QuataAppTopSpacer() {
+    Surface(
+        color = Color(0xFF0B1220),
+        contentColor = Color.White,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+    ) {}
+}
+
+@Composable
+private fun QuataAppHeaderActions(
+    notificationCount: Int,
+    onNotificationsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.size(width = 160.dp, height = 48.dp)
+    ) {
+        Image(
+            painter = painterResource(R.drawable.quata_logo_header),
+            contentDescription = "QUATA",
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = (-18).dp, y = (-2).dp)
+                .width(120.dp)
+        )
+        IconButton(
+            onClick = onNotificationsClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = 82.dp, y = 4.dp)
+                .size(48.dp)
+        ) {
+            BadgedBox(
+                badge = {
+                    if (notificationCount > 0) {
+                        Badge(containerColor = Color(0xFFE0303B)) {
+                            Text(notificationCount.coerceAtMost(99).toString(), color = Color.White)
+                        }
+                    }
+                }
+            ) {
+                Icon(Icons.Filled.Notifications, contentDescription = "Notificaciones", tint = Color.White)
+            }
         }
     }
 }
+
+@Composable
+private fun rememberTopChromePlacement(): TopChromePlacement {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val logoWidthPx = with(density) { 144.dp.roundToPx() }
+    val sosWidthPx = with(density) { 94.dp.roundToPx() }
+    val logoHeightPx = with(density) { 84.dp.roundToPx() }
+    val sosHeightPx = with(density) { 48.dp.roundToPx() }
+    val logoTopPx = with(density) { 4.dp.roundToPx() }
+    val sosTopPx = with(density) { 20.dp.roundToPx() }
+    val marginPx = with(density) { 16.dp.roundToPx() }
+    val screenWidthPx = view.rootView.width.takeIf { it > 0 } ?: view.resources.displayMetrics.widthPixels
+    return remember(view, screenWidthPx, logoWidthPx, sosWidthPx, logoHeightPx, sosHeightPx, logoTopPx, sosTopPx, marginPx, density.density) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return@remember TopChromePlacement()
+        val windowInsets = view.rootWindowInsets ?: return@remember TopChromePlacement()
+        val displayCutout = windowInsets.displayCutout ?: return@remember TopChromePlacement()
+        val cutouts = displayCutout.boundingRects
+        if (cutouts.isEmpty()) return@remember TopChromePlacement()
+        var logoStartPx = marginPx
+        var sosEndPx = marginPx
+
+        cutouts.forEach { cutout ->
+            val logoRect = Rect(logoStartPx, logoTopPx, logoStartPx + logoWidthPx, logoTopPx + logoHeightPx)
+            if (logoRect.intersects(cutout)) {
+                logoStartPx = (cutout.right + marginPx).coerceAtMost(screenWidthPx - logoWidthPx - marginPx)
+            }
+
+            val sosLeft = screenWidthPx - sosEndPx - sosWidthPx
+            val sosRect = Rect(sosLeft, sosTopPx, sosLeft + sosWidthPx, sosTopPx + sosHeightPx)
+            if (sosRect.intersects(cutout)) {
+                val shiftedEnd = screenWidthPx - cutout.left + marginPx
+                sosEndPx = shiftedEnd.coerceAtMost(screenWidthPx - sosWidthPx - marginPx)
+            }
+        }
+
+        TopChromePlacement(
+            logoStartPadding = with(density) { logoStartPx.toDp() },
+            sosEndPadding = with(density) { sosEndPx.toDp() }
+        )
+    }
+}
+
+private data class TopChromePlacement(
+    val logoStartPadding: Dp = 16.dp,
+    val sosEndPadding: Dp = 16.dp
+)
+
+private fun Rect.intersects(other: Rect): Boolean =
+    left < other.right && right > other.left && top < other.bottom && bottom > other.top
 
 @Composable
 private fun GlobalSosButton(

@@ -4,4 +4,5 @@ import com.quata.core.model.NotificationItem
 
 interface NotificationsRepository {
     suspend fun getNotifications(): Result<List<NotificationItem>>
+    suspend fun getNotificationCount(): Result<Int>
 }

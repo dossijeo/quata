@@ -6,4 +6,5 @@ import com.quata.feature.notifications.domain.NotificationsRepository
 
 class NotificationsRepositoryImpl : NotificationsRepository {
     override suspend fun getNotifications(): Result<List<NotificationItem>> = Result.success(MockData.notifications)
+    override suspend fun getNotificationCount(): Result<Int> = getNotifications().map { it.size }
 }
