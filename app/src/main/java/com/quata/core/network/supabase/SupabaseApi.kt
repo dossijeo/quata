@@ -3,6 +3,7 @@ package com.quata.core.network.supabase
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -29,4 +30,19 @@ interface SupabaseApi {
     @Headers("Prefer: resolution=merge-duplicates")
     @POST("rest/v1/push_tokens")
     suspend fun registerPushToken(@Body request: SupabasePushTokenRequest)
+
+    @GET("rest/v1/profiles?select=*")
+    suspend fun getProfiles(
+        @Query("id") idFilter: String
+    ): List<SupabaseProfileDto>
+
+    @GET("rest/v1/profiles?select=id,email,display_name,neighborhood,phone")
+    suspend fun getEmergencyCandidates(): List<SupabaseProfileDto>
+
+    @Headers("Prefer: return=minimal")
+    @PATCH("rest/v1/profiles")
+    suspend fun updateProfile(
+        @Query("id") idFilter: String,
+        @Body request: SupabaseProfileUpdateRequest
+    )
 }

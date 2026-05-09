@@ -133,6 +133,7 @@ fun AppNavGraph(container: AppContainer) {
                 ProfileScreen(
                     padding = padding,
                     sessionManager = container.sessionManager,
+                    repository = container.profileRepository,
                     onLogout = {
                         navController.navigate(AppDestinations.Login.route) {
                             popUpTo(0)

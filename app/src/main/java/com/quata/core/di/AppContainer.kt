@@ -25,6 +25,9 @@ import com.quata.feature.notifications.domain.NotificationsRepository
 import com.quata.feature.postcomposer.data.PostComposerRemoteDataSource
 import com.quata.feature.postcomposer.data.PostComposerRepositoryImpl
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import com.quata.feature.profile.data.ProfileRepositoryImpl
+import com.quata.feature.profile.data.ProfileRemoteDataSource
+import com.quata.feature.profile.domain.ProfileRepository
 
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
@@ -61,4 +64,9 @@ class AppContainer(context: Context) {
     )
 
     val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl()
+
+    val profileRepository: ProfileRepository = ProfileRepositoryImpl(
+        remote = ProfileRemoteDataSource(networkModule.supabaseApi),
+        sessionManager = sessionManager
+    )
 }

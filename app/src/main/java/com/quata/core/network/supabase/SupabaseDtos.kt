@@ -45,3 +45,30 @@ data class SupabasePushTokenRequest(
     val token: String,
     val platform: String = "android"
 )
+
+data class SupabaseProfileDto(
+    val id: String,
+    val email: String? = null,
+    @SerializedName("display_name") val displayName: String? = null,
+    val neighborhood: String? = null,
+    @SerializedName("country_code") val countryCode: String? = null,
+    val phone: String? = null,
+    @SerializedName("avatar_url") val avatarUrl: String? = null,
+    @SerializedName("secret_question") val secretQuestion: String? = null,
+    @SerializedName("emergency_contact_ids") val emergencyContactIds: List<String>? = null,
+    @SerializedName("emergency_message") val emergencyMessage: String? = null,
+    @SerializedName("emergency_message_is_default") val emergencyMessageIsDefault: Boolean? = null
+)
+
+data class SupabaseProfileUpdateRequest(
+    @SerializedName("display_name") val displayName: String,
+    val neighborhood: String,
+    @SerializedName("country_code") val countryCode: String,
+    val phone: String,
+    @SerializedName("avatar_url") val avatarUrl: String?,
+    @SerializedName("secret_question") val secretQuestion: String,
+    @SerializedName("secret_answer") val secretAnswer: String?,
+    @SerializedName("emergency_contact_ids") val emergencyContactIds: List<String>,
+    @SerializedName("emergency_message") val emergencyMessage: String,
+    @SerializedName("emergency_message_is_default") val emergencyMessageIsDefault: Boolean
+)
