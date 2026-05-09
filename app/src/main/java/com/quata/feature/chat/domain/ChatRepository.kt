@@ -8,4 +8,5 @@ interface ChatRepository {
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
     suspend fun sendMessage(conversationId: String, text: String): Result<Unit>
+    suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String>
 }

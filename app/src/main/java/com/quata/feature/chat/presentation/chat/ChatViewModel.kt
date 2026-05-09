@@ -18,6 +18,11 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
+            repository.getConversations().onSuccess { conversations ->
+                _uiState.value = _uiState.value.copy(conversation = conversations.firstOrNull { it.id == conversationId })
+            }
+        }
+        viewModelScope.launch {
             repository.observeMessages(conversationId).collect { messages ->
                 _uiState.value = _uiState.value.copy(messages = messages, isLoading = false)
             }

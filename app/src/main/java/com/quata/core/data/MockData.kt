@@ -19,6 +19,12 @@ object MockData {
     private val ana = User("u_ana", "ana@quata.app", "Ana")
     private val leo = User("u_leo", "leo@quata.app", "Leo")
     private val sara = User("u_sara", "sara@quata.app", "Sara")
+    private val ji = User("u_ji", "ji@quata.app", "JI")
+    private val marcelino = User("u_marcelino", "marcelino@quata.app", "Marcelino")
+    private val obiang = User("u_obiang", "obiang@quata.app", "Obiang")
+    private val maribel = User("u_maribel", "maribel@quata.app", "maribelamdemeekandoh")
+
+    val registeredUsers = listOf(currentUser, ana, leo, sara, ji, marcelino, obiang, maribel)
 
     private val mutablePosts = mutableListOf(
         Post(
@@ -86,17 +92,54 @@ object MockData {
         mutablePosts.add(0, post)
     }
 
-    val conversations = listOf(
-        Conversation("c1", "Ana", lastMessagePreview = "Te paso luego la configuracion de Supabase", unreadCount = 2, updatedAt = "12:40"),
-        Conversation("c2", "Equipo Quata", lastMessagePreview = "La V3 ya tiene estructura fusionada", unreadCount = 5, updatedAt = "11:15"),
-        Conversation("c3", "Leo", lastMessagePreview = "Mira el diseno naranja del login", unreadCount = 0, updatedAt = "Ayer")
+    private val mutableConversations = mutableListOf(
+        Conversation("c1", "Ana", lastMessagePreview = "Te paso luego la configuracion de Supabase", unreadCount = 2, updatedAt = "12:40", participantNames = listOf("Ana")),
+        Conversation("c2", "Equipo Quata", lastMessagePreview = "La V3 ya tiene estructura fusionada", unreadCount = 5, updatedAt = "11:15", participantNames = listOf("Ana", "Leo", "Sara", "Gabriel"), isGroup = true),
+        Conversation("c3", "Leo", lastMessagePreview = "Mira el diseno naranja del login", unreadCount = 0, updatedAt = "Ayer", participantNames = listOf("Leo"))
     )
 
-    val messages = listOf(
+    val conversations: List<Conversation>
+        get() = mutableConversations
+
+    private val mutableMessages = mutableListOf(
         Message("m1", "c1", "u_ana", "Ana", "Ya tienes la base Android montada?", "12:37", false),
         Message("m2", "c1", "u_current", "Gabriel", "Si, estoy fusionando arquitectura y helpers reales.", "12:38", true),
         Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false)
     )
+
+    val messages: List<Message>
+        get() = mutableMessages
+
+    fun addSosConversation(contactIds: List<String>, text: String, senderName: String): String {
+        val id = "sos_${System.currentTimeMillis()}"
+        val memberNames = contactIds.mapNotNull { contactId ->
+            registeredUsers.firstOrNull { it.id == contactId }?.displayName
+        }
+        mutableConversations.add(
+            0,
+            Conversation(
+                id = id,
+                title = "SOS emergencia",
+                lastMessagePreview = text,
+                unreadCount = 0,
+                updatedAt = "Ahora",
+                participantNames = (memberNames + senderName).distinct(),
+                isGroup = true
+            )
+        )
+        mutableMessages.add(
+            Message(
+                id = "m_$id",
+                conversationId = id,
+                senderId = currentUser.id,
+                senderName = senderName,
+                text = text,
+                sentAt = "Ahora",
+                isMine = true
+            )
+        )
+        return id
+    }
 
     val notifications = listOf(
         NotificationItem("n1", "Nueva respuesta", "Ana respondio a tu publicacion", "Hace 2 min"),

@@ -7,10 +7,12 @@ import com.quata.core.network.supabase.SupabaseMessageDto
 
 fun SupabaseConversationDto.toDomain(): Conversation = Conversation(
     id = id,
-    title = title ?: "Conversación",
+    title = title ?: "Conversacion",
     lastMessagePreview = lastMessagePreview ?: "",
     unreadCount = unreadCount ?: 0,
-    updatedAt = updatedAt ?: ""
+    updatedAt = updatedAt ?: "",
+    participantNames = participantNames.orEmpty(),
+    isGroup = (participantNames?.size ?: participantIds?.size ?: 0) > 2
 )
 
 fun SupabaseMessageDto.toDomain(currentUserId: String): Message = Message(

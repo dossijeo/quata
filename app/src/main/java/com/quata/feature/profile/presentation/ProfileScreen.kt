@@ -304,6 +304,7 @@ fun ProfileScreen(
             onDismiss = { isEmergencyDialogOpen = false },
             onSave = {
                 Toast.makeText(context, "Contactos de emergencia actualizados", Toast.LENGTH_SHORT).show()
+                viewModel.onEvent(ProfileUiEvent.Save)
                 isEmergencyDialogOpen = false
             }
         )
@@ -498,7 +499,7 @@ private fun <T> DropdownField(
 }
 
 @Composable
-private fun EmergencyContactsDialog(
+fun EmergencyContactsDialog(
     candidates: List<EmergencyContactCandidate>,
     selectedIds: List<String>,
     message: String,

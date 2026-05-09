@@ -21,7 +21,15 @@ data class SupabaseConversationDto(
     val title: String?,
     @SerializedName("last_message_preview") val lastMessagePreview: String?,
     @SerializedName("unread_count") val unreadCount: Int?,
-    @SerializedName("updated_at") val updatedAt: String?
+    @SerializedName("updated_at") val updatedAt: String?,
+    @SerializedName("participant_names") val participantNames: List<String>? = null,
+    @SerializedName("participant_ids") val participantIds: List<String>? = null
+)
+
+data class SupabaseCreateConversationRequest(
+    val title: String,
+    @SerializedName("participant_ids") val participantIds: List<String>,
+    @SerializedName("last_message_preview") val lastMessagePreview: String
 )
 
 data class SupabaseMessageDto(

@@ -6,5 +6,7 @@ data class Conversation(
     val avatarUrl: String? = null,
     val lastMessagePreview: String,
     val unreadCount: Int = 0,
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val participantNames: List<String> = emptyList(),
+    val isGroup: Boolean = false
 )
