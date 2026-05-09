@@ -6,6 +6,8 @@ import com.quata.core.model.NotificationItem
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.feature.postcomposer.domain.PostComposerDraft
+import com.quata.feature.postcomposer.domain.PostComposerType
 
 object MockData {
     val currentUser = User(
@@ -18,7 +20,7 @@ object MockData {
     private val leo = User("u_leo", "leo@quata.app", "Leo")
     private val sara = User("u_sara", "sara@quata.app", "Sara")
 
-    val posts = listOf(
+    private val mutablePosts = mutableListOf(
         Post(
             id = "p1",
             author = ana,
@@ -64,6 +66,25 @@ object MockData {
             )
         )
     )
+
+    val posts: List<Post>
+        get() = mutablePosts
+
+    fun addPost(draft: PostComposerDraft) {
+        val post = Post(
+            id = "local_post_${System.currentTimeMillis()}",
+            author = currentUser,
+            text = draft.text,
+            imageUrl = draft.imageUri.takeIf { draft.type == PostComposerType.Image },
+            videoUrl = draft.videoUri.takeIf { draft.type == PostComposerType.Video },
+            placeName = draft.locationLabel.takeIf { draft.type == PostComposerType.Image },
+            rankingLabel = "#0",
+            createdAt = "Ahora",
+            likesCount = 0,
+            comments = emptyList()
+        )
+        mutablePosts.add(0, post)
+    }
 
     val conversations = listOf(
         Conversation("c1", "Ana", lastMessagePreview = "Te paso luego la configuracion de Supabase", unreadCount = 2, updatedAt = "12:40"),

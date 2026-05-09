@@ -91,7 +91,13 @@ fun AppNavGraph(container: AppContainer) {
             composable(AppDestinations.CreatePost.route) {
                 CreatePostScreen(
                     padding = padding,
-                    repository = container.postComposerRepository
+                    repository = container.postComposerRepository,
+                    onPostCreated = {
+                        navController.navigate(AppDestinations.Feed.route) {
+                            popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
