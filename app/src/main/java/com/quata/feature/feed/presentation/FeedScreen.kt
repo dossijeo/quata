@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +42,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -77,7 +81,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -859,8 +865,13 @@ private fun CommentsSheet(
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var draft by rememberSaveable(post.id) { mutableStateOf("") }
-    var replyingTo by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
+    var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    var replyTarget by remember { mutableStateOf<PostComment?>(null) }
+    var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
+    var shouldScrollToCommentsEnd by remember { mutableStateOf(true) }
+    val commentsListState = rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { it != SheetValue.PartiallyExpanded }
@@ -871,6 +882,15 @@ private fun CommentsSheet(
 
     LaunchedEffect(post.id) {
         sheetState.expand()
+        shouldScrollToCommentsEnd = true
+    }
+
+    LaunchedEffect(comments.size, shouldScrollToCommentsEnd) {
+        if (shouldScrollToCommentsEnd && comments.isNotEmpty()) {
+            delay(260)
+            commentsListState.animateScrollToItem(comments.size)
+            shouldScrollToCommentsEnd = false
+        }
     }
 
     ModalBottomSheet(
@@ -902,60 +922,139 @@ private fun CommentsSheet(
             }
             Spacer(Modifier.height(16.dp))
             LazyColumn(
+                state = commentsListState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp),
+                    .height(if (isEmojiPickerVisible) 250.dp else 328.dp),
+                contentPadding = PaddingValues(bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 items(comments) { comment ->
                     CommentRow(
                         comment = comment,
                         onReply = {
-                            replyingTo = comment.authorName
-                            draft = "@${comment.authorName} "
+                            replyTarget = comment
                         }
                     )
                 }
+                item(key = "comments-end") {
+                    Spacer(Modifier.height(24.dp))
+                }
             }
             Spacer(Modifier.height(18.dp))
-            EmojiPicker { emoji ->
-                draft += emoji
+            if (isEmojiPickerVisible) {
+                EmojiPicker { emoji ->
+                    draft = draft.insertAtSelection(emoji)
+                    isEmojiPickerVisible = false
+                }
+                Spacer(Modifier.height(18.dp))
             }
-            Spacer(Modifier.height(18.dp))
-            replyingTo?.let { author ->
-                Text(
-                    text = "Respondiendo a $author",
-                    color = Color(0xFF83DCFF),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
+            replyTarget?.let { target ->
+                ReplyTargetBanner(
+                    comment = target,
+                    onClear = { replyTarget = null }
                 )
+                Spacer(Modifier.height(14.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    label = { Text("Escribe un comentario") },
+                    placeholder = { Text("Escribe un comentario...") },
+                    leadingIcon = {
+                        IconButton(onClick = { isEmojiPickerVisible = !isEmojiPickerVisible }) {
+                            Icon(
+                                imageVector = Icons.Filled.InsertEmoticon,
+                                contentDescription = "Mostrar emojis",
+                                tint = Color(0xFFFFC55C)
+                            )
+                        }
+                    },
+                    trailingIcon = {
+                        IconButton(
+                            enabled = draft.text.isNotBlank(),
+                            onClick = {
+                                onAddComment(
+                                    PostComment(
+                                        id = "local_${post.id}_${System.currentTimeMillis()}",
+                                        authorName = "Tu",
+                                        message = draft.text.trim(),
+                                        timestamp = nowCommentTimestamp(),
+                                        replyToAuthorName = replyTarget?.authorName,
+                                        replyToMessage = replyTarget?.message
+                                    )
+                                )
+                                shouldScrollToCommentsEnd = true
+                                draft = TextFieldValue("")
+                                replyTarget = null
+                                isEmojiPickerVisible = false
+                            }
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    enabled = draft.isNotBlank(),
-                    onClick = {
-                        onAddComment(
-                            PostComment(
-                                id = "local_${post.id}_${System.currentTimeMillis()}",
-                                authorName = "Tu",
-                                message = draft.trim(),
-                                timestamp = nowCommentTimestamp()
-                            )
-                        )
-                        draft = ""
-                        replyingTo = null
-                    }
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
-                }
+            }
+        }
+    }
+}
+
+private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
+    val start = selection.start.coerceIn(0, text.length)
+    val end = selection.end.coerceIn(0, text.length)
+    val replaceStart = minOf(start, end)
+    val replaceEnd = maxOf(start, end)
+    val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
+    val cursor = replaceStart + value.length
+    return TextFieldValue(
+        text = updatedText,
+        selection = TextRange(cursor)
+    )
+}
+
+@Composable
+private fun ReplyTargetBanner(
+    comment: PostComment,
+    onClear: () -> Unit
+) {
+    Surface(
+        color = QuataOrange.copy(alpha = 0.08f),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, QuataOrange.copy(alpha = 0.34f), RoundedCornerShape(18.dp))
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "Respondiendo a ${comment.authorName}",
+                    color = Color.White.copy(alpha = 0.94f),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = comment.message,
+                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(
+                onClick = onClear,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Cancelar respuesta")
             }
         }
     }
@@ -966,7 +1065,21 @@ private fun CommentRow(
     comment: PostComment,
     onReply: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+    ) {
+        if (comment.replyToAuthorName != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(2.dp)
+                    .background(Color(0xFF83DCFF))
+            )
+            Spacer(Modifier.width(14.dp))
+        }
+        Column(Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(
@@ -975,6 +1088,15 @@ private fun CommentRow(
                     fontSize = 16.sp,
                     color = Color.White.copy(alpha = 0.92f)
                 )
+                comment.replyToAuthorName?.let { author ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "↳ Respuesta a $author",
+                        color = Color(0xFF83DCFF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = comment.message,
@@ -998,6 +1120,7 @@ private fun CommentRow(
                 color = Color(0xFF83DCFF),
                 fontWeight = FontWeight.ExtraBold
             )
+        }
         }
     }
 }
