@@ -64,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -82,6 +81,7 @@ import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import java.time.LocalDateTime
@@ -524,7 +524,7 @@ private fun TextReelPreview(text: String) {
             .fillMaxWidth()
             .height(360.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF12213A), Color(0xFF263E63), Color(0xFF101624))))
+            .background(textCanvasBrush(text))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
             .padding(28.dp),
         contentAlignment = Alignment.Center

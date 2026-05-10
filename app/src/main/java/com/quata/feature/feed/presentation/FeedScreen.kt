@@ -100,6 +100,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
 import java.time.LocalDate
@@ -485,15 +486,7 @@ private fun TextOnlyReel(post: Post) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF1C5B8F),
-                        Color(0xFFEF7B45),
-                        Color(0xFF25224D)
-                    )
-                )
-            )
+            .background(textCanvasBrush(post.text))
             .padding(horizontal = 30.dp),
         contentAlignment = Alignment.Center
     ) {
