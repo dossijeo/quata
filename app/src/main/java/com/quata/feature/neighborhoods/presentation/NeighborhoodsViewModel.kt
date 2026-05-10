@@ -44,6 +44,52 @@ class NeighborhoodsViewModel(
         }
     }
 
+    fun toggleFollowUser(userId: String) {
+        viewModelScope.launch {
+            repository.toggleFollowUser(userId)
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar el seguimiento")
+                }
+            refreshSelectedProfile(userId)
+        }
+    }
+
+    fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isOpeningChat = true, error = null)
+            repository.openPrivateChat(userId)
+                .onSuccess { conversationId ->
+                    _uiState.value = _uiState.value.copy(isOpeningChat = false)
+                    onOpened(conversationId)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isOpeningChat = false,
+                        error = error.message ?: "No se pudo abrir PRIVI"
+                    )
+                }
+        }
+    }
+
+    fun openUserProfile(userId: String) {
+        viewModelScope.launch {
+            repository.getUserProfile(userId)
+                .onSuccess { profile -> _uiState.value = _uiState.value.copy(selectedProfile = profile, error = null) }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo abrir el perfil") }
+        }
+    }
+
+    fun closeUserProfile() {
+        _uiState.value = _uiState.value.copy(selectedProfile = null)
+    }
+
+    private suspend fun refreshSelectedProfile(userId: String) {
+        val current = _uiState.value.selectedProfile ?: return
+        if (current.user.id != userId) return
+        repository.getUserProfile(userId)
+            .onSuccess { profile -> _uiState.value = _uiState.value.copy(selectedProfile = profile) }
+    }
+
     companion object {
         fun factory(repository: NeighborhoodRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")

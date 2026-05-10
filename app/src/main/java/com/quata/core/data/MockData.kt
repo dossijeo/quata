@@ -32,6 +32,53 @@ object MockData {
 
     val registeredUsers = listOf(currentUser, ana, leo, sara, ji, marcelino, obiang, maribel, ondo, melo)
 
+    private val mutableFollowing = mutableSetOf("u_ana")
+    private val followerCounts = mutableMapOf(
+        "u_current" to 1,
+        "u_ana" to 4,
+        "u_leo" to 2,
+        "u_sara" to 3,
+        "u_ji" to 1,
+        "u_marcelino" to 0,
+        "u_obiang" to 0,
+        "u_maribel" to 0,
+        "u_ondo" to 1,
+        "u_melo" to 2
+    )
+    private val followingCounts = mutableMapOf(
+        "u_current" to mutableFollowing.size,
+        "u_ana" to 2,
+        "u_leo" to 1,
+        "u_sara" to 1,
+        "u_ji" to 0,
+        "u_marcelino" to 1,
+        "u_obiang" to 0,
+        "u_maribel" to 0,
+        "u_ondo" to 0,
+        "u_melo" to 3
+    )
+    private val socialState = MutableStateFlow(0)
+
+    val socialFlow: StateFlow<Int>
+        get() = socialState.asStateFlow()
+
+    fun isFollowing(userId: String): Boolean = userId in mutableFollowing
+    fun followersCount(userId: String): Int = followerCounts[userId] ?: 0
+    fun followingCount(userId: String): Int = followingCounts[userId] ?: 0
+
+    fun toggleFollowUser(userId: String) {
+        if (userId == currentUser.id) return
+        if (userId in mutableFollowing) {
+            mutableFollowing.remove(userId)
+            followerCounts[userId] = ((followerCounts[userId] ?: 0) - 1).coerceAtLeast(0)
+        } else {
+            mutableFollowing.add(userId)
+            followerCounts[userId] = (followerCounts[userId] ?: 0) + 1
+        }
+        followingCounts[currentUser.id] = mutableFollowing.size
+        socialState.value = socialState.value + 1
+    }
+
     private val mutablePosts = mutableListOf(
         Post(
             id = "p1",
@@ -304,6 +351,35 @@ object MockData {
                 isVisible = true
             )
         }
+    }
+
+    fun findOrCreatePrivateConversation(userId: String, senderName: String): String {
+        if (userId == currentUser.id) error("No puedes abrir un PRIVI contigo mismo")
+        val user = registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
+        mutableConversations.firstOrNull { conversation ->
+            !conversation.isGroup &&
+                !conversation.isEmergency &&
+                setOf(currentUser.id, userId).all { it in conversation.participantIds }
+        }?.let { return it.id }
+
+        val now = System.currentTimeMillis()
+        val id = "priv_${userId}_$now"
+        mutableConversations.add(
+            0,
+            Conversation(
+                id = id,
+                title = user.displayName,
+                lastMessagePreview = "",
+                unreadCount = 0,
+                updatedAt = "",
+                updatedAtMillis = null,
+                participantIds = listOf(currentUser.id, user.id),
+                participantNames = listOf(user.displayName, senderName),
+                isGroup = false
+            )
+        )
+        conversationsState.value = mutableConversations.toList()
+        return id
     }
 
     private fun updateConversation(conversationId: String, transform: Conversation.() -> Conversation) {
