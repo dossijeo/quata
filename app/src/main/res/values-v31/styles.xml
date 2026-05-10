@@ -1,0 +1,13 @@
+<resources>
+    <style name="Theme.Quata" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#050A16</item>
+        <item name="android:navigationBarColor">#0E1017</item>
+        <item name="android:statusBarColor">#0E1017</item>
+        <item name="android:windowSplashScreenBackground">#050A16</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/quata_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#00000000</item>
+    </style>
+</resources>
