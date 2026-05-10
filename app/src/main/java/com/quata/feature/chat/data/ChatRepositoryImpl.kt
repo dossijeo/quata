@@ -8,6 +8,8 @@ import com.quata.core.session.SessionManager
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.delay
 
 class ChatRepositoryImpl(
     private val remote: ChatRemoteDataSource,
@@ -17,19 +19,40 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) MockData.conversations else remote.getConversations().map { it.toDomain() }
     }
 
+    override fun observeConversations(): Flow<List<Conversation>> {
+        return if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.conversationsFlow
+        } else {
+            flow {
+                while (true) {
+                    emit(remote.getConversations().map { it.toDomain() })
+                    delay(5_000)
+                }
+            }
+        }
+    }
+
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
         if (AppConfig.USE_MOCK_BACKEND) {
-            emit(MockData.messages.filter { it.conversationId == conversationId })
+            MockData.messagesFlow.map { messages ->
+                messages.filter { it.conversationId == conversationId }
+            }.collect { emit(it) }
         } else {
-            val currentUserId = sessionManager.currentSession()?.userId.orEmpty()
-            emit(remote.getMessages(conversationId).map { it.toDomain(currentUserId) })
+            while (true) {
+                val currentUserId = sessionManager.currentSession()?.userId.orEmpty()
+                emit(remote.getMessages(conversationId).map { it.toDomain(currentUserId) })
+                delay(5_000)
+            }
         }
     }
 
     override suspend fun sendMessage(conversationId: String, text: String): Result<Unit> = runCatching {
         if (text.isBlank()) return@runCatching
-        if (AppConfig.USE_MOCK_BACKEND) return@runCatching
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.addMessage(conversationId, text, session.displayName)
+            return@runCatching
+        }
         remote.sendMessage(session.userId, session.displayName, conversationId, text)
     }
 
@@ -43,7 +66,7 @@ class ChatRepositoryImpl(
 
         val participantIds = (contactIds + session.userId).distinct()
         val conversation = remote.createConversation(
-            title = "SOS emergencia",
+            title = "\uD83D\uDEA8 SOS",
             participantIds = participantIds,
             lastMessagePreview = text
         ).firstOrNull() ?: error("No se pudo crear la conversacion SOS")

@@ -8,6 +8,9 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 object MockData {
     val currentUser = User(
@@ -92,26 +95,93 @@ object MockData {
         mutablePosts.add(0, post)
     }
 
-    private val mutableConversations = mutableListOf(
-        Conversation("c1", "Ana", lastMessagePreview = "Te paso luego la configuracion de Supabase", unreadCount = 2, updatedAt = "12:40", participantNames = listOf("Ana")),
-        Conversation("c2", "Equipo Quata", lastMessagePreview = "La V3 ya tiene estructura fusionada", unreadCount = 5, updatedAt = "11:15", participantNames = listOf("Ana", "Leo", "Sara", "Gabriel"), isGroup = true),
-        Conversation("c3", "Leo", lastMessagePreview = "Mira el diseno naranja del login", unreadCount = 0, updatedAt = "Ayer", participantNames = listOf("Leo"))
-    )
-
-    val conversations: List<Conversation>
-        get() = mutableConversations
+    private val mockNow: Long
+        get() = System.currentTimeMillis()
 
     private val mutableMessages = mutableListOf(
         Message("m1", "c1", "u_ana", "Ana", "Ya tienes la base Android montada?", "12:37", false),
         Message("m2", "c1", "u_current", "Gabriel", "Si, estoy fusionando arquitectura y helpers reales.", "12:38", true),
-        Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false)
+        Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false),
+        Message("m4", "c2", "u_ana", "Ana", "La V3 ya tiene estructura fusionada", "11:15", false),
+        Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", false)
     )
+    private val messagesState = MutableStateFlow(mutableMessages.toList())
+
+    private val mutableConversations = mutableListOf(
+        Conversation(
+            "c1",
+            "Ana",
+            lastMessagePreview = "",
+            unreadCount = 2,
+            updatedAt = "12:40",
+            updatedAtMillis = mockNow - 6L * 60L * 1000L,
+            participantNames = listOf("Ana")
+        ),
+        Conversation(
+            "c2",
+            "Equipo Quata",
+            lastMessagePreview = "",
+            unreadCount = 5,
+            updatedAt = "11:15",
+            updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
+            participantNames = listOf("Ana", "Leo", "Sara", "Gabriel"),
+            isGroup = true
+        ),
+        Conversation(
+            "c3",
+            "Leo",
+            lastMessagePreview = "",
+            unreadCount = 0,
+            updatedAt = "Ayer",
+            updatedAtMillis = mockNow - 12L * 24L * 60L * 60L * 1000L,
+            participantNames = listOf("Leo")
+        )
+    )
+    private val conversationsState = MutableStateFlow(mutableConversations.toList())
+
+    val conversations: List<Conversation>
+        get() = mutableConversations
+
+    val conversationsFlow: StateFlow<List<Conversation>>
+        get() = conversationsState.asStateFlow()
 
     val messages: List<Message>
         get() = mutableMessages
 
+    val messagesFlow: StateFlow<List<Message>>
+        get() = messagesState.asStateFlow()
+
+    fun addMessage(conversationId: String, text: String, senderName: String): Unit {
+        if (text.isBlank()) return
+        val now = System.currentTimeMillis()
+        mutableMessages.add(
+            Message(
+                id = "m_${now}",
+                conversationId = conversationId,
+                senderId = currentUser.id,
+                senderName = senderName,
+                text = text,
+                sentAt = "Ahora",
+                isMine = true
+            )
+        )
+        messagesState.value = mutableMessages.toList()
+        val index = mutableConversations.indexOfFirst { it.id == conversationId }
+        if (index >= 0) {
+            val updated = mutableConversations[index].copy(
+                lastMessagePreview = text,
+                updatedAt = "Ahora",
+                updatedAtMillis = now
+            )
+            mutableConversations.removeAt(index)
+            mutableConversations.add(0, updated)
+            conversationsState.value = mutableConversations.toList()
+        }
+    }
+
     fun addSosConversation(contactIds: List<String>, text: String, senderName: String): String {
-        val id = "sos_${System.currentTimeMillis()}"
+        val now = System.currentTimeMillis()
+        val id = "sos_$now"
         val memberNames = contactIds.mapNotNull { contactId ->
             registeredUsers.firstOrNull { it.id == contactId }?.displayName
         }
@@ -119,14 +189,17 @@ object MockData {
             0,
             Conversation(
                 id = id,
-                title = "SOS emergencia",
+                title = "\uD83D\uDEA8 SOS",
                 lastMessagePreview = text,
                 unreadCount = 0,
                 updatedAt = "Ahora",
+                updatedAtMillis = now,
                 participantNames = (memberNames + senderName).distinct(),
-                isGroup = true
+                isGroup = true,
+                isEmergency = true
             )
         )
+        conversationsState.value = mutableConversations.toList()
         mutableMessages.add(
             Message(
                 id = "m_$id",
@@ -138,6 +211,7 @@ object MockData {
                 isMine = true
             )
         )
+        messagesState.value = mutableMessages.toList()
         return id
     }
 

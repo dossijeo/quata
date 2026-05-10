@@ -7,6 +7,8 @@ data class Conversation(
     val lastMessagePreview: String,
     val unreadCount: Int = 0,
     val updatedAt: String = "",
+    val updatedAtMillis: Long? = null,
     val participantNames: List<String> = emptyList(),
-    val isGroup: Boolean = false
+    val isGroup: Boolean = false,
+    val isEmergency: Boolean = false
 )

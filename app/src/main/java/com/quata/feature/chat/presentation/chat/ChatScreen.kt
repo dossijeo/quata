@@ -52,6 +52,7 @@ import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.presentation.chatDisplayTitle
 
 @Composable
 fun ChatScreen(
@@ -70,6 +71,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(state.messages) { MessageBubble(it) }
@@ -98,7 +100,7 @@ fun ChatScreen(
 @Composable
 private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val title = conversation?.headerTitle().orEmpty().ifBlank { "Chat" }
+    val title = conversation?.chatDisplayTitle().orEmpty().ifBlank { "Chat" }
     val isGroup = conversation?.isGroup == true
     Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
         Column {
@@ -148,24 +150,25 @@ private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
 
 @Composable
 private fun ChatAvatar(conversation: Conversation?) {
-    if (conversation?.isGroup == true) {
+    if (conversation?.isGroup == true || conversation?.isEmergency == true) {
         Box(
             modifier = Modifier
                 .size(46.dp)
                 .clip(CircleShape)
-                .background(QuataOrange.copy(alpha = 0.22f))
+                .background(if (conversation?.isEmergency == true) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
                 .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+            if (conversation?.isEmergency == true) {
+                Text("SOS", color = Color.White, fontWeight = FontWeight.ExtraBold)
+            } else {
+                Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+            }
         }
     } else {
         AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
     }
 }
-
-private fun Conversation.headerTitle(): String =
-    if (isGroup && participantNames.isNotEmpty()) participantNames.joinToString(", ") else title
 
 @Composable
 private fun MessageBubble(message: Message) {
