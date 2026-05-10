@@ -101,8 +101,12 @@ import com.quata.core.model.PostComment
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.feed.domain.FeedRepository
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -125,6 +129,7 @@ fun FeedScreen(
         state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, "No hay publicaciones todavia", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
         else -> {
             val pagerState = rememberPagerState(pageCount = { state.posts.size })
+            val postRanks = remember(state.posts) { calculateDailyPostRanks(state.posts) }
 
             Box(
                 modifier = Modifier
@@ -140,6 +145,7 @@ fun FeedScreen(
                     val extraComments = localComments[post.id].orEmpty()
                     ReelPost(
                         post = post,
+                        postRank = postRanks[post.id] ?: 1,
                         isCurrentPage = pagerState.currentPage == page,
                         extraCommentsCount = extraComments.size,
                         onOpenComments = { commentsPost = post },
@@ -173,6 +179,7 @@ fun FeedScreen(
             if (isLiveOpen) {
                 LiveRankingDialog(
                     posts = state.posts,
+                    postRanks = postRanks,
                     onDismiss = { isLiveOpen = false },
                     onOpenPost = { post ->
                         val index = state.posts.indexOfFirst { it.id == post.id }
@@ -209,11 +216,12 @@ private fun FeedMessageScreen(
 @Composable
 private fun LiveRankingDialog(
     posts: List<Post>,
+    postRanks: Map<String, Int>,
     onDismiss: () -> Unit,
     onOpenPost: (Post) -> Unit
 ) {
     val rankedPosts = remember(posts) {
-        posts.sortedByDescending { it.likesCount }
+        posts.sortedWith(feedRankingComparator())
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -280,7 +288,7 @@ private fun LiveRankingDialog(
                 ) {
                     items(rankedPosts) { post ->
                         LiveRankingRow(
-                            rank = rankedPosts.indexOf(post) + 1,
+                            rank = postRanks[post.id] ?: (rankedPosts.indexOf(post) + 1),
                             post = post,
                             onOpenPost = { onOpenPost(post) }
                         )
@@ -373,6 +381,7 @@ private fun postTypeLabel(post: Post): String = when {
 @Composable
 private fun ReelPost(
     post: Post,
+    postRank: Int,
     isCurrentPage: Boolean,
     extraCommentsCount: Int,
     onOpenComments: () -> Unit,
@@ -399,7 +408,7 @@ private fun ReelPost(
         ReelScrims()
         ReelTopChips(
             post = post,
-            interactions = post.comments.size + extraCommentsCount,
+            postRank = postRank,
             showLocation = !isTextOnly && !isVideo,
             isVideo = isVideo,
             isMuted = isVideoMuted,
@@ -736,7 +745,7 @@ private fun ReelScrims() {
 @Composable
 private fun ReelTopChips(
     post: Post,
-    interactions: Int,
+    postRank: Int,
     showLocation: Boolean,
     isVideo: Boolean,
     isMuted: Boolean,
@@ -752,7 +761,7 @@ private fun ReelTopChips(
         if (showLocation && post.placeName != null) {
             ReelChip(text = "📍 ${post.placeName}")
         }
-        ReelChip(text = "🔥 ${post.rankingLabel} · $interactions", highlighted = true)
+        ReelChip(text = "🔥 #$postRank · ${post.likesCount}", highlighted = true)
         ReelChip(text = "LIVE", highlighted = true, onClick = onOpenLive)
         if (isVideo) {
             ReelRoundChip(
@@ -1151,6 +1160,88 @@ private fun EmojiPicker(onEmojiClick: (String) -> Unit) {
 
 private fun nowCommentTimestamp(): String =
     LocalDateTime.now().format(DateTimeFormatter.ofPattern("d/M/yyyy, H:mm:ss"))
+
+private data class PostRankInfo(
+    val day: LocalDate,
+    val publishedAt: LocalDateTime
+)
+
+private fun calculateDailyPostRanks(posts: List<Post>): Map<String, Int> {
+    val now = LocalDateTime.now()
+    return posts
+        .map { post -> post to post.rankInfo(now) }
+        .groupBy { it.second.day }
+        .flatMap { (_, dayPosts) ->
+            dayPosts
+                .sortedWith(
+                    compareByDescending<Pair<Post, PostRankInfo>> { it.first.likesCount }
+                        .thenByDescending { it.second.publishedAt }
+                        .thenBy { it.first.id }
+                )
+                .mapIndexed { index, (post, _) -> post.id to index + 1 }
+        }
+        .toMap()
+}
+
+private fun feedRankingComparator(): Comparator<Post> {
+    val now = LocalDateTime.now()
+    return compareByDescending<Post> { it.rankInfo(now).day }
+        .thenByDescending { it.likesCount }
+        .thenByDescending { it.rankInfo(now).publishedAt }
+        .thenBy { it.id }
+}
+
+private fun Post.rankInfo(now: LocalDateTime): PostRankInfo {
+    val publishedAt = parsePostCreatedAt(createdAt, now)
+    return PostRankInfo(day = publishedAt.toLocalDate(), publishedAt = publishedAt)
+}
+
+private fun parsePostCreatedAt(value: String, now: LocalDateTime): LocalDateTime {
+    val normalized = value.trim()
+    if (normalized.isBlank() || normalized.equals("Ahora", ignoreCase = true)) return now
+    if (normalized.equals("Ayer", ignoreCase = true)) return now.minusDays(1)
+
+    parseRelativeCreatedAt(normalized, now)?.let { return it }
+
+    parseLocalDateTime(normalized)?.let { return it }
+
+    return try {
+        LocalDateTime.ofInstant(Instant.parse(normalized), ZoneId.systemDefault())
+    } catch (_: DateTimeParseException) {
+        now
+    }
+}
+
+private fun parseRelativeCreatedAt(value: String, now: LocalDateTime): LocalDateTime? {
+    val match = Regex("""(?i)^hace\s+(\d+)\s+([a-záéíóúñ]+)""").find(value) ?: return null
+    val amount = match.groupValues[1].toLongOrNull() ?: return null
+    val unit = match.groupValues[2].lowercase()
+    return when {
+        unit.startsWith("min") -> now.minusMinutes(amount)
+        unit.startsWith("h") -> now.minusHours(amount)
+        unit.startsWith("d") -> now.minusDays(amount)
+        unit.startsWith("sem") -> now.minusWeeks(amount)
+        else -> null
+    }
+}
+
+private fun parseLocalDateTime(value: String): LocalDateTime? {
+    val patterns = listOf(
+        "d/M/yyyy, H:mm:ss",
+        "d/M/yyyy H:mm:ss",
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS"
+    )
+    patterns.forEach { pattern ->
+        try {
+            return LocalDateTime.parse(value, DateTimeFormatter.ofPattern(pattern))
+        } catch (_: DateTimeParseException) {
+            // Try the next supported backend/mock format.
+        }
+    }
+    return null
+}
 
 @Composable
 private fun ReelActionButton(
