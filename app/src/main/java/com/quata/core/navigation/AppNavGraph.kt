@@ -61,6 +61,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.presentation.chat.ChatScreen
@@ -99,7 +100,11 @@ fun AppNavGraph(container: AppContainer) {
         AppDestinations.Profile.route
     )
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .fluidTouchEffect()
+    ) {
         Scaffold(
             topBar = {
                 if (showAppChrome) {
