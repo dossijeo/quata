@@ -58,7 +58,7 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                         conversation.id to messages
                     }
                     val visibleConversations = conversations.filter { conversation ->
-                        messagesByConversation[conversation.id].orEmpty().isNotEmpty()
+                        conversation.isVisible && messagesByConversation[conversation.id].orEmpty().isNotEmpty()
                     }
                     _uiState.value = ConversationsUiState(
                         isLoading = false,

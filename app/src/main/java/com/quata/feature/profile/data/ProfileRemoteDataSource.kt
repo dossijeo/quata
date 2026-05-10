@@ -8,6 +8,8 @@ class ProfileRemoteDataSource(
 ) {
     suspend fun getProfile(userId: String) = api.getProfiles("eq.$userId").firstOrNull()
 
+    suspend fun getDirectoryProfiles() = api.getEmergencyCandidates()
+
     suspend fun getEmergencyCandidates() = api.getEmergencyCandidates()
 
     suspend fun saveProfile(userId: String, request: SupabaseProfileUpdateRequest) {

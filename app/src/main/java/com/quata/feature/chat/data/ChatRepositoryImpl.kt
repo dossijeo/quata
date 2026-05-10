@@ -4,10 +4,13 @@ import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.User
+import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
 import com.quata.core.session.SessionManager
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.delay
 
@@ -15,6 +18,16 @@ class ChatRepositoryImpl(
     private val remote: ChatRemoteDataSource,
     private val sessionManager: SessionManager
 ) : ChatRepository {
+    override fun currentUser(): User? {
+        if (AppConfig.USE_MOCK_BACKEND) return MockData.currentUser
+        val session = sessionManager.currentSession() ?: return null
+        return User(
+            id = session.userId,
+            email = "",
+            displayName = session.displayName
+        )
+    }
+
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) MockData.conversations else remote.getConversations().map { it.toDomain() }
     }
@@ -46,6 +59,29 @@ class ChatRepositoryImpl(
         }
     }
 
+    override fun observeParticipantCandidates(): Flow<List<User>> {
+        return if (AppConfig.USE_MOCK_BACKEND) {
+            flowOf(MockData.registeredUsers)
+        } else {
+            flow {
+                while (true) {
+                    emit(
+                        remote.getDirectoryProfiles().map { profile ->
+                            User(
+                                id = profile.id,
+                                email = profile.email.orEmpty(),
+                                displayName = profile.displayName?.takeIf { it.isNotBlank() } ?: profile.email.orEmpty(),
+                                neighborhood = profile.neighborhood.orEmpty(),
+                                avatarUrl = profile.avatarUrl
+                            )
+                        }
+                    )
+                    delay(30_000)
+                }
+            }
+        }
+    }
+
     override suspend fun sendMessage(conversationId: String, text: String): Result<Unit> = runCatching {
         if (text.isBlank()) return@runCatching
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -72,5 +108,45 @@ class ChatRepositoryImpl(
         ).firstOrNull() ?: error("No se pudo crear la conversacion SOS")
         remote.sendMessage(session.userId, session.displayName, conversation.id, text)
         conversation.id
+    }
+
+    override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.setConversationMuted(conversationId, muted)
+            return@runCatching
+        }
+        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isMuted = muted))
+    }
+
+    override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = runCatching {
+        if (participantIds.isEmpty()) return@runCatching
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.addParticipants(conversationId, participantIds)
+            return@runCatching
+        }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val conversation = remote.getConversations().firstOrNull { it.id == conversationId }
+            ?: error("Conversacion no encontrada")
+        val currentIds = conversation.participantIds.orEmpty()
+        val allIds = (currentIds + participantIds + session.userId).distinct()
+        val namesById = remote.getDirectoryProfiles().associate { profile ->
+            profile.id to (profile.displayName?.takeIf { it.isNotBlank() } ?: profile.email.orEmpty())
+        } + (session.userId to session.displayName)
+        remote.updateConversation(
+            conversationId,
+            SupabaseConversationUpdateRequest(
+                participantIds = allIds,
+                participantNames = allIds.mapNotNull { namesById[it] },
+                isVisible = true
+            )
+        )
+    }
+
+    override suspend fun hideConversation(conversationId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.hideConversation(conversationId)
+            return@runCatching
+        }
+        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
     }
 }

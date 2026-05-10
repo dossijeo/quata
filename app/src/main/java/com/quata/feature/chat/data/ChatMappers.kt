@@ -14,9 +14,13 @@ fun SupabaseConversationDto.toDomain(): Conversation = Conversation(
     unreadCount = unreadCount ?: 0,
     updatedAt = updatedAt ?: "",
     updatedAtMillis = updatedAt?.toEpochMillisOrNull(),
+    participantIds = participantIds.orEmpty(),
     participantNames = participantNames.orEmpty(),
     isGroup = (participantNames?.size ?: participantIds?.size ?: 0) > 2,
-    isEmergency = title == "\uD83D\uDEA8 SOS"
+    isEmergency = title == "\uD83D\uDEA8 SOS",
+    communityName = communityName,
+    isMuted = isMuted == true,
+    isVisible = isVisible != false
 )
 
 fun SupabaseMessageDto.toDomain(currentUserId: String): Message = Message(

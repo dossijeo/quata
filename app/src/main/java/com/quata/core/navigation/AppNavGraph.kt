@@ -162,7 +162,11 @@ fun AppNavGraph(container: AppContainer) {
                 }
 
                 composable(AppDestinations.Neighborhoods.route) {
-                    NeighborhoodsScreen(padding = padding)
+                    NeighborhoodsScreen(
+                        padding = padding,
+                        repository = container.neighborhoodRepository,
+                        onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
+                    )
                 }
 
                 composable(AppDestinations.CreatePost.route) {

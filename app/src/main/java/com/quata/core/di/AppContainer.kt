@@ -22,6 +22,8 @@ import com.quata.feature.feed.data.FeedRepositoryImpl
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.notifications.data.NotificationsRepositoryImpl
 import com.quata.feature.notifications.domain.NotificationsRepository
+import com.quata.feature.neighborhoods.data.NeighborhoodRepositoryImpl
+import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.postcomposer.data.PostComposerRemoteDataSource
 import com.quata.feature.postcomposer.data.PostComposerRepositoryImpl
 import com.quata.feature.postcomposer.domain.PostComposerRepository
@@ -67,6 +69,12 @@ class AppContainer(context: Context) {
 
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(
         remote = ProfileRemoteDataSource(networkModule.supabaseApi),
+        sessionManager = sessionManager
+    )
+
+    val neighborhoodRepository: NeighborhoodRepository = NeighborhoodRepositoryImpl(
+        profileRemote = ProfileRemoteDataSource(networkModule.supabaseApi),
+        chatRemote = ChatRemoteDataSource(networkModule.supabaseApi),
         sessionManager = sessionManager
     )
 }

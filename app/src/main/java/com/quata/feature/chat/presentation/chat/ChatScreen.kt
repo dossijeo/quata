@@ -22,10 +22,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,11 +53,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.User
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
@@ -66,7 +80,17 @@ fun ChatScreen(
 
     QuataScreen(padding) {
         Column {
-            ChatHeader(conversation = state.conversation, onBack = onBack)
+            ChatHeader(
+                conversation = state.conversation,
+                currentUser = state.currentUser,
+                onBack = onBack,
+                onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
+                onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
+                onHideConversation = {
+                    viewModel.onEvent(ChatUiEvent.HideConversation)
+                    onBack()
+                }
+            )
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -95,13 +119,36 @@ fun ChatScreen(
             ) { viewModel.onEvent(ChatUiEvent.Send) }
         }
     }
+
+    if (state.isAddParticipantsOpen) {
+        AddParticipantsDialog(
+            conversation = state.conversation,
+            currentUser = state.currentUser,
+            candidates = state.participantCandidates,
+            search = state.participantSearch,
+            selectedIds = state.selectedParticipantIds,
+            onSearchChange = { viewModel.onEvent(ChatUiEvent.ParticipantSearchChanged(it)) },
+            onToggleUser = { viewModel.onEvent(ChatUiEvent.ParticipantSelectionToggled(it)) },
+            onDismiss = { viewModel.onEvent(ChatUiEvent.CloseAddParticipants) },
+            onAdd = { viewModel.onEvent(ChatUiEvent.AddSelectedParticipants) }
+        )
+    }
 }
 
 @Composable
-private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
+private fun ChatHeader(
+    conversation: Conversation?,
+    currentUser: User?,
+    onBack: () -> Unit,
+    onToggleMute: (Boolean) -> Unit,
+    onAddParticipants: () -> Unit,
+    onHideConversation: () -> Unit
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
     val title = conversation?.chatDisplayTitle().orEmpty().ifBlank { "Chat" }
     val isGroup = conversation?.isGroup == true
+    val memberNames = conversation.memberNamesForDisplay(currentUser)
     Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(
@@ -120,9 +167,48 @@ private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
                     Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (isGroup) {
                         Text(
-                            "${conversation?.participantNames?.size ?: 0} miembros",
+                            "${memberNames.size} miembros",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
+                        )
+                    }
+                }
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Mas opciones")
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(if (conversation?.isMuted == true) "Reactivar notificaciones" else "Silenciar conversacion") },
+                            leadingIcon = {
+                                Icon(
+                                    if (conversation?.isMuted == true) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onToggleMute(conversation?.isMuted != true)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Anadir nuevos participantes") },
+                            leadingIcon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                onAddParticipants()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Borrar conversacion") },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                onHideConversation()
+                            }
                         )
                     }
                 }
@@ -135,9 +221,9 @@ private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(conversation.participantNames) { name ->
+                    items(memberNames) { name ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AvatarLetter(name, modifier = Modifier.size(38.dp))
+                            AvatarLetter(name.removeSuffix(" (tu)").removeSuffix(" (tú)"), modifier = Modifier.size(38.dp))
                             Spacer(Modifier.width(10.dp))
                             Text(name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -146,6 +232,121 @@ private fun ChatHeader(conversation: Conversation?, onBack: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun AddParticipantsDialog(
+    conversation: Conversation?,
+    currentUser: User?,
+    candidates: List<User>,
+    search: String,
+    selectedIds: List<String>,
+    onSearchChange: (String) -> Unit,
+    onToggleUser: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onAdd: () -> Unit
+) {
+    val existingIds = conversation?.participantIds.orEmpty().toSet()
+    val existingNames = conversation?.participantNames.orEmpty().map { it.lowercase() }.toSet()
+    val visibleCandidates = candidates
+        .filter { user ->
+            user.id != currentUser?.id && user.id !in existingIds && user.displayName.lowercase() !in existingNames
+        }
+        .filter { user ->
+            val query = search.trim()
+            query.isBlank() ||
+                user.displayName.contains(query, ignoreCase = true) ||
+                user.neighborhood.contains(query, ignoreCase = true) ||
+                user.email.contains(query, ignoreCase = true)
+        }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = Color(0xFF111827),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Anadir participantes", fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Busca usuarios para ampliar esta conversacion.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.padding(8.dp))
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = onSearchChange,
+                    placeholder = { Text("Buscar por nombre, barrio o email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(Modifier.padding(8.dp))
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(visibleCandidates, key = { it.id }) { user ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
+                                .clickable { onToggleUser(user.id) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AvatarLetter(user.displayName, modifier = Modifier.size(42.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(user.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Checkbox(
+                                checked = user.id in selectedIds,
+                                onCheckedChange = { onToggleUser(user.id) }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.padding(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = QuataSurface)
+                    ) {
+                        Text("Cancelar")
+                    }
+                    Button(
+                        onClick = onAdd,
+                        enabled = selectedIds.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
+                    ) {
+                        Text("Anadir participantes")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun Conversation?.memberNamesForDisplay(currentUser: User?): List<String> {
+    if (this == null) return emptyList()
+    val names = participantNames.toMutableList()
+    if (
+        currentUser != null &&
+        currentUser.id in participantIds &&
+        names.none { it.equals(currentUser.displayName, ignoreCase = true) }
+    ) {
+        names.add(currentUser.displayName)
+    }
+    return names
+        .distinctBy { it.lowercase() }
+        .map { name ->
+            if (currentUser != null && name.equals(currentUser.displayName, ignoreCase = true)) {
+                "$name (tú)"
+            } else {
+                name
+            }
+        }
 }
 
 @Composable

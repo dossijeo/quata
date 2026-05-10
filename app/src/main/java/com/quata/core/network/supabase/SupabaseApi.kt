@@ -22,6 +22,13 @@ interface SupabaseApi {
     @POST("rest/v1/conversations")
     suspend fun createConversation(@Body request: SupabaseCreateConversationRequest): List<SupabaseConversationDto>
 
+    @Headers("Prefer: return=representation")
+    @PATCH("rest/v1/conversations")
+    suspend fun updateConversation(
+        @Query("id") idFilter: String,
+        @Body request: SupabaseConversationUpdateRequest
+    ): List<SupabaseConversationDto>
+
     @GET("rest/v1/messages?select=*&order=created_at.asc")
     suspend fun getMessages(
         @Query("conversation_id") conversationFilter: String

@@ -16,18 +16,21 @@ object MockData {
     val currentUser = User(
         id = "u_current",
         email = "gabriel@quata.app",
-        displayName = "Gabriel"
+        displayName = "Gabriel",
+        neighborhood = "La Chana"
     )
 
-    private val ana = User("u_ana", "ana@quata.app", "Ana")
-    private val leo = User("u_leo", "leo@quata.app", "Leo")
-    private val sara = User("u_sara", "sara@quata.app", "Sara")
-    private val ji = User("u_ji", "ji@quata.app", "JI")
-    private val marcelino = User("u_marcelino", "marcelino@quata.app", "Marcelino")
-    private val obiang = User("u_obiang", "obiang@quata.app", "Obiang")
-    private val maribel = User("u_maribel", "maribel@quata.app", "maribelamdemeekandoh")
+    private val ana = User("u_ana", "ana@quata.app", "Ana", "Sampaka")
+    private val leo = User("u_leo", "leo@quata.app", "Leo", "Bikuy")
+    private val sara = User("u_sara", "sara@quata.app", "Sara", "Malabo")
+    private val ji = User("u_ji", "ji@quata.app", "JI", "La ferme")
+    private val marcelino = User("u_marcelino", "marcelino@quata.app", "Marcelino", "Molyko")
+    private val obiang = User("u_obiang", "obiang@quata.app", "Obiang", "Mindoube")
+    private val maribel = User("u_maribel", "maribel@quata.app", "maribelamdemeekandoh", "Iyubu")
+    private val ondo = User("u_ondo", "ondo@quata.app", "Ondo", "Molyko")
+    private val melo = User("u_melo", "melo@quata.app", "Melo", "Sampaka")
 
-    val registeredUsers = listOf(currentUser, ana, leo, sara, ji, marcelino, obiang, maribel)
+    val registeredUsers = listOf(currentUser, ana, leo, sara, ji, marcelino, obiang, maribel, ondo, melo)
 
     private val mutablePosts = mutableListOf(
         Post(
@@ -103,7 +106,9 @@ object MockData {
         Message("m2", "c1", "u_current", "Gabriel", "Si, estoy fusionando arquitectura y helpers reales.", "12:38", true),
         Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false),
         Message("m4", "c2", "u_ana", "Ana", "La V3 ya tiene estructura fusionada", "11:15", false),
-        Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", false)
+        Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", false),
+        Message("m6", "barrio_molyko", "u_marcelino", "Marcelino", "Los chicos de Molyko ya estan por aqui.", "11:34", false),
+        Message("m7", "barrio_sampaka", "u_ana", "Ana", "Sampaka se mueve hoy.", "10:12", false)
     )
     private val messagesState = MutableStateFlow(mutableMessages.toList())
 
@@ -115,6 +120,7 @@ object MockData {
             unreadCount = 2,
             updatedAt = "12:40",
             updatedAtMillis = mockNow - 6L * 60L * 1000L,
+            participantIds = listOf("u_ana", currentUser.id),
             participantNames = listOf("Ana")
         ),
         Conversation(
@@ -124,6 +130,7 @@ object MockData {
             unreadCount = 5,
             updatedAt = "11:15",
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
+            participantIds = listOf("u_ana", "u_leo", "u_sara", currentUser.id),
             participantNames = listOf("Ana", "Leo", "Sara", "Gabriel"),
             isGroup = true
         ),
@@ -134,7 +141,32 @@ object MockData {
             unreadCount = 0,
             updatedAt = "Ayer",
             updatedAtMillis = mockNow - 12L * 24L * 60L * 60L * 1000L,
+            participantIds = listOf("u_leo", currentUser.id),
             participantNames = listOf("Leo")
+        ),
+        Conversation(
+            "barrio_molyko",
+            "Molyko",
+            lastMessagePreview = "",
+            unreadCount = 0,
+            updatedAt = "11:34",
+            updatedAtMillis = mockNow - 90L * 60L * 1000L,
+            participantIds = listOf("u_marcelino", "u_ondo", currentUser.id),
+            participantNames = listOf("Marcelino", "Ondo", "Gabriel"),
+            isGroup = true,
+            communityName = "Molyko"
+        ),
+        Conversation(
+            "barrio_sampaka",
+            "Sampaka",
+            lastMessagePreview = "",
+            unreadCount = 1,
+            updatedAt = "10:12",
+            updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
+            participantIds = listOf("u_ana", "u_melo", currentUser.id),
+            participantNames = listOf("Ana", "Melo", "Gabriel"),
+            isGroup = true,
+            communityName = "Sampaka"
         )
     )
     private val conversationsState = MutableStateFlow(mutableConversations.toList())
@@ -171,7 +203,8 @@ object MockData {
             val updated = mutableConversations[index].copy(
                 lastMessagePreview = text,
                 updatedAt = "Ahora",
-                updatedAtMillis = now
+                updatedAtMillis = now,
+                isVisible = true
             )
             mutableConversations.removeAt(index)
             mutableConversations.add(0, updated)
@@ -194,6 +227,7 @@ object MockData {
                 unreadCount = 0,
                 updatedAt = "Ahora",
                 updatedAtMillis = now,
+                participantIds = (contactIds + currentUser.id).distinct(),
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
                 isEmergency = true
@@ -213,6 +247,70 @@ object MockData {
         )
         messagesState.value = mutableMessages.toList()
         return id
+    }
+
+    fun findOrCreateNeighborhoodConversation(neighborhood: String, senderName: String): String {
+        val cleanNeighborhood = neighborhood.trim()
+        if (cleanNeighborhood.isBlank()) error("Barrio no valido")
+        mutableConversations.firstOrNull {
+            it.isGroup &&
+                (it.communityName ?: it.title).equals(cleanNeighborhood, ignoreCase = true) &&
+                !it.isEmergency
+        }?.let { return it.id }
+
+        val now = System.currentTimeMillis()
+        val id = "barrio_${cleanNeighborhood.lowercase().replace(Regex("[^a-z0-9]+"), "_")}_$now"
+        val memberNames = registeredUsers
+            .filter { it.neighborhood.equals(cleanNeighborhood, ignoreCase = true) }
+            .map { it.displayName }
+        val memberIds = registeredUsers
+            .filter { it.neighborhood.equals(cleanNeighborhood, ignoreCase = true) }
+            .map { it.id }
+        mutableConversations.add(
+            0,
+            Conversation(
+                id = id,
+                title = cleanNeighborhood,
+                lastMessagePreview = "",
+                unreadCount = 0,
+                updatedAt = "",
+                updatedAtMillis = null,
+                participantIds = (memberIds + currentUser.id).distinct(),
+                participantNames = (memberNames + senderName).distinct(),
+                isGroup = true,
+                communityName = cleanNeighborhood
+            )
+        )
+        conversationsState.value = mutableConversations.toList()
+        return id
+    }
+
+    fun setConversationMuted(conversationId: String, muted: Boolean) {
+        updateConversation(conversationId) { copy(isMuted = muted) }
+    }
+
+    fun hideConversation(conversationId: String) {
+        updateConversation(conversationId) { copy(isVisible = false) }
+    }
+
+    fun addParticipants(conversationId: String, participantIds: List<String>) {
+        if (participantIds.isEmpty()) return
+        val participants = participantIds.mapNotNull { id -> registeredUsers.firstOrNull { it.id == id } }
+        updateConversation(conversationId) {
+            copy(
+                participantIds = (this.participantIds + participantIds + currentUser.id).distinct(),
+                participantNames = (participantNames + participants.map { it.displayName } + currentUser.displayName).distinct(),
+                isGroup = true,
+                isVisible = true
+            )
+        }
+    }
+
+    private fun updateConversation(conversationId: String, transform: Conversation.() -> Conversation) {
+        val index = mutableConversations.indexOfFirst { it.id == conversationId }
+        if (index < 0) return
+        mutableConversations[index] = mutableConversations[index].transform()
+        conversationsState.value = mutableConversations.toList()
     }
 
     val notifications = listOf(

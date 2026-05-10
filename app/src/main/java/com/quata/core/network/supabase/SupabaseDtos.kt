@@ -23,13 +23,17 @@ data class SupabaseConversationDto(
     @SerializedName("unread_count") val unreadCount: Int?,
     @SerializedName("updated_at") val updatedAt: String?,
     @SerializedName("participant_names") val participantNames: List<String>? = null,
-    @SerializedName("participant_ids") val participantIds: List<String>? = null
+    @SerializedName("participant_ids") val participantIds: List<String>? = null,
+    @SerializedName("community_name") val communityName: String? = null,
+    @SerializedName("is_muted") val isMuted: Boolean? = null,
+    @SerializedName("is_visible") val isVisible: Boolean? = null
 )
 
 data class SupabaseCreateConversationRequest(
     val title: String,
     @SerializedName("participant_ids") val participantIds: List<String>,
-    @SerializedName("last_message_preview") val lastMessagePreview: String
+    @SerializedName("last_message_preview") val lastMessagePreview: String,
+    @SerializedName("community_name") val communityName: String? = null
 )
 
 data class SupabaseMessageDto(
@@ -46,6 +50,14 @@ data class SupabaseSendMessageRequest(
     @SerializedName("sender_id") val senderId: String,
     @SerializedName("sender_name") val senderName: String,
     val text: String
+)
+
+data class SupabaseConversationUpdateRequest(
+    @SerializedName("participant_ids") val participantIds: List<String>? = null,
+    @SerializedName("participant_names") val participantNames: List<String>? = null,
+    @SerializedName("community_name") val communityName: String? = null,
+    @SerializedName("is_muted") val isMuted: Boolean? = null,
+    @SerializedName("is_visible") val isVisible: Boolean? = null
 )
 
 data class SupabasePushTokenRequest(
