@@ -2,10 +2,10 @@ package com.quata.core.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.DynamicFeed
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.MapsHomeWork
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -25,11 +25,11 @@ data class BottomDestination(
 )
 
 val bottomDestinations = listOf(
-    BottomDestination(AppDestinations.Feed.route, "Feed", Icons.Filled.Home),
-    BottomDestination(AppDestinations.CreatePost.route, "Crear", Icons.Filled.AddCircle),
-    BottomDestination(AppDestinations.Conversations.route, "Chat", Icons.Filled.ChatBubble),
-    BottomDestination(AppDestinations.Notifications.route, "Avisos", Icons.Filled.Notifications),
-    BottomDestination(AppDestinations.Profile.route, "Perfil", Icons.Filled.Person)
+    BottomDestination(AppDestinations.Neighborhoods.route, "Barrios", Icons.Filled.MapsHomeWork),
+    BottomDestination(AppDestinations.Conversations.route, "Chats", Icons.Filled.Forum),
+    BottomDestination(AppDestinations.CreatePost.route, "Publicar", Icons.Filled.AddCircle),
+    BottomDestination(AppDestinations.Feed.route, "Feed", Icons.Filled.DynamicFeed),
+    BottomDestination(AppDestinations.Profile.route, "Cuenta", Icons.Filled.AccountCircle)
 )
 
 @Composable

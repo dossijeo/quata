@@ -66,6 +66,7 @@ import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.presentation.chat.ChatScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
 import com.quata.feature.notifications.presentation.NotificationsScreen
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
 import com.quata.feature.profile.domain.UserProfile
@@ -91,10 +92,10 @@ fun AppNavGraph(container: AppContainer) {
         }
     }
     val bottomRoutes = setOf(
+        AppDestinations.Neighborhoods.route,
         AppDestinations.Feed.route,
         AppDestinations.CreatePost.route,
         AppDestinations.Conversations.route,
-        AppDestinations.Notifications.route,
         AppDestinations.Profile.route
     )
 
@@ -158,6 +159,10 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         feedRepository = container.feedRepository
                     )
+                }
+
+                composable(AppDestinations.Neighborhoods.route) {
+                    NeighborhoodsScreen(padding = padding)
                 }
 
                 composable(AppDestinations.CreatePost.route) {
