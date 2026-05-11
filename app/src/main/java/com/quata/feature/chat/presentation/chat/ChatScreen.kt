@@ -50,11 +50,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.QuataDivider
@@ -109,12 +111,12 @@ fun ChatScreen(
                 QuataTextField(
                     value = state.messageText,
                     onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
-                    label = "Mensaje",
+                    label = stringResource(R.string.conversation_message),
                     modifier = Modifier.weight(1f)
                 )
             }
             QuataPrimaryButton(
-                text = "Enviar",
+                text = stringResource(R.string.common_send),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             ) { viewModel.onEvent(ChatUiEvent.Send) }
         }
@@ -144,11 +146,12 @@ private fun ChatHeader(
     onAddParticipants: () -> Unit,
     onHideConversation: () -> Unit
 ) {
+    val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
-    val title = conversation?.chatDisplayTitle().orEmpty().ifBlank { "Chat" }
+    val title = conversation?.chatDisplayTitle().orEmpty().ifBlank { stringResource(R.string.nav_chats) }
     val isGroup = conversation?.isGroup == true
-    val memberNames = conversation.memberNamesForDisplay(currentUser)
+    val memberNames = conversation.memberNamesForDisplay(currentUser, context)
     Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(
@@ -159,7 +162,7 @@ private fun ChatHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atras")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
                 ChatAvatar(conversation)
                 Spacer(Modifier.width(12.dp))
@@ -167,7 +170,7 @@ private fun ChatHeader(
                     Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (isGroup) {
                         Text(
-                            "${memberNames.size} miembros",
+                            stringResource(R.string.conversation_member_count, memberNames.size),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
@@ -175,14 +178,14 @@ private fun ChatHeader(
                 }
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Mas opciones")
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text(if (conversation?.isMuted == true) "Reactivar notificaciones" else "Silenciar conversacion") },
+                            text = { Text(if (conversation?.isMuted == true) stringResource(R.string.conversation_reactivate_notifications) else stringResource(R.string.conversation_mute)) },
                             leadingIcon = {
                                 Icon(
                                     if (conversation?.isMuted == true) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
@@ -195,7 +198,7 @@ private fun ChatHeader(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Anadir nuevos participantes") },
+                            text = { Text(stringResource(R.string.conversation_add_participants)) },
                             leadingIcon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
@@ -203,7 +206,7 @@ private fun ChatHeader(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Borrar conversacion") },
+                            text = { Text(stringResource(R.string.conversation_delete)) },
                             leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
@@ -223,7 +226,7 @@ private fun ChatHeader(
                 ) {
                     items(memberNames) { name ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AvatarLetter(name.removeSuffix(" (tu)").removeSuffix(" (tú)"), modifier = Modifier.size(38.dp))
+                            AvatarLetter(name.removeSuffix(" (tu)").removeSuffix(" (tú)").removeSuffix(" (you)"), modifier = Modifier.size(38.dp))
                             Spacer(Modifier.width(10.dp))
                             Text(name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -267,16 +270,16 @@ private fun AddParticipantsDialog(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(18.dp)) {
-                Text("Anadir participantes", fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.conversation_add_participants_title), fontWeight = FontWeight.ExtraBold)
                 Text(
-                    "Busca usuarios para ampliar esta conversacion.",
+                    stringResource(R.string.conversation_add_participants_subtitle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.padding(8.dp))
                 OutlinedTextField(
                     value = search,
                     onValueChange = onSearchChange,
-                    placeholder = { Text("Buscar por nombre, barrio o email") },
+                    placeholder = { Text(stringResource(R.string.conversation_search_users)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -313,14 +316,14 @@ private fun AddParticipantsDialog(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = QuataSurface)
                     ) {
-                        Text("Cancelar")
+                        Text(stringResource(R.string.common_cancel))
                     }
                     Button(
                         onClick = onAdd,
                         enabled = selectedIds.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
                     ) {
-                        Text("Anadir participantes")
+                        Text(stringResource(R.string.conversation_add_participants_title))
                     }
                 }
             }
@@ -328,7 +331,7 @@ private fun AddParticipantsDialog(
     }
 }
 
-private fun Conversation?.memberNamesForDisplay(currentUser: User?): List<String> {
+private fun Conversation?.memberNamesForDisplay(currentUser: User?, context: android.content.Context): List<String> {
     if (this == null) return emptyList()
     val names = participantNames.toMutableList()
     if (
@@ -342,7 +345,7 @@ private fun Conversation?.memberNamesForDisplay(currentUser: User?): List<String
         .distinctBy { it.lowercase() }
         .map { name ->
             if (currentUser != null && name.equals(currentUser.displayName, ignoreCase = true)) {
-                "$name (tú)"
+                context.getString(R.string.conversation_you_suffix, name)
             } else {
                 name
             }
@@ -361,7 +364,7 @@ private fun ChatAvatar(conversation: Conversation?) {
             contentAlignment = Alignment.Center
         ) {
             if (conversation?.isEmergency == true) {
-                Text("SOS", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold)
             } else {
                 Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
             }
@@ -392,7 +395,7 @@ private fun MessageBubble(message: Message) {
             if (mapsUrl != null) {
                 Spacer(Modifier.padding(4.dp))
                 Text(
-                    text = "Abrir ubicacion en Google Maps",
+                    text = stringResource(R.string.conversation_open_maps),
                     color = if (message.isMine) Color.Black else QuataOrange,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { context.openMaps(mapsUrl) }

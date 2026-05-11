@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -78,6 +79,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.session.SessionManager
@@ -115,7 +117,7 @@ fun ProfileScreen(
         if (granted) {
             pendingCameraUri?.let { cameraLauncher.launch(it) }
         } else {
-            Toast.makeText(context, "Necesitamos permiso de camara para hacer la foto", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -135,7 +137,7 @@ fun ProfileScreen(
         val profile = state.profile
         if (state.isLoading || profile == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Cargando perfil...", color = Color.White.copy(alpha = 0.72f))
+                Text(stringResource(R.string.profile_loading), color = Color.White.copy(alpha = 0.72f))
             }
             return@QuataScreen
         }
@@ -147,10 +149,10 @@ fun ProfileScreen(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("MI CUENTA", color = Color.White.copy(alpha = 0.78f), letterSpacing = 2.sp)
-            Text("Editar mis datos", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.profile_account_label), color = Color.White.copy(alpha = 0.78f), letterSpacing = 2.sp)
+            Text(stringResource(R.string.profile_edit_title), fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Desde aqui puedes cambiar tu foto, tu nombre, barrio, contrasena y datos de recuperacion.",
+                stringResource(R.string.profile_edit_subtitle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 23.sp
             )
@@ -168,7 +170,7 @@ fun ProfileScreen(
                         if (profile.avatarUri != null) {
                             AsyncImage(
                                 model = profile.avatarUri,
-                                contentDescription = "Foto de perfil",
+                                contentDescription = stringResource(R.string.profile_photo),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -185,14 +187,14 @@ fun ProfileScreen(
                         ) {
                             Icon(Icons.Filled.PhotoCamera, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Cambiar foto de perfil")
+                            Text(stringResource(R.string.profile_change_photo))
                         }
                         DropdownMenu(
                             expanded = isPhotoMenuOpen,
                             onDismissRequest = { isPhotoMenuOpen = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Elegir de galeria") },
+                                text = { Text(stringResource(R.string.profile_pick_gallery)) },
                                 leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
                                 onClick = {
                                     isPhotoMenuOpen = false
@@ -202,7 +204,7 @@ fun ProfileScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Hacer foto") },
+                                text = { Text(stringResource(R.string.profile_take_photo)) },
                                 leadingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
                                 onClick = {
                                     isPhotoMenuOpen = false
@@ -219,7 +221,7 @@ fun ProfileScreen(
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("Sube una foto cuadrada o vertical para verte mejor.", color = Color.White.copy(alpha = 0.66f))
+                        Text(stringResource(R.string.profile_photo_hint), color = Color.White.copy(alpha = 0.66f))
                     }
                 }
             }
@@ -227,12 +229,12 @@ fun ProfileScreen(
             ProfileTextField(
                 value = profile.displayName,
                 onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
-                label = "Nombre"
+                label = stringResource(R.string.auth_name)
             )
             ProfileTextField(
                 value = profile.neighborhood,
                 onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
-                label = "Barrio"
+                label = stringResource(R.string.profile_neighborhood)
             )
             PhoneSection(
                 prefixes = state.countryPrefixes,
@@ -244,7 +246,7 @@ fun ProfileScreen(
             ProfileTextField(
                 value = state.newPassword,
                 onValueChange = { viewModel.onEvent(ProfileUiEvent.NewPasswordChanged(it)) },
-                label = "Nueva contrasena (opcional)",
+                label = stringResource(R.string.profile_new_password),
                 isPassword = true
             )
             DropdownField(
@@ -257,7 +259,7 @@ fun ProfileScreen(
             ProfileTextField(
                 value = state.newSecretAnswer,
                 onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
-                label = "Nueva respuesta secreta (opcional)"
+                label = stringResource(R.string.profile_new_secret_answer)
             )
 
             OutlinedButton(
@@ -265,7 +267,7 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp)
             ) {
-                Text("Configurar contactos de emergencia", fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.profile_configure_emergency_contacts), fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.weight(1f))
                 Text("${profile.emergencyContactIds.size}/5")
             }
@@ -278,7 +280,7 @@ fun ProfileScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                 shape = RoundedCornerShape(18.dp)
             ) {
-                Text(if (state.isSaving) "Guardando..." else "Guardar cambios", fontWeight = FontWeight.ExtraBold)
+                Text(if (state.isSaving) stringResource(R.string.common_saving) else stringResource(R.string.common_save_changes), fontWeight = FontWeight.ExtraBold)
             }
             OutlinedButton(
                 onClick = {
@@ -288,7 +290,7 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp)
             ) {
-                Text("Cerrar sesion", fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
             }
         }
     }
@@ -303,7 +305,7 @@ fun ProfileScreen(
             onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
             onDismiss = { isEmergencyDialogOpen = false },
             onSave = {
-                Toast.makeText(context, "Contactos de emergencia actualizados", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
                 viewModel.onEvent(ProfileUiEvent.Save)
                 isEmergencyDialogOpen = false
             }
@@ -363,7 +365,7 @@ private fun PhoneSection(
         OutlinedTextField(
             value = phone,
             onValueChange = onPhoneChange,
-            placeholder = { Text("Telefono") },
+            placeholder = { Text(stringResource(R.string.profile_phone)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             singleLine = true,
             modifier = Modifier.weight(0.62f),
@@ -425,7 +427,7 @@ private fun PrefixDropdownField(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Buscar prefijo") },
+                placeholder = { Text(stringResource(R.string.profile_search_prefix)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -558,31 +560,31 @@ fun EmergencyContactsDialog(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                         Spacer(Modifier.width(6.dp))
                         Surface(color = Color(0xFF5B2730), shape = RoundedCornerShape(16.dp)) {
-                            Text("SOS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
+                            Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
                         }
                         Spacer(Modifier.width(10.dp))
-                        Text("Contactos de emergencia", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.emergency_contacts_title), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Selecciona hasta cinco usuarios de la red QUATA. El boton SOS solo enviara el mensaje a estos contactos.",
+                        stringResource(R.string.emergency_contacts_description),
                         color = Color.White.copy(alpha = 0.68f),
                         lineHeight = 22.sp
                     )
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         EmergencyTabButton(
-                            text = "Contactos",
+                            text = stringResource(R.string.emergency_contacts_tab),
                             selected = selectedTab == EmergencyTab.Contacts,
                             onClick = { selectedTab = EmergencyTab.Contacts },
                             modifier = Modifier.weight(1f)
                         )
                         EmergencyTabButton(
-                            text = "Mensaje SOS",
+                            text = stringResource(R.string.emergency_message_tab),
                             selected = selectedTab == EmergencyTab.Message,
                             onClick = { selectedTab = EmergencyTab.Message },
                             modifier = Modifier.weight(1f)
@@ -595,18 +597,18 @@ fun EmergencyContactsDialog(
                             OutlinedTextField(
                                 value = query,
                                 onValueChange = { query = it },
-                                placeholder = { Text("Buscar usuarios por nombre, barrio o telefono") },
+                                placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(18.dp)
                             )
                             Spacer(Modifier.height(10.dp))
-                            Text("${selectedIds.size}/5 seleccionados", color = QuataOrange, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = QuataOrange, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(14.dp))
-                            Text("Seleccionados", fontWeight = FontWeight.ExtraBold)
+                            Text(stringResource(R.string.emergency_selected_title), fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.height(8.dp))
                             if (selectedUsers.isEmpty()) {
-                                Text("Selecciona hasta 5 usuarios de la red QUATA.", color = Color.White.copy(alpha = 0.72f))
+                                Text(stringResource(R.string.emergency_select_hint), color = Color.White.copy(alpha = 0.72f))
                             } else {
                                 LazyColumn(modifier = Modifier.heightIn(max = 150.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     items(selectedUsers, key = { it.id }) { user ->
@@ -622,7 +624,7 @@ fun EmergencyContactsDialog(
                                 }
                             }
                             Spacer(Modifier.height(14.dp))
-                            Text("Usuarios de la red", fontWeight = FontWeight.ExtraBold)
+                            Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.height(8.dp))
                             LazyColumn(
                                 state = networkUsersListState,
@@ -641,10 +643,10 @@ fun EmergencyContactsDialog(
                         EmergencyTab.Message -> Column(Modifier.weight(1f)) {
                             ProfilePanel {
                                 Column {
-                                    Text("Mensaje de socorro", fontWeight = FontWeight.ExtraBold)
+                                    Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
                                     Spacer(Modifier.height(8.dp))
                                     Text(
-                                        "Este texto llegara a tus contactos cuando pulses SOS.",
+                                        stringResource(R.string.emergency_message_hint),
                                         color = Color.White.copy(alpha = 0.66f)
                                     )
                                     Spacer(Modifier.height(10.dp))
@@ -670,7 +672,7 @@ fun EmergencyContactsDialog(
                         .fillMaxWidth()
                         .height(bottomActionHeight)
                 ) {
-                    Text("Guardar / actualizar contactos", fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.emergency_save_contacts), fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
@@ -722,7 +724,7 @@ private fun EmergencyUserRow(
                 Text(user.neighborhood, color = Color.White.copy(alpha = 0.58f), maxLines = 1)
             }
             OutlinedButton(onClick = onToggle, shape = RoundedCornerShape(14.dp)) {
-                Text(if (selected) "Quitar" else "Anadir")
+                Text(if (selected) stringResource(R.string.common_remove) else stringResource(R.string.common_add))
             }
         }
     }

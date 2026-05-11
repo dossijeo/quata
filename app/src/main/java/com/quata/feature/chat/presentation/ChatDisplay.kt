@@ -1,5 +1,7 @@
 package com.quata.feature.chat.presentation
 
+import android.content.Context
+import com.quata.R
 import com.quata.core.model.Conversation
 import java.time.Instant
 import java.time.LocalDateTime
@@ -37,6 +39,27 @@ fun Conversation.relativeUpdatedAt(nowMillis: Long = System.currentTimeMillis())
         else -> {
             val years = minutes / (60 * 24 * 365)
             "hace $years ${if (years == 1L) "a\u00F1o" else "a\u00F1os"}"
+        }
+    }
+}
+
+fun Conversation.relativeUpdatedAt(context: Context, nowMillis: Long = System.currentTimeMillis()): String {
+    val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
+    val now = Instant.ofEpochMilli(nowMillis)
+    val then = Instant.ofEpochMilli(timestamp)
+    val minutes = ChronoUnit.MINUTES.between(then, now).coerceAtLeast(0)
+    return when {
+        minutes < 1 -> context.getString(R.string.time_one_minute_ago)
+        minutes < 60 -> context.getString(R.string.time_minutes_ago, minutes)
+        minutes < 60 * 24 -> context.getString(R.string.time_hours_ago, minutes / 60)
+        minutes < 60 * 24 * 30 -> context.getString(R.string.time_days_ago, minutes / (60 * 24))
+        minutes < 60 * 24 * 365 -> {
+            val months = minutes / (60 * 24 * 30)
+            if (months == 1L) context.getString(R.string.time_one_month_ago) else context.getString(R.string.time_months_ago, months)
+        }
+        else -> {
+            val years = minutes / (60 * 24 * 365)
+            if (years == 1L) context.getString(R.string.time_one_year_ago) else context.getString(R.string.time_years_ago, years)
         }
     }
 }

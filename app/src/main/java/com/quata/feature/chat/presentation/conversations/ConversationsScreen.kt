@@ -28,11 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
@@ -54,8 +57,8 @@ fun ConversationsScreen(
 
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
-            Text("Chats", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Conversaciones recientes", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.conversations_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(state.conversations) { item ->
@@ -76,6 +79,7 @@ private fun ConversationCard(
     messages: List<Message>,
     onOpenConversation: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val preview = messages.lastOrNull()?.text ?: item.lastMessagePreview
     QuataCard(modifier = Modifier.clickable { onOpenConversation(item.id) }) {
         Row(
@@ -88,7 +92,7 @@ private fun ConversationCard(
                 Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(item.relativeUpdatedAt(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(item.relativeUpdatedAt(context), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 if (item.unreadCount > 0) {
                     Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(item.unreadCount.toString()) }
                 }
@@ -109,7 +113,7 @@ private fun ConversationAvatar(item: Conversation) {
             contentAlignment = Alignment.Center
         ) {
             if (item.isEmergency) {
-                Text("SOS", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
             } else {
                 Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
             }

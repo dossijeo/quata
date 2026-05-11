@@ -69,7 +69,8 @@ class AppContainer(context: Context) {
 
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(
         remote = ProfileRemoteDataSource(networkModule.supabaseApi),
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        context = appContext
     )
 
     val neighborhoodRepository: NeighborhoodRepository = NeighborhoodRepositoryImpl(

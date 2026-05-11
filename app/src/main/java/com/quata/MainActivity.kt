@@ -1,5 +1,6 @@
 package com.quata
 
+import android.content.Context
 import android.os.Bundle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
@@ -17,10 +18,15 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(QuataLanguageManager.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideStatusBar()

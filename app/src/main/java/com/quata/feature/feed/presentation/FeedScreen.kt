@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -95,6 +96,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
@@ -127,7 +129,7 @@ fun FeedScreen(
 
     when {
         state.error != null -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
-        state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, "No hay publicaciones todavia", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
+        state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, stringResource(R.string.feed_empty), onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
         else -> {
             val pagerState = rememberPagerState(pageCount = { state.posts.size })
             val postRanks = remember(state.posts) { calculateDailyPostRanks(state.posts) }
@@ -157,10 +159,10 @@ fun FeedScreen(
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Compartir publicacion"))
+                            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.feed_share_post)))
                         },
                         onReport = {
-                            Toast.makeText(context, "Publicación reportada correctamente", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -207,7 +209,7 @@ private fun FeedMessageScreen(
                 Text(message, color = MaterialTheme.colorScheme.onBackground)
                 Spacer(Modifier.height(12.dp))
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Refrescar")
+                    Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                 }
             }
         }
@@ -239,12 +241,12 @@ private fun LiveRankingDialog(
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            text = "LIVE · Ranking en directo",
+                            text = stringResource(R.string.feed_live_title),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "Todos los posts ordenados por likes en tiempo real.",
+                            text = stringResource(R.string.feed_live_subtitle),
                             color = Color.White.copy(alpha = 0.66f),
                             fontSize = 14.sp
                         )
@@ -255,7 +257,7 @@ private fun LiveRankingDialog(
                             .size(48.dp)
                             .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
                     ) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -270,16 +272,16 @@ private fun LiveRankingDialog(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                text = "${posts.size} publicaciones monitorizadas",
+                                text = stringResource(R.string.feed_live_posts_monitored, posts.size),
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = "Actualizado 20:45",
+                                text = stringResource(R.string.feed_live_updated),
                                 color = Color.White.copy(alpha = 0.64f)
                             )
                         }
-                        ReelChip(text = "LIVE", highlighted = true)
+                        ReelChip(text = stringResource(R.string.common_live), highlighted = true)
                     }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -366,17 +368,18 @@ private fun LiveRankingRow(
                     .clickable(onClick = onOpenPost)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("Abrir", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.feed_open_post), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
 
+@Composable
 private fun postTypeLabel(post: Post): String = when {
-    post.videoUrl != null -> "Publicación con vídeo"
-    post.imageUrl != null -> "Publicación con imagen"
-    else -> "Publicación de texto"
+    post.videoUrl != null -> stringResource(R.string.feed_post_type_video)
+    post.imageUrl != null -> stringResource(R.string.feed_post_type_image)
+    else -> stringResource(R.string.feed_post_type_text)
 }
 
 @Composable
@@ -645,7 +648,11 @@ private fun VideoControls(
         IconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                contentDescription = if (isPlaying) {
+                    stringResource(R.string.feed_pause)
+                } else {
+                    stringResource(R.string.feed_play)
+                },
                 tint = Color.White
             )
         }
@@ -672,7 +679,11 @@ private fun VideoControls(
             ) {
                 Icon(
                     imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = if (isMuted) "Activar sonido" else "Silenciar",
+                    contentDescription = if (isMuted) {
+                        stringResource(R.string.feed_unmute)
+                    } else {
+                        stringResource(R.string.feed_mute)
+                    },
                     tint = Color.White
                 )
             }
@@ -752,13 +763,13 @@ private fun ReelTopChips(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (showLocation && post.placeName != null) {
-            ReelChip(text = "📍 ${post.placeName}")
+            ReelChip(text = stringResource(R.string.feed_location_chip, post.placeName))
         }
-        ReelChip(text = "🔥 #$postRank · ${post.likesCount}", highlighted = true)
-        ReelChip(text = "LIVE", highlighted = true, onClick = onOpenLive)
+        ReelChip(text = stringResource(R.string.feed_rank_chip, postRank, post.likesCount), highlighted = true)
+        ReelChip(text = stringResource(R.string.common_live), highlighted = true, onClick = onOpenLive)
         if (isVideo) {
             ReelRoundChip(
-                text = if (isMuted) "🔇" else "🔊",
+                isMuted = isMuted,
                 onClick = onToggleMute
             )
         }
@@ -767,10 +778,9 @@ private fun ReelTopChips(
 
 @Composable
 private fun ReelRoundChip(
-    text: String,
+    isMuted: Boolean,
     onClick: () -> Unit
 ) {
-    val isMuted = text == "🔇"
     Box(
         modifier = Modifier
             .size(56.dp)
@@ -782,7 +792,11 @@ private fun ReelRoundChip(
     ) {
         Icon(
             imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-            contentDescription = if (isMuted) "Activar sonido" else "Silenciar",
+            contentDescription = if (isMuted) {
+                stringResource(R.string.feed_unmute)
+            } else {
+                stringResource(R.string.feed_mute)
+            },
             tint = Color(0xFFFFF29E),
             modifier = Modifier.size(24.dp)
         )
@@ -834,25 +848,25 @@ private fun ReelActions(
     ) {
         ReelActionButton(
             icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = "Me gusta",
+            contentDescription = stringResource(R.string.feed_like),
             count = visibleLikes.toString(),
             tint = if (liked) Color(0xFFFF7EA8) else Color.White,
             onClick = { liked = !liked }
         )
         ReelActionButton(
             icon = Icons.Filled.ChatBubble,
-            contentDescription = "Comentarios",
+            contentDescription = stringResource(R.string.feed_comments),
             count = comments.toString(),
             onClick = onOpenComments
         )
         ReelActionButton(
             icon = Icons.Filled.Share,
-            contentDescription = "Compartir",
+            contentDescription = stringResource(R.string.feed_share),
             onClick = onShare
         )
         ReelActionButton(
             icon = Icons.Filled.Flag,
-            contentDescription = "Reportar",
+            contentDescription = stringResource(R.string.feed_report),
             tint = Color.White,
             onClick = onReport
         )
@@ -867,6 +881,7 @@ private fun CommentsSheet(
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(""))
     }
@@ -908,7 +923,7 @@ private fun CommentsSheet(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "COMENTARIOS",
+                    text = stringResource(R.string.comments_title),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
                     color = Color.White.copy(alpha = 0.68f)
@@ -962,12 +977,12 @@ private fun CommentsSheet(
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    placeholder = { Text("Escribe un comentario...") },
+                    placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                     leadingIcon = {
                         IconButton(onClick = { isEmojiPickerVisible = !isEmojiPickerVisible }) {
                             Icon(
                                 imageVector = Icons.Filled.InsertEmoticon,
-                                contentDescription = "Mostrar emojis",
+                                contentDescription = stringResource(R.string.comments_show_emojis),
                                 tint = Color(0xFFFFC55C)
                             )
                         }
@@ -979,7 +994,7 @@ private fun CommentsSheet(
                                 onAddComment(
                                     PostComment(
                                         id = "local_${post.id}_${System.currentTimeMillis()}",
-                                        authorName = "Tu",
+                                        authorName = context.getString(R.string.comments_you),
                                         message = draft.text.trim(),
                                         timestamp = nowCommentTimestamp(),
                                         replyToAuthorName = replyTarget?.authorName,
@@ -992,7 +1007,10 @@ private fun CommentsSheet(
                                 isEmojiPickerVisible = false
                             }
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send,
+                                contentDescription = stringResource(R.string.comments_send)
+                            )
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -1035,7 +1053,7 @@ private fun ReplyTargetBanner(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Respondiendo a ${comment.authorName}",
+                    text = stringResource(R.string.comments_replying_to, comment.authorName),
                     color = Color.White.copy(alpha = 0.94f),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp
@@ -1056,7 +1074,7 @@ private fun ReplyTargetBanner(
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.1f))
             ) {
-                Icon(Icons.Filled.Close, contentDescription = "Cancelar respuesta")
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
             }
         }
     }
@@ -1093,7 +1111,7 @@ private fun CommentRow(
                 comment.replyToAuthorName?.let { author ->
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "↳ Respuesta a $author",
+                        text = stringResource(R.string.comments_reply_to, author),
                         color = Color(0xFF83DCFF),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -1118,7 +1136,7 @@ private fun CommentRow(
             modifier = Modifier.align(Alignment.End)
         ) {
             Text(
-                text = "→ Responder",
+                text = stringResource(R.string.comments_reply_button),
                 color = Color(0xFF83DCFF),
                 fontWeight = FontWeight.ExtraBold
             )

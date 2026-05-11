@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -277,7 +278,7 @@ private fun QuataAppHeaderActions(
     ) {
         Image(
             painter = painterResource(R.drawable.quata_logo_header),
-            contentDescription = "QUATA",
+            contentDescription = stringResource(R.string.quata_logo_content_description),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = (-18).dp, y = (-2).dp)
@@ -299,7 +300,7 @@ private fun QuataAppHeaderActions(
                     }
                 }
             ) {
-                Icon(Icons.Filled.Notifications, contentDescription = "Notificaciones", tint = Color.White)
+                Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications_title), tint = Color.White)
             }
         }
     }
@@ -372,9 +373,9 @@ private fun GlobalSosButton(
 
     fun buildSosMessage(profile: UserProfile, location: Location?): String {
         val locationText = if (location == null) {
-            "📍 Ubicación no disponible"
+            context.getString(R.string.sos_location_unavailable)
         } else {
-            "📍 Ubicación: https://maps.google.com/?q=${location.latitude},${location.longitude}"
+            context.getString(R.string.sos_location, "https://maps.google.com/?q=${location.latitude},${location.longitude}")
         }
         return "${profile.emergencyMessage}\n$locationText"
     }
@@ -385,9 +386,9 @@ private fun GlobalSosButton(
                 contactIds = profile.emergencyContactIds,
                 text = buildSosMessage(profile, location)
             ).onSuccess {
-                Toast.makeText(context, "SOS enviado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.sos_sent), Toast.LENGTH_SHORT).show()
             }.onFailure { error ->
-                Toast.makeText(context, error.message ?: "No se pudo enviar el SOS", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, error.message ?: context.getString(R.string.sos_send_error), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -443,7 +444,7 @@ private fun GlobalSosButton(
                 startSos(profile)
             }
         ) {
-            Text("SOS 🚨", fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold)
         }
     }
 
@@ -458,7 +459,7 @@ private fun GlobalSosButton(
             onDismiss = { isConfigOpen = false },
             onSave = {
                 profileViewModel.onEvent(ProfileUiEvent.Save)
-                Toast.makeText(context, "Contactos de emergencia actualizados", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
                 isConfigOpen = false
             }
         )

@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,6 +68,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -78,6 +80,7 @@ import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.ui.components.QuataScreen
@@ -99,12 +102,12 @@ private enum class CaptureTarget {
     Video
 }
 
-private enum class EmojiSection(val label: String, val emojis: List<String>) {
-    Recentes("Recientes", listOf("😀", "😁", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤩", "🤗", "😴", "🤔", "😅", "😳", "😭", "😤", "😡", "🤯", "🥳", "👏", "👎", "🙏", "💪", "🔥")),
-    Frecuentes("Frecuentes", listOf("😀", "😍", "😂", "🥰", "👏", "🙌", "🔥", "❤️", "👍", "🙏", "💯", "✨", "🌍", "⭐", "🎉", "📍", "✅", "👀", "💬", "💎")),
-    Gestos("Gestos", listOf("👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✊", "🤞", "☝️", "👉", "👈", "🖕", "👇", "👍", "👎", "👊", "🤜", "🤛", "🙌", "🙏", "🤝")),
-    Objetos("Objetos y simbolos", listOf("🏢", "💻", "🕘", "📷", "🎥", "📺", "🎮", "🎧", "🧠", "🫀", "💡", "📌", "📎", "✂️", "🔒", "🔑", "🪙", "💸", "💰", "🧾", "💎", "⚙️", "🛒", "🧳")),
-    Animales("Animales y naturaleza", listOf("🐶", "🐱", "🦁", "🐵", "🐼", "🦋", "🐝", "🌴", "🌿", "🍃", "🌺", "🌸", "🌞", "🌙", "⭐", "☁️", "🌧️", "🌊", "🔥", "🌍"))
+private enum class EmojiSection(@StringRes val labelRes: Int, val emojis: List<String>) {
+    Recentes(R.string.emoji_recent, listOf("😀", "😁", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤩", "🤗", "😴", "🤔", "😅", "😳", "😭", "😤", "😡", "🤯", "🥳", "👏", "👎", "🙏", "💪", "🔥")),
+    Frecuentes(R.string.emoji_frequent, listOf("😀", "😍", "😂", "🥰", "👏", "🙌", "🔥", "❤️", "👍", "🙏", "💯", "✨", "🌍", "⭐", "🎉", "📍", "✅", "👀", "💬", "💎")),
+    Gestos(R.string.emoji_gestures, listOf("👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✊", "🤞", "☝️", "👉", "👈", "🖕", "👇", "👍", "👎", "👊", "🤜", "🤛", "🙌", "🙏", "🤝")),
+    Objetos(R.string.emoji_objects_symbols, listOf("🏢", "💻", "🕘", "📷", "🎥", "📺", "🎮", "🎧", "🧠", "🫀", "💡", "📌", "📎", "✂️", "🔒", "🔑", "🪙", "💸", "💰", "🧾", "💎", "⚙️", "🛒", "🧳")),
+    Animales(R.string.emoji_animals_nature, listOf("🐶", "🐱", "🦁", "🐵", "🐼", "🦋", "🐝", "🌴", "🌿", "🍃", "🌺", "🌸", "🌞", "🌙", "⭐", "☁️", "🌧️", "🌊", "🔥", "🌍"))
 }
 
 @Composable
@@ -162,7 +165,7 @@ fun CreatePostScreen(
                 null -> Unit
             }
         } else {
-            Toast.makeText(context, "Necesitamos permiso de camara para usar esta opcion", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.composer_camera_permission), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -189,11 +192,11 @@ fun CreatePostScreen(
                         .size(48.dp)
                         .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
                 ) {
-                    Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                 }
             }
             Text(
-                text = "Crear publicacion",
+                text = stringResource(R.string.composer_title),
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 24.sp,
                 color = Color.White
@@ -285,9 +288,9 @@ private fun TypePicker(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        TypeCard("Postear texto", Icons.Filled.Edit, onText)
-        TypeCard("Postear foto/imagen", Icons.Filled.PhotoCamera, onImage)
-        TypeCard("Postear video", Icons.Filled.Videocam, onVideo)
+        TypeCard(stringResource(R.string.composer_text_type), Icons.Filled.Edit, onText)
+        TypeCard(stringResource(R.string.composer_image_type), Icons.Filled.PhotoCamera, onImage)
+        TypeCard(stringResource(R.string.composer_video_type), Icons.Filled.Videocam, onVideo)
     }
 }
 
@@ -337,29 +340,38 @@ private fun TextPostForm(
     onChangeType: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader("Publicacion de texto", "Escribe tu mensaje y revisa una vista previa limpia antes de publicarlo.", "Paso 2 · Texto", onChangeType)
-    ComposerPanel("Contenido") {
+    StepHeader(
+        stringResource(R.string.composer_text_post_title),
+        stringResource(R.string.composer_text_post_subtitle),
+        stringResource(R.string.composer_step_text),
+        onChangeType
+    )
+    ComposerPanel(stringResource(R.string.composer_content)) {
         OutlinedTextField(
             value = textValue,
             onValueChange = onTextChange,
-            placeholder = { Text("Escribe algo para el feed...") },
+            placeholder = { Text(stringResource(R.string.composer_text_placeholder)) },
             minLines = 5,
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 IconButton(onClick = onToggleEmojiPanel) {
-                    Icon(Icons.Filled.InsertEmoticon, contentDescription = "Mostrar emojis", tint = Color(0xFFFFC55C))
+                    Icon(
+                        Icons.Filled.InsertEmoticon,
+                        contentDescription = stringResource(R.string.comments_show_emojis),
+                        tint = Color(0xFFFFC55C)
+                    )
                 }
             }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text("${state.text.length} / 500 palabras", color = Color.White.copy(alpha = 0.62f))
+            Text(stringResource(R.string.composer_word_count, state.text.length), color = Color.White.copy(alpha = 0.62f))
         }
     }
     if (isEmojiPanelOpen) {
         Spacer(Modifier.height(10.dp))
         ExpandedEmojiPanel(onEmoji = onEmoji)
     }
-    PreviewPanel("Vista previa") {
+    PreviewPanel(stringResource(R.string.composer_preview)) {
         TextReelPreview(state.text)
     }
     PublishButton(state.isLoading, onSubmit)
@@ -374,31 +386,36 @@ private fun ImagePostForm(
     onRequestLocation: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader("Publicacion con imagen", "Selecciona una imagen clara, agrega ubicacion y confirma como se vera en el feed.", "Paso 2 · Imagen", onChangeType)
-    ComposerPanel("Imagen") {
+    StepHeader(
+        stringResource(R.string.composer_image_post_title),
+        stringResource(R.string.composer_image_post_subtitle),
+        stringResource(R.string.composer_step_image),
+        onChangeType
+    )
+    ComposerPanel(stringResource(R.string.composer_image)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ComposerActionButton("Seleccionar imagen", Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
-            ComposerActionButton("Hacer foto", Icons.Filled.PhotoCamera, onTakePhoto, Modifier.weight(1f))
+            ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
+            ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.LocationOn, contentDescription = null, tint = QuataOrange)
             Spacer(Modifier.width(8.dp))
             Text(
-                text = state.locationLabel ?: "Sin ubicacion. Se leera EXIF o se pedira la ubicacion del telefono.",
+                text = state.locationLabel ?: stringResource(R.string.composer_no_location),
                 color = Color.White.copy(alpha = 0.68f),
                 modifier = Modifier.weight(1f)
             )
             OutlinedButton(onClick = onRequestLocation) {
-                Text("Actualizar")
+                Text(stringResource(R.string.common_update))
             }
         }
     }
-    PreviewPanel("Vista previa") {
+    PreviewPanel(stringResource(R.string.composer_preview)) {
         if (state.imageUri != null) {
             AsyncImage(
                 model = state.imageUri,
-                contentDescription = "Imagen seleccionada",
+                contentDescription = stringResource(R.string.composer_selected_image),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -406,9 +423,17 @@ private fun ImagePostForm(
                     .clip(RoundedCornerShape(20.dp))
             )
             Spacer(Modifier.height(10.dp))
-            Text("📍 ${state.locationLabel ?: "Ubicacion pendiente"}", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.feed_location_chip, state.locationLabel ?: stringResource(R.string.composer_pending_location)),
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
         } else {
-            EmptyPreview("Foto con ubicacion", "FOTO + UBICACION", "La vista previa aparecera cuando selecciones una foto.")
+            EmptyPreview(
+                stringResource(R.string.composer_image_preview_title),
+                stringResource(R.string.composer_image_preview_tag),
+                stringResource(R.string.composer_image_preview_body)
+            )
         }
     }
     PublishButton(state.isLoading, onSubmit)
@@ -423,29 +448,34 @@ private fun VideoPostForm(
     onRecordVideo: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader("Publicacion con video", "Añade una descripcion breve, elige o graba el video y revisa la vista previa antes de publicar.", "Paso 2 · Video", onChangeType)
-    ComposerPanel("Video") {
+    StepHeader(
+        stringResource(R.string.composer_video_post_title),
+        stringResource(R.string.composer_video_post_subtitle),
+        stringResource(R.string.composer_step_video),
+        onChangeType
+    )
+    ComposerPanel(stringResource(R.string.composer_video)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ComposerActionButton("Seleccionar video", Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
-            ComposerActionButton("Grabar video", Icons.Filled.Videocam, onRecordVideo, Modifier.weight(1f))
+            ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
+            ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        Text(state.videoUri ?: "Sin archivo seleccionado.", color = Color.White.copy(alpha = 0.68f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(state.videoUri ?: stringResource(R.string.composer_no_file), color = Color.White.copy(alpha = 0.68f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
-    ComposerPanel("Descripcion") {
+    ComposerPanel(stringResource(R.string.composer_description)) {
         OutlinedTextField(
             value = state.text,
             onValueChange = onDescriptionChange,
-            placeholder = { Text("Descripcion opcional...") },
+            placeholder = { Text(stringResource(R.string.composer_description_placeholder)) },
             minLines = 3,
             modifier = Modifier.fillMaxWidth()
         )
     }
-    PreviewPanel("Vista previa") {
+    PreviewPanel(stringResource(R.string.composer_preview)) {
         EmptyPreview(
-            title = if (state.videoUri == null) "Video con titulo\no descripcion" else "Video listo",
-            tag = "VIDEO + DESCRIPCION",
-            body = state.text.ifBlank { "La descripcion aparecera debajo del video si la escribes." }
+            title = if (state.videoUri == null) stringResource(R.string.composer_video_preview_empty) else stringResource(R.string.composer_video_ready),
+            tag = stringResource(R.string.composer_video_preview_tag),
+            body = state.text.ifBlank { stringResource(R.string.composer_video_preview_body) }
         )
     }
     PublishButton(state.isLoading, onSubmit)
@@ -457,7 +487,7 @@ private fun StepHeader(title: String, subtitle: String, step: String, onChangeTy
         Column(Modifier.padding(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Surface(color = Color(0xFF111827), contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
-                    Text("Elegido", fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                    Text(stringResource(R.string.composer_chosen), fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
                 }
                 Spacer(Modifier.weight(1f))
                 Text(step, color = Color(0xFF4A5568), fontWeight = FontWeight.ExtraBold)
@@ -472,7 +502,7 @@ private fun StepHeader(title: String, subtitle: String, step: String, onChangeTy
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5E7EB), contentColor = Color(0xFF111827)),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Cambiar tipo", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.composer_change_type), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -530,7 +560,7 @@ private fun TextReelPreview(text: String) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = text.ifBlank { "Tu publicacion de texto se vera aqui en cuanto escribas." },
+            text = text.ifBlank { stringResource(R.string.composer_text_preview_empty) },
             color = Color.White,
             fontSize = if (text.isBlank()) 20.sp else 34.sp,
             lineHeight = if (text.isBlank()) 28.sp else 42.sp,
@@ -582,7 +612,7 @@ private fun ExpandedEmojiPanel(onEmoji: (String) -> Unit) {
                         modifier = Modifier.clickable { section = item }
                     ) {
                         Text(
-                            item.label,
+                            stringResource(item.labelRes),
                             color = Color.White.copy(alpha = if (item == section) 1f else 0.76f),
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -620,7 +650,10 @@ private fun PublishButton(isLoading: Boolean, onSubmit: () -> Unit) {
         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
         shape = RoundedCornerShape(18.dp)
     ) {
-        Text(if (isLoading) "Publicando..." else "Publicar", fontWeight = FontWeight.ExtraBold)
+        Text(
+            if (isLoading) stringResource(R.string.composer_publishing) else stringResource(R.string.nav_publish),
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 

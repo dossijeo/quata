@@ -13,10 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.model.NotificationItem
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
@@ -32,8 +34,8 @@ fun NotificationsScreen(
 
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
-            Text("Avisos", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Notificaciones push y actividad", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.notifications_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.notifications_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(state.items) { NotificationCard(it) }

@@ -18,9 +18,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
@@ -53,19 +55,19 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            QuataLogo(subtitle = "Conecta, publica y conversa")
+            QuataLogo(subtitle = stringResource(R.string.auth_tagline))
             Spacer(Modifier.height(36.dp))
             QuataTextField(
                 value = state.email,
                 onValueChange = { viewModel.onEvent(LoginUiEvent.EmailChanged(it)) },
-                label = "Email",
+                label = stringResource(R.string.auth_email),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
             QuataTextField(
                 value = state.password,
                 onValueChange = { viewModel.onEvent(LoginUiEvent.PasswordChanged(it)) },
-                label = "Contraseña",
+                label = stringResource(R.string.auth_password),
                 isPassword = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -75,23 +77,23 @@ fun LoginScreen(
             }
             Spacer(Modifier.height(22.dp))
             QuataPrimaryButton(
-                text = if (state.isLoading) "Entrando..." else "Entrar",
+                text = if (state.isLoading) stringResource(R.string.auth_signing_in) else stringResource(R.string.auth_sign_in),
                 enabled = !state.isLoading
             ) { viewModel.onEvent(LoginUiEvent.Submit) }
             Spacer(Modifier.height(10.dp))
             QuataSecondaryButton(
-                text = "Continuar con Google",
+                text = stringResource(R.string.auth_continue_google),
                 enabled = !state.isLoading
             ) { viewModel.onEvent(LoginUiEvent.GoogleSubmit(context)) }
             Spacer(Modifier.height(16.dp))
-            QuataSecondaryButton(text = "Crear cuenta", onClick = onGoToRegister)
+            QuataSecondaryButton(text = stringResource(R.string.auth_create_account), onClick = onGoToRegister)
             if (state.isLoading) {
                 Spacer(Modifier.height(20.dp))
                 CircularProgressIndicator()
             }
             Spacer(Modifier.height(20.dp))
             Text(
-                text = "Modo mock activo por defecto. Configura AppConfig para backend real.",
+                text = stringResource(R.string.auth_mock_notice),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )

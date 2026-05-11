@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,7 @@ import coil.compose.AsyncImage
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
@@ -94,16 +96,16 @@ fun NeighborhoodsScreen(
     QuataScreen(padding) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
             Text(
-                text = "BARRIOS",
+                text = stringResource(R.string.neighborhoods_title),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 letterSpacing = 1.6.sp
             )
             Spacer(Modifier.height(10.dp))
-            Text("Abre una comunidad", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.neighborhoods_open_community), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Selecciona un barrio para abrir su chat comunitario.",
+                stringResource(R.string.neighborhoods_subtitle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(18.dp))
@@ -169,6 +171,7 @@ private fun NeighborhoodCard(
     onShowUsers: () -> Unit,
     onOpenChat: () -> Unit
 ) {
+    val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = QuataSurface),
@@ -191,22 +194,34 @@ private fun NeighborhoodCard(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            communityTimeLabel(community.lastMessageAtMillis),
+                            communityTimeLabel(context, community.lastMessageAtMillis),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        community.lastMessagePreview ?: "Abre la comunidad y empieza la conversacion.",
+                        community.lastMessagePreview ?: stringResource(R.string.neighborhoods_empty_preview),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CountPill("${community.users.size} ${if (community.users.size == 1) "usuario" else "usuarios"}")
-                        CountPill("${community.messageCount} ${if (community.messageCount == 1) "mensaje" else "mensajes"}")
+                        CountPill(
+                            if (community.users.size == 1) {
+                                stringResource(R.string.neighborhoods_one_user)
+                            } else {
+                                stringResource(R.string.neighborhoods_user_count, community.users.size)
+                            }
+                        )
+                        CountPill(
+                            if (community.messageCount == 1) {
+                                stringResource(R.string.neighborhoods_one_message)
+                            } else {
+                                stringResource(R.string.neighborhoods_message_count, community.messageCount)
+                            }
+                        )
                     }
                 }
             }
@@ -219,7 +234,7 @@ private fun NeighborhoodCard(
                     onClick = onShowUsers,
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Ver usuarios")
+                    Text(stringResource(R.string.neighborhoods_view_users))
                 }
                 Button(
                     onClick = onOpenChat,
@@ -230,7 +245,7 @@ private fun NeighborhoodCard(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Text("Abrir chat")
+                    Text(stringResource(R.string.neighborhoods_open_chat))
                 }
             }
         }
@@ -280,21 +295,27 @@ private fun NeighborhoodUsersDialog(
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "Usuarios · ${community.name}",
+                            stringResource(R.string.neighborhoods_users_title, community.name),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 20.sp
                         )
                         Text(
-                            "Comunidad creada por usuarios de QUATA",
+                            stringResource(R.string.neighborhoods_users_subtitle),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                CountPill("${community.users.size} ${if (community.users.size == 1) "usuario" else "usuarios"}")
+                CountPill(
+                    if (community.users.size == 1) {
+                        stringResource(R.string.neighborhoods_one_user)
+                    } else {
+                        stringResource(R.string.neighborhoods_user_count, community.users.size)
+                    }
+                )
                 Spacer(Modifier.height(16.dp))
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -346,7 +367,12 @@ private fun NeighborhoodUserRow(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
             ) {
-                Text(if (user.isFollowing) "Siguiendo" else "Seguir", fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+                Text(
+                    if (user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
             }
             OutlinedButton(
                 onClick = onOpenProfile,
@@ -354,7 +380,7 @@ private fun NeighborhoodUserRow(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange)
             ) {
-                Text("Perfil", fontSize = 14.sp, maxLines = 1)
+                Text(stringResource(R.string.common_profile), fontSize = 14.sp, maxLines = 1)
             }
             OutlinedButton(
                 onClick = onOpenPrivateChat,
@@ -362,7 +388,7 @@ private fun NeighborhoodUserRow(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange)
             ) {
-                Text("PRIVI", fontSize = 14.sp, maxLines = 1)
+                Text(stringResource(R.string.common_privi), fontSize = 14.sp, maxLines = 1)
             }
         }
     }
@@ -394,7 +420,7 @@ private fun CommunityProfileDialog(
                             Text(profile.user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
                         }
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                         }
                     }
                     Spacer(Modifier.height(18.dp))
@@ -403,9 +429,9 @@ private fun CommunityProfileDialog(
                     }
                     Spacer(Modifier.height(24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount.toString(), "Posts", Modifier.weight(1f))
-                        ProfileKpi(profile.user.followersCount.toString(), "Seguidores", Modifier.weight(1f))
-                        ProfileKpi(profile.user.followingCount.toString(), "Siguiendo", Modifier.weight(1f))
+                        ProfileKpi(profile.user.postsCount.toString(), stringResource(R.string.neighborhoods_posts), Modifier.weight(1f))
+                        ProfileKpi(profile.user.followersCount.toString(), stringResource(R.string.neighborhoods_followers), Modifier.weight(1f))
+                        ProfileKpi(profile.user.followingCount.toString(), stringResource(R.string.neighborhoods_following), Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -415,7 +441,7 @@ private fun CommunityProfileDialog(
                             colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (profile.user.isFollowing) "Siguiendo" else "Seguir", fontSize = 18.sp)
+                            Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
                         }
                         OutlinedButton(
                             onClick = onOpenPrivateChat,
@@ -423,13 +449,13 @@ private fun CommunityProfileDialog(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("PRIVI", fontSize = 18.sp)
+                            Text(stringResource(R.string.common_privi), fontSize = 18.sp)
                         }
                     }
                     Spacer(Modifier.height(18.dp))
                     val pagerState = rememberPagerState(pageCount = { profile.posts.size })
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Fotos y videos", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.neighborhoods_photos_videos), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
                         if (profile.posts.isNotEmpty()) {
                             Text("${pagerState.currentPage + 1} / ${profile.posts.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -437,7 +463,7 @@ private fun CommunityProfileDialog(
                     Spacer(Modifier.height(12.dp))
                     if (profile.posts.isEmpty()) {
                         Text(
-                            "Este perfil todavia no tiene publicaciones visibles",
+                            stringResource(R.string.neighborhoods_no_visible_posts),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 28.dp)
                         )
@@ -495,7 +521,7 @@ private fun ProfilePostsPager(
                 onOpenComments = { commentsPost = post },
                 onShare = { context.shareProfilePost(post) },
                 onReport = {
-                    Toast.makeText(context, "Publicacion reportada correctamente", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -543,7 +569,7 @@ private fun ProfilePostPreview(
                     .height(430.dp)
                     .background(Brush.verticalGradient(listOf(Color(0xFF111827), Color(0xFF334155))))
             ) {
-                Text("Video", modifier = Modifier.align(Alignment.Center), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.neighborhoods_video), modifier = Modifier.align(Alignment.Center), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             }
             else -> Box(
                 modifier = Modifier
@@ -612,6 +638,8 @@ private fun ProfileCommentsDialog(
 ) {
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
     val comments = post.comments + localComments
+    val currentUserName = stringResource(R.string.comments_you)
+    val nowLabel = stringResource(R.string.common_now)
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(22.dp),
@@ -620,9 +648,9 @@ private fun ProfileCommentsDialog(
         ) {
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Comentarios", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.feed_comments), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 LazyColumn(
@@ -641,7 +669,7 @@ private fun ProfileCommentsDialog(
                     androidx.compose.material3.OutlinedTextField(
                         value = draft,
                         onValueChange = { draft = it },
-                        placeholder = { Text("Escribe un comentario...") },
+                        placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -652,16 +680,16 @@ private fun ProfileCommentsDialog(
                             onAddComment(
                                 PostComment(
                                     id = "profile_${post.id}_${System.currentTimeMillis()}",
-                                    authorName = "Tu",
+                                    authorName = currentUserName,
                                     message = draft.trim(),
-                                    timestamp = "Ahora"
+                                    timestamp = nowLabel
                                 )
                             )
                             draft = ""
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
                     ) {
-                        Text("Enviar")
+                        Text(stringResource(R.string.common_send))
                     }
                 }
             }
@@ -681,30 +709,30 @@ private fun android.content.Context.shareProfilePost(post: Post) {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
     }
-    startActivity(Intent.createChooser(sendIntent, "Compartir publicacion"))
+    startActivity(Intent.createChooser(sendIntent, getString(R.string.neighborhoods_share_post)))
 }
 
-private fun communityTimeLabel(lastMessageAtMillis: Long?): String {
-    if (lastMessageAtMillis == null) return "Nueva"
+private fun communityTimeLabel(context: android.content.Context, lastMessageAtMillis: Long?): String {
+    if (lastMessageAtMillis == null) return context.getString(R.string.common_new)
     val zone = ZoneId.systemDefault()
     val messageDate = Instant.ofEpochMilli(lastMessageAtMillis).atZone(zone).toLocalDate()
     val today = LocalDate.now(zone)
     val days = ChronoUnit.DAYS.between(messageDate, today)
     return when {
         days == 0L -> DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(lastMessageAtMillis).atZone(zone))
-        days == 1L -> "Ayer"
-        days < 7L -> "Hace $days dias"
+        days == 1L -> context.getString(R.string.common_yesterday)
+        days < 7L -> context.getString(R.string.neighborhoods_time_days, days.toInt())
         days < 30L -> {
             val weeks = (days / 7).coerceAtLeast(1)
-            "Hace $weeks ${if (weeks == 1L) "semana" else "semanas"}"
+            if (weeks == 1L) context.getString(R.string.neighborhoods_time_one_week) else context.getString(R.string.neighborhoods_time_weeks, weeks.toInt())
         }
         days < 365L -> {
             val months = (days / 30).coerceAtLeast(1)
-            "Hace $months ${if (months == 1L) "mes" else "meses"}"
+            if (months == 1L) context.getString(R.string.neighborhoods_time_one_month) else context.getString(R.string.neighborhoods_time_months, months.toInt())
         }
         else -> {
             val years = (days / 365).coerceAtLeast(1)
-            "Hace $years ${if (years == 1L) "ano" else "anos"}"
+            if (years == 1L) context.getString(R.string.neighborhoods_time_one_year) else context.getString(R.string.neighborhoods_time_years, years.toInt())
         }
     }
 }

@@ -16,8 +16,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quata.R
 import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
@@ -47,23 +49,23 @@ fun RegisterScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            QuataLogo(subtitle = "Crea tu cuenta")
+            QuataLogo(subtitle = stringResource(R.string.auth_create_account_title))
             Spacer(Modifier.height(28.dp))
-            QuataTextField(state.displayName, { viewModel.onEvent(RegisterUiEvent.DisplayNameChanged(it)) }, "Nombre", Modifier.fillMaxWidth())
+            QuataTextField(state.displayName, { viewModel.onEvent(RegisterUiEvent.DisplayNameChanged(it)) }, stringResource(R.string.auth_name), Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
-            QuataTextField(state.email, { viewModel.onEvent(RegisterUiEvent.EmailChanged(it)) }, "Email", Modifier.fillMaxWidth())
+            QuataTextField(state.email, { viewModel.onEvent(RegisterUiEvent.EmailChanged(it)) }, stringResource(R.string.auth_email), Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
-            QuataTextField(state.password, { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) }, "Contraseña", Modifier.fillMaxWidth(), isPassword = true)
+            QuataTextField(state.password, { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) }, stringResource(R.string.auth_password), Modifier.fillMaxWidth(), isPassword = true)
             if (state.error != null) {
                 Spacer(Modifier.height(10.dp))
                 Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(22.dp))
-            QuataPrimaryButton(if (state.isLoading) "Creando..." else "Crear cuenta", enabled = !state.isLoading) {
+            QuataPrimaryButton(if (state.isLoading) stringResource(R.string.auth_creating) else stringResource(R.string.auth_create_account), enabled = !state.isLoading) {
                 viewModel.onEvent(RegisterUiEvent.Submit)
             }
             Spacer(Modifier.height(10.dp))
-            QuataSecondaryButton("Volver", onClick = onBack)
+            QuataSecondaryButton(stringResource(R.string.common_back), onClick = onBack)
         }
     }
 }

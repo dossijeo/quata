@@ -1,0 +1,417 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="country_prefix_codes">
+        <item>240</item>
+        <item>1</item>
+        <item>7</item>
+        <item>20</item>
+        <item>27</item>
+        <item>30</item>
+        <item>31</item>
+        <item>32</item>
+        <item>33</item>
+        <item>34</item>
+        <item>36</item>
+        <item>39</item>
+        <item>40</item>
+        <item>41</item>
+        <item>43</item>
+        <item>44</item>
+        <item>45</item>
+        <item>46</item>
+        <item>47</item>
+        <item>48</item>
+        <item>49</item>
+        <item>51</item>
+        <item>52</item>
+        <item>53</item>
+        <item>54</item>
+        <item>55</item>
+        <item>56</item>
+        <item>57</item>
+        <item>58</item>
+        <item>60</item>
+        <item>61</item>
+        <item>62</item>
+        <item>63</item>
+        <item>64</item>
+        <item>65</item>
+        <item>66</item>
+        <item>81</item>
+        <item>82</item>
+        <item>84</item>
+        <item>86</item>
+        <item>90</item>
+        <item>91</item>
+        <item>92</item>
+        <item>93</item>
+        <item>94</item>
+        <item>95</item>
+        <item>98</item>
+        <item>211</item>
+        <item>212</item>
+        <item>213</item>
+        <item>216</item>
+        <item>218</item>
+        <item>220</item>
+        <item>221</item>
+        <item>222</item>
+        <item>223</item>
+        <item>224</item>
+        <item>225</item>
+        <item>226</item>
+        <item>227</item>
+        <item>228</item>
+        <item>229</item>
+        <item>230</item>
+        <item>231</item>
+        <item>232</item>
+        <item>233</item>
+        <item>234</item>
+        <item>235</item>
+        <item>236</item>
+        <item>237</item>
+        <item>238</item>
+        <item>239</item>
+        <item>241</item>
+        <item>242</item>
+        <item>243</item>
+        <item>244</item>
+        <item>245</item>
+        <item>246</item>
+        <item>248</item>
+        <item>249</item>
+        <item>250</item>
+        <item>251</item>
+        <item>252</item>
+        <item>253</item>
+        <item>254</item>
+        <item>255</item>
+        <item>256</item>
+        <item>257</item>
+        <item>258</item>
+        <item>260</item>
+        <item>261</item>
+        <item>262</item>
+        <item>263</item>
+        <item>264</item>
+        <item>265</item>
+        <item>266</item>
+        <item>267</item>
+        <item>268</item>
+        <item>269</item>
+        <item>290</item>
+        <item>291</item>
+        <item>297</item>
+        <item>298</item>
+        <item>299</item>
+        <item>350</item>
+        <item>351</item>
+        <item>352</item>
+        <item>353</item>
+        <item>354</item>
+        <item>355</item>
+        <item>356</item>
+        <item>357</item>
+        <item>358</item>
+        <item>359</item>
+        <item>370</item>
+        <item>371</item>
+        <item>372</item>
+        <item>373</item>
+        <item>374</item>
+        <item>375</item>
+        <item>376</item>
+        <item>377</item>
+        <item>378</item>
+        <item>380</item>
+        <item>381</item>
+        <item>382</item>
+        <item>383</item>
+        <item>385</item>
+        <item>386</item>
+        <item>387</item>
+        <item>389</item>
+        <item>420</item>
+        <item>421</item>
+        <item>423</item>
+        <item>500</item>
+        <item>501</item>
+        <item>502</item>
+        <item>503</item>
+        <item>504</item>
+        <item>505</item>
+        <item>506</item>
+        <item>507</item>
+        <item>508</item>
+        <item>509</item>
+        <item>590</item>
+        <item>591</item>
+        <item>592</item>
+        <item>593</item>
+        <item>594</item>
+        <item>595</item>
+        <item>596</item>
+        <item>597</item>
+        <item>598</item>
+        <item>599</item>
+        <item>670</item>
+        <item>672</item>
+        <item>673</item>
+        <item>674</item>
+        <item>675</item>
+        <item>676</item>
+        <item>677</item>
+        <item>678</item>
+        <item>679</item>
+        <item>680</item>
+        <item>681</item>
+        <item>682</item>
+        <item>683</item>
+        <item>685</item>
+        <item>686</item>
+        <item>687</item>
+        <item>688</item>
+        <item>689</item>
+        <item>690</item>
+        <item>691</item>
+        <item>692</item>
+        <item>850</item>
+        <item>852</item>
+        <item>853</item>
+        <item>855</item>
+        <item>856</item>
+        <item>880</item>
+        <item>886</item>
+        <item>960</item>
+        <item>961</item>
+        <item>962</item>
+        <item>963</item>
+        <item>964</item>
+        <item>965</item>
+        <item>966</item>
+        <item>967</item>
+        <item>968</item>
+        <item>970</item>
+        <item>971</item>
+        <item>972</item>
+        <item>973</item>
+        <item>974</item>
+        <item>975</item>
+        <item>976</item>
+        <item>977</item>
+        <item>992</item>
+        <item>993</item>
+        <item>994</item>
+        <item>995</item>
+        <item>996</item>
+        <item>998</item>
+    </string-array>
+    <string-array name="country_prefix_labels">
+        <item>+240 — Guinea Ecuatorial</item>
+        <item>+1 — Estados Unidos / Canadá</item>
+        <item>+7 — Rusia / Kazajistán</item>
+        <item>+20 — Egipto</item>
+        <item>+27 — Sudáfrica</item>
+        <item>+30 — Grecia</item>
+        <item>+31 — Países Bajos</item>
+        <item>+32 — Bélgica</item>
+        <item>+33 — Francia</item>
+        <item>+34 — España</item>
+        <item>+36 — Hungría</item>
+        <item>+39 — Italia</item>
+        <item>+40 — Rumanía</item>
+        <item>+41 — Suiza</item>
+        <item>+43 — Austria</item>
+        <item>+44 — Reino Unido</item>
+        <item>+45 — Dinamarca</item>
+        <item>+46 — Suecia</item>
+        <item>+47 — Noruega</item>
+        <item>+48 — Polonia</item>
+        <item>+49 — Alemania</item>
+        <item>+51 — Perú</item>
+        <item>+52 — México</item>
+        <item>+53 — Cuba</item>
+        <item>+54 — Argentina</item>
+        <item>+55 — Brasil</item>
+        <item>+56 — Chile</item>
+        <item>+57 — Colombia</item>
+        <item>+58 — Venezuela</item>
+        <item>+60 — Malasia</item>
+        <item>+61 — Australia</item>
+        <item>+62 — Indonesia</item>
+        <item>+63 — Filipinas</item>
+        <item>+64 — Nueva Zelanda</item>
+        <item>+65 — Singapur</item>
+        <item>+66 — Tailandia</item>
+        <item>+81 — Japón</item>
+        <item>+82 — Corea del Sur</item>
+        <item>+84 — Vietnam</item>
+        <item>+86 — China</item>
+        <item>+90 — Turquía</item>
+        <item>+91 — India</item>
+        <item>+92 — Pakistán</item>
+        <item>+93 — Afganistán</item>
+        <item>+94 — Sri Lanka</item>
+        <item>+95 — Myanmar</item>
+        <item>+98 — Irán</item>
+        <item>+211 — Sudán del Sur</item>
+        <item>+212 — Marruecos</item>
+        <item>+213 — Argelia</item>
+        <item>+216 — Túnez</item>
+        <item>+218 — Libia</item>
+        <item>+220 — Gambia</item>
+        <item>+221 — Senegal</item>
+        <item>+222 — Mauritania</item>
+        <item>+223 — Mali</item>
+        <item>+224 — Guinea</item>
+        <item>+225 — Costa de Marfil</item>
+        <item>+226 — Burkina Faso</item>
+        <item>+227 — Níger</item>
+        <item>+228 — Togo</item>
+        <item>+229 — Benín</item>
+        <item>+230 — Mauricio</item>
+        <item>+231 — Liberia</item>
+        <item>+232 — Sierra Leona</item>
+        <item>+233 — Ghana</item>
+        <item>+234 — Nigeria</item>
+        <item>+235 — Chad</item>
+        <item>+236 — República Centroafricana</item>
+        <item>+237 — Camerún</item>
+        <item>+238 — Cabo Verde</item>
+        <item>+239 — Santo Tomé y Príncipe</item>
+        <item>+241 — Gabón</item>
+        <item>+242 — República del Congo</item>
+        <item>+243 — República Democrática del Congo</item>
+        <item>+244 — Angola</item>
+        <item>+245 — Guinea-Bisáu</item>
+        <item>+246 — Territorio Británico del Océano Índico</item>
+        <item>+248 — Seychelles</item>
+        <item>+249 — Sudán</item>
+        <item>+250 — Ruanda</item>
+        <item>+251 — Etiopía</item>
+        <item>+252 — Somalia</item>
+        <item>+253 — Yibuti</item>
+        <item>+254 — Kenia</item>
+        <item>+255 — Tanzania</item>
+        <item>+256 — Uganda</item>
+        <item>+257 — Burundi</item>
+        <item>+258 — Mozambique</item>
+        <item>+260 — Zambia</item>
+        <item>+261 — Madagascar</item>
+        <item>+262 — Reunión / Mayotte</item>
+        <item>+263 — Zimbabue</item>
+        <item>+264 — Namibia</item>
+        <item>+265 — Malaui</item>
+        <item>+266 — Lesoto</item>
+        <item>+267 — Botsuana</item>
+        <item>+268 — Esuatini</item>
+        <item>+269 — Comoras</item>
+        <item>+290 — Santa Elena</item>
+        <item>+291 — Eritrea</item>
+        <item>+297 — Aruba</item>
+        <item>+298 — Islas Feroe</item>
+        <item>+299 — Groenlandia</item>
+        <item>+350 — Gibraltar</item>
+        <item>+351 — Portugal</item>
+        <item>+352 — Luxemburgo</item>
+        <item>+353 — Irlanda</item>
+        <item>+354 — Islandia</item>
+        <item>+355 — Albania</item>
+        <item>+356 — Malta</item>
+        <item>+357 — Chipre</item>
+        <item>+358 — Finlandia</item>
+        <item>+359 — Bulgaria</item>
+        <item>+370 — Lituania</item>
+        <item>+371 — Letonia</item>
+        <item>+372 — Estonia</item>
+        <item>+373 — Moldavia</item>
+        <item>+374 — Armenia</item>
+        <item>+375 — Bielorrusia</item>
+        <item>+376 — Andorra</item>
+        <item>+377 — Mónaco</item>
+        <item>+378 — San Marino</item>
+        <item>+380 — Ucrania</item>
+        <item>+381 — Serbia</item>
+        <item>+382 — Montenegro</item>
+        <item>+383 — Kosovo</item>
+        <item>+385 — Croacia</item>
+        <item>+386 — Eslovenia</item>
+        <item>+387 — Bosnia y Herzegovina</item>
+        <item>+389 — Macedonia del Norte</item>
+        <item>+420 — República Checa</item>
+        <item>+421 — Eslovaquia</item>
+        <item>+423 — Liechtenstein</item>
+        <item>+500 — Islas Malvinas</item>
+        <item>+501 — Belice</item>
+        <item>+502 — Guatemala</item>
+        <item>+503 — El Salvador</item>
+        <item>+504 — Honduras</item>
+        <item>+505 — Nicaragua</item>
+        <item>+506 — Costa Rica</item>
+        <item>+507 — Panamá</item>
+        <item>+508 — San Pedro y Miquelón</item>
+        <item>+509 — Haití</item>
+        <item>+590 — Guadalupe / San Martín</item>
+        <item>+591 — Bolivia</item>
+        <item>+592 — Guyana</item>
+        <item>+593 — Ecuador</item>
+        <item>+594 — Guayana Francesa</item>
+        <item>+595 — Paraguay</item>
+        <item>+596 — Martinica</item>
+        <item>+597 — Surinam</item>
+        <item>+598 — Uruguay</item>
+        <item>+599 — Curazao / Caribe Neerlandés</item>
+        <item>+670 — Timor Oriental</item>
+        <item>+672 — Territorios Australes</item>
+        <item>+673 — Brunéi</item>
+        <item>+674 — Nauru</item>
+        <item>+675 — Papúa Nueva Guinea</item>
+        <item>+676 — Tonga</item>
+        <item>+677 — Islas Salomón</item>
+        <item>+678 — Vanuatu</item>
+        <item>+679 — Fiyi</item>
+        <item>+680 — Palaos</item>
+        <item>+681 — Wallis y Futuna</item>
+        <item>+682 — Islas Cook</item>
+        <item>+683 — Niue</item>
+        <item>+685 — Samoa</item>
+        <item>+686 — Kiribati</item>
+        <item>+687 — Nueva Caledonia</item>
+        <item>+688 — Tuvalu</item>
+        <item>+689 — Polinesia Francesa</item>
+        <item>+690 — Tokelau</item>
+        <item>+691 — Micronesia</item>
+        <item>+692 — Islas Marshall</item>
+        <item>+850 — Corea del Norte</item>
+        <item>+852 — Hong Kong</item>
+        <item>+853 — Macao</item>
+        <item>+855 — Camboya</item>
+        <item>+856 — Laos</item>
+        <item>+880 — Bangladés</item>
+        <item>+886 — Taiwán</item>
+        <item>+960 — Maldivas</item>
+        <item>+961 — Líbano</item>
+        <item>+962 — Jordania</item>
+        <item>+963 — Siria</item>
+        <item>+964 — Irak</item>
+        <item>+965 — Kuwait</item>
+        <item>+966 — Arabia Saudita</item>
+        <item>+967 — Yemen</item>
+        <item>+968 — Omán</item>
+        <item>+970 — Palestina</item>
+        <item>+971 — Emiratos Árabes Unidos</item>
+        <item>+972 — Israel</item>
+        <item>+973 — Baréin</item>
+        <item>+974 — Catar</item>
+        <item>+975 — Bután</item>
+        <item>+976 — Mongolia</item>
+        <item>+977 — Nepal</item>
+        <item>+992 — Tayikistán</item>
+        <item>+993 — Turkmenistán</item>
+        <item>+994 — Azerbaiyán</item>
+        <item>+995 — Georgia</item>
+        <item>+996 — Kirguistán</item>
+        <item>+998 — Uzbekistán</item>
+    </string-array>
+</resources>

@@ -24,10 +24,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quata.R
 import kotlinx.coroutines.delay
 import kotlin.math.sin
 
@@ -153,7 +155,7 @@ private fun QuataSplashLogo(
         modifier = modifier.width(220.dp)
     ) {
         Text(
-            text = "QÜ",
+            text = stringResource(R.string.splash_mark),
             color = Color(0xFFFF8A2A),
             fontSize = 72.sp,
             lineHeight = 72.sp,
@@ -182,7 +184,7 @@ private fun QuataSplashLogo(
             )
         }
         Text(
-            text = "Q Ü A T A",
+            text = stringResource(R.string.splash_brand_letters),
             color = Color(0xFFFFF1DF),
             fontSize = 18.sp,
             lineHeight = 22.sp,
