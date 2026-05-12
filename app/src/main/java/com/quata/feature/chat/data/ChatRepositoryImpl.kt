@@ -8,16 +8,31 @@ import com.quata.core.model.User
 import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
 import com.quata.core.session.SessionManager
 import com.quata.feature.chat.domain.ChatRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 class ChatRepositoryImpl(
     private val remote: ChatRemoteDataSource,
     private val sessionManager: SessionManager
 ) : ChatRepository {
+    private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val _activeConversationId = MutableStateFlow<String?>(null)
+    override val activeConversationId: StateFlow<String?> = _activeConversationId
+
+    override fun setActiveConversation(conversationId: String?) {
+        _activeConversationId.value = conversationId
+    }
+
     override fun currentUser(): User? {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.currentUser
         val session = sessionManager.currentSession() ?: return null
@@ -87,6 +102,7 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.addMessage(conversationId, text, session.displayName)
+            scheduleMockReply(conversationId)
             return@runCatching
         }
         remote.sendMessage(session.userId, session.displayName, conversationId, text)
@@ -108,6 +124,14 @@ class ChatRepositoryImpl(
         ).firstOrNull() ?: error("No se pudo crear la conversacion SOS")
         remote.sendMessage(session.userId, session.displayName, conversation.id, text)
         conversation.id
+    }
+
+    override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.markConversationRead(conversationId)
+            return@runCatching
+        }
+        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(unreadCount = 0))
     }
 
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
@@ -148,5 +172,29 @@ class ChatRepositoryImpl(
             return@runCatching
         }
         remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
+    }
+
+    private fun scheduleMockReply(conversationId: String) {
+        mockReplyScope.launch {
+            delay(Random.nextLong(2_000L, 7_000L))
+            MockData.addIncomingMockMessage(
+                conversationId = conversationId,
+                text = MOCK_REPLIES.random(),
+                incrementUnread = activeConversationId.value != conversationId
+            )
+        }
+    }
+
+    private companion object {
+        val MOCK_REPLIES = listOf(
+            "Perfecto, lo veo ahora.",
+            "Dale, seguimos por aqui.",
+            "Gracias por avisar.",
+            "Estoy revisandolo y te digo.",
+            "Me parece bien.",
+            "Ahora mismo te contesto con mas detalle.",
+            "Recibido.",
+            "Vamos a ello."
+        )
     }
 }

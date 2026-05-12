@@ -163,7 +163,7 @@ object MockData {
         Conversation(
             "c1",
             "Ana",
-            lastMessagePreview = "",
+            lastMessagePreview = "Perfecto. Luego conectamos Supabase.",
             unreadCount = 2,
             updatedAt = "12:40",
             updatedAtMillis = mockNow - 6L * 60L * 1000L,
@@ -173,7 +173,7 @@ object MockData {
         Conversation(
             "c2",
             "Equipo Quata",
-            lastMessagePreview = "",
+            lastMessagePreview = "La V3 ya tiene estructura fusionada",
             unreadCount = 5,
             updatedAt = "11:15",
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
@@ -184,7 +184,7 @@ object MockData {
         Conversation(
             "c3",
             "Leo",
-            lastMessagePreview = "",
+            lastMessagePreview = "Mira el diseno naranja del login",
             unreadCount = 0,
             updatedAt = "Ayer",
             updatedAtMillis = mockNow - 12L * 24L * 60L * 60L * 1000L,
@@ -194,7 +194,7 @@ object MockData {
         Conversation(
             "barrio_molyko",
             "Molyko",
-            lastMessagePreview = "",
+            lastMessagePreview = "Los chicos de Molyko ya estan por aqui.",
             unreadCount = 0,
             updatedAt = "11:34",
             updatedAtMillis = mockNow - 90L * 60L * 1000L,
@@ -206,7 +206,7 @@ object MockData {
         Conversation(
             "barrio_sampaka",
             "Sampaka",
-            lastMessagePreview = "",
+            lastMessagePreview = "Sampaka se mueve hoy.",
             unreadCount = 1,
             updatedAt = "10:12",
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
@@ -257,6 +257,48 @@ object MockData {
             mutableConversations.add(0, updated)
             conversationsState.value = mutableConversations.toList()
         }
+    }
+
+    fun addIncomingMockMessage(conversationId: String, text: String, incrementUnread: Boolean = true) {
+        if (text.isBlank()) return
+        val conversation = mutableConversations.firstOrNull { it.id == conversationId } ?: return
+        val sender = conversation.participantIds
+            .firstOrNull { it != currentUser.id }
+            ?.let { id -> registeredUsers.firstOrNull { it.id == id } }
+        val senderName = sender?.displayName
+            ?: conversation.participantNames.firstOrNull { !it.equals(currentUser.displayName, ignoreCase = true) }
+            ?: "QÜATA"
+        val senderId = sender?.id ?: "mock_contact"
+        val now = System.currentTimeMillis()
+        mutableMessages.add(
+            Message(
+                id = "m_in_$now",
+                conversationId = conversationId,
+                senderId = senderId,
+                senderName = senderName,
+                text = text,
+                sentAt = "Ahora",
+                isMine = false
+            )
+        )
+        messagesState.value = mutableMessages.toList()
+        val index = mutableConversations.indexOfFirst { it.id == conversationId }
+        if (index >= 0) {
+            val updated = mutableConversations[index].copy(
+                lastMessagePreview = text,
+                unreadCount = if (incrementUnread) mutableConversations[index].unreadCount + 1 else 0,
+                updatedAt = "Ahora",
+                updatedAtMillis = now,
+                isVisible = true
+            )
+            mutableConversations.removeAt(index)
+            mutableConversations.add(0, updated)
+            conversationsState.value = mutableConversations.toList()
+        }
+    }
+
+    fun markConversationRead(conversationId: String) {
+        updateConversation(conversationId) { copy(unreadCount = 0) }
     }
 
     fun addSosConversation(contactIds: List<String>, text: String, senderName: String): String {
@@ -389,9 +431,17 @@ object MockData {
         conversationsState.value = mutableConversations.toList()
     }
 
-    val notifications = listOf(
-        NotificationItem("n1", "Nueva respuesta", "Ana respondio a tu publicacion", "Hace 2 min"),
-        NotificationItem("n2", "Nuevo mensaje", "Tienes 5 mensajes en Equipo Quata", "Hace 15 min"),
-        NotificationItem("n3", "Publicacion creada", "Tu publicacion se guardo correctamente", "Hace 1 h", true)
-    )
+    val notifications: List<NotificationItem>
+        get() = conversations
+            .filter { it.isVisible && !it.isMuted && it.unreadCount > 0 }
+            .map {
+                NotificationItem(
+                    id = "notification_${it.id}",
+                    conversationId = it.id,
+                    title = it.title,
+                    body = it.lastMessagePreview,
+                    createdAt = it.updatedAt,
+                    unreadCount = it.unreadCount
+                )
+            }
 }

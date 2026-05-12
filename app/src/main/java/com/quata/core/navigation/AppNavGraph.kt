@@ -6,10 +6,16 @@ import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
+import android.media.RingtoneManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -43,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +83,7 @@ import com.quata.feature.profile.presentation.EmergencyContactsDialog
 import com.quata.feature.profile.presentation.ProfileUiEvent
 import com.quata.feature.profile.presentation.ProfileViewModel
 import com.quata.feature.profile.presentation.ProfileScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -86,11 +94,26 @@ fun AppNavGraph(container: AppContainer) {
     val showAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route
-    var notificationCount by rememberSaveable { mutableStateOf(0) }
-    LaunchedEffect(showAppChrome, currentRoute) {
-        if (showAppChrome) {
-            container.notificationsRepository.getNotificationCount()
-                .onSuccess { count -> notificationCount = count }
+    val notificationCount by container.notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
+    val appContext = LocalContext.current
+    var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
+    var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
+    var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(notificationCount) {
+        if (!hasObservedNotificationCount) {
+            previousNotificationCount = notificationCount
+            hasObservedNotificationCount = true
+            return@LaunchedEffect
+        }
+        val previousCount = previousNotificationCount
+        previousNotificationCount = notificationCount
+        if (notificationCount > previousCount) {
+            isNotificationBounceActive = true
+            appContext.playDefaultNotificationSound()
+            delay(2_000L)
+            isNotificationBounceActive = false
+        } else {
+            isNotificationBounceActive = false
         }
     }
     val bottomRoutes = setOf(
@@ -217,7 +240,8 @@ fun AppNavGraph(container: AppContainer) {
                     NotificationsScreen(
                         padding = padding,
                         repository = container.notificationsRepository,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
                     )
                 }
 
@@ -240,6 +264,7 @@ fun AppNavGraph(container: AppContainer) {
             val topChromePlacement = rememberTopChromePlacement()
             QuataAppHeaderActions(
                 notificationCount = notificationCount,
+                isBouncing = isNotificationBounceActive,
                 onNotificationsClick = {
                     navController.navigate(AppDestinations.Notifications.route) {
                         popUpTo(AppDestinations.Feed.route) { saveState = true }
@@ -275,9 +300,21 @@ private fun QuataAppTopSpacer() {
 @Composable
 private fun QuataAppHeaderActions(
     notificationCount: Int,
+    isBouncing: Boolean,
     onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val bounceTransition = rememberInfiniteTransition(label = "notification_bounce")
+    val bounceScale by bounceTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.22f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 260),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "notification_bounce_scale"
+    )
+    val scale = if (isBouncing) bounceScale else 1f
     Box(
         modifier = modifier.size(width = 160.dp, height = 48.dp)
     ) {
@@ -294,6 +331,10 @@ private fun QuataAppHeaderActions(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = 82.dp, y = 4.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .size(48.dp)
         ) {
             BadgedBox(
@@ -488,4 +529,11 @@ private fun Context.lastKnownLocation(): Location? {
     return locationManager.getProviders(true)
         .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
         .maxByOrNull { it.time }
+}
+
+private fun Context.playDefaultNotificationSound() {
+    runCatching {
+        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        RingtoneManager.getRingtone(applicationContext, uri)?.play()
+    }
 }

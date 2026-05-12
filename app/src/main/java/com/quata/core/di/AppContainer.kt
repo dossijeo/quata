@@ -65,7 +65,7 @@ class AppContainer(context: Context) {
         sessionManager = sessionManager
     )
 
-    val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl()
+    val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(chatRepository)
 
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(
         remote = ProfileRemoteDataSource(networkModule.supabaseApi),

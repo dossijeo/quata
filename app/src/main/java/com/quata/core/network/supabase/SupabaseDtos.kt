@@ -56,6 +56,7 @@ data class SupabaseConversationUpdateRequest(
     @SerializedName("participant_ids") val participantIds: List<String>? = null,
     @SerializedName("participant_names") val participantNames: List<String>? = null,
     @SerializedName("community_name") val communityName: String? = null,
+    @SerializedName("unread_count") val unreadCount: Int? = null,
     @SerializedName("is_muted") val isMuted: Boolean? = null,
     @SerializedName("is_visible") val isVisible: Boolean? = null
 )

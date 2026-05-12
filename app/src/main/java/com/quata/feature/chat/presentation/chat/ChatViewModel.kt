@@ -17,7 +17,11 @@ class ChatViewModel(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     init {
+        repository.setActiveConversation(conversationId)
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
+        viewModelScope.launch {
+            repository.markConversationRead(conversationId)
+        }
         viewModelScope.launch {
             repository.observeConversations().collect { conversations ->
                 _uiState.value = _uiState.value.copy(
@@ -28,6 +32,7 @@ class ChatViewModel(
         viewModelScope.launch {
             repository.observeMessages(conversationId).collect { messages ->
                 _uiState.value = _uiState.value.copy(messages = messages, isLoading = false)
+                repository.markConversationRead(conversationId)
             }
         }
         viewModelScope.launch {
@@ -97,5 +102,10 @@ class ChatViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = ChatViewModel(conversationId, repository) as T
         }
+    }
+
+    override fun onCleared() {
+        repository.setActiveConversation(null)
+        super.onCleared()
     }
 }
