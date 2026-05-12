@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -515,27 +514,18 @@ fun EmergencyContactsDialog(
     val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyTab.Contacts) }
-    var releasedContactId by rememberSaveable { mutableStateOf<String?>(null) }
-    val networkUsersListState = rememberLazyListState()
-    val filteredUsers = candidates.filter { user ->
-        user.id !in selectedIds && (
-            user.displayName.contains(query, ignoreCase = true) ||
+    val visibleUsers = candidates
+        .filter { user ->
+            query.isBlank() ||
+                user.displayName.contains(query, ignoreCase = true) ||
                 user.email.contains(query, ignoreCase = true) ||
                 user.neighborhood.contains(query, ignoreCase = true) ||
                 user.phone.contains(query, ignoreCase = true)
-            )
-    }
-    val selectedUsers = candidates.filter { it.id in selectedIds }
-
-    LaunchedEffect(filteredUsers, releasedContactId) {
-        val contactId = releasedContactId ?: return@LaunchedEffect
-        val index = filteredUsers.indexOfFirst { it.id == contactId }
-        if (index >= 0) {
-            selectedTab = EmergencyTab.Contacts
-            networkUsersListState.animateScrollToItem(index)
-            releasedContactId = null
         }
-    }
+        .sortedWith(
+            compareByDescending<EmergencyContactCandidate> { it.id in selectedIds }
+                .thenBy { it.displayName.lowercase() }
+        )
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -605,36 +595,16 @@ fun EmergencyContactsDialog(
                             Spacer(Modifier.height(10.dp))
                             Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = QuataOrange, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(14.dp))
-                            Text(stringResource(R.string.emergency_selected_title), fontWeight = FontWeight.ExtraBold)
-                            Spacer(Modifier.height(8.dp))
-                            if (selectedUsers.isEmpty()) {
-                                Text(stringResource(R.string.emergency_select_hint), color = Color.White.copy(alpha = 0.72f))
-                            } else {
-                                LazyColumn(modifier = Modifier.heightIn(max = 150.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(selectedUsers, key = { it.id }) { user ->
-                                        EmergencyUserRow(
-                                            user = user,
-                                            selected = true,
-                                            onToggle = {
-                                                releasedContactId = user.id
-                                                onToggleContact(user)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(14.dp))
                             Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.height(8.dp))
                             LazyColumn(
-                                state = networkUsersListState,
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(filteredUsers, key = { it.id }) { user ->
+                                items(visibleUsers, key = { it.id }) { user ->
                                     EmergencyUserRow(
                                         user = user,
-                                        selected = false,
+                                        selected = user.id in selectedIds,
                                         onToggle = { onToggleContact(user) }
                                     )
                                 }

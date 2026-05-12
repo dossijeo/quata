@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
@@ -37,7 +38,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.LocationOn
@@ -52,6 +52,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,6 +61,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,8 +89,12 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private enum class ComposerStep {
     TypePicker,
@@ -114,23 +120,31 @@ private enum class EmojiSection(@StringRes val labelRes: Int, val emojis: List<S
 fun CreatePostScreen(
     padding: PaddingValues,
     repository: PostComposerRepository,
+    resetToken: Int,
     onPostCreated: () -> Unit,
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var step by rememberSaveable { mutableStateOf(ComposerStep.TypePicker) }
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     var isEmojiPanelOpen by rememberSaveable { mutableStateOf(false) }
+    var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
 
+    fun resolveLocation(location: Location) {
+        scope.launch {
+            val label = context.resolvePlaceName(location) ?: location.toLocationLabel()
+            viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, location.latitude, location.longitude))
+        }
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true || result[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            context.lastKnownLocation()?.let { location ->
-                viewModel.onEvent(CreatePostUiEvent.LocationResolved(location.toLocationLabel(), location.latitude, location.longitude))
-            }
+            context.lastKnownLocation()?.let { resolveLocation(it) }
         }
     }
     val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -138,7 +152,7 @@ fun CreatePostScreen(
         uri?.let {
             val exifLocation = context.exifLocationFromUri(it)
             if (exifLocation != null) {
-                viewModel.onEvent(CreatePostUiEvent.LocationResolved(exifLocation.toLocationLabel(), exifLocation.latitude, exifLocation.longitude))
+                resolveLocation(exifLocation)
             } else {
                 locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
@@ -157,15 +171,32 @@ fun CreatePostScreen(
     val cameraVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { saved ->
         if (saved) viewModel.onEvent(CreatePostUiEvent.VideoSelected(pendingVideoUri?.toString()))
     }
+    val launchPhotoCapture = {
+        val uri = context.createMediaUri("quata_photo_", "image/jpeg", MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        pendingImageUri = uri
+        uri?.let { cameraImageLauncher.launch(it) }
+    }
+    val launchVideoCapture = {
+        val uri = context.createMediaUri("quata_video_", "video/mp4", MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+        pendingVideoUri = uri
+        uri?.let { cameraVideoLauncher.launch(it) }
+    }
     val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             when (pendingCaptureTarget) {
-                CaptureTarget.Photo -> pendingImageUri?.let { cameraImageLauncher.launch(it) }
-                CaptureTarget.Video -> pendingVideoUri?.let { cameraVideoLauncher.launch(it) }
+                CaptureTarget.Photo -> launchPhotoCapture()
+                CaptureTarget.Video -> launchVideoCapture()
                 null -> Unit
             }
         } else {
             Toast.makeText(context, context.getString(R.string.composer_camera_permission), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(resetToken) {
+        if (resetToken != lastHandledResetToken) {
+            step = ComposerStep.TypePicker
+            lastHandledResetToken = resetToken
         }
     }
 
@@ -178,6 +209,12 @@ fun CreatePostScreen(
     }
 
     QuataScreen(padding) {
+        val screenTitle = when (step) {
+            ComposerStep.TypePicker -> stringResource(R.string.composer_title)
+            ComposerStep.Text -> stringResource(R.string.composer_text_post_title)
+            ComposerStep.Image -> stringResource(R.string.composer_image_post_title)
+            ComposerStep.Video -> stringResource(R.string.composer_video_post_title)
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -185,18 +222,8 @@ fun CreatePostScreen(
                 .padding(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(
-                    onClick = { step = ComposerStep.TypePicker },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
-                ) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
-                }
-            }
             Text(
-                text = stringResource(R.string.composer_title),
+                text = screenTitle,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 24.sp,
                 color = Color.White
@@ -219,47 +246,35 @@ fun CreatePostScreen(
                     },
                     onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
                     onEmoji = { emoji ->
-            val updated = textValue.insertAtSelection(emoji)
-            textValue = updated
-            viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
+                        val updated = textValue.insertAtSelection(emoji)
+                        textValue = updated
+                        viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
                     },
-                    onChangeType = { step = ComposerStep.TypePicker },
                     onSubmit = { viewModel.submit(PostComposerType.Text) }
                 )
                 ComposerStep.Image -> ImagePostForm(
                     state = state,
-                    onChangeType = { step = ComposerStep.TypePicker },
                     onPickImage = { galleryImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     onTakePhoto = {
-                        val uri = context.createMediaUri("quata_photo_", "image/jpeg", MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-                        pendingImageUri = uri
                         pendingCaptureTarget = CaptureTarget.Photo
-                        if (uri != null) {
-                            if (context.hasCameraPermission()) {
-                                cameraImageLauncher.launch(uri)
-                            } else {
-                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
+                        if (context.hasCameraPermission()) {
+                            launchPhotoCapture()
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
-                    onRequestLocation = { locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
                     onSubmit = { viewModel.submit(PostComposerType.Image) }
                 )
                 ComposerStep.Video -> VideoPostForm(
                     state = state,
                     onDescriptionChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it)) },
-                    onChangeType = { step = ComposerStep.TypePicker },
                     onPickVideo = { galleryVideoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
                     onRecordVideo = {
-                        val uri = context.createMediaUri("quata_video_", "video/mp4", MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-                        pendingVideoUri = uri
                         pendingCaptureTarget = CaptureTarget.Video
-                        if (uri != null) {
-                            if (context.hasCameraPermission()) {
-                                cameraVideoLauncher.launch(uri)
-                            } else {
-                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
+                        if (context.hasCameraPermission()) {
+                            launchVideoCapture()
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
                     onSubmit = { viewModel.submit(PostComposerType.Video) }
@@ -337,22 +352,27 @@ private fun TextPostForm(
     onTextChange: (TextFieldValue) -> Unit,
     onToggleEmojiPanel: () -> Unit,
     onEmoji: (String) -> Unit,
-    onChangeType: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader(
-        stringResource(R.string.composer_text_post_title),
-        stringResource(R.string.composer_text_post_subtitle),
-        stringResource(R.string.composer_step_text),
-        onChangeType
-    )
-    ComposerPanel(stringResource(R.string.composer_content)) {
+    ComposerPanel(stringResource(R.string.composer_content), highlighted = true) {
         OutlinedTextField(
             value = textValue,
             onValueChange = onTextChange,
-            placeholder = { Text(stringResource(R.string.composer_text_placeholder)) },
+            placeholder = {
+                Text(
+                    stringResource(R.string.composer_text_placeholder),
+                    color = Color(0xFF111827).copy(alpha = 0.52f)
+                )
+            },
             minLines = 5,
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color(0xFF111827),
+                unfocusedTextColor = Color(0xFF111827),
+                focusedBorderColor = QuataOrange,
+                unfocusedBorderColor = Color(0xFF111827).copy(alpha = 0.24f),
+                cursorColor = QuataOrange
+            ),
             trailingIcon = {
                 IconButton(onClick = onToggleEmojiPanel) {
                     Icon(
@@ -364,7 +384,7 @@ private fun TextPostForm(
             }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text(stringResource(R.string.composer_word_count, state.text.length), color = Color.White.copy(alpha = 0.62f))
+            Text(stringResource(R.string.composer_word_count, state.text.length), color = Color(0xFF111827).copy(alpha = 0.62f))
         }
     }
     if (isEmojiPanelOpen) {
@@ -380,19 +400,11 @@ private fun TextPostForm(
 @Composable
 private fun ImagePostForm(
     state: CreatePostUiState,
-    onChangeType: () -> Unit,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
-    onRequestLocation: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader(
-        stringResource(R.string.composer_image_post_title),
-        stringResource(R.string.composer_image_post_subtitle),
-        stringResource(R.string.composer_step_image),
-        onChangeType
-    )
-    ComposerPanel(stringResource(R.string.composer_image)) {
+    ComposerPanel(stringResource(R.string.composer_image), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
             ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, Modifier.weight(1f))
@@ -403,12 +415,9 @@ private fun ImagePostForm(
             Spacer(Modifier.width(8.dp))
             Text(
                 text = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                color = Color.White.copy(alpha = 0.68f),
+                color = Color(0xFF111827).copy(alpha = 0.72f),
                 modifier = Modifier.weight(1f)
             )
-            OutlinedButton(onClick = onRequestLocation) {
-                Text(stringResource(R.string.common_update))
-            }
         }
     }
     PreviewPanel(stringResource(R.string.composer_preview)) {
@@ -443,24 +452,17 @@ private fun ImagePostForm(
 private fun VideoPostForm(
     state: CreatePostUiState,
     onDescriptionChange: (String) -> Unit,
-    onChangeType: () -> Unit,
     onPickVideo: () -> Unit,
     onRecordVideo: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    StepHeader(
-        stringResource(R.string.composer_video_post_title),
-        stringResource(R.string.composer_video_post_subtitle),
-        stringResource(R.string.composer_step_video),
-        onChangeType
-    )
-    ComposerPanel(stringResource(R.string.composer_video)) {
+    ComposerPanel(stringResource(R.string.composer_video), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
             ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        Text(state.videoUri ?: stringResource(R.string.composer_no_file), color = Color.White.copy(alpha = 0.68f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(state.videoUri ?: stringResource(R.string.composer_no_file), color = Color(0xFF111827).copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     ComposerPanel(stringResource(R.string.composer_description)) {
         OutlinedTextField(
@@ -482,45 +484,24 @@ private fun VideoPostForm(
 }
 
 @Composable
-private fun StepHeader(title: String, subtitle: String, step: String, onChangeType: () -> Unit) {
-    Surface(color = Color.White.copy(alpha = 0.94f), contentColor = Color(0xFF111827), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Surface(color = Color(0xFF111827), contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
-                    Text(stringResource(R.string.composer_chosen), fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
-                }
-                Spacer(Modifier.weight(1f))
-                Text(step, color = Color(0xFF4A5568), fontWeight = FontWeight.ExtraBold)
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(8.dp))
-            Text(subtitle, color = Color(0xFF42526A), lineHeight = 24.sp)
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onChangeType,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5E7EB), contentColor = Color(0xFF111827)),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(stringResource(R.string.composer_change_type), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-    Spacer(Modifier.height(18.dp))
-}
-
-@Composable
-private fun ComposerPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun ComposerPanel(
+    title: String,
+    highlighted: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val panelColor = if (highlighted) Color.White.copy(alpha = 0.94f) else QuataSurface.copy(alpha = 0.45f)
+    val contentColor = if (highlighted) Color(0xFF111827) else Color.White
+    val borderColor = if (highlighted) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f)
     Surface(
-        color = QuataSurface.copy(alpha = 0.45f),
-        contentColor = Color.White,
+        color = panelColor,
+        contentColor = contentColor,
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
     ) {
         Column(Modifier.padding(20.dp)) {
-            Text(title.uppercase(), color = Color.White.copy(alpha = 0.75f), fontWeight = FontWeight.ExtraBold)
+            Text(title.uppercase(), color = contentColor.copy(alpha = 0.75f), fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(18.dp))
             content()
         }
@@ -530,7 +511,7 @@ private fun ComposerPanel(title: String, content: @Composable ColumnScope.() -> 
 
 @Composable
 private fun PreviewPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
-    ComposerPanel(title, content)
+    ComposerPanel(title = title, content = content)
 }
 
 @Composable
@@ -691,6 +672,28 @@ private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
 private fun Location.toLocationLabel(): String = "%.5f, %.5f".format(latitude, longitude)
+
+private suspend fun Context.resolvePlaceName(location: Location): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        val geocoder = Geocoder(this@resolvePlaceName, Locale.getDefault())
+        @Suppress("DEPRECATION")
+        val address = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+            .orEmpty()
+            .firstOrNull()
+            ?: return@runCatching null
+
+        listOf(
+            address.subLocality,
+            address.premises,
+            address.featureName,
+            address.locality,
+            address.subAdminArea,
+            address.adminArea
+        ).firstOrNull { candidate ->
+            !candidate.isNullOrBlank() && !candidate.matches(Regex("""[-\d.,\s]+"""))
+        }?.trim()
+    }.getOrNull()
+}
 
 private fun Context.createMediaUri(prefix: String, mimeType: String, collection: Uri): Uri? {
     val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))

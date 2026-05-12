@@ -658,9 +658,18 @@ private fun ProfileCommentsDialog(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(comments, key = { it.id }) { comment ->
-                        Column {
-                            Text(comment.authorName, fontWeight = FontWeight.Bold)
-                            Text(comment.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.055f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(comment.authorName, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Text(comment.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -671,7 +680,9 @@ private fun ProfileCommentsDialog(
                         onValueChange = { draft = it },
                         placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 58.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(

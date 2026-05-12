@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MoreVert
@@ -54,6 +55,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
@@ -64,9 +66,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.ui.components.AvatarLetter
-import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
-import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 
@@ -108,17 +108,25 @@ fun ChatScreen(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                QuataTextField(
+                OutlinedTextField(
                     value = state.messageText,
                     onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
-                    label = stringResource(R.string.conversation_message),
-                    modifier = Modifier.weight(1f)
+                    label = { Text(stringResource(R.string.conversation_message)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 58.dp),
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(
+                            enabled = state.messageText.isNotBlank(),
+                            onClick = { viewModel.onEvent(ChatUiEvent.Send) }
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
+                        }
+                    },
+                    shape = RoundedCornerShape(18.dp)
                 )
             }
-            QuataPrimaryButton(
-                text = stringResource(R.string.common_send),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-            ) { viewModel.onEvent(ChatUiEvent.Send) }
         }
     }
 
@@ -354,23 +362,42 @@ private fun Conversation?.memberNamesForDisplay(currentUser: User?, context: and
 
 @Composable
 private fun ChatAvatar(conversation: Conversation?) {
-    if (conversation?.isGroup == true || conversation?.isEmergency == true) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(if (conversation?.isEmergency == true) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
-                .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            if (conversation?.isEmergency == true) {
-                Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold)
-            } else {
-                Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+    Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        if (conversation?.isGroup == true || conversation?.isEmergency == true) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(if (conversation?.isEmergency == true) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
+                    .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (conversation?.isEmergency == true) {
+                    Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                } else {
+                    Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                }
             }
+        } else {
+            AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
         }
-    } else {
-        AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
+        if (conversation?.isMuted == true) {
+            MutedConversationBadge(Modifier.align(Alignment.TopEnd))
+        }
+    }
+}
+
+@Composable
+private fun MutedConversationBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF111827))
+            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("\uD83D\uDEAB", fontSize = 13.sp)
     }
 }
 

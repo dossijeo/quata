@@ -7,11 +7,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -72,7 +71,7 @@ fun QuataSplashScreen(
         onFinished()
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
@@ -136,7 +135,7 @@ fun QuataSplashScreen(
 
         QuataSplashLogo(
             modifier = Modifier
-                .offset(y = 56.dp)
+                .align(Alignment.Center)
                 .graphicsLayer {
                     alpha = logoAlpha
                     scaleX = logoBreath

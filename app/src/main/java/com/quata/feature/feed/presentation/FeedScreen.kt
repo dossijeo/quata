@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -919,6 +920,7 @@ private fun CommentsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.92f)
                 .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -942,7 +944,8 @@ private fun CommentsSheet(
                 state = commentsListState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isEmojiPickerVisible) 250.dp else 328.dp),
+                    .weight(1f)
+                    .heightIn(min = 180.dp),
                 contentPadding = PaddingValues(bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
@@ -1013,7 +1016,9 @@ private fun CommentsSheet(
                             )
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 58.dp),
                     singleLine = true
                 )
             }
@@ -1085,62 +1090,72 @@ private fun CommentRow(
     comment: PostComment,
     onReply: () -> Unit
 ) {
-    Row(
+    Surface(
+        color = Color.White.copy(alpha = 0.055f),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min)
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
     ) {
-        if (comment.replyToAuthorName != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(2.dp)
-                    .background(Color(0xFF83DCFF))
-            )
-            Spacer(Modifier.width(14.dp))
-        }
-        Column(Modifier.weight(1f)) {
-        Row(verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = comment.authorName,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
-                    color = Color.White.copy(alpha = 0.92f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(14.dp)
+        ) {
+            if (comment.replyToAuthorName != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(2.dp)
+                        .background(Color(0xFF83DCFF))
                 )
-                comment.replyToAuthorName?.let { author ->
-                    Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.width(14.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = comment.authorName,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = Color.White.copy(alpha = 0.92f)
+                        )
+                        comment.replyToAuthorName?.let { author ->
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.comments_reply_to, author),
+                                color = Color(0xFF83DCFF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = comment.message,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 16.sp,
+                            lineHeight = 21.sp
+                        )
+                    }
                     Text(
-                        text = stringResource(R.string.comments_reply_to, author),
+                        text = comment.timestamp,
+                        color = Color.White.copy(alpha = 0.58f),
+                        fontSize = 13.sp
+                    )
+                }
+                TextButton(
+                    onClick = onReply,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(
+                        text = stringResource(R.string.comments_reply_button),
                         color = Color(0xFF83DCFF),
-                        fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = comment.message,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 16.sp,
-                    lineHeight = 21.sp
-                )
             }
-            Text(
-                text = comment.timestamp,
-                color = Color.White.copy(alpha = 0.58f),
-                fontSize = 13.sp
-            )
-        }
-        TextButton(
-            onClick = onReply,
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text(
-                text = stringResource(R.string.comments_reply_button),
-                color = Color(0xFF83DCFF),
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
         }
     }
 }

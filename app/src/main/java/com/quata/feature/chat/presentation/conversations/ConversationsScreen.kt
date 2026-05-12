@@ -103,22 +103,37 @@ private fun ConversationCard(
 
 @Composable
 private fun ConversationAvatar(item: Conversation) {
-    if (item.isGroup || item.isEmergency) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(if (item.isEmergency) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
-                .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            if (item.isEmergency) {
-                Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-            } else {
-                Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+    Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        if (item.isGroup || item.isEmergency) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(if (item.isEmergency) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
+                    .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.isEmergency) {
+                    Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                } else {
+                    Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                }
+            }
+        } else {
+            AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
+        }
+        if (item.isMuted) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF111827))
+                    .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("\uD83D\uDEAB", fontSize = 13.sp)
             }
         }
-    } else {
-        AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
     }
 }

@@ -100,6 +100,7 @@ fun AppNavGraph(container: AppContainer) {
         AppDestinations.Conversations.route,
         AppDestinations.Profile.route
     )
+    var createPostResetToken by rememberSaveable { mutableStateOf(0) }
 
     Box(
         Modifier
@@ -115,7 +116,9 @@ fun AppNavGraph(container: AppContainer) {
             bottomBar = {
                 if (currentRoute in bottomRoutes) {
                     QuataBottomBar(currentRoute = currentRoute) { route ->
-                        if (route == AppDestinations.Feed.route) {
+                        if (route == AppDestinations.CreatePost.route && currentRoute == AppDestinations.CreatePost.route) {
+                            createPostResetToken += 1
+                        } else if (route == AppDestinations.Feed.route) {
                             val poppedToFeed = navController.popBackStack(AppDestinations.Feed.route, inclusive = false)
                             if (!poppedToFeed) {
                                 navController.navigate(AppDestinations.Feed.route) {
@@ -179,6 +182,7 @@ fun AppNavGraph(container: AppContainer) {
                     CreatePostScreen(
                         padding = padding,
                         repository = container.postComposerRepository,
+                        resetToken = createPostResetToken,
                         onPostCreated = {
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }
@@ -212,7 +216,8 @@ fun AppNavGraph(container: AppContainer) {
                 composable(AppDestinations.Notifications.route) {
                     NotificationsScreen(
                         padding = padding,
-                        repository = container.notificationsRepository
+                        repository = container.notificationsRepository,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 

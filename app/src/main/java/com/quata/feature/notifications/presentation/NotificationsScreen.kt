@@ -3,10 +3,16 @@ package com.quata.feature.notifications.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,13 +34,22 @@ import com.quata.feature.notifications.domain.NotificationsRepository
 fun NotificationsScreen(
     padding: PaddingValues,
     repository: NotificationsRepository,
+    onBack: () -> Unit,
     viewModel: NotificationsViewModel = viewModel(factory = NotificationsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
 
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
-            Text(stringResource(R.string.notifications_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                }
+                Text(stringResource(R.string.notifications_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            }
             Text(stringResource(R.string.notifications_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
