@@ -59,7 +59,7 @@ class NeighborhoodRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
 
         if (AppConfig.USE_MOCK_BACKEND) {
-            return@runCatching MockData.findOrCreateNeighborhoodConversation(cleanNeighborhood, session.displayName)
+            return@runCatching MockData.findOrCreateNeighborhoodConversation(cleanNeighborhood, session.userId, session.displayName)
         }
 
         chatRemote.getConversations()
@@ -93,7 +93,7 @@ class NeighborhoodRepositoryImpl(
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            return@runCatching MockData.findOrCreatePrivateConversation(userId, session.displayName)
+            return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
         val target = profileRemote.getDirectoryProfiles().firstOrNull { it.id == userId }
             ?: error("Usuario no encontrado")

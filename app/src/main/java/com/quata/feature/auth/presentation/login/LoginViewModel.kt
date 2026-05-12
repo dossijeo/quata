@@ -21,7 +21,8 @@ class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun onEvent(event: LoginUiEvent) {
         when (event) {
-            is LoginUiEvent.EmailChanged -> _uiState.value = _uiState.value.copy(email = event.value, error = null)
+            is LoginUiEvent.CountryCodeChanged -> _uiState.value = _uiState.value.copy(countryCode = event.value, error = null)
+            is LoginUiEvent.PhoneChanged -> _uiState.value = _uiState.value.copy(phone = event.value, error = null)
             is LoginUiEvent.PasswordChanged -> _uiState.value = _uiState.value.copy(password = event.value, error = null)
             LoginUiEvent.Submit -> login()
             is LoginUiEvent.GoogleSubmit -> loginGoogle(event.context)
@@ -31,7 +32,7 @@ class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
     private fun login() = viewModelScope.launch {
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null)
-        repository.login(state.email, state.password)
+        repository.login(state.countryCode, state.phone, state.password)
             .onSuccess { _effects.emit(LoginEffect.Success) }
             .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "Error al iniciar sesión") }
         _uiState.value = _uiState.value.copy(isLoading = false)

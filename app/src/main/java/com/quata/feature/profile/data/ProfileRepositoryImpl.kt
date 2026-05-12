@@ -7,13 +7,11 @@ import com.quata.core.data.MockData
 import com.quata.core.network.supabase.SupabaseProfileDto
 import com.quata.core.network.supabase.SupabaseProfileUpdateRequest
 import com.quata.core.session.SessionManager
-import com.quata.feature.profile.domain.CountryPrefix
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
-import com.quata.feature.profile.domain.SecretQuestionOption
 import com.quata.feature.profile.domain.UserProfile
 
 class ProfileRepositoryImpl(
@@ -21,13 +19,11 @@ class ProfileRepositoryImpl(
     private val sessionManager: SessionManager,
     private val context: Context
 ) : ProfileRepository {
-    private var mockProfile: UserProfile? = null
-
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
-        val config = buildProfileConfig(context)
+        val config = buildProfileConfig()
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching ProfileEditModel(
-                profile = mockProfile ?: buildMockProfile(),
+                profile = buildMockProfile(),
                 config = config
             )
         }
@@ -50,32 +46,40 @@ class ProfileRepositoryImpl(
             return@runCatching
         }
 
-        mockProfile = UserProfile(
+        val session = sessionManager.currentSession()
+        val profileId = session?.userId ?: MockData.currentUser.id
+        MockData.updateProfile(
+            profileId = profileId,
             displayName = update.displayName,
             neighborhood = update.neighborhood,
             countryCode = update.countryCode,
             phone = update.phone,
-            avatarUri = update.avatarUri,
-            selectedSecretQuestion = update.secretQuestion,
+            avatarUrl = update.avatarUri,
+            secretQuestion = update.secretQuestion,
+            secretAnswer = update.secretAnswer,
             emergencyContactIds = update.emergencyContactIds,
             emergencyMessage = update.emergencyMessage,
             emergencyMessageIsDefault = update.emergencyMessageIsDefault
         )
+        session?.let { sessionManager.setSession(it.copy(displayName = update.displayName)) }
     }
 
     private fun buildMockProfile(): UserProfile {
         val session = sessionManager.currentSession()
-        val displayName = session?.displayName ?: MockData.currentUser.displayName
+        val source = MockData.profileById(session?.userId ?: MockData.currentUser.id)
+            ?: MockData.profileById(MockData.currentUser.id)
+            ?: MockData.mockAuthProfiles.first()
+        val displayName = source.displayName
         return UserProfile(
             displayName = displayName,
-            neighborhood = "La Chana",
-            countryCode = "240",
-            phone = "680242606",
-            avatarUri = null,
-            selectedSecretQuestion = "",
-            emergencyContactIds = emptyList(),
-            emergencyMessage = defaultEmergencyMessage(displayName),
-            emergencyMessageIsDefault = true
+            neighborhood = source.neighborhood,
+            countryCode = source.countryCode,
+            phone = source.phone,
+            avatarUri = source.avatarUrl,
+            selectedSecretQuestion = source.secretQuestion,
+            emergencyContactIds = source.emergencyContactIds,
+            emergencyMessage = source.emergencyMessage ?: defaultEmergencyMessage(displayName),
+            emergencyMessageIsDefault = source.emergencyMessageIsDefault
         )
     }
 
@@ -123,32 +127,23 @@ class ProfileRepositoryImpl(
             R.string.sos_default_message,
             displayName.ifBlank { context.getString(R.string.user_fallback_name) }
         )
-}
 
-private fun buildProfileConfig(context: Context): ProfileEditConfig =
-    ProfileEditConfig(
-        countryPrefixes = context.countryPrefixes(),
-        secretQuestions = listOf(
-            SecretQuestionOption("", context.getString(R.string.secret_question_keep_current)),
-            SecretQuestionOption("madre", context.getString(R.string.secret_question_mother)),
-            SecretQuestionOption("barrio", context.getString(R.string.secret_question_neighborhood)),
-            SecretQuestionOption("amigo", context.getString(R.string.secret_question_friend)),
-            SecretQuestionOption("comida", context.getString(R.string.secret_question_food))
-        ),
-        emergencyCandidates = listOf(
-            EmergencyContactCandidate("u_ji", "JI", "ji@quata.app", "La ferme"),
-            EmergencyContactCandidate("u_marcelino", "Marcelino", "marcelino@quata.app", "Molyko"),
-            EmergencyContactCandidate("u_obiang", "Obiang", "obiang@quata.app", "Mindoube"),
-            EmergencyContactCandidate("u_maribel", "maribelamdemeekandoh", "maribel@quata.app", "Iyubu"),
-            EmergencyContactCandidate("u_ana", "Ana", "ana@quata.app", "Sampaka"),
-            EmergencyContactCandidate("u_leo", "Leo", "leo@quata.app", "Bikuy"),
-            EmergencyContactCandidate("u_sara", "Sara", "sara@quata.app", "Malabo")
+    private fun buildProfileConfig(): ProfileEditConfig {
+        val currentId = sessionManager.currentSession()?.userId ?: MockData.currentUser.id
+        return ProfileEditConfig(
+            countryPrefixes = context.countryPrefixOptions(),
+            secretQuestions = context.profileSecretQuestionOptions(),
+            emergencyCandidates = MockData.mockAuthProfiles
+                .filterNot { it.id == currentId }
+                .map {
+                    EmergencyContactCandidate(
+                        id = it.id,
+                        displayName = it.displayName,
+                        email = it.email,
+                        neighborhood = it.neighborhood,
+                        phone = it.phone
+                    )
+                }
         )
-    )
-
-private fun Context.countryPrefixes(): List<CountryPrefix> {
-    val codes = resources.getStringArray(R.array.country_prefix_codes)
-    val labels = resources.getStringArray(R.array.country_prefix_labels)
-    require(codes.size == labels.size) { "Country prefix resources must have the same size" }
-    return codes.zip(labels) { code, label -> CountryPrefix(code, label) }
+    }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.RegisterAccountRequest
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,9 +22,13 @@ class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun onEvent(event: RegisterUiEvent) {
         when (event) {
-            is RegisterUiEvent.DisplayNameChanged -> _uiState.value = _uiState.value.copy(displayName = event.value, error = null)
-            is RegisterUiEvent.EmailChanged -> _uiState.value = _uiState.value.copy(email = event.value, error = null)
-            is RegisterUiEvent.PasswordChanged -> _uiState.value = _uiState.value.copy(password = event.value, error = null)
+            is RegisterUiEvent.DisplayNameChanged -> update { copy(displayName = event.value, error = null) }
+            is RegisterUiEvent.NeighborhoodChanged -> update { copy(neighborhood = event.value, error = null) }
+            is RegisterUiEvent.CountryCodeChanged -> update { copy(countryCode = event.value, error = null) }
+            is RegisterUiEvent.PhoneChanged -> update { copy(phone = event.value, error = null) }
+            is RegisterUiEvent.PasswordChanged -> update { copy(password = event.value, error = null) }
+            is RegisterUiEvent.SecretQuestionChanged -> update { copy(secretQuestion = event.value, error = null) }
+            is RegisterUiEvent.SecretAnswerChanged -> update { copy(secretAnswer = event.value, error = null) }
             RegisterUiEvent.Submit -> register()
         }
     }
@@ -31,10 +36,24 @@ class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
     private fun register() = viewModelScope.launch {
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null)
-        repository.register(state.email, state.password, state.displayName)
+        repository.register(
+            RegisterAccountRequest(
+                displayName = state.displayName,
+                neighborhood = state.neighborhood,
+                countryCode = state.countryCode,
+                phone = state.phone,
+                password = state.password,
+                secretQuestion = state.secretQuestion,
+                secretAnswer = state.secretAnswer
+            )
+        )
             .onSuccess { _effects.emit(RegisterEffect.Success) }
             .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "Error al registrar") }
         _uiState.value = _uiState.value.copy(isLoading = false)
+    }
+
+    private fun update(transform: RegisterUiState.() -> RegisterUiState) {
+        _uiState.value = _uiState.value.transform()
     }
 
     companion object {
@@ -45,4 +64,6 @@ class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 }
 
-sealed class RegisterEffect { data object Success : RegisterEffect() }
+sealed class RegisterEffect {
+    data object Success : RegisterEffect()
+}

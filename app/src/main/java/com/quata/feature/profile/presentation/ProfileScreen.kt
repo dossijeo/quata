@@ -33,7 +33,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
@@ -67,7 +66,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,8 +81,8 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.session.SessionManager
 import com.quata.core.ui.components.AvatarLetter
+import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataScreen
-import com.quata.feature.profile.domain.CountryPrefix
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 
@@ -235,12 +233,13 @@ fun ProfileScreen(
                 onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
                 label = stringResource(R.string.profile_neighborhood)
             )
-            PhoneSection(
+            PhoneInputSection(
                 prefixes = state.countryPrefixes,
                 selectedPrefix = profile.countryCode,
                 onPrefixChange = { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) },
                 phone = profile.phone,
-                onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) }
+                onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
+                phoneLabel = stringResource(R.string.profile_phone)
             )
             ProfileTextField(
                 value = state.newPassword,
@@ -343,108 +342,6 @@ private fun ProfileTextField(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp)
     )
-}
-
-@Composable
-private fun PhoneSection(
-    prefixes: List<CountryPrefix>,
-    selectedPrefix: String,
-    onPrefixChange: (String) -> Unit,
-    phone: String,
-    onPhoneChange: (String) -> Unit
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-        PrefixDropdownField(
-            value = selectedPrefix,
-            options = prefixes,
-            onSelected = { onPrefixChange(it.code) },
-            displayText = "+$selectedPrefix",
-            modifier = Modifier.weight(0.38f)
-        )
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhoneChange,
-            placeholder = { Text(stringResource(R.string.profile_phone)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            singleLine = true,
-            modifier = Modifier.weight(0.62f),
-            shape = RoundedCornerShape(18.dp)
-        )
-    }
-}
-
-@Composable
-private fun PrefixDropdownField(
-    value: String,
-    options: List<CountryPrefix>,
-    onSelected: (CountryPrefix) -> Unit,
-    displayText: String,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
-    val filteredOptions = remember(options, query) {
-        if (query.isBlank()) {
-            options
-        } else {
-            options.filter { option ->
-                option.code.contains(query, ignoreCase = true) ||
-                    option.label.contains(query, ignoreCase = true)
-            }
-        }
-    }
-
-    Box(modifier) {
-        Surface(
-            color = Color.Transparent,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
-                .clickable { expanded = true }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = displayText.ifBlank { value },
-                    color = Color.White,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 380.dp)
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text(stringResource(R.string.profile_search_prefix)) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                shape = RoundedCornerShape(14.dp)
-            )
-            filteredOptions.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.label) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                        query = ""
-                    }
-                )
-            }
-        }
-    }
 }
 
 @Composable

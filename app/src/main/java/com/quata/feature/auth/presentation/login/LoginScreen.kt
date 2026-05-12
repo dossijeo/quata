@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,23 +24,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
+import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.QuataSecondaryButton
 import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.profile.data.countryPrefixOptions
 
 @Composable
 fun LoginScreen(
     padding: PaddingValues,
     authRepository: AuthRepository,
     onGoToRegister: () -> Unit,
+    onForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit,
     viewModel: LoginViewModel = viewModel(factory = LoginViewModel.factory(authRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val prefixes = remember(context) { context.countryPrefixOptions() }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -57,10 +62,13 @@ fun LoginScreen(
         ) {
             QuataLogo(subtitle = stringResource(R.string.auth_tagline))
             Spacer(Modifier.height(36.dp))
-            QuataTextField(
-                value = state.email,
-                onValueChange = { viewModel.onEvent(LoginUiEvent.EmailChanged(it)) },
-                label = stringResource(R.string.auth_email),
+            PhoneInputSection(
+                prefixes = prefixes,
+                selectedPrefix = state.countryCode,
+                onPrefixChange = { viewModel.onEvent(LoginUiEvent.CountryCodeChanged(it)) },
+                phone = state.phone,
+                onPhoneChange = { viewModel.onEvent(LoginUiEvent.PhoneChanged(it)) },
+                phoneLabel = stringResource(R.string.auth_phone),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
@@ -82,9 +90,9 @@ fun LoginScreen(
             ) { viewModel.onEvent(LoginUiEvent.Submit) }
             Spacer(Modifier.height(10.dp))
             QuataSecondaryButton(
-                text = stringResource(R.string.auth_continue_google),
+                text = stringResource(R.string.auth_forgot_password),
                 enabled = !state.isLoading
-            ) { viewModel.onEvent(LoginUiEvent.GoogleSubmit(context)) }
+            ) { onForgotPassword() }
             Spacer(Modifier.height(16.dp))
             QuataSecondaryButton(text = stringResource(R.string.auth_create_account), onClick = onGoToRegister)
             if (state.isLoading) {

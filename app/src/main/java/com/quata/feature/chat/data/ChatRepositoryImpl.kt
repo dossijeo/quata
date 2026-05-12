@@ -34,8 +34,10 @@ class ChatRepositoryImpl(
     }
 
     override fun currentUser(): User? {
-        if (AppConfig.USE_MOCK_BACKEND) return MockData.currentUser
         val session = sessionManager.currentSession() ?: return null
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return MockData.profileById(session.userId)?.toUser() ?: MockData.currentUser
+        }
         return User(
             id = session.userId,
             email = "",
@@ -101,8 +103,8 @@ class ChatRepositoryImpl(
         if (text.isBlank()) return@runCatching
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.addMessage(conversationId, text, session.displayName)
-            scheduleMockReply(conversationId)
+            MockData.addMessage(conversationId, text, session.userId, session.displayName)
+            scheduleMockReply(conversationId, session.userId, session.displayName)
             return@runCatching
         }
         remote.sendMessage(session.userId, session.displayName, conversationId, text)
@@ -113,7 +115,7 @@ class ChatRepositoryImpl(
         if (text.isBlank()) error("El mensaje SOS no puede estar vacio")
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            return@runCatching MockData.addSosConversation(contactIds, text, session.displayName)
+            return@runCatching MockData.addSosConversation(contactIds, text, session.userId, session.displayName)
         }
 
         val participantIds = (contactIds + session.userId).distinct()
@@ -144,11 +146,11 @@ class ChatRepositoryImpl(
 
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = runCatching {
         if (participantIds.isEmpty()) return@runCatching
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.addParticipants(conversationId, participantIds)
+            MockData.addParticipants(conversationId, participantIds, session.userId, session.displayName)
             return@runCatching
         }
-        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val conversation = remote.getConversations().firstOrNull { it.id == conversationId }
             ?: error("Conversacion no encontrada")
         val currentIds = conversation.participantIds.orEmpty()
@@ -174,12 +176,14 @@ class ChatRepositoryImpl(
         remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
     }
 
-    private fun scheduleMockReply(conversationId: String) {
+    private fun scheduleMockReply(conversationId: String, currentUserId: String, currentUserName: String) {
         mockReplyScope.launch {
             delay(Random.nextLong(2_000L, 7_000L))
             MockData.addIncomingMockMessage(
                 conversationId = conversationId,
                 text = MOCK_REPLIES.random(),
+                currentUserId = currentUserId,
+                currentUserName = currentUserName,
                 incrementUnread = activeConversationId.value != conversationId
             )
         }

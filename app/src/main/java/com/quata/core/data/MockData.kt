@@ -13,24 +13,140 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 object MockData {
-    val currentUser = User(
-        id = "u_current",
-        email = "gabriel@quata.app",
-        displayName = "Gabriel",
-        neighborhood = "La Chana"
+    data class MockUserProfile(
+        val id: String,
+        val email: String,
+        var displayName: String,
+        var neighborhood: String,
+        var countryCode: String,
+        var phone: String,
+        var password: String,
+        var secretQuestion: String,
+        var secretAnswer: String,
+        var avatarUrl: String? = null,
+        var emergencyContactIds: List<String> = emptyList(),
+        var emergencyMessage: String? = null,
+        var emergencyMessageIsDefault: Boolean = true
+    ) {
+        fun toUser(): User = User(
+            id = id,
+            email = email,
+            displayName = displayName,
+            neighborhood = neighborhood,
+            avatarUrl = avatarUrl
+        )
+    }
+
+    private val mockProfiles = mutableListOf(
+        MockUserProfile("u_current", "gabriel@quata.app", "Gabriel", "La Chana", "240", "680242606", "Gabriel2026!", "barrio", "La Chana"),
+        MockUserProfile("u_ana", "ana@quata.app", "Ana", "Sampaka", "240", "680100101", "Ana2026!", "madre", "Maria"),
+        MockUserProfile("u_leo", "leo@quata.app", "Leo", "Bikuy", "240", "680100102", "Leo2026!", "amigo", "Ondo"),
+        MockUserProfile("u_sara", "sara@quata.app", "Sara", "Malabo", "240", "680100103", "Sara2026!", "comida", "Sopa de pescado"),
+        MockUserProfile("u_ji", "ji@quata.app", "JI", "La ferme", "240", "680100104", "Ji2026!", "barrio", "La ferme"),
+        MockUserProfile("u_marcelino", "marcelino@quata.app", "Marcelino", "Molyko", "240", "680100105", "Marcelino2026!", "madre", "Teresa"),
+        MockUserProfile("u_obiang", "obiang@quata.app", "Obiang", "Mindoube", "240", "680100106", "Obiang2026!", "amigo", "Marcelino"),
+        MockUserProfile("u_maribel", "maribel@quata.app", "maribelamdemeekandoh", "Iyubu", "240", "680100107", "Maribel2026!", "comida", "Arroz"),
+        MockUserProfile("u_ondo", "ondo@quata.app", "Ondo", "Molyko", "240", "680100108", "Ondo2026!", "barrio", "Molyko"),
+        MockUserProfile("u_melo", "melo@quata.app", "Melo", "Sampaka", "240", "680100109", "Melo2026!", "madre", "Francisca")
     )
 
-    private val ana = User("u_ana", "ana@quata.app", "Ana", "Sampaka")
-    private val leo = User("u_leo", "leo@quata.app", "Leo", "Bikuy")
-    private val sara = User("u_sara", "sara@quata.app", "Sara", "Malabo")
-    private val ji = User("u_ji", "ji@quata.app", "JI", "La ferme")
-    private val marcelino = User("u_marcelino", "marcelino@quata.app", "Marcelino", "Molyko")
-    private val obiang = User("u_obiang", "obiang@quata.app", "Obiang", "Mindoube")
-    private val maribel = User("u_maribel", "maribel@quata.app", "maribelamdemeekandoh", "Iyubu")
-    private val ondo = User("u_ondo", "ondo@quata.app", "Ondo", "Molyko")
-    private val melo = User("u_melo", "melo@quata.app", "Melo", "Sampaka")
+    val mockAuthProfiles: List<MockUserProfile>
+        get() = mockProfiles
 
-    val registeredUsers = listOf(currentUser, ana, leo, sara, ji, marcelino, obiang, maribel, ondo, melo)
+    val currentUser: User
+        get() = profileById("u_current")?.toUser() ?: mockProfiles.first().toUser()
+
+    private val ana: User get() = userById("u_ana")
+    private val leo: User get() = userById("u_leo")
+    private val sara: User get() = userById("u_sara")
+    private val ji: User get() = userById("u_ji")
+    private val marcelino: User get() = userById("u_marcelino")
+    private val obiang: User get() = userById("u_obiang")
+    private val maribel: User get() = userById("u_maribel")
+    private val ondo: User get() = userById("u_ondo")
+    private val melo: User get() = userById("u_melo")
+
+    val registeredUsers: List<User>
+        get() = mockProfiles.map { it.toUser() }
+
+    fun profileById(id: String): MockUserProfile? = mockProfiles.firstOrNull { it.id == id }
+
+    fun profileByPhone(countryCode: String, phone: String): MockUserProfile? {
+        val cleanCode = countryCode.onlyDigits()
+        val cleanPhone = phone.onlyDigits()
+        return mockProfiles.firstOrNull {
+            it.countryCode.onlyDigits() == cleanCode && it.phone.onlyDigits() == cleanPhone
+        }
+    }
+
+    fun validatePassword(profile: MockUserProfile, password: String): Boolean =
+        profile.password == password
+
+    fun validateSecretAnswer(profile: MockUserProfile, answer: String): Boolean =
+        profile.secretAnswer.trim().equals(answer.trim(), ignoreCase = true)
+
+    fun updatePassword(profileId: String, newPassword: String) {
+        profileById(profileId)?.password = newPassword
+    }
+
+    fun updateProfile(
+        profileId: String,
+        displayName: String,
+        neighborhood: String,
+        countryCode: String,
+        phone: String,
+        avatarUrl: String?,
+        secretQuestion: String,
+        secretAnswer: String,
+        emergencyContactIds: List<String>,
+        emergencyMessage: String,
+        emergencyMessageIsDefault: Boolean
+    ) {
+        profileById(profileId)?.let { profile ->
+            profile.displayName = displayName
+            profile.neighborhood = neighborhood
+            profile.countryCode = countryCode
+            profile.phone = phone
+            profile.avatarUrl = avatarUrl
+            if (secretQuestion.isNotBlank()) profile.secretQuestion = secretQuestion
+            if (secretAnswer.isNotBlank()) profile.secretAnswer = secretAnswer
+            profile.emergencyContactIds = emergencyContactIds
+            profile.emergencyMessage = emergencyMessage
+            profile.emergencyMessageIsDefault = emergencyMessageIsDefault
+        }
+    }
+
+    fun createProfile(
+        displayName: String,
+        neighborhood: String,
+        countryCode: String,
+        phone: String,
+        password: String,
+        secretQuestion: String,
+        secretAnswer: String
+    ): MockUserProfile {
+        val id = "u_mock_${System.currentTimeMillis()}"
+        val email = "${countryCode.onlyDigits()}${phone.onlyDigits()}@phone.quata.app"
+        val profile = MockUserProfile(
+            id = id,
+            email = email,
+            displayName = displayName,
+            neighborhood = neighborhood,
+            countryCode = countryCode,
+            phone = phone,
+            password = password,
+            secretQuestion = secretQuestion,
+            secretAnswer = secretAnswer
+        )
+        mockProfiles.add(profile)
+        socialState.value = socialState.value + 1
+        return profile
+    }
+
+    private fun userById(id: String): User =
+        profileById(id)?.toUser() ?: currentUser
+
+    private fun String.onlyDigits(): String = filter(Char::isDigit)
 
     private val mutableFollowing = mutableSetOf("u_ana")
     private val followerCounts = mutableMapOf(
@@ -230,14 +346,14 @@ object MockData {
     val messagesFlow: StateFlow<List<Message>>
         get() = messagesState.asStateFlow()
 
-    fun addMessage(conversationId: String, text: String, senderName: String): Unit {
+    fun addMessage(conversationId: String, text: String, senderId: String, senderName: String): Unit {
         if (text.isBlank()) return
         val now = System.currentTimeMillis()
         mutableMessages.add(
             Message(
                 id = "m_${now}",
                 conversationId = conversationId,
-                senderId = currentUser.id,
+                senderId = senderId,
                 senderName = senderName,
                 text = text,
                 sentAt = "Ahora",
@@ -259,14 +375,20 @@ object MockData {
         }
     }
 
-    fun addIncomingMockMessage(conversationId: String, text: String, incrementUnread: Boolean = true) {
+    fun addIncomingMockMessage(
+        conversationId: String,
+        text: String,
+        currentUserId: String = currentUser.id,
+        currentUserName: String = currentUser.displayName,
+        incrementUnread: Boolean = true
+    ) {
         if (text.isBlank()) return
         val conversation = mutableConversations.firstOrNull { it.id == conversationId } ?: return
         val sender = conversation.participantIds
-            .firstOrNull { it != currentUser.id }
+            .firstOrNull { it != currentUserId }
             ?.let { id -> registeredUsers.firstOrNull { it.id == id } }
         val senderName = sender?.displayName
-            ?: conversation.participantNames.firstOrNull { !it.equals(currentUser.displayName, ignoreCase = true) }
+            ?: conversation.participantNames.firstOrNull { !it.equals(currentUserName, ignoreCase = true) }
             ?: "QÜATA"
         val senderId = sender?.id ?: "mock_contact"
         val now = System.currentTimeMillis()
@@ -301,7 +423,7 @@ object MockData {
         updateConversation(conversationId) { copy(unreadCount = 0) }
     }
 
-    fun addSosConversation(contactIds: List<String>, text: String, senderName: String): String {
+    fun addSosConversation(contactIds: List<String>, text: String, senderId: String, senderName: String): String {
         val now = System.currentTimeMillis()
         val id = "sos_$now"
         val memberNames = contactIds.mapNotNull { contactId ->
@@ -316,7 +438,7 @@ object MockData {
                 unreadCount = 0,
                 updatedAt = "Ahora",
                 updatedAtMillis = now,
-                participantIds = (contactIds + currentUser.id).distinct(),
+                participantIds = (contactIds + senderId).distinct(),
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
                 isEmergency = true
@@ -327,7 +449,7 @@ object MockData {
             Message(
                 id = "m_$id",
                 conversationId = id,
-                senderId = currentUser.id,
+                senderId = senderId,
                 senderName = senderName,
                 text = text,
                 sentAt = "Ahora",
@@ -338,7 +460,7 @@ object MockData {
         return id
     }
 
-    fun findOrCreateNeighborhoodConversation(neighborhood: String, senderName: String): String {
+    fun findOrCreateNeighborhoodConversation(neighborhood: String, senderId: String, senderName: String): String {
         val cleanNeighborhood = neighborhood.trim()
         if (cleanNeighborhood.isBlank()) error("Barrio no valido")
         mutableConversations.firstOrNull {
@@ -364,7 +486,7 @@ object MockData {
                 unreadCount = 0,
                 updatedAt = "",
                 updatedAtMillis = null,
-                participantIds = (memberIds + currentUser.id).distinct(),
+                participantIds = (memberIds + senderId).distinct(),
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
                 communityName = cleanNeighborhood
@@ -382,26 +504,26 @@ object MockData {
         updateConversation(conversationId) { copy(isVisible = false) }
     }
 
-    fun addParticipants(conversationId: String, participantIds: List<String>) {
+    fun addParticipants(conversationId: String, participantIds: List<String>, currentUserId: String, currentUserName: String) {
         if (participantIds.isEmpty()) return
         val participants = participantIds.mapNotNull { id -> registeredUsers.firstOrNull { it.id == id } }
         updateConversation(conversationId) {
             copy(
-                participantIds = (this.participantIds + participantIds + currentUser.id).distinct(),
-                participantNames = (participantNames + participants.map { it.displayName } + currentUser.displayName).distinct(),
+                participantIds = (this.participantIds + participantIds + currentUserId).distinct(),
+                participantNames = (participantNames + participants.map { it.displayName } + currentUserName).distinct(),
                 isGroup = true,
                 isVisible = true
             )
         }
     }
 
-    fun findOrCreatePrivateConversation(userId: String, senderName: String): String {
-        if (userId == currentUser.id) error("No puedes abrir un PRIVI contigo mismo")
+    fun findOrCreatePrivateConversation(userId: String, senderId: String, senderName: String): String {
+        if (userId == senderId) error("No puedes abrir un PRIVI contigo mismo")
         val user = registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
         mutableConversations.firstOrNull { conversation ->
             !conversation.isGroup &&
                 !conversation.isEmergency &&
-                setOf(currentUser.id, userId).all { it in conversation.participantIds }
+                setOf(senderId, userId).all { it in conversation.participantIds }
         }?.let { return it.id }
 
         val now = System.currentTimeMillis()
@@ -415,7 +537,7 @@ object MockData {
                 unreadCount = 0,
                 updatedAt = "",
                 updatedAtMillis = null,
-                participantIds = listOf(currentUser.id, user.id),
+                participantIds = listOf(senderId, user.id),
                 participantNames = listOf(user.displayName, senderName),
                 isGroup = false
             )

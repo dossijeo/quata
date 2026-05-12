@@ -71,6 +71,7 @@ import com.quata.core.di.AppContainer
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.auth.presentation.login.LoginScreen
+import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.presentation.chat.ChatScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
@@ -93,7 +94,8 @@ fun AppNavGraph(container: AppContainer) {
     val startDestination = if (container.sessionManager.isLoggedIn()) AppDestinations.Feed.route else AppDestinations.Login.route
     val showAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
-        currentRoute != AppDestinations.Register.route
+        currentRoute != AppDestinations.Register.route &&
+        currentRoute != AppDestinations.ForgotPassword.route
     val notificationCount by container.notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
@@ -165,6 +167,7 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         authRepository = container.authRepository,
                         onGoToRegister = { navController.navigate(AppDestinations.Register.route) },
+                        onForgotPassword = { navController.navigate(AppDestinations.ForgotPassword.route) },
                         onLoginSuccess = {
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Login.route) { inclusive = true }
@@ -183,6 +186,14 @@ fun AppNavGraph(container: AppContainer) {
                                 popUpTo(AppDestinations.Login.route) { inclusive = true }
                             }
                         }
+                    )
+                }
+
+                composable(AppDestinations.ForgotPassword.route) {
+                    ForgotPasswordScreen(
+                        padding = padding,
+                        authRepository = container.authRepository,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 
