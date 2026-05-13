@@ -46,7 +46,11 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) MockData.conversations else remote.getConversations().map { it.toDomain() }
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.conversations
+        } else {
+            remote.getConversations().map { it.toDomain() }.withLiveUnreadCounts()
+        }
     }
 
     override fun observeConversations(): Flow<List<Conversation>> {
@@ -55,7 +59,7 @@ class ChatRepositoryImpl(
         } else {
             flow {
                 while (true) {
-                    emit(remote.getConversations().map { it.toDomain() })
+                    emit(remote.getConversations().map { it.toDomain() }.withLiveUnreadCounts())
                     delay(5_000)
                 }
             }
@@ -119,6 +123,23 @@ class ChatRepositoryImpl(
         }
 
         val participantIds = (contactIds + session.userId).distinct()
+        val existingConversation = remote.getConversations()
+            .map { it.toDomain() }
+            .firstOrNull { conversation ->
+                conversation.isEmergency && conversation.hasSameParticipants(participantIds)
+            }
+        if (existingConversation != null) {
+            val lastMessage = remote.getMessages(existingConversation.id)
+                .map { it.toDomain(session.userId) }
+                .lastOrNull()
+            remote.updateConversation(existingConversation.id, SupabaseConversationUpdateRequest(isVisible = true))
+            if (lastMessage?.senderId == session.userId && lastMessage.text.isSosText()) {
+                return@runCatching existingConversation.id
+            }
+            remote.sendMessage(session.userId, session.displayName, existingConversation.id, text)
+            return@runCatching existingConversation.id
+        }
+
         val conversation = remote.createConversation(
             title = "\uD83D\uDEA8 SOS",
             participantIds = participantIds,
@@ -133,7 +154,8 @@ class ChatRepositoryImpl(
             MockData.markConversationRead(conversationId)
             return@runCatching
         }
-        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(unreadCount = 0))
+        val currentUserId = sessionManager.currentSession()?.userId ?: error("No hay sesion activa")
+        remote.markIncomingMessagesRead(conversationId, currentUserId)
     }
 
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
@@ -188,6 +210,22 @@ class ChatRepositoryImpl(
             )
         }
     }
+
+    private suspend fun List<Conversation>.withLiveUnreadCounts(): List<Conversation> {
+        val currentUserId = sessionManager.currentSession()?.userId.orEmpty()
+        return map { conversation ->
+            val unreadCount = remote.getMessages(conversation.id)
+                .map { it.toDomain(currentUserId) }
+                .count { !it.isMine && !it.isRead }
+            conversation.copy(unreadCount = unreadCount)
+        }
+    }
+
+    private fun Conversation.hasSameParticipants(participantIds: List<String>): Boolean =
+        this.participantIds.size == participantIds.size && this.participantIds.toSet() == participantIds.toSet()
+
+    private fun String.isSosText(): Boolean =
+        contains("SOS", ignoreCase = true) || contains("https://maps.google.com/?q=")
 
     private companion object {
         val MOCK_REPLIES = listOf(

@@ -17,5 +17,5 @@ data class PostComposerDraft(
 )
 
 interface PostComposerRepository {
-    suspend fun createPost(draft: PostComposerDraft): Result<Unit>
+    suspend fun createPost(draft: PostComposerDraft): Result<String?>
 }

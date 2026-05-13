@@ -121,7 +121,7 @@ fun CreatePostScreen(
     padding: PaddingValues,
     repository: PostComposerRepository,
     resetToken: Int,
-    onPostCreated: () -> Unit,
+    onPostCreated: (String?) -> Unit,
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -203,7 +203,7 @@ fun CreatePostScreen(
     LaunchedEffect(state.successMessage) {
         state.successMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            onPostCreated()
+            onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
     }

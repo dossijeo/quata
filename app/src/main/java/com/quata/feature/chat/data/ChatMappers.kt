@@ -11,7 +11,7 @@ fun SupabaseConversationDto.toDomain(): Conversation = Conversation(
     id = id,
     title = title ?: "Conversacion",
     lastMessagePreview = lastMessagePreview ?: "",
-    unreadCount = unreadCount ?: 0,
+    unreadCount = 0,
     updatedAt = updatedAt ?: "",
     updatedAtMillis = updatedAt?.toEpochMillisOrNull(),
     participantIds = participantIds.orEmpty(),
@@ -30,7 +30,8 @@ fun SupabaseMessageDto.toDomain(currentUserId: String): Message = Message(
     senderName = senderName ?: "Usuario",
     text = text,
     sentAt = createdAt ?: "",
-    isMine = senderId == currentUserId
+    isMine = senderId == currentUserId,
+    isRead = senderId == currentUserId || isRead == true
 )
 
 private fun String.toEpochMillisOrNull(): Long? =

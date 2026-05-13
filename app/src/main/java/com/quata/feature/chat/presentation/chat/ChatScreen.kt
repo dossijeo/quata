@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -71,6 +73,7 @@ import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.domain.ChatRepository
@@ -89,6 +92,10 @@ fun ChatScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val metrics = context.resources.displayMetrics
+    val messagesListState = rememberLazyListState()
+    val usersById = remember(state.participantCandidates, state.currentUser) {
+        (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
+    }
     val backgroundSeed = state.conversation?.chatDisplayTitle()?.ifBlank { conversationId }
     val backgroundImage = backgroundSeed?.let { seed ->
         rememberProceduralChatBackground(
@@ -117,7 +124,11 @@ fun ChatScreen(
                         .background(Color.Black.copy(alpha = 0.63f))
                 )
             }
-            Column(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .imePadding()
+            ) {
                 ChatHeader(
                     conversation = state.conversation,
                     currentUser = state.currentUser,
@@ -130,13 +141,20 @@ fun ChatScreen(
                     }
                 )
                 LazyColumn(
+                    state = messagesListState,
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(top = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(state.messages) { MessageBubble(it) }
+                    items(state.messages) { message ->
+                        MessageBubble(
+                            message = message,
+                            sender = usersById[message.senderId],
+                            showSenderAvatar = state.conversation?.isGroup == true && !message.isMine
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier
@@ -164,6 +182,12 @@ fun ChatScreen(
                     )
                 }
             }
+        }
+    }
+
+    LaunchedEffect(conversationId, state.messages.size) {
+        if (state.messages.isNotEmpty()) {
+            messagesListState.scrollToItem(state.messages.lastIndex)
         }
     }
 
@@ -472,16 +496,31 @@ private fun MutedConversationBadge(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MessageBubble(message: Message) {
+private fun MessageBubble(
+    message: Message,
+    sender: User?,
+    showSenderAvatar: Boolean
+) {
     val context = LocalContext.current
     val mapsUrl = message.text.extractMapsUrl()
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Top
     ) {
+        if (showSenderAvatar) {
+            AvatarImage(
+                name = sender?.displayName ?: message.senderName,
+                avatarUrl = sender?.avatarUrl,
+                modifier = Modifier
+                    .size(34.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+            )
+            Spacer(Modifier.width(8.dp))
+        }
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.78f)
+                .fillMaxWidth(if (showSenderAvatar) 0.72f else 0.78f)
                 .background(if (message.isMine) QuataOrange else QuataSurface, RoundedCornerShape(20.dp))
                 .padding(14.dp)
         ) {

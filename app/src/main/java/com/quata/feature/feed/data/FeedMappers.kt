@@ -23,9 +23,9 @@ fun WordpressPostDto.toDomain(): Post {
 fun SupabasePostDto.toDomain(): Post = Post(
     id = id,
     author = User(userId ?: "supabase", "", "Qüata user"),
-    text = text.orEmpty(),
+    text = if (imageUrl != null) "" else text.orEmpty(),
     imageUrl = imageUrl,
-    placeName = null,
+    placeName = if (imageUrl != null) text.orEmpty().ifBlank { null } else null,
     rankingLabel = "#0",
     createdAt = createdAt ?: "",
     likesCount = 0,

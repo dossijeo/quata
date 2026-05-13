@@ -9,5 +9,6 @@ data class CreatePostUiState(
     val longitude: Double? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val createdPostId: String? = null
 )

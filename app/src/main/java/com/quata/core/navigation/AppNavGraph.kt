@@ -69,6 +69,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
@@ -76,7 +77,9 @@ import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.presentation.chat.ChatScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
+import com.quata.feature.neighborhoods.presentation.CommunityProfileScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
 import com.quata.feature.notifications.presentation.NotificationsScreen
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
 import com.quata.feature.profile.domain.UserProfile
@@ -96,20 +99,22 @@ fun AppNavGraph(container: AppContainer) {
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route &&
         currentRoute != AppDestinations.ForgotPassword.route
-    val notificationCount by container.notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
+    val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
+    val notificationCount = observedNotificationCount ?: 0
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(notificationCount) {
+    LaunchedEffect(observedNotificationCount) {
+        val currentNotificationCount = observedNotificationCount ?: return@LaunchedEffect
         if (!hasObservedNotificationCount) {
-            previousNotificationCount = notificationCount
+            previousNotificationCount = currentNotificationCount
             hasObservedNotificationCount = true
             return@LaunchedEffect
         }
         val previousCount = previousNotificationCount
-        previousNotificationCount = notificationCount
-        if (notificationCount > previousCount) {
+        previousNotificationCount = currentNotificationCount
+        if (currentNotificationCount > previousCount) {
             isNotificationBounceActive = true
             appContext.playDefaultNotificationSound()
             delay(2_000L)
@@ -126,6 +131,7 @@ fun AppNavGraph(container: AppContainer) {
         AppDestinations.Profile.route
     )
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
+    var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
 
     Box(
         Modifier
@@ -200,7 +206,12 @@ fun AppNavGraph(container: AppContainer) {
                 composable(AppDestinations.Feed.route) {
                     FeedScreen(
                         padding = padding,
-                        feedRepository = container.feedRepository
+                        feedRepository = container.feedRepository,
+                        onOpenUserProfile = { userId ->
+                            navController.navigate(AppDestinations.UserProfile.createRoute(userId))
+                        },
+                        focusedPostId = feedFocusedPostId,
+                        onFocusedPostHandled = { feedFocusedPostId = null }
                     )
                 }
 
@@ -217,7 +228,8 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         repository = container.postComposerRepository,
                         resetToken = createPostResetToken,
-                        onPostCreated = {
+                        onPostCreated = { postId ->
+                            feedFocusedPostId = postId
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }
                                 launchSingleTop = true
@@ -265,8 +277,47 @@ fun AppNavGraph(container: AppContainer) {
                             navController.navigate(AppDestinations.Login.route) {
                                 popUpTo(0)
                             }
+                        },
+                        onProfileSaved = {
+                            navController.navigate(AppDestinations.Feed.route) {
+                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     )
+                }
+
+                composable(
+                    route = AppDestinations.UserProfile.route,
+                    arguments = listOf(navArgument("userId") { type = NavType.StringType })
+                ) { entry ->
+                    val userId = entry.arguments?.getString("userId").orEmpty()
+                    val userProfileViewModel: NeighborhoodsViewModel = viewModel(
+                        key = "user_profile_$userId",
+                        factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
+                    )
+                    val state by userProfileViewModel.uiState.collectAsState()
+                    LaunchedEffect(userId) {
+                        if (userId.isNotBlank()) userProfileViewModel.openUserProfile(userId)
+                    }
+                    state.selectedProfile?.let { profile ->
+                        CommunityProfileScreen(
+                            padding = padding,
+                            profile = profile,
+                            onBack = { navController.popBackStack() },
+                            onFollow = { userProfileViewModel.toggleFollowUser(profile.user.id) },
+                            onOpenPrivateChat = {
+                                userProfileViewModel.openPrivateChat(profile.user.id) { conversationId ->
+                                    navController.navigate(AppDestinations.Chat.createRoute(conversationId))
+                                }
+                            }
+                        )
+                    } ?: QuataScreen(padding) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(state.error ?: "Cargando perfil...", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

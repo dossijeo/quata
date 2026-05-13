@@ -13,4 +13,7 @@ sealed class AppDestinations(val route: String) {
     }
     data object Notifications : AppDestinations("notifications")
     data object Profile : AppDestinations("profile")
+    data object UserProfile : AppDestinations("user_profile/{userId}") {
+        fun createRoute(userId: String) = "user_profile/$userId"
+    }
 }

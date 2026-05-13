@@ -8,9 +8,11 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 
 object MockData {
     data class MockUserProfile(
@@ -113,6 +115,7 @@ object MockData {
             profile.emergencyContactIds = emergencyContactIds
             profile.emergencyMessage = emergencyMessage
             profile.emergencyMessageIsDefault = emergencyMessageIsDefault
+            socialState.value = socialState.value + 1
         }
     }
 
@@ -143,7 +146,7 @@ object MockData {
         return profile
     }
 
-    private fun userById(id: String): User =
+    fun userById(id: String): User =
         profileById(id)?.toUser() ?: currentUser
 
     private fun String.onlyDigits(): String = filter(Char::isDigit)
@@ -199,7 +202,7 @@ object MockData {
         Post(
             id = "p1",
             author = ana,
-            text = "La tarde cae sobre Malabo y todo parece moverse mas lento.",
+            text = "",
             imageUrl = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
             placeName = "Sampaka- MALABO",
             rankingLabel = "#6",
@@ -241,15 +244,22 @@ object MockData {
             )
         )
     )
+    private val postsVersionState = MutableStateFlow(0)
 
     val posts: List<Post>
-        get() = mutablePosts
+        get() = mutablePosts.map { post ->
+            post.copy(author = userById(post.author.id))
+        }
 
-    fun addPost(draft: PostComposerDraft) {
+    val postsFlow: Flow<List<Post>>
+        get() = combine(postsVersionState, socialState) { _, _ -> posts }
+
+    fun addPost(draft: PostComposerDraft, authorId: String): String {
+        val postId = "local_post_${System.currentTimeMillis()}"
         val post = Post(
-            id = "local_post_${System.currentTimeMillis()}",
-            author = currentUser,
-            text = draft.text,
+            id = postId,
+            author = userById(authorId),
+            text = if (draft.type == PostComposerType.Image) "" else draft.text,
             imageUrl = draft.imageUri.takeIf { draft.type == PostComposerType.Image },
             videoUrl = draft.videoUri.takeIf { draft.type == PostComposerType.Video },
             placeName = draft.locationLabel.takeIf { draft.type == PostComposerType.Image },
@@ -259,19 +269,25 @@ object MockData {
             comments = emptyList()
         )
         mutablePosts.add(0, post)
+        postsVersionState.value = postsVersionState.value + 1
+        return postId
     }
 
     private val mockNow: Long
         get() = System.currentTimeMillis()
 
     private val mutableMessages = mutableListOf(
-        Message("m1", "c1", "u_ana", "Ana", "Ya tienes la base Android montada?", "12:37", false),
-        Message("m2", "c1", "u_current", "Gabriel", "Si, estoy fusionando arquitectura y helpers reales.", "12:38", true),
-        Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false),
-        Message("m4", "c2", "u_ana", "Ana", "La V3 ya tiene estructura fusionada", "11:15", false),
-        Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", false),
-        Message("m6", "barrio_molyko", "u_marcelino", "Marcelino", "Los chicos de Molyko ya estan por aqui.", "11:34", false),
-        Message("m7", "barrio_sampaka", "u_ana", "Ana", "Sampaka se mueve hoy.", "10:12", false)
+        Message("m1", "c1", "u_ana", "Ana", "Ya tienes la base Android montada?", "12:37", false, false),
+        Message("m2", "c1", "u_current", "Gabriel", "Si, estoy fusionando arquitectura y helpers reales.", "12:38", true, true),
+        Message("m3", "c1", "u_ana", "Ana", "Perfecto. Luego conectamos Supabase.", "12:40", false, false),
+        Message("m4", "c2", "u_ana", "Ana", "La V3 ya tiene estructura fusionada", "11:15", false, false),
+        Message("m4b", "c2", "u_leo", "Leo", "Tenemos que cerrar los detalles de perfiles.", "11:18", false, false),
+        Message("m4c", "c2", "u_sara", "Sara", "Yo reviso las notificaciones.", "11:22", false, false),
+        Message("m4d", "c2", "u_ana", "Ana", "Genial, lo dejamos listo hoy.", "11:27", false, false),
+        Message("m4e", "c2", "u_leo", "Leo", "Avisad cuando este para probar.", "11:31", false, false),
+        Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", false, true),
+        Message("m6", "barrio_molyko", "u_marcelino", "Marcelino", "Los chicos de Molyko ya estan por aqui.", "11:34", false, true),
+        Message("m7", "barrio_sampaka", "u_ana", "Ana", "Sampaka se mueve hoy.", "10:12", false, false)
     )
     private val messagesState = MutableStateFlow(mutableMessages.toList())
 
@@ -280,7 +296,7 @@ object MockData {
             "c1",
             "Ana",
             lastMessagePreview = "Perfecto. Luego conectamos Supabase.",
-            unreadCount = 2,
+            unreadCount = 0,
             updatedAt = "12:40",
             updatedAtMillis = mockNow - 6L * 60L * 1000L,
             participantIds = listOf("u_ana", currentUser.id),
@@ -290,7 +306,7 @@ object MockData {
             "c2",
             "Equipo Quata",
             lastMessagePreview = "La V3 ya tiene estructura fusionada",
-            unreadCount = 5,
+            unreadCount = 0,
             updatedAt = "11:15",
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
             participantIds = listOf("u_ana", "u_leo", "u_sara", currentUser.id),
@@ -323,7 +339,7 @@ object MockData {
             "barrio_sampaka",
             "Sampaka",
             lastMessagePreview = "Sampaka se mueve hoy.",
-            unreadCount = 1,
+            unreadCount = 0,
             updatedAt = "10:12",
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
             participantIds = listOf("u_ana", "u_melo", currentUser.id),
@@ -335,16 +351,27 @@ object MockData {
     private val conversationsState = MutableStateFlow(mutableConversations.toList())
 
     val conversations: List<Conversation>
-        get() = mutableConversations
+        get() = mutableConversations.withLiveUnreadCounts()
 
-    val conversationsFlow: StateFlow<List<Conversation>>
-        get() = conversationsState.asStateFlow()
+    val conversationsFlow: Flow<List<Conversation>>
+        get() = combine(conversationsState, messagesState) { conversations, _ ->
+            conversations.withLiveUnreadCounts()
+        }
 
     val messages: List<Message>
         get() = mutableMessages
 
     val messagesFlow: StateFlow<List<Message>>
         get() = messagesState.asStateFlow()
+
+    private fun List<Conversation>.withLiveUnreadCounts(): List<Conversation> =
+        map { conversation ->
+            conversation.copy(
+                unreadCount = mutableMessages.count { message ->
+                    message.conversationId == conversation.id && !message.isMine && !message.isRead
+                }
+            )
+        }
 
     fun addMessage(conversationId: String, text: String, senderId: String, senderName: String): Unit {
         if (text.isBlank()) return
@@ -357,7 +384,8 @@ object MockData {
                 senderName = senderName,
                 text = text,
                 sentAt = "Ahora",
-                isMine = true
+                isMine = true,
+                isRead = true
             )
         )
         messagesState.value = mutableMessages.toList()
@@ -400,7 +428,8 @@ object MockData {
                 senderName = senderName,
                 text = text,
                 sentAt = "Ahora",
-                isMine = false
+                isMine = false,
+                isRead = !incrementUnread
             )
         )
         messagesState.value = mutableMessages.toList()
@@ -408,7 +437,6 @@ object MockData {
         if (index >= 0) {
             val updated = mutableConversations[index].copy(
                 lastMessagePreview = text,
-                unreadCount = if (incrementUnread) mutableConversations[index].unreadCount + 1 else 0,
                 updatedAt = "Ahora",
                 updatedAtMillis = now,
                 isVisible = true
@@ -420,11 +448,32 @@ object MockData {
     }
 
     fun markConversationRead(conversationId: String) {
-        updateConversation(conversationId) { copy(unreadCount = 0) }
+        mutableMessages.replaceAll { message ->
+            if (message.conversationId == conversationId && !message.isMine) {
+                message.copy(isRead = true)
+            } else {
+                message
+            }
+        }
+        messagesState.value = mutableMessages.toList()
     }
 
     fun addSosConversation(contactIds: List<String>, text: String, senderId: String, senderName: String): String {
         val now = System.currentTimeMillis()
+        val participantIds = (contactIds + senderId).distinct()
+        mutableConversations.firstOrNull { conversation ->
+            conversation.isEmergency &&
+                conversation.participantIds.size == participantIds.size &&
+                conversation.participantIds.toSet() == participantIds.toSet()
+        }?.let { existing ->
+            val lastMessage = mutableMessages.lastOrNull { it.conversationId == existing.id }
+            if (lastMessage?.senderId == senderId && lastMessage.text.isSosText()) {
+                return existing.id
+            }
+            addMessage(existing.id, text, senderId, senderName)
+            return existing.id
+        }
+
         val id = "sos_$now"
         val memberNames = contactIds.mapNotNull { contactId ->
             registeredUsers.firstOrNull { it.id == contactId }?.displayName
@@ -438,7 +487,7 @@ object MockData {
                 unreadCount = 0,
                 updatedAt = "Ahora",
                 updatedAtMillis = now,
-                participantIds = (contactIds + senderId).distinct(),
+                participantIds = participantIds,
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
                 isEmergency = true
@@ -453,12 +502,16 @@ object MockData {
                 senderName = senderName,
                 text = text,
                 sentAt = "Ahora",
-                isMine = true
+                isMine = true,
+                isRead = true
             )
         )
         messagesState.value = mutableMessages.toList()
         return id
     }
+
+    private fun String.isSosText(): Boolean =
+        contains("SOS", ignoreCase = true) || contains("https://maps.google.com/?q=")
 
     fun findOrCreateNeighborhoodConversation(neighborhood: String, senderId: String, senderName: String): String {
         val cleanNeighborhood = neighborhood.trim()

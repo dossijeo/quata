@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -69,7 +71,7 @@ import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
-import com.quata.core.ui.components.AvatarLetter
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
@@ -92,6 +94,40 @@ fun NeighborhoodsScreen(
     val state by viewModel.uiState.collectAsState()
     var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
     val communityForDialog = state.communities.firstOrNull { it.name == selectedCommunity }
+
+    state.selectedProfile?.let { profile ->
+        CommunityProfileScreen(
+            padding = padding,
+            profile = profile,
+            onBack = { viewModel.closeUserProfile() },
+            onFollow = { viewModel.toggleFollowUser(profile.user.id) },
+            onOpenPrivateChat = {
+                viewModel.openPrivateChat(profile.user.id) { conversationId ->
+                    viewModel.closeUserProfile()
+                    selectedCommunity = null
+                    onOpenConversation(conversationId)
+                }
+            }
+        )
+        return
+    }
+
+    if (communityForDialog != null) {
+        NeighborhoodUsersScreen(
+            padding = padding,
+            community = communityForDialog,
+            onBack = { selectedCommunity = null },
+            onFollowUser = { viewModel.toggleFollowUser(it.id) },
+            onOpenProfile = { viewModel.openUserProfile(it.id) },
+            onOpenPrivateChat = { user ->
+                viewModel.openPrivateChat(user.id) { conversationId ->
+                    selectedCommunity = null
+                    onOpenConversation(conversationId)
+                }
+            }
+        )
+        return
+    }
 
     QuataScreen(padding) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
@@ -131,36 +167,6 @@ fun NeighborhoodsScreen(
                 }
             }
         }
-    }
-
-    if (communityForDialog != null) {
-        NeighborhoodUsersDialog(
-            community = communityForDialog,
-            onDismiss = { selectedCommunity = null },
-            onFollowUser = { viewModel.toggleFollowUser(it.id) },
-            onOpenProfile = { viewModel.openUserProfile(it.id) },
-            onOpenPrivateChat = { user ->
-                viewModel.openPrivateChat(user.id) { conversationId ->
-                    selectedCommunity = null
-                    onOpenConversation(conversationId)
-                }
-            }
-        )
-    }
-
-    state.selectedProfile?.let { profile ->
-        CommunityProfileDialog(
-            profile = profile,
-            onDismiss = { viewModel.closeUserProfile() },
-            onFollow = { viewModel.toggleFollowUser(profile.user.id) },
-            onOpenPrivateChat = {
-                viewModel.openPrivateChat(profile.user.id) { conversationId ->
-                    viewModel.closeUserProfile()
-                    selectedCommunity = null
-                    onOpenConversation(conversationId)
-                }
-            }
-        )
     }
 }
 
@@ -278,57 +284,134 @@ private fun CountPill(text: String) {
 }
 
 @Composable
-private fun NeighborhoodUsersDialog(
+private fun NeighborhoodUsersScreen(
+    padding: PaddingValues,
     community: NeighborhoodCommunity,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
     onOpenPrivateChat: (NeighborhoodUser) -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
-            modifier = Modifier.fillMaxWidth()
+    QuataScreen(padding) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Column(Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.neighborhoods_users_title, community.name),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 20.sp
-                        )
-                        Text(
-                            stringResource(R.string.neighborhoods_users_subtitle),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                }
+                Spacer(Modifier.width(4.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.neighborhoods_users_title, community.name),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 22.sp
+                    )
+                    Text(
+                        stringResource(R.string.neighborhoods_users_subtitle),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            CountPill(
+                if (community.users.size == 1) {
+                    stringResource(R.string.neighborhoods_one_user)
+                } else {
+                    stringResource(R.string.neighborhoods_user_count, community.users.size)
+                }
+            )
+            Spacer(Modifier.height(16.dp))
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 22.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(community.users, key = { it.id }) { user ->
+                    NeighborhoodUserRow(
+                        user = user,
+                        onFollowUser = { onFollowUser(user) },
+                        onOpenProfile = { onOpenProfile(user) },
+                        onOpenPrivateChat = { onOpenPrivateChat(user) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityProfileScreen(
+    padding: PaddingValues,
+    profile: CommunityUserProfile,
+    onBack: () -> Unit,
+    onFollow: () -> Unit,
+    onOpenPrivateChat: () -> Unit
+) {
+    QuataScreen(padding) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 28.dp)
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
+                    Spacer(Modifier.width(4.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(profile.user.displayName, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                        Text(profile.user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
                     }
                 }
-                Spacer(Modifier.height(14.dp))
-                CountPill(
-                    if (community.users.size == 1) {
-                        stringResource(R.string.neighborhoods_one_user)
-                    } else {
-                        stringResource(R.string.neighborhoods_user_count, community.users.size)
+                Spacer(Modifier.height(18.dp))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    ProfileAvatar(profile.user, Modifier.size(92.dp))
+                }
+                Spacer(Modifier.height(24.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    ProfileKpi(profile.user.postsCount.toString(), stringResource(R.string.neighborhoods_posts), Modifier.weight(1f))
+                    ProfileKpi(profile.user.followersCount.toString(), stringResource(R.string.neighborhoods_followers), Modifier.weight(1f))
+                    ProfileKpi(profile.user.followingCount.toString(), stringResource(R.string.neighborhoods_following), Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(20.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onFollow,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
                     }
-                )
-                Spacer(Modifier.height(16.dp))
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.heightIn(max = 420.dp)
-                ) {
-                    items(community.users, key = { it.id }) { user ->
-                        NeighborhoodUserRow(
-                            user = user,
-                            onFollowUser = { onFollowUser(user) },
-                            onOpenProfile = { onOpenProfile(user) },
-                            onOpenPrivateChat = { onOpenPrivateChat(user) }
-                        )
+                    OutlinedButton(
+                        onClick = onOpenPrivateChat,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(R.string.common_privi), fontSize = 18.sp)
                     }
+                }
+                Spacer(Modifier.height(18.dp))
+                val pagerState = rememberPagerState(pageCount = { profile.posts.size })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.neighborhoods_photos_videos), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                    if (profile.posts.isNotEmpty()) {
+                        Text("${pagerState.currentPage + 1} / ${profile.posts.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                if (profile.posts.isEmpty()) {
+                    Text(
+                        stringResource(R.string.neighborhoods_no_visible_posts),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 28.dp)
+                    )
+                } else {
+                    ProfilePostsPager(profile.posts, pagerState)
                 }
             }
         }
@@ -349,7 +432,7 @@ private fun NeighborhoodUserRow(
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarLetter(user.displayName, modifier = Modifier.size(48.dp))
+            AvatarImage(user.displayName, user.avatarUrl, modifier = Modifier.size(48.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -395,99 +478,8 @@ private fun NeighborhoodUserRow(
 }
 
 @Composable
-private fun CommunityProfileDialog(
-    profile: CommunityUserProfile,
-    onDismiss: () -> Unit,
-    onFollow: () -> Unit,
-    onOpenPrivateChat: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 720.dp),
-                contentPadding = PaddingValues(20.dp)
-            ) {
-                item {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Column(Modifier.weight(1f)) {
-                            Text(profile.user.displayName, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-                            Text(profile.user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
-                        }
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
-                        }
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        ProfileAvatar(profile.user, Modifier.size(92.dp))
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount.toString(), stringResource(R.string.neighborhoods_posts), Modifier.weight(1f))
-                        ProfileKpi(profile.user.followersCount.toString(), stringResource(R.string.neighborhoods_followers), Modifier.weight(1f))
-                        ProfileKpi(profile.user.followingCount.toString(), stringResource(R.string.neighborhoods_following), Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = onFollow,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
-                        }
-                        OutlinedButton(
-                            onClick = onOpenPrivateChat,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.common_privi), fontSize = 18.sp)
-                        }
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    val pagerState = rememberPagerState(pageCount = { profile.posts.size })
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.neighborhoods_photos_videos), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-                        if (profile.posts.isNotEmpty()) {
-                            Text("${pagerState.currentPage + 1} / ${profile.posts.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    if (profile.posts.isEmpty()) {
-                        Text(
-                            stringResource(R.string.neighborhoods_no_visible_posts),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 28.dp)
-                        )
-                    } else {
-                        ProfilePostsPager(profile.posts, pagerState)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier) {
-    if (user.avatarUrl != null) {
-        AsyncImage(
-            model = user.avatarUrl,
-            contentDescription = user.displayName,
-            contentScale = ContentScale.Crop,
-            modifier = modifier.clip(CircleShape).border(1.dp, QuataDivider, CircleShape)
-        )
-    } else {
-        AvatarLetter(user.displayName, modifier = modifier.clip(CircleShape))
-    }
+    AvatarImage(user.displayName, user.avatarUrl, modifier = modifier.clip(CircleShape))
 }
 
 @Composable
@@ -559,7 +551,7 @@ private fun ProfilePostPreview(
         when {
             post.imageUrl != null -> AsyncImage(
                 model = post.imageUrl,
-                contentDescription = post.text,
+                contentDescription = post.imageTitle(),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().height(430.dp)
             )
@@ -592,7 +584,10 @@ private fun ProfilePostPreview(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(post.author.displayName, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                Text(post.text, color = Color.White.copy(alpha = 0.82f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val subtitle = if (post.imageUrl != null && post.videoUrl == null) post.imageTitle() else post.text
+                if (subtitle.isNotBlank()) {
+                    Text(subtitle, color = Color.White.copy(alpha = 0.82f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MiniFeedAction(
@@ -712,7 +707,7 @@ private fun android.content.Context.shareProfilePost(post: Post) {
     val shareText = buildString {
         append(post.author.displayName)
         append(": ")
-        append(post.text)
+        append(if (post.imageUrl != null && post.videoUrl == null) post.imageTitle() else post.text)
         post.imageUrl?.let { append("\n").append(it) }
         post.videoUrl?.let { append("\n").append(it) }
     }
@@ -722,6 +717,9 @@ private fun android.content.Context.shareProfilePost(post: Post) {
     }
     startActivity(Intent.createChooser(sendIntent, getString(R.string.neighborhoods_share_post)))
 }
+
+private fun Post.imageTitle(): String =
+    placeName?.takeIf { it.isNotBlank() } ?: rankingLabel.takeIf { it.isNotBlank() } ?: "Qüata"
 
 private fun communityTimeLabel(context: android.content.Context, lastMessageAtMillis: Long?): String {
     if (lastMessageAtMillis == null) return context.getString(R.string.common_new)

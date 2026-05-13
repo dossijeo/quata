@@ -42,6 +42,7 @@ data class SupabaseMessageDto(
     @SerializedName("sender_id") val senderId: String,
     @SerializedName("sender_name") val senderName: String?,
     val text: String,
+    @SerializedName("is_read") val isRead: Boolean? = null,
     @SerializedName("created_at") val createdAt: String?
 )
 
@@ -49,7 +50,12 @@ data class SupabaseSendMessageRequest(
     @SerializedName("conversation_id") val conversationId: String,
     @SerializedName("sender_id") val senderId: String,
     @SerializedName("sender_name") val senderName: String,
-    val text: String
+    val text: String,
+    @SerializedName("is_read") val isRead: Boolean = false
+)
+
+data class SupabaseMessageUpdateRequest(
+    @SerializedName("is_read") val isRead: Boolean
 )
 
 data class SupabaseConversationUpdateRequest(

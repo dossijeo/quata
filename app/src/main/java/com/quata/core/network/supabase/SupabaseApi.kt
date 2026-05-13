@@ -38,6 +38,14 @@ interface SupabaseApi {
     @POST("rest/v1/messages")
     suspend fun sendMessage(@Body request: SupabaseSendMessageRequest): List<SupabaseMessageDto>
 
+    @Headers("Prefer: return=minimal")
+    @PATCH("rest/v1/messages")
+    suspend fun updateMessages(
+        @Query("conversation_id") conversationFilter: String,
+        @Query("sender_id") senderFilter: String,
+        @Body request: SupabaseMessageUpdateRequest
+    )
+
     @Headers("Prefer: resolution=merge-duplicates")
     @POST("rest/v1/push_tokens")
     suspend fun registerPushToken(@Body request: SupabasePushTokenRequest)
@@ -47,7 +55,7 @@ interface SupabaseApi {
         @Query("id") idFilter: String
     ): List<SupabaseProfileDto>
 
-    @GET("rest/v1/profiles?select=id,email,display_name,neighborhood,phone")
+    @GET("rest/v1/profiles?select=id,email,display_name,neighborhood,phone,avatar_url")
     suspend fun getEmergencyCandidates(): List<SupabaseProfileDto>
 
     @Headers("Prefer: return=minimal")

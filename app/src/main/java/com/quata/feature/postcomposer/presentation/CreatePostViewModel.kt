@@ -58,7 +58,7 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                 longitude = state.longitude
             )
         )
-            .onSuccess { _uiState.value = CreatePostUiState(successMessage = "Publicacion creada") }
+            .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = "Publicacion creada", createdPostId = postId) }
             .onFailure { _uiState.value = state.copy(isLoading = false, error = it.message ?: "No se pudo publicar") }
     }
 

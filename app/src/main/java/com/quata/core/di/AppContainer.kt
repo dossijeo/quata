@@ -52,7 +52,8 @@ class AppContainer(context: Context) {
     )
 
     val feedRepository: FeedRepository = FeedRepositoryImpl(
-        remote = FeedRemoteDataSource(networkModule.wordpressApi, networkModule.supabaseApi)
+        remote = FeedRemoteDataSource(networkModule.wordpressApi, networkModule.supabaseApi),
+        profileRemote = ProfileRemoteDataSource(networkModule.supabaseApi)
     )
 
     val postComposerRepository: PostComposerRepository = PostComposerRepositoryImpl(

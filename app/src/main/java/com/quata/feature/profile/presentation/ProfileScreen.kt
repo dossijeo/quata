@@ -97,6 +97,7 @@ fun ProfileScreen(
     sessionManager: SessionManager,
     repository: ProfileRepository,
     onLogout: () -> Unit,
+    onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
 ) {
     val context = LocalContext.current
@@ -122,6 +123,7 @@ fun ProfileScreen(
         val message = state.successMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.onEvent(ProfileUiEvent.ClearMessages)
+        onProfileSaved()
     }
 
     LaunchedEffect(state.errorMessage) {

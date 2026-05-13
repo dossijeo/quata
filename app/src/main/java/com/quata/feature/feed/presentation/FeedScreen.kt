@@ -101,8 +101,8 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
-import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
@@ -119,6 +119,9 @@ import kotlinx.coroutines.launch
 fun FeedScreen(
     padding: PaddingValues,
     feedRepository: FeedRepository,
+    onOpenUserProfile: (String) -> Unit,
+    focusedPostId: String? = null,
+    onFocusedPostHandled: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -134,6 +137,29 @@ fun FeedScreen(
         else -> {
             val pagerState = rememberPagerState(pageCount = { state.posts.size })
             val postRanks = remember(state.posts) { calculateDailyPostRanks(state.posts) }
+            var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+
+            LaunchedEffect(focusedPostId) {
+                if (focusedPostId != null && focusedPostId != handledFocusedPostId) {
+                    viewModel.onEvent(FeedUiEvent.Refresh)
+                }
+            }
+
+            LaunchedEffect(focusedPostId, state.posts) {
+                val targetId = focusedPostId ?: return@LaunchedEffect
+                if (targetId == handledFocusedPostId) return@LaunchedEffect
+                val targetIndex = state.posts.indexOfFirst { it.id == targetId }
+                if (targetIndex >= 0) {
+                    pagerState.scrollToPage(targetIndex)
+                    handledFocusedPostId = targetId
+                    onFocusedPostHandled()
+                }
+            }
+
+            val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
+            LaunchedEffect(visiblePostId) {
+                visiblePostId?.let { viewModel.onEvent(FeedUiEvent.PostDisplayed(it)) }
+            }
 
             Box(
                 modifier = Modifier
@@ -153,6 +179,7 @@ fun FeedScreen(
                         isCurrentPage = pagerState.currentPage == page,
                         extraCommentsCount = extraComments.size,
                         onOpenComments = { commentsPost = post },
+                        onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                         onOpenLive = { isLiveOpen = true },
                         onShare = {
                             val shareText = postShareText(post)
@@ -331,7 +358,7 @@ private fun LiveRankingRow(
             fontSize = 18.sp,
             modifier = Modifier.width(38.dp)
         )
-        AvatarLetter(post.author.displayName, modifier = Modifier.size(44.dp))
+        UserAvatar(post.author, modifier = Modifier.size(44.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -390,6 +417,7 @@ private fun ReelPost(
     isCurrentPage: Boolean,
     extraCommentsCount: Int,
     onOpenComments: () -> Unit,
+    onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit
@@ -434,10 +462,11 @@ private fun ReelPost(
             post = post,
             showDescription = isVideo && post.text.isNotBlank(),
             isDescriptionExpanded = isDescriptionExpanded,
-                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 20.dp, end = 96.dp, bottom = if (isVideo) 82.dp else 20.dp)
+            onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+            onOpenUserProfile = onOpenUserProfile,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 20.dp, end = 96.dp, bottom = if (isVideo) 82.dp else 20.dp)
         )
     }
 }
@@ -459,7 +488,7 @@ private fun ReelMedia(
         post.imageUrl != null -> {
             AsyncImage(
                 model = post.imageUrl,
-                contentDescription = post.text,
+                contentDescription = post.imageTitle(),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -1115,36 +1144,36 @@ private fun CommentRow(
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = comment.authorName,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.92f)
-                        )
-                        comment.replyToAuthorName?.let { author ->
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = stringResource(R.string.comments_reply_to, author),
-                                color = Color(0xFF83DCFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = comment.message,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 16.sp,
-                            lineHeight = 21.sp
-                        )
-                    }
+                    Text(
+                        text = comment.authorName,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        color = Color.White.copy(alpha = 0.92f),
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(
                         text = comment.timestamp,
                         color = Color.White.copy(alpha = 0.58f),
                         fontSize = 13.sp
                     )
                 }
+                comment.replyToAuthorName?.let { author ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.comments_reply_to, author),
+                        color = Color(0xFF83DCFF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = comment.message,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 TextButton(
                     onClick = onReply,
                     modifier = Modifier.align(Alignment.End)
@@ -1310,7 +1339,7 @@ private fun ReelActionButton(
 private fun postShareText(post: Post): String = buildString {
     append(post.author.displayName)
     append(": ")
-    append(post.text)
+    append(if (post.imageUrl != null && post.videoUrl == null) post.imageTitle() else post.text)
     post.imageUrl?.let {
         append("\n")
         append(it)
@@ -1327,47 +1356,55 @@ private fun ReelAuthor(
     showDescription: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
+    onOpenUserProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        AvatarLetter(
-            name = post.author.displayName,
-            modifier = Modifier
-                .size(56.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (showDescription) {
             Text(
-                text = post.author.displayName,
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 18.sp
+                text = post.text,
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(12.dp))
+                    .clickable(onClick = onToggleDescription)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             )
-            Text(
-                text = post.createdAt,
-                color = QuataOrange,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+            Spacer(Modifier.height(10.dp))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            UserAvatar(
+                user = post.author,
+                modifier = Modifier
+                    .size(56.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                    .clickable(onClick = onOpenUserProfile)
             )
-            if (showDescription) {
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = post.text,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2,
+                    text = post.author.displayName,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = post.createdAt,
+                    color = QuataOrange,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(12.dp))
-                        .clickable(onClick = onToggleDescription)
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
                 )
             }
         }
     }
 }
+
+private fun Post.imageTitle(): String =
+    placeName?.takeIf { it.isNotBlank() } ?: rankingLabel.takeIf { it.isNotBlank() } ?: "Qüata"

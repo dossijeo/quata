@@ -11,18 +11,17 @@ class PostComposerRepositoryImpl(
     private val remote: PostComposerRemoteDataSource,
     private val sessionManager: SessionManager
 ) : PostComposerRepository {
-    override suspend fun createPost(draft: PostComposerDraft): Result<Unit> = runCatching {
+    override suspend fun createPost(draft: PostComposerDraft): Result<String?> = runCatching {
         validateDraft(draft)
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.addPost(draft)
-            return@runCatching
+            return@runCatching MockData.addPost(draft, session.userId)
         }
 
-        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val text = draft.toRemoteText()
         when (AppConfig.FEED_SOURCE.lowercase()) {
-            "supabase" -> remote.createSupabasePost(session.userId, text, draft.imageUri)
-            else -> remote.createWordpressPost(session.token, text)
+            "supabase" -> remote.createSupabasePost(session.userId, text, draft.imageUri).firstOrNull()?.id
+            else -> remote.createWordpressPost(session.token, text).id.toString()
         }
     }
 
@@ -39,7 +38,7 @@ class PostComposerRepositoryImpl(
 
     private fun PostComposerDraft.toRemoteText(): String = when (type) {
         PostComposerType.Text -> text
-        PostComposerType.Image -> listOfNotNull("Foto con ubicacion", locationLabel).joinToString("\n")
+        PostComposerType.Image -> locationLabel.orEmpty()
         PostComposerType.Video -> text.ifBlank { "Video" }
     }
 }
