@@ -14,9 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -72,8 +72,10 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
             val drift = oppositePull * (28f + movementLength.coerceAtMost(120f) * 0.34f)
             val rise = Offset(0f, -(24f + random.nextFloat() * 42f))
             val sideways = spread * (12f + random.nextFloat() * 22f)
-            val radius = 44f + random.nextFloat() * 62f + movementLength.coerceAtMost(100f) * 0.28f
-            val alpha = 0.075f + random.nextFloat() * 0.14f
+            // Radios más grandes para difuminado más suave
+            val radius = 60f + random.nextFloat() * 80f + movementLength.coerceAtMost(100f) * 0.3f
+            // Alphas más altos para mejor luminosidad
+            val alpha = 0.3f + random.nextFloat() * 0.3f
             val velocity = drift + rise + sideways + lateral
             val tailOffset = direction * (8f + random.nextFloat() * 24f)
             val origin = position - tailOffset + perpendicular * ((random.nextFloat() - 0.5f) * 28f)
@@ -178,95 +180,73 @@ private fun ContentDrawScope.drawFluidTouchParticles(
         val wobbleX = sin(particle.wobble + rawProgress * 7.2f) * 34f * rawProgress
         val wobbleY = cos(particle.wobble + rawProgress * 5.4f) * 16f * rawProgress
         val center = particle.origin + particle.velocity * eased + Offset(wobbleX, wobbleY)
-        val radius = particle.radius * (0.72f + rawProgress * 1.45f)
-        val alpha = particle.alpha * fade * fade
+        
+        // El radio crece suavemente
+        val currentRadius = particle.radius * (1.0f + rawProgress * 0.5f)
+        val currentAlpha = particle.alpha * fade
 
-        if (alpha <= 0.01f || radius <= 0f) return@forEach
+        if (currentAlpha <= 0.01f || currentRadius <= 0f) return@forEach
 
-        val flow = Offset(cos(particle.angle), sin(particle.angle))
-        val cross = Offset(-flow.y, flow.x)
-        val tailStart = particle.origin - flow * radius * 0.7f
-        val tailControl = (particle.origin + center) * 0.5f +
-            cross * sin(particle.wobble + rawProgress * 4.6f) * radius * 0.18f
-
-        drawLine(
-            color = Color(0xFFFF6B00).copy(alpha = alpha * 0.13f),
-            start = tailStart,
-            end = tailControl,
-            strokeWidth = radius * 0.42f,
-            cap = StrokeCap.Round
-        )
-
-        drawLine(
-            color = Color(0xFFD93BD2).copy(alpha = alpha * 0.07f),
-            start = tailControl,
-            end = center,
-            strokeWidth = radius * 0.48f,
-            cap = StrokeCap.Round
-        )
-
-        repeat(5) { index ->
-            val t = index / 4f
-            val curve = sin(particle.wobble + rawProgress * 5.2f + t * PI.toFloat())
-            val lobeCenter = particle.origin * (1f - t) + center * t +
-                cross * curve * radius * (0.15f + 0.06f * t)
-            val lobeRadius = radius * (1.18f - t * 0.22f)
-            val lobeAlpha = alpha * (0.34f - t * 0.045f)
-            drawFluidLobe(
-                center = lobeCenter,
-                radius = lobeRadius,
-                color = particle.color,
-                alpha = lobeAlpha,
-                magentaMix = 0.08f + t * 0.12f
-            )
-        }
-
-        drawFluidLobe(
-            center = particle.origin,
-            radius = radius * 0.52f,
-            color = Color(0xFFFF7A14),
-            alpha = alpha * 0.30f,
-            magentaMix = 0.02f
-        )
-
+        // HALO EXTERIOR SUAVE
+        // Usamos múltiples capas con gradientes más suaves para evitar bandas
         drawCircle(
             brush = Brush.radialGradient(
                 colorStops = arrayOf(
-                    0f to Color(0xFFFFB238).copy(alpha = alpha * 0.08f),
-                    0.34f to Color(0xFFFF6B00).copy(alpha = alpha * 0.07f),
-                    1f to Color.Transparent
+                    0.0f to particle.color.copy(alpha = currentAlpha * 0.4f),
+                    0.2f to particle.color.copy(alpha = currentAlpha * 0.3f),
+                    0.5f to particle.color.copy(alpha = currentAlpha * 0.15f),
+                    0.8f to particle.color.copy(alpha = currentAlpha * 0.05f),
+                    1.0f to Color.Transparent
                 ),
-                center = particle.origin,
-                radius = radius * 0.36f
+                center = center,
+                radius = currentRadius
             ),
-            radius = radius * 0.36f,
-            center = particle.origin
-        )
-    }
-}
-
-private fun ContentDrawScope.drawFluidLobe(
-    center: Offset,
-    radius: Float,
-    color: Color,
-    alpha: Float,
-    magentaMix: Float
-) {
-    if (alpha <= 0f || radius <= 0f) return
-
-    drawCircle(
-        brush = Brush.radialGradient(
-            colorStops = arrayOf(
-                0f to Color(0xFFFFC266).copy(alpha = alpha * 0.025f),
-                0.16f to color.copy(alpha = alpha * 0.58f),
-                0.52f to Color(0xFFB93816).copy(alpha = alpha * 0.24f),
-                0.82f to Color(0xFFD93BD2).copy(alpha = alpha * magentaMix * 0.72f),
-                1f to Color.Transparent
-            ),
+            radius = currentRadius,
             center = center,
-            radius = radius
-        ),
-        radius = radius,
-        center = center
-    )
+            blendMode = BlendMode.Plus
+        )
+
+        // NÚCLEO BRILLANTE (más pequeño y definido)
+        if (fade > 0.2f) {
+            val coreRadius = currentRadius * 0.25f
+            val coreAlpha = currentAlpha * (fade - 0.2f) / 0.8f
+            
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = coreAlpha * 0.95f),
+                        0.3f to particle.color.copy(alpha = coreAlpha * 0.6f),
+                        0.7f to particle.color.copy(alpha = coreAlpha * 0.2f),
+                        1.0f to Color.Transparent
+                    ),
+                    center = center,
+                    radius = coreRadius
+                ),
+                radius = coreRadius,
+                center = center,
+                blendMode = BlendMode.Plus
+            )
+        }
+        
+        // BRILLO INTENSO CENTRAL (punto focal luminoso)
+        if (fade > 0.4f) {
+            val intenseRadius = currentRadius * 0.08f
+            val intenseAlpha = currentAlpha * (fade - 0.4f) / 0.6f
+            
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = intenseAlpha * 1.0f),
+                        0.5f to Color.White.copy(alpha = intenseAlpha * 0.5f),
+                        1.0f to Color.Transparent
+                    ),
+                    center = center,
+                    radius = intenseRadius
+                ),
+                radius = intenseRadius,
+                center = center,
+                blendMode = BlendMode.Plus
+            )
+        }
+    }
 }

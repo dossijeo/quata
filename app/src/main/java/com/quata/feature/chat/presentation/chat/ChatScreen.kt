@@ -2,6 +2,7 @@ package com.quata.feature.chat.presentation.chat
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -41,15 +43,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +75,8 @@ import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ChatScreen(
@@ -79,53 +87,82 @@ fun ChatScreen(
     viewModel: ChatViewModel = viewModel(factory = ChatViewModel.factory(conversationId, repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val metrics = context.resources.displayMetrics
+    val backgroundSeed = state.conversation?.chatDisplayTitle()?.ifBlank { conversationId }
+    val backgroundImage = backgroundSeed?.let { seed ->
+        rememberProceduralChatBackground(
+            conversationName = seed,
+            width = metrics.widthPixels,
+            height = metrics.heightPixels
+        )
+    }
 
     QuataScreen(padding) {
-        Column {
-            ChatHeader(
-                conversation = state.conversation,
-                currentUser = state.currentUser,
-                onBack = onBack,
-                onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
-                onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
-                onHideConversation = {
-                    viewModel.onEvent(ChatUiEvent.HideConversation)
-                    onBack()
-                }
-            )
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(state.messages) { MessageBubble(it) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF05070C))
+        ) {
+            backgroundImage?.let { image ->
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.63f))
+                )
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = state.messageText,
-                    onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
-                    label = { Text(stringResource(R.string.conversation_message)) },
+            Column(Modifier.fillMaxSize()) {
+                ChatHeader(
+                    conversation = state.conversation,
+                    currentUser = state.currentUser,
+                    onBack = onBack,
+                    onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
+                    onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
+                    onHideConversation = {
+                        viewModel.onEvent(ChatUiEvent.HideConversation)
+                        onBack()
+                    }
+                )
+                LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 58.dp),
-                    singleLine = true,
-                    trailingIcon = {
-                        IconButton(
-                            enabled = state.messageText.isNotBlank(),
-                            onClick = { viewModel.onEvent(ChatUiEvent.Send) }
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
-                        }
-                    },
-                    shape = RoundedCornerShape(18.dp)
-                )
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(state.messages) { MessageBubble(it) }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = state.messageText,
+                        onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
+                        label = { Text(stringResource(R.string.conversation_message)) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 58.dp),
+                        singleLine = true,
+                        trailingIcon = {
+                            IconButton(
+                                enabled = state.messageText.isNotBlank(),
+                                onClick = { viewModel.onEvent(ChatUiEvent.Send) }
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
+                            }
+                        },
+                        shape = RoundedCornerShape(18.dp)
+                    )
+                }
             }
         }
     }
@@ -143,6 +180,39 @@ fun ChatScreen(
             onAdd = { viewModel.onEvent(ChatUiEvent.AddSelectedParticipants) }
         )
     }
+}
+
+@Composable
+private fun rememberProceduralChatBackground(
+    conversationName: String,
+    width: Int,
+    height: Int
+): ImageBitmap? {
+    val context = LocalContext.current.applicationContext
+    var image by remember(conversationName, width, height) {
+        mutableStateOf(
+            ProceduralChatBackground.cachedBitmap(
+                context = context,
+                conversationName = conversationName,
+                width = width,
+                height = height
+            )
+        )
+    }
+
+    LaunchedEffect(conversationName, width, height) {
+        if (image != null) return@LaunchedEffect
+        image = withContext(Dispatchers.IO) {
+            ProceduralChatBackground.generateIfNeeded(
+                context = context,
+                conversationName = conversationName,
+                width = width,
+                height = height
+            )
+        }
+    }
+
+    return image
 }
 
 @Composable
