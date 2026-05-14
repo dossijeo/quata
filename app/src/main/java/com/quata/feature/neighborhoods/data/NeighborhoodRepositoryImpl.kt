@@ -90,6 +90,14 @@ class NeighborhoodRepositoryImpl(
         // Supabase real: aqui se alternara la relacion current_user -> userId en la tabla de seguidores.
     }
 
+    override suspend fun reportPost(postId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.reportPost(postId)
+            return@runCatching
+        }
+        // Supabase real: pendiente de endpoint de reporte de publicaciones.
+    }
+
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {

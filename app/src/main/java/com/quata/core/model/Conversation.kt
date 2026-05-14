@@ -14,5 +14,8 @@ data class Conversation(
     val isEmergency: Boolean = false,
     val communityName: String? = null,
     val isMuted: Boolean = false,
-    val isVisible: Boolean = true
+    val isVisible: Boolean = true,
+    val moderatorIds: List<String> = emptyList(),
+    val canMembersInvite: Boolean = false,
+    val blockedUserIds: List<String> = emptyList()
 )

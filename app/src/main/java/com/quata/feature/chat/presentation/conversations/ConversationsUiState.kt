@@ -10,5 +10,6 @@ data class ConversationsUiState(
     val conversations: List<Conversation> = emptyList(),
     val messagesByConversation: Map<String, List<Message>> = emptyMap(),
     val usersById: Map<String, User> = emptyMap(),
+    val pendingDeletedConversation: Conversation? = null,
     val error: String? = null
 )

@@ -12,15 +12,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +54,7 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
+import kotlinx.coroutines.delay
 
 @Composable
 fun ConversationsScreen(
@@ -58,20 +66,71 @@ fun ConversationsScreen(
     val state by viewModel.uiState.collectAsState()
 
     QuataScreen(padding) {
-        Column(Modifier.padding(18.dp)) {
-            Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.conversations_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.padding(8.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(state.conversations) { item ->
-                    ConversationCard(
-                        item = item,
-                        messages = state.messagesByConversation[item.id].orEmpty(),
-                        currentUser = state.currentUser,
-                        usersById = state.usersById,
-                        onOpenConversation = onOpenConversation
-                    )
+        Box(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(18.dp)) {
+                Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.conversations_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.padding(8.dp))
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(state.conversations) { item ->
+                        ConversationCard(
+                            item = item,
+                            messages = state.messagesByConversation[item.id].orEmpty(),
+                            currentUser = state.currentUser,
+                            usersById = state.usersById,
+                            onOpenConversation = onOpenConversation
+                        )
+                    }
                 }
+            }
+            state.pendingDeletedConversation?.let { conversation ->
+                UndoDeleteButton(
+                    title = conversation.chatDisplayTitle(),
+                    onUndo = { viewModel.onEvent(ConversationsUiEvent.RestoreDeletedConversation) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(18.dp)
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(state.pendingDeletedConversation?.id) {
+        if (state.pendingDeletedConversation == null) return@LaunchedEffect
+        delay(4_000L)
+        viewModel.onEvent(ConversationsUiEvent.FinalizeDeletedConversation)
+    }
+}
+
+@Composable
+private fun UndoDeleteButton(
+    title: String,
+    onUndo: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0xFF111827),
+        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = onUndo,
+                colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.height(40.dp)
+            ) {
+                Text(stringResource(R.string.conversation_undo_delete), fontWeight = FontWeight.Bold)
             }
         }
     }

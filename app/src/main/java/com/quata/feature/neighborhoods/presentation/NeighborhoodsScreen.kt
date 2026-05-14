@@ -113,6 +113,7 @@ fun NeighborhoodsScreen(
             padding = padding,
             profile = profile,
             currentUserId = currentUserId,
+            onReportPost = { postId -> viewModel.reportProfilePost(postId) },
             onBack = { viewModel.closeUserProfile() },
             onFollow = { viewModel.toggleFollowUser(profile.user.id) },
             onOpenPrivateChat = {
@@ -367,6 +368,7 @@ fun CommunityProfileScreen(
     padding: PaddingValues,
     profile: CommunityUserProfile,
     currentUserId: String? = null,
+    onReportPost: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onOpenPrivateChat: () -> Unit
@@ -435,7 +437,11 @@ fun CommunityProfileScreen(
                         modifier = Modifier.padding(vertical = 28.dp)
                     )
                 } else {
-                    ProfilePostsPager(profile.posts, pagerState)
+                    ProfilePostsPager(
+                        posts = profile.posts,
+                        pagerState = pagerState,
+                        onReportPost = onReportPost
+                    )
                 }
             }
         }
@@ -526,7 +532,8 @@ private fun ProfileKpi(value: String, label: String, modifier: Modifier = Modifi
 @Composable
 private fun ProfilePostsPager(
     posts: List<Post>,
-    pagerState: androidx.compose.foundation.pager.PagerState
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    onReportPost: (String) -> Unit
 ) {
     val context = LocalContext.current
     var commentsPost by remember { mutableStateOf<Post?>(null) }
@@ -540,7 +547,10 @@ private fun ProfilePostsPager(
                 onOpenComments = { commentsPost = post },
                 onShare = { context.shareProfilePost(post) },
                 onReport = {
-                    Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                    if (!post.isReportedByCurrentUser) {
+                        onReportPost(post.id)
+                        Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
@@ -624,7 +634,12 @@ private fun ProfilePostPreview(
                 )
                 MiniFeedAction(Icons.Filled.ChatBubble, commentsCount.toString(), onClick = onOpenComments)
                 MiniFeedAction(Icons.Filled.Share, null, onClick = onShare)
-                MiniFeedAction(Icons.Filled.Flag, null, onClick = onReport)
+                MiniFeedAction(
+                    icon = Icons.Filled.Flag,
+                    count = null,
+                    tint = if (post.isReportedByCurrentUser) QuataOrange else Color.White,
+                    onClick = onReport
+                )
             }
         }
     }
@@ -634,6 +649,7 @@ private fun ProfilePostPreview(
 private fun MiniFeedAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     count: String?,
+    tint: Color = Color.White,
     onClick: () -> Unit
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -645,7 +661,7 @@ private fun MiniFeedAction(
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         }
         if (count != null) Text(count, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }

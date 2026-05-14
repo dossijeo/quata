@@ -12,6 +12,12 @@ data class ChatUiState(
     val participantCandidates: List<User> = emptyList(),
     val participantSearch: String = "",
     val selectedParticipantIds: List<String> = emptyList(),
+    val selectedMessageId: String? = null,
+    val replyToMessage: Message? = null,
+    val editingMessage: Message? = null,
+    val isForwardDialogOpen: Boolean = false,
+    val selectedForwardConversationIds: List<String> = emptyList(),
+    val availableForwardConversations: List<Conversation> = emptyList(),
     val isAddParticipantsOpen: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null

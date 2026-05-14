@@ -19,10 +19,17 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
     private var conversationsJob: Job? = null
     private var messagesJob: Job? = null
     private var usersJob: Job? = null
+    private var pendingDeleteJob: Job? = null
 
     init { observe() }
 
-    fun onEvent(event: ConversationsUiEvent) { if (event is ConversationsUiEvent.Refresh) observe() }
+    fun onEvent(event: ConversationsUiEvent) {
+        when (event) {
+            ConversationsUiEvent.Refresh -> observe()
+            ConversationsUiEvent.RestoreDeletedConversation -> restoreDeletedConversation()
+            ConversationsUiEvent.FinalizeDeletedConversation -> finalizeDeletedConversation()
+        }
+    }
 
     private fun observe() {
         conversationsJob?.cancel()
@@ -39,6 +46,12 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                     )
                 }
         }
+        pendingDeleteJob?.cancel()
+        pendingDeleteJob = viewModelScope.launch {
+            repository.pendingDeletedConversation.collect { conversation ->
+                _uiState.value = _uiState.value.copy(pendingDeletedConversation = conversation)
+            }
+        }
         conversationsJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             repository.observeConversations()
@@ -49,6 +62,16 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                     observeMessagesFor(conversations)
                 }
         }
+    }
+
+    private fun restoreDeletedConversation() = viewModelScope.launch {
+        repository.restorePendingDeletedConversation()
+            .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo restaurar") }
+    }
+
+    private fun finalizeDeletedConversation() = viewModelScope.launch {
+        repository.finalizePendingDeletedConversation()
+            .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo borrar") }
     }
 
     private fun observeMessagesFor(conversations: List<Conversation>) {

@@ -334,7 +334,8 @@ object MockData {
             updatedAt = "12:40",
             updatedAtMillis = mockNow - 6L * 60L * 1000L,
             participantIds = listOf("u_ana", currentUser.id),
-            participantNames = listOf("Ana")
+            participantNames = listOf("Ana"),
+            moderatorIds = listOf("u_ana")
         ),
         Conversation(
             "c2",
@@ -345,7 +346,8 @@ object MockData {
             updatedAtMillis = mockNow - 3L * 60L * 60L * 1000L,
             participantIds = listOf("u_ana", "u_leo", "u_sara", currentUser.id),
             participantNames = listOf("Ana", "Leo", "Sara", "Gabriel"),
-            isGroup = true
+            isGroup = true,
+            moderatorIds = listOf("u_ana")
         ),
         Conversation(
             "c3",
@@ -355,7 +357,8 @@ object MockData {
             updatedAt = "Ayer",
             updatedAtMillis = mockNow - 12L * 24L * 60L * 60L * 1000L,
             participantIds = listOf("u_leo", currentUser.id),
-            participantNames = listOf("Leo")
+            participantNames = listOf("Leo"),
+            moderatorIds = listOf("u_leo")
         ),
         Conversation(
             "barrio_molyko",
@@ -367,7 +370,8 @@ object MockData {
             participantIds = listOf("u_marcelino", "u_ondo", currentUser.id),
             participantNames = listOf("Marcelino", "Ondo", "Gabriel"),
             isGroup = true,
-            communityName = "Molyko"
+            communityName = "Molyko",
+            moderatorIds = listOf("u_marcelino")
         ),
         Conversation(
             "barrio_sampaka",
@@ -379,7 +383,8 @@ object MockData {
             participantIds = listOf("u_ana", "u_melo", currentUser.id),
             participantNames = listOf("Ana", "Melo", "Gabriel"),
             isGroup = true,
-            communityName = "Sampaka"
+            communityName = "Sampaka",
+            moderatorIds = listOf("u_ana")
         )
     )
     private val conversationsState = MutableStateFlow(mutableConversations.toList())
@@ -407,7 +412,14 @@ object MockData {
             )
         }
 
-    fun addMessage(conversationId: String, text: String, senderId: String, senderName: String): Unit {
+    fun addMessage(
+        conversationId: String,
+        text: String,
+        senderId: String,
+        senderName: String,
+        replyTo: Message? = null,
+        forwardedFrom: Message? = null
+    ): Unit {
         if (text.isBlank()) return
         val now = System.currentTimeMillis()
         mutableMessages.add(
@@ -420,7 +432,12 @@ object MockData {
                 sentAt = "Ahora",
                 sentAtMillis = now,
                 isMine = true,
-                isRead = true
+                isRead = true,
+                replyToMessageId = replyTo?.id,
+                replyToSenderName = replyTo?.senderName,
+                replyToText = replyTo?.text,
+                forwardedFromSenderId = forwardedFrom?.senderId,
+                forwardedFromSenderName = forwardedFrom?.senderName
             )
         )
         messagesState.value = mutableMessages.toList()
@@ -530,7 +547,8 @@ object MockData {
                 participantIds = participantIds,
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
-                isEmergency = true
+                isEmergency = true,
+                moderatorIds = listOf(senderId)
             )
         )
         conversationsState.value = mutableConversations.toList()
@@ -585,7 +603,8 @@ object MockData {
                 participantIds = (memberIds + senderId).distinct(),
                 participantNames = (memberNames + senderName).distinct(),
                 isGroup = true,
-                communityName = cleanNeighborhood
+                communityName = cleanNeighborhood,
+                moderatorIds = listOf(senderId)
             )
         )
         conversationsState.value = mutableConversations.toList()
@@ -596,8 +615,37 @@ object MockData {
         updateConversation(conversationId) { copy(isMuted = muted) }
     }
 
+    fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean) {
+        updateConversation(conversationId) { copy(canMembersInvite = enabled) }
+    }
+
     fun hideConversation(conversationId: String) {
         updateConversation(conversationId) { copy(isVisible = false) }
+    }
+
+    fun restoreConversation(conversationId: String) {
+        updateConversation(conversationId) { copy(isVisible = true) }
+    }
+
+    fun deleteConversation(conversationId: String) {
+        mutableConversations.removeAll { it.id == conversationId }
+        mutableMessages.removeAll { it.conversationId == conversationId }
+        conversationsState.value = mutableConversations.toList()
+        messagesState.value = mutableMessages.toList()
+    }
+
+    fun leaveConversation(conversationId: String, currentUserId: String) {
+        val conversation = mutableConversations.firstOrNull { it.id == conversationId } ?: return
+        if (currentUserId in conversation.moderatorIds) error("El moderador no puede abandonar la conversación")
+        updateConversation(conversationId) {
+            copy(
+                participantIds = participantIds - currentUserId,
+                participantNames = participantIds
+                    .filter { it != currentUserId }
+                    .mapNotNull { id -> registeredUsers.firstOrNull { it.id == id }?.displayName },
+                isVisible = false
+            )
+        }
     }
 
     fun addParticipants(conversationId: String, participantIds: List<String>, currentUserId: String, currentUserName: String) {
@@ -608,9 +656,41 @@ object MockData {
                 participantIds = (this.participantIds + participantIds + currentUserId).distinct(),
                 participantNames = (participantNames + participants.map { it.displayName } + currentUserName).distinct(),
                 isGroup = true,
-                isVisible = true
+                isVisible = true,
+                moderatorIds = moderatorIds.ifEmpty { listOf(currentUserId) }
             )
         }
+    }
+
+    fun promoteModerator(conversationId: String, userId: String) {
+        updateConversation(conversationId) {
+            copy(
+                moderatorIds = if (userId in moderatorIds) {
+                    moderatorIds - userId
+                } else {
+                    (moderatorIds + userId).distinct()
+                }
+            )
+        }
+    }
+
+    fun removeParticipant(conversationId: String, userId: String) {
+        updateConversation(conversationId) {
+            copy(
+                participantIds = participantIds - userId,
+                participantNames = participantIds
+                    .filter { it != userId }
+                    .mapNotNull { id -> registeredUsers.firstOrNull { it.id == id }?.displayName },
+                moderatorIds = moderatorIds - userId
+            )
+        }
+    }
+
+    fun blockParticipant(conversationId: String, userId: String) {
+        updateConversation(conversationId) {
+            copy(blockedUserIds = (blockedUserIds + userId).distinct())
+        }
+        removeParticipant(conversationId, userId)
     }
 
     fun findOrCreatePrivateConversation(userId: String, senderId: String, senderName: String): String {
@@ -635,11 +715,53 @@ object MockData {
                 updatedAtMillis = null,
                 participantIds = listOf(senderId, user.id),
                 participantNames = listOf(user.displayName, senderName),
-                isGroup = false
+                isGroup = false,
+                moderatorIds = listOf(senderId)
             )
         )
         conversationsState.value = mutableConversations.toList()
         return id
+    }
+
+    fun editMessage(messageId: String, text: String) {
+        val index = mutableMessages.indexOfFirst { it.id == messageId }
+        if (index < 0 || text.isBlank()) return
+        mutableMessages[index] = mutableMessages[index].copy(text = text, isEdited = true)
+        messagesState.value = mutableMessages.toList()
+        val conversationId = mutableMessages[index].conversationId
+        val lastMessage = mutableMessages.lastOrNull { it.conversationId == conversationId }
+        if (lastMessage?.id == messageId) {
+            updateConversation(conversationId) { copy(lastMessagePreview = text) }
+        }
+    }
+
+    fun deleteMessage(messageId: String) {
+        val index = mutableMessages.indexOfFirst { it.id == messageId }
+        if (index < 0) return
+        mutableMessages[index] = mutableMessages[index].copy(
+            text = "",
+            isDeleted = true,
+            isEdited = false,
+            replyToMessageId = null,
+            replyToSenderName = null,
+            replyToText = null,
+            forwardedFromSenderId = null,
+            forwardedFromSenderName = null
+        )
+        messagesState.value = mutableMessages.toList()
+    }
+
+    fun toggleFavoriteMessage(messageId: String) {
+        val index = mutableMessages.indexOfFirst { it.id == messageId }
+        if (index < 0) return
+        mutableMessages[index] = mutableMessages[index].copy(isFavorite = !mutableMessages[index].isFavorite)
+        messagesState.value = mutableMessages.toList()
+    }
+
+    fun forwardMessage(message: Message, conversationIds: List<String>, senderId: String, senderName: String) {
+        conversationIds.distinct().forEach { conversationId ->
+            addMessage(conversationId, message.text, senderId, senderName, forwardedFrom = message)
+        }
     }
 
     private fun updateConversation(conversationId: String, transform: Conversation.() -> Conversation) {

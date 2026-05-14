@@ -29,6 +29,8 @@ class ChatRepositoryImpl(
     private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _activeConversationId = MutableStateFlow<String?>(null)
     override val activeConversationId: StateFlow<String?> = _activeConversationId
+    private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
+    override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -115,6 +117,17 @@ class ChatRepositoryImpl(
         remote.sendMessage(session.userId, session.displayName, conversationId, text)
     }
 
+    override suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit> = runCatching {
+        if (text.isBlank()) return@runCatching
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.addMessage(conversationId, text, session.userId, session.displayName, replyTo = replyTo)
+            scheduleMockReply(conversationId, session.userId, session.displayName)
+            return@runCatching
+        }
+        remote.sendMessage(session.userId, session.displayName, conversationId, text)
+    }
+
     override suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String> = runCatching {
         if (contactIds.size != 5) error("Configura cinco contactos de emergencia")
         if (text.isBlank()) error("El mensaje SOS no puede estar vacio")
@@ -171,6 +184,14 @@ class ChatRepositoryImpl(
         remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isMuted = muted))
     }
 
+    override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.setMemberInvitesEnabled(conversationId, enabled)
+            return@runCatching
+        }
+        error("Permisos de invitacion no disponibles en backend real")
+    }
+
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = runCatching {
         if (participantIds.isEmpty()) return@runCatching
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -195,12 +216,119 @@ class ChatRepositoryImpl(
         )
     }
 
+    override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.promoteModerator(conversationId, userId)
+            return@runCatching
+        }
+        error("Moderadores no disponible en backend real")
+    }
+
+    override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.removeParticipant(conversationId, userId)
+            return@runCatching
+        }
+        val conversation = remote.getConversations().firstOrNull { it.id == conversationId } ?: error("Conversacion no encontrada")
+        remote.updateConversation(
+            conversationId,
+            SupabaseConversationUpdateRequest(participantIds = conversation.participantIds.orEmpty() - userId)
+        )
+    }
+
+    override suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.blockParticipant(conversationId, userId)
+            return@runCatching
+        }
+        removeParticipant(conversationId, userId).getOrThrow()
+    }
+
+    override suspend fun leaveConversation(conversationId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.leaveConversation(conversationId, session.userId)
+            return@runCatching
+        }
+        val conversation = remote.getConversations().map { it.toDomain() }.firstOrNull { it.id == conversationId }
+            ?: error("Conversacion no encontrada")
+        if (session.userId in conversation.moderatorIds) error("El moderador no puede abandonar la conversacion")
+        remote.updateConversation(
+            conversationId,
+            SupabaseConversationUpdateRequest(participantIds = conversation.participantIds - session.userId)
+        )
+    }
+
     override suspend fun hideConversation(conversationId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.hideConversation(conversationId)
             return@runCatching
         }
         remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
+    }
+
+    override suspend fun deleteConversation(conversationId: String): Result<Unit> = runCatching {
+        val conversation = getConversations().getOrNull()?.firstOrNull { it.id == conversationId }
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.hideConversation(conversationId)
+            _pendingDeletedConversation.value = conversation?.copy(isVisible = false)
+            return@runCatching
+        }
+        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
+        _pendingDeletedConversation.value = conversation?.copy(isVisible = false)
+    }
+
+    override suspend fun restorePendingDeletedConversation(): Result<Unit> = runCatching {
+        val conversation = _pendingDeletedConversation.value ?: return@runCatching
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.restoreConversation(conversation.id)
+        } else {
+            remote.updateConversation(conversation.id, SupabaseConversationUpdateRequest(isVisible = true))
+        }
+        _pendingDeletedConversation.value = null
+    }
+
+    override suspend fun finalizePendingDeletedConversation(): Result<Unit> = runCatching {
+        val conversation = _pendingDeletedConversation.value ?: return@runCatching
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.deleteConversation(conversation.id)
+        }
+        _pendingDeletedConversation.value = null
+    }
+
+    override suspend fun editMessage(messageId: String, text: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.editMessage(messageId, text)
+            return@runCatching
+        }
+        error("Edicion de mensajes no disponible en backend real")
+    }
+
+    override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.deleteMessage(messageId)
+            return@runCatching
+        }
+        error("Borrado de mensajes no disponible en backend real")
+    }
+
+    override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.toggleFavoriteMessage(messageId)
+            return@runCatching
+        }
+        error("Favoritos no disponible en backend real")
+    }
+
+    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.forwardMessage(message, conversationIds, session.userId, session.displayName)
+            return@runCatching
+        }
+        conversationIds.distinct().forEach { conversationId ->
+            remote.sendMessage(session.userId, session.displayName, conversationId, message.text)
+        }
     }
 
     private fun scheduleMockReply(conversationId: String, currentUserId: String, currentUserName: String) {

@@ -20,7 +20,8 @@ fun SupabaseConversationDto.toDomain(): Conversation = Conversation(
     isEmergency = title == "\uD83D\uDEA8 SOS",
     communityName = communityName,
     isMuted = isMuted == true,
-    isVisible = isVisible != false
+    isVisible = isVisible != false,
+    moderatorIds = participantIds.orEmpty().take(1)
 )
 
 fun SupabaseMessageDto.toDomain(currentUserId: String): Message = Message(
