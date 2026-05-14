@@ -8,6 +8,7 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -196,6 +197,8 @@ fun CreatePostScreen(
     LaunchedEffect(resetToken) {
         if (resetToken != lastHandledResetToken) {
             step = ComposerStep.TypePicker
+            textValue = TextFieldValue("")
+            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
             lastHandledResetToken = resetToken
         }
     }
@@ -232,9 +235,21 @@ fun CreatePostScreen(
 
             when (step) {
                 ComposerStep.TypePicker -> TypePicker(
-                    onText = { step = ComposerStep.Text },
-                    onImage = { step = ComposerStep.Image },
-                    onVideo = { step = ComposerStep.Video }
+                    onText = {
+                        textValue = TextFieldValue("")
+                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                        step = ComposerStep.Text
+                    },
+                    onImage = {
+                        textValue = TextFieldValue("")
+                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                        step = ComposerStep.Image
+                    },
+                    onVideo = {
+                        textValue = TextFieldValue("")
+                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                        step = ComposerStep.Video
+                    }
                 )
                 ComposerStep.Text -> TextPostForm(
                     state = state,
@@ -456,13 +471,19 @@ private fun VideoPostForm(
     onRecordVideo: () -> Unit,
     onSubmit: () -> Unit
 ) {
+    val context = LocalContext.current
     ComposerPanel(stringResource(R.string.composer_video), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
             ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        Text(state.videoUri ?: stringResource(R.string.composer_no_file), color = Color(0xFF111827).copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            state.videoUri?.let { context.displayNameFromUriString(it) } ?: stringResource(R.string.composer_no_file),
+            color = Color(0xFF111827).copy(alpha = 0.72f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
     ComposerPanel(stringResource(R.string.composer_description)) {
         OutlinedTextField(
@@ -646,6 +667,19 @@ private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
     val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
     val cursor = replaceStart + value.length
     return TextFieldValue(updatedText, TextRange(cursor))
+}
+
+private fun Context.displayNameFromUriString(uriString: String): String {
+    val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return uriString
+    val displayName = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
+    }.getOrNull()
+    return displayName?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uriString.substringAfterLast('/')
 }
 
 private fun Context.exifLocationFromUri(uri: Uri): Location? {

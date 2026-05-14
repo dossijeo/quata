@@ -7,6 +7,7 @@ data class Message(
     val senderName: String,
     val text: String,
     val sentAt: String,
+    val sentAtMillis: Long? = null,
     val isMine: Boolean = false,
     val isRead: Boolean = true
 )

@@ -20,6 +20,9 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         when (event) {
             FeedUiEvent.Refresh -> load()
             is FeedUiEvent.PostDisplayed -> refreshDisplayedPostAuthor(event.postId)
+            is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
+            is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
+            is FeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
         }
     }
 
@@ -47,6 +50,22 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                 if (post.id == postId) post.copy(author = author) else post
             }
         )
+    }
+
+    private fun updatePostFromRepository(action: suspend () -> Result<com.quata.core.model.Post?>) = viewModelScope.launch {
+        action()
+            .onSuccess { updated ->
+                if (updated != null) {
+                    _uiState.value = _uiState.value.copy(
+                        posts = _uiState.value.posts.map { post ->
+                            if (post.id == updated.id) updated else post
+                        }
+                    )
+                }
+            }
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+            }
     }
 
     companion object {

@@ -10,6 +10,8 @@ data class Post(
     val rankingLabel: String = "#1",
     val createdAt: String,
     val likesCount: Int = 0,
+    val isLikedByCurrentUser: Boolean = false,
+    val isReportedByCurrentUser: Boolean = false,
     val comments: List<PostComment> = emptyList()
 )
 

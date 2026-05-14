@@ -39,6 +39,8 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.User
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
@@ -65,6 +67,8 @@ fun ConversationsScreen(
                     ConversationCard(
                         item = item,
                         messages = state.messagesByConversation[item.id].orEmpty(),
+                        currentUser = state.currentUser,
+                        usersById = state.usersById,
                         onOpenConversation = onOpenConversation
                     )
                 }
@@ -77,6 +81,8 @@ fun ConversationsScreen(
 private fun ConversationCard(
     item: Conversation,
     messages: List<Message>,
+    currentUser: User?,
+    usersById: Map<String, User>,
     onOpenConversation: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -86,14 +92,14 @@ private fun ConversationCard(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ConversationAvatar(item)
+            ConversationAvatar(item, currentUser, usersById)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.chatDisplayTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(item.relativeUpdatedAt(context), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                if (item.unreadCount > 0) {
+                if (!item.isMuted && item.unreadCount > 0) {
                     Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(item.unreadCount.toString()) }
                 }
             }
@@ -102,7 +108,14 @@ private fun ConversationCard(
 }
 
 @Composable
-private fun ConversationAvatar(item: Conversation) {
+private fun ConversationAvatar(
+    item: Conversation,
+    currentUser: User?,
+    usersById: Map<String, User>
+) {
+    val privateUser = item.participantIds
+        .firstOrNull { it != currentUser?.id }
+        ?.let { usersById[it] }
     Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
         if (item.isGroup || item.isEmergency) {
             Box(
@@ -120,7 +133,11 @@ private fun ConversationAvatar(item: Conversation) {
                 }
             }
         } else {
-            AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
+            if (privateUser != null) {
+                AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp))
+            } else {
+                AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
+            }
         }
         if (item.isMuted) {
             Box(
@@ -132,7 +149,7 @@ private fun ConversationAvatar(item: Conversation) {
                     .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("\uD83D\uDEAB", fontSize = 13.sp)
+                Text("\uD83D\uDD15", fontSize = 13.sp)
             }
         }
     }

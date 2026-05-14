@@ -8,6 +8,7 @@ import com.quata.core.model.User
 import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
 import com.quata.core.session.SessionManager
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.domain.SosRateLimitException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -134,7 +135,11 @@ class ChatRepositoryImpl(
                 .lastOrNull()
             remote.updateConversation(existingConversation.id, SupabaseConversationUpdateRequest(isVisible = true))
             if (lastMessage?.senderId == session.userId && lastMessage.text.isSosText()) {
-                return@runCatching existingConversation.id
+                val sentAtMillis = lastMessage.sentAtMillis ?: 0L
+                val elapsed = System.currentTimeMillis() - sentAtMillis
+                if (elapsed in 0 until SosCooldownMillis) {
+                    throw SosRateLimitException(SosCooldownMillis - elapsed)
+                }
             }
             remote.sendMessage(session.userId, session.displayName, existingConversation.id, text)
             return@runCatching existingConversation.id
@@ -228,6 +233,8 @@ class ChatRepositoryImpl(
         contains("SOS", ignoreCase = true) || contains("https://maps.google.com/?q=")
 
     private companion object {
+        const val SosCooldownMillis = 5L * 60L * 1000L
+
         val MOCK_REPLIES = listOf(
             "Perfecto, lo veo ahora.",
             "Dale, seguimos por aqui.",

@@ -147,6 +147,7 @@
     <string name="sos_button">SOS 🚨</string>
     <string name="sos_sent">SOS enviado</string>
     <string name="sos_send_error">No se pudo enviar el SOS</string>
+    <string name="sos_recently_sent">Ya has enviado un SOS. Podrás reenviarlo en %1$s min. si nadie responde.</string>
     <string name="sos_location_unavailable">📍 Ubicación no disponible</string>
     <string name="sos_location">📍 Ubicación: %1$s</string>
     <string name="sos_default_message">🚨 SOS REAL: %1$s necesita ayuda urgente. Eres uno de sus contactos de emergencia en QUATA.</string>
@@ -173,7 +174,7 @@
     <string name="composer_description">Descripción</string>
     <string name="composer_text_placeholder">Escribe algo para el feed…</string>
     <string name="composer_word_count">%1$d / 500 palabras</string>
-    <string name="composer_pick_image">Seleccionar imagen</string>
+    <string name="composer_pick_image">Elegir foto</string>
     <string name="composer_take_photo">Hacer foto</string>
     <string name="composer_no_location">Sin ubicación. Se leerá EXIF o se pedirá la ubicación del teléfono.</string>
     <string name="composer_pending_location">Ubicación pendiente</string>
@@ -181,7 +182,7 @@
     <string name="composer_image_preview_title">Foto con ubicación</string>
     <string name="composer_image_preview_tag">FOTO + UBICACIÓN</string>
     <string name="composer_image_preview_body">La vista previa aparecerá cuando selecciones una foto.</string>
-    <string name="composer_pick_video">Seleccionar vídeo</string>
+    <string name="composer_pick_video">Elegir vídeo</string>
     <string name="composer_record_video">Grabar vídeo</string>
     <string name="composer_no_file">Sin archivo seleccionado.</string>
     <string name="composer_description_placeholder">Descripción opcional…</string>
@@ -201,7 +202,7 @@
     <string name="emoji_animals_nature">Animales y naturaleza</string>
     <string name="neighborhoods_title">BARRIOS</string>
     <string name="neighborhoods_open_community">Abre una comunidad</string>
-    <string name="neighborhoods_subtitle">Selecciona un barrio para abrir su chat comunitario.</string>
+    <string name="neighborhoods_subtitle">Selecciona o busca un barrio para abrir su chat comunitario.</string>
     <string name="neighborhoods_empty_preview">Abre la comunidad y empieza la conversación.</string>
     <string name="neighborhoods_user_count">%1$d usuarios</string>
     <string name="neighborhoods_one_user">1 usuario</string>

@@ -129,7 +129,6 @@ fun FeedScreen(
     val scope = rememberCoroutineScope()
     var commentsPost by remember { mutableStateOf<Post?>(null) }
     var isLiveOpen by remember { mutableStateOf(false) }
-    val localComments = remember { mutableStateMapOf<String, List<PostComment>>() }
 
     when {
         state.error != null -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
@@ -172,15 +171,14 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val post = state.posts[page]
-                    val extraComments = localComments[post.id].orEmpty()
                     ReelPost(
                         post = post,
                         postRank = postRanks[post.id] ?: 1,
                         isCurrentPage = pagerState.currentPage == page,
-                        extraCommentsCount = extraComments.size,
                         onOpenComments = { commentsPost = post },
                         onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                         onOpenLive = { isLiveOpen = true },
+                        onLike = { viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) },
                         onShare = {
                             val shareText = postShareText(post)
                             val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -190,18 +188,21 @@ fun FeedScreen(
                             context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.feed_share_post)))
                         },
                         onReport = {
-                            Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                            if (!post.isReportedByCurrentUser) {
+                                viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
+                                Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
                 }
             }
 
             commentsPost?.let { post ->
+                val currentPost = state.posts.firstOrNull { it.id == post.id } ?: post
                 CommentsSheet(
-                    post = post,
-                    localComments = localComments[post.id].orEmpty(),
+                    post = currentPost,
                     onAddComment = { comment ->
-                        localComments[post.id] = localComments[post.id].orEmpty() + comment
+                        viewModel.onEvent(FeedUiEvent.AddComment(currentPost.id, comment))
                     },
                     onDismiss = { commentsPost = null }
                 )
@@ -415,10 +416,10 @@ private fun ReelPost(
     post: Post,
     postRank: Int,
     isCurrentPage: Boolean,
-    extraCommentsCount: Int,
     onOpenComments: () -> Unit,
     onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
+    onLike: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
@@ -450,7 +451,10 @@ private fun ReelPost(
         )
         ReelActions(
             likes = post.likesCount,
-            comments = post.comments.size + extraCommentsCount,
+            isLiked = post.isLikedByCurrentUser,
+            isReported = post.isReportedByCurrentUser,
+            comments = post.comments.size,
+            onLike = onLike,
             onOpenComments = onOpenComments,
             onShare = onShare,
             onReport = onReport,
@@ -862,26 +866,26 @@ private fun ReelChip(
 @Composable
 private fun ReelActions(
     likes: Int,
+    isLiked: Boolean,
+    isReported: Boolean,
     comments: Int,
+    onLike: () -> Unit,
     onOpenComments: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var liked by rememberSaveable { mutableStateOf(false) }
-    val visibleLikes = likes + if (liked) 1 else 0
-
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         ReelActionButton(
-            icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            icon = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = stringResource(R.string.feed_like),
-            count = visibleLikes.toString(),
-            tint = if (liked) Color(0xFFFF7EA8) else Color.White,
-            onClick = { liked = !liked }
+            count = likes.toString(),
+            tint = if (isLiked) Color(0xFFFF7EA8) else Color.White,
+            onClick = onLike
         )
         ReelActionButton(
             icon = Icons.Filled.ChatBubble,
@@ -897,7 +901,7 @@ private fun ReelActions(
         ReelActionButton(
             icon = Icons.Filled.Flag,
             contentDescription = stringResource(R.string.feed_report),
-            tint = Color.White,
+            tint = if (isReported) QuataOrange else Color.White,
             onClick = onReport
         )
     }
@@ -907,7 +911,6 @@ private fun ReelActions(
 @Composable
 private fun CommentsSheet(
     post: Post,
-    localComments: List<PostComment>,
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -923,9 +926,7 @@ private fun CommentsSheet(
         skipPartiallyExpanded = true,
         confirmValueChange = { it != SheetValue.PartiallyExpanded }
     )
-    val comments = remember(post.id, localComments) {
-        post.comments + localComments
-    }
+    val comments = post.comments
 
     LaunchedEffect(post.id) {
         sheetState.expand()

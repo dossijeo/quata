@@ -30,6 +30,7 @@ fun SupabaseMessageDto.toDomain(currentUserId: String): Message = Message(
     senderName = senderName ?: "Usuario",
     text = text,
     sentAt = createdAt ?: "",
+    sentAtMillis = createdAt?.toEpochMillisOrNull(),
     isMine = senderId == currentUserId,
     isRead = senderId == currentUserId || isRead == true
 )

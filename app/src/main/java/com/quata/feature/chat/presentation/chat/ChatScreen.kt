@@ -132,6 +132,7 @@ fun ChatScreen(
                 ChatHeader(
                     conversation = state.conversation,
                     currentUser = state.currentUser,
+                    usersById = usersById,
                     onBack = onBack,
                     onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
                     onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
@@ -243,6 +244,7 @@ private fun rememberProceduralChatBackground(
 private fun ChatHeader(
     conversation: Conversation?,
     currentUser: User?,
+    usersById: Map<String, User>,
     onBack: () -> Unit,
     onToggleMute: (Boolean) -> Unit,
     onAddParticipants: () -> Unit,
@@ -253,7 +255,7 @@ private fun ChatHeader(
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     val title = conversation?.chatDisplayTitle().orEmpty().ifBlank { stringResource(R.string.nav_chats) }
     val isGroup = conversation?.isGroup == true
-    val memberNames = conversation.memberNamesForDisplay(currentUser, context)
+    val members = conversation.membersForDisplay(currentUser, usersById, context)
     Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(
@@ -266,13 +268,13 @@ private fun ChatHeader(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
-                ChatAvatar(conversation)
+                ChatAvatar(conversation, currentUser, usersById)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (isGroup) {
                         Text(
-                            stringResource(R.string.conversation_member_count, memberNames.size),
+                            stringResource(R.string.conversation_member_count, members.size),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
@@ -326,11 +328,11 @@ private fun ChatHeader(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(memberNames) { name ->
+                    items(members, key = { it.id }) { member ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AvatarLetter(name.removeSuffix(" (tu)").removeSuffix(" (tú)").removeSuffix(" (you)"), modifier = Modifier.size(38.dp))
+                            AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text(name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(member.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -399,7 +401,7 @@ private fun AddParticipantsDialog(
                                 .padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AvatarLetter(user.displayName, modifier = Modifier.size(42.dp))
+                            AvatarImage(user.displayName, user.avatarUrl, modifier = Modifier.size(42.dp))
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(user.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -433,29 +435,40 @@ private fun AddParticipantsDialog(
     }
 }
 
-private fun Conversation?.memberNamesForDisplay(currentUser: User?, context: android.content.Context): List<String> {
+private fun Conversation?.membersForDisplay(
+    currentUser: User?,
+    usersById: Map<String, User>,
+    context: android.content.Context
+): List<ChatMemberDisplay> {
     if (this == null) return emptyList()
-    val names = participantNames.toMutableList()
-    if (
-        currentUser != null &&
-        currentUser.id in participantIds &&
-        names.none { it.equals(currentUser.displayName, ignoreCase = true) }
-    ) {
-        names.add(currentUser.displayName)
-    }
-    return names
-        .distinctBy { it.lowercase() }
-        .map { name ->
-            if (currentUser != null && name.equals(currentUser.displayName, ignoreCase = true)) {
-                context.getString(R.string.conversation_you_suffix, name)
-            } else {
-                name
-            }
-        }
+    return participantIds.mapIndexed { index, userId ->
+        val user = usersById[userId]
+        val name = user?.displayName ?: participantNames.getOrNull(index) ?: userId
+        ChatMemberDisplay(
+            id = userId,
+            name = name,
+            avatarUrl = user?.avatarUrl,
+            label = if (userId == currentUser?.id) context.getString(R.string.conversation_you_suffix, name) else name
+        )
+    }.distinctBy { it.id }
 }
 
+private data class ChatMemberDisplay(
+    val id: String,
+    val name: String,
+    val avatarUrl: String?,
+    val label: String
+)
+
 @Composable
-private fun ChatAvatar(conversation: Conversation?) {
+private fun ChatAvatar(
+    conversation: Conversation?,
+    currentUser: User?,
+    usersById: Map<String, User>
+) {
+    val privateUser = conversation?.participantIds
+        ?.firstOrNull { it != currentUser?.id }
+        ?.let { usersById[it] }
     Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
         if (conversation?.isGroup == true || conversation?.isEmergency == true) {
             Box(
@@ -472,6 +485,8 @@ private fun ChatAvatar(conversation: Conversation?) {
                     Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
                 }
             }
+        } else if (privateUser != null) {
+            AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp))
         } else {
             AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
         }
@@ -491,7 +506,7 @@ private fun MutedConversationBadge(modifier: Modifier = Modifier) {
             .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text("\uD83D\uDEAB", fontSize = 13.sp)
+        Text("\uD83D\uDD15", fontSize = 13.sp)
     }
 }
 

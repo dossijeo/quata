@@ -74,6 +74,7 @@ import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
+import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.presentation.chat.ChatScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
@@ -219,6 +220,7 @@ fun AppNavGraph(container: AppContainer) {
                     NeighborhoodsScreen(
                         padding = padding,
                         repository = container.neighborhoodRepository,
+                        currentUserId = container.sessionManager.currentSession()?.userId,
                         onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
                     )
                 }
@@ -305,6 +307,7 @@ fun AppNavGraph(container: AppContainer) {
                         CommunityProfileScreen(
                             padding = padding,
                             profile = profile,
+                            currentUserId = container.sessionManager.currentSession()?.userId,
                             onBack = { navController.popBackStack() },
                             onFollow = { userProfileViewModel.toggleFollowUser(profile.user.id) },
                             onOpenPrivateChat = {
@@ -496,7 +499,12 @@ private fun GlobalSosButton(
             ).onSuccess {
                 Toast.makeText(context, context.getString(R.string.sos_sent), Toast.LENGTH_SHORT).show()
             }.onFailure { error ->
-                Toast.makeText(context, error.message ?: context.getString(R.string.sos_send_error), Toast.LENGTH_SHORT).show()
+                val message = if (error is SosRateLimitException) {
+                    context.getString(R.string.sos_recently_sent, error.remainingMillis.formatSosRemaining())
+                } else {
+                    error.message ?: context.getString(R.string.sos_send_error)
+                }
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -598,4 +606,11 @@ private fun Context.playDefaultNotificationSound() {
         val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         RingtoneManager.getRingtone(applicationContext, uri)?.play()
     }
+}
+
+private fun Long.formatSosRemaining(): String {
+    val totalSeconds = (coerceAtLeast(0L) + 999L) / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%d:%02d".format(minutes, seconds)
 }

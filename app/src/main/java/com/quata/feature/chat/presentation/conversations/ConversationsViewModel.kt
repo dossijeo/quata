@@ -18,6 +18,7 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
     val uiState: StateFlow<ConversationsUiState> = _uiState.asStateFlow()
     private var conversationsJob: Job? = null
     private var messagesJob: Job? = null
+    private var usersJob: Job? = null
 
     init { observe() }
 
@@ -25,11 +26,24 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
 
     private fun observe() {
         conversationsJob?.cancel()
+        usersJob?.cancel()
+        _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
+        usersJob = viewModelScope.launch {
+            repository.observeParticipantCandidates()
+                .catch { }
+                .collect { users ->
+                    val currentUser = repository.currentUser()
+                    _uiState.value = _uiState.value.copy(
+                        currentUser = currentUser,
+                        usersById = (users + listOfNotNull(currentUser)).associateBy { it.id }
+                    )
+                }
+        }
         conversationsJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             repository.observeConversations()
                 .catch { error ->
-                    _uiState.value = ConversationsUiState(isLoading = false, error = error.message ?: "Error cargando chats")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")
                 }
                 .collect { conversations ->
                     observeMessagesFor(conversations)
@@ -44,14 +58,14 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
             if (messageFlows.isEmpty()) {
-                _uiState.value = ConversationsUiState(isLoading = false, conversations = emptyList())
+                _uiState.value = _uiState.value.copy(isLoading = false, conversations = emptyList(), messagesByConversation = emptyMap())
                 return@launch
             }
             combine(messageFlows) { messages ->
                 messages.toList()
             }
                 .catch { error ->
-                    _uiState.value = ConversationsUiState(isLoading = false, error = error.message ?: "Error cargando chats")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")
                 }
                 .collect { messageLists ->
                     val messagesByConversation = conversations.zip(messageLists).associate { (conversation, messages) ->
@@ -60,7 +74,7 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                     val visibleConversations = conversations.filter { conversation ->
                         conversation.isVisible && messagesByConversation[conversation.id].orEmpty().isNotEmpty()
                     }
-                    _uiState.value = ConversationsUiState(
+                    _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         conversations = visibleConversations,
                         messagesByConversation = messagesByConversation

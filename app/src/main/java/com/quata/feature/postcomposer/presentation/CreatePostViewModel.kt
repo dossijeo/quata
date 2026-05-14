@@ -39,6 +39,7 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                 error = null,
                 successMessage = null
             )
+            CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState()
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
             CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(successMessage = null, error = null)
         }

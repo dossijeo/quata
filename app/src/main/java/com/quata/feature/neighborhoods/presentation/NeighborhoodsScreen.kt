@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -88,17 +89,30 @@ import java.time.temporal.ChronoUnit
 fun NeighborhoodsScreen(
     padding: PaddingValues,
     repository: NeighborhoodRepository,
+    currentUserId: String? = null,
     onOpenConversation: (String) -> Unit,
     viewModel: NeighborhoodsViewModel = viewModel(factory = NeighborhoodsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
     var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
+    var neighborhoodQuery by rememberSaveable { mutableStateOf("") }
     val communityForDialog = state.communities.firstOrNull { it.name == selectedCommunity }
+    val visibleCommunities = remember(state.communities, neighborhoodQuery) {
+        val query = neighborhoodQuery.trim()
+        if (query.isBlank()) {
+            state.communities
+        } else {
+            state.communities.filter { community ->
+                community.name.contains(query, ignoreCase = true)
+            }
+        }
+    }
 
     state.selectedProfile?.let { profile ->
         CommunityProfileScreen(
             padding = padding,
             profile = profile,
+            currentUserId = currentUserId,
             onBack = { viewModel.closeUserProfile() },
             onFollow = { viewModel.toggleFollowUser(profile.user.id) },
             onOpenPrivateChat = {
@@ -116,6 +130,7 @@ fun NeighborhoodsScreen(
         NeighborhoodUsersScreen(
             padding = padding,
             community = communityForDialog,
+            currentUserId = currentUserId,
             onBack = { selectedCommunity = null },
             onFollowUser = { viewModel.toggleFollowUser(it.id) },
             onOpenProfile = { viewModel.openUserProfile(it.id) },
@@ -140,9 +155,12 @@ fun NeighborhoodsScreen(
             Spacer(Modifier.height(10.dp))
             Text(stringResource(R.string.neighborhoods_open_community), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
-            Text(
-                stringResource(R.string.neighborhoods_subtitle),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            OutlinedTextField(
+                value = neighborhoodQuery,
+                onValueChange = { neighborhoodQuery = it },
+                placeholder = { Text(stringResource(R.string.neighborhoods_subtitle)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(18.dp))
 
@@ -155,7 +173,7 @@ fun NeighborhoodsScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(bottom = 18.dp)
             ) {
-                items(state.communities, key = { it.name }) { community ->
+                items(visibleCommunities, key = { it.name }) { community ->
                     NeighborhoodCard(
                         community = community,
                         isOpeningChat = state.isOpeningChat,
@@ -287,6 +305,7 @@ private fun CountPill(text: String) {
 private fun NeighborhoodUsersScreen(
     padding: PaddingValues,
     community: NeighborhoodCommunity,
+    currentUserId: String?,
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
@@ -332,6 +351,7 @@ private fun NeighborhoodUsersScreen(
                 items(community.users, key = { it.id }) { user ->
                     NeighborhoodUserRow(
                         user = user,
+                        isOwnUser = user.id == currentUserId,
                         onFollowUser = { onFollowUser(user) },
                         onOpenProfile = { onOpenProfile(user) },
                         onOpenPrivateChat = { onOpenPrivateChat(user) }
@@ -346,10 +366,12 @@ private fun NeighborhoodUsersScreen(
 fun CommunityProfileScreen(
     padding: PaddingValues,
     profile: CommunityUserProfile,
+    currentUserId: String? = null,
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onOpenPrivateChat: () -> Unit
 ) {
+    val isOwnProfile = profile.user.id == currentUserId
     QuataScreen(padding) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -380,6 +402,7 @@ fun CommunityProfileScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = onFollow,
+                        enabled = !isOwnProfile,
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                         modifier = Modifier.weight(1f)
@@ -388,6 +411,7 @@ fun CommunityProfileScreen(
                     }
                     OutlinedButton(
                         onClick = onOpenPrivateChat,
+                        enabled = !isOwnProfile,
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
                         modifier = Modifier.weight(1f)
@@ -421,6 +445,7 @@ fun CommunityProfileScreen(
 @Composable
 private fun NeighborhoodUserRow(
     user: NeighborhoodUser,
+    isOwnUser: Boolean,
     onFollowUser: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivateChat: () -> Unit
@@ -446,6 +471,7 @@ private fun NeighborhoodUserRow(
         ) {
             Button(
                 onClick = onFollowUser,
+                enabled = !isOwnUser,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
@@ -467,6 +493,7 @@ private fun NeighborhoodUserRow(
             }
             OutlinedButton(
                 onClick = onOpenPrivateChat,
+                enabled = !isOwnUser,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange)

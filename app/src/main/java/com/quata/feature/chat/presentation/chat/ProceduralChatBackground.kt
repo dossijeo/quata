@@ -32,8 +32,9 @@ private const val ProceduralChatBackgroundTag = "ChatBackground"
 
 internal object ProceduralChatBackground {
     fun cachedBitmap(context: Context, conversationName: String, width: Int, height: Int): ImageBitmap? {
-        val file = cacheFile(context, conversationName)
-        if (!file.exists()) return null
+        val file = cacheFile(context, conversationName).takeIf { it.exists() }
+            ?: legacyCacheFile(context, conversationName).takeIf { it.exists() }
+            ?: return null
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, bounds)
@@ -57,12 +58,17 @@ internal object ProceduralChatBackground {
         val file = cacheFile(context, conversationName)
         file.parentFile?.mkdirs()
         file.outputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            bitmap.compress(Bitmap.CompressFormat.WEBP, 82, output)
         }
         return bitmap.asImageBitmap()
     }
 
     private fun cacheFile(context: Context, conversationName: String): File {
+        val hash = fnv1a(conversationName.ifBlank { "quata" })
+        return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_$hash.webp")
+    }
+
+    private fun legacyCacheFile(context: Context, conversationName: String): File {
         val hash = fnv1a(conversationName.ifBlank { "quata" })
         return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_$hash.png")
     }

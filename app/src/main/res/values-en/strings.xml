@@ -147,6 +147,7 @@
     <string name="sos_button">SOS 🚨</string>
     <string name="sos_sent">SOS sent</string>
     <string name="sos_send_error">Could not send SOS</string>
+    <string name="sos_recently_sent">You already sent an SOS. You can send it again in %1$s min if nobody replies.</string>
     <string name="sos_location_unavailable">📍 Location unavailable</string>
     <string name="sos_location">📍 Location: %1$s</string>
     <string name="sos_default_message">🚨 REAL SOS: %1$s needs urgent help. You are one of their emergency contacts in QUATA.</string>
@@ -173,7 +174,7 @@
     <string name="composer_description">Description</string>
     <string name="composer_text_placeholder">Write something for the feed…</string>
     <string name="composer_word_count">%1$d / 500 words</string>
-    <string name="composer_pick_image">Select image</string>
+    <string name="composer_pick_image">Choose photo</string>
     <string name="composer_take_photo">Take photo</string>
     <string name="composer_no_location">No location. EXIF will be read or phone location will be requested.</string>
     <string name="composer_pending_location">Pending location</string>
@@ -181,7 +182,7 @@
     <string name="composer_image_preview_title">Photo with location</string>
     <string name="composer_image_preview_tag">PHOTO + LOCATION</string>
     <string name="composer_image_preview_body">The preview will appear when you select a photo.</string>
-    <string name="composer_pick_video">Select video</string>
+    <string name="composer_pick_video">Choose video</string>
     <string name="composer_record_video">Record video</string>
     <string name="composer_no_file">No file selected.</string>
     <string name="composer_description_placeholder">Optional description…</string>
@@ -201,7 +202,7 @@
     <string name="emoji_animals_nature">Animals and nature</string>
     <string name="neighborhoods_title">DISTRICTS</string>
     <string name="neighborhoods_open_community">Open a community</string>
-    <string name="neighborhoods_subtitle">Select a district to open its community chat.</string>
+    <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
     <string name="neighborhoods_empty_preview">Open the community and start the conversation.</string>
     <string name="neighborhoods_user_count">%1$d users</string>
     <string name="neighborhoods_one_user">1 user</string>

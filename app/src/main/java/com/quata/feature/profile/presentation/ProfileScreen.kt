@@ -305,8 +305,6 @@ fun ProfileScreen(
             onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
             onDismiss = { isEmergencyDialogOpen = false },
             onSave = {
-                Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
-                viewModel.onEvent(ProfileUiEvent.Save)
                 isEmergencyDialogOpen = false
             }
         )

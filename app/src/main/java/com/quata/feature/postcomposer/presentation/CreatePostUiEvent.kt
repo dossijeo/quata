@@ -9,6 +9,7 @@ sealed class CreatePostUiEvent {
         val latitude: Double? = null,
         val longitude: Double? = null
     ) : CreatePostUiEvent()
+    data object ClearDraft : CreatePostUiEvent()
     data object Submit : CreatePostUiEvent()
     data object ClearMessage : CreatePostUiEvent()
 }
