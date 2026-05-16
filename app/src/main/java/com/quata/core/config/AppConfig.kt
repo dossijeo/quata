@@ -14,7 +14,8 @@ object AppConfig {
     const val WORDPRESS_BASE_URL = "https://your-wordpress-site.com/"
     const val WORDPRESS_JWT_LOGIN_PATH = "wp-json/jwt-auth/v1/token"
     const val WORDPRESS_REGISTER_PATH = "wp-json/quata/v1/register"
-    const val BETTER_MESSAGES_BASE_URL = "https://egquata.com/"
+    const val QUATA_WORDPRESS_BASE_URL = "https://egquata.com/"
+    const val BETTER_MESSAGES_BASE_URL = QUATA_WORDPRESS_BASE_URL
 
     /** Supabase */
     const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"

@@ -12,6 +12,7 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseConfig
 import com.quata.data.supabase.SupabaseHttpClient
 import com.quata.data.supabase.SupabaseRealtimeClient
+import com.quata.wordpress.QuataWordPressClient
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -70,6 +71,11 @@ class NetworkModule(context: Context) {
     )
 
     val betterMessagesRepository = BetterMessagesRepository(betterMessagesClient)
+
+    val quataWordPressClient = QuataWordPressClient(
+        baseUrl = AppConfig.QUATA_WORDPRESS_BASE_URL,
+        httpClient = betterMessagesHttpClient
+    )
 
     val wordpressApi: WordpressApi = Retrofit.Builder()
         .baseUrl(AppConfig.WORDPRESS_BASE_URL)

@@ -39,6 +39,7 @@ class AppContainer(context: Context) {
     val supabaseRealtimeClient = networkModule.supabaseRealtimeClient
     val betterMessagesClient = networkModule.betterMessagesClient
     val betterMessagesRepository = networkModule.betterMessagesRepository
+    val quataWordPressClient = networkModule.quataWordPressClient
 
     val sessionPreferences = SessionPreferences(appContext)
     val sessionManager = SessionManager(sessionPreferences)
