@@ -16,8 +16,8 @@ object AppConfig {
     const val WORDPRESS_REGISTER_PATH = "wp-json/quata/v1/register"
 
     /** Supabase */
-    const val SUPABASE_URL = "https://your-project-ref.supabase.co/"
-    const val SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"
+    const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"
+    const val SUPABASE_ANON_KEY = "sb_publishable_dQILq4zEe6xW1TpJPQwMHw_gk6ZlaX3"
 
     /** Cambia a "supabase" si tu feed principal vive en Supabase. */
     const val FEED_SOURCE = "wordpress" // wordpress | supabase

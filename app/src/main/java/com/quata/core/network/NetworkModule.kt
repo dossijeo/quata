@@ -3,6 +3,10 @@ package com.quata.core.network
 import com.quata.core.config.AppConfig
 import com.quata.core.network.supabase.SupabaseApi
 import com.quata.core.network.wordpress.WordpressApi
+import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.data.supabase.SupabaseConfig
+import com.quata.data.supabase.SupabaseHttpClient
+import com.quata.data.supabase.SupabaseRealtimeClient
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -27,6 +31,23 @@ class NetworkModule {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
+
+    private val supabaseHelperConfig = SupabaseConfig(
+        projectUrl = AppConfig.SUPABASE_URL,
+        anonKey = AppConfig.SUPABASE_ANON_KEY
+    )
+
+    val supabaseHttpClient = SupabaseHttpClient(
+        config = supabaseHelperConfig,
+        okHttp = supabaseClient
+    )
+
+    val supabaseCommunityApi = SupabaseCommunityApi(supabaseHttpClient)
+
+    val supabaseRealtimeClient = SupabaseRealtimeClient(
+        config = supabaseHelperConfig,
+        okHttp = supabaseClient
+    )
 
     val wordpressApi: WordpressApi = Retrofit.Builder()
         .baseUrl(AppConfig.WORDPRESS_BASE_URL)

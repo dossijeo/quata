@@ -35,6 +35,8 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
     val networkModule = NetworkModule()
+    val supabaseCommunityApi = networkModule.supabaseCommunityApi
+    val supabaseRealtimeClient = networkModule.supabaseRealtimeClient
 
     val sessionPreferences = SessionPreferences(appContext)
     val sessionManager = SessionManager(sessionPreferences)
