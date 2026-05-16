@@ -1,8 +1,15 @@
 package com.quata.feature.chat.presentation.chat
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.MediaPlayer
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.foundation.Image
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -25,11 +33,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -78,6 +92,9 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,13 +108,21 @@ import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.navigation.AppDestinations
+import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
+import com.quata.core.ui.components.AttachmentPreview
+import com.quata.core.ui.components.AttachmentThumbnail
+import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.openAttachmentWithChooser
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -105,6 +130,11 @@ fun ChatScreen(
     padding: PaddingValues,
     conversationId: String,
     repository: ChatRepository,
+    onOpenUserProfile: (String) -> Unit = {},
+    onOpenConversation: (String) -> Unit = {},
+    focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
+    onOpenMessageConversation: (String, String) -> Unit = { targetConversationId, _ -> onOpenConversation(targetConversationId) },
     onBack: () -> Unit,
     viewModel: ChatViewModel = viewModel(factory = ChatViewModel.factory(conversationId, repository))
 ) {
@@ -114,12 +144,86 @@ fun ChatScreen(
     val metrics = context.resources.displayMetrics
     val messagesListState = rememberLazyListState()
     val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
+    val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
     var lastShownError by remember { mutableStateOf<String?>(null) }
+    var previousIncomingCount by remember(conversationId) { mutableStateOf(0) }
+    var attachmentMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingCameraName by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingCameraMimeType by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingCameraKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
+    var highlightVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
+    var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
     val backgroundSeed = state.conversation?.chatDisplayTitle()?.ifBlank { conversationId }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
+    }
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        if (saved) {
+            pendingCameraUri?.let { uri ->
+                viewModel.onEvent(
+                    ChatUiEvent.AttachmentSelected(
+                        uri = uri,
+                        name = pendingCameraName ?: "photo.jpg",
+                        mimeType = pendingCameraMimeType ?: "image/jpeg"
+                    )
+                )
+            }
+        }
+    }
+    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { saved ->
+        if (saved) {
+            pendingCameraUri?.let { uri ->
+                viewModel.onEvent(
+                    ChatUiEvent.AttachmentSelected(
+                        uri = uri,
+                        name = pendingCameraName ?: "video.mp4",
+                        mimeType = pendingCameraMimeType ?: "video/mp4"
+                    )
+                )
+            }
+        }
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            pendingCameraUri?.let { uri ->
+                when (pendingCameraKind) {
+                    "video" -> videoLauncher.launch(Uri.parse(uri))
+                    else -> cameraLauncher.launch(Uri.parse(uri))
+                }
+            }
+        } else {
+            Toast.makeText(context, context.getString(R.string.conversation_camera_permission), Toast.LENGTH_SHORT).show()
+        }
+    }
+    fun launchCameraAttachment(kind: String) {
+        val extension = if (kind == "video") "mp4" else "jpg"
+        val mimeType = if (kind == "video") "video/mp4" else "image/jpeg"
+        val fileName = "quata_${currentAttachmentTimestamp()}.$extension"
+        val file = java.io.File(context.cacheDir, fileName)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingCameraUri = uri.toString()
+        pendingCameraName = fileName
+        pendingCameraMimeType = mimeType
+        pendingCameraKind = kind
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            if (kind == "video") {
+                videoLauncher.launch(uri)
+            } else {
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
     val backgroundImage = backgroundSeed?.let { seed ->
         rememberProceduralChatBackground(
             conversationName = seed,
@@ -166,10 +270,14 @@ fun ChatScreen(
                         }
                     )
                 } else {
+                    if (isFavoritesConversation) {
+                        FavoriteMessagesHeader(onBack = onBack)
+                    } else {
                     ChatHeader(
                         conversation = state.conversation,
                         currentUser = state.currentUser,
                         usersById = usersById,
+                        onOpenUserProfile = onOpenUserProfile,
                         selectedMessage = selectedMessage,
                         onClearSelection = { viewModel.onEvent(ChatUiEvent.MessageSelected(null)) },
                         onCopySelected = {
@@ -207,6 +315,7 @@ fun ChatScreen(
                             confirmAction = ConfirmAction.DeleteConversation
                         }
                     )
+                    }
                     LazyColumn(
                     state = messagesListState,
                     modifier = Modifier
@@ -220,35 +329,93 @@ fun ChatScreen(
                             message = message,
                             sender = usersById[message.senderId],
                             showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
-                            isSelected = message.id == state.selectedMessageId,
+                            isSelected = message.id == state.selectedMessageId ||
+                                (message.id == highlightedMessageId && highlightVisible),
+                            onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
+                            onOpenAttachment = { attachment ->
+                                if (attachment.isMedia) {
+                                    selectedAttachment = attachment
+                                } else {
+                                    context.openAttachmentWithChooser(attachment)
+                                }
+                            },
                             onClick = {
-                                viewModel.onEvent(
-                                    ChatUiEvent.MessageSelected(
-                                        if (message.id == state.selectedMessageId) null else message.id
+                                if (isFavoritesConversation) {
+                                    onOpenMessageConversation(message.conversationId, message.id)
+                                } else {
+                                    viewModel.onEvent(
+                                        ChatUiEvent.MessageSelected(
+                                            if (message.id == state.selectedMessageId) null else message.id
+                                        )
                                     )
-                                )
+                                }
                             }
                         )
                     }
                 }
-                    state.editingMessage?.let {
+                    if (!isFavoritesConversation) state.editingMessage?.let {
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_editing_message),
                             onClear = { viewModel.onEvent(ChatUiEvent.CancelEdit) }
                         )
                     }
-                    state.replyToMessage?.let { reply ->
+                    if (!isFavoritesConversation) state.replyToMessage?.let { reply ->
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_replying_to, reply.senderName),
                             onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) }
                         )
                     }
-                    Row(
+                    state.attachmentUri?.let {
+                        ComposerModeBanner(
+                            text = state.attachmentName ?: stringResource(R.string.conversation_attachment),
+                            onClear = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }
+                        )
+                    }
+                    if (!isFavoritesConversation) Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box {
+                        IconButton(onClick = { attachmentMenuExpanded = true }) {
+                            Icon(Icons.Filled.AttachFile, contentDescription = stringResource(R.string.conversation_attachment))
+                        }
+                        DropdownMenu(expanded = attachmentMenuExpanded, onDismissRequest = { attachmentMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.conversation_attach_file)) },
+                                leadingIcon = { Icon(Icons.Filled.InsertDriveFile, contentDescription = null) },
+                                onClick = {
+                                    attachmentMenuExpanded = false
+                                    filePicker.launch("*/*")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.conversation_attach_gallery)) },
+                                leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                                onClick = {
+                                    attachmentMenuExpanded = false
+                                    mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.conversation_attach_take_photo)) },
+                                leadingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                                onClick = {
+                                    attachmentMenuExpanded = false
+                                    launchCameraAttachment("photo")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.conversation_attach_record_video)) },
+                                leadingIcon = { Icon(Icons.Filled.Videocam, contentDescription = null) },
+                                onClick = {
+                                    attachmentMenuExpanded = false
+                                    launchCameraAttachment("video")
+                                }
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = state.messageText,
                         onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
@@ -259,8 +426,11 @@ fun ChatScreen(
                         singleLine = true,
                         trailingIcon = {
                             IconButton(
-                                enabled = state.messageText.isNotBlank(),
-                                onClick = { viewModel.onEvent(ChatUiEvent.Send) }
+                                enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
+                                onClick = {
+                                    context.playChatSound(R.raw.sent)
+                                    viewModel.onEvent(ChatUiEvent.Send)
+                                }
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
                             }
@@ -274,9 +444,32 @@ fun ChatScreen(
     }
 
     LaunchedEffect(conversationId, state.messages.size) {
-        if (state.messages.isNotEmpty()) {
+        if (state.messages.isNotEmpty() && focusedMessageId == null) {
             messagesListState.scrollToItem(state.messages.lastIndex)
         }
+    }
+
+    LaunchedEffect(focusedMessageId, state.messages) {
+        val targetMessageId = focusedMessageId ?: return@LaunchedEffect
+        val targetIndex = state.messages.indexOfFirst { it.id == targetMessageId }
+        if (targetIndex < 0) return@LaunchedEffect
+        messagesListState.scrollToItem(targetIndex)
+        highlightedMessageId = targetMessageId
+        repeat(4) { index ->
+            highlightVisible = index % 2 == 0
+            delay(180L)
+        }
+        highlightVisible = false
+        highlightedMessageId = null
+        onFocusedMessageHandled()
+    }
+
+    LaunchedEffect(state.messages) {
+        val incomingCount = state.messages.count { !it.isMine }
+        if (incomingCount > previousIncomingCount) {
+            context.playChatSound(R.raw.notification)
+        }
+        previousIncomingCount = incomingCount
     }
 
     LaunchedEffect(state.error) {
@@ -327,6 +520,12 @@ fun ChatScreen(
         )
     }
 
+    selectedAttachment?.let { attachment ->
+        AttachmentViewerDialog(
+            attachment = attachment,
+            onDismiss = { selectedAttachment = null }
+        )
+    }
 }
 
 @Composable
@@ -383,10 +582,38 @@ private fun ComposerModeBanner(
 }
 
 @Composable
+private fun FavoriteMessagesHeader(onBack: () -> Unit) {
+    Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(QuataOrange.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = QuataOrange)
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.conversation_favorites_title), fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+@Composable
 private fun ChatHeader(
     conversation: Conversation?,
     currentUser: User?,
     usersById: Map<String, User>,
+    onOpenUserProfile: (String) -> Unit,
     selectedMessage: Message?,
     onClearSelection: () -> Unit,
     onCopySelected: () -> Unit,
@@ -464,7 +691,7 @@ private fun ChatHeader(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
-                    ChatAvatar(conversation, currentUser, usersById)
+                    ChatAvatar(conversation, currentUser, usersById, onOpenUserProfile)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -550,7 +777,7 @@ private fun ChatHeader(
                     items(members, key = { it.id }) { member ->
                         var memberMenuExpanded by rememberSaveable(member.id) { mutableStateOf(false) }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp))
+                            AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp).clickable { onOpenUserProfile(member.id) })
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(member.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -897,7 +1124,8 @@ private fun ShieldMinusIcon() {
 private fun ChatAvatar(
     conversation: Conversation?,
     currentUser: User?,
-    usersById: Map<String, User>
+    usersById: Map<String, User>,
+    onOpenUserProfile: (String) -> Unit
 ) {
     val privateUser = conversation?.participantIds
         ?.firstOrNull { it != currentUser?.id }
@@ -919,7 +1147,7 @@ private fun ChatAvatar(
                 }
             }
         } else if (privateUser != null) {
-            AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp))
+            AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp).clickable { onOpenUserProfile(privateUser.id) })
         } else {
             AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
         }
@@ -949,6 +1177,8 @@ private fun MessageBubble(
     sender: User?,
     showSenderAvatar: Boolean,
     isSelected: Boolean,
+    onOpenSenderProfile: () -> Unit,
+    onOpenAttachment: (AttachmentPreview) -> Unit,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -964,6 +1194,7 @@ private fun MessageBubble(
                 avatarUrl = sender?.avatarUrl,
                 modifier = Modifier
                     .size(34.dp)
+                    .clickable(onClick = onOpenSenderProfile)
                     .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
             )
             Spacer(Modifier.width(8.dp))
@@ -983,7 +1214,10 @@ private fun MessageBubble(
                 .padding(14.dp)
         ) {
             val textColor = if (message.isMine || isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
-            Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.weight(1f))
+                Text(message.chatTimestampLabel(), color = textColor.copy(alpha = 0.56f), fontSize = 12.sp)
+            }
             Spacer(Modifier.padding(2.dp))
             if (message.forwardedFromSenderName != null) {
                 Text(
@@ -1010,7 +1244,42 @@ private fun MessageBubble(
             if (message.isDeleted) {
                 Text(stringResource(R.string.conversation_deleted_message), color = textColor.copy(alpha = 0.72f))
             } else {
-                Text(message.text, color = textColor)
+                if (message.text.isNotBlank()) {
+                    LinkifiedMessageText(
+                        text = message.text,
+                        color = textColor,
+                        linkColor = if (message.isMine || isSelected) Color.Black else QuataOrange
+                    )
+                }
+                message.attachmentPreview()?.let { attachment ->
+                    Spacer(Modifier.padding(4.dp))
+                    if (attachment.isMedia) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenAttachment(attachment) }
+                        ) {
+                            AttachmentThumbnail(
+                                attachment = attachment,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.clickable { onOpenAttachment(attachment) }
+                        ) {
+                            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
+                                Spacer(Modifier.width(8.dp))
+                                Text(attachment.name, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
             }
             if (message.isEdited || message.isFavorite) {
                 Spacer(Modifier.padding(2.dp))
@@ -1036,12 +1305,118 @@ private fun MessageBubble(
     }
 }
 
+@Composable
+private fun LinkifiedMessageText(
+    text: String,
+    color: Color,
+    linkColor: Color
+) {
+    val context = LocalContext.current
+    val annotatedText = remember(text, color, linkColor) {
+        text.toLinkAnnotatedString(
+            linkColor = linkColor
+        )
+    }
+    if (annotatedText.getStringAnnotations(UrlAnnotationTag, 0, annotatedText.length).isEmpty()) {
+        Text(text, color = color)
+    } else {
+        ClickableText(
+            text = annotatedText,
+            style = TextStyle(color = color, fontSize = 14.sp),
+            onClick = { offset ->
+                annotatedText
+                    .getStringAnnotations(UrlAnnotationTag, offset, offset)
+                    .firstOrNull()
+                    ?.item
+                    ?.let { context.openBrowserUrl(it) }
+            }
+        )
+    }
+}
+
 private fun String.extractMapsUrl(): String? =
     Regex("""https://maps\.google\.com/\?q=[^\s]+""").find(this)?.value
+
+private const val UrlAnnotationTag = "url"
+
+private val UrlRegex = Regex("""(https?://[^\s]+|www\.[^\s]+)""")
+
+private fun String.toLinkAnnotatedString(linkColor: Color): AnnotatedString =
+    buildAnnotatedString {
+        var currentIndex = 0
+        UrlRegex.findAll(this@toLinkAnnotatedString).forEach { match ->
+            if (match.range.first > currentIndex) {
+                append(this@toLinkAnnotatedString.substring(currentIndex, match.range.first))
+            }
+            val rawUrl = match.value.trimEnd('.', ',', ';', ')')
+            val normalizedUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) rawUrl else "https://$rawUrl"
+            pushStringAnnotation(tag = UrlAnnotationTag, annotation = normalizedUrl)
+            pushStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Bold))
+            append(rawUrl)
+            pop()
+            pop()
+            currentIndex = match.range.first + rawUrl.length
+        }
+        if (currentIndex < this@toLinkAnnotatedString.length) {
+            append(this@toLinkAnnotatedString.substring(currentIndex))
+        }
+    }
+
+private fun Message.attachmentPreview(): AttachmentPreview? {
+    val uri = attachmentUri?.takeIf { it.isNotBlank() } ?: return null
+    return AttachmentPreview(
+        name = attachmentName ?: "archivo",
+        uri = uri,
+        mimeType = attachmentMimeType
+    )
+}
+
+private fun currentAttachmentTimestamp(): String =
+    java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+        .format(java.util.Date())
+
+private fun Message.chatTimestampLabel(): String {
+    val millis = sentAtMillis ?: return sentAt
+    val now = System.currentTimeMillis()
+    val elapsed = (now - millis).coerceAtLeast(0L)
+    val day = 24L * 60L * 60L * 1000L
+    return when {
+        elapsed < day -> java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(millis))
+        elapsed < 7L * day -> "hace ${elapsed / day}d"
+        elapsed < 31L * day -> "hace ${elapsed / (7L * day)} sem."
+        elapsed < 365L * day -> "hace ${elapsed / (31L * day)} mes"
+        else -> "hace un año"
+    }
+}
+
+private fun android.content.Context.displayNameForUri(uri: Uri): String {
+    val name = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
+    }.getOrNull()
+    return name?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { "archivo" }
+}
 
 private fun android.content.Context.openMaps(url: String) {
     val uri = Uri.parse(url)
     val mapsIntent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
     runCatching { startActivity(mapsIntent) }
         .onFailure { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+}
+
+private fun android.content.Context.openBrowserUrl(url: String) {
+    runCatching {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+}
+
+private fun android.content.Context.playChatSound(rawResId: Int) {
+    runCatching {
+        MediaPlayer.create(this, rawResId)?.apply {
+            setOnCompletionListener { player -> player.release() }
+            start()
+        }
+    }
 }

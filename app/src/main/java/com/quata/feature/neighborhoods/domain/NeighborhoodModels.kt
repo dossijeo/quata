@@ -25,5 +25,17 @@ data class NeighborhoodCommunity(
 
 data class CommunityUserProfile(
     val user: NeighborhoodUser,
-    val posts: List<Post>
+    val posts: List<Post>,
+    val attachments: List<ProfileAttachment> = emptyList(),
+    val followers: List<NeighborhoodUser> = emptyList(),
+    val following: List<NeighborhoodUser> = emptyList()
+)
+
+data class ProfileAttachment(
+    val id: String,
+    val name: String,
+    val uri: String,
+    val mimeType: String?,
+    val sentAtMillis: Long?,
+    val senderName: String
 )

@@ -1,6 +1,9 @@
 package com.quata.core.navigation
 
 sealed class AppDestinations(val route: String) {
+    companion object {
+        const val FavoriteMessagesConversationId = "__favorite_messages__"
+    }
     data object Login : AppDestinations("login")
     data object Register : AppDestinations("register")
     data object ForgotPassword : AppDestinations("forgot_password")

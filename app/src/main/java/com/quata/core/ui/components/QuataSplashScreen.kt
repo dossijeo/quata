@@ -79,9 +79,9 @@ fun QuataSplashScreen(
             drawRect(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color(0xFF050A16),
-                        Color(0xFF071020),
-                        Color(0xFF0B111E),
+                        Color(0xFF0D1422),
+                        Color(0xFF0D1422),
+                        Color(0xFF0D1422),
                         Color(0xFF111018)
                     ),
                     start = Offset.Zero,

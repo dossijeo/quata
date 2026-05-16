@@ -2,6 +2,7 @@ package com.quata.feature.chat.presentation.chat
 
 sealed class ChatUiEvent {
     data class MessageChanged(val value: String) : ChatUiEvent()
+    data class AttachmentSelected(val uri: String, val name: String, val mimeType: String?) : ChatUiEvent()
     data class ParticipantSearchChanged(val value: String) : ChatUiEvent()
     data class ParticipantSelectionToggled(val userId: String) : ChatUiEvent()
     data class MessageSelected(val messageId: String?) : ChatUiEvent()
@@ -27,4 +28,5 @@ sealed class ChatUiEvent {
     data object HideConversation : ChatUiEvent()
     data object DeleteConversation : ChatUiEvent()
     data object Send : ChatUiEvent()
+    data object ClearAttachment : ChatUiEvent()
 }

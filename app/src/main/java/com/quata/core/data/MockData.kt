@@ -7,6 +7,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.SosRateLimitException
+import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.flow.Flow
@@ -185,6 +186,16 @@ object MockData {
     fun isFollowing(userId: String): Boolean = userId in mutableFollowing
     fun followersCount(userId: String): Int = followerCounts[userId] ?: 0
     fun followingCount(userId: String): Int = followingCounts[userId] ?: 0
+    fun followersFor(userId: String): List<User> =
+        registeredUsers
+            .filter { it.id != userId }
+            .take(followersCount(userId).coerceAtMost((registeredUsers.size - 1).coerceAtLeast(0)))
+
+    fun followingFor(userId: String): List<User> =
+        registeredUsers
+            .filter { it.id != userId }
+            .drop(1)
+            .take(followingCount(userId).coerceAtMost((registeredUsers.size - 1).coerceAtLeast(0)))
 
     fun toggleFollowUser(userId: String) {
         if (userId == currentUser.id) return
@@ -320,8 +331,51 @@ object MockData {
         Message("m4d", "c2", "u_ana", "Ana", "Genial, lo dejamos listo hoy.", "11:27", mockNow - 100L * 60L * 1000L, false, false),
         Message("m4e", "c2", "u_leo", "Leo", "Avisad cuando este para probar.", "11:31", mockNow - 95L * 60L * 1000L, false, false),
         Message("m5", "c3", "u_leo", "Leo", "Mira el diseno naranja del login", "Ayer", mockNow - 12L * 24L * 60L * 60L * 1000L, false, true),
+        Message(
+            id = "m5_attach_img",
+            conversationId = "c3",
+            senderId = "u_current",
+            senderName = "Gabriel",
+            text = "Te paso la captura",
+            sentAt = "Ayer",
+            sentAtMillis = mockNow - 11L * 24L * 60L * 60L * 1000L,
+            isMine = true,
+            isRead = true,
+            attachmentUri = "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80",
+            attachmentName = "captura_diseno.jpg",
+            attachmentMimeType = "image/jpeg"
+        ),
+        Message(
+            id = "m5_attach_doc",
+            conversationId = "c3",
+            senderId = "u_leo",
+            senderName = "Leo",
+            text = "Y este documento",
+            sentAt = "Ayer",
+            sentAtMillis = mockNow - 10L * 24L * 60L * 60L * 1000L,
+            isMine = false,
+            isRead = true,
+            attachmentUri = "content://mock/quata/brief-quata.pdf",
+            attachmentName = "brief-quata.pdf",
+            attachmentMimeType = "application/pdf"
+        ),
+        Message(
+            id = "m5_attach_video",
+            conversationId = "c3",
+            senderId = "u_leo",
+            senderName = "Leo",
+            text = "Te mando tambien un clip",
+            sentAt = "Ayer",
+            sentAtMillis = mockNow - 9L * 24L * 60L * 60L * 1000L,
+            isMine = false,
+            isRead = true,
+            attachmentUri = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+            attachmentName = "clip-demo.mp4",
+            attachmentMimeType = "video/mp4"
+        ),
         Message("m6", "barrio_molyko", "u_marcelino", "Marcelino", "Los chicos de Molyko ya estan por aqui.", "11:34", mockNow - 90L * 60L * 1000L, false, true),
-        Message("m7", "barrio_sampaka", "u_ana", "Ana", "Sampaka se mueve hoy.", "10:12", mockNow - 3L * 60L * 60L * 1000L, false, false)
+        Message("m7", "barrio_sampaka", "u_ana", "Ana", "Sampaka se mueve hoy.", "10:12", mockNow - 3L * 60L * 60L * 1000L, false, false),
+        Message("m_blocked_1", "c_blocked_current", "u_melo", "Melo", "Lo siento, te tengo que bloquear", "09:48", mockNow - 75L * 60L * 1000L, false, true)
     )
     private val messagesState = MutableStateFlow(mutableMessages.toList())
 
@@ -385,6 +439,18 @@ object MockData {
             isGroup = true,
             communityName = "Sampaka",
             moderatorIds = listOf("u_ana")
+        ),
+        Conversation(
+            "c_blocked_current",
+            "Melo",
+            lastMessagePreview = "Lo siento, te tengo que bloquear",
+            unreadCount = 0,
+            updatedAt = "09:48",
+            updatedAtMillis = mockNow - 75L * 60L * 1000L,
+            participantIds = listOf("u_melo", currentUser.id),
+            participantNames = listOf("Melo", "Gabriel"),
+            moderatorIds = listOf("u_melo"),
+            blockedUserIds = listOf(currentUser.id)
         )
     )
     private val conversationsState = MutableStateFlow(mutableConversations.toList())
@@ -403,6 +469,37 @@ object MockData {
     val messagesFlow: StateFlow<List<Message>>
         get() = messagesState.asStateFlow()
 
+    fun profileAttachmentsWith(userId: String, currentUserId: String): List<ProfileAttachment> {
+        val sharedConversationIds = mutableConversations
+            .filter { conversation ->
+                conversation.isVisible &&
+                    currentUserId !in conversation.blockedUserIds &&
+                    currentUserId in conversation.participantIds &&
+                    userId in conversation.participantIds
+            }
+            .map { it.id }
+            .toSet()
+
+        return mutableMessages
+            .filter { message ->
+                message.conversationId in sharedConversationIds &&
+                    message.senderId in setOf(currentUserId, userId) &&
+                    !message.isDeleted &&
+                    !message.attachmentUri.isNullOrBlank()
+            }
+            .sortedByDescending { it.sentAtMillis ?: 0L }
+            .map { message ->
+                ProfileAttachment(
+                    id = message.id,
+                    name = message.attachmentName ?: "archivo",
+                    uri = message.attachmentUri.orEmpty(),
+                    mimeType = message.attachmentMimeType,
+                    sentAtMillis = message.sentAtMillis,
+                    senderName = message.senderName
+                )
+            }
+    }
+
     private fun List<Conversation>.withLiveUnreadCounts(): List<Conversation> =
         map { conversation ->
             conversation.copy(
@@ -418,9 +515,12 @@ object MockData {
         senderId: String,
         senderName: String,
         replyTo: Message? = null,
-        forwardedFrom: Message? = null
+        forwardedFrom: Message? = null,
+        attachmentUri: String? = null,
+        attachmentName: String? = null,
+        attachmentMimeType: String? = null
     ): Unit {
-        if (text.isBlank()) return
+        if (text.isBlank() && attachmentUri.isNullOrBlank()) return
         val now = System.currentTimeMillis()
         mutableMessages.add(
             Message(
@@ -437,7 +537,10 @@ object MockData {
                 replyToSenderName = replyTo?.senderName,
                 replyToText = replyTo?.text,
                 forwardedFromSenderId = forwardedFrom?.senderId,
-                forwardedFromSenderName = forwardedFrom?.senderName
+                forwardedFromSenderName = forwardedFrom?.senderName,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType
             )
         )
         messagesState.value = mutableMessages.toList()
@@ -464,6 +567,7 @@ object MockData {
     ) {
         if (text.isBlank()) return
         val conversation = mutableConversations.firstOrNull { it.id == conversationId } ?: return
+        if (currentUserId in conversation.blockedUserIds) return
         val sender = conversation.participantIds
             .firstOrNull { it != currentUserId }
             ?.let { id -> registeredUsers.firstOrNull { it.id == id } }

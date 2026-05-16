@@ -46,6 +46,11 @@ class ChatViewModel(
     fun onEvent(event: ChatUiEvent) {
         when (event) {
             is ChatUiEvent.MessageChanged -> _uiState.value = _uiState.value.copy(messageText = event.value)
+            is ChatUiEvent.AttachmentSelected -> _uiState.value = _uiState.value.copy(
+                attachmentUri = event.uri,
+                attachmentName = event.name,
+                attachmentMimeType = event.mimeType
+            )
             is ChatUiEvent.ParticipantSearchChanged -> _uiState.value = _uiState.value.copy(participantSearch = event.value)
             is ChatUiEvent.ParticipantSelectionToggled -> toggleParticipant(event.userId)
             is ChatUiEvent.MessageSelected -> _uiState.value = _uiState.value.copy(selectedMessageId = event.messageId)
@@ -78,22 +83,37 @@ class ChatViewModel(
             ChatUiEvent.HideConversation -> hideConversation()
             ChatUiEvent.DeleteConversation -> deleteConversation()
             ChatUiEvent.Send -> send()
+            ChatUiEvent.ClearAttachment -> _uiState.value = _uiState.value.copy(attachmentUri = null, attachmentName = null, attachmentMimeType = null)
         }
     }
 
     private fun send() = viewModelScope.launch {
         val text = _uiState.value.messageText
+        val currentUserId = _uiState.value.currentUser?.id
+        if (currentUserId != null && currentUserId in _uiState.value.conversation?.blockedUserIds.orEmpty()) {
+            _uiState.value = _uiState.value.copy(error = "Has sido bloqueado de esta conversación")
+            return@launch
+        }
         val editingMessage = _uiState.value.editingMessage
         val replyToMessage = _uiState.value.replyToMessage
         val result = when {
             editingMessage != null -> repository.editMessage(editingMessage.id, text)
             replyToMessage != null -> repository.sendReply(conversationId, text, replyToMessage)
-            else -> repository.sendMessage(conversationId, text)
+            else -> repository.sendMessage(
+                conversationId = conversationId,
+                text = text,
+                attachmentUri = _uiState.value.attachmentUri,
+                attachmentName = _uiState.value.attachmentName,
+                attachmentMimeType = _uiState.value.attachmentMimeType
+            )
         }
         result
             .onSuccess {
                 _uiState.value = _uiState.value.copy(
                     messageText = "",
+                    attachmentUri = null,
+                    attachmentName = null,
+                    attachmentMimeType = null,
                     editingMessage = null,
                     replyToMessage = null,
                     selectedMessageId = null

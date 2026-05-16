@@ -15,7 +15,13 @@ interface ChatRepository {
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
     fun observeParticipantCandidates(): Flow<List<User>>
-    suspend fun sendMessage(conversationId: String, text: String): Result<Unit>
+    suspend fun sendMessage(
+        conversationId: String,
+        text: String,
+        attachmentUri: String? = null,
+        attachmentName: String? = null,
+        attachmentMimeType: String? = null
+    ): Result<Unit>
     suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit>
     suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String>
     suspend fun markConversationRead(conversationId: String): Result<Unit>

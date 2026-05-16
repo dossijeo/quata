@@ -94,7 +94,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppNavGraph(container: AppContainer) {
     val navController = rememberNavController()
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentBackStackEntry = navController.currentBackStackEntryAsState().value
+    val currentRoute = currentBackStackEntry?.destination?.route
+    val currentConversationId = currentBackStackEntry?.arguments?.getString("conversationId")
     val startDestination = if (container.sessionManager.isLoggedIn()) AppDestinations.Feed.route else AppDestinations.Login.route
     val showAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
@@ -133,6 +135,12 @@ fun AppNavGraph(container: AppContainer) {
     )
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    val globalProfileViewModel: NeighborhoodsViewModel = viewModel(
+        key = "global_user_profile",
+        factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
+    )
+    val globalProfileState by globalProfileViewModel.uiState.collectAsState()
 
     Box(
         Modifier
@@ -209,7 +217,7 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         feedRepository = container.feedRepository,
                         onOpenUserProfile = { userId ->
-                            navController.navigate(AppDestinations.UserProfile.createRoute(userId))
+                            globalProfileViewModel.openUserProfile(userId)
                         },
                         focusedPostId = feedFocusedPostId,
                         onFocusedPostHandled = { feedFocusedPostId = null }
@@ -221,7 +229,13 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         repository = container.neighborhoodRepository,
                         currentUserId = container.sessionManager.currentSession()?.userId,
-                        onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
+                        onOpenConversation = { id ->
+                            chatFocusedMessageId = null
+                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                        },
+                        onOpenUserProfile = { userId ->
+                            globalProfileViewModel.openUserProfile(userId)
+                        }
                     )
                 }
 
@@ -244,7 +258,17 @@ fun AppNavGraph(container: AppContainer) {
                     ConversationsScreen(
                         padding = padding,
                         repository = container.chatRepository,
-                        onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
+                        onOpenUserProfile = { userId ->
+                            globalProfileViewModel.openUserProfile(userId)
+                        },
+                        onOpenFavorites = {
+                            chatFocusedMessageId = null
+                            navController.navigate(AppDestinations.Chat.createRoute(AppDestinations.FavoriteMessagesConversationId))
+                        },
+                        onOpenConversation = { id ->
+                            chatFocusedMessageId = null
+                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                        }
                     )
                 }
 
@@ -257,6 +281,19 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         conversationId = conversationId,
                         repository = container.chatRepository,
+                        onOpenUserProfile = { userId ->
+                            globalProfileViewModel.openUserProfile(userId)
+                        },
+                        onOpenConversation = { id ->
+                            chatFocusedMessageId = null
+                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                        },
+                        focusedMessageId = chatFocusedMessageId,
+                        onFocusedMessageHandled = { chatFocusedMessageId = null },
+                        onOpenMessageConversation = { targetConversationId, messageId ->
+                            chatFocusedMessageId = messageId
+                            navController.navigate(AppDestinations.Chat.createRoute(targetConversationId))
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -266,7 +303,10 @@ fun AppNavGraph(container: AppContainer) {
                         padding = padding,
                         repository = container.notificationsRepository,
                         onBack = { navController.popBackStack() },
-                        onOpenConversation = { id -> navController.navigate(AppDestinations.Chat.createRoute(id)) }
+                        onOpenConversation = { id ->
+                            chatFocusedMessageId = null
+                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                        }
                     )
                 }
 
@@ -290,38 +330,6 @@ fun AppNavGraph(container: AppContainer) {
                     )
                 }
 
-                composable(
-                    route = AppDestinations.UserProfile.route,
-                    arguments = listOf(navArgument("userId") { type = NavType.StringType })
-                ) { entry ->
-                    val userId = entry.arguments?.getString("userId").orEmpty()
-                    val userProfileViewModel: NeighborhoodsViewModel = viewModel(
-                        key = "user_profile_$userId",
-                        factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
-                    )
-                    val state by userProfileViewModel.uiState.collectAsState()
-                    LaunchedEffect(userId) {
-                        if (userId.isNotBlank()) userProfileViewModel.openUserProfile(userId)
-                    }
-                    state.selectedProfile?.let { profile ->
-                        CommunityProfileScreen(
-                            padding = padding,
-                            profile = profile,
-                            currentUserId = container.sessionManager.currentSession()?.userId,
-                            onBack = { navController.popBackStack() },
-                            onFollow = { userProfileViewModel.toggleFollowUser(profile.user.id) },
-                            onOpenPrivateChat = {
-                                userProfileViewModel.openPrivateChat(profile.user.id) { conversationId ->
-                                    navController.navigate(AppDestinations.Chat.createRoute(conversationId))
-                                }
-                            }
-                        )
-                    } ?: QuataScreen(padding) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(state.error ?: "Cargando perfil...", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
             }
         }
 
@@ -346,6 +354,28 @@ fun AppNavGraph(container: AppContainer) {
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 20.dp, end = topChromePlacement.sosEndPadding)
+            )
+        }
+
+        globalProfileState.selectedProfile?.let { profile ->
+            CommunityProfileScreen(
+                padding = PaddingValues(0.dp),
+                profile = profile,
+                currentUserId = container.sessionManager.currentSession()?.userId,
+                onReportPost = { postId -> globalProfileViewModel.reportProfilePost(postId) },
+                onBack = { globalProfileViewModel.closeUserProfile() },
+                onFollow = { globalProfileViewModel.toggleFollowUser(profile.user.id) },
+                onFollowUser = { userId -> globalProfileViewModel.toggleFollowUser(userId) },
+                onOpenPrivateChat = { userId ->
+                    globalProfileViewModel.openPrivateChat(userId) { conversationId ->
+                        globalProfileViewModel.closeUserProfile()
+                        chatFocusedMessageId = null
+                        if (currentRoute != AppDestinations.Chat.route || currentConversationId != conversationId) {
+                            navController.navigate(AppDestinations.Chat.createRoute(conversationId))
+                        }
+                    }
+                },
+                onOpenUserProfile = { userId -> globalProfileViewModel.openUserProfile(userId) }
             )
         }
     }
@@ -534,7 +564,7 @@ private fun GlobalSosButton(
     }
 
     fun startSos(profile: UserProfile) {
-        if (profile.emergencyContactIds.size < 5) {
+        if (profile.emergencyContactIds.isEmpty()) {
             isConfigOpen = true
             return
         }
@@ -575,8 +605,12 @@ private fun GlobalSosButton(
             onDismiss = { isConfigOpen = false },
             onSave = {
                 profileViewModel.onEvent(ProfileUiEvent.Save)
-                Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
                 isConfigOpen = false
+                if (profile.emergencyContactIds.isNotEmpty()) {
+                    requestLocation(profile)
+                } else {
+                    Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
+                }
             }
         )
     }

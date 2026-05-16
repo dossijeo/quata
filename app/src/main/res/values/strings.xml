@@ -19,6 +19,7 @@
     <string name="common_new">New</string>
     <string name="common_sos">SOS</string>
     <string name="common_privi">PRIVI</string>
+    <string name="common_chat">Chat</string>
     <string name="common_remove">Remove</string>
     <string name="common_add">Add</string>
     <string name="common_open">Open</string>
@@ -105,6 +106,14 @@
     <string name="conversation_deleted_message">💬 This message was deleted</string>
     <string name="conversation_edited">edited</string>
     <string name="conversation_favorite_marker">favorite</string>
+    <string name="conversation_favorites_title">Favorite messages</string>
+    <string name="conversation_attachment">Attachment</string>
+    <string name="conversation_attach_file">Choose file</string>
+    <string name="conversation_attach_gallery">Photo/video from gallery</string>
+    <string name="conversation_attach_camera">Open camera</string>
+    <string name="conversation_attach_take_photo">Take photo</string>
+    <string name="conversation_attach_record_video">Record video</string>
+    <string name="conversation_camera_permission">We need camera permission to use this option</string>
     <string name="time_one_minute_ago">1 min ago</string>
     <string name="time_minutes_ago">%1$d min ago</string>
     <string name="time_hours_ago">%1$d h ago</string>
@@ -253,7 +262,11 @@
     <string name="neighborhoods_posts">Posts</string>
     <string name="neighborhoods_followers">Followers</string>
     <string name="neighborhoods_following">Following</string>
-    <string name="neighborhoods_photos_videos">Photos and videos</string>
+    <string name="neighborhoods_followers_of">Users following %1$s</string>
+    <string name="neighborhoods_following_of">Users followed by %1$s</string>
+    <string name="neighborhoods_photos_videos">Posts</string>
+    <string name="neighborhoods_attachments">Shared files</string>
+    <string name="neighborhoods_no_attachments">No shared files yet</string>
     <string name="neighborhoods_no_visible_posts">This profile does not have visible posts yet</string>
     <string name="neighborhoods_video">Video</string>
     <string name="neighborhoods_share_post">Share post</string>

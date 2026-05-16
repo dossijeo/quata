@@ -19,6 +19,7 @@
     <string name="common_new">Nueva</string>
     <string name="common_sos">SOS</string>
     <string name="common_privi">PRIVI</string>
+    <string name="common_chat">Chat</string>
     <string name="common_remove">Quitar</string>
     <string name="common_add">Añadir</string>
     <string name="common_open">Abrir</string>
@@ -105,6 +106,14 @@
     <string name="conversation_deleted_message">💬 Este mensaje fue eliminado</string>
     <string name="conversation_edited">editado</string>
     <string name="conversation_favorite_marker">favorito</string>
+    <string name="conversation_favorites_title">Mensajes favoritos</string>
+    <string name="conversation_attachment">Adjunto</string>
+    <string name="conversation_attach_file">Elegir archivo</string>
+    <string name="conversation_attach_gallery">Foto/vídeo de galería</string>
+    <string name="conversation_attach_camera">Abrir cámara</string>
+    <string name="conversation_attach_take_photo">Tomar foto</string>
+    <string name="conversation_attach_record_video">Grabar vídeo</string>
+    <string name="conversation_camera_permission">Necesitamos permiso de cámara para usar esta opción</string>
     <string name="time_one_minute_ago">hace 1 min</string>
     <string name="time_minutes_ago">hace %1$d min</string>
     <string name="time_hours_ago">hace %1$d h</string>
@@ -253,7 +262,11 @@
     <string name="neighborhoods_posts">Posts</string>
     <string name="neighborhoods_followers">Seguidores</string>
     <string name="neighborhoods_following">Siguiendo</string>
-    <string name="neighborhoods_photos_videos">Fotos y vídeos</string>
+    <string name="neighborhoods_followers_of">Usuarios siguiendo a %1$s</string>
+    <string name="neighborhoods_following_of">Usuarios que sigue %1$s</string>
+    <string name="neighborhoods_photos_videos">Posts</string>
+    <string name="neighborhoods_attachments">Archivos compartidos</string>
+    <string name="neighborhoods_no_attachments">Todavía no hay archivos compartidos</string>
     <string name="neighborhoods_no_visible_posts">Este perfil todavía no tiene publicaciones visibles</string>
     <string name="neighborhoods_video">Vídeo</string>
     <string name="neighborhoods_share_post">Compartir publicación</string>

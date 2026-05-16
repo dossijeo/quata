@@ -17,5 +17,8 @@ data class Message(
     val replyToSenderName: String? = null,
     val replyToText: String? = null,
     val forwardedFromSenderId: String? = null,
-    val forwardedFromSenderName: String? = null
+    val forwardedFromSenderName: String? = null,
+    val attachmentUri: String? = null,
+    val attachmentName: String? = null,
+    val attachmentMimeType: String? = null
 )

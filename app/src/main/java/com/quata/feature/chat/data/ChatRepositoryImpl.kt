@@ -5,6 +5,7 @@ import com.quata.core.data.MockData
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
 import com.quata.core.session.SessionManager
 import com.quata.feature.chat.domain.ChatRepository
@@ -72,7 +73,17 @@ class ChatRepositoryImpl(
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.messagesFlow.map { messages ->
-                messages.filter { it.conversationId == conversationId }
+                if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                    val visibleConversationIds = MockData.conversations
+                        .filter { conversation ->
+                            conversation.isVisible && sessionManager.currentSession()?.userId !in conversation.blockedUserIds
+                        }
+                        .map { it.id }
+                        .toSet()
+                    messages.filter { it.isFavorite && it.conversationId in visibleConversationIds && !it.isDeleted }
+                } else {
+                    messages.filter { it.conversationId == conversationId }
+                }
             }.collect { emit(it) }
         } else {
             while (true) {
@@ -106,11 +117,25 @@ class ChatRepositoryImpl(
         }
     }
 
-    override suspend fun sendMessage(conversationId: String, text: String): Result<Unit> = runCatching {
-        if (text.isBlank()) return@runCatching
+    override suspend fun sendMessage(
+        conversationId: String,
+        text: String,
+        attachmentUri: String?,
+        attachmentName: String?,
+        attachmentMimeType: String?
+    ): Result<Unit> = runCatching {
+        if (text.isBlank() && attachmentUri.isNullOrBlank()) return@runCatching
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.addMessage(conversationId, text, session.userId, session.displayName)
+            MockData.addMessage(
+                conversationId = conversationId,
+                text = text,
+                senderId = session.userId,
+                senderName = session.displayName,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType
+            )
             scheduleMockReply(conversationId, session.userId, session.displayName)
             return@runCatching
         }
@@ -129,7 +154,7 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String> = runCatching {
-        if (contactIds.size != 5) error("Configura cinco contactos de emergencia")
+        if (contactIds.isEmpty()) error("Configura al menos un contacto de emergencia")
         if (text.isBlank()) error("El mensaje SOS no puede estar vacio")
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {

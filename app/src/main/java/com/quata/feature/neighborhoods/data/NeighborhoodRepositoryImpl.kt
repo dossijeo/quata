@@ -128,7 +128,13 @@ class NeighborhoodRepositoryImpl(
             val user = MockData.registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
             return@runCatching CommunityUserProfile(
                 user = user.toNeighborhoodUser(),
-                posts = MockData.posts.filter { it.author.id == userId }
+                posts = MockData.posts.filter { it.author.id == userId },
+                attachments = MockData.profileAttachmentsWith(
+                    userId = userId,
+                    currentUserId = sessionManager.currentSession()?.userId ?: MockData.currentUser.id
+                ),
+                followers = MockData.followersFor(userId).map { it.toNeighborhoodUser() },
+                following = MockData.followingFor(userId).map { it.toNeighborhoodUser() }
             )
         }
         val profile = profileRemote.getDirectoryProfiles().firstOrNull { it.id == userId } ?: error("Usuario no encontrado")

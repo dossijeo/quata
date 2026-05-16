@@ -20,10 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,6 +63,8 @@ fun ConversationsScreen(
     padding: PaddingValues,
     repository: ChatRepository,
     onOpenConversation: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
     viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -68,7 +72,12 @@ fun ConversationsScreen(
     QuataScreen(padding) {
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.padding(18.dp)) {
-                Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onOpenFavorites) {
+                        Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
+                    }
+                }
                 Text(stringResource(R.string.conversations_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.padding(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -77,8 +86,9 @@ fun ConversationsScreen(
                             item = item,
                             messages = state.messagesByConversation[item.id].orEmpty(),
                             currentUser = state.currentUser,
-                            usersById = state.usersById,
-                            onOpenConversation = onOpenConversation
+                        usersById = state.usersById,
+                        onOpenUserProfile = onOpenUserProfile,
+                        onOpenConversation = onOpenConversation
                         )
                     }
                 }
@@ -142,6 +152,7 @@ private fun ConversationCard(
     messages: List<Message>,
     currentUser: User?,
     usersById: Map<String, User>,
+    onOpenUserProfile: (String) -> Unit,
     onOpenConversation: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -151,7 +162,7 @@ private fun ConversationCard(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ConversationAvatar(item, currentUser, usersById)
+            ConversationAvatar(item, currentUser, usersById, onOpenUserProfile)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.chatDisplayTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -170,7 +181,8 @@ private fun ConversationCard(
 private fun ConversationAvatar(
     item: Conversation,
     currentUser: User?,
-    usersById: Map<String, User>
+    usersById: Map<String, User>,
+    onOpenUserProfile: (String) -> Unit
 ) {
     val privateUser = item.participantIds
         .firstOrNull { it != currentUser?.id }
@@ -193,7 +205,11 @@ private fun ConversationAvatar(
             }
         } else {
             if (privateUser != null) {
-                AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp))
+                AvatarImage(
+                    privateUser.displayName,
+                    privateUser.avatarUrl,
+                    modifier = Modifier.size(46.dp).clickable { onOpenUserProfile(privateUser.id) }
+                )
             } else {
                 AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
             }
