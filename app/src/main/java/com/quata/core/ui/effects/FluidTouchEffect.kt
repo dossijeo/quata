@@ -3,6 +3,7 @@ package com.quata.core.ui.effects
 import android.os.SystemClock
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -31,6 +32,12 @@ private const val MaxParticles = 112
 private const val IdleFrameDelayMillis = 48L
 private const val DefaultParticleLifetimeMillis = 540L
 
+// CONTROL ADAPTATIVO
+private const val TargetFrameMillis = 16L // 60 FPS
+private const val SafeFrameMillis = 20L
+private const val BadFrameMillis = 28L
+private const val MinParticleBudget = 0.30f
+
 private val fluidPalette = listOf(
     Color(0xFFFF6B00),
     Color(0xFFFF7A14),
@@ -48,37 +55,78 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
 
     val particles = remember { mutableStateListOf<FluidTouchParticle>() }
     val random = remember { Random(SystemClock.elapsedRealtimeNanos()) }
+
     var nextParticleId by remember { mutableIntStateOf(0) }
     var frameTimeMillis by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
     var activeTouch by remember { mutableStateOf<ActiveFluidTouch?>(null) }
 
-    fun emit(position: Offset, movement: Offset, nowMillis: Long, amount: Int) {
+    // SISTEMA ADAPTATIVO
+    var particleBudget by remember { mutableFloatStateOf(1f) }
+    var lastFrameMillis by remember {
+        mutableLongStateOf(SystemClock.uptimeMillis())
+    }
+
+    fun emit(
+        position: Offset,
+        movement: Offset,
+        nowMillis: Long,
+        amount: Int
+    ) {
         if (!position.x.isFinite() || !position.y.isFinite()) return
+        if (amount <= 0) return
 
         val movementLength = movement.getDistance()
+
         val direction = if (movementLength > 0.5f) {
-            Offset(movement.x / movementLength, movement.y / movementLength)
+            Offset(
+                movement.x / movementLength,
+                movement.y / movementLength
+            )
         } else {
             val angle = random.nextFloat() * (PI.toFloat() * 2f)
             Offset(cos(angle), sin(angle))
         }
+
         val oppositePull = Offset(-direction.x, -direction.y)
         val perpendicular = Offset(-direction.y, direction.x)
 
         repeat(amount) {
             val angle = random.nextFloat() * (PI.toFloat() * 2f)
             val spread = Offset(cos(angle), sin(angle))
-            val lateral = perpendicular * ((random.nextFloat() - 0.5f) * 58f)
-            val drift = oppositePull * (28f + movementLength.coerceAtMost(120f) * 0.34f)
-            val rise = Offset(0f, -(24f + random.nextFloat() * 42f))
-            val sideways = spread * (12f + random.nextFloat() * 22f)
-            // Radios más grandes para difuminado más suave
-            val radius = 60f + random.nextFloat() * 80f + movementLength.coerceAtMost(100f) * 0.3f
-            // Alphas más altos para mejor luminosidad
-            val alpha = 0.3f + random.nextFloat() * 0.3f
-            val velocity = drift + rise + sideways + lateral
-            val tailOffset = direction * (8f + random.nextFloat() * 24f)
-            val origin = position - tailOffset + perpendicular * ((random.nextFloat() - 0.5f) * 28f)
+
+            val lateral = perpendicular *
+                    ((random.nextFloat() - 0.5f) * 58f)
+
+            val drift = oppositePull *
+                    (28f + movementLength.coerceAtMost(120f) * 0.34f)
+
+            val rise = Offset(
+                0f,
+                -(24f + random.nextFloat() * 42f)
+            )
+
+            val sideways = spread *
+                    (12f + random.nextFloat() * 22f)
+
+            val radius =
+                60f +
+                        random.nextFloat() * 80f +
+                        movementLength.coerceAtMost(100f) * 0.3f
+
+            val alpha =
+                0.3f + random.nextFloat() * 0.3f
+
+            val velocity =
+                drift + rise + sideways + lateral
+
+            val tailOffset =
+                direction * (8f + random.nextFloat() * 24f)
+
+            val origin =
+                position -
+                        tailOffset +
+                        perpendicular *
+                        ((random.nextFloat() - 0.5f) * 28f)
 
             particles += FluidTouchParticle(
                 id = nextParticleId++,
@@ -88,13 +136,21 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
                 radius = radius,
                 alpha = alpha,
                 birthMillis = nowMillis,
-                lifetimeMillis = DefaultParticleLifetimeMillis + random.nextLong(240L),
-                wobble = random.nextFloat() * PI.toFloat() * 2f,
+                lifetimeMillis = DefaultParticleLifetimeMillis +
+                        random.nextLong(240L),
+                wobble = random.nextFloat() *
+                        PI.toFloat() * 2f,
                 angle = atan2(velocity.y, velocity.x)
             )
         }
 
-        while (particles.size > MaxParticles) {
+        // LIMITE DINÁMICO
+        val adaptiveMaxParticles =
+            (MaxParticles * particleBudget)
+                .toInt()
+                .coerceAtLeast(32)
+
+        while (particles.size > adaptiveMaxParticles) {
             particles.removeAt(0)
         }
     }
@@ -105,12 +161,51 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
                 delay(IdleFrameDelayMillis)
             } else {
                 withFrameMillis { now ->
+
+                    // MEDICIÓN DE FRAME TIME
+                    val delta = now - lastFrameMillis
+                    lastFrameMillis = now
+
+                    // AJUSTE ADAPTATIVO
+                    particleBudget = when {
+                        delta > BadFrameMillis -> {
+                            (particleBudget * 0.75f)
+                                .coerceAtLeast(MinParticleBudget)
+                        }
+
+                        delta > SafeFrameMillis -> {
+                            (particleBudget * 0.88f)
+                                .coerceAtLeast(MinParticleBudget)
+                        }
+
+                        delta < TargetFrameMillis -> {
+                            (particleBudget + 0.04f)
+                                .coerceAtMost(1f)
+                        }
+
+                        else -> particleBudget
+                    }
+
+                    // EMISIÓN AUTOMÁTICA
                     activeTouch?.let { touch ->
-                        emit(touch.position, touch.movement, now, amount = 2)
+                        val idleAmount =
+                            (2 * particleBudget).toInt()
+
+                        if (idleAmount > 0) {
+                            emit(
+                                touch.position,
+                                touch.movement,
+                                now,
+                                idleAmount
+                            )
+                        }
                     }
+
                     particles.removeAll { particle ->
-                        now - particle.birthMillis > particle.lifetimeMillis
+                        now - particle.birthMillis >
+                                particle.lifetimeMillis
                     }
+
                     frameTimeMillis = now
                 }
             }
@@ -120,11 +215,19 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
     this
         .pointerInput(Unit) {
             awaitPointerEventScope {
+
                 var lastPosition: Offset? = null
+
                 while (true) {
-                    val event = awaitPointerEvent(PointerEventPass.Final)
-                    val nowMillis = SystemClock.uptimeMillis()
-                    val pressedChanges = event.changes.filter { it.pressed }
+
+                    val event =
+                        awaitPointerEvent(PointerEventPass.Final)
+
+                    val nowMillis =
+                        SystemClock.uptimeMillis()
+
+                    val pressedChanges =
+                        event.changes.filter { it.pressed }
 
                     if (pressedChanges.isEmpty()) {
                         lastPosition = null
@@ -133,12 +236,37 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
                     }
 
                     pressedChanges.forEach { change ->
-                        val previous = lastPosition ?: change.previousPosition
-                        val movement = change.position - previous
-                        val movementAmount = movement.getDistance()
-                        val amount = if (movementAmount > 12f) 7 else 4
-                        emit(change.position, movement, nowMillis, amount)
-                        activeTouch = ActiveFluidTouch(change.position, movement)
+
+                        val previous =
+                            lastPosition ?: change.previousPosition
+
+                        val movement =
+                            change.position - previous
+
+                        val movementAmount =
+                            movement.getDistance()
+
+                        val baseAmount =
+                            if (movementAmount > 12f) 7 else 4
+
+                        // ADAPTATIVO
+                        val adaptiveAmount =
+                            (baseAmount * particleBudget)
+                                .toInt()
+                                .coerceAtLeast(1)
+
+                        emit(
+                            change.position,
+                            movement,
+                            nowMillis,
+                            adaptiveAmount
+                        )
+
+                        activeTouch = ActiveFluidTouch(
+                            change.position,
+                            movement
+                        )
+
                         lastPosition = change.position
                     }
                 }
@@ -146,7 +274,10 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
         }
         .drawWithContent {
             drawContent()
-            drawFluidTouchParticles(particles, frameTimeMillis)
+            drawFluidTouchParticles(
+                particles,
+                frameTimeMillis
+            )
         }
 }
 
@@ -173,29 +304,60 @@ private fun ContentDrawScope.drawFluidTouchParticles(
     nowMillis: Long
 ) {
     particles.forEach { particle ->
-        val rawProgress = ((nowMillis - particle.birthMillis).toFloat() / particle.lifetimeMillis)
-            .coerceIn(0f, 1f)
+
+        val rawProgress =
+            (
+                    (nowMillis - particle.birthMillis).toFloat() /
+                            particle.lifetimeMillis
+                    )
+                .coerceIn(0f, 1f)
+
         val fade = (1f - rawProgress)
         val eased = 1f - fade * fade
-        val wobbleX = sin(particle.wobble + rawProgress * 7.2f) * 34f * rawProgress
-        val wobbleY = cos(particle.wobble + rawProgress * 5.4f) * 16f * rawProgress
-        val center = particle.origin + particle.velocity * eased + Offset(wobbleX, wobbleY)
-        
-        // El radio crece suavemente
-        val currentRadius = particle.radius * (1.0f + rawProgress * 0.5f)
-        val currentAlpha = particle.alpha * fade
 
-        if (currentAlpha <= 0.01f || currentRadius <= 0f) return@forEach
+        val wobbleX =
+            sin(particle.wobble + rawProgress * 7.2f) *
+                    34f * rawProgress
 
-        // HALO EXTERIOR SUAVE
-        // Usamos múltiples capas con gradientes más suaves para evitar bandas
+        val wobbleY =
+            cos(particle.wobble + rawProgress * 5.4f) *
+                    16f * rawProgress
+
+        val center =
+            particle.origin +
+                    particle.velocity * eased +
+                    Offset(wobbleX, wobbleY)
+
+        val currentRadius =
+            particle.radius *
+                    (1.0f + rawProgress * 0.5f)
+
+        val currentAlpha =
+            particle.alpha * fade
+
+        if (
+            currentAlpha <= 0.01f ||
+            currentRadius <= 0f
+        ) {
+            return@forEach
+        }
+
+        // HALO EXTERIOR
         drawCircle(
             brush = Brush.radialGradient(
                 colorStops = arrayOf(
-                    0.0f to particle.color.copy(alpha = currentAlpha * 0.4f),
-                    0.2f to particle.color.copy(alpha = currentAlpha * 0.3f),
-                    0.5f to particle.color.copy(alpha = currentAlpha * 0.15f),
-                    0.8f to particle.color.copy(alpha = currentAlpha * 0.05f),
+                    0.0f to particle.color.copy(
+                        alpha = currentAlpha * 0.4f
+                    ),
+                    0.2f to particle.color.copy(
+                        alpha = currentAlpha * 0.3f
+                    ),
+                    0.5f to particle.color.copy(
+                        alpha = currentAlpha * 0.15f
+                    ),
+                    0.8f to particle.color.copy(
+                        alpha = currentAlpha * 0.05f
+                    ),
                     1.0f to Color.Transparent
                 ),
                 center = center,
@@ -206,17 +368,28 @@ private fun ContentDrawScope.drawFluidTouchParticles(
             blendMode = BlendMode.Plus
         )
 
-        // NÚCLEO BRILLANTE (más pequeño y definido)
+        // NÚCLEO
         if (fade > 0.2f) {
-            val coreRadius = currentRadius * 0.25f
-            val coreAlpha = currentAlpha * (fade - 0.2f) / 0.8f
-            
+
+            val coreRadius =
+                currentRadius * 0.25f
+
+            val coreAlpha =
+                currentAlpha *
+                        (fade - 0.2f) / 0.8f
+
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.0f to Color.White.copy(alpha = coreAlpha * 0.95f),
-                        0.3f to particle.color.copy(alpha = coreAlpha * 0.6f),
-                        0.7f to particle.color.copy(alpha = coreAlpha * 0.2f),
+                        0.0f to Color.White.copy(
+                            alpha = coreAlpha * 0.95f
+                        ),
+                        0.3f to particle.color.copy(
+                            alpha = coreAlpha * 0.6f
+                        ),
+                        0.7f to particle.color.copy(
+                            alpha = coreAlpha * 0.2f
+                        ),
                         1.0f to Color.Transparent
                     ),
                     center = center,
@@ -227,17 +400,26 @@ private fun ContentDrawScope.drawFluidTouchParticles(
                 blendMode = BlendMode.Plus
             )
         }
-        
-        // BRILLO INTENSO CENTRAL (punto focal luminoso)
+
+        // BRILLO CENTRAL
         if (fade > 0.4f) {
-            val intenseRadius = currentRadius * 0.08f
-            val intenseAlpha = currentAlpha * (fade - 0.4f) / 0.6f
-            
+
+            val intenseRadius =
+                currentRadius * 0.08f
+
+            val intenseAlpha =
+                currentAlpha *
+                        (fade - 0.4f) / 0.6f
+
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.0f to Color.White.copy(alpha = intenseAlpha * 1.0f),
-                        0.5f to Color.White.copy(alpha = intenseAlpha * 0.5f),
+                        0.0f to Color.White.copy(
+                            alpha = intenseAlpha
+                        ),
+                        0.5f to Color.White.copy(
+                            alpha = intenseAlpha * 0.5f
+                        ),
                         1.0f to Color.Transparent
                     ),
                     center = center,
