@@ -58,6 +58,7 @@
     <string name="notifications_subtitle">Notificaciones push y actividad</string>
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Conversaciones recientes</string>
+    <string name="conversations_search_placeholder">Buscar conversación...</string>
     <string name="conversation_message">Mensaje</string>
     <string name="conversation_member_count">%1$d miembros</string>
     <string name="conversation_reactivate_notifications">Reactivar notificaciones</string>

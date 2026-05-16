@@ -58,6 +58,7 @@
     <string name="notifications_subtitle">Push notifications and activity</string>
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Recent conversations</string>
+    <string name="conversations_search_placeholder">Search conversation...</string>
     <string name="conversation_message">Message</string>
     <string name="conversation_member_count">%1$d members</string>
     <string name="conversation_reactivate_notifications">Reactivate notifications</string>
@@ -111,6 +112,9 @@
     <string name="conversation_attach_file">Choose file</string>
     <string name="conversation_attach_gallery">Photo/video from gallery</string>
     <string name="conversation_attach_camera">Open camera</string>
+    <string name="conversation_attach_take_photo">Take photo</string>
+    <string name="conversation_attach_record_video">Record video</string>
+    <string name="conversation_camera_permission">We need camera permission to use this option</string>
     <string name="time_one_minute_ago">1 min ago</string>
     <string name="time_minutes_ago">%1$d min ago</string>
     <string name="time_hours_ago">%1$d h ago</string>
@@ -262,6 +266,8 @@
     <string name="neighborhoods_followers_of">Users following %1$s</string>
     <string name="neighborhoods_following_of">Users followed by %1$s</string>
     <string name="neighborhoods_photos_videos">Posts</string>
+    <string name="neighborhoods_attachments">Shared files</string>
+    <string name="neighborhoods_no_attachments">No shared files yet</string>
     <string name="neighborhoods_no_visible_posts">This profile does not have visible posts yet</string>
     <string name="neighborhoods_video">Video</string>
     <string name="neighborhoods_share_post">Share post</string>

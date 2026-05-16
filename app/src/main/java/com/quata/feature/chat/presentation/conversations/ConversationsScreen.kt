@@ -27,12 +27,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +73,28 @@ fun ConversationsScreen(
     viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    var query by rememberSaveable { mutableStateOf("") }
+    val visibleConversations = remember(state.conversations, state.messagesByConversation, state.usersById, query) {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) {
+            state.conversations
+        } else {
+            state.conversations.filter { conversation ->
+                val messages = state.messagesByConversation[conversation.id].orEmpty()
+                val preview = messages.lastOrNull()?.text ?: conversation.lastMessagePreview
+                val participantNames = conversation.participantIds
+                    .mapNotNull { state.usersById[it]?.displayName }
+                    .joinToString(" ")
+                listOf(
+                    conversation.chatDisplayTitle(),
+                    conversation.title,
+                    conversation.participantNames.joinToString(" "),
+                    participantNames,
+                    preview
+                ).any { value -> value.contains(cleanQuery, ignoreCase = true) }
+            }
+        }
+    }
 
     QuataScreen(padding) {
         Box(Modifier.fillMaxSize()) {
@@ -78,10 +105,17 @@ fun ConversationsScreen(
                         Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
                     }
                 }
-                Text(stringResource(R.string.conversations_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text(stringResource(R.string.conversations_search_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
                 Spacer(Modifier.padding(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.conversations) { item ->
+                    items(visibleConversations) { item ->
                         ConversationCard(
                             item = item,
                             messages = state.messagesByConversation[item.id].orEmpty(),
