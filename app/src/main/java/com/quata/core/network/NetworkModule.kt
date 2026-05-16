@@ -1,5 +1,10 @@
 package com.quata.core.network
 
+import android.content.Context
+import com.quata.bettermessages.BetterMessagesClient
+import com.quata.bettermessages.BetterMessagesRepository
+import com.quata.bettermessages.BetterMessagesCookieJar
+import com.quata.bettermessages.SharedPreferencesCookieStore
 import com.quata.core.config.AppConfig
 import com.quata.core.network.supabase.SupabaseApi
 import com.quata.core.network.wordpress.WordpressApi
@@ -14,15 +19,24 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-class NetworkModule {
+class NetworkModule(context: Context) {
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
     }
 
+    val betterMessagesCookieStore = SharedPreferencesCookieStore(context)
+    private val betterMessagesCookieJar = BetterMessagesCookieJar(betterMessagesCookieStore)
+
     private val wordpressClient = OkHttpClient.Builder()
+        .cookieJar(betterMessagesCookieJar)
         .addInterceptor(logging)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    private val betterMessagesHttpClient = wordpressClient.newBuilder()
+        .readTimeout(40, TimeUnit.SECONDS)
+        .writeTimeout(40, TimeUnit.SECONDS)
         .build()
 
     private val supabaseClient = OkHttpClient.Builder()
@@ -48,6 +62,14 @@ class NetworkModule {
         config = supabaseHelperConfig,
         okHttp = supabaseClient
     )
+
+    val betterMessagesClient = BetterMessagesClient(
+        baseUrl = AppConfig.BETTER_MESSAGES_BASE_URL,
+        cookieStore = betterMessagesCookieStore,
+        okHttpClient = betterMessagesHttpClient
+    )
+
+    val betterMessagesRepository = BetterMessagesRepository(betterMessagesClient)
 
     val wordpressApi: WordpressApi = Retrofit.Builder()
         .baseUrl(AppConfig.WORDPRESS_BASE_URL)

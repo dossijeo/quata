@@ -34,9 +34,11 @@ import com.quata.feature.profile.domain.ProfileRepository
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
-    val networkModule = NetworkModule()
+    val networkModule = NetworkModule(appContext)
     val supabaseCommunityApi = networkModule.supabaseCommunityApi
     val supabaseRealtimeClient = networkModule.supabaseRealtimeClient
+    val betterMessagesClient = networkModule.betterMessagesClient
+    val betterMessagesRepository = networkModule.betterMessagesRepository
 
     val sessionPreferences = SessionPreferences(appContext)
     val sessionManager = SessionManager(sessionPreferences)

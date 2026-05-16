@@ -14,13 +14,14 @@ object AppConfig {
     const val WORDPRESS_BASE_URL = "https://your-wordpress-site.com/"
     const val WORDPRESS_JWT_LOGIN_PATH = "wp-json/jwt-auth/v1/token"
     const val WORDPRESS_REGISTER_PATH = "wp-json/quata/v1/register"
+    const val BETTER_MESSAGES_BASE_URL = "https://egquata.com/"
 
     /** Supabase */
     const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"
     const val SUPABASE_ANON_KEY = "sb_publishable_dQILq4zEe6xW1TpJPQwMHw_gk6ZlaX3"
 
     /** Cambia a "supabase" si tu feed principal vive en Supabase. */
-    const val FEED_SOURCE = "wordpress" // wordpress | supabase
+    const val FEED_SOURCE = "supabase" // wordpress | supabase
 
     const val SUPABASE_TABLE_POSTS = "posts"
     const val SUPABASE_TABLE_CONVERSATIONS = "conversations"
