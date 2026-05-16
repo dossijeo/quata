@@ -7,6 +7,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class NeighborhoodsViewModel(
@@ -17,13 +18,20 @@ class NeighborhoodsViewModel(
 
     init {
         viewModelScope.launch {
-            repository.observeCommunities().collect { communities ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    communities = communities,
-                    error = null
-                )
-            }
+            repository.observeCommunities()
+                .catch { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.message ?: "No se pudieron cargar las comunidades"
+                    )
+                }
+                .collect { communities ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        communities = communities,
+                        error = null
+                    )
+                }
         }
     }
 

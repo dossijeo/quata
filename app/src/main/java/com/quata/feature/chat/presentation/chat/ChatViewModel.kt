@@ -7,6 +7,7 @@ import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
@@ -23,23 +24,41 @@ class ChatViewModel(
             repository.markConversationRead(conversationId)
         }
         viewModelScope.launch {
-            repository.observeConversations().collect { conversations ->
-                _uiState.value = _uiState.value.copy(
-                    conversation = conversations.firstOrNull { it.id == conversationId },
-                    availableForwardConversations = conversations.filter { it.id != conversationId && it.isVisible }
-                )
-            }
+            repository.observeConversations()
+                .catch { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.message ?: "No se pudieron cargar los chats"
+                    )
+                }
+                .collect { conversations ->
+                    _uiState.value = _uiState.value.copy(
+                        conversation = conversations.firstOrNull { it.id == conversationId },
+                        availableForwardConversations = conversations.filter { it.id != conversationId && it.isVisible }
+                    )
+                }
         }
         viewModelScope.launch {
-            repository.observeMessages(conversationId).collect { messages ->
-                _uiState.value = _uiState.value.copy(messages = messages, isLoading = false)
-                repository.markConversationRead(conversationId)
-            }
+            repository.observeMessages(conversationId)
+                .catch { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.message ?: "No se pudieron cargar los mensajes"
+                    )
+                }
+                .collect { messages ->
+                    _uiState.value = _uiState.value.copy(messages = messages, isLoading = false)
+                    repository.markConversationRead(conversationId)
+                }
         }
         viewModelScope.launch {
-            repository.observeParticipantCandidates().collect { candidates ->
-                _uiState.value = _uiState.value.copy(participantCandidates = candidates)
-            }
+            repository.observeParticipantCandidates()
+                .catch { error ->
+                    _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudieron cargar los contactos")
+                }
+                .collect { candidates ->
+                    _uiState.value = _uiState.value.copy(participantCandidates = candidates)
+                }
         }
     }
 

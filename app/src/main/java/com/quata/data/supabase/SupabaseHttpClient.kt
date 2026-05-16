@@ -104,7 +104,11 @@ class SupabaseHttpClient(
         okHttp.newCall(request).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw SupabaseApiException("Supabase HTTP ${response.code}", response.code, responseBody)
+                throw SupabaseApiException(
+                    message = "Supabase HTTP ${response.code}: ${responseBody.take(800)}",
+                    statusCode = response.code,
+                    responseBody = responseBody
+                )
             }
             responseBody
         }

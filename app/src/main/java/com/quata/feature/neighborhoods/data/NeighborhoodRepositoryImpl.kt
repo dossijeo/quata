@@ -1,13 +1,20 @@
 package com.quata.feature.neighborhoods.data
 
+import android.content.Context
+import com.quata.R
+import com.quata.bettermessages.BetterMessagesRepository
+import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
-import com.quata.feature.chat.data.ChatRemoteDataSource
-import com.quata.feature.chat.data.toDomain
+import com.quata.data.supabase.CommunityProfile
+import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.feature.chat.data.wallConversationId
+import com.quata.feature.feed.data.toDomain
+import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -19,8 +26,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 
 class NeighborhoodRepositoryImpl(
+    private val appContext: Context,
+    private val supabaseApi: SupabaseCommunityApi,
+    private val betterMessagesRepository: BetterMessagesRepository,
     private val profileRemote: ProfileRemoteDataSource,
-    private val chatRemote: ChatRemoteDataSource,
     private val sessionManager: SessionManager
 ) : NeighborhoodRepository {
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> {
@@ -35,19 +44,29 @@ class NeighborhoodRepositoryImpl(
         } else {
             flow {
                 while (true) {
-                    val profiles = profileRemote.getDirectoryProfiles().map { dto ->
-                        NeighborhoodUser(
-                            id = dto.id,
-                            displayName = dto.displayName?.takeIf { it.isNotBlank() } ?: dto.email.orEmpty(),
-                            email = dto.email.orEmpty(),
-                            neighborhood = dto.neighborhood.orEmpty(),
-                            avatarUrl = dto.avatarUrl
+                    runCatching {
+                        val profiles = profileRemote.getDirectoryProfiles().map { it.toNeighborhoodUserReal() }
+                        val walls = supabaseApi.getActiveWallsStats()
+                        walls.map { wall ->
+                            val users = profiles
+                                .filter { user -> user.neighborhood.equals(wall.name, ignoreCase = true) || user.neighborhood.equals(wall.normalized_name, ignoreCase = true) }
+                                .sortedBy { it.displayName.lowercase() }
+                            val lastMessage = runCatching { supabaseApi.getCommunityMessages(wall.id, limit = 1).firstOrNull() }.getOrNull()
+                            NeighborhoodCommunity(
+                                name = wall.name ?: wall.slug ?: "Comunidad",
+                                users = users,
+                                conversationId = wallConversationId(wall.id),
+                                lastMessagePreview = lastMessage?.body,
+                                lastMessageAtMillis = wall.chat_last_at?.toEpochMillisOrNull(),
+                                messageCount = wall.chat_count ?: 0
+                            )
+                        }.sortedWith(
+                            compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
+                                .thenBy { it.name.lowercase() }
                         )
-                    }
-                    val conversations = chatRemote.getConversations().map { it.toDomain() }
-                    val messages = conversations.flatMap { chatRemote.getMessages(it.id).map { dto -> dto.toDomain("") } }
-                    emit(buildCommunities(profiles, conversations, messages))
-                    delay(5_000)
+                    }.onSuccess { emit(it) }
+                        .onFailure { emit(emptyList()) }
+                    delay(10_000)
                 }
             }
         }
@@ -62,66 +81,40 @@ class NeighborhoodRepositoryImpl(
             return@runCatching MockData.findOrCreateNeighborhoodConversation(cleanNeighborhood, session.userId, session.displayName)
         }
 
-        chatRemote.getConversations()
-            .map { it.toDomain() }
-            .firstOrNull { it.isNeighborhoodConversation(cleanNeighborhood) }
-            ?.let { return@runCatching it.id }
-
-        val profiles = profileRemote.getDirectoryProfiles()
-        val participantIds = (
-            profiles
-                .filter { it.neighborhood.equals(cleanNeighborhood, ignoreCase = true) }
-                .map { it.id } + session.userId
-            ).distinct()
-
-        chatRemote.createConversation(
-            title = cleanNeighborhood,
-            participantIds = participantIds,
-            lastMessagePreview = "",
-            communityName = cleanNeighborhood
-        ).firstOrNull()?.id ?: error("No se pudo crear el chat del barrio")
-    }
+        val wall = supabaseApi.getActiveWallsStats()
+            .firstOrNull { wall ->
+                wall.name.equals(cleanNeighborhood, ignoreCase = true) ||
+                    wall.slug.equals(cleanNeighborhood, ignoreCase = true) ||
+                    wall.normalized_name.equals(cleanNeighborhood, ignoreCase = true)
+            }
+            ?: error("Comunidad no encontrada")
+        wallConversationId(wall.id)
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFollowUser(userId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.toggleFollowUser(userId)
             return@runCatching
         }
-        // Supabase real: aqui se alternara la relacion current_user -> userId en la tabla de seguidores.
-    }
+        supabaseApi.toggleProfileFollow(session.userId, userId)
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun reportPost(postId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.reportPost(postId)
-            return@runCatching
         }
-        // Supabase real: pendiente de endpoint de reporte de publicaciones.
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
-        val target = profileRemote.getDirectoryProfiles().firstOrNull { it.id == userId }
-            ?: error("Usuario no encontrado")
-        chatRemote.getConversations()
-            .map { it.toDomain() }
-            .firstOrNull { conversation ->
-                !conversation.isGroup &&
-                    !conversation.isEmergency &&
-                    session.userId in conversation.participantIds &&
-                    userId in conversation.participantIds
-            }
-            ?.let { return@runCatching it.id }
-
-        val conversation = chatRemote.createConversation(
-            title = target.displayName?.takeIf { it.isNotBlank() } ?: target.email.orEmpty(),
-            participantIds = listOf(session.userId, userId).distinct(),
-            lastMessagePreview = ""
-        ).firstOrNull() ?: error("No se pudo abrir PRIVI")
-        conversation.id
-    }
+        supabaseApi.createOrGetPrivateChat(session.userId, userId)
+        val betterUrl = betterMessagesRepository.openOrGetPrivateUrl(session.userId, userId)
+        betterUrl.threadId?.let { "bm:$it" } ?: error("Better Messages no devolvio thread_id")
+    }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -137,18 +130,20 @@ class NeighborhoodRepositoryImpl(
                 following = MockData.followingFor(userId).map { it.toNeighborhoodUser() }
             )
         }
-        val profile = profileRemote.getDirectoryProfiles().firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
+        val profile = profileRemote.getProfile(userId) ?: error("Usuario no encontrado")
+        val posts = supabaseApi.getFeedPosts(profileId = userId).map { post ->
+            post.toDomain(
+                author = profile.toDomainUser(),
+                comments = emptyList(),
+                likesCount = 0,
+                likedByCurrentUser = false
+            )
+        }
         CommunityUserProfile(
-            user = NeighborhoodUser(
-                id = profile.id,
-                displayName = profile.displayName?.takeIf { it.isNotBlank() } ?: profile.email.orEmpty(),
-                email = profile.email.orEmpty(),
-                neighborhood = profile.neighborhood.orEmpty(),
-                avatarUrl = profile.avatarUrl
-            ),
-            posts = emptyList()
+            user = profile.toNeighborhoodUserReal(),
+            posts = posts
         )
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     private fun buildCommunities(
         users: List<NeighborhoodUser>,
@@ -193,4 +188,20 @@ class NeighborhoodRepositoryImpl(
             followingCount = MockData.followingCount(id),
             postsCount = MockData.posts.count { it.author.id == id }
         )
+
+    private fun CommunityProfile.toNeighborhoodUserReal(): NeighborhoodUser =
+        NeighborhoodUser(
+            id = id,
+            displayName = display_name?.takeIf { it.isNotBlank() }
+                ?: nombre?.takeIf { it.isNotBlank() }
+                ?: phone_local.orEmpty(),
+            email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
+            neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
+            avatarUrl = avatar_url ?: avatar,
+            followersCount = followers_count ?: 0,
+            followingCount = following_count ?: 0
+        )
+
+    private fun String.toEpochMillisOrNull(): Long? =
+        runCatching { java.time.Instant.parse(this).toEpochMilli() }.getOrNull()
 }

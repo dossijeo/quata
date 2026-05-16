@@ -1,25 +1,22 @@
 package com.quata.feature.chat.data
 
-import com.quata.core.network.supabase.SupabaseApi
-import com.quata.core.network.supabase.SupabaseCreateConversationRequest
-import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
-import com.quata.core.network.supabase.SupabaseMessageUpdateRequest
-import com.quata.core.network.supabase.SupabaseSendMessageRequest
+import com.quata.data.supabase.SupabaseCommunityApi
 
-class ChatRemoteDataSource(private val supabaseApi: SupabaseApi) {
-    suspend fun getConversations() = supabaseApi.getConversations()
-    suspend fun createConversation(
-        title: String,
-        participantIds: List<String>,
-        lastMessagePreview: String,
-        communityName: String? = null
-    ) = supabaseApi.createConversation(SupabaseCreateConversationRequest(title, participantIds, lastMessagePreview, communityName))
-    suspend fun updateConversation(id: String, request: SupabaseConversationUpdateRequest) =
-        supabaseApi.updateConversation("eq.$id", request)
-    suspend fun getDirectoryProfiles() = supabaseApi.getEmergencyCandidates()
-    suspend fun getMessages(conversationId: String) = supabaseApi.getMessages("eq.$conversationId")
-    suspend fun sendMessage(userId: String, senderName: String, conversationId: String, text: String) =
-        supabaseApi.sendMessage(SupabaseSendMessageRequest(conversationId, userId, senderName, text))
-    suspend fun markIncomingMessagesRead(conversationId: String, currentUserId: String) =
-        supabaseApi.updateMessages("eq.$conversationId", "neq.$currentUserId", SupabaseMessageUpdateRequest(isRead = true))
+class ChatRemoteDataSource(
+    private val supabaseApi: SupabaseCommunityApi
+) {
+    suspend fun getProfiles(ids: Collection<String>? = null) = supabaseApi.getProfiles(ids)
+    suspend fun getActiveWalls() = supabaseApi.getActiveWallsStats()
+    suspend fun getCommunityMessages(wallId: String) = supabaseApi.getCommunityMessages(wallId)
+    suspend fun sendCommunityMessage(wallId: String, profileId: String, body: String) =
+        supabaseApi.sendCommunityMessage(wallId, profileId, body)
+    suspend fun sendCommunityImageMessage(wallId: String, profileId: String, imageUrl: String, fileName: String, mimeType: String, text: String) =
+        supabaseApi.sendCommunityImageMessage(wallId, profileId, imageUrl, fileName, mimeType, text)
+    suspend fun uploadCommunityChatImage(profileId: String, bytes: ByteArray, extension: String, mimeType: String) =
+        supabaseApi.uploadCommunityChatImage(profileId, bytes, extension, mimeType)
+    suspend fun getPrivateChats(profileId: String) = supabaseApi.getPrivateChats(profileId)
+    suspend fun createOrGetPrivateChat(profileId: String, peerProfileId: String) =
+        supabaseApi.createOrGetPrivateChat(profileId, peerProfileId)
+    suspend fun sendSos(profileId: String, text: String, lat: Double? = null, lng: Double? = null, accuracy: Double? = null) =
+        supabaseApi.sendSos(profileId, text, lat, lng, accuracy)
 }

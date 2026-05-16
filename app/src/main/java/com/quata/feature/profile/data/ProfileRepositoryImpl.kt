@@ -2,11 +2,11 @@ package com.quata.feature.profile.data
 
 import android.content.Context
 import com.quata.R
+import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
-import com.quata.core.network.supabase.SupabaseProfileDto
-import com.quata.core.network.supabase.SupabaseProfileUpdateRequest
 import com.quata.core.session.SessionManager
+import com.quata.data.supabase.CommunityProfile
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -20,30 +20,45 @@ class ProfileRepositoryImpl(
     private val context: Context
 ) : ProfileRepository {
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
-        val config = buildProfileConfig()
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching ProfileEditModel(
                 profile = buildMockProfile(),
-                config = config
+                config = buildProfileConfig(
+                    emergencyCandidates = MockData.mockAuthProfiles
+                        .filterNot { it.id == (sessionManager.currentSession()?.userId ?: MockData.currentUser.id) }
+                        .map {
+                            EmergencyContactCandidate(
+                                id = it.id,
+                                displayName = it.displayName,
+                                email = it.email,
+                                neighborhood = it.neighborhood,
+                                phone = it.phone
+                            )
+                        }
+                )
             )
         }
 
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-        val profile = remote.getProfile(session.userId)?.toProfile(session.displayName) ?: buildMockProfile()
-        val candidates = remote.getEmergencyCandidates().map { it.toEmergencyCandidate() }
+        val contactIds = remote.getEmergencyContactIds(session.userId)
+        val profile = remote.getProfile(session.userId)?.toProfile(session.displayName, contactIds)
+            ?: error("Perfil no encontrado")
+        val candidates = remote.getEmergencyCandidates()
+            .filterNot { it.id == session.userId }
+            .map { it.toEmergencyCandidate() }
         ProfileEditModel(
             profile = profile,
-            config = config.copy(
-                emergencyCandidates = candidates.ifEmpty { config.emergencyCandidates }
-            )
+            config = buildProfileConfig(emergencyCandidates = candidates)
         )
-    }
+    }.mapFailureToUserFacing(context, R.string.error_load_profile)
 
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = runCatching {
         if (!AppConfig.USE_MOCK_BACKEND) {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-            remote.saveProfile(session.userId, update.toRemoteRequest())
-            return@runCatching
+            remote.saveProfile(session.userId, update.toRemotePatch())
+            remote.saveEmergencyContacts(session.userId, update.emergencyContactIds)
+            sessionManager.setSession(session.copy(displayName = update.displayName))
+            return@runCatching Unit
         }
 
         val session = sessionManager.currentSession()
@@ -62,7 +77,8 @@ class ProfileRepositoryImpl(
             emergencyMessageIsDefault = update.emergencyMessageIsDefault
         )
         session?.let { sessionManager.setSession(it.copy(displayName = update.displayName)) }
-    }
+        Unit
+    }.mapFailureToUserFacing(context, R.string.profile_save_error)
 
     private fun buildMockProfile(): UserProfile {
         val session = sessionManager.currentSession()
@@ -83,44 +99,49 @@ class ProfileRepositoryImpl(
         )
     }
 
-    private fun SupabaseProfileDto.toProfile(fallbackName: String): UserProfile {
-        val displayName = displayName?.takeIf { it.isNotBlank() } ?: fallbackName
+    private fun CommunityProfile.toProfile(fallbackName: String, emergencyContactIds: List<String>): UserProfile {
+        val displayName = display_name?.takeIf { it.isNotBlank() }
+            ?: nombre?.takeIf { it.isNotBlank() }
+            ?: fallbackName
         return UserProfile(
             displayName = displayName,
-            neighborhood = neighborhood.orEmpty(),
-            countryCode = countryCode?.takeIf { it.isNotBlank() } ?: "240",
-            phone = phone.orEmpty(),
-            avatarUri = avatarUrl,
-            selectedSecretQuestion = secretQuestion.orEmpty(),
-            emergencyContactIds = emergencyContactIds.orEmpty(),
-            emergencyMessage = emergencyMessage?.takeIf { it.isNotBlank() }
-                ?: defaultEmergencyMessage(displayName),
-            emergencyMessageIsDefault = emergencyMessageIsDefault ?: emergencyMessage.isNullOrBlank()
+            neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
+            countryCode = country_code?.takeIf { it.isNotBlank() } ?: code?.takeIf { it.isNotBlank() } ?: "240",
+            phone = phone_local?.takeIf { it.isNotBlank() } ?: phone.orEmpty(),
+            avatarUri = avatar_url ?: avatar,
+            selectedSecretQuestion = secret_question.orEmpty(),
+            emergencyContactIds = emergencyContactIds,
+            emergencyMessage = defaultEmergencyMessage(displayName),
+            emergencyMessageIsDefault = true
         )
     }
 
-    private fun SupabaseProfileDto.toEmergencyCandidate(): EmergencyContactCandidate =
+    private fun CommunityProfile.toEmergencyCandidate(): EmergencyContactCandidate =
         EmergencyContactCandidate(
             id = id,
-            displayName = displayName?.takeIf { it.isNotBlank() } ?: email.orEmpty(),
-            email = email.orEmpty(),
-            neighborhood = neighborhood.orEmpty(),
-            phone = phone.orEmpty()
+            displayName = display_name?.takeIf { it.isNotBlank() }
+                ?: nombre?.takeIf { it.isNotBlank() }
+                ?: phone_local.orEmpty(),
+            email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
+            neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
+            phone = phone_local?.takeIf { it.isNotBlank() } ?: phone.orEmpty()
         )
 
-    private fun ProfileUpdate.toRemoteRequest(): SupabaseProfileUpdateRequest =
-        SupabaseProfileUpdateRequest(
-            displayName = displayName,
-            neighborhood = neighborhood,
-            countryCode = countryCode,
-            phone = phone,
-            avatarUrl = avatarUri,
-            secretQuestion = secretQuestion,
-            secretAnswer = secretAnswer.takeIf { it.isNotBlank() },
-            emergencyContactIds = emergencyContactIds,
-            emergencyMessage = emergencyMessage,
-            emergencyMessageIsDefault = emergencyMessageIsDefault
-        )
+    private fun ProfileUpdate.toRemotePatch(): Map<String, String?> =
+        buildMap {
+            put("display_name", displayName)
+            put("nombre", displayName)
+            put("neighborhood", neighborhood)
+            put("barrio", neighborhood)
+            put("country_code", countryCode)
+            put("code", countryCode)
+            put("phone_local", phone)
+            put("phone", "+${countryCode.filter(Char::isDigit)}${phone.filter(Char::isDigit)}")
+            put("telefono", phone)
+            put("avatar_url", avatarUri)
+            put("secret_question", secretQuestion)
+            if (secretAnswer.isNotBlank()) put("secret_answer", secretAnswer)
+        }
 
     private fun defaultEmergencyMessage(displayName: String): String =
         context.getString(
@@ -128,22 +149,12 @@ class ProfileRepositoryImpl(
             displayName.ifBlank { context.getString(R.string.user_fallback_name) }
         )
 
-    private fun buildProfileConfig(): ProfileEditConfig {
-        val currentId = sessionManager.currentSession()?.userId ?: MockData.currentUser.id
-        return ProfileEditConfig(
+    private fun buildProfileConfig(
+        emergencyCandidates: List<EmergencyContactCandidate>
+    ): ProfileEditConfig =
+        ProfileEditConfig(
             countryPrefixes = context.countryPrefixOptions(),
             secretQuestions = context.profileSecretQuestionOptions(),
-            emergencyCandidates = MockData.mockAuthProfiles
-                .filterNot { it.id == currentId }
-                .map {
-                    EmergencyContactCandidate(
-                        id = it.id,
-                        displayName = it.displayName,
-                        email = it.email,
-                        neighborhood = it.neighborhood,
-                        phone = it.phone
-                    )
-                }
+            emergencyCandidates = emergencyCandidates
         )
-    }
 }

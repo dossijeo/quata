@@ -1,30 +1,42 @@
 package com.quata.feature.chat.data
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import com.quata.R
+import com.quata.bettermessages.BetterMessagesRepository
+import com.quata.bettermessages.BmThread
+import com.quata.bettermessages.BmUser
+import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
-import com.quata.core.network.supabase.SupabaseConversationUpdateRequest
 import com.quata.core.session.SessionManager
+import com.quata.data.supabase.CommunityProfile
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.random.Random
 
 class ChatRepositoryImpl(
+    private val appContext: Context,
     private val remote: ChatRemoteDataSource,
+    private val betterMessagesRepository: BetterMessagesRepository,
     private val sessionManager: SessionManager
 ) : ChatRepository {
     private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -32,6 +44,7 @@ class ChatRepositoryImpl(
     override val activeConversationId: StateFlow<String?> = _activeConversationId
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
+    private val threadIdsByPeerProfileId = mutableMapOf<String, Int>()
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -42,20 +55,12 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             return MockData.profileById(session.userId)?.toUser() ?: MockData.currentUser
         }
-        return User(
-            id = session.userId,
-            email = "",
-            displayName = session.displayName
-        )
+        return User(id = session.userId, email = "", displayName = session.displayName)
     }
 
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.conversations
-        } else {
-            remote.getConversations().map { it.toDomain() }.withLiveUnreadCounts()
-        }
-    }
+        if (AppConfig.USE_MOCK_BACKEND) MockData.conversations else loadRealConversations()
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override fun observeConversations(): Flow<List<Conversation>> {
         return if (AppConfig.USE_MOCK_BACKEND) {
@@ -63,8 +68,10 @@ class ChatRepositoryImpl(
         } else {
             flow {
                 while (true) {
-                    emit(remote.getConversations().map { it.toDomain() }.withLiveUnreadCounts())
-                    delay(5_000)
+                    runCatching { loadRealConversations() }
+                        .onSuccess { emit(it) }
+                        .onFailure { emit(emptyList()) }
+                    delay(8_000)
                 }
             }
         }
@@ -87,8 +94,9 @@ class ChatRepositoryImpl(
             }.collect { emit(it) }
         } else {
             while (true) {
-                val currentUserId = sessionManager.currentSession()?.userId.orEmpty()
-                emit(remote.getMessages(conversationId).map { it.toDomain(currentUserId) })
+                runCatching { loadRealMessages(conversationId) }
+                    .onSuccess { emit(it) }
+                    .onFailure { emit(emptyList()) }
                 delay(5_000)
             }
         }
@@ -100,17 +108,9 @@ class ChatRepositoryImpl(
         } else {
             flow {
                 while (true) {
-                    emit(
-                        remote.getDirectoryProfiles().map { profile ->
-                            User(
-                                id = profile.id,
-                                email = profile.email.orEmpty(),
-                                displayName = profile.displayName?.takeIf { it.isNotBlank() } ?: profile.email.orEmpty(),
-                                neighborhood = profile.neighborhood.orEmpty(),
-                                avatarUrl = profile.avatarUrl
-                            )
-                        }
-                    )
+                    runCatching { remote.getProfiles().map { it.toUser() } }
+                        .onSuccess { emit(it) }
+                        .onFailure { emit(emptyList()) }
                     delay(30_000)
                 }
             }
@@ -139,8 +139,30 @@ class ChatRepositoryImpl(
             scheduleMockReply(conversationId, session.userId, session.displayName)
             return@runCatching
         }
-        remote.sendMessage(session.userId, session.displayName, conversationId, text)
-    }
+
+        conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
+            if (attachmentUri.isNullOrBlank()) {
+                betterMessagesRepository.sendText(session.userId, threadId, text)
+            } else {
+                val media = appContext.copyUriToCache(attachmentUri, attachmentName, attachmentMimeType)
+                val upload = betterMessagesRepository.uploadFile(session.userId, threadId, media.file, media.mimeType)
+                val fileId = upload.id ?: error(upload.error ?: "Better Messages no devolvio id de archivo")
+                betterMessagesRepository.sendFiles(session.userId, threadId, listOf(fileId), text)
+                media.file.delete()
+            }
+            return@runCatching
+        }
+
+        val wallId = conversationId.wallIdOrNull() ?: error("Conversacion no reconocida")
+        if (!attachmentUri.isNullOrBlank() && attachmentMimeType?.startsWith("image/") == true) {
+            val media = appContext.readUriBytes(attachmentUri, attachmentName, attachmentMimeType)
+            val upload = remote.uploadCommunityChatImage(session.userId, media.bytes, media.extension, media.mimeType)
+            val imageUrl = upload.publicUrl ?: error("Supabase no devolvio URL de imagen")
+            remote.sendCommunityImageMessage(wallId, session.userId, imageUrl, media.fileName, media.mimeType, text)
+        } else {
+            remote.sendCommunityMessage(wallId, session.userId, text.ifBlank { attachmentUri.orEmpty() })
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit> = runCatching {
         if (text.isBlank()) return@runCatching
@@ -150,8 +172,14 @@ class ChatRepositoryImpl(
             scheduleMockReply(conversationId, session.userId, session.displayName)
             return@runCatching
         }
-        remote.sendMessage(session.userId, session.displayName, conversationId, text)
-    }
+        val threadId = conversationId.betterMessagesThreadIdOrNull()
+        val replyMessageId = replyTo.id.bmMessagePartsOrNull()?.second
+        if (threadId != null && replyMessageId != null) {
+            betterMessagesRepository.sendReply(session.userId, threadId, text, replyMessageId)
+        } else {
+            sendMessage(conversationId, text).getOrThrow()
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String> = runCatching {
         if (contactIds.isEmpty()) error("Configura al menos un contacto de emergencia")
@@ -160,114 +188,70 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.addSosConversation(contactIds, text, session.userId, session.displayName)
         }
-
-        val participantIds = (contactIds + session.userId).distinct()
-        val existingConversation = remote.getConversations()
-            .map { it.toDomain() }
-            .firstOrNull { conversation ->
-                conversation.isEmergency && conversation.hasSameParticipants(participantIds)
-            }
-        if (existingConversation != null) {
-            val lastMessage = remote.getMessages(existingConversation.id)
-                .map { it.toDomain(session.userId) }
-                .lastOrNull()
-            remote.updateConversation(existingConversation.id, SupabaseConversationUpdateRequest(isVisible = true))
-            if (lastMessage?.senderId == session.userId && lastMessage.text.isSosText()) {
-                val sentAtMillis = lastMessage.sentAtMillis ?: 0L
-                val elapsed = System.currentTimeMillis() - sentAtMillis
-                if (elapsed in 0 until SosCooldownMillis) {
-                    throw SosRateLimitException(SosCooldownMillis - elapsed)
-                }
-            }
-            remote.sendMessage(session.userId, session.displayName, existingConversation.id, text)
-            return@runCatching existingConversation.id
-        }
-
-        val conversation = remote.createConversation(
-            title = "\uD83D\uDEA8 SOS",
-            participantIds = participantIds,
-            lastMessagePreview = text
-        ).firstOrNull() ?: error("No se pudo crear la conversacion SOS")
-        remote.sendMessage(session.userId, session.displayName, conversation.id, text)
-        conversation.id
-    }
+        remote.sendSos(session.userId, text)
+        runCatching { betterMessagesRepository.sendSos(session.userId, text) }
+        "sos"
+    }.mapFailureToUserFacing(appContext, R.string.sos_send_error)
 
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.markConversationRead(conversationId)
-            return@runCatching
         }
-        val currentUserId = sessionManager.currentSession()?.userId ?: error("No hay sesion activa")
-        remote.markIncomingMessagesRead(conversationId, currentUserId)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.setConversationMuted(conversationId, muted)
             return@runCatching
         }
-        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isMuted = muted))
-    }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        conversationId.betterMessagesThreadIdOrNull()?.let {
+            betterMessagesRepository.muteThread(session.userId, it, muted)
+        }
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.setMemberInvitesEnabled(conversationId, enabled)
-            return@runCatching
+        } else {
+            error("Permisos de invitacion no disponibles en Android todavia")
         }
-        error("Permisos de invitacion no disponibles en backend real")
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = runCatching {
         if (participantIds.isEmpty()) return@runCatching
-        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             MockData.addParticipants(conversationId, participantIds, session.userId, session.displayName)
-            return@runCatching
+        } else {
+            error("Anadir participantes requiere mapear perfiles Supabase a usuarios WordPress")
         }
-        val conversation = remote.getConversations().firstOrNull { it.id == conversationId }
-            ?: error("Conversacion no encontrada")
-        val currentIds = conversation.participantIds.orEmpty()
-        val allIds = (currentIds + participantIds + session.userId).distinct()
-        val namesById = remote.getDirectoryProfiles().associate { profile ->
-            profile.id to (profile.displayName?.takeIf { it.isNotBlank() } ?: profile.email.orEmpty())
-        } + (session.userId to session.displayName)
-        remote.updateConversation(
-            conversationId,
-            SupabaseConversationUpdateRequest(
-                participantIds = allIds,
-                participantNames = allIds.mapNotNull { namesById[it] },
-                isVisible = true
-            )
-        )
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.promoteModerator(conversationId, userId)
-            return@runCatching
+        } else {
+            error("Moderadores no disponible en backend real")
         }
-        error("Moderadores no disponible en backend real")
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.removeParticipant(conversationId, userId)
-            return@runCatching
+        } else {
+            error("Expulsar participantes no disponible en backend real")
         }
-        val conversation = remote.getConversations().firstOrNull { it.id == conversationId } ?: error("Conversacion no encontrada")
-        remote.updateConversation(
-            conversationId,
-            SupabaseConversationUpdateRequest(participantIds = conversation.participantIds.orEmpty() - userId)
-        )
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.blockParticipant(conversationId, userId)
-            return@runCatching
+        } else {
+            error("Bloqueo de participantes no disponible en backend real")
         }
-        removeParticipant(conversationId, userId).getOrThrow()
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -275,22 +259,13 @@ class ChatRepositoryImpl(
             MockData.leaveConversation(conversationId, session.userId)
             return@runCatching
         }
-        val conversation = remote.getConversations().map { it.toDomain() }.firstOrNull { it.id == conversationId }
-            ?: error("Conversacion no encontrada")
-        if (session.userId in conversation.moderatorIds) error("El moderador no puede abandonar la conversacion")
-        remote.updateConversation(
-            conversationId,
-            SupabaseConversationUpdateRequest(participantIds = conversation.participantIds - session.userId)
-        )
-    }
-
-    override suspend fun hideConversation(conversationId: String): Result<Unit> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) {
-            MockData.hideConversation(conversationId)
-            return@runCatching
+        conversationId.betterMessagesThreadIdOrNull()?.let {
+            betterMessagesRepository.leaveThread(session.userId, it)
         }
-        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
-    }
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun hideConversation(conversationId: String): Result<Unit> = deleteConversation(conversationId)
 
     override suspend fun deleteConversation(conversationId: String): Result<Unit> = runCatching {
         val conversation = getConversations().getOrNull()?.firstOrNull { it.id == conversationId }
@@ -299,19 +274,25 @@ class ChatRepositoryImpl(
             _pendingDeletedConversation.value = conversation?.copy(isVisible = false)
             return@runCatching
         }
-        remote.updateConversation(conversationId, SupabaseConversationUpdateRequest(isVisible = false))
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        conversationId.betterMessagesThreadIdOrNull()?.let {
+            betterMessagesRepository.deleteThread(session.userId, it)
+        }
         _pendingDeletedConversation.value = conversation?.copy(isVisible = false)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun restorePendingDeletedConversation(): Result<Unit> = runCatching {
         val conversation = _pendingDeletedConversation.value ?: return@runCatching
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.restoreConversation(conversation.id)
         } else {
-            remote.updateConversation(conversation.id, SupabaseConversationUpdateRequest(isVisible = true))
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            conversation.id.betterMessagesThreadIdOrNull()?.let {
+                betterMessagesRepository.restoreThread(session.userId, it)
+            }
         }
         _pendingDeletedConversation.value = null
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun finalizePendingDeletedConversation(): Result<Unit> = runCatching {
         val conversation = _pendingDeletedConversation.value ?: return@runCatching
@@ -319,31 +300,36 @@ class ChatRepositoryImpl(
             MockData.deleteConversation(conversation.id)
         }
         _pendingDeletedConversation.value = null
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.editMessage(messageId, text)
-            return@runCatching
+        } else {
+            error("Edicion de mensajes no disponible en Better Messages REST")
         }
-        error("Edicion de mensajes no disponible en backend real")
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.deleteMessage(messageId)
             return@runCatching
         }
-        error("Borrado de mensajes no disponible en backend real")
-    }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val (threadId, bmMessageId) = messageId.bmMessagePartsOrNull() ?: error("Mensaje no reconocido")
+        betterMessagesRepository.deleteMessages(session.userId, threadId, listOf(bmMessageId))
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.toggleFavoriteMessage(messageId)
             return@runCatching
         }
-        error("Favoritos no disponible en backend real")
-    }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val (threadId, bmMessageId) = messageId.bmMessagePartsOrNull() ?: error("Mensaje no reconocido")
+        val current = loadBetterMessages(threadId).firstOrNull { it.id == messageId }
+        betterMessagesRepository.favoriteMessage(session.userId, threadId, bmMessageId, favorite = current?.isFavorite != true)
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -351,10 +337,118 @@ class ChatRepositoryImpl(
             MockData.forwardMessage(message, conversationIds, session.userId, session.displayName)
             return@runCatching
         }
-        conversationIds.distinct().forEach { conversationId ->
-            remote.sendMessage(session.userId, session.displayName, conversationId, message.text)
+        val bmMessageId = message.id.bmMessagePartsOrNull()?.second
+        val targetThreadIds = conversationIds.mapNotNull { it.betterMessagesThreadIdOrNull() }
+        if (bmMessageId != null && targetThreadIds.isNotEmpty()) {
+            betterMessagesRepository.forwardMessage(session.userId, bmMessageId, targetThreadIds)
         }
+        conversationIds.filter { it.wallIdOrNull() != null }.forEach { targetConversationId ->
+            sendMessage(targetConversationId, message.text).getOrThrow()
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    private suspend fun loadRealConversations(): List<Conversation> {
+        val session = sessionManager.currentSession() ?: return emptyList()
+        val profilesById = remote.getProfiles().associateBy { it.id }
+        val privateConversations = remote.getPrivateChats(session.userId)
+            .mapNotNull { chat ->
+                val peerId = listOfNotNull(chat.user_low_id, chat.user_high_id, chat.requester_profile_id, chat.target_profile_id)
+                    .distinct()
+                    .firstOrNull { it != session.userId }
+                    ?: return@mapNotNull null
+                val peer = profilesById[peerId]
+                val threadId = resolvePrivateThreadId(session.userId, peerId) ?: return@mapNotNull null
+                val threadResponse = betterMessagesRepository.loadThread(session.userId, threadId)
+                val thread = threadResponse.threads.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
+                val lastMessage = threadResponse.messages.maxByOrNull { it.created_at }
+                thread.toConversation(
+                    title = peer?.displayName().orEmpty(),
+                    peerProfileId = peerId,
+                    peerName = peer?.displayName() ?: "Usuario",
+                    peerAvatarUrl = peer?.avatar_url ?: peer?.avatar,
+                    currentProfileId = session.userId
+                ).copy(
+                    lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+                    updatedAt = lastMessage?.created_at?.toDisplayTime() ?: chat.last_message_at.orEmpty(),
+                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
+                        ?: chat.last_message_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                )
+            }
+        val wallConversations = remote.getActiveWalls().map { wall ->
+            val lastMessage = runCatching { remote.getCommunityMessages(wall.id).maxByOrNull { it.created_at.orEmpty() } }.getOrNull()
+            wall.toConversation().copy(
+                lastMessagePreview = lastMessage?.body.orEmpty(),
+                updatedAt = lastMessage?.created_at ?: wall.chat_last_at.orEmpty(),
+                updatedAtMillis = lastMessage?.created_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                    ?: wall.chat_last_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+            )
+        }
+        return (privateConversations + wallConversations)
+            .sortedByDescending { it.updatedAtMillis ?: 0L }
     }
+
+    private suspend fun loadRealMessages(conversationId: String): List<Message> {
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+            return loadRealConversations()
+                .filter { it.id.betterMessagesThreadIdOrNull() != null }
+                .flatMap { loadRealMessages(it.id) }
+                .filter { it.isFavorite && !it.isDeleted }
+        }
+        conversationId.betterMessagesThreadIdOrNull()?.let { return loadBetterMessages(it) }
+
+        val wallId = conversationId.wallIdOrNull() ?: return emptyList()
+        val session = sessionManager.currentSession() ?: return emptyList()
+        val messages = remote.getCommunityMessages(wallId)
+        val profilesById = remote.getProfiles(messages.mapNotNull { it.profile_id }.distinct()).associateBy { it.id }
+        return messages
+            .sortedBy { it.created_at.orEmpty() }
+            .map { message ->
+                message.toDomain(
+                    conversationId = conversationId,
+                    senderName = profilesById[message.profile_id]?.displayName() ?: "Usuario",
+                    currentProfileId = session.userId
+                )
+            }
+    }
+
+    private suspend fun loadBetterMessages(threadId: Int): List<Message> {
+        val session = sessionManager.currentSession() ?: return emptyList()
+        val currentWpUserId = betterMessagesRepository.syncSession(session.userId).userId
+        val thread = betterMessagesRepository.loadThread(session.userId, threadId)
+        val usersByWpId = thread.users.associateByWpId()
+        val lookup = thread.messages.associateBy { it.messageId }
+        return thread.messages
+            .sortedBy { it.created_at }
+            .map { it.toDomain(usersByWpId, currentWpUserId, lookup) }
+    }
+
+    private suspend fun resolvePrivateThreadId(profileId: String, peerProfileId: String): Int? {
+        threadIdsByPeerProfileId[peerProfileId]?.let { return it }
+        val threadId = betterMessagesRepository.openOrGetPrivateUrl(profileId, peerProfileId).threadId
+        if (threadId != null) threadIdsByPeerProfileId[peerProfileId] = threadId
+        return threadId
+    }
+
+    private fun List<BmUser>.associateByWpId(): Map<Int, BmUser> =
+        mapNotNull { user ->
+            val id = user.userId ?: user.id.toIntOrNull()
+            id?.let { it to user }
+        }.toMap()
+
+    private fun CommunityProfile.toUser(): User =
+        User(
+            id = id,
+            email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
+            displayName = displayName(),
+            neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
+            avatarUrl = avatar_url ?: avatar
+        )
+
+    private fun CommunityProfile.displayName(): String =
+        display_name?.takeIf { it.isNotBlank() }
+            ?: nombre?.takeIf { it.isNotBlank() }
+            ?: phone_local?.takeIf { it.isNotBlank() }
+            ?: "Usuario"
 
     private fun scheduleMockReply(conversationId: String, currentUserId: String, currentUserName: String) {
         mockReplyScope.launch {
@@ -369,25 +463,54 @@ class ChatRepositoryImpl(
         }
     }
 
-    private suspend fun List<Conversation>.withLiveUnreadCounts(): List<Conversation> {
-        val currentUserId = sessionManager.currentSession()?.userId.orEmpty()
-        return map { conversation ->
-            val unreadCount = remote.getMessages(conversation.id)
-                .map { it.toDomain(currentUserId) }
-                .count { !it.isMine && !it.isRead }
-            conversation.copy(unreadCount = unreadCount)
+    private suspend fun Context.copyUriToCache(uriString: String, attachmentName: String?, attachmentMimeType: String?): CachedMedia =
+        withContext(Dispatchers.IO) {
+            val media = readUriBytes(uriString, attachmentName, attachmentMimeType)
+            val file = File.createTempFile("quata-bm-", "-${media.fileName}", cacheDir)
+            file.writeBytes(media.bytes)
+            CachedMedia(file = file, mimeType = media.mimeType)
         }
+
+    private suspend fun Context.readUriBytes(uriString: String, attachmentName: String?, attachmentMimeType: String?): MediaPayload =
+        withContext(Dispatchers.IO) {
+            val uri = Uri.parse(uriString)
+            val mimeType = attachmentMimeType ?: contentResolver.getType(uri) ?: "application/octet-stream"
+            val fileName = attachmentName?.takeIf { it.isNotBlank() }
+                ?: displayName(uri).ifBlank { "quata-${System.currentTimeMillis()}.${mimeType.substringAfter('/', "bin")}" }
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: error("No se pudo leer el archivo seleccionado")
+            MediaPayload(
+                fileName = fileName,
+                mimeType = mimeType,
+                extension = fileName.substringAfterLast('.', mimeType.substringAfter('/', "bin")).lowercase(),
+                bytes = bytes
+            )
+        }
+
+    private fun Context.displayName(uri: Uri): String {
+        val fromProvider = runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+            }
+        }.getOrNull()
+        return fromProvider?.takeIf { it.isNotBlank() }
+            ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: ""
     }
 
-    private fun Conversation.hasSameParticipants(participantIds: List<String>): Boolean =
-        this.participantIds.size == participantIds.size && this.participantIds.toSet() == participantIds.toSet()
+    private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
 
-    private fun String.isSosText(): Boolean =
-        contains("SOS", ignoreCase = true) || contains("https://maps.google.com/?q=")
+    private data class CachedMedia(val file: File, val mimeType: String)
+
+    private data class MediaPayload(
+        val fileName: String,
+        val mimeType: String,
+        val extension: String,
+        val bytes: ByteArray
+    )
 
     private companion object {
-        const val SosCooldownMillis = 5L * 60L * 1000L
-
         val MOCK_REPLIES = listOf(
             "Perfecto, lo veo ahora.",
             "Dale, seguimos por aqui.",

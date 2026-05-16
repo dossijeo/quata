@@ -11,7 +11,6 @@ import com.quata.core.notifications.NotificationChannels
 import com.quata.core.notifications.PushTokenManager
 import com.quata.core.preferences.SessionPreferences
 import com.quata.core.session.SessionManager
-import com.quata.feature.auth.data.AuthRemoteDataSource
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.chat.data.ChatRemoteDataSource
@@ -24,7 +23,6 @@ import com.quata.feature.notifications.data.NotificationsRepositoryImpl
 import com.quata.feature.notifications.domain.NotificationsRepository
 import com.quata.feature.neighborhoods.data.NeighborhoodRepositoryImpl
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
-import com.quata.feature.postcomposer.data.PostComposerRemoteDataSource
 import com.quata.feature.postcomposer.data.PostComposerRepositoryImpl
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.profile.data.ProfileRepositoryImpl
@@ -51,37 +49,53 @@ class AppContainer(context: Context) {
     val pushTokenManager = PushTokenManager(networkModule.supabaseApi)
 
     val authRepository: AuthRepository = AuthRepositoryImpl(
-        remoteDataSource = AuthRemoteDataSource(networkModule.wordpressApi),
+        appContext = appContext,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        wordpressClient = networkModule.quataWordPressClient,
+        betterMessagesRepository = networkModule.betterMessagesRepository,
         sessionManager = sessionManager,
         googleAuthHelper = GoogleAuthHelper()
     )
 
     val feedRepository: FeedRepository = FeedRepositoryImpl(
-        remote = FeedRemoteDataSource(networkModule.wordpressApi, networkModule.supabaseApi),
-        profileRemote = ProfileRemoteDataSource(networkModule.supabaseApi)
+        appContext = appContext,
+        remote = FeedRemoteDataSource(networkModule.supabaseCommunityApi),
+        profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
+        sessionManager = sessionManager
     )
 
     val postComposerRepository: PostComposerRepository = PostComposerRepositoryImpl(
-        remote = PostComposerRemoteDataSource(networkModule.wordpressApi, networkModule.supabaseApi),
+        appContext = appContext,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        wordpressClient = networkModule.quataWordPressClient,
         sessionManager = sessionManager
     )
 
     val chatRepository: ChatRepository = ChatRepositoryImpl(
-        remote = ChatRemoteDataSource(networkModule.supabaseApi),
+        appContext = appContext,
+        remote = ChatRemoteDataSource(networkModule.supabaseCommunityApi),
+        betterMessagesRepository = networkModule.betterMessagesRepository,
         sessionManager = sessionManager
     )
 
-    val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(chatRepository)
+    val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(
+        appContext = appContext,
+        chatRepository = chatRepository,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        sessionManager = sessionManager
+    )
 
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(
-        remote = ProfileRemoteDataSource(networkModule.supabaseApi),
+        remote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager,
         context = appContext
     )
 
     val neighborhoodRepository: NeighborhoodRepository = NeighborhoodRepositoryImpl(
-        profileRemote = ProfileRemoteDataSource(networkModule.supabaseApi),
-        chatRemote = ChatRemoteDataSource(networkModule.supabaseApi),
+        appContext = appContext,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        betterMessagesRepository = networkModule.betterMessagesRepository,
+        profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager
     )
 }

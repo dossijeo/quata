@@ -4,14 +4,14 @@ import com.quata.BuildConfig
 
 object AppConfig {
     /**
-     * Mientras esté true, los repositorios usan MockData y no intentan conectar.
-     * Cambia USE_MOCK_BACKEND en app/build.gradle.kts para activar/desactivar.
+     * Mientras este true, los repositorios usan MockData y no intentan conectar.
+     * Se genera desde -Pquata.useMockBackend=true en Gradle.
      */
     val USE_MOCK_BACKEND: Boolean
         get() = BuildConfig.USE_MOCK_BACKEND
 
     /** WordPress */
-    const val WORDPRESS_BASE_URL = "https://your-wordpress-site.com/"
+    const val WORDPRESS_BASE_URL = "https://egquata.com/"
     const val WORDPRESS_JWT_LOGIN_PATH = "wp-json/jwt-auth/v1/token"
     const val WORDPRESS_REGISTER_PATH = "wp-json/quata/v1/register"
     const val QUATA_WORDPRESS_BASE_URL = "https://egquata.com/"
@@ -21,12 +21,11 @@ object AppConfig {
     const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"
     const val SUPABASE_ANON_KEY = "sb_publishable_dQILq4zEe6xW1TpJPQwMHw_gk6ZlaX3"
 
-    /** Cambia a "supabase" si tu feed principal vive en Supabase. */
-    const val FEED_SOURCE = "supabase" // wordpress | supabase
+    const val FEED_SOURCE = "supabase"
 
-    const val SUPABASE_TABLE_POSTS = "posts"
-    const val SUPABASE_TABLE_CONVERSATIONS = "conversations"
-    const val SUPABASE_TABLE_MESSAGES = "messages"
+    const val SUPABASE_TABLE_POSTS = "community_posts"
+    const val SUPABASE_TABLE_CONVERSATIONS = "community_private_chats"
+    const val SUPABASE_TABLE_MESSAGES = "community_private_messages"
     const val SUPABASE_TABLE_PUSH_TOKENS = "push_tokens"
 
     /** Google Sign-In: rellena el Web Client ID si integras Credential Manager/Firebase Auth. */

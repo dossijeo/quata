@@ -8,14 +8,14 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface SupabaseApi {
-    @GET("rest/v1/posts?select=*&order=created_at.desc")
+    @GET("rest/v1/posts?select=id,user_id,text,image_url,created_at&order=created_at.desc")
     suspend fun getPosts(): List<SupabasePostDto>
 
     @Headers("Prefer: return=representation")
     @POST("rest/v1/posts")
     suspend fun createPost(@Body request: SupabaseCreatePostRequest): List<SupabasePostDto>
 
-    @GET("rest/v1/conversations?select=*&order=updated_at.desc")
+    @GET("rest/v1/conversations?select=id,title,last_message_preview,unread_count,updated_at,participant_names,participant_ids,community_name,is_muted,is_visible&order=updated_at.desc")
     suspend fun getConversations(): List<SupabaseConversationDto>
 
     @Headers("Prefer: return=representation")
@@ -29,7 +29,7 @@ interface SupabaseApi {
         @Body request: SupabaseConversationUpdateRequest
     ): List<SupabaseConversationDto>
 
-    @GET("rest/v1/messages?select=*&order=created_at.asc")
+    @GET("rest/v1/messages?select=id,conversation_id,sender_id,sender_name,text,is_read,created_at&order=created_at.asc")
     suspend fun getMessages(
         @Query("conversation_id") conversationFilter: String
     ): List<SupabaseMessageDto>
@@ -50,7 +50,7 @@ interface SupabaseApi {
     @POST("rest/v1/push_tokens")
     suspend fun registerPushToken(@Body request: SupabasePushTokenRequest)
 
-    @GET("rest/v1/profiles?select=*")
+    @GET("rest/v1/profiles?select=id,email,display_name,neighborhood,country_code,phone,avatar_url,secret_question,emergency_contact_ids,emergency_message,emergency_message_is_default")
     suspend fun getProfiles(
         @Query("id") idFilter: String
     ): List<SupabaseProfileDto>

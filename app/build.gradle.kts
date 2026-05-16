@@ -18,8 +18,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Cambia esto a false cuando quieras usar WordPress/Supabase reales.
-        buildConfigField("boolean", "USE_MOCK_BACKEND", "true")
+        // Backend dual. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
+        val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
+        buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
     }
 
     buildFeatures {
