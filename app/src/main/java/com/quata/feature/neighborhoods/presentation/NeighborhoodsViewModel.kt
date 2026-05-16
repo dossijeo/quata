@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class NeighborhoodsViewModel(
@@ -15,9 +16,12 @@ class NeighborhoodsViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
     val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
+    private var communitiesJob: Job? = null
 
-    init {
-        viewModelScope.launch {
+    fun startObservingCommunities() {
+        if (communitiesJob?.isActive == true) return
+        communitiesJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             repository.observeCommunities()
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
@@ -33,6 +37,11 @@ class NeighborhoodsViewModel(
                     )
                 }
         }
+    }
+
+    fun stopObservingCommunities() {
+        communitiesJob?.cancel()
+        communitiesJob = null
     }
 
     fun openChat(neighborhood: String, onOpened: (String) -> Unit) {

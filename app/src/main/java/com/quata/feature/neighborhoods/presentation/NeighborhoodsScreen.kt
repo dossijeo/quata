@@ -128,6 +128,10 @@ fun NeighborhoodsScreen(
             }
         }
     }
+    DisposableEffect(viewModel) {
+        viewModel.startObservingCommunities()
+        onDispose { viewModel.stopObservingCommunities() }
+    }
 
     if (communityForDialog != null) {
         NeighborhoodUsersScreen(

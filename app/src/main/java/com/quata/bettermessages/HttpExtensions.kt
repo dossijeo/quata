@@ -30,9 +30,17 @@ internal fun Request.Builder.defaultAjaxHeaders(): Request.Builder {
         .header("Accept", "application/json")
 }
 
-internal fun Request.Builder.defaultRestHeaders(): Request.Builder {
+internal fun Request.Builder.defaultRestHeaders(restNonce: String? = null): Request.Builder {
     return header("Accept", "application/json")
         .header("Content-Type", "application/json")
+        .restNonceHeader(restNonce)
+}
+
+internal fun Request.Builder.restNonceHeader(restNonce: String?): Request.Builder {
+    if (!restNonce.isNullOrBlank()) {
+        header("X-WP-Nonce", restNonce)
+    }
+    return this
 }
 
 internal fun formBody(vararg pairs: Pair<String, String?>): FormBody {

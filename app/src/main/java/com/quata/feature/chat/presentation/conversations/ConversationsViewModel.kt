@@ -10,14 +10,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class ConversationsViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(ConversationsUiState())
     val uiState: StateFlow<ConversationsUiState> = _uiState.asStateFlow()
     private var conversationsJob: Job? = null
-    private var messagesJob: Job? = null
     private var usersJob: Job? = null
     private var pendingDeleteJob: Job? = null
 
@@ -59,7 +57,11 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                     _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")
                 }
                 .collect { conversations ->
-                    observeMessagesFor(conversations)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        conversations = conversations.filter { it.isVisible },
+                        messagesByConversation = emptyMap()
+                    )
                 }
         }
     }
@@ -72,38 +74,6 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
     private fun finalizeDeletedConversation() = viewModelScope.launch {
         repository.finalizePendingDeletedConversation()
             .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo borrar") }
-    }
-
-    private fun observeMessagesFor(conversations: List<Conversation>) {
-        val messageFlows = conversations.map { conversation ->
-            repository.observeMessages(conversation.id)
-        }
-        messagesJob?.cancel()
-        messagesJob = viewModelScope.launch {
-            if (messageFlows.isEmpty()) {
-                _uiState.value = _uiState.value.copy(isLoading = false, conversations = emptyList(), messagesByConversation = emptyMap())
-                return@launch
-            }
-            combine(messageFlows) { messages ->
-                messages.toList()
-            }
-                .catch { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")
-                }
-                .collect { messageLists ->
-                    val messagesByConversation = conversations.zip(messageLists).associate { (conversation, messages) ->
-                        conversation.id to messages
-                    }
-                    val visibleConversations = conversations.filter { conversation ->
-                        conversation.isVisible && messagesByConversation[conversation.id].orEmpty().isNotEmpty()
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        conversations = visibleConversations,
-                        messagesByConversation = messagesByConversation
-                    )
-                }
-        }
     }
 
     companion object {

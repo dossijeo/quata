@@ -136,7 +136,10 @@ fun ChatScreen(
     onFocusedMessageHandled: () -> Unit = {},
     onOpenMessageConversation: (String, String) -> Unit = { targetConversationId, _ -> onOpenConversation(targetConversationId) },
     onBack: () -> Unit,
-    viewModel: ChatViewModel = viewModel(factory = ChatViewModel.factory(conversationId, repository))
+    viewModel: ChatViewModel = viewModel(
+        key = "chat_$conversationId",
+        factory = ChatViewModel.factory(conversationId, repository)
+    )
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current

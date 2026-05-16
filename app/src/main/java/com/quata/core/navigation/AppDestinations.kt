@@ -1,5 +1,7 @@
 package com.quata.core.navigation
 
+import android.net.Uri
+
 sealed class AppDestinations(val route: String) {
     companion object {
         const val FavoriteMessagesConversationId = "__favorite_messages__"
@@ -12,7 +14,7 @@ sealed class AppDestinations(val route: String) {
     data object CreatePost : AppDestinations("create_post")
     data object Conversations : AppDestinations("conversations")
     data object Chat : AppDestinations("chat/{conversationId}") {
-        fun createRoute(conversationId: String) = "chat/$conversationId"
+        fun createRoute(conversationId: String) = "chat/${Uri.encode(conversationId)}"
     }
     data object Notifications : AppDestinations("notifications")
     data object Profile : AppDestinations("profile")

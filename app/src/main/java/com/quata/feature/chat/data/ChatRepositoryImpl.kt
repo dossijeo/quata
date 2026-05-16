@@ -2,7 +2,9 @@ package com.quata.feature.chat.data
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
+import android.provider.Settings
 import com.quata.R
 import com.quata.bettermessages.BetterMessagesRepository
 import com.quata.bettermessages.BmThread
@@ -18,28 +20,37 @@ import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityProfile
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
+import com.quata.wordpress.QuataWordPressClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.random.Random
 
 class ChatRepositoryImpl(
     private val appContext: Context,
     private val remote: ChatRemoteDataSource,
     private val betterMessagesRepository: BetterMessagesRepository,
+    private val wordpressClient: QuataWordPressClient,
     private val sessionManager: SessionManager
 ) : ChatRepository {
     private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val realConversationsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val realConversations = MutableStateFlow<List<Conversation>>(emptyList())
+    private var realConversationsPollJob: Job? = null
     private val _activeConversationId = MutableStateFlow<String?>(null)
     override val activeConversationId: StateFlow<String?> = _activeConversationId
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
@@ -59,20 +70,21 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) MockData.conversations else loadRealConversations()
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.conversations
+        } else {
+            ensureRealConversationsPolling()
+            realConversations.value.takeIf { it.isNotEmpty() } ?: loadRealConversations().also { realConversations.value = it }
+        }
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override fun observeConversations(): Flow<List<Conversation>> {
         return if (AppConfig.USE_MOCK_BACKEND) {
             MockData.conversationsFlow
         } else {
+            ensureRealConversationsPolling()
             flow {
-                while (true) {
-                    runCatching { loadRealConversations() }
-                        .onSuccess { emit(it) }
-                        .onFailure { emit(emptyList()) }
-                    delay(8_000)
-                }
+                emitAll(realConversations)
             }
         }
     }
@@ -97,7 +109,7 @@ class ChatRepositoryImpl(
                 runCatching { loadRealMessages(conversationId) }
                     .onSuccess { emit(it) }
                     .onFailure { emit(emptyList()) }
-                delay(5_000)
+                delay(MESSAGES_POLL_DELAY_MILLIS)
             }
         }
     }
@@ -107,12 +119,7 @@ class ChatRepositoryImpl(
             flowOf(MockData.registeredUsers)
         } else {
             flow {
-                while (true) {
-                    runCatching { remote.getProfiles().map { it.toUser() } }
-                        .onSuccess { emit(it) }
-                        .onFailure { emit(emptyList()) }
-                    delay(30_000)
-                }
+                emit(runCatching { remote.getProfiles().map { it.toUser() } }.getOrDefault(emptyList()))
             }
         }
     }
@@ -349,18 +356,23 @@ class ChatRepositoryImpl(
 
     private suspend fun loadRealConversations(): List<Conversation> {
         val session = sessionManager.currentSession() ?: return emptyList()
-        val profilesById = remote.getProfiles().associateBy { it.id }
-        val privateConversations = remote.getPrivateChats(session.userId)
-            .mapNotNull { chat ->
+        val privateChats = remote.getPrivateChats(session.userId)
+        val peerIds = privateChats.mapNotNull { chat ->
+            listOfNotNull(chat.user_low_id, chat.user_high_id, chat.requester_profile_id, chat.target_profile_id)
+                .distinct()
+                .firstOrNull { it != session.userId }
+        }.distinct()
+        val profilesById = if (peerIds.isEmpty()) emptyMap() else remote.getProfiles(peerIds).associateBy { it.id }
+        val privateConversations = privateChats.mapNotNull { chat ->
+            runCatching {
                 val peerId = listOfNotNull(chat.user_low_id, chat.user_high_id, chat.requester_profile_id, chat.target_profile_id)
                     .distinct()
-                    .firstOrNull { it != session.userId }
-                    ?: return@mapNotNull null
+                    .firstOrNull { it != session.userId } ?: return@runCatching null
                 val peer = profilesById[peerId]
-                val threadId = resolvePrivateThreadId(session.userId, peerId) ?: return@mapNotNull null
-                val threadResponse = betterMessagesRepository.loadThread(session.userId, threadId)
-                val thread = threadResponse.threads.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
-                val lastMessage = threadResponse.messages.maxByOrNull { it.created_at }
+                val threadId = resolvePrivateThreadId(session.userId, peerId) ?: return@runCatching null
+                val threadResponse = runCatching { betterMessagesRepository.loadThread(session.userId, threadId) }.getOrNull()
+                val thread = threadResponse?.threads?.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
+                val lastMessage = threadResponse?.messages?.maxByOrNull { it.created_at }
                 thread.toConversation(
                     title = peer?.displayName().orEmpty(),
                     peerProfileId = peerId,
@@ -368,23 +380,188 @@ class ChatRepositoryImpl(
                     peerAvatarUrl = peer?.avatar_url ?: peer?.avatar,
                     currentProfileId = session.userId
                 ).copy(
-                    lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+                    lastMessagePreview = lastMessage?.message?.stripHtml() ?: chat.last_message_preview.orEmpty(),
                     updatedAt = lastMessage?.created_at?.toDisplayTime() ?: chat.last_message_at.orEmpty(),
                     updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
                         ?: chat.last_message_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
                 )
-            }
-        val wallConversations = remote.getActiveWalls().map { wall ->
-            val lastMessage = runCatching { remote.getCommunityMessages(wall.id).maxByOrNull { it.created_at.orEmpty() } }.getOrNull()
+            }.getOrNull()
+        }
+        val bmConversations = runCatching { loadBetterMessagesInbox(session.userId) }.getOrDefault(emptyList())
+        val activeWallId = activeConversationId.value?.wallIdOrNull()
+        val wallConversations = if (activeWallId == null) {
+            emptyList()
+        } else {
+            remote.getActiveWalls().filter { it.id == activeWallId }
+        }.map { wall ->
             wall.toConversation().copy(
-                lastMessagePreview = lastMessage?.body.orEmpty(),
-                updatedAt = lastMessage?.created_at ?: wall.chat_last_at.orEmpty(),
-                updatedAtMillis = lastMessage?.created_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-                    ?: wall.chat_last_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                lastMessagePreview = "",
+                updatedAt = wall.chat_last_at.orEmpty(),
+                updatedAtMillis = wall.chat_last_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
             )
         }
-        return (privateConversations + wallConversations)
+        return (privateConversations + bmConversations + wallConversations)
+            .distinctBy { it.id }
             .sortedByDescending { it.updatedAtMillis ?: 0L }
+    }
+
+    private fun ensureRealConversationsPolling() {
+        if (AppConfig.USE_MOCK_BACKEND || realConversationsPollJob?.isActive == true) return
+        realConversationsPollJob = realConversationsScope.launch {
+            var lastBetterMessagesUpdate = 0L
+            while (true) {
+                val session = sessionManager.currentSession()
+                if (session == null) {
+                    realConversations.value = emptyList()
+                    lastBetterMessagesUpdate = 0L
+                    delay(CONVERSATIONS_POLL_DELAY_MILLIS)
+                    continue
+                }
+
+                if (realConversations.value.isEmpty()) {
+                    runCatching { loadRealConversations() }
+                        .onSuccess { conversations ->
+                            realConversations.value = conversations
+                            lastBetterMessagesUpdate = System.currentTimeMillis()
+                        }
+                } else {
+                    runCatching {
+                        pollBetterMessagesUpdates(
+                            profileId = session.userId,
+                            currentConversations = realConversations.value,
+                            lastUpdate = lastBetterMessagesUpdate
+                        )
+                    }.onSuccess { poll ->
+                        lastBetterMessagesUpdate = poll.nextLastUpdate
+                        if (poll.hasUpdates) {
+                            runCatching { loadRealConversations() }
+                                .onSuccess { conversations -> realConversations.value = conversations }
+                        }
+                    }
+                }
+
+                delay(CONVERSATIONS_POLL_DELAY_MILLIS)
+            }
+        }
+    }
+
+    private suspend fun pollBetterMessagesUpdates(
+        profileId: String,
+        currentConversations: List<Conversation>,
+        lastUpdate: Long
+    ): ConversationPollResult {
+        val knownThreadIds = currentConversations
+            .mapNotNull { it.id.betterMessagesThreadIdOrNull() }
+            .distinct()
+        val visibleThreads = activeConversationId.value
+            ?.betterMessagesThreadIdOrNull()
+            ?.let(::listOf)
+            .orEmpty()
+        val response = betterMessagesRepository.checkNew(
+            profileId = profileId,
+            lastUpdate = lastUpdate,
+            visibleThreads = visibleThreads,
+            threadIds = knownThreadIds
+        )
+        return ConversationPollResult(
+            hasUpdates = response.threads.isNotEmpty() || response.messages.isNotEmpty(),
+            nextLastUpdate = response.currentTime ?: System.currentTimeMillis()
+        )
+    }
+
+    private suspend fun loadBetterMessagesInbox(profileId: String): List<Conversation> {
+        val profile = runCatching { remote.getProfiles(listOf(profileId)).firstOrNull() }.getOrNull()
+        val bridgeSession = betterMessagesRepository.prepareBridgeContext(profileId)
+        trackBetterMessagesVisit(profileId, profile)
+        betterMessagesRepository.refreshRestNonce(profileId)
+        val inbox = betterMessagesRepository.checkNewInCurrentSession(lastUpdate = 0)
+        val currentWpUserId = inferCurrentWpUserId(
+            profile = profile,
+            users = inbox.users,
+            fallbackUserId = bridgeSession.currentWpUserId
+        )
+        val messagesByThreadId = inbox.messages.groupBy { it.threadId }
+        return inbox.threads
+            .filter { thread -> thread.threadId > 0 && thread.isHidden != 1 && thread.isDeleted != 1 }
+            .filter { thread -> currentWpUserId == null || currentWpUserId in thread.participants }
+            .map { thread ->
+                val knownMessages = messagesByThreadId[thread.threadId].orEmpty()
+                val threadResponse = runCatching {
+                    betterMessagesRepository.loadThreadInCurrentSession(
+                        threadId = thread.threadId,
+                        knownMessageIds = knownMessages.map { it.messageId }
+                    )
+                }.getOrNull()
+                val fullThread = threadResponse?.threads?.firstOrNull { it.threadId == thread.threadId } ?: thread
+                val usersByWpId = (inbox.users + threadResponse?.users.orEmpty()).associateByWpId()
+                val threadMessages = threadResponse?.messages?.takeIf { it.isNotEmpty() } ?: knownMessages
+                val peerUsers = fullThread.participants
+                    .filter { it != currentWpUserId }
+                    .mapNotNull { usersByWpId[it] }
+                val participantNames = peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
+                val lastMessage = threadMessages.maxByOrNull { it.created_at }
+                val title = fullThread.title?.takeIf { it.isNotBlank() && it != "${fullThread.participantsCount ?: fullThread.participants.size} participantes" }
+                    ?: fullThread.subject?.takeIf { it.isNotBlank() }
+                    ?: participantNames.joinToString(", ").ifBlank { "Chat ${fullThread.threadId}" }
+                Conversation(
+                    id = betterMessagesConversationId(fullThread.threadId),
+                    title = title,
+                    avatarUrl = fullThread.image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
+                    lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+                    unreadCount = fullThread.unread ?: 0,
+                    updatedAt = lastMessage?.created_at?.toDisplayTime() ?: fullThread.lastTime?.toDisplayTime().orEmpty(),
+                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
+                        ?: fullThread.lastTime?.toEpochMillisFromBetterMessages(),
+                    participantIds = fullThread.participants.map { "wp:$it" },
+                    participantNames = participantNames,
+                    isGroup = fullThread.type == "group" || fullThread.participants.size > 2,
+                    isMuted = fullThread.isMuted == true,
+                    isVisible = true,
+                    moderatorIds = fullThread.moderators.map { "wp:$it" },
+                    canMembersInvite = fullThread.meta?.allowInvite == true || fullThread.permissions?.canInvite == true
+                )
+            }
+    }
+
+    private suspend fun trackBetterMessagesVisit(profileId: String, profile: CommunityProfile?) {
+        val session = sessionManager.currentSession()
+        val displayName = profile?.displayName()?.takeIf { it.isNotBlank() }
+            ?: session?.displayName?.takeIf { it.isNotBlank() }
+            ?: "Usuario"
+        val barrio = profile?.neighborhood?.takeIf { it.isNotBlank() }
+            ?: profile?.barrio?.takeIf { it.isNotBlank() }
+            ?: ""
+        val displayMetrics = appContext.resources.displayMetrics
+        val platform = "Android ${Build.VERSION.RELEASE ?: ""}".trim()
+        runCatching {
+            wordpressClient.trackBetterMessagesVisit(
+                profileId = profileId,
+                displayName = displayName,
+                barrio = barrio,
+                visitorId = visitorId(profileId),
+                language = Locale.getDefault().toLanguageTag(),
+                timezone = TimeZone.getDefault().id,
+                screen = "${displayMetrics.widthPixels}x${displayMetrics.heightPixels}",
+                platform = platform.ifBlank { "Android" }
+            )
+        }
+    }
+
+    private fun inferCurrentWpUserId(
+        profile: CommunityProfile?,
+        users: List<BmUser>,
+        fallbackUserId: Int?
+    ): Int? {
+        val profileAvatar = profile?.avatar_url?.takeIf { it.isNotBlank() }
+            ?: profile?.avatar?.takeIf { it.isNotBlank() }
+        profileAvatar?.let { avatar ->
+            users.firstOrNull { user -> user.avatar == avatar }?.wpIdOrNull()?.let { return it }
+        }
+        val profileName = profile?.displayName()?.normalizeName()
+        profileName?.let { expected ->
+            users.firstOrNull { user -> user.name?.normalizeName() == expected }?.wpIdOrNull()?.let { return it }
+        }
+        return fallbackUserId
     }
 
     private suspend fun loadRealMessages(conversationId: String): List<Message> {
@@ -399,7 +576,8 @@ class ChatRepositoryImpl(
         val wallId = conversationId.wallIdOrNull() ?: return emptyList()
         val session = sessionManager.currentSession() ?: return emptyList()
         val messages = remote.getCommunityMessages(wallId)
-        val profilesById = remote.getProfiles(messages.mapNotNull { it.profile_id }.distinct()).associateBy { it.id }
+        val profileIds = messages.mapNotNull { it.profile_id }.distinct()
+        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
         return messages
             .sortedBy { it.created_at.orEmpty() }
             .map { message ->
@@ -413,9 +591,16 @@ class ChatRepositoryImpl(
 
     private suspend fun loadBetterMessages(threadId: Int): List<Message> {
         val session = sessionManager.currentSession() ?: return emptyList()
-        val currentWpUserId = betterMessagesRepository.syncSession(session.userId).userId
-        val thread = betterMessagesRepository.loadThread(session.userId, threadId)
+        val profile = runCatching { remote.getProfiles(listOf(session.userId)).firstOrNull() }.getOrNull()
+        val bridgeSession = betterMessagesRepository.prepareBridgeContext(session.userId)
+        betterMessagesRepository.refreshRestNonce(session.userId)
+        val thread = betterMessagesRepository.loadThreadInCurrentSession(threadId)
         val usersByWpId = thread.users.associateByWpId()
+        val currentWpUserId = inferCurrentWpUserId(
+            profile = profile,
+            users = thread.users,
+            fallbackUserId = bridgeSession.currentWpUserId
+        )
         val lookup = thread.messages.associateBy { it.messageId }
         return thread.messages
             .sortedBy { it.created_at }
@@ -424,16 +609,18 @@ class ChatRepositoryImpl(
 
     private suspend fun resolvePrivateThreadId(profileId: String, peerProfileId: String): Int? {
         threadIdsByPeerProfileId[peerProfileId]?.let { return it }
-        val threadId = betterMessagesRepository.openOrGetPrivateUrl(profileId, peerProfileId).threadId
+        val threadId = betterMessagesRepository.openOrGetPrivateUrl(profileId, peerProfileId).threadId?.takeIf { it > 0 }
         if (threadId != null) threadIdsByPeerProfileId[peerProfileId] = threadId
         return threadId
     }
 
     private fun List<BmUser>.associateByWpId(): Map<Int, BmUser> =
         mapNotNull { user ->
-            val id = user.userId ?: user.id.toIntOrNull()
+            val id = user.wpIdOrNull()
             id?.let { it to user }
         }.toMap()
+
+    private fun BmUser.wpIdOrNull(): Int? = userId ?: id.toIntOrNull()
 
     private fun CommunityProfile.toUser(): User =
         User(
@@ -449,6 +636,13 @@ class ChatRepositoryImpl(
             ?: nombre?.takeIf { it.isNotBlank() }
             ?: phone_local?.takeIf { it.isNotBlank() }
             ?: "Usuario"
+
+    private fun visitorId(profileId: String): String {
+        val deviceId = runCatching {
+            Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull()
+        return "v-android-${deviceId?.takeIf { it.isNotBlank() } ?: profileId.take(12)}"
+    }
 
     private fun scheduleMockReply(conversationId: String, currentUserId: String, currentUserName: String) {
         mockReplyScope.launch {
@@ -501,6 +695,8 @@ class ChatRepositoryImpl(
 
     private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
 
+    private fun String.normalizeName(): String = trim().lowercase(Locale.ROOT)
+
     private data class CachedMedia(val file: File, val mimeType: String)
 
     private data class MediaPayload(
@@ -510,7 +706,14 @@ class ChatRepositoryImpl(
         val bytes: ByteArray
     )
 
+    private data class ConversationPollResult(
+        val hasUpdates: Boolean,
+        val nextLastUpdate: Long
+    )
+
     private companion object {
+        const val CONVERSATIONS_POLL_DELAY_MILLIS = 2_000L
+        const val MESSAGES_POLL_DELAY_MILLIS = 2_000L
         val MOCK_REPLIES = listOf(
             "Perfecto, lo veo ahora.",
             "Dale, seguimos por aqui.",

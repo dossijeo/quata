@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -276,7 +277,7 @@ fun AppNavGraph(container: AppContainer) {
                     route = AppDestinations.Chat.route,
                     arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
                 ) { entry ->
-                    val conversationId = entry.arguments?.getString("conversationId") ?: ""
+                    val conversationId = entry.arguments?.getString("conversationId")?.let(Uri::decode) ?: ""
                     ChatScreen(
                         padding = padding,
                         conversationId = conversationId,

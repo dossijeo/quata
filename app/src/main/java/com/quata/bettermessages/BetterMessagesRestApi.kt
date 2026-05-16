@@ -19,6 +19,11 @@ class BetterMessagesRestApi(
 ) {
     private val restBase = "${baseUrl.ensureNoTrailingSlash()}/wp-json/better-messages/v1"
     private val booleanSerializer = Boolean.serializer()
+    @Volatile private var restNonce: String? = null
+
+    fun setRestNonce(nonce: String?) {
+        restNonce = nonce?.takeIf { it.isNotBlank() }
+    }
 
     suspend fun getThread(threadId: Int, knownMessageIds: List<Int> = emptyList()): BmThreadResponse {
         return postJson(
@@ -82,6 +87,7 @@ class BetterMessagesRestApi(
             .url("$restBase/thread/$threadId/upload".withNoCache())
             .post(body)
             .header("Accept", "application/json")
+            .restNonceHeader(restNonce)
             .build()
 
         val text = client.executeSuspend(request).use { it.readBodyOrThrow() }
@@ -168,7 +174,7 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(ByteArray(0).toRequestBodyCompat())
-            .defaultRestHeaders()
+            .defaultRestHeaders(restNonce)
             .build()
 
         val text = client.executeSuspend(request).use { it.readBodyOrThrow() }
@@ -179,7 +185,7 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(ByteArray(0).toRequestBodyCompat())
-            .defaultRestHeaders()
+            .defaultRestHeaders(restNonce)
             .build()
 
         client.executeSuspend(request).use { it.readBodyOrThrow() }
@@ -196,7 +202,7 @@ class BetterMessagesRestApi(
         val requestObj = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(bodyText.toRequestBodyCompat())
-            .defaultRestHeaders()
+            .defaultRestHeaders(restNonce)
             .build()
 
         val responseText = client.executeSuspend(requestObj).use { it.readBodyOrThrow() }

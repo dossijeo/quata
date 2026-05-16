@@ -12,11 +12,9 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.notifications.domain.NotificationsRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 class NotificationsRepositoryImpl(
@@ -31,7 +29,8 @@ class NotificationsRepositoryImpl(
                 conversations.toNotificationItems(chatRepository.activeConversationId.value)
             }
         } else {
-            runCatching { loadSupabaseNotifications() }
+            chatRepository.getConversations()
+                .map { conversations -> conversations.toNotificationItems(chatRepository.activeConversationId.value) }
                 .mapFailureToUserFacing(appContext, R.string.error_load_notifications)
         }
 
@@ -47,13 +46,11 @@ class NotificationsRepositoryImpl(
                 conversations.toNotificationItems(activeConversationId)
             }
         } else {
-            flow {
-                while (true) {
-                    runCatching { loadSupabaseNotifications() }
-                        .onSuccess { emit(it) }
-                        .onFailure { emit(emptyList()) }
-                    delay(8_000)
-                }
+            combine(
+                chatRepository.observeConversations(),
+                chatRepository.activeConversationId
+            ) { conversations, activeConversationId ->
+                conversations.toNotificationItems(activeConversationId)
             }
         }
 
@@ -63,7 +60,7 @@ class NotificationsRepositoryImpl(
             .catch { emit(0) }
 
     override suspend fun markNotificationRead(notification: NotificationItem): Result<Unit> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) {
+        if (AppConfig.USE_MOCK_BACKEND || notification.id.startsWith(CONVERSATION_NOTIFICATION_PREFIX)) {
             chatRepository.markConversationRead(notification.conversationId).getOrThrow()
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -105,7 +102,7 @@ private fun List<Conversation>.toNotificationItems(activeConversationId: String?
             conversation.unreadCount > 0
     }.map { conversation ->
         NotificationItem(
-            id = "notification_${conversation.id}",
+            id = "$CONVERSATION_NOTIFICATION_PREFIX${conversation.id}",
             conversationId = conversation.id,
             title = conversation.notificationTitle(),
             body = conversation.lastMessagePreview.ifBlank { conversation.title },
@@ -128,3 +125,5 @@ private fun String.parseSupabaseNotificationKey(): Pair<String?, String?> {
     val parts = split("|")
     return parts.getOrNull(1)?.takeIf { it.isNotBlank() } to parts.getOrNull(2)?.takeIf { it.isNotBlank() }
 }
+
+private const val CONVERSATION_NOTIFICATION_PREFIX = "notification_"

@@ -253,7 +253,7 @@ fun Modifier.fluidTouchEffect(enabled: Boolean = true): Modifier = composed {
                         val adaptiveAmount =
                             (baseAmount * particleBudget)
                                 .toInt()
-                                .coerceAtLeast(1)
+                                .coerceAtLeast(2)
 
                         emit(
                             change.position,

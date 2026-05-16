@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 class QuataWordPressClient(
@@ -202,7 +203,8 @@ class QuataWordPressClient(
         language: String,
         timezone: String,
         screen: String,
-        platform: String = "Android"
+        platform: String = "Android",
+        source: String = "android"
     ): AjaxEnvelope<TrackVisitData> {
         val json = postAjax(
             action = "quqos_track_visit",
@@ -218,7 +220,7 @@ class QuataWordPressClient(
                 "timezone" to timezone,
                 "screen" to screen,
                 "platform" to platform,
-                "source" to "android"
+                "source" to source
             )
         )
         val dataJson = JsonLite.objectBody(json, "data") ?: "{}"
@@ -227,6 +229,43 @@ class QuataWordPressClient(
             data = TrackVisitData(rawJson = dataJson),
             errorMessage = extractWordPressError(json),
             rawJson = json
+        )
+    }
+
+    suspend fun trackBetterMessagesVisit(
+        profileId: String,
+        displayName: String,
+        barrio: String,
+        visitorId: String,
+        language: String,
+        timezone: String,
+        screen: String,
+        platform: String = "Android",
+        source: String = "beacon",
+        bootMillis: Long = System.currentTimeMillis()
+    ): AjaxEnvelope<TrackVisitData> {
+        val encodedReturnTo = URLEncoder.encode(rootUrl, Charsets.UTF_8.name())
+        val messagesUrl = buildString {
+            append(rootUrl)
+            append("mensajes/?quqos_return_to=")
+            append(encodedReturnTo)
+            append("&quqos_bm_boot=")
+            append(bootMillis)
+            append("&quqos_bm_view=private&quqos_bm_scope=private#/?&scrollToContainer")
+        }
+        return trackVisit(
+            profileId = profileId,
+            displayName = displayName,
+            barrio = barrio,
+            url = messagesUrl,
+            referrer = rootUrl,
+            visitorId = visitorId,
+            pageTitle = "Mensajes \u2013 Q\u00dcATA",
+            language = language,
+            timezone = timezone,
+            screen = screen,
+            platform = platform,
+            source = source
         )
     }
 

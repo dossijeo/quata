@@ -51,12 +51,11 @@ class NeighborhoodRepositoryImpl(
                             val users = profiles
                                 .filter { user -> user.neighborhood.equals(wall.name, ignoreCase = true) || user.neighborhood.equals(wall.normalized_name, ignoreCase = true) }
                                 .sortedBy { it.displayName.lowercase() }
-                            val lastMessage = runCatching { supabaseApi.getCommunityMessages(wall.id, limit = 1).firstOrNull() }.getOrNull()
                             NeighborhoodCommunity(
                                 name = wall.name ?: wall.slug ?: "Comunidad",
                                 users = users,
                                 conversationId = wallConversationId(wall.id),
-                                lastMessagePreview = lastMessage?.body,
+                                lastMessagePreview = null,
                                 lastMessageAtMillis = wall.chat_last_at?.toEpochMillisOrNull(),
                                 messageCount = wall.chat_count ?: 0
                             )
@@ -131,6 +130,7 @@ class NeighborhoodRepositoryImpl(
             )
         }
         val profile = profileRemote.getProfile(userId) ?: error("Usuario no encontrado")
+        val currentUserId = sessionManager.currentSession()?.userId
         val posts = supabaseApi.getFeedPosts(profileId = userId).map { post ->
             post.toDomain(
                 author = profile.toDomainUser(),
@@ -139,9 +139,36 @@ class NeighborhoodRepositoryImpl(
                 likedByCurrentUser = false
             )
         }
+        val followers = supabaseApi.getProfileFollows(followedProfileId = userId)
+        val following = supabaseApi.getProfileFollows(followerProfileId = userId)
+        val relatedIds = (
+            followers.mapNotNull { it.follower_profile_id } +
+                following.mapNotNull { it.followed_profile_id }
+            ).distinct()
+        val relatedProfilesById = if (relatedIds.isEmpty()) emptyMap() else supabaseApi.getProfiles(relatedIds).associateBy { it.id }
+        val currentFollowingIds = currentUserId
+            ?.let { supabaseApi.getProfileFollows(followerProfileId = it).mapNotNull { follow -> follow.followed_profile_id }.toSet() }
+            .orEmpty()
+        val followerUsers = followers.mapNotNull { follow ->
+            relatedProfilesById[follow.follower_profile_id]?.toNeighborhoodUserReal(
+                isFollowing = follow.follower_profile_id?.let { it in currentFollowingIds } == true
+            )
+        }
+        val followingUsers = following.mapNotNull { follow ->
+            relatedProfilesById[follow.followed_profile_id]?.toNeighborhoodUserReal(
+                isFollowing = follow.followed_profile_id?.let { it in currentFollowingIds } == true
+            )
+        }
         CommunityUserProfile(
-            user = profile.toNeighborhoodUserReal(),
-            posts = posts
+            user = profile.toNeighborhoodUserReal(
+                isFollowing = currentUserId != null && followers.any { it.follower_profile_id == currentUserId },
+                followersCount = followers.size,
+                followingCount = following.size,
+                postsCount = posts.size
+            ),
+            posts = posts,
+            followers = followerUsers,
+            following = followingUsers
         )
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
@@ -189,7 +216,12 @@ class NeighborhoodRepositoryImpl(
             postsCount = MockData.posts.count { it.author.id == id }
         )
 
-    private fun CommunityProfile.toNeighborhoodUserReal(): NeighborhoodUser =
+    private fun CommunityProfile.toNeighborhoodUserReal(
+        isFollowing: Boolean = false,
+        followersCount: Int = followers_count ?: 0,
+        followingCount: Int = following_count ?: 0,
+        postsCount: Int = 0
+    ): NeighborhoodUser =
         NeighborhoodUser(
             id = id,
             displayName = display_name?.takeIf { it.isNotBlank() }
@@ -198,8 +230,10 @@ class NeighborhoodRepositoryImpl(
             email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
             neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
             avatarUrl = avatar_url ?: avatar,
-            followersCount = followers_count ?: 0,
-            followingCount = following_count ?: 0
+            isFollowing = isFollowing,
+            followersCount = followersCount,
+            followingCount = followingCount,
+            postsCount = postsCount
         )
 
     private fun String.toEpochMillisOrNull(): Long? =

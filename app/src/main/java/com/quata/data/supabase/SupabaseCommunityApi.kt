@@ -21,7 +21,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         "community_walls",
         mapOf(
             "select" to WALL_SELECT,
-            "id" to ids?.takeIf { it.isNotEmpty() }?.joinToString(prefix = "in.(", postfix = ")"),
+            "id" to ids?.takeIf { it.isNotEmpty() }?.toInFilter(),
             "order" to "sort_order.asc,created_at.desc",
             "limit" to limit.toString()
         )
@@ -41,7 +41,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         "community_profiles",
         mapOf(
             "select" to PROFILE_PUBLIC_SELECT,
-            "id" to ids?.takeIf { it.isNotEmpty() }?.joinToString(prefix = "in.(", postfix = ")"),
+            "id" to ids?.takeIf { it.isNotEmpty() }?.toInFilter(),
             "limit" to limit.toString()
         )
     )
@@ -78,10 +78,17 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             select = PROFILE_PUBLIC_SELECT
         ).firstOrNull()
 
-    suspend fun getFeedPosts(limit: Int = 15, offset: Int = 0, wallId: String? = null, profileId: String? = null): List<CommunityPost> = client.getList(
+    suspend fun getFeedPosts(
+        limit: Int = 15,
+        offset: Int = 0,
+        wallId: String? = null,
+        profileId: String? = null,
+        postId: String? = null
+    ): List<CommunityPost> = client.getList(
         "community_posts",
         mapOf(
             "select" to POST_SELECT,
+            "id" to postId?.let { "eq.$it" },
             "wall_id" to wallId?.let { "eq.$it" },
             "profile_id" to profileId?.let { "eq.$it" },
             "order" to "created_at.desc",
@@ -97,7 +104,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun getComments(postIds: Collection<String>): List<CommunityComment> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList("community_comments", mapOf("select" to COMMENT_SELECT, "post_id" to postIds.joinToString(prefix = "in.(", postfix = ")"), "order" to "created_at.asc"))
+        return client.getList("community_comments", mapOf("select" to COMMENT_SELECT, "post_id" to postIds.toInFilter(), "order" to "created_at.asc"))
     }
 
     suspend fun addComment(postId: String, profileId: String, body: String): CommunityComment? =
@@ -107,7 +114,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun getLikes(postIds: Collection<String>): List<CommunityPostLike> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList("community_post_likes", mapOf("select" to LIKE_SELECT, "post_id" to postIds.joinToString(prefix = "in.(", postfix = ")")))
+        return client.getList("community_post_likes", mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()))
     }
 
     suspend fun toggleLike(postId: String, profileId: String): ToggleResult {
@@ -123,7 +130,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun getReactions(postIds: Collection<String>): List<CommunityPostReaction> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList("community_post_reactions", mapOf("select" to REACTION_SELECT, "post_id" to postIds.joinToString(prefix = "in.(", postfix = ")")))
+        return client.getList("community_post_reactions", mapOf("select" to REACTION_SELECT, "post_id" to postIds.toInFilter()))
     }
 
     suspend fun toggleReaction(postId: String, profileId: String, reactionType: String): ToggleResult {
@@ -207,6 +214,20 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         mapOf("select" to WALL_FOLLOW_SELECT, "profile_id" to profileId?.let { "eq.$it" }, "wall_id" to wallId?.let { "eq.$it" })
     )
 
+    suspend fun getProfileFollows(
+        followerProfileId: String? = null,
+        followedProfileId: String? = null,
+        limit: Int = 1000
+    ): List<CommunityProfileFollow> = client.getList(
+        "community_profile_follows",
+        mapOf(
+            "select" to PROFILE_FOLLOW_SELECT,
+            "follower_profile_id" to followerProfileId?.let { "eq.$it" },
+            "followed_profile_id" to followedProfileId?.let { "eq.$it" },
+            "limit" to limit.toString()
+        )
+    )
+
     suspend fun toggleWallFollow(wallId: String, profileId: String): ToggleResult {
         val existing = client.getSingleOrNull<CommunityWallFollow>("community_wall_follows", mapOf("select" to "id", "wall_id" to "eq.$wallId", "profile_id" to "eq.$profileId"))
         return if (existing != null) {
@@ -272,6 +293,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         .joinToString("") { "%02x".format(it) }
 
     private fun randomToken(): String = java.util.UUID.randomUUID().toString().replace("-", "").take(7)
+
+    private fun Collection<String>.toInFilter(): String = joinToString(separator = ",", prefix = "in.(", postfix = ")")
 
     private fun mapOfNotNull(vararg pairs: Pair<String, String?>): Map<String, String> = pairs.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
 

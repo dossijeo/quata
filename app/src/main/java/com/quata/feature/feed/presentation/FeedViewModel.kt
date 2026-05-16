@@ -3,7 +3,6 @@ package com.quata.feature.feed.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.quata.core.model.User
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,13 +12,15 @@ import kotlinx.coroutines.launch
 class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(FeedUiState())
     val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
+    private val loadedDetailPostIds = mutableSetOf<String>()
+    private val loadingDetailPostIds = mutableSetOf<String>()
 
     init { load() }
 
     fun onEvent(event: FeedUiEvent) {
         when (event) {
             FeedUiEvent.Refresh -> load()
-            is FeedUiEvent.PostDisplayed -> refreshDisplayedPostAuthor(event.postId)
+            is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
             is FeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
@@ -27,27 +28,38 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     }
 
     private fun load() = viewModelScope.launch {
+        loadedDetailPostIds.clear()
+        loadingDetailPostIds.clear()
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         repository.getFeed()
             .onSuccess { _uiState.value = FeedUiState(isLoading = false, posts = it) }
             .onFailure { _uiState.value = FeedUiState(isLoading = false, error = it.message ?: "Error cargando feed") }
     }
 
-    private fun refreshDisplayedPostAuthor(postId: String) = viewModelScope.launch {
-        val post = _uiState.value.posts.firstOrNull { it.id == postId } ?: return@launch
-        repository.refreshAuthor(post.author.id)
-            .onSuccess { author ->
-                if (author != null) updatePostAuthor(postId, author)
-            }
-            .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
-            }
+    private fun loadDisplayedPostDetails(postId: String) {
+        if (postId in loadedDetailPostIds || postId in loadingDetailPostIds) return
+        if (_uiState.value.posts.none { it.id == postId }) return
+        loadingDetailPostIds += postId
+        viewModelScope.launch {
+            repository.refreshPost(postId)
+                .onSuccess { updated ->
+                    if (updated != null) {
+                        replacePost(updated)
+                        loadedDetailPostIds += postId
+                    }
+                    loadingDetailPostIds -= postId
+                }
+                .onFailure { error ->
+                    loadingDetailPostIds -= postId
+                    _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                }
+        }
     }
 
-    private fun updatePostAuthor(postId: String, author: User) {
+    private fun replacePost(updated: com.quata.core.model.Post) {
         _uiState.value = _uiState.value.copy(
             posts = _uiState.value.posts.map { post ->
-                if (post.id == postId) post.copy(author = author) else post
+                if (post.id == updated.id) updated else post
             }
         )
     }
@@ -56,11 +68,8 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         action()
             .onSuccess { updated ->
                 if (updated != null) {
-                    _uiState.value = _uiState.value.copy(
-                        posts = _uiState.value.posts.map { post ->
-                            if (post.id == updated.id) updated else post
-                        }
-                    )
+                    replacePost(updated)
+                    loadedDetailPostIds += updated.id
                 }
             }
             .onFailure { error ->

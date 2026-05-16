@@ -93,9 +93,8 @@ class NetworkModule(context: Context) {
 
     private fun supabaseAuthInterceptor(): Interceptor = Interceptor { chain ->
         val request = chain.request().newBuilder()
-            .addHeader("apikey", AppConfig.SUPABASE_ANON_KEY)
-            .addHeader("Authorization", "Bearer ${AppConfig.SUPABASE_ANON_KEY}")
-            .addHeader("Content-Type", "application/json")
+            .header("apikey", AppConfig.SUPABASE_ANON_KEY)
+            .header("Authorization", "Bearer ${AppConfig.SUPABASE_ANON_KEY}")
             .build()
         chain.proceed(request)
     }

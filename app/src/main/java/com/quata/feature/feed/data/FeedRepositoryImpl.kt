@@ -19,7 +19,7 @@ class FeedRepositoryImpl(
     private val sessionManager: SessionManager
 ) : FeedRepository {
     override suspend fun getFeed(): Result<List<Post>> =
-        runCatching { loadPosts() }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+        runCatching { loadPostShells() }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
     override suspend fun refreshFeed(): Result<List<Post>> = getFeed()
 
     override suspend fun refreshAuthor(userId: String): Result<User?> = runCatching {
@@ -30,13 +30,21 @@ class FeedRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
+    override suspend fun refreshPost(postId: String): Result<Post?> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.posts.firstOrNull { it.id == postId }
+        } else {
+            loadPost(postId)
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+
     override suspend fun toggleLike(postId: String): Result<Post?> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.togglePostLike(postId)
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             remote.toggleLike(postId, session.userId)
-            loadPosts().firstOrNull { it.id == postId }
+            loadPost(postId)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -44,7 +52,7 @@ class FeedRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.reportPost(postId)
         } else {
-            loadPosts().firstOrNull { it.id == postId }?.copy(isReportedByCurrentUser = true)
+            loadPost(postId)?.copy(isReportedByCurrentUser = true)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -54,45 +62,59 @@ class FeedRepositoryImpl(
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             remote.addComment(postId, session.userId, comment.message)
-            loadPosts().firstOrNull { it.id == postId }
+            loadPost(postId)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    private suspend fun loadPosts(): List<Post> {
+    private suspend fun loadPostShells(): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
 
-        val currentUserId = sessionManager.currentSession()?.userId
         val posts = remote.getPosts()
-        val postIds = posts.map { it.id }
-        val comments = remote.getComments(postIds)
-        val likes = remote.getLikes(postIds)
-        val profileIds = (
-            posts.mapNotNull { it.profile_id ?: it.author_id } +
-                comments.mapNotNull { it.profile_id } +
-                likes.mapNotNull { it.profile_id }
-            ).distinct()
-        val profilesById = remote.getProfiles(profileIds).associateBy { it.id }
+        val profileIds = posts.mapNotNull { it.profile_id ?: it.author_id }.distinct()
+        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
 
         return posts.map { post ->
             val authorId = post.profile_id ?: post.author_id.orEmpty()
             val author = profilesById[authorId]?.toDomainUser()
                 ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")
-            val postComments = comments
-                .filter { it.post_id == post.id }
-                .map { comment ->
-                    comment.toDomain(
-                        authorName = profilesById[comment.profile_id]?.display_name
-                            ?: profilesById[comment.profile_id]?.nombre
-                            ?: "Usuario"
-                    )
-                }
-            val postLikes = likes.filter { it.post_id == post.id }
             post.toDomain(
                 author = author,
-                comments = postComments,
-                likesCount = postLikes.size,
-                likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
+                comments = emptyList(),
+                likesCount = 0,
+                likedByCurrentUser = false
             )
         }
+    }
+
+    private suspend fun loadPost(postId: String): Post? {
+        val currentUserId = sessionManager.currentSession()?.userId
+        val post = remote.getPost(postId) ?: return null
+        val comments = remote.getComments(listOf(postId))
+        val likes = remote.getLikes(listOf(postId))
+        val profileIds = (
+            listOfNotNull(post.profile_id ?: post.author_id) +
+                comments.mapNotNull { it.profile_id } +
+                likes.mapNotNull { it.profile_id }
+            ).distinct()
+        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
+        val authorId = post.profile_id ?: post.author_id.orEmpty()
+        val author = profilesById[authorId]?.toDomainUser()
+            ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")
+        val postComments = comments
+            .filter { it.post_id == post.id }
+            .map { comment ->
+                comment.toDomain(
+                    authorName = profilesById[comment.profile_id]?.display_name
+                        ?: profilesById[comment.profile_id]?.nombre
+                        ?: "Usuario"
+                )
+            }
+        val postLikes = likes.filter { it.post_id == post.id }
+        return post.toDomain(
+            author = author,
+            comments = postComments,
+            likesCount = postLikes.size,
+            likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
+        )
     }
 }

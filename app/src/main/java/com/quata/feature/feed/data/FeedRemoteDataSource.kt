@@ -11,6 +11,9 @@ class FeedRemoteDataSource(
 ) {
     suspend fun getPosts(): List<CommunityPost> = supabaseApi.getFeedPosts(limit = 50)
 
+    suspend fun getPost(postId: String): CommunityPost? =
+        supabaseApi.getFeedPosts(limit = 1, postId = postId).firstOrNull()
+
     suspend fun getComments(postIds: Collection<String>): List<CommunityComment> =
         supabaseApi.getComments(postIds)
 

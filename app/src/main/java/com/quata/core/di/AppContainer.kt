@@ -75,6 +75,7 @@ class AppContainer(context: Context) {
         appContext = appContext,
         remote = ChatRemoteDataSource(networkModule.supabaseCommunityApi),
         betterMessagesRepository = networkModule.betterMessagesRepository,
+        wordpressClient = networkModule.quataWordPressClient,
         sessionManager = sessionManager
     )
 
