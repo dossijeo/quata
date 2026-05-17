@@ -45,16 +45,25 @@ class NeighborhoodsViewModel(
     }
 
     fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
+        if (_uiState.value.openingChatNeighborhood != null) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isOpeningChat = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isOpeningChat = true,
+                openingChatNeighborhood = neighborhood,
+                error = null
+            )
             repository.openNeighborhoodChat(neighborhood)
                 .onSuccess { conversationId ->
-                    _uiState.value = _uiState.value.copy(isOpeningChat = false)
+                    _uiState.value = _uiState.value.copy(
+                        isOpeningChat = false,
+                        openingChatNeighborhood = null
+                    )
                     onOpened(conversationId)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isOpeningChat = false,
+                        openingChatNeighborhood = null,
                         error = error.message ?: "No se pudo abrir el chat"
                     )
                 }

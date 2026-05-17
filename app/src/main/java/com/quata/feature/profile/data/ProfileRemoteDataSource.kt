@@ -19,12 +19,6 @@ class ProfileRemoteDataSource(
     }
 
     suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
-        val existing = api.getEmergencyContacts(profileId)
-        existing.forEach { contact ->
-            contact.id.let { api.removeEmergencyContact(it) }
-        }
-        contactIds.distinct().forEachIndexed { index, contactId ->
-            api.addEmergencyContact(profileId, contactId, index + 1)
-        }
+        api.replaceEmergencyContacts(profileId, contactIds)
     }
 }

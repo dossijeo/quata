@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
+import com.quata.core.config.AppConfig
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
@@ -99,12 +100,14 @@ fun LoginScreen(
                 Spacer(Modifier.height(20.dp))
                 CircularProgressIndicator()
             }
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = stringResource(R.string.auth_mock_notice),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
+            if (AppConfig.USE_MOCK_BACKEND) {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = stringResource(R.string.auth_mock_notice),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

@@ -11,8 +11,9 @@ import java.time.temporal.ChronoUnit
 fun Conversation.chatDisplayTitle(): String = when {
     isEmergency -> "\uD83D\uDEA8 SOS"
     !communityName.isNullOrBlank() -> communityName
+    title.isNotBlank() -> title
     isGroup && participantNames.isNotEmpty() -> participantNames.joinToString(", ")
-    else -> title
+    else -> ""
 }
 
 fun Conversation.relativeUpdatedAt(nowMillis: Long = System.currentTimeMillis()): String {

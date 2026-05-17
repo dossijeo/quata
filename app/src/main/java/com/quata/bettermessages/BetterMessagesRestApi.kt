@@ -81,6 +81,27 @@ class BetterMessagesRestApi(
         )
     }
 
+    suspend fun startNewConversation(
+        recipients: List<Int>,
+        subject: String? = null,
+        type: String? = null,
+        message: String = "",
+        uniqueKey: String? = null
+    ): BmNewThreadResponse {
+        return postJson(
+            path = "/thread/new",
+            request = BmNewThreadRequest(
+                recipients = recipients,
+                subject = subject,
+                type = type,
+                message = message,
+                meta = BmNewThreadMetaRequest(uniqueKey = uniqueKey)
+            ),
+            requestSerializer = BmNewThreadRequest.serializer(),
+            responseSerializer = BmNewThreadResponse.serializer()
+        )
+    }
+
     suspend fun sendReply(threadId: Int, message: String, replyToMessageId: Int): BmSendMessageResponse {
         return sendMessage(threadId, message, replyToMessageId = replyToMessageId)
     }
@@ -150,6 +171,15 @@ class BetterMessagesRestApi(
             request = BmSaveMessageRequest(messageId = messageId, message = message),
             requestSerializer = BmSaveMessageRequest.serializer(),
             responseSerializer = BmThreadResponse.serializer()
+        )
+    }
+
+    suspend fun changeSubject(threadId: Int, subject: String): Boolean {
+        return postJson(
+            path = "/thread/$threadId/changeSubject",
+            request = BmChangeSubjectRequest(subject),
+            requestSerializer = BmChangeSubjectRequest.serializer(),
+            responseSerializer = booleanSerializer
         )
     }
 
@@ -258,8 +288,7 @@ class BetterMessagesRestApi(
             )
             .build()
 
-        val responseText = executeRest(requestObj)
-        return json.decodeFromString(responseSerializer, responseText)
+        return json.decodeFromString(responseSerializer, executeRest(requestObj))
     }
 
     private suspend fun executeRest(request: Request): String {

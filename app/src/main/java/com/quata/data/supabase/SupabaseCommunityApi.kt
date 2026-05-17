@@ -268,7 +268,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun getEmergencyContacts(profileId: String): List<CommunityEmergencyContact> = client.getList(
         "community_emergency_contacts",
-        mapOf("select" to EMERGENCY_CONTACT_SELECT, "profile_id" to "eq.$profileId", "order" to "position.asc,created_at.asc")
+        mapOf(
+            "select" to EMERGENCY_CONTACT_SELECT,
+            "profile_id" to "eq.$profileId",
+            "order" to "position.asc,created_at.asc",
+            "limit" to "5"
+        )
     )
 
     suspend fun addEmergencyContact(profileId: String, contactProfileId: String, position: Int): CommunityEmergencyContact? =
@@ -277,6 +282,25 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             CommunityEmergencyContactCreate(profileId, contactProfileId, position),
             select = EMERGENCY_CONTACT_SELECT
         )
+
+    suspend fun replaceEmergencyContacts(profileId: String, contactProfileIds: List<String>): List<CommunityEmergencyContact> {
+        client.delete("community_emergency_contacts", mapOf("profile_id" to "eq.$profileId"))
+        val rows = contactProfileIds
+            .distinct()
+            .take(5)
+            .mapIndexed { index, contactProfileId ->
+                CommunityEmergencyContactCreate(
+                    profile_id = profileId,
+                    contact_profile_id = contactProfileId,
+                    position = index + 1
+                )
+            }
+        return client.postList<CommunityEmergencyContact, CommunityEmergencyContactCreate>(
+            "community_emergency_contacts",
+            rows,
+            select = "*"
+        )
+    }
 
     suspend fun removeEmergencyContact(id: String) = client.delete("community_emergency_contacts", mapOf("id" to "eq.$id"))
 
@@ -327,6 +351,6 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         const val PRIVATE_MESSAGE_SELECT = "id,chat_id,sender_profile_id,recipient_profile_id,body,read_at,created_at,attachment_url,attachment_name,attachment_type"
         const val WALL_FOLLOW_SELECT = "id,wall_id,profile_id,created_at"
         const val PROFILE_FOLLOW_SELECT = "id,follower_profile_id,followed_profile_id,created_at"
-        const val EMERGENCY_CONTACT_SELECT = "id,profile_id,contact_profile_id,position,created_at"
+        const val EMERGENCY_CONTACT_SELECT = "contact_profile_id,position"
     }
 }

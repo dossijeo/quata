@@ -260,7 +260,7 @@ data class CommunityProfileFollowCreate(val follower_profile_id: String, val fol
 
 @Serializable
 data class CommunityEmergencyContact(
-    val id: String,
+    val id: String? = null,
     val profile_id: String? = null,
     val contact_profile_id: String? = null,
     val position: Int? = null,

@@ -514,6 +514,17 @@ private fun GlobalSosButton(
     val state by profileViewModel.uiState.collectAsState()
     var isConfigOpen by rememberSaveable { mutableStateOf(false) }
     var pendingProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var isSendingSos by rememberSaveable { mutableStateOf(false) }
+    val sosPulseTransition = rememberInfiniteTransition(label = "sos_pulse")
+    val sosPulseScale by sosPulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 420),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "sos_pulse_scale"
+    )
 
     fun buildSosMessage(profile: UserProfile, location: Location?): String {
         val locationText = if (location == null) {
@@ -525,6 +536,8 @@ private fun GlobalSosButton(
     }
 
     fun sendSos(profile: UserProfile, location: Location?) {
+        if (isSendingSos) return
+        isSendingSos = true
         scope.launch {
             container.chatRepository.sendSosMessage(
                 contactIds = profile.emergencyContactIds,
@@ -539,6 +552,7 @@ private fun GlobalSosButton(
                 }
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
+            isSendingSos = false
         }
     }
 
@@ -585,10 +599,16 @@ private fun GlobalSosButton(
         shape = RoundedCornerShape(12.dp),
         modifier = modifier
             .size(width = 94.dp, height = 48.dp)
+            .graphicsLayer {
+                val scale = if (isSendingSos) sosPulseScale else 1f
+                scaleX = scale
+                scaleY = scale
+            }
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.clickableNoRipple {
+                if (isSendingSos) return@clickableNoRipple
                 val profile = state.profile ?: return@clickableNoRipple
                 startSos(profile)
             }

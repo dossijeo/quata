@@ -14,6 +14,7 @@ import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
 import com.quata.feature.chat.data.wallConversationId
+import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.toDomain
 import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
@@ -30,6 +31,7 @@ class NeighborhoodRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
     private val betterMessagesRepository: BetterMessagesRepository,
+    private val chatRepository: ChatRepository,
     private val profileRemote: ProfileRemoteDataSource,
     private val sessionManager: SessionManager
 ) : NeighborhoodRepository {
@@ -43,7 +45,7 @@ class NeighborhoodRepositoryImpl(
                 )
             }
         } else {
-            flow {
+            val communitiesFlow = flow {
                 while (true) {
                     runCatching {
                         val profiles = profileRemote.getDirectoryProfiles().map { it.toNeighborhoodUserReal() }
@@ -69,6 +71,24 @@ class NeighborhoodRepositoryImpl(
                     delay(10_000)
                 }
             }
+            combine(communitiesFlow, chatRepository.observeConversations()) { communities, conversations ->
+                communities.map { community ->
+                    val communityConversation = conversations.firstOrNull { conversation ->
+                        conversation.matchesCommunity(community.name)
+                    }
+                    community.copy(
+                        conversationId = communityConversation?.id ?: community.conversationId,
+                        lastMessagePreview = communityConversation
+                            ?.lastMessagePreview
+                            ?.takeIf { it.isNotBlank() }
+                            ?: community.lastMessagePreview,
+                        lastMessageAtMillis = communityConversation?.updatedAtMillis ?: community.lastMessageAtMillis
+                    )
+                }.sortedWith(
+                    compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
+                        .thenBy { it.name.lowercase() }
+                )
+            }
         }
     }
 
@@ -87,9 +107,20 @@ class NeighborhoodRepositoryImpl(
                     wall.slug.equals(cleanNeighborhood, ignoreCase = true) ||
                     wall.normalized_name.equals(cleanNeighborhood, ignoreCase = true)
             }
-            ?: error("Comunidad no encontrada")
-        supabaseApi.ensureWallFollow(wall.id, session.userId)
-        wallConversationId(wall.id)
+        val communityId = wall?.id ?: cleanNeighborhood.normalizeName()
+        val communityTitle = wall?.name?.takeIf { it.isNotBlank() } ?: cleanNeighborhood
+        val memberIds = profileRemote.getDirectoryProfiles()
+            .filter { profile -> profile.belongsToNeighborhood(cleanNeighborhood) }
+            .map { it.id }
+            .distinct()
+        if (memberIds.filterNot { it == session.userId }.isEmpty()) {
+            error(appContext.getString(R.string.error_group_chat_no_members))
+        }
+        chatRepository.openCommunityConversation(
+            communityId = communityId,
+            title = communityTitle,
+            participantIds = memberIds + session.userId
+        ).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFollowUser(userId: String): Result<Unit> = runCatching {
@@ -212,6 +243,14 @@ class NeighborhoodRepositoryImpl(
     private fun Conversation.isNeighborhoodConversation(neighborhood: String): Boolean =
         isGroup && !isEmergency && (communityName ?: title).equals(neighborhood, ignoreCase = true)
 
+    private fun Conversation.matchesCommunity(neighborhood: String): Boolean {
+        if (!isGroup || isEmergency) return false
+        val normalizedNeighborhood = neighborhood.normalizeName()
+        return listOf(communityName, title)
+            .filterNotNull()
+            .any { it.normalizeName() == normalizedNeighborhood }
+    }
+
     private fun User.toNeighborhoodUser(): NeighborhoodUser =
         NeighborhoodUser(
             id = id,
@@ -245,6 +284,14 @@ class NeighborhoodRepositoryImpl(
             postsCount = postsCount
         )
 
+    private fun CommunityProfile.belongsToNeighborhood(neighborhoodName: String): Boolean {
+        val cleanName = neighborhoodName.trim()
+        return neighborhood.equals(cleanName, ignoreCase = true) ||
+            barrio.equals(cleanName, ignoreCase = true)
+    }
+
     private fun String.toEpochMillisOrNull(): Long? =
         runCatching { java.time.Instant.parse(this).toEpochMilli() }.getOrNull()
+
+    private fun String.normalizeName(): String = trim().lowercase()
 }

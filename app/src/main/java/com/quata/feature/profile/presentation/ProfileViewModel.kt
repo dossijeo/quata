@@ -28,7 +28,11 @@ class ProfileViewModel(
             is ProfileUiEvent.NameChanged -> updateProfile {
                 copy(
                     displayName = event.value,
-                    emergencyMessage = if (emergencyMessageIsDefault) defaultEmergencyMessage(event.value) else emergencyMessage
+                    emergencyMessage = if (emergencyMessageIsDefault) {
+                        repository.defaultEmergencyMessage(event.value)
+                    } else {
+                        emergencyMessage
+                    }
                 )
             }
             is ProfileUiEvent.NeighborhoodChanged -> updateProfile { copy(neighborhood = event.value) }
@@ -98,7 +102,7 @@ class ProfileViewModel(
                             isSaving = false,
                             newPassword = "",
                             newSecretAnswer = "",
-                            successMessage = "Cambios guardados"
+                            successMessage = repository.changesSavedMessage()
                         )
                     }
                 }
@@ -131,9 +135,6 @@ class ProfileViewModel(
             copy(emergencyContactIds = selected)
         }
     }
-
-    private fun defaultEmergencyMessage(displayName: String): String =
-        "🚨 SOS REAL: ${displayName.ifBlank { "Usuario" }} necesita ayuda urgente. Eres uno de sus contactos de emergencia en QUATA."
 
     class Factory(
         private val repository: ProfileRepository

@@ -200,7 +200,9 @@ fun NeighborhoodsScreen(
                 items(visibleCommunities, key = { it.name }) { community ->
                     NeighborhoodCard(
                         community = community,
-                        isOpeningChat = state.isOpeningChat,
+                        canOpenChat = currentUserId?.let { id -> community.users.any { it.id != id } }
+                            ?: community.users.isNotEmpty(),
+                        isOpeningChat = state.openingChatNeighborhood == community.name,
                         onShowUsers = { selectedCommunity = community.name },
                         onOpenChat = {
                             viewModel.openChat(community.name, onOpenConversation)
@@ -215,6 +217,7 @@ fun NeighborhoodsScreen(
 @Composable
 private fun NeighborhoodCard(
     community: NeighborhoodCommunity,
+    canOpenChat: Boolean,
     isOpeningChat: Boolean,
     onShowUsers: () -> Unit,
     onOpenChat: () -> Unit
@@ -247,13 +250,15 @@ private fun NeighborhoodCard(
                             fontSize = 12.sp
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        community.lastMessagePreview ?: stringResource(R.string.neighborhoods_empty_preview),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    community.lastMessagePreview?.let { preview ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            preview,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CountPill(
@@ -286,13 +291,21 @@ private fun NeighborhoodCard(
                 }
                 Button(
                     onClick = onOpenChat,
-                    enabled = !isOpeningChat,
+                    enabled = canOpenChat && !isOpeningChat,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = QuataSurfaceAlt,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
+                    if (isOpeningChat) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text(stringResource(R.string.neighborhoods_open_chat))
                 }
             }

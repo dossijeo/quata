@@ -104,6 +104,25 @@ class BetterMessagesRepository(
         }
     }
 
+    suspend fun startNewConversation(
+        profileId: String,
+        recipientWpUserIds: List<Int>,
+        subject: String? = null,
+        type: String? = null,
+        message: String = "",
+        uniqueKey: String? = null
+    ): BmNewThreadResponse {
+        return withRestSession(profileId) {
+            client.rest.startNewConversation(
+                recipients = recipientWpUserIds,
+                subject = subject,
+                type = type,
+                message = message,
+                uniqueKey = uniqueKey
+            )
+        }
+    }
+
     suspend fun sendReply(profileId: String, threadId: Int, text: String, replyToMessageId: Int): BmSendMessageResponse {
         return withRestSession(profileId) {
             client.rest.sendReply(threadId, text, replyToMessageId)
@@ -143,6 +162,12 @@ class BetterMessagesRepository(
     suspend fun saveMessage(profileId: String, threadId: Int, messageId: Int, message: String): BmThreadResponse {
         return withRestSession(profileId) {
             client.rest.saveMessage(threadId, messageId, message)
+        }
+    }
+
+    suspend fun changeSubject(profileId: String, threadId: Int, subject: String): Boolean {
+        return withRestSession(profileId) {
+            client.rest.changeSubject(threadId, subject)
         }
     }
 

@@ -114,8 +114,9 @@ private fun List<Conversation>.toNotificationItems(activeConversationId: String?
 private fun Conversation.notificationTitle(): String = when {
     isEmergency -> title.ifBlank { "SOS" }
     communityName?.isNotBlank() == true -> communityName
-    isGroup -> participantNames.take(3).joinToString(", ").ifBlank { title }
-    else -> title
+    title.isNotBlank() -> title
+    isGroup -> participantNames.take(3).joinToString(", ")
+    else -> ""
 }.orEmpty()
 
 private fun supabaseNotificationKey(id: String, type: String?, wallId: String?): String =

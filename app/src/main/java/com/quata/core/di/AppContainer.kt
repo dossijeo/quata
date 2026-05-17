@@ -96,6 +96,7 @@ class AppContainer(context: Context) {
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         betterMessagesRepository = networkModule.betterMessagesRepository,
+        chatRepository = chatRepository,
         profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager
     )

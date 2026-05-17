@@ -24,6 +24,8 @@ interface ChatRepository {
     ): Result<Unit>
     suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit>
     suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String>
+    suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String>
+    suspend fun openGroupConversation(participantIds: List<String>, title: String? = null): Result<String>
     suspend fun markConversationRead(conversationId: String): Result<Unit>
     suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit>
     suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit>

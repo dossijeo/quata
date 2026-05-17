@@ -51,6 +51,42 @@ data class BmMessageMetaRequest(
 )
 
 @Serializable
+data class BmNewThreadRequest(
+    val recipients: List<Int>,
+    val subject: String? = null,
+    val type: String? = null,
+    val message: String = "",
+    val files: List<Int> = emptyList(),
+    val meta: BmNewThreadMetaRequest = BmNewThreadMetaRequest()
+)
+
+@Serializable
+data class BmNewThreadMetaRequest(
+    @SerialName("unique_key") val uniqueKey: String? = null
+)
+
+@Serializable
+data class BmNewThreadResponse(
+    val result: Boolean? = null,
+    @SerialName("message_id") val messageId: Int? = null,
+    @SerialName("thread_id") val threadId: Int? = null,
+    val redirect: Boolean? = null,
+    val update: BmThreadResponse? = null,
+    val threads: List<BmThread> = emptyList(),
+    val users: List<BmUser> = emptyList(),
+    val messages: List<BmMessage> = emptyList(),
+    val serverTime: Long? = null
+) {
+    fun threadResponse(): BmThreadResponse =
+        update ?: BmThreadResponse(
+            threads = threads,
+            users = users,
+            messages = messages,
+            serverTime = serverTime
+        )
+}
+
+@Serializable
 data class BmSendMessageResponse(
     val result: Boolean,
     @SerialName("message_id") val messageId: Int? = null,
@@ -93,6 +129,11 @@ data class BmDeleteMessagesRequest(
 data class BmSaveMessageRequest(
     @SerialName("message_id") val messageId: Int,
     val message: String
+)
+
+@Serializable
+data class BmChangeSubjectRequest(
+    val subject: String
 )
 
 @Serializable

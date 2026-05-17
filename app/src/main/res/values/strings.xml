@@ -42,6 +42,12 @@
     <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
     <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>
     <string name="error_chat_session">The chat session could not be synchronized. Please try again.</string>
+    <string name="error_chat_thread_missing">The chat conversation could not be opened. Please try again.</string>
+    <string name="error_sos_no_contacts">Configure at least one emergency contact.</string>
+    <string name="error_sos_empty_message">The SOS message cannot be empty.</string>
+    <string name="error_sos_add_contacts">Could not add your emergency contacts to the chat.</string>
+    <string name="error_group_chat_no_members">This community does not have enough members to open a group chat.</string>
+    <string name="error_group_chat_add_members">Could not add the community members to the chat.</string>
     <string name="error_load_feed">Could not load the feed.</string>
     <string name="error_load_chats">Could not load chats.</string>
     <string name="error_load_notifications">Could not load notifications.</string>
@@ -272,13 +278,13 @@
     <string name="neighborhoods_loading">Cargando barrios</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
-    <string name="neighborhoods_empty_preview">Open the community and start the conversation.</string>
     <string name="neighborhoods_user_count">%1$d users</string>
     <string name="neighborhoods_one_user">1 user</string>
     <string name="neighborhoods_message_count">%1$d messages</string>
     <string name="neighborhoods_one_message">1 message</string>
     <string name="neighborhoods_view_users">View users</string>
     <string name="neighborhoods_open_chat">Open chat</string>
+    <string name="neighborhood_chat_initial_message">The people from %1$s are already here</string>
     <string name="neighborhoods_users_title">Users · %1$s</string>
     <string name="neighborhoods_users_subtitle">Community created by QUATA users</string>
     <string name="neighborhoods_posts">Posts</string>

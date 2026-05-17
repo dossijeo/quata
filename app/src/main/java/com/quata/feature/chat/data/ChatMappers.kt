@@ -47,7 +47,7 @@ fun BmThread.toConversation(
 ): Conversation =
     Conversation(
         id = betterMessagesConversationId(threadId),
-        title = title.ifBlank { subject ?: this.title ?: peerName },
+        title = subject?.takeIf { it.isNotBlank() } ?: title.ifBlank { this.title ?: peerName },
         avatarUrl = peerAvatarUrl,
         lastMessagePreview = "",
         unreadCount = unread ?: 0,
@@ -55,7 +55,7 @@ fun BmThread.toConversation(
         updatedAtMillis = lastTime?.toEpochMillisFromBetterMessagesOrNull(),
         participantIds = listOfNotNull(currentProfileId, peerProfileId).distinct(),
         participantNames = listOf(peerName),
-        isGroup = type == "group" || participants.size > 2,
+        isGroup = type == "group" || type == "wall" || participants.size > 2,
         isMuted = isMuted == true,
         isVisible = isHidden != 1 && isDeleted != 1,
         moderatorIds = emptyList(),

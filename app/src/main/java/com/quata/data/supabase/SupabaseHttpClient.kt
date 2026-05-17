@@ -41,6 +41,13 @@ class SupabaseHttpClient(
         return json.decodeFromString(ListSerializer(serializer<T>()), response).firstOrNull()
     }
 
+    internal suspend inline fun <reified T, reified B> postList(table: String, body: List<B>, select: String = "*"): List<T> {
+        if (body.isEmpty()) return emptyList()
+        val payload = json.encodeToString(body)
+        val response = execute("POST", restUrl(table, mapOf("select" to select)), payload, prefer = "return=representation")
+        return json.decodeFromString(ListSerializer(serializer<T>()), response)
+    }
+
     internal suspend inline fun <reified T, reified B> patch(table: String, filters: Map<String, String>, body: B, select: String = "*"): List<T> {
         val payload = json.encodeToString(body)
         val response = execute("PATCH", restUrl(table, filters + ("select" to select)), payload, prefer = "return=representation")

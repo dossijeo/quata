@@ -19,6 +19,8 @@ class ProfileRepositoryImpl(
     private val sessionManager: SessionManager,
     private val context: Context
 ) : ProfileRepository {
+    private val emergencyMessageStore = EmergencyMessageStore(context)
+
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching ProfileEditModel(
@@ -41,7 +43,8 @@ class ProfileRepositoryImpl(
 
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val contactIds = remote.getEmergencyContactIds(session.userId)
-        val profile = remote.getProfile(session.userId)?.toProfile(session.displayName, contactIds)
+        val storedEmergencyMessage = emergencyMessageStore.get(session.userId)
+        val profile = remote.getProfile(session.userId)?.toProfile(session.displayName, contactIds, storedEmergencyMessage)
             ?: error("Perfil no encontrado")
         val candidates = remote.getEmergencyCandidates()
             .filterNot { it.id == session.userId }
@@ -57,6 +60,11 @@ class ProfileRepositoryImpl(
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             remote.saveProfile(session.userId, update.toRemotePatch())
             remote.saveEmergencyContacts(session.userId, update.emergencyContactIds)
+            emergencyMessageStore.save(
+                profileId = session.userId,
+                message = update.emergencyMessage,
+                isDefault = update.emergencyMessageIsDefault
+            )
             sessionManager.setSession(session.copy(displayName = update.displayName))
             return@runCatching Unit
         }
@@ -80,6 +88,15 @@ class ProfileRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(context, R.string.profile_save_error)
 
+    override fun defaultEmergencyMessage(displayName: String): String =
+        context.getString(
+            R.string.sos_default_message,
+            displayName.ifBlank { context.getString(R.string.user_fallback_name) }
+        )
+
+    override fun changesSavedMessage(): String =
+        context.getString(R.string.profile_changes_saved)
+
     private fun buildMockProfile(): UserProfile {
         val session = sessionManager.currentSession()
         val source = MockData.profileById(session?.userId ?: MockData.currentUser.id)
@@ -99,10 +116,16 @@ class ProfileRepositoryImpl(
         )
     }
 
-    private fun CommunityProfile.toProfile(fallbackName: String, emergencyContactIds: List<String>): UserProfile {
+    private fun CommunityProfile.toProfile(
+        fallbackName: String,
+        emergencyContactIds: List<String>,
+        storedEmergencyMessage: StoredEmergencyMessage?
+    ): UserProfile {
         val displayName = display_name?.takeIf { it.isNotBlank() }
             ?: nombre?.takeIf { it.isNotBlank() }
             ?: fallbackName
+        val defaultMessage = defaultEmergencyMessage(displayName)
+        val emergencyMessageIsDefault = storedEmergencyMessage?.isDefault ?: true
         return UserProfile(
             displayName = displayName,
             neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
@@ -111,8 +134,11 @@ class ProfileRepositoryImpl(
             avatarUri = avatar_url ?: avatar,
             selectedSecretQuestion = secret_question.orEmpty(),
             emergencyContactIds = emergencyContactIds,
-            emergencyMessage = defaultEmergencyMessage(displayName),
-            emergencyMessageIsDefault = true
+            emergencyMessage = storedEmergencyMessage
+                ?.takeUnless { it.isDefault }
+                ?.message
+                ?: defaultMessage,
+            emergencyMessageIsDefault = emergencyMessageIsDefault
         )
     }
 
@@ -142,12 +168,6 @@ class ProfileRepositoryImpl(
             put("secret_question", secretQuestion)
             if (secretAnswer.isNotBlank()) put("secret_answer", secretAnswer)
         }
-
-    private fun defaultEmergencyMessage(displayName: String): String =
-        context.getString(
-            R.string.sos_default_message,
-            displayName.ifBlank { context.getString(R.string.user_fallback_name) }
-        )
 
     private fun buildProfileConfig(
         emergencyCandidates: List<EmergencyContactCandidate>

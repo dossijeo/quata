@@ -255,7 +255,6 @@
     <string name="neighborhoods_title">DISTRICTS</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
-    <string name="neighborhoods_empty_preview">Open the community and start the conversation.</string>
     <string name="neighborhoods_user_count">%1$d users</string>
     <string name="neighborhoods_one_user">1 user</string>
     <string name="neighborhoods_message_count">%1$d messages</string>

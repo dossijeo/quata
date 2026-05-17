@@ -715,6 +715,43 @@ object MockData {
         return id
     }
 
+    fun findOrCreateGroupConversation(participantIds: List<String>, senderId: String, senderName: String, title: String? = null): String {
+        val memberIds = (participantIds.filterNot { it == senderId } + senderId).distinct()
+        if (memberIds.size < 2) error("No hay participantes suficientes para abrir el chat")
+        mutableConversations.firstOrNull { conversation ->
+            conversation.isGroup &&
+                !conversation.isEmergency &&
+                conversation.communityName == null &&
+                conversation.participantIds.toSet() == memberIds.toSet()
+        }?.let { return it.id }
+
+        val now = System.currentTimeMillis()
+        val participants = memberIds.mapNotNull { id -> registeredUsers.firstOrNull { it.id == id } }
+        val peerNames = participants
+            .filterNot { it.id == senderId }
+            .map { it.displayName }
+        val id = "grp_${now}"
+        mutableConversations.add(
+            0,
+            Conversation(
+                id = id,
+                title = title?.takeIf { it.isNotBlank() }
+                    ?: peerNames.takeIf { it.isNotEmpty() }?.joinToString(", ")
+                    ?: "Grupo",
+                lastMessagePreview = "",
+                unreadCount = 0,
+                updatedAt = "",
+                updatedAtMillis = null,
+                participantIds = memberIds,
+                participantNames = (peerNames + senderName).distinct(),
+                isGroup = true,
+                moderatorIds = listOf(senderId)
+            )
+        )
+        conversationsState.value = mutableConversations.toList()
+        return id
+    }
+
     fun setConversationMuted(conversationId: String, muted: Boolean) {
         updateConversation(conversationId) { copy(isMuted = muted) }
     }
