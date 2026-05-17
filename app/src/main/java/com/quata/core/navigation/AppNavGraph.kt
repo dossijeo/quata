@@ -93,7 +93,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun AppNavGraph(container: AppContainer) {
+fun AppNavGraph(
+    container: AppContainer,
+    incomingLink: Uri? = null,
+    onIncomingLinkHandled: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -142,6 +146,20 @@ fun AppNavGraph(container: AppContainer) {
         factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
+
+    LaunchedEffect(incomingLink) {
+        val postId = incomingLink?.quataPostIdOrNull() ?: return@LaunchedEffect
+        feedFocusedPostId = postId
+        globalProfileViewModel.closeUserProfile()
+        chatFocusedMessageId = null
+        if (container.sessionManager.isLoggedIn()) {
+            navController.navigate(AppDestinations.Feed.route) {
+                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+        onIncomingLinkHandled()
+    }
 
     Box(
         Modifier
@@ -220,6 +238,7 @@ fun AppNavGraph(container: AppContainer) {
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },
+                        currentUserId = container.sessionManager.currentSession()?.userId,
                         focusedPostId = feedFocusedPostId,
                         onFocusedPostHandled = { feedFocusedPostId = null }
                     )

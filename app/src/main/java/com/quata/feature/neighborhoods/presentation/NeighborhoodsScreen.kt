@@ -82,6 +82,8 @@ import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.navigation.quataPostUrl
+import com.quata.core.text.withoutPostShortcodes
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
@@ -786,9 +788,15 @@ private fun ProfilePostPreview(
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
-    var liked by rememberSaveable(post.id) { mutableStateOf(false) }
+    var liked by rememberSaveable(post.id, post.isLikedByCurrentUser) { mutableStateOf(post.isLikedByCurrentUser) }
     var isVideoLoaded by rememberSaveable(post.id) { mutableStateOf(false) }
-    val likes = post.likesCount + if (liked) 1 else 0
+    val likeDelta = when {
+        liked && !post.isLikedByCurrentUser -> 1
+        !liked && post.isLikedByCurrentUser -> -1
+        else -> 0
+    }
+    val likes = (post.likesCount + likeDelta).coerceAtLeast(0)
+    val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -826,11 +834,11 @@ private fun ProfilePostPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(430.dp)
-                    .background(textCanvasBrush(post.text))
+                    .background(textCanvasBrush(cleanPostText))
                     .padding(22.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(post.text, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+                Text(cleanPostText, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
             }
         }
         Row(
@@ -844,8 +852,8 @@ private fun ProfilePostPreview(
             Column(Modifier.weight(1f)) {
                 Text(post.author.displayName, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 val subtitle = when {
-                    post.imageUrl != null && post.videoUrl == null -> post.imageTitle()
-                    post.videoUrl != null -> post.text
+                    post.imageUrl != null && post.videoUrl == null -> post.placeName.orEmpty()
+                    post.videoUrl != null -> cleanPostText
                     else -> ""
                 }
                 if (subtitle.isNotBlank()) {
@@ -1005,16 +1013,9 @@ private fun ProfileCommentsDialog(
 }
 
 private fun android.content.Context.shareProfilePost(post: Post) {
-    val shareText = buildString {
-        append(post.author.displayName)
-        append(": ")
-        append(if (post.imageUrl != null && post.videoUrl == null) post.imageTitle() else post.text)
-        post.imageUrl?.let { append("\n").append(it) }
-        post.videoUrl?.let { append("\n").append(it) }
-    }
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, shareText)
+        putExtra(Intent.EXTRA_TEXT, quataPostUrl(post.id))
     }
     startActivity(Intent.createChooser(sendIntent, getString(R.string.neighborhoods_share_post)))
 }

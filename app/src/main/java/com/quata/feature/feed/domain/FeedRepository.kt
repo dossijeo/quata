@@ -12,4 +12,5 @@ interface FeedRepository {
     suspend fun toggleLike(postId: String): Result<Post?>
     suspend fun reportPost(postId: String): Result<Post?>
     suspend fun addComment(postId: String, comment: PostComment): Result<Post?>
+    suspend fun deletePost(postId: String): Result<Unit>
 }

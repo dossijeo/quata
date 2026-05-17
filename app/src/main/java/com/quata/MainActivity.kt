@@ -1,6 +1,8 @@
 package com.quata
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
@@ -23,6 +25,8 @@ import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
 
 class MainActivity : ComponentActivity() {
+    private val incomingLink = mutableStateOf<Uri?>(null)
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(QuataLanguageManager.wrap(newBase))
     }
@@ -32,12 +36,17 @@ class MainActivity : ComponentActivity() {
         hideStatusBar()
 
         val appContainer = (application as QuataApp).container
+        incomingLink.value = intent?.data
 
         setContent {
             QuataTheme {
                 var showSplash by rememberSaveable { mutableStateOf(true) }
                 Box(Modifier.fillMaxSize()) {
-                    AppNavGraph(container = appContainer)
+                    AppNavGraph(
+                        container = appContainer,
+                        incomingLink = incomingLink.value,
+                        onIncomingLinkHandled = { incomingLink.value = null }
+                    )
                     AnimatedVisibility(
                         visible = showSplash,
                         exit = fadeOut(animationSpec = tween(durationMillis = 420))
@@ -50,6 +59,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        incomingLink.value = intent.data
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

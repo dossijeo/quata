@@ -24,6 +24,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
             is FeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
+            is FeedUiEvent.DeletePost -> deletePost(event.postId)
         }
     }
 
@@ -71,6 +72,20 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                     replacePost(updated)
                     loadedDetailPostIds += updated.id
                 }
+            }
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+            }
+    }
+
+    private fun deletePost(postId: String) = viewModelScope.launch {
+        repository.deletePost(postId)
+            .onSuccess {
+                loadedDetailPostIds -= postId
+                loadingDetailPostIds -= postId
+                _uiState.value = _uiState.value.copy(
+                    posts = _uiState.value.posts.filterNot { it.id == postId }
+                )
             }
             .onFailure { error ->
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)

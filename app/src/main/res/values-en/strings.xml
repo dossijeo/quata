@@ -144,6 +144,10 @@
     <string name="feed_comments">Comments</string>
     <string name="feed_share">Share</string>
     <string name="feed_report">Report</string>
+    <string name="feed_delete_post">Delete post</string>
+    <string name="feed_delete_post_confirm_title">Delete post?</string>
+    <string name="feed_delete_post_confirm_message">This post will be removed from QÜATA.</string>
+    <string name="feed_delete_post_success">Post deleted</string>
     <string name="feed_pause">Pause</string>
     <string name="feed_play">Play</string>
     <string name="feed_unmute">Unmute</string>

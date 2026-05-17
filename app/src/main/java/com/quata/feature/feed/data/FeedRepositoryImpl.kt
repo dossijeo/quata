@@ -66,6 +66,17 @@ class FeedRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val deleted = MockData.deletePost(postId, session.userId)
+            if (!deleted) error("No se pudo borrar la publicacion")
+        } else {
+            remote.deletePost(postId, session.userId)
+        }
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     private suspend fun loadPostShells(): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
 

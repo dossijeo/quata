@@ -100,7 +100,13 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun createPost(wallId: String, profileId: String, body: String? = null, imageUrl: String? = null, videoUrl: String? = null): CommunityPost? =
         client.post<CommunityPost, CommunityPostCreate>("community_posts", CommunityPostCreate(wallId, profileId, body, imageUrl, videoUrl), select = POST_SELECT)
 
-    suspend fun deletePost(postId: String) = client.delete("community_posts", mapOf("id" to "eq.$postId"))
+    suspend fun deletePost(postId: String, profileId: String? = null) = client.delete(
+        "community_posts",
+        mapOfNotNull(
+            "id" to "eq.$postId",
+            "profile_id" to profileId?.let { "eq.$it" }
+        )
+    )
 
     suspend fun getComments(postIds: Collection<String>): List<CommunityComment> {
         if (postIds.isEmpty()) return emptyList()

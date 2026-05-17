@@ -318,6 +318,12 @@ object MockData {
         return posts.firstOrNull { it.id == postId }
     }
 
+    fun deletePost(postId: String, profileId: String): Boolean {
+        val removed = mutablePosts.removeAll { post -> post.id == postId && post.author.id == profileId }
+        if (removed) postsVersionState.value = postsVersionState.value + 1
+        return removed
+    }
+
     private val mockNow: Long
         get() = System.currentTimeMillis()
 

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -101,6 +103,8 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.quataPostUrl
+import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.textCanvasBrush
@@ -120,6 +124,7 @@ fun FeedScreen(
     padding: PaddingValues,
     feedRepository: FeedRepository,
     onOpenUserProfile: (String) -> Unit,
+    currentUserId: String? = null,
     focusedPostId: String? = null,
     onFocusedPostHandled: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
@@ -129,6 +134,16 @@ fun FeedScreen(
     val scope = rememberCoroutineScope()
     var commentsPost by remember { mutableStateOf<Post?>(null) }
     var isLiveOpen by remember { mutableStateOf(false) }
+    var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
+    var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(state.posts, pendingDeletedPostId) {
+        val deletedPostId = pendingDeletedPostId ?: return@LaunchedEffect
+        if (state.posts.none { it.id == deletedPostId }) {
+            Toast.makeText(context, context.getString(R.string.feed_delete_post_success), Toast.LENGTH_SHORT).show()
+            pendingDeletedPostId = null
+        }
+    }
 
     when {
         state.error != null -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
@@ -175,10 +190,12 @@ fun FeedScreen(
                         post = post,
                         postRank = postRanks[post.id] ?: 1,
                         isCurrentPage = pagerState.currentPage == page,
+                        currentUserId = currentUserId,
                         onOpenComments = { commentsPost = post },
                         onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                         onOpenLive = { isLiveOpen = true },
                         onLike = { viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) },
+                        onDelete = { postPendingDeletion = post },
                         onShare = {
                             val shareText = postShareText(post)
                             val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -218,6 +235,30 @@ fun FeedScreen(
                         if (index >= 0) {
                             isLiveOpen = false
                             scope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    }
+                )
+            }
+
+            postPendingDeletion?.let { post ->
+                AlertDialog(
+                    onDismissRequest = { postPendingDeletion = null },
+                    title = { Text(stringResource(R.string.feed_delete_post_confirm_title)) },
+                    text = { Text(stringResource(R.string.feed_delete_post_confirm_message)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                pendingDeletedPostId = post.id
+                                postPendingDeletion = null
+                                viewModel.onEvent(FeedUiEvent.DeletePost(post.id))
+                            }
+                        ) {
+                            Text(stringResource(R.string.feed_delete_post))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { postPendingDeletion = null }) {
+                            Text(stringResource(R.string.common_cancel))
                         }
                     }
                 )
@@ -416,15 +457,19 @@ private fun ReelPost(
     post: Post,
     postRank: Int,
     isCurrentPage: Boolean,
+    currentUserId: String?,
     onOpenComments: () -> Unit,
     onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
     onLike: () -> Unit,
+    onDelete: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
     val isVideo = post.videoUrl != null
-    val isTextOnly = post.videoUrl == null && post.imageUrl == null && post.text.isNotBlank()
+    val shortcodeContent = remember(post.text) { post.text.parsePostShortcodeContent() }
+    val displayText = shortcodeContent.cleanText
+    val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
     var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
     var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
 
@@ -443,6 +488,7 @@ private fun ReelPost(
         ReelTopChips(
             post = post,
             postRank = postRank,
+            documentText = shortcodeContent.documentText,
             showLocation = !isTextOnly && !isVideo,
             isVideo = isVideo,
             isMuted = isVideoMuted,
@@ -462,9 +508,21 @@ private fun ReelPost(
                 .align(Alignment.BottomEnd)
                 .padding(end = 18.dp, bottom = 22.dp)
         )
+        if (post.author.id == currentUserId) {
+            ReelActionButton(
+                icon = Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.feed_delete_post),
+                tint = Color.White,
+                onClick = onDelete,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 18.dp, top = 18.dp)
+            )
+        }
         ReelAuthor(
             post = post,
-            showDescription = isVideo && post.text.isNotBlank(),
+            displayText = displayText,
+            showDescription = isVideo && displayText.isNotBlank(),
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
             onOpenUserProfile = onOpenUserProfile,
@@ -498,7 +556,7 @@ private fun ReelMedia(
             )
         }
 
-        post.text.isNotBlank() -> TextOnlyReel(post = post)
+        post.text.parsePostShortcodeContent().cleanText.isNotBlank() -> TextOnlyReel(post = post)
 
         else -> {
             Box(
@@ -520,15 +578,16 @@ private fun ReelMedia(
 
 @Composable
 private fun TextOnlyReel(post: Post) {
+    val displayText = remember(post.text) { post.text.parsePostShortcodeContent().cleanText }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(textCanvasBrush(post.text))
+            .background(textCanvasBrush(displayText))
             .padding(horizontal = 30.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = post.text,
+            text = displayText,
             color = Color.White,
             fontSize = 34.sp,
             lineHeight = 42.sp,
@@ -784,6 +843,7 @@ private fun ReelScrims() {
 private fun ReelTopChips(
     post: Post,
     postRank: Int,
+    documentText: String?,
     showLocation: Boolean,
     isVideo: Boolean,
     isMuted: Boolean,
@@ -798,6 +858,9 @@ private fun ReelTopChips(
     ) {
         if (showLocation && post.placeName != null) {
             ReelChip(text = stringResource(R.string.feed_location_chip, post.placeName))
+        }
+        documentText?.let { text ->
+            ReelChip(text = "\uD83D\uDCC4 $text")
         }
         ReelChip(text = stringResource(R.string.feed_rank_chip, postRank, post.likesCount), highlighted = true)
         ReelChip(text = stringResource(R.string.common_live), highlighted = true, onClick = onOpenLive)
@@ -1154,7 +1217,7 @@ private fun CommentRow(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = comment.timestamp,
+                        text = formatCommentTimestamp(comment.timestamp),
                         color = Color.White.copy(alpha = 0.58f),
                         fontSize = 13.sp
                     )
@@ -1227,6 +1290,15 @@ private fun EmojiPicker(onEmojiClick: (String) -> Unit) {
 
 private fun nowCommentTimestamp(): String =
     LocalDateTime.now().format(DateTimeFormatter.ofPattern("d/M/yyyy, H:mm:ss"))
+
+private fun formatCommentTimestamp(value: String): String {
+    val normalized = value.trim()
+    if (normalized.isBlank()) return ""
+    val parsed = parseLocalDateTime(normalized)
+        ?: runCatching { LocalDateTime.ofInstant(Instant.parse(normalized), ZoneId.systemDefault()) }.getOrNull()
+        ?: return normalized
+    return parsed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+}
 
 private data class PostRankInfo(
     val day: LocalDate,
@@ -1316,9 +1388,10 @@ private fun ReelActionButton(
     contentDescription: String,
     count: String? = null,
     tint: Color = Color.White,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(64.dp)
@@ -1348,23 +1421,12 @@ private fun ReelActionButton(
     }
 }
 
-private fun postShareText(post: Post): String = buildString {
-    append(post.author.displayName)
-    append(": ")
-    append(if (post.imageUrl != null && post.videoUrl == null) post.imageTitle() else post.text)
-    post.imageUrl?.let {
-        append("\n")
-        append(it)
-    }
-    post.videoUrl?.let {
-        append("\n")
-        append(it)
-    }
-}
+private fun postShareText(post: Post): String = quataPostUrl(post.id)
 
 @Composable
 private fun ReelAuthor(
     post: Post,
+    displayText: String,
     showDescription: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
@@ -1374,7 +1436,7 @@ private fun ReelAuthor(
     Column(modifier = modifier.fillMaxWidth()) {
         if (showDescription) {
             Text(
-                text = post.text,
+                text = displayText,
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp,
                 lineHeight = 19.sp,
@@ -1405,14 +1467,16 @@ private fun ReelAuthor(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = post.createdAt,
-                    color = QuataOrange,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                post.author.neighborhood.takeIf { it.isNotBlank() }?.let { neighborhood ->
+                    Text(
+                        text = neighborhood,
+                        color = QuataOrange,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

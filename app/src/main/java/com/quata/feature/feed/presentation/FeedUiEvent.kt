@@ -8,4 +8,5 @@ sealed class FeedUiEvent {
     data class ToggleLike(val postId: String) : FeedUiEvent()
     data class ReportPost(val postId: String) : FeedUiEvent()
     data class AddComment(val postId: String, val comment: PostComment) : FeedUiEvent()
+    data class DeletePost(val postId: String) : FeedUiEvent()
 }

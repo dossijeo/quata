@@ -16,6 +16,7 @@ import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.toDomain
+import com.quata.feature.feed.data.toDomainComments
 import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -171,12 +172,33 @@ class NeighborhoodRepositoryImpl(
         }
         val profile = profileRemote.getProfile(userId) ?: error("Usuario no encontrado")
         val currentUserId = sessionManager.currentSession()?.userId
-        val posts = supabaseApi.getFeedPosts(profileId = userId).map { post ->
+        val remotePosts = supabaseApi.getFeedPosts(profileId = userId)
+        val postIds = remotePosts.map { it.id }
+        val comments = supabaseApi.getComments(postIds)
+        val likes = supabaseApi.getLikes(postIds)
+        val interactionProfileIds = (
+            comments.mapNotNull { it.profile_id } +
+                likes.mapNotNull { it.profile_id }
+            ).distinct()
+        val interactionProfilesById = if (interactionProfileIds.isEmpty()) {
+            emptyMap()
+        } else {
+            supabaseApi.getProfiles(interactionProfileIds).associateBy { it.id }
+        }
+        val posts = remotePosts.map { post ->
+            val postComments = comments
+                .filter { it.post_id == post.id }
+                .toDomainComments { comment ->
+                    interactionProfilesById[comment.profile_id]?.display_name
+                        ?: interactionProfilesById[comment.profile_id]?.nombre
+                        ?: "Usuario"
+                }
+            val postLikes = likes.filter { it.post_id == post.id }
             post.toDomain(
                 author = profile.toDomainUser(),
-                comments = emptyList(),
-                likesCount = 0,
-                likedByCurrentUser = false
+                comments = postComments,
+                likesCount = postLikes.size,
+                likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
             )
         }
         val followers = supabaseApi.getProfileFollows(followedProfileId = userId)

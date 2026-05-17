@@ -165,6 +165,10 @@
     <string name="feed_comments">Comentarios</string>
     <string name="feed_share">Compartir</string>
     <string name="feed_report">Reportar</string>
+    <string name="feed_delete_post">Eliminar publicación</string>
+    <string name="feed_delete_post_confirm_title">¿Eliminar publicación?</string>
+    <string name="feed_delete_post_confirm_message">Esta publicación se eliminará de QÜATA.</string>
+    <string name="feed_delete_post_success">Publicación eliminada</string>
     <string name="feed_pause">Pausar</string>
     <string name="feed_play">Reproducir</string>
     <string name="feed_unmute">Activar sonido</string>
