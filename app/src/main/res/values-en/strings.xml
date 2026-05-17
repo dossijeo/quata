@@ -30,6 +30,9 @@
     <string name="common_saving">Saving…</string>
     <string name="common_search">Search</string>
     <string name="common_live">LIVE</string>
+    <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
+    <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
+    <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>
     <string name="auth_tagline">Connect, post, and chat</string>
     <string name="auth_email">Email</string>
     <string name="auth_phone">Phone</string>
@@ -64,6 +67,7 @@
     <string name="conversation_reactivate_notifications">Reactivate notifications</string>
     <string name="conversation_mute">Mute conversation</string>
     <string name="conversation_add_participants">Add new participants</string>
+    <string name="conversation_add_participants_action">Add</string>
     <string name="conversation_enable_member_invites">Allow members to invite</string>
     <string name="conversation_disable_member_invites">Only moderators can invite</string>
     <string name="conversation_delete">Delete conversation</string>

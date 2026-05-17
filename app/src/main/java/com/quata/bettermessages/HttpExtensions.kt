@@ -30,10 +30,37 @@ internal fun Request.Builder.defaultAjaxHeaders(): Request.Builder {
         .header("Accept", "application/json")
 }
 
-internal fun Request.Builder.defaultRestHeaders(restNonce: String? = null): Request.Builder {
-    return header("Accept", "application/json")
+internal fun Request.Builder.defaultRestHeaders(
+    restNonce: String? = null,
+    origin: String? = null,
+    referer: String? = null
+): Request.Builder {
+    return defaultBetterMessagesRestHeaders(
+        restNonce = restNonce,
+        origin = origin,
+        referer = referer
+    )
         .header("Content-Type", "application/json")
-        .restNonceHeader(restNonce)
+}
+
+internal fun Request.Builder.defaultBetterMessagesRestHeaders(
+    restNonce: String? = null,
+    origin: String? = null,
+    referer: String? = null
+): Request.Builder {
+    header("Accept", "application/json, text/plain, */*")
+    header("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+    header(
+        "User-Agent",
+        "Mozilla/5.0 (Linux; Android 13; QUATA) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
+    )
+    header("Cache-Control", "no-cache")
+    header("Pragma", "no-cache")
+    header("Expires", "0")
+    if (!origin.isNullOrBlank()) header("Origin", origin)
+    if (!referer.isNullOrBlank()) header("Referer", referer)
+    restNonceHeader(restNonce)
+    return this
 }
 
 internal fun Request.Builder.restNonceHeader(restNonce: String?): Request.Builder {

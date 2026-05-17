@@ -10,6 +10,7 @@ data class Conversation(
     val updatedAtMillis: Long? = null,
     val participantIds: List<String> = emptyList(),
     val participantNames: List<String> = emptyList(),
+    val participantAvatarUrls: List<String?> = emptyList(),
     val isGroup: Boolean = false,
     val isEmergency: Boolean = false,
     val communityName: String? = null,

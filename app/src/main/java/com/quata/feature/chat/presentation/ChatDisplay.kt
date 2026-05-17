@@ -1,7 +1,6 @@
 package com.quata.feature.chat.presentation
 
 import android.content.Context
-import com.quata.R
 import com.quata.core.model.Conversation
 import java.time.Instant
 import java.time.LocalDateTime
@@ -18,48 +17,43 @@ fun Conversation.chatDisplayTitle(): String = when {
 
 fun Conversation.relativeUpdatedAt(nowMillis: Long = System.currentTimeMillis()): String {
     val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
-    val now = Instant.ofEpochMilli(nowMillis)
-    val then = Instant.ofEpochMilli(timestamp)
-    val minutes = ChronoUnit.MINUTES.between(then, now).coerceAtLeast(0)
-    return when {
-        minutes < 1 -> "hace 1 min"
-        minutes < 60 -> "hace $minutes min"
-        minutes < 60 * 24 -> {
-            val hours = minutes / 60
-            "hace $hours h"
-        }
-        minutes < 60 * 24 * 30 -> {
-            val days = minutes / (60 * 24)
-            "hace $days d"
-        }
-        minutes < 60 * 24 * 365 -> {
-            val months = minutes / (60 * 24 * 30)
-            "hace $months ${if (months == 1L) "mes" else "meses"}"
-        }
-        else -> {
-            val years = minutes / (60 * 24 * 365)
-            "hace $years ${if (years == 1L) "a\u00F1o" else "a\u00F1os"}"
-        }
-    }
+    return relativeTimeLabel(timestamp, nowMillis)
 }
 
 fun Conversation.relativeUpdatedAt(context: Context, nowMillis: Long = System.currentTimeMillis()): String {
     val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
+    return relativeTimeLabel(timestamp, nowMillis)
+}
+
+fun relativeTimeLabel(value: String, nowMillis: Long = System.currentTimeMillis()): String {
+    val timestamp = parseUpdatedAtMillis(value, nowMillis) ?: return value
+    return relativeTimeLabel(timestamp, nowMillis)
+}
+
+fun relativeTimeLabel(timestampMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
     val now = Instant.ofEpochMilli(nowMillis)
-    val then = Instant.ofEpochMilli(timestamp)
-    val minutes = ChronoUnit.MINUTES.between(then, now).coerceAtLeast(0)
+    val then = Instant.ofEpochMilli(timestampMillis)
+    val seconds = ChronoUnit.SECONDS.between(then, now).coerceAtLeast(0)
+    val minutes = seconds / 60
     return when {
-        minutes < 1 -> context.getString(R.string.time_one_minute_ago)
-        minutes < 60 -> context.getString(R.string.time_minutes_ago, minutes)
-        minutes < 60 * 24 -> context.getString(R.string.time_hours_ago, minutes / 60)
-        minutes < 60 * 24 * 30 -> context.getString(R.string.time_days_ago, minutes / (60 * 24))
+        seconds < 60 -> "hace ${seconds.coerceAtLeast(1)} seg"
+        minutes < 60 -> "hace $minutes min"
+        minutes < 60 * 24 -> "hace ${minutes / 60} h"
+        minutes < 60 * 24 * 7 -> {
+            val days = minutes / (60 * 24)
+            "hace $days ${if (days == 1L) "d\u00EDa" else "d\u00EDas"}"
+        }
+        minutes < 60 * 24 * 31 -> {
+            val weeks = minutes / (60 * 24 * 7)
+            "hace $weeks sem"
+        }
         minutes < 60 * 24 * 365 -> {
-            val months = minutes / (60 * 24 * 30)
-            if (months == 1L) context.getString(R.string.time_one_month_ago) else context.getString(R.string.time_months_ago, months)
+            val months = minutes / (60 * 24 * 31)
+            "hace $months mes"
         }
         else -> {
             val years = minutes / (60 * 24 * 365)
-            if (years == 1L) context.getString(R.string.time_one_year_ago) else context.getString(R.string.time_years_ago, years)
+            "hace $years ${if (years == 1L) "a\u00F1o" else "a\u00F1os"}"
         }
     }
 }

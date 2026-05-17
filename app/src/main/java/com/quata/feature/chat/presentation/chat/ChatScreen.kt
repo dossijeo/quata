@@ -6,6 +6,11 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -15,6 +20,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,6 +70,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -86,6 +94,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -159,6 +168,11 @@ fun ChatScreen(
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
+    val activeComposerBannerKey = listOfNotNull(
+        state.editingMessage?.id?.let { "edit:$it" }?.takeUnless { isFavoritesConversation },
+        state.replyToMessage?.id?.let { "reply:$it" }?.takeUnless { isFavoritesConversation },
+        state.attachmentUri?.let { "attachment:$it" }
+    ).joinToString("|")
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
@@ -276,48 +290,51 @@ fun ChatScreen(
                     if (isFavoritesConversation) {
                         FavoriteMessagesHeader(onBack = onBack)
                     } else {
-                    ChatHeader(
-                        conversation = state.conversation,
-                        currentUser = state.currentUser,
-                        usersById = usersById,
-                        onOpenUserProfile = onOpenUserProfile,
-                        selectedMessage = selectedMessage,
-                        onClearSelection = { viewModel.onEvent(ChatUiEvent.MessageSelected(null)) },
-                        onCopySelected = {
-                            selectedMessage?.let { clipboard.setText(AnnotatedString(it.text)) }
-                            Toast.makeText(context, context.getString(R.string.conversation_text_copied), Toast.LENGTH_SHORT).show()
-                            viewModel.onEvent(ChatUiEvent.MessageSelected(null))
-                        },
-                        onReplySelected = { viewModel.onEvent(ChatUiEvent.StartReply) },
-                        onForwardSelected = { viewModel.onEvent(ChatUiEvent.OpenForwardDialog) },
-                        onEditSelected = { viewModel.onEvent(ChatUiEvent.StartEdit) },
-                        onToggleFavoriteSelected = {
-                            Toast.makeText(
-                                context,
-                                context.getString(
-                                    if (selectedMessage?.isFavorite == true) {
-                                        R.string.conversation_favorite_removed
-                                    } else {
-                                        R.string.conversation_favorite_added
-                                    }
-                                ),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            viewModel.onEvent(ChatUiEvent.ToggleFavoriteSelected)
-                        },
-                        onDeleteSelected = { confirmAction = ConfirmAction.DeleteMessage },
-                        onBack = onBack,
-                        onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
-                        onToggleMemberInvites = { enabled -> viewModel.onEvent(ChatUiEvent.MemberInvitesChanged(enabled)) },
-                        onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
-                        onToggleModerator = { userId, isModerator -> confirmAction = ConfirmAction.ToggleModerator(userId, isModerator) },
-                        onBlockParticipant = { userId -> confirmAction = ConfirmAction.BlockParticipant(userId) },
-                        onRemoveParticipant = { userId -> confirmAction = ConfirmAction.RemoveParticipant(userId) },
-                        onLeaveConversation = { confirmAction = ConfirmAction.LeaveConversation },
-                        onHideConversation = {
-                            confirmAction = ConfirmAction.DeleteConversation
+                        ChatHeader(
+                            conversation = state.conversation,
+                            currentUser = state.currentUser,
+                            usersById = usersById,
+                            onOpenUserProfile = onOpenUserProfile,
+                            selectedMessage = selectedMessage,
+                            onClearSelection = { viewModel.onEvent(ChatUiEvent.MessageSelected(null)) },
+                            onCopySelected = {
+                                selectedMessage?.let { clipboard.setText(AnnotatedString(it.text)) }
+                                Toast.makeText(context, context.getString(R.string.conversation_text_copied), Toast.LENGTH_SHORT).show()
+                                viewModel.onEvent(ChatUiEvent.MessageSelected(null))
+                            },
+                            onReplySelected = { viewModel.onEvent(ChatUiEvent.StartReply) },
+                            onForwardSelected = { viewModel.onEvent(ChatUiEvent.OpenForwardDialog) },
+                            onEditSelected = { viewModel.onEvent(ChatUiEvent.StartEdit) },
+                            onToggleFavoriteSelected = {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (selectedMessage?.isFavorite == true) {
+                                            R.string.conversation_favorite_removed
+                                        } else {
+                                            R.string.conversation_favorite_added
+                                        }
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                viewModel.onEvent(ChatUiEvent.ToggleFavoriteSelected)
+                            },
+                            onDeleteSelected = { confirmAction = ConfirmAction.DeleteMessage },
+                            onBack = onBack,
+                            onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
+                            onToggleMemberInvites = { enabled -> viewModel.onEvent(ChatUiEvent.MemberInvitesChanged(enabled)) },
+                            onAddParticipants = { viewModel.onEvent(ChatUiEvent.OpenAddParticipants) },
+                            onToggleModerator = { userId, isModerator -> confirmAction = ConfirmAction.ToggleModerator(userId, isModerator) },
+                            onBlockParticipant = { userId -> confirmAction = ConfirmAction.BlockParticipant(userId) },
+                            onRemoveParticipant = { userId -> confirmAction = ConfirmAction.RemoveParticipant(userId) },
+                            onLeaveConversation = { confirmAction = ConfirmAction.LeaveConversation },
+                            onHideConversation = {
+                                confirmAction = ConfirmAction.DeleteConversation
+                            }
+                        )
+                        if (state.isConversationActionInProgress) {
+                            ConversationActionProgressBar()
                         }
-                    )
                     }
                     LazyColumn(
                     state = messagesListState,
@@ -327,33 +344,44 @@ fun ChatScreen(
                     contentPadding = PaddingValues(top = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(state.messages) { message ->
-                        MessageBubble(
-                            message = message,
-                            sender = usersById[message.senderId],
-                            showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
-                            isSelected = message.id == state.selectedMessageId ||
-                                (message.id == highlightedMessageId && highlightVisible),
-                            onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
-                            onOpenAttachment = { attachment ->
-                                if (attachment.isMedia) {
-                                    selectedAttachment = attachment
-                                } else {
-                                    context.openAttachmentWithChooser(attachment)
-                                }
-                            },
-                            onClick = {
-                                if (isFavoritesConversation) {
-                                    onOpenMessageConversation(message.conversationId, message.id)
-                                } else {
-                                    viewModel.onEvent(
-                                        ChatUiEvent.MessageSelected(
-                                            if (message.id == state.selectedMessageId) null else message.id
+                    if (state.isLoading && state.messages.isEmpty()) {
+                        items(6) { index ->
+                            ChatMessageSkeleton(
+                                isMine = index % 2 == 0,
+                                pulseDelayMillis = index * 90
+                            )
+                        }
+                    } else {
+                        items(state.messages) { message ->
+                            MessageBubble(
+                                message = message,
+                                sender = usersById[message.senderId],
+                                showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
+                                isSelected = message.id == state.selectedMessageId ||
+                                    (message.id == highlightedMessageId && highlightVisible),
+                                onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
+                                onOpenAttachment = { attachment ->
+                                    if (attachment.isMedia) {
+                                        selectedAttachment = attachment
+                                    } else {
+                                        context.openAttachmentWithChooser(attachment)
+                                    }
+                                },
+                                onClick = {
+                                    if (message.isLocalEcho) {
+                                        Unit
+                                    } else if (isFavoritesConversation) {
+                                        onOpenMessageConversation(message.conversationId, message.id)
+                                    } else {
+                                        viewModel.onEvent(
+                                            ChatUiEvent.MessageSelected(
+                                                if (message.id == state.selectedMessageId) null else message.id
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
                     if (!isFavoritesConversation) state.editingMessage?.let {
@@ -467,6 +495,16 @@ fun ChatScreen(
         onFocusedMessageHandled()
     }
 
+    LaunchedEffect(activeComposerBannerKey, state.messages.size) {
+        if (activeComposerBannerKey.isBlank() || state.messages.isEmpty() || focusedMessageId != null) return@LaunchedEffect
+        delay(80L)
+        messagesListState.animateScrollToItem(state.messages.lastIndex)
+    }
+
+    LaunchedEffect(state.shouldCloseConversation) {
+        if (state.shouldCloseConversation) onBack()
+    }
+
     LaunchedEffect(state.messages) {
         val incomingCount = state.messages.count { !it.isMine }
         if (incomingCount > previousIncomingCount) {
@@ -505,13 +543,9 @@ fun ChatScreen(
                 when (val currentAction = action) {
                     ConfirmAction.DeleteConversation -> {
                         viewModel.onEvent(ChatUiEvent.DeleteConversation)
-                        onBack()
                     }
                     ConfirmAction.LeaveConversation -> {
                         viewModel.onEvent(ChatUiEvent.LeaveConversation)
-                        if (state.currentUser?.id !in state.conversation?.moderatorIds.orEmpty()) {
-                            onBack()
-                        }
                     }
                     ConfirmAction.DeleteMessage -> viewModel.onEvent(ChatUiEvent.DeleteSelectedMessage)
                     is ConfirmAction.BlockParticipant -> viewModel.onEvent(ChatUiEvent.BlockParticipant(currentAction.userId))
@@ -572,7 +606,7 @@ private fun ComposerModeBanner(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
+            .padding(start = 12.dp, top = 10.dp, end = 12.dp)
             .background(QuataSurface.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
             .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -608,6 +642,43 @@ private fun FavoriteMessagesHeader(onBack: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Text(stringResource(R.string.conversation_favorites_title), fontWeight = FontWeight.ExtraBold)
         }
+    }
+}
+
+@Composable
+private fun ConversationActionProgressBar() {
+    val transition = rememberInfiniteTransition(label = "conversation_action_progress")
+    val progress by transition.animateFloat(
+        initialValue = -0.45f,
+        targetValue = 1.45f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 960),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "conversation_action_progress_offset"
+    )
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .background(QuataOrange.copy(alpha = 0.10f))
+    ) {
+        val segmentWidth = maxWidth * 0.46f
+        Box(
+            modifier = Modifier
+                .width(segmentWidth)
+                .height(3.dp)
+                .offset(x = maxWidth * progress)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            QuataOrange.copy(alpha = 0.95f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
     }
 }
 
@@ -780,7 +851,12 @@ private fun ChatHeader(
                     items(members, key = { it.id }) { member ->
                         var memberMenuExpanded by rememberSaveable(member.id) { mutableStateOf(false) }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp).clickable { onOpenUserProfile(member.id) })
+                            val avatarModifier = if (member.canOpenProfile) {
+                                Modifier.size(38.dp).clickable { onOpenUserProfile(member.id) }
+                            } else {
+                                Modifier.size(38.dp)
+                            }
+                            AvatarImage(member.name, member.avatarUrl, modifier = avatarModifier)
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(member.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -861,13 +937,13 @@ private fun AddParticipantsDialog(
 ) {
     val existingIds = conversation?.participantIds.orEmpty().toSet()
     val blockedIds = conversation?.blockedUserIds.orEmpty().toSet()
-    val existingNames = conversation?.participantNames.orEmpty().map { it.lowercase() }.toSet()
+    val existingNames = conversation?.participantNames.orEmpty().map { it.participantLookupKey() }.toSet()
     val visibleCandidates = candidates
         .filter { user ->
             user.id != currentUser?.id &&
                 user.id !in existingIds &&
                 user.id !in blockedIds &&
-                user.displayName.lowercase() !in existingNames
+                user.displayName.participantLookupKey() !in existingNames
         }
         .filter { user ->
             val query = search.trim()
@@ -937,7 +1013,7 @@ private fun AddParticipantsDialog(
                         enabled = selectedIds.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
                     ) {
-                        Text(stringResource(R.string.conversation_add_participants_title))
+                        Text(stringResource(R.string.conversation_add_participants_action))
                     }
                 }
             }
@@ -1093,17 +1169,24 @@ private fun Conversation?.membersForDisplay(
         ChatMemberDisplay(
             id = userId,
             name = name,
-            avatarUrl = user?.avatarUrl,
-            label = if (userId == currentUser?.id) context.getString(R.string.conversation_you_suffix, name) else name
+            avatarUrl = user?.avatarUrl ?: participantAvatarUrls.getOrNull(index),
+            label = if (userId == currentUser?.id) context.getString(R.string.conversation_you_suffix, name) else name,
+            canOpenProfile = !userId.startsWith("wp:")
         )
     }.distinctBy { it.id }
 }
+
+private fun String.participantLookupKey(): String =
+    trim()
+        .lowercase()
+        .replace(Regex("\\s+"), " ")
 
 private data class ChatMemberDisplay(
     val id: String,
     val name: String,
     val avatarUrl: String?,
-    val label: String
+    val label: String,
+    val canOpenProfile: Boolean
 )
 
 private sealed class ConfirmAction {
@@ -1175,6 +1258,79 @@ private fun MutedConversationBadge(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun ChatMessageSkeleton(
+    isMine: Boolean,
+    pulseDelayMillis: Int
+) {
+    val transition = rememberInfiniteTransition(label = "chat_message_skeleton")
+    val pulse by transition.animateFloat(
+        initialValue = 0.48f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 860, delayMillis = pulseDelayMillis),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "chat_message_skeleton_alpha"
+    )
+    val bubbleColor = if (isMine) QuataOrange.copy(alpha = 0.12f + 0.12f * pulse) else Color.White.copy(alpha = 0.05f + 0.08f * pulse)
+    val lineColor = Color.White.copy(alpha = 0.07f + 0.13f * pulse)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isMine) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp, end = 8.dp)
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.05f + 0.08f * pulse))
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.76f)
+                .clip(RoundedCornerShape(22.dp))
+                .background(bubbleColor)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.42f)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(lineColor)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(lineColor)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.68f)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(lineColor.copy(alpha = lineColor.alpha * 0.82f))
+            )
+        }
+        if (isMine) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp, top = 4.dp)
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(QuataOrange.copy(alpha = 0.08f + 0.10f * pulse))
+            )
+        }
+    }
+}
+
+@Composable
 private fun MessageBubble(
     message: Message,
     sender: User?,
@@ -1219,7 +1375,53 @@ private fun MessageBubble(
             val textColor = if (message.isMine || isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.weight(1f))
-                Text(message.chatTimestampLabel(), color = textColor.copy(alpha = 0.56f), fontSize = 12.sp)
+                Box(
+                    modifier = Modifier
+                        .width(84.dp)
+                        .height(16.dp),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Text(
+                        message.chatTimestampLabel(),
+                        color = textColor.copy(alpha = 0.56f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    )
+                    if (message.isEdited || message.isFavorite || message.isPending) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(y = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (message.isEdited) {
+                                Text(
+                                    stringResource(R.string.conversation_edited),
+                                    color = textColor.copy(alpha = 0.62f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (message.isFavorite) {
+                                Icon(
+                                    Icons.Filled.StarBorder,
+                                    contentDescription = stringResource(R.string.conversation_favorite_marker),
+                                    tint = textColor.copy(alpha = 0.62f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            if (message.isPending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .size(13.dp)
+                                        .offset(y = 3.dp),
+                                    color = textColor.copy(alpha = 0.72f),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                }
             }
             Spacer(Modifier.padding(2.dp))
             if (message.forwardedFromSenderName != null) {
@@ -1283,17 +1485,6 @@ private fun MessageBubble(
                         }
                     }
                 }
-            }
-            if (message.isEdited || message.isFavorite) {
-                Spacer(Modifier.padding(2.dp))
-                Text(
-                    listOfNotNull(
-                        if (message.isEdited) stringResource(R.string.conversation_edited) else null,
-                        if (message.isFavorite) stringResource(R.string.conversation_favorite_marker) else null
-                    ).joinToString(" · "),
-                    color = textColor.copy(alpha = 0.62f),
-                    fontSize = 12.sp
-                )
             }
             if (mapsUrl != null) {
                 Spacer(Modifier.padding(4.dp))

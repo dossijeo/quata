@@ -12,6 +12,7 @@ import com.quata.core.model.User
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.feed.data.toDomain
 import com.quata.feature.feed.data.toDomainUser
@@ -119,6 +120,7 @@ class NeighborhoodRepositoryImpl(
                 .firstOrNull { it.threadId > 0 }
                 ?.threadId
             ?: error("Better Messages no devolvio thread_id")
+        BetterMessagesAbandonedConversationStore(appContext).clearAbandoned(session.userId, threadId)
         "bm:$threadId"
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 

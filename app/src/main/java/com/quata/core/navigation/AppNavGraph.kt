@@ -363,7 +363,7 @@ fun AppNavGraph(container: AppContainer) {
                 padding = PaddingValues(0.dp),
                 profile = profile,
                 currentUserId = container.sessionManager.currentSession()?.userId,
-                isOpeningChat = globalProfileState.isOpeningChat,
+                isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 chatError = globalProfileState.error,
                 onReportPost = { postId -> globalProfileViewModel.reportProfilePost(postId) },
                 onBack = { globalProfileViewModel.closeUserProfile() },

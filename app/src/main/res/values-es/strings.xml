@@ -37,6 +37,10 @@
     <string name="error_backend_bad_request">Algunos datos todavía no son compatibles con el servidor. Inténtalo más tarde.</string>
     <string name="error_backend_unauthorized">No se pudo verificar tu sesión. Vuelve a iniciar sesión.</string>
     <string name="error_backend_unavailable">El servidor no está disponible temporalmente.</string>
+    <string name="error_attachment_type_not_allowed">No se puede enviar este tipo de archivo aqui. Prueba con una foto, video, PDF o archivo de texto.</string>
+    <string name="error_conversation_leave_moderator">Eres moderador de esta conversación. Asigna otro moderador antes de abandonarla.</string>
+    <string name="error_conversation_add_participant_forbidden">No se pudo a&#241;adir ese participante. Comprueba que no est&#233; ya en la conversaci&#243;n y que tengas permiso para invitar.</string>
+    <string name="error_conversation_add_participant_forbidden_details">No se pudo a&#241;adir ese participante: %1$s</string>
     <string name="error_chat_session">No se pudo sincronizar la sesión del chat. Inténtalo de nuevo.</string>
     <string name="error_load_feed">No se pudo cargar el feed.</string>
     <string name="error_load_chats">No se pudieron cargar los chats.</string>
@@ -78,6 +82,7 @@
     <string name="conversation_reactivate_notifications">Reactivar notificaciones</string>
     <string name="conversation_mute">Silenciar conversación</string>
     <string name="conversation_add_participants">Añadir nuevos participantes</string>
+    <string name="conversation_add_participants_action">Añadir</string>
     <string name="conversation_enable_member_invites">Permitir que los miembros inviten</string>
     <string name="conversation_disable_member_invites">Solo moderadores pueden invitar</string>
     <string name="conversation_delete">Borrar conversación</string>

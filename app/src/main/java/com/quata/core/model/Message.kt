@@ -20,5 +20,7 @@ data class Message(
     val forwardedFromSenderName: String? = null,
     val attachmentUri: String? = null,
     val attachmentName: String? = null,
-    val attachmentMimeType: String? = null
+    val attachmentMimeType: String? = null,
+    val isPending: Boolean = false,
+    val isLocalEcho: Boolean = false
 )

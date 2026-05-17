@@ -52,6 +52,20 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
         }
         conversationsJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            repository.getConversations()
+                .onSuccess { conversations ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        conversations = conversations.filter { it.isVisible },
+                        messagesByConversation = emptyMap()
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.message ?: "Error cargando chats"
+                    )
+                }
             repository.observeConversations()
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")

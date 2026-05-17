@@ -40,9 +40,9 @@ data class BmPrivateThreadRequest(
 
 @Serializable
 data class BmSendMessageRequest(
-    val message: String = "",
+    val message: String,
     val files: List<Int>? = null,
-    val meta: BmMessageMetaRequest = BmMessageMetaRequest()
+    val meta: BmMessageMetaRequest
 )
 
 @Serializable
@@ -90,8 +90,19 @@ data class BmDeleteMessagesRequest(
 )
 
 @Serializable
+data class BmSaveMessageRequest(
+    @SerialName("message_id") val messageId: Int,
+    val message: String
+)
+
+@Serializable
 data class BmAddParticipantRequest(
     @SerialName("user_id") val userId: List<Int>
+)
+
+@Serializable
+data class BmModeratorRequest(
+    @SerialName("user_id") val userId: Int
 )
 
 @Serializable

@@ -7,6 +7,7 @@ data class NeighborhoodsUiState(
     val isLoading: Boolean = true,
     val communities: List<NeighborhoodCommunity> = emptyList(),
     val isOpeningChat: Boolean = false,
+    val openingPrivateChatUserId: String? = null,
     val selectedProfile: CommunityUserProfile? = null,
     val error: String? = null
 )

@@ -37,6 +37,10 @@
     <string name="error_backend_bad_request">Some data is not compatible with the server yet. Please try again later.</string>
     <string name="error_backend_unauthorized">Your session could not be verified. Please sign in again.</string>
     <string name="error_backend_unavailable">The server is temporarily unavailable.</string>
+    <string name="error_attachment_type_not_allowed">This file type cannot be sent here. Try a photo, video, PDF, or text file.</string>
+    <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
+    <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
+    <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>
     <string name="error_chat_session">The chat session could not be synchronized. Please try again.</string>
     <string name="error_load_feed">Could not load the feed.</string>
     <string name="error_load_chats">Could not load chats.</string>
@@ -73,11 +77,13 @@
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Recent conversations</string>
     <string name="conversations_search_placeholder">Search conversation...</string>
+    <string name="conversations_loading">Loading chats...</string>
     <string name="conversation_message">Message</string>
     <string name="conversation_member_count">%1$d members</string>
     <string name="conversation_reactivate_notifications">Reactivate notifications</string>
     <string name="conversation_mute">Mute conversation</string>
     <string name="conversation_add_participants">Add new participants</string>
+    <string name="conversation_add_participants_action">Add</string>
     <string name="conversation_enable_member_invites">Allow members to invite</string>
     <string name="conversation_disable_member_invites">Only moderators can invite</string>
     <string name="conversation_delete">Delete conversation</string>
@@ -263,6 +269,7 @@
     <string name="emoji_objects_symbols">Objects and symbols</string>
     <string name="emoji_animals_nature">Animals and nature</string>
     <string name="neighborhoods_title">DISTRICTS</string>
+    <string name="neighborhoods_loading">Cargando barrios</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
     <string name="neighborhoods_empty_preview">Open the community and start the conversation.</string>

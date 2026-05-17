@@ -6,11 +6,15 @@ import android.os.Build
 import android.provider.OpenableColumns
 import android.provider.Settings
 import com.quata.R
+import com.quata.bettermessages.BetterMessagesHttpException
 import com.quata.bettermessages.BetterMessagesRepository
 import com.quata.bettermessages.BmMessage
 import com.quata.bettermessages.BmThread
+import com.quata.bettermessages.BmThreadResponse
 import com.quata.bettermessages.BmUser
+import com.quata.core.common.UserFacingException
 import com.quata.core.common.mapFailureToUserFacing
+import com.quata.core.common.serverMessageOrNull
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.AuthSession
@@ -37,10 +41,13 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 class ChatRepositoryImpl(
@@ -53,13 +60,24 @@ class ChatRepositoryImpl(
     private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val realConversationsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val realConversations = MutableStateFlow<List<Conversation>>(emptyList())
+    private val betterMessagesReadStateStore = BetterMessagesReadStateStore(appContext)
+    private val betterMessagesAbandonedConversationStore = BetterMessagesAbandonedConversationStore(appContext)
+    private val betterMessagesConversationTypeStore = BetterMessagesConversationTypeStore(appContext)
+    private val betterMessagesByThreadId = ConcurrentHashMap<Int, List<BmMessage>>()
     private var realConversationsPollJob: Job? = null
     private val _activeConversationId = MutableStateFlow<String?>(null)
     override val activeConversationId: StateFlow<String?> = _activeConversationId
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
     private val threadIdsByPeerProfileId = mutableMapOf<String, Int>()
+    private val betterMessagesWpUserIdsByProfileId = ConcurrentHashMap<String, Int>()
+    private val betterMessagesProfileIdsByWpUserId = ConcurrentHashMap<Int, String>()
+    private val betterMessagesGroupThreadIds = ConcurrentHashMap.newKeySet<Int>()
     private val ensuredWallMemberships = mutableSetOf<String>()
+    private val betterMessagesSessionMutex = Mutex()
+    private var betterMessagesSession: BetterMessagesSessionContext? = null
+    private var realConversationsLoadedForProfileId: String? = null
+    private var realConversationsLastRefreshedAt: Long = 0L
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -78,7 +96,7 @@ class ChatRepositoryImpl(
             MockData.conversations
         } else {
             ensureRealConversationsPolling()
-            realConversations.value.takeIf { it.isNotEmpty() } ?: loadRealConversations().also { realConversations.value = it }
+            realConversations.value.takeIf { it.isNotEmpty() } ?: loadRealConversations().also(::setRealConversations)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
@@ -119,6 +137,10 @@ class ChatRepositoryImpl(
                 }
             }.collect { emit(it) }
         } else {
+            conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
+                emitAll(observeBetterMessagesMessages(threadId))
+                return@flow
+            }
             while (true) {
                 runCatching { loadRealMessages(conversationId) }
                     .onSuccess { emit(it) }
@@ -163,13 +185,20 @@ class ChatRepositoryImpl(
 
         conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
             if (attachmentUri.isNullOrBlank()) {
-                betterMessagesRepository.sendText(session.userId, threadId, text)
+                val response = betterMessagesRepository.sendText(session.userId, threadId, text)
+                if (!response.result) error("Better Messages no pudo enviar el mensaje")
+                cacheBetterMessagesUpdate(threadId, response.update)
             } else {
                 val media = appContext.copyUriToCache(attachmentUri, attachmentName, attachmentMimeType)
-                val upload = betterMessagesRepository.uploadFile(session.userId, threadId, media.file, media.mimeType)
-                val fileId = upload.id ?: error(upload.error ?: "Better Messages no devolvio id de archivo")
-                betterMessagesRepository.sendFiles(session.userId, threadId, listOf(fileId), text)
-                media.file.delete()
+                try {
+                    val upload = betterMessagesRepository.uploadFile(session.userId, threadId, media.file, media.mimeType)
+                    val fileId = upload.id ?: error(upload.error ?: "Better Messages no devolvio id de archivo")
+                    val response = betterMessagesRepository.sendFiles(session.userId, threadId, listOf(fileId), text)
+                    if (!response.result) error("Better Messages no pudo enviar el adjunto")
+                    cacheBetterMessagesUpdate(threadId, response.update)
+                } finally {
+                    media.delete()
+                }
             }
             return@runCatching
         }
@@ -196,7 +225,9 @@ class ChatRepositoryImpl(
         val threadId = conversationId.betterMessagesThreadIdOrNull()
         val replyMessageId = replyTo.id.bmMessagePartsOrNull()?.second
         if (threadId != null && replyMessageId != null) {
-            betterMessagesRepository.sendReply(session.userId, threadId, text, replyMessageId)
+            val response = betterMessagesRepository.sendReply(session.userId, threadId, text, replyMessageId)
+            if (!response.result) error("Better Messages no pudo enviar la respuesta")
+            cacheBetterMessagesUpdate(threadId, response.update)
         } else {
             sendMessage(conversationId, text).getOrThrow()
         }
@@ -217,6 +248,17 @@ class ChatRepositoryImpl(
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.markConversationRead(conversationId)
+            return@runCatching
+        }
+        val session = sessionManager.currentSession() ?: return@runCatching
+        val threadId = conversationId.betterMessagesThreadIdOrNull() ?: return@runCatching
+        betterMessagesReadStateStore.markThreadRead(
+            profileId = session.userId,
+            threadId = threadId,
+            messages = betterMessagesByThreadId[threadId].orEmpty()
+        )
+        realConversations.value = realConversations.value.map { conversation ->
+            if (conversation.id == conversationId) conversation.copy(unreadCount = 0) else conversation
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -225,9 +267,17 @@ class ChatRepositoryImpl(
             MockData.setConversationMuted(conversationId, muted)
             return@runCatching
         }
+        val previousConversations = realConversations.value
+        realConversations.value = previousConversations.updateMutedConversation(conversationId, muted)
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-        conversationId.betterMessagesThreadIdOrNull()?.let {
-            betterMessagesRepository.muteThread(session.userId, it, muted)
+        try {
+            conversationId.betterMessagesThreadIdOrNull()?.let {
+                val changed = betterMessagesRepository.muteThread(session.userId, it, muted)
+                if (!changed) error("Better Messages no pudo actualizar el silencio")
+            }
+        } catch (error: Throwable) {
+            realConversations.value = previousConversations
+            throw error
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -246,7 +296,48 @@ class ChatRepositoryImpl(
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             MockData.addParticipants(conversationId, participantIds, session.userId, session.displayName)
         } else {
-            error("Anadir participantes requiere mapear perfiles Supabase a usuarios WordPress")
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            val threadId = conversationId.betterMessagesThreadIdOrNull() ?: error("Conversacion no reconocida")
+            ensureBetterMessagesSession(session.userId)
+            val currentConversation = realConversations.value.firstOrNull { it.id == conversationId }
+                ?: loadBetterMessagesConversation(session.userId, threadId)?.also(::upsertRealConversation)
+            val selectedProfiles = runCatching { remote.getProfiles(participantIds) }
+                .getOrDefault(emptyList())
+                .associateBy { it.id }
+            val existingIds = currentConversation?.participantIds.orEmpty().toSet()
+            val existingWpIds = existingIds.mapNotNull { it.removePrefix("wp:").toIntOrNull() }.toSet()
+            val existingNames = currentConversation?.participantNames.orEmpty()
+                .map { it.normalizeName() }
+                .toSet()
+            val newParticipantIds = participantIds
+                .distinct()
+                .filterNot { profileId ->
+                    profileId == session.userId ||
+                        profileId in existingIds ||
+                        (selectedProfiles[profileId]?.displayName()?.normalizeName()?.let { it in existingNames } == true)
+                }
+            if (newParticipantIds.isEmpty()) return@runCatching
+            val wpUserIds = newParticipantIds
+                .map { profileId -> profileId.toBetterMessagesUserId() }
+                .filterNot { it in existingWpIds }
+                .distinct()
+            if (wpUserIds.isEmpty()) return@runCatching
+            val added = try {
+                betterMessagesRepository.addParticipant(session.userId, threadId, wpUserIds)
+            } catch (error: BetterMessagesHttpException) {
+                if (error.statusCode == 403) {
+                    val serverMessage = error.serverMessageOrNull()?.takeIf { it.isNotBlank() }
+                    throw UserFacingException(
+                        serverMessage?.let { appContext.getString(R.string.error_conversation_add_participant_forbidden_details, it) }
+                            ?: appContext.getString(R.string.error_conversation_add_participant_forbidden),
+                        error
+                    )
+                }
+                throw error
+            }
+            if (!added) throw UserFacingException(appContext.getString(R.string.error_conversation_add_participant_forbidden))
+            markBetterMessagesGroupThread(session.userId, threadId)
+            loadBetterMessagesConversation(session.userId, threadId)?.let(::upsertRealConversation)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -254,8 +345,22 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.promoteModerator(conversationId, userId)
         } else {
-            error("Moderadores no disponible en backend real")
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            val threadId = conversationId.betterMessagesThreadIdOrNull() ?: error("Conversacion no reconocida")
+            ensureBetterMessagesSession(session.userId)
+            val wpUserId = userId.toBetterMessagesUserId()
+            val promoted = betterMessagesRepository.makeModerator(session.userId, threadId, wpUserId)
+            if (!promoted) error("No se pudo ascender a moderador")
+            realConversations.value = realConversations.value.map { conversation ->
+                if (conversation.id == conversationId) {
+                    conversation.copy(moderatorIds = (conversation.moderatorIds + userId).distinct())
+                } else {
+                    conversation
+                }
+            }
+            loadBetterMessagesConversation(session.userId, threadId)?.let(::upsertRealConversation)
         }
+        Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
@@ -281,9 +386,11 @@ class ChatRepositoryImpl(
             return@runCatching
         }
         conversationId.betterMessagesThreadIdOrNull()?.let {
-            betterMessagesRepository.leaveThread(session.userId, it)
+            val left = betterMessagesRepository.leaveThread(session.userId, it)
+            if (!left) error("No se pudo abandonar la conversacion")
+            betterMessagesAbandonedConversationStore.markAbandoned(session.userId, it)
         }
-        Unit
+        realConversations.value = realConversations.value.filterNot { it.id == conversationId }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun hideConversation(conversationId: String): Result<Unit> = deleteConversation(conversationId)
@@ -298,8 +405,10 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         conversationId.betterMessagesThreadIdOrNull()?.let {
             betterMessagesRepository.deleteThread(session.userId, it)
+            betterMessagesAbandonedConversationStore.markAbandoned(session.userId, it)
         }
         _pendingDeletedConversation.value = conversation?.copy(isVisible = false)
+        realConversations.value = realConversations.value.filterNot { it.id == conversationId }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun restorePendingDeletedConversation(): Result<Unit> = runCatching {
@@ -310,6 +419,7 @@ class ChatRepositoryImpl(
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             conversation.id.betterMessagesThreadIdOrNull()?.let {
                 betterMessagesRepository.restoreThread(session.userId, it)
+                betterMessagesAbandonedConversationStore.clearAbandoned(session.userId, it)
             }
         }
         _pendingDeletedConversation.value = null
@@ -326,9 +436,21 @@ class ChatRepositoryImpl(
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.editMessage(messageId, text)
-        } else {
-            error("Edicion de mensajes no disponible en Better Messages REST")
+            return@runCatching
         }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val (threadId, bmMessageId) = messageId.bmMessagePartsOrNull() ?: error("Mensaje no reconocido")
+        val response = betterMessagesRepository.saveMessage(
+            profileId = session.userId,
+            threadId = threadId,
+            messageId = bmMessageId,
+            message = text
+        )
+        response.messages
+            .filter { it.threadId == threadId }
+            .takeIf { it.isNotEmpty() }
+            ?.let { betterMessagesByThreadId[threadId] = it }
+        Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
@@ -369,8 +491,13 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     private suspend fun loadRealConversations(): List<Conversation> {
-        val session = sessionManager.currentSession() ?: return emptyList()
+        val session = sessionManager.currentSession() ?: run {
+            realConversationsLoadedForProfileId = null
+            realConversationsLastRefreshedAt = 0L
+            return emptyList()
+        }
         val privateChats = remote.getPrivateChats(session.userId)
+        val abandonedBetterMessagesThreadIds = betterMessagesAbandonedConversationStore.abandonedThreadIds(session.userId)
         val peerIds = privateChats.mapNotNull { chat ->
             listOfNotNull(chat.user_low_id, chat.user_high_id, chat.requester_profile_id, chat.target_profile_id)
                 .distinct()
@@ -379,14 +506,35 @@ class ChatRepositoryImpl(
         val profilesById = if (peerIds.isEmpty()) emptyMap() else remote.getProfiles(peerIds).associateBy { it.id }
         val privateConversations = privateChats.mapNotNull { chat ->
             runCatching {
+                if (!chat.hasVisibleMessage()) return@runCatching null
                 val peerId = listOfNotNull(chat.user_low_id, chat.user_high_id, chat.requester_profile_id, chat.target_profile_id)
                     .distinct()
                     .firstOrNull { it != session.userId } ?: return@runCatching null
                 val peer = profilesById[peerId]
-                val threadId = resolvePrivateThreadId(session.userId, peerId) ?: return@runCatching null
-                val threadResponse = runCatching { betterMessagesRepository.loadThread(session.userId, threadId) }.getOrNull()
+                val cachedThreadId = threadIdsByPeerProfileId[peerId]
+                if (cachedThreadId != null && shouldSkipThreadInInboxRefresh(cachedThreadId)) return@runCatching null
+                val threadId = cachedThreadId ?: resolvePrivateThreadId(session.userId, peerId) ?: return@runCatching null
+                if (shouldSkipThreadInInboxRefresh(threadId)) return@runCatching null
+                if (threadId in abandonedBetterMessagesThreadIds) return@runCatching null
+                val threadResponse = runCatching { loadBetterMessagesThread(session.userId, threadId) }.getOrNull()
+                val threadMessages = threadResponse?.messages.orEmpty()
+                if (threadMessages.isEmpty()) return@runCatching null
                 val thread = threadResponse?.threads?.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
-                val lastMessage = threadResponse?.messages?.maxByOrNull { it.created_at }
+                val context = ensureBetterMessagesSession(session.userId)
+                val currentWpUserId = inferCurrentWpUserId(
+                    profile = context.profile,
+                    users = threadResponse?.users.orEmpty(),
+                    fallbackUserId = context.currentWpUserId
+                )
+                val unreadCount = betterMessagesReadStateStore.unreadCount(
+                    profileId = session.userId,
+                    threadId = threadId,
+                    messages = threadMessages,
+                    currentWpUserId = currentWpUserId
+                )
+                val lastMessage = threadResponse?.messages?.maxByOrNull {
+                    it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
+                }
                 thread.toConversation(
                     title = peer?.displayName().orEmpty(),
                     peerProfileId = peerId,
@@ -395,27 +543,48 @@ class ChatRepositoryImpl(
                     currentProfileId = session.userId
                 ).copy(
                     lastMessagePreview = lastMessage?.message?.stripHtml() ?: chat.last_message_preview.orEmpty(),
+                    unreadCount = unreadCount,
                     updatedAt = lastMessage?.created_at?.toDisplayTime() ?: chat.last_message_at.orEmpty(),
-                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
-                        ?: chat.last_message_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+                        ?: chat.last_message_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
+                    isGroup = false
                 )
             }.getOrNull()
         }
-        val bmConversations = runCatching { loadBetterMessagesInbox(session.userId) }.getOrDefault(emptyList())
+        val privateConversationIds = privateConversations.map { it.id }.toSet()
+        val privateThreadIds = privateConversations.mapNotNull { it.id.betterMessagesThreadIdOrNull() }.toSet()
+        val bmConversations = runCatching {
+            loadBetterMessagesInbox(session.userId, privateThreadIds)
+        }.getOrDefault(emptyList())
+        val mergedPrivateConversations = privateConversations.map { privateConversation ->
+            val threadId = privateConversation.id.betterMessagesThreadIdOrNull()
+            bmConversations.firstOrNull { bmConversation ->
+                bmConversation.id == privateConversation.id &&
+                    bmConversation.isGroup &&
+                    threadId != null &&
+                    isKnownBetterMessagesGroupThread(session.userId, threadId)
+            } ?: privateConversation
+        }
+        val bmOnlyConversations = bmConversations.filterNot { it.id in privateConversationIds }
         val activeWallId = activeConversationId.value?.wallIdOrNull()
         val wallConversations = if (activeWallId == null) {
             emptyList()
         } else {
             remote.getActiveWalls().filter { it.id == activeWallId }
         }.map { wall -> wall.toWallConversation(session) }
-        return (privateConversations + bmConversations + wallConversations)
+        return (mergedPrivateConversations + bmOnlyConversations + wallConversations)
             .distinctBy { it.id }
             .sortedByDescending { it.updatedAtMillis ?: 0L }
+            .also {
+                realConversationsLoadedForProfileId = session.userId
+                realConversationsLastRefreshedAt = System.currentTimeMillis()
+            }
     }
 
     private suspend fun loadRealConversation(conversationId: String): Conversation? {
         val session = sessionManager.currentSession() ?: return null
         conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
+            if (betterMessagesAbandonedConversationStore.isAbandoned(session.userId, threadId)) return null
             return loadBetterMessagesConversation(session.userId, threadId)
         }
         conversationId.wallIdOrNull()?.let { wallId ->
@@ -452,6 +621,9 @@ class ChatRepositoryImpl(
             },
             participantIds = memberIds,
             participantNames = participantNames,
+            participantAvatarUrls = memberIds.map { profileId ->
+                profilesById[profileId]?.avatar_url ?: profilesById[profileId]?.avatar
+            },
             isGroup = true
         )
     }
@@ -464,22 +636,42 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun loadBetterMessagesConversation(profileId: String, threadId: Int): Conversation? {
-        val profile = runCatching { remote.getProfiles(listOf(profileId)).firstOrNull() }.getOrNull()
-        val bridgeSession = betterMessagesRepository.prepareBridgeContext(profileId)
-        trackBetterMessagesVisit(profileId, profile)
-        betterMessagesRepository.refreshRestNonce(profileId)
-        val threadResponse = betterMessagesRepository.loadThreadInCurrentSession(threadId)
+        if (betterMessagesAbandonedConversationStore.isAbandoned(profileId, threadId)) return null
+        val context = ensureBetterMessagesSession(profileId)
+        val threadResponse = loadBetterMessagesThread(profileId, threadId)
         val thread = threadResponse.threads.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
         val usersByWpId = threadResponse.users.associateByWpId()
         val currentWpUserId = inferCurrentWpUserId(
-            profile = profile,
+            profile = context.profile,
             users = threadResponse.users,
-            fallbackUserId = bridgeSession.currentWpUserId
+            fallbackUserId = context.currentWpUserId
+        )
+        val unreadCount = betterMessagesReadStateStore.unreadCount(
+            profileId = profileId,
+            threadId = threadId,
+            messages = threadResponse.messages,
+            currentWpUserId = currentWpUserId
+        )
+        val profiles = (runCatching { remote.getProfiles() }.getOrDefault(emptyList()) + listOfNotNull(context.profile))
+            .distinctBy { it.id }
+        if (thread.type == "group") markBetterMessagesGroupThread(profileId, threadId)
+        val isKnownGroup = isKnownBetterMessagesGroupThread(profileId, threadId)
+        val isKnownPrivateThread = threadId in threadIdsByPeerProfileId.values && !isKnownGroup
+        val resolvedParticipants = thread.resolveBetterMessagesParticipants(
+            usersByWpId = usersByWpId,
+            currentWpUserId = currentWpUserId,
+            currentProfileId = profileId,
+            profiles = profiles
         )
         return thread.toBetterMessagesConversation(
             usersByWpId = usersByWpId,
             currentWpUserId = currentWpUserId,
-            messages = threadResponse.messages
+            messages = threadResponse.messages,
+            resolvedParticipants = resolvedParticipants,
+            forceGroup = isKnownGroup,
+            isKnownPrivateThread = isKnownPrivateThread
+        ).copy(
+            unreadCount = unreadCount
         )
     }
 
@@ -489,15 +681,69 @@ class ChatRepositoryImpl(
             .sortedByDescending { it.updatedAtMillis ?: 0L }
     }
 
+    private fun setRealConversations(conversations: List<Conversation>) {
+        realConversations.value = conversations.withActiveConversationPreserved()
+    }
+
+    private fun List<Conversation>.withActiveConversationPreserved(): List<Conversation> {
+        val activeId = activeConversationId.value
+            ?.takeIf { it != AppDestinations.FavoriteMessagesConversationId }
+            ?: return distinctBy { it.id }.sortedByDescending { it.updatedAtMillis ?: 0L }
+        val activeConversation = realConversations.value.firstOrNull { it.id == activeId }
+            ?.takeIf { active -> none { it.id == active.id } }
+        return (this + listOfNotNull(activeConversation))
+            .distinctBy { it.id }
+            .sortedByDescending { it.updatedAtMillis ?: 0L }
+    }
+
+    private fun shouldSkipThreadInInboxRefresh(threadId: Int): Boolean =
+        activeConversationId.value?.betterMessagesThreadIdOrNull() == threadId
+
+    private suspend fun refreshVisibleBetterMessagesConversationDetails(profileId: String) {
+        val current = realConversations.value
+        if (current.isEmpty()) return
+        val abandonedThreadIds = betterMessagesAbandonedConversationStore.abandonedThreadIds(profileId)
+        val refreshed = current.mapNotNull { conversation ->
+            val threadId = conversation.id.betterMessagesThreadIdOrNull() ?: return@mapNotNull conversation
+            if (threadId in abandonedThreadIds) return@mapNotNull null
+            val refreshedConversation = runCatching { loadBetterMessagesConversation(profileId, threadId) }
+                .getOrNull()
+                ?: return@mapNotNull conversation
+            if (!conversation.isGroup && refreshedConversation.isGroup && !isKnownBetterMessagesGroupThread(profileId, threadId)) {
+                conversation.copy(
+                    lastMessagePreview = refreshedConversation.lastMessagePreview,
+                    unreadCount = refreshedConversation.unreadCount,
+                    updatedAt = refreshedConversation.updatedAt,
+                    updatedAtMillis = refreshedConversation.updatedAtMillis,
+                    isMuted = refreshedConversation.isMuted
+                )
+            } else {
+                refreshedConversation
+            }
+        }
+        setRealConversations(refreshed)
+    }
+
+    private fun List<Conversation>.updateMutedConversation(conversationId: String, muted: Boolean): List<Conversation> =
+        map { conversation ->
+            if (conversation.id == conversationId) conversation.copy(isMuted = muted) else conversation
+        }
+
     private fun ensureRealConversationsPolling() {
         if (AppConfig.USE_MOCK_BACKEND || realConversationsPollJob?.isActive == true) return
         realConversationsPollJob = realConversationsScope.launch {
             var lastBetterMessagesUpdate = 0L
+            var lastInboxRefreshAt = 0L
+            var lastDetailsRefreshAt = 0L
             while (true) {
                 val session = sessionManager.currentSession()
                 if (session == null) {
                     realConversations.value = emptyList()
                     lastBetterMessagesUpdate = 0L
+                    lastInboxRefreshAt = 0L
+                    lastDetailsRefreshAt = 0L
+                    realConversationsLoadedForProfileId = null
+                    realConversationsLastRefreshedAt = 0L
                     delay(CONVERSATIONS_POLL_DELAY_MILLIS)
                     continue
                 }
@@ -513,13 +759,29 @@ class ChatRepositoryImpl(
                             ?.let(::upsertRealConversation)
                     }
 
-                if (realConversations.value.isEmpty()) {
+                val activeBetterMessagesThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
+                val now = System.currentTimeMillis()
+                val shouldLoadInbox = realConversationsLoadedForProfileId != session.userId ||
+                    realConversations.value.isEmpty() ||
+                    now - lastInboxRefreshAt >= INBOX_REFRESH_INTERVAL_MILLIS
+
+                if (shouldLoadInbox) {
                     runCatching { loadRealConversations() }
                         .onSuccess { conversations ->
-                            realConversations.value = conversations
+                            setRealConversations(conversations)
                             lastBetterMessagesUpdate = System.currentTimeMillis()
+                            lastInboxRefreshAt = System.currentTimeMillis()
+                            lastDetailsRefreshAt = lastInboxRefreshAt
                         }
                 } else {
+                    if (now - lastDetailsRefreshAt >= CONVERSATION_DETAILS_REFRESH_INTERVAL_MILLIS) {
+                        runCatching { refreshVisibleBetterMessagesConversationDetails(session.userId) }
+                            .onSuccess { lastDetailsRefreshAt = System.currentTimeMillis() }
+                    }
+                    if (activeBetterMessagesThreadId != null) {
+                        delay(CONVERSATIONS_POLL_DELAY_MILLIS)
+                        continue
+                    }
                     runCatching {
                         pollBetterMessagesUpdates(
                             profileId = session.userId,
@@ -530,7 +792,10 @@ class ChatRepositoryImpl(
                         lastBetterMessagesUpdate = poll.nextLastUpdate
                         if (poll.hasUpdates) {
                             runCatching { loadRealConversations() }
-                                .onSuccess { conversations -> realConversations.value = conversations }
+                                .onSuccess { conversations ->
+                                    setRealConversations(conversations)
+                                    lastInboxRefreshAt = System.currentTimeMillis()
+                                }
                         }
                     }
                 }
@@ -552,67 +817,105 @@ class ChatRepositoryImpl(
             ?.betterMessagesThreadIdOrNull()
             ?.let(::listOf)
             .orEmpty()
-        val response = betterMessagesRepository.checkNew(
-            profileId = profileId,
-            lastUpdate = lastUpdate,
-            visibleThreads = visibleThreads,
-            threadIds = knownThreadIds
-        )
+        val response = withBetterMessagesSession(profileId) {
+            betterMessagesRepository.checkNewInCurrentSession(
+                lastUpdate = lastUpdate,
+                visibleThreads = visibleThreads,
+                threadIds = knownThreadIds
+            )
+        }
         return ConversationPollResult(
             hasUpdates = response.threads.isNotEmpty() || response.messages.isNotEmpty(),
             nextLastUpdate = response.currentTime ?: System.currentTimeMillis()
         )
     }
 
-    private suspend fun loadBetterMessagesInbox(profileId: String): List<Conversation> {
-        val profile = runCatching { remote.getProfiles(listOf(profileId)).firstOrNull() }.getOrNull()
-        val bridgeSession = betterMessagesRepository.prepareBridgeContext(profileId)
-        trackBetterMessagesVisit(profileId, profile)
-        betterMessagesRepository.refreshRestNonce(profileId)
-        val inbox = betterMessagesRepository.checkNewInCurrentSession(lastUpdate = 0)
+    private suspend fun loadBetterMessagesInbox(
+        profileId: String,
+        privateThreadIds: Set<Int> = emptySet()
+    ): List<Conversation> {
+        val context = ensureBetterMessagesSession(profileId)
+        val inbox = withBetterMessagesSession(profileId) {
+            betterMessagesRepository.checkNewInCurrentSession(lastUpdate = 0)
+        }
         val currentWpUserId = inferCurrentWpUserId(
-            profile = profile,
+            profile = context.profile,
             users = inbox.users,
-            fallbackUserId = bridgeSession.currentWpUserId
+            fallbackUserId = context.currentWpUserId
         )
         val messagesByThreadId = inbox.messages.groupBy { it.threadId }
+        val abandonedThreadIds = betterMessagesAbandonedConversationStore.abandonedThreadIds(profileId)
+        val activeThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
+        val profiles = (runCatching { remote.getProfiles() }.getOrDefault(emptyList()) + listOfNotNull(context.profile))
+            .distinctBy { it.id }
         return inbox.threads
             .filter { thread -> thread.threadId > 0 && thread.isHidden != 1 && thread.isDeleted != 1 }
+            .filterNot { thread -> thread.threadId in abandonedThreadIds }
+            .filterNot { thread -> thread.threadId == activeThreadId }
             .filter { thread -> currentWpUserId == null || currentWpUserId in thread.participants }
-            .map { thread ->
+            .mapNotNull { thread ->
                 val knownMessages = messagesByThreadId[thread.threadId].orEmpty()
                 val threadResponse = runCatching {
-                    betterMessagesRepository.loadThreadInCurrentSession(
-                        threadId = thread.threadId,
-                        knownMessageIds = knownMessages.map { it.messageId }
+                    loadBetterMessagesThread(
+                        profileId = profileId,
+                        threadId = thread.threadId
                     )
                 }.getOrNull()
                 val fullThread = threadResponse?.threads?.firstOrNull { it.threadId == thread.threadId } ?: thread
+                if (fullThread.type == "group") markBetterMessagesGroupThread(profileId, fullThread.threadId)
                 val usersByWpId = (inbox.users + threadResponse?.users.orEmpty()).associateByWpId()
                 val threadMessages = threadResponse?.messages?.takeIf { it.isNotEmpty() } ?: knownMessages
+                if (threadMessages.isEmpty()) return@mapNotNull null
                 val peerUsers = fullThread.participants
                     .filter { it != currentWpUserId }
                     .mapNotNull { usersByWpId[it] }
-                val participantNames = peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
-                val lastMessage = threadMessages.maxByOrNull { it.created_at }
+                val resolvedParticipants = fullThread.resolveBetterMessagesParticipants(
+                    usersByWpId = usersByWpId,
+                    currentWpUserId = currentWpUserId,
+                    currentProfileId = profileId,
+                    profiles = profiles
+                )
+                val participantNames = resolvedParticipants
+                    .filterNot { it.profileId == profileId }
+                    .map { it.name }
+                val lastMessage = threadMessages.maxByOrNull {
+                    it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
+                }
+                val unreadCount = betterMessagesReadStateStore.unreadCount(
+                    profileId = profileId,
+                    threadId = fullThread.threadId,
+                    messages = threadMessages,
+                    currentWpUserId = currentWpUserId
+                )
                 val title = fullThread.title?.takeIf { it.isNotBlank() && it != "${fullThread.participantsCount ?: fullThread.participants.size} participantes" }
                     ?: fullThread.subject?.takeIf { it.isNotBlank() }
                     ?: participantNames.joinToString(", ").ifBlank { "Chat ${fullThread.threadId}" }
+                val isKnownPrivateThread = fullThread.threadId in privateThreadIds
+                val isGroupConversation = fullThread.isGroupConversation(
+                    forceGroup = isKnownBetterMessagesGroupThread(profileId, fullThread.threadId),
+                    isKnownPrivateThread = isKnownPrivateThread
+                )
+                if (isGroupConversation && !isKnownPrivateThread) {
+                    markBetterMessagesGroupThread(profileId, fullThread.threadId)
+                }
                 Conversation(
                     id = betterMessagesConversationId(fullThread.threadId),
                     title = title,
                     avatarUrl = fullThread.image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
                     lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
-                    unreadCount = fullThread.unread ?: 0,
+                    unreadCount = unreadCount,
                     updatedAt = lastMessage?.created_at?.toDisplayTime() ?: fullThread.lastTime?.toDisplayTime().orEmpty(),
-                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
-                        ?: fullThread.lastTime?.toEpochMillisFromBetterMessages(),
-                    participantIds = fullThread.participants.map { "wp:$it" },
-                    participantNames = participantNames,
-                    isGroup = fullThread.type == "group" || fullThread.participants.size > 2,
+                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+                        ?: fullThread.lastTime?.toEpochMillisFromBetterMessagesOrNull(),
+                    participantIds = resolvedParticipants.map { it.profileId },
+                    participantNames = resolvedParticipants.map { it.name },
+                    participantAvatarUrls = resolvedParticipants.map { it.avatarUrl },
+                    isGroup = isGroupConversation,
                     isMuted = fullThread.isMuted == true,
                     isVisible = true,
-                    moderatorIds = fullThread.moderators.map { "wp:$it" },
+                    moderatorIds = resolvedParticipants
+                        .filter { it.wpUserId in fullThread.moderators }
+                        .map { it.profileId },
                     canMembersInvite = fullThread.meta?.allowInvite == true || fullThread.permissions?.canInvite == true
                 )
             }
@@ -642,6 +945,42 @@ class ChatRepositoryImpl(
         }
     }
 
+    private suspend fun ensureBetterMessagesSession(
+        profileId: String,
+        forceRefresh: Boolean = false
+    ): BetterMessagesSessionContext {
+        return betterMessagesSessionMutex.withLock {
+            betterMessagesSession
+                ?.takeIf { !forceRefresh && it.profileId == profileId }
+                ?.let { return@withLock it }
+
+            val profile = runCatching { remote.getProfiles(listOf(profileId)).firstOrNull() }.getOrNull()
+            val bridgeSession = betterMessagesRepository.prepareBridgeContext(profileId)
+            cacheBetterMessagesProfile(profileId, bridgeSession.currentWpUserId)
+            trackBetterMessagesVisit(profileId, profile)
+            betterMessagesRepository.refreshRestNonce(profileId)
+            BetterMessagesSessionContext(
+                profileId = profileId,
+                profile = profile,
+                currentWpUserId = bridgeSession.currentWpUserId
+            ).also { betterMessagesSession = it }
+        }
+    }
+
+    private suspend fun <T> withBetterMessagesSession(
+        profileId: String,
+        block: suspend (BetterMessagesSessionContext) -> T
+    ): T {
+        var context = ensureBetterMessagesSession(profileId)
+        return try {
+            block(context)
+        } catch (error: BetterMessagesHttpException) {
+            if (error.statusCode != 401 && error.statusCode != 403) throw error
+            context = ensureBetterMessagesSession(profileId, forceRefresh = true)
+            block(context)
+        }
+    }
+
     private fun inferCurrentWpUserId(
         profile: CommunityProfile?,
         users: List<BmUser>,
@@ -650,13 +989,62 @@ class ChatRepositoryImpl(
         val profileAvatar = profile?.avatar_url?.takeIf { it.isNotBlank() }
             ?: profile?.avatar?.takeIf { it.isNotBlank() }
         profileAvatar?.let { avatar ->
-            users.firstOrNull { user -> user.avatar == avatar }?.wpIdOrNull()?.let { return it }
+            users.firstOrNull { user -> user.avatar?.normalizedAvatarUrl() == avatar.normalizedAvatarUrl() }?.wpIdOrNull()?.let { userId ->
+                cacheBetterMessagesProfile(profile?.id, userId)
+                return userId
+            }
         }
         val profileName = profile?.displayName()?.normalizeName()
         profileName?.let { expected ->
-            users.firstOrNull { user -> user.name?.normalizeName() == expected }?.wpIdOrNull()?.let { return it }
+            users.firstOrNull { user -> user.name?.normalizeName() == expected }?.wpIdOrNull()?.let { userId ->
+                cacheBetterMessagesProfile(profile?.id, userId)
+                return userId
+            }
         }
+        cacheBetterMessagesProfile(profile?.id, fallbackUserId)
         return fallbackUserId
+    }
+
+    private fun observeBetterMessagesMessages(threadId: Int): Flow<List<Message>> = flow {
+        val session = sessionManager.currentSession() ?: run {
+            emit(emptyList())
+            return@flow
+        }
+        var thread = loadBetterMessagesThread(session.userId, threadId)
+        emit(thread.toDomainMessages(session.userId))
+        var lastUpdate = thread.serverTime
+            ?: thread.messages.maxOfOrNull { it.updated_at ?: it.created_at }
+            ?: 0L
+
+        while (true) {
+            delay(MESSAGES_POLL_DELAY_MILLIS)
+            val knownThreadIds = (realConversations.value.mapNotNull { it.id.betterMessagesThreadIdOrNull() } + threadId)
+                .distinct()
+            val now = System.currentTimeMillis()
+            val poll = withBetterMessagesSession(session.userId) {
+                betterMessagesRepository.checkNewInCurrentSession(
+                    lastUpdate = lastUpdate,
+                    visibleThreads = listOf(threadId),
+                    threadIds = knownThreadIds
+                )
+            }
+            val hasMessageUpdate = poll.messages.any { it.threadId == threadId }
+            val hasOtherConversationUpdate = poll.messages.any { it.threadId != threadId }
+            lastUpdate = poll.currentTime ?: lastUpdate
+            if (hasOtherConversationUpdate) {
+                runCatching { loadRealConversations() }
+                    .onSuccess { conversations -> setRealConversations(conversations) }
+            }
+            if (now - realConversationsLastRefreshedAt >= INBOX_REFRESH_INTERVAL_MILLIS) {
+                runCatching { loadRealConversations() }
+                    .onSuccess { conversations -> setRealConversations(conversations) }
+            }
+            if (hasMessageUpdate) {
+                thread = loadBetterMessagesThread(session.userId, threadId)
+                emit(thread.toDomainMessages(session.userId))
+                lastUpdate = thread.serverTime ?: lastUpdate
+            }
+        }
     }
 
     private suspend fun loadRealMessages(conversationId: String): List<Message> {
@@ -686,32 +1074,104 @@ class ChatRepositoryImpl(
 
     private suspend fun loadBetterMessages(threadId: Int): List<Message> {
         val session = sessionManager.currentSession() ?: return emptyList()
-        val profile = runCatching { remote.getProfiles(listOf(session.userId)).firstOrNull() }.getOrNull()
-        val bridgeSession = betterMessagesRepository.prepareBridgeContext(session.userId)
-        betterMessagesRepository.refreshRestNonce(session.userId)
-        val thread = betterMessagesRepository.loadThreadInCurrentSession(threadId)
-        val usersByWpId = thread.users.associateByWpId()
+        return loadBetterMessagesThread(session.userId, threadId).toDomainMessages(session.userId)
+    }
+
+    private suspend fun loadBetterMessagesThread(
+        profileId: String,
+        threadId: Int,
+        knownMessageIds: List<Int> = emptyList()
+    ): BmThreadResponse {
+        return withBetterMessagesSession(profileId) {
+            betterMessagesRepository.loadThreadInCurrentSession(threadId, knownMessageIds)
+        }.also { response ->
+            response.messages
+                .filter { it.threadId == threadId }
+                .takeIf { it.isNotEmpty() }
+                ?.let { betterMessagesByThreadId[threadId] = it }
+        }
+    }
+
+    private fun cacheBetterMessagesUpdate(threadId: Int, update: BmThreadResponse?) {
+        update?.messages
+            ?.filter { it.threadId == threadId }
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { betterMessagesByThreadId[threadId] = it }
+    }
+
+    private suspend fun BmThreadResponse.toDomainMessages(profileId: String): List<Message> {
+        val context = ensureBetterMessagesSession(profileId)
+        val usersByWpId = users.associateByWpId()
         val currentWpUserId = inferCurrentWpUserId(
-            profile = profile,
-            users = thread.users,
-            fallbackUserId = bridgeSession.currentWpUserId
+            profile = context.profile,
+            users = users,
+            fallbackUserId = context.currentWpUserId
         )
-        val lookup = thread.messages.associateBy { it.messageId }
-        return thread.messages
-            .sortedBy { it.created_at }
-            .map { it.toDomain(usersByWpId, currentWpUserId, lookup) }
+        val lookup = messages.associateBy { it.messageId }
+        val readIdsByThreadId = messages
+            .groupBy { it.threadId }
+            .mapValues { (threadId, threadMessages) ->
+                betterMessagesReadStateStore.readMessageIds(
+                    profileId = profileId,
+                    threadId = threadId,
+                    messages = threadMessages,
+                    currentWpUserId = currentWpUserId
+                )
+            }
+        return messages
+            .sortedBy { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L }
+            .map { message ->
+                message.toDomain(
+                    usersByWpId = usersByWpId,
+                    currentWpUserId = currentWpUserId,
+                    replyLookup = lookup,
+                    isRead = currentWpUserId != null && message.senderId == currentWpUserId ||
+                        message.messageId in readIdsByThreadId[message.threadId].orEmpty()
+                )
+            }
     }
 
     private suspend fun resolvePrivateThreadId(profileId: String, peerProfileId: String): Int? {
         threadIdsByPeerProfileId[peerProfileId]?.let { return it }
-        val threadId = betterMessagesRepository.openOrGetPrivateUrl(profileId, peerProfileId).threadId?.takeIf { it > 0 }
+        ensureBetterMessagesSession(profileId)
+        val threadId = betterMessagesRepository.openOrGetPrivateUrlInCurrentSession(profileId, peerProfileId).threadId?.takeIf { it > 0 }
             ?: betterMessagesRepository.getOrCreatePrivateThread(profileId, peerProfileId)
                 .threads
                 .firstOrNull { it.threadId > 0 }
                 ?.threadId
-        if (threadId != null) threadIdsByPeerProfileId[peerProfileId] = threadId
+        if (threadId != null) {
+            betterMessagesAbandonedConversationStore.clearAbandoned(profileId, threadId)
+            threadIdsByPeerProfileId[peerProfileId] = threadId
+        }
         return threadId
     }
+
+    private suspend fun String.toBetterMessagesUserId(): Int {
+        removePrefix("wp:")
+            .takeIf { startsWith("wp:") }
+            ?.toIntOrNull()
+            ?.let { return it }
+        betterMessagesWpUserIdsByProfileId[this]?.let { return it }
+        val wpUserId = betterMessagesRepository.lookupWordPressUserId(this)
+            ?: error("No se pudo sincronizar el usuario con Better Messages")
+        cacheBetterMessagesProfile(this, wpUserId)
+        return wpUserId
+    }
+
+    private fun cacheBetterMessagesProfile(profileId: String?, wpUserId: Int?) {
+        val cleanProfileId = profileId?.takeIf { it.isNotBlank() && !it.startsWith("wp:") } ?: return
+        val cleanWpUserId = wpUserId?.takeIf { it > 0 } ?: return
+        betterMessagesWpUserIdsByProfileId[cleanProfileId] = cleanWpUserId
+        betterMessagesProfileIdsByWpUserId[cleanWpUserId] = cleanProfileId
+    }
+
+    private suspend fun markBetterMessagesGroupThread(profileId: String, threadId: Int) {
+        betterMessagesGroupThreadIds += threadId
+        betterMessagesConversationTypeStore.markGroup(profileId, threadId)
+    }
+
+    private suspend fun isKnownBetterMessagesGroupThread(profileId: String, threadId: Int): Boolean =
+        threadId in betterMessagesGroupThreadIds || betterMessagesConversationTypeStore.isGroup(profileId, threadId)
 
     private fun List<BmUser>.associateByWpId(): Map<Int, BmUser> =
         mapNotNull { user ->
@@ -724,13 +1184,22 @@ class ChatRepositoryImpl(
     private fun BmThread.toBetterMessagesConversation(
         usersByWpId: Map<Int, BmUser>,
         currentWpUserId: Int?,
-        messages: List<BmMessage>
+        messages: List<BmMessage>,
+        resolvedParticipants: List<BetterMessagesParticipant> = emptyList(),
+        forceGroup: Boolean = false,
+        isKnownPrivateThread: Boolean = false
     ): Conversation {
         val peerUsers = participants
             .filter { it != currentWpUserId }
             .mapNotNull { usersByWpId[it] }
-        val participantNames = peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
-        val lastMessage = messages.maxByOrNull { it.created_at }
+        val participantNames = resolvedParticipants
+            .takeIf { it.isNotEmpty() }
+            ?.filter { it.wpUserId != currentWpUserId }
+            ?.map { it.name }
+            ?: peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
+        val lastMessage = messages.maxByOrNull {
+            it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
+        }
         val defaultParticipantsTitle = "${participantsCount ?: participants.size} participantes"
         val displayTitle = title
             ?.takeIf { it.isNotBlank() && it != defaultParticipantsTitle }
@@ -743,16 +1212,84 @@ class ChatRepositoryImpl(
             lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
             unreadCount = unread ?: 0,
             updatedAt = lastMessage?.created_at?.toDisplayTime() ?: lastTime?.toDisplayTime().orEmpty(),
-            updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
-                ?: lastTime?.toEpochMillisFromBetterMessages(),
-            participantIds = participants.map { "wp:$it" },
-            participantNames = participantNames,
-            isGroup = type == "group" || participants.size > 2,
+            updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+                ?: lastTime?.toEpochMillisFromBetterMessagesOrNull(),
+            participantIds = resolvedParticipants
+                .takeIf { it.isNotEmpty() }
+                ?.map { it.profileId }
+                ?: participants.map { "wp:$it" },
+            participantNames = resolvedParticipants
+                .takeIf { it.isNotEmpty() }
+                ?.map { it.name }
+                ?: participantNames,
+            participantAvatarUrls = resolvedParticipants
+                .takeIf { it.isNotEmpty() }
+                ?.map { it.avatarUrl }
+                ?: participants.map { usersByWpId[it]?.avatar },
+            isGroup = isGroupConversation(
+                forceGroup = forceGroup,
+                isKnownPrivateThread = isKnownPrivateThread
+            ),
             isMuted = isMuted == true,
             isVisible = isHidden != 1 && isDeleted != 1,
-            moderatorIds = moderators.map { "wp:$it" },
+            moderatorIds = resolvedParticipants
+                .takeIf { it.isNotEmpty() }
+                ?.filter { it.wpUserId in moderators }
+                ?.map { it.profileId }
+                ?: moderators.map { "wp:$it" },
             canMembersInvite = meta?.allowInvite == true || permissions?.canInvite == true
         )
+    }
+
+    private fun BmThread.isGroupConversation(
+        forceGroup: Boolean = false,
+        isKnownPrivateThread: Boolean = false
+    ): Boolean {
+        if (forceGroup || type == "group") return true
+        if (isKnownPrivateThread) return false
+        return participants.size > 2 || (participantsCount ?: 0) > 2
+    }
+
+    private fun BmThread.resolveBetterMessagesParticipants(
+        usersByWpId: Map<Int, BmUser>,
+        currentWpUserId: Int?,
+        currentProfileId: String,
+        profiles: List<CommunityProfile>
+    ): List<BetterMessagesParticipant> {
+        val profilesById = profiles.associateBy { it.id }
+        return participants.map { wpUserId ->
+            val user = usersByWpId[wpUserId]
+            val cachedProfile = betterMessagesProfileIdsByWpUserId[wpUserId]?.let(profilesById::get)
+            val profile = when {
+                currentWpUserId != null && wpUserId == currentWpUserId -> profilesById[currentProfileId]
+                cachedProfile != null -> cachedProfile
+                else -> user?.matchingProfile(profiles)
+            }
+            cacheBetterMessagesProfile(profile?.id, wpUserId)
+            BetterMessagesParticipant(
+                wpUserId = wpUserId,
+                profileId = profile?.id ?: "wp:$wpUserId",
+                name = profile?.displayName()?.takeIf { it.isNotBlank() }
+                    ?: user?.name?.takeIf { it.isNotBlank() }
+                    ?: "Usuario",
+                avatarUrl = profile?.avatar_url ?: profile?.avatar ?: user?.avatar
+            )
+        }.distinctBy { it.wpUserId }
+    }
+
+    private fun BmUser.matchingProfile(profiles: List<CommunityProfile>): CommunityProfile? {
+        avatar?.takeIf { it.isNotBlank() }?.let { expectedAvatar ->
+            expectedAvatar.supabaseProfileIdOrNull()?.let { profileId ->
+                profiles.firstOrNull { profile -> profile.id.equals(profileId, ignoreCase = true) }?.let { return it }
+            }
+            val normalizedExpectedAvatar = expectedAvatar.normalizedAvatarUrl()
+            profiles.firstOrNull { profile ->
+                profile.avatar_url?.normalizedAvatarUrl() == normalizedExpectedAvatar ||
+                    profile.avatar?.normalizedAvatarUrl() == normalizedExpectedAvatar
+            }?.let { return it }
+        }
+        val expectedName = name?.normalizeName()?.takeIf { it.isNotBlank() } ?: return null
+        return profiles.firstOrNull { it.displayName().normalizeName() == expectedName }
     }
 
     private fun CommunityProfile.toUser(): User =
@@ -777,6 +1314,9 @@ class ChatRepositoryImpl(
             .any { it in wallNames }
     }
 
+    private fun com.quata.data.supabase.CommunityPrivateChat.hasVisibleMessage(): Boolean =
+        !last_message_preview.isNullOrBlank() || !last_message_at.isNullOrBlank()
+
     private fun visitorId(profileId: String): String {
         val deviceId = runCatching {
             Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
@@ -800,7 +1340,9 @@ class ChatRepositoryImpl(
     private suspend fun Context.copyUriToCache(uriString: String, attachmentName: String?, attachmentMimeType: String?): CachedMedia =
         withContext(Dispatchers.IO) {
             val media = readUriBytes(uriString, attachmentName, attachmentMimeType)
-            val file = File.createTempFile("quata-bm-", "-${media.fileName}", cacheDir)
+            val uploadDir = File(cacheDir, "quata-bm-upload-${System.currentTimeMillis()}-${Random.nextInt(1_000, 9_999)}")
+            uploadDir.mkdirs()
+            val file = File(uploadDir, media.fileName.sanitizeUploadFileName())
             file.writeBytes(media.bytes)
             CachedMedia(file = file, mimeType = media.mimeType)
         }
@@ -837,7 +1379,26 @@ class ChatRepositoryImpl(
 
     private fun String.normalizeName(): String = trim().lowercase(Locale.ROOT)
 
-    private data class CachedMedia(val file: File, val mimeType: String)
+    private fun String.normalizedAvatarUrl(): String = trim().substringBefore("?").trimEnd('/')
+
+    private fun String.supabaseProfileIdOrNull(): String? =
+        PROFILE_ID_REGEX.find(this)?.value
+
+    private fun String.sanitizeUploadFileName(): String =
+        replace(Regex("""[\\/:*?"<>|]"""), "_")
+            .trim()
+            .ifBlank { "upload.bin" }
+
+    private data class CachedMedia(val file: File, val mimeType: String) {
+        fun delete() {
+            runCatching {
+                file.parentFile
+                    ?.takeIf { it.name.startsWith("quata-bm-upload-") }
+                    ?.deleteRecursively()
+                    ?: file.delete()
+            }
+        }
+    }
 
     private data class MediaPayload(
         val fileName: String,
@@ -851,9 +1412,25 @@ class ChatRepositoryImpl(
         val nextLastUpdate: Long
     )
 
+    private data class BetterMessagesSessionContext(
+        val profileId: String,
+        val profile: CommunityProfile?,
+        val currentWpUserId: Int?
+    )
+
+    private data class BetterMessagesParticipant(
+        val wpUserId: Int,
+        val profileId: String,
+        val name: String,
+        val avatarUrl: String?
+    )
+
     private companion object {
         const val CONVERSATIONS_POLL_DELAY_MILLIS = 2_000L
         const val MESSAGES_POLL_DELAY_MILLIS = 2_000L
+        const val CONVERSATION_DETAILS_REFRESH_INTERVAL_MILLIS = 10_000L
+        const val INBOX_REFRESH_INTERVAL_MILLIS = 30_000L
+        val PROFILE_ID_REGEX = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
         val MOCK_REPLIES = listOf(
             "Perfecto, lo veo ahora.",
             "Dale, seguimos por aqui.",

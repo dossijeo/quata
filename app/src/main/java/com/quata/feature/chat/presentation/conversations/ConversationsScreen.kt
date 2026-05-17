@@ -1,5 +1,10 @@
 package com.quata.feature.chat.presentation.conversations
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -115,15 +120,21 @@ fun ConversationsScreen(
                 )
                 Spacer(Modifier.padding(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(visibleConversations) { item ->
-                        ConversationCard(
-                            item = item,
-                            messages = state.messagesByConversation[item.id].orEmpty(),
-                            currentUser = state.currentUser,
-                        usersById = state.usersById,
-                        onOpenUserProfile = onOpenUserProfile,
-                        onOpenConversation = onOpenConversation
-                        )
+                    if (state.isLoading && state.conversations.isEmpty()) {
+                        items(6) { index ->
+                            ConversationCardSkeleton(pulseDelayMillis = index * 85)
+                        }
+                    } else {
+                        items(visibleConversations) { item ->
+                            ConversationCard(
+                                item = item,
+                                messages = state.messagesByConversation[item.id].orEmpty(),
+                                currentUser = state.currentUser,
+                                usersById = state.usersById,
+                                onOpenUserProfile = onOpenUserProfile,
+                                onOpenConversation = onOpenConversation
+                            )
+                        }
                     }
                 }
             }
@@ -143,6 +154,64 @@ fun ConversationsScreen(
         if (state.pendingDeletedConversation == null) return@LaunchedEffect
         delay(4_000L)
         viewModel.onEvent(ConversationsUiEvent.FinalizeDeletedConversation)
+    }
+}
+
+@Composable
+private fun ConversationCardSkeleton(pulseDelayMillis: Int) {
+    val transition = rememberInfiniteTransition(label = "conversation_skeleton")
+    val pulse by transition.animateFloat(
+        initialValue = 0.42f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 880, delayMillis = pulseDelayMillis),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "conversation_skeleton_alpha"
+    )
+    val surface = Color.White.copy(alpha = 0.055f + 0.055f * pulse)
+    val line = Color.White.copy(alpha = 0.08f + 0.12f * pulse)
+    QuataCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(QuataOrange.copy(alpha = 0.12f + 0.10f * pulse))
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.52f)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(line)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.86f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(surface)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(width = 54.dp, height = 14.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(line.copy(alpha = line.alpha * 0.75f))
+            )
+        }
     }
 }
 

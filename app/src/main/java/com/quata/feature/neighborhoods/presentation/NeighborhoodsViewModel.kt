@@ -72,17 +72,17 @@ class NeighborhoodsViewModel(
     }
 
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
-        if (_uiState.value.isOpeningChat) return
+        if (_uiState.value.openingPrivateChatUserId != null) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isOpeningChat = true, error = null)
+            _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
             repository.openPrivateChat(userId)
                 .onSuccess { conversationId ->
-                    _uiState.value = _uiState.value.copy(isOpeningChat = false)
+                    _uiState.value = _uiState.value.copy(openingPrivateChatUserId = null)
                     onOpened(conversationId)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
-                        isOpeningChat = false,
+                        openingPrivateChatUserId = null,
                         error = error.message ?: "No se pudo abrir PRIVI"
                     )
                 }

@@ -33,6 +33,7 @@ import com.quata.R
 import com.quata.core.model.NotificationItem
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
+import com.quata.feature.chat.presentation.relativeTimeLabel
 import com.quata.feature.notifications.domain.NotificationsRepository
 
 @Composable
@@ -110,13 +111,15 @@ private fun NotificationCard(
 ) {
     QuataCard(modifier = modifier) {
         Column(Modifier.padding(16.dp)) {
+            val createdAt = relativeTimeLabel(item.createdAt)
             Text(item.title, fontWeight = FontWeight.Bold)
             Text(item.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = if (item.unreadCount > 1) "${item.createdAt} Â· ${item.unreadCount}" else item.createdAt,
+                text = if (item.unreadCount > 1) "$createdAt · ${item.unreadCount}" else createdAt,
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 12.sp
             )
         }
     }
 }
+

@@ -76,6 +76,10 @@ class BetterMessagesRepository(
         return client.bridge.getPrivateUrl(profileId, peerProfileId)
     }
 
+    suspend fun openOrGetPrivateUrlInCurrentSession(profileId: String, peerProfileId: String): BmUrlData {
+        return client.bridge.getPrivateUrl(profileId, peerProfileId)
+    }
+
     suspend fun loadThread(profileId: String, threadId: Int, knownMessageIds: List<Int> = emptyList()): BmThreadResponse {
         return withRestSession(profileId) {
             client.rest.getThread(threadId, knownMessageIds)
@@ -88,6 +92,10 @@ class BetterMessagesRepository(
         return withRestSession(profileId) {
             client.rest.getPrivateThread(targetUserId, create = true)
         }
+    }
+
+    suspend fun lookupWordPressUserId(profileId: String): Int? {
+        return client.lookupWordPressUserId(profileId)
     }
 
     suspend fun sendText(profileId: String, threadId: Int, text: String): BmSendMessageResponse {
@@ -132,6 +140,12 @@ class BetterMessagesRepository(
         }
     }
 
+    suspend fun saveMessage(profileId: String, threadId: Int, messageId: Int, message: String): BmThreadResponse {
+        return withRestSession(profileId) {
+            client.rest.saveMessage(threadId, messageId, message)
+        }
+    }
+
     suspend fun muteThread(profileId: String, threadId: Int, muted: Boolean): Boolean {
         return withRestSession(profileId) {
             if (muted) client.rest.muteThread(threadId) else client.rest.unmuteThread(threadId)
@@ -141,6 +155,12 @@ class BetterMessagesRepository(
     suspend fun addParticipant(profileId: String, threadId: Int, wpUserIds: List<Int>): Boolean {
         return withRestSession(profileId) {
             client.rest.addParticipant(threadId, wpUserIds)
+        }
+    }
+
+    suspend fun makeModerator(profileId: String, threadId: Int, wpUserId: Int): Boolean {
+        return withRestSession(profileId) {
+            client.rest.makeModerator(threadId, wpUserId)
         }
     }
 

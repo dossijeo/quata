@@ -52,7 +52,7 @@ fun BmThread.toConversation(
         lastMessagePreview = "",
         unreadCount = unread ?: 0,
         updatedAt = lastTime?.toDisplayTime().orEmpty(),
-        updatedAtMillis = lastTime?.toEpochMillisFromBetterMessages(),
+        updatedAtMillis = lastTime?.toEpochMillisFromBetterMessagesOrNull(),
         participantIds = listOfNotNull(currentProfileId, peerProfileId).distinct(),
         participantNames = listOf(peerName),
         isGroup = type == "group" || participants.size > 2,
@@ -82,7 +82,8 @@ fun CommunityMessage.toDomain(
 fun BmMessage.toDomain(
     usersByWpId: Map<Int, BmUser>,
     currentWpUserId: Int?,
-    replyLookup: Map<Int, BmMessage> = emptyMap()
+    replyLookup: Map<Int, BmMessage> = emptyMap(),
+    isRead: Boolean = true
 ): Message {
     val firstFile = meta.files.firstOrNull()
     val reply = meta.replyTo?.let { replyLookup[it] }
@@ -95,7 +96,7 @@ fun BmMessage.toDomain(
         sentAt = created_at.toDisplayTime(),
         sentAtMillis = created_at.toEpochMillisFromBetterMessages(),
         isMine = currentWpUserId != null && senderId == currentWpUserId,
-        isRead = true,
+        isRead = isRead,
         isEdited = updated_at != null && updated_at != created_at,
         isFavorite = favorited == 1,
         replyToMessageId = meta.replyTo?.let { bmMessageDomainId(threadId, it) },
@@ -119,10 +120,21 @@ fun String.bmMessagePartsOrNull(): Pair<Int, Int>? {
 }
 
 fun Long.toEpochMillisFromBetterMessages(): Long =
-    if (this < 10_000_000_000L) this * 1000L else this
+    toEpochMillisFromBetterMessagesOrNull() ?: 0L
+
+fun Long.toEpochMillisFromBetterMessagesOrNull(): Long? {
+    if (this <= 0L) return null
+    var value = if (this < 10_000_000_000L) this * 1000L else this
+    while (value > MAX_REASONABLE_EPOCH_MILLIS) {
+        value /= 10L
+    }
+    return value.takeIf { it > 0L }
+}
 
 fun Long.toDisplayTime(): String =
-    Instant.ofEpochMilli(toEpochMillisFromBetterMessages()).toString()
+    toEpochMillisFromBetterMessagesOrNull()
+        ?.let { Instant.ofEpochMilli(it).toString() }
+        .orEmpty()
 
 private fun String.toEpochMillisOrNull(): Long? =
     try {
@@ -132,3 +144,5 @@ private fun String.toEpochMillisOrNull(): Long? =
     }
 
 private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
+
+private const val MAX_REASONABLE_EPOCH_MILLIS = 4_102_444_800_000L

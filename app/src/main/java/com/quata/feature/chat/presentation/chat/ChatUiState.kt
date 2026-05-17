@@ -23,5 +23,7 @@ data class ChatUiState(
     val availableForwardConversations: List<Conversation> = emptyList(),
     val isAddParticipantsOpen: Boolean = false,
     val isLoading: Boolean = true,
+    val isConversationActionInProgress: Boolean = false,
+    val shouldCloseConversation: Boolean = false,
     val error: String? = null
 )

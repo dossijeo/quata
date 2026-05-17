@@ -140,6 +140,7 @@ fun NeighborhoodsScreen(
             community = communityForDialog,
             currentUserId = currentUserId,
             isOpeningChat = state.isOpeningChat,
+            openingPrivateChatUserId = state.openingPrivateChatUserId,
             onBack = { selectedCommunity = null },
             onFollowUser = { viewModel.toggleFollowUser(it.id) },
             onOpenProfile = { onOpenUserProfile(it.id) },
@@ -176,6 +177,20 @@ fun NeighborhoodsScreen(
             if (state.error != null) {
                 Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
+            }
+
+            if (state.isLoading && state.communities.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        stringResource(R.string.neighborhoods_loading),
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                return@Column
             }
 
             LazyColumn(
@@ -316,6 +331,7 @@ private fun NeighborhoodUsersScreen(
     community: NeighborhoodCommunity,
     currentUserId: String?,
     isOpeningChat: Boolean,
+    openingPrivateChatUserId: String?,
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
@@ -362,7 +378,7 @@ private fun NeighborhoodUsersScreen(
                     NeighborhoodUserRow(
                         user = user,
                         isOwnUser = user.id == currentUserId,
-                        isOpeningChat = isOpeningChat,
+                        isOpeningChat = openingPrivateChatUserId == user.id,
                         onFollowUser = { onFollowUser(user) },
                         onOpenProfile = { onOpenProfile(user) },
                         onOpenPrivateChat = { onOpenPrivateChat(user) }

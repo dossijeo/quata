@@ -14,15 +14,22 @@ import java.net.URLEncoder
 
 class BetterMessagesRestApi(
     private val baseUrl: String,
+    webReferer: String,
     private val client: OkHttpClient,
     private val json: Json = BetterMessagesJson.default
 ) {
     private val restBase = "${baseUrl.ensureNoTrailingSlash()}/wp-json/better-messages/v1"
+    private val origin = baseUrl.ensureNoTrailingSlash()
     private val booleanSerializer = Boolean.serializer()
     @Volatile private var restNonce: String? = null
+    @Volatile private var restReferer: String = webReferer
 
     fun setRestNonce(nonce: String?) {
         restNonce = nonce?.takeIf { it.isNotBlank() }
+    }
+
+    fun setWebReferer(referer: String) {
+        if (referer.isNotBlank()) restReferer = referer
     }
 
     suspend fun getThread(threadId: Int, knownMessageIds: List<Int> = emptyList()): BmThreadResponse {
@@ -95,11 +102,14 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url("$restBase/thread/$threadId/upload".withNoCache())
             .post(body)
-            .header("Accept", "application/json")
-            .restNonceHeader(restNonce)
+            .defaultBetterMessagesRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
             .build()
 
-        val text = client.executeSuspend(request).use { it.readBodyOrThrow() }
+        val text = executeRest(request)
         return json.decodeFromString(BmUploadResponse.serializer(), text)
     }
 
@@ -134,6 +144,15 @@ class BetterMessagesRestApi(
         )
     }
 
+    suspend fun saveMessage(threadId: Int, messageId: Int, message: String): BmThreadResponse {
+        return postJson(
+            path = "/thread/$threadId/save",
+            request = BmSaveMessageRequest(messageId = messageId, message = message),
+            requestSerializer = BmSaveMessageRequest.serializer(),
+            responseSerializer = BmThreadResponse.serializer()
+        )
+    }
+
     suspend fun muteThread(threadId: Int): Boolean = postEmptyBoolean("/thread/$threadId/mute")
 
     suspend fun unmuteThread(threadId: Int): Boolean = postEmptyBoolean("/thread/$threadId/unmute")
@@ -148,10 +167,14 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url(url)
             .get()
-            .header("Accept", "application/json")
+            .defaultBetterMessagesRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
             .build()
 
-        val text = client.executeSuspend(request).use { it.readBodyOrThrow() }
+        val text = executeRest(request)
         return json.decodeFromString(ListSerializer(BmUser.serializer()), text)
     }
 
@@ -160,6 +183,15 @@ class BetterMessagesRestApi(
             path = "/thread/$threadId/addParticipant",
             request = BmAddParticipantRequest(userIds),
             requestSerializer = BmAddParticipantRequest.serializer(),
+            responseSerializer = booleanSerializer
+        )
+    }
+
+    suspend fun makeModerator(threadId: Int, userId: Int): Boolean {
+        return postJson(
+            path = "/thread/$threadId/makeModerator",
+            request = BmModeratorRequest(userId),
+            requestSerializer = BmModeratorRequest.serializer(),
             responseSerializer = booleanSerializer
         )
     }
@@ -183,10 +215,14 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(ByteArray(0).toRequestBodyCompat())
-            .defaultRestHeaders(restNonce)
+            .defaultRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
             .build()
 
-        val text = client.executeSuspend(request).use { it.readBodyOrThrow() }
+        val text = executeRest(request)
         return text.isBlank() || json.decodeFromString(booleanSerializer, text)
     }
 
@@ -194,10 +230,14 @@ class BetterMessagesRestApi(
         val request = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(ByteArray(0).toRequestBodyCompat())
-            .defaultRestHeaders(restNonce)
+            .defaultRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
             .build()
 
-        client.executeSuspend(request).use { it.readBodyOrThrow() }
+        executeRest(request)
         return true
     }
 
@@ -211,10 +251,23 @@ class BetterMessagesRestApi(
         val requestObj = Request.Builder()
             .url("$restBase$path".withNoCache())
             .post(bodyText.toRequestBodyCompat())
-            .defaultRestHeaders(restNonce)
+            .defaultRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
             .build()
 
-        val responseText = client.executeSuspend(requestObj).use { it.readBodyOrThrow() }
+        val responseText = executeRest(requestObj)
         return json.decodeFromString(responseSerializer, responseText)
+    }
+
+    private suspend fun executeRest(request: Request): String {
+        return client.executeSuspend(request).use { response ->
+            response.header("X-WP-Nonce")
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::setRestNonce)
+            response.readBodyOrThrow()
+        }
     }
 }
