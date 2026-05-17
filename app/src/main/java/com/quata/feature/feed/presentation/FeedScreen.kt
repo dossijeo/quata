@@ -1031,7 +1031,8 @@ private fun CommentsSheet(
                                         message = draft.text.trim(),
                                         timestamp = nowCommentTimestamp(),
                                         replyToAuthorName = replyTarget?.authorName,
-                                        replyToMessage = replyTarget?.message
+                                        replyToMessage = replyTarget?.message,
+                                        replyToCommentId = replyTarget?.id
                                     )
                                 )
                                 shouldScrollToCommentsEnd = true
@@ -1166,6 +1167,16 @@ private fun CommentRow(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
+                    comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = quoted,
+                            color = Color.White.copy(alpha = 0.64f),
+                            fontSize = 13.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(

@@ -19,6 +19,7 @@ fun String.betterMessagesThreadIdOrNull(): Int? =
     takeIf { it.startsWith(BetterMessagesConversationPrefix) }
         ?.removePrefix(BetterMessagesConversationPrefix)
         ?.toIntOrNull()
+        ?.takeIf { it > 0 }
 fun String.wallIdOrNull(): String? =
     takeIf { it.startsWith(WallConversationPrefix) }
         ?.removePrefix(WallConversationPrefix)

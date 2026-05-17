@@ -61,7 +61,7 @@ class FeedRepositoryImpl(
             MockData.addComment(postId, comment)
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-            remote.addComment(postId, session.userId, comment.message)
+            remote.addComment(postId, session.userId, comment.toRemoteBody())
             loadPost(postId)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -102,12 +102,10 @@ class FeedRepositoryImpl(
             ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")
         val postComments = comments
             .filter { it.post_id == post.id }
-            .map { comment ->
-                comment.toDomain(
-                    authorName = profilesById[comment.profile_id]?.display_name
-                        ?: profilesById[comment.profile_id]?.nombre
-                        ?: "Usuario"
-                )
+            .toDomainComments { comment ->
+                profilesById[comment.profile_id]?.display_name
+                    ?: profilesById[comment.profile_id]?.nombre
+                    ?: "Usuario"
             }
         val postLikes = likes.filter { it.post_id == post.id }
         return post.toDomain(

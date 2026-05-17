@@ -87,6 +87,7 @@ class NeighborhoodRepositoryImpl(
                     wall.normalized_name.equals(cleanNeighborhood, ignoreCase = true)
             }
             ?: error("Comunidad no encontrada")
+        supabaseApi.ensureWallFollow(wall.id, session.userId)
         wallConversationId(wall.id)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -112,7 +113,13 @@ class NeighborhoodRepositoryImpl(
         }
         supabaseApi.createOrGetPrivateChat(session.userId, userId)
         val betterUrl = betterMessagesRepository.openOrGetPrivateUrl(session.userId, userId)
-        betterUrl.threadId?.let { "bm:$it" } ?: error("Better Messages no devolvio thread_id")
+        val threadId = betterUrl.threadId?.takeIf { it > 0 }
+            ?: betterMessagesRepository.getOrCreatePrivateThread(session.userId, userId)
+                .threads
+                .firstOrNull { it.threadId > 0 }
+                ?.threadId
+            ?: error("Better Messages no devolvio thread_id")
+        "bm:$threadId"
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {

@@ -9,7 +9,7 @@ class BetterMessagesClient(
     baseUrl: String,
     private val cookieStore: PersistentCookieStore = InMemoryCookieStore(),
     okHttpClient: OkHttpClient? = null,
-    json: Json = BetterMessagesJson.default
+    private val json: Json = BetterMessagesJson.default
 ) {
     val normalizedBaseUrl: String = baseUrl.trimEnd('/')
 
@@ -37,6 +37,21 @@ class BetterMessagesClient(
     suspend fun prepareSession(profileId: String): BmSyncSessionData {
         bridge.setProfileContext(profileId)
         return bridge.syncSession(profileId)
+    }
+
+    suspend fun lookupWordPressUserId(profileId: String): Int? {
+        val lookupClient = OkHttpClient.Builder()
+            .cookieJar(BetterMessagesCookieJar(InMemoryCookieStore()))
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(40, TimeUnit.SECONDS)
+            .writeTimeout(40, TimeUnit.SECONDS)
+            .build()
+        val lookupBridge = BetterMessagesBridgeApi(
+            baseUrl = normalizedBaseUrl,
+            client = lookupClient,
+            json = json
+        )
+        return lookupBridge.syncSession(profileId).userId
     }
 
     suspend fun refreshRestNonce(profileId: String): String? {

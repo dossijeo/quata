@@ -7,17 +7,20 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import com.quata.R
 import com.quata.bettermessages.BetterMessagesRepository
+import com.quata.bettermessages.BmMessage
 import com.quata.bettermessages.BmThread
 import com.quata.bettermessages.BmUser
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
+import com.quata.core.model.AuthSession
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityProfile
+import com.quata.data.supabase.CommunityWallStats
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.wordpress.QuataWordPressClient
@@ -56,6 +59,7 @@ class ChatRepositoryImpl(
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
     private val threadIdsByPeerProfileId = mutableMapOf<String, Int>()
+    private val ensuredWallMemberships = mutableSetOf<String>()
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -84,6 +88,16 @@ class ChatRepositoryImpl(
         } else {
             ensureRealConversationsPolling()
             flow {
+                activeConversationId.value
+                    ?.takeIf { activeId ->
+                        activeId != AppDestinations.FavoriteMessagesConversationId &&
+                            realConversations.value.none { it.id == activeId }
+                    }
+                    ?.let { activeId ->
+                        runCatching { loadRealConversation(activeId) }
+                            .getOrNull()
+                            ?.let(::upsertRealConversation)
+                    }
                 emitAll(realConversations)
             }
         }
@@ -393,14 +407,84 @@ class ChatRepositoryImpl(
             emptyList()
         } else {
             remote.getActiveWalls().filter { it.id == activeWallId }
-        }.map { wall ->
-            wall.toConversation().copy(
-                lastMessagePreview = "",
-                updatedAt = wall.chat_last_at.orEmpty(),
-                updatedAtMillis = wall.chat_last_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-            )
-        }
+        }.map { wall -> wall.toWallConversation(session) }
         return (privateConversations + bmConversations + wallConversations)
+            .distinctBy { it.id }
+            .sortedByDescending { it.updatedAtMillis ?: 0L }
+    }
+
+    private suspend fun loadRealConversation(conversationId: String): Conversation? {
+        val session = sessionManager.currentSession() ?: return null
+        conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
+            return loadBetterMessagesConversation(session.userId, threadId)
+        }
+        conversationId.wallIdOrNull()?.let { wallId ->
+            return remote.getActiveWalls()
+                .firstOrNull { it.id == wallId }
+                ?.let { wall -> wall.toWallConversation(session) }
+        }
+        return null
+    }
+
+    private suspend fun CommunityWallStats.toWallConversation(session: AuthSession): Conversation {
+        ensureCurrentWallMember(id, session.userId)
+        val followedProfileIds = runCatching {
+            remote.getWallFollows(id).mapNotNull { it.profile_id }
+        }.getOrDefault(emptyList())
+        val wallNames = listOfNotNull(name, normalized_name, slug).map { it.normalizeName() }.toSet()
+        val profiles = runCatching { remote.getProfiles() }.getOrDefault(emptyList())
+        val neighborhoodProfileIds = profiles
+            .filter { profile -> profile.matchesWall(wallNames) }
+            .map { it.id }
+        val memberIds = (followedProfileIds + neighborhoodProfileIds + session.userId).distinct()
+        val profilesById = profiles
+            .filter { it.id in memberIds }
+            .associateBy { it.id }
+        val participantNames = memberIds.map { profileId ->
+            profilesById[profileId]?.displayName()
+                ?: if (profileId == session.userId) session.displayName else profileId
+        }
+        return toConversation().copy(
+            lastMessagePreview = "",
+            updatedAt = chat_last_at.orEmpty(),
+            updatedAtMillis = chat_last_at?.let { value ->
+                runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrNull()
+            },
+            participantIds = memberIds,
+            participantNames = participantNames,
+            isGroup = true
+        )
+    }
+
+    private suspend fun ensureCurrentWallMember(wallId: String, profileId: String) {
+        val key = "$wallId:$profileId"
+        if (key in ensuredWallMemberships) return
+        runCatching { remote.ensureWallFollow(wallId, profileId) }
+            .onSuccess { ensuredWallMemberships += key }
+    }
+
+    private suspend fun loadBetterMessagesConversation(profileId: String, threadId: Int): Conversation? {
+        val profile = runCatching { remote.getProfiles(listOf(profileId)).firstOrNull() }.getOrNull()
+        val bridgeSession = betterMessagesRepository.prepareBridgeContext(profileId)
+        trackBetterMessagesVisit(profileId, profile)
+        betterMessagesRepository.refreshRestNonce(profileId)
+        val threadResponse = betterMessagesRepository.loadThreadInCurrentSession(threadId)
+        val thread = threadResponse.threads.firstOrNull { it.threadId == threadId } ?: BmThread(threadId = threadId)
+        val usersByWpId = threadResponse.users.associateByWpId()
+        val currentWpUserId = inferCurrentWpUserId(
+            profile = profile,
+            users = threadResponse.users,
+            fallbackUserId = bridgeSession.currentWpUserId
+        )
+        return thread.toBetterMessagesConversation(
+            usersByWpId = usersByWpId,
+            currentWpUserId = currentWpUserId,
+            messages = threadResponse.messages
+        )
+    }
+
+    private fun upsertRealConversation(conversation: Conversation) {
+        realConversations.value = (listOf(conversation) + realConversations.value.filterNot { it.id == conversation.id })
             .distinctBy { it.id }
             .sortedByDescending { it.updatedAtMillis ?: 0L }
     }
@@ -417,6 +501,17 @@ class ChatRepositoryImpl(
                     delay(CONVERSATIONS_POLL_DELAY_MILLIS)
                     continue
                 }
+
+                activeConversationId.value
+                    ?.takeIf { activeId ->
+                        activeId != AppDestinations.FavoriteMessagesConversationId &&
+                            realConversations.value.none { it.id == activeId }
+                    }
+                    ?.let { activeId ->
+                        runCatching { loadRealConversation(activeId) }
+                            .getOrNull()
+                            ?.let(::upsertRealConversation)
+                    }
 
                 if (realConversations.value.isEmpty()) {
                     runCatching { loadRealConversations() }
@@ -610,6 +705,10 @@ class ChatRepositoryImpl(
     private suspend fun resolvePrivateThreadId(profileId: String, peerProfileId: String): Int? {
         threadIdsByPeerProfileId[peerProfileId]?.let { return it }
         val threadId = betterMessagesRepository.openOrGetPrivateUrl(profileId, peerProfileId).threadId?.takeIf { it > 0 }
+            ?: betterMessagesRepository.getOrCreatePrivateThread(profileId, peerProfileId)
+                .threads
+                .firstOrNull { it.threadId > 0 }
+                ?.threadId
         if (threadId != null) threadIdsByPeerProfileId[peerProfileId] = threadId
         return threadId
     }
@@ -621,6 +720,40 @@ class ChatRepositoryImpl(
         }.toMap()
 
     private fun BmUser.wpIdOrNull(): Int? = userId ?: id.toIntOrNull()
+
+    private fun BmThread.toBetterMessagesConversation(
+        usersByWpId: Map<Int, BmUser>,
+        currentWpUserId: Int?,
+        messages: List<BmMessage>
+    ): Conversation {
+        val peerUsers = participants
+            .filter { it != currentWpUserId }
+            .mapNotNull { usersByWpId[it] }
+        val participantNames = peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
+        val lastMessage = messages.maxByOrNull { it.created_at }
+        val defaultParticipantsTitle = "${participantsCount ?: participants.size} participantes"
+        val displayTitle = title
+            ?.takeIf { it.isNotBlank() && it != defaultParticipantsTitle }
+            ?: subject?.takeIf { it.isNotBlank() }
+            ?: participantNames.joinToString(", ").ifBlank { "Chat $threadId" }
+        return Conversation(
+            id = betterMessagesConversationId(threadId),
+            title = displayTitle,
+            avatarUrl = image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
+            lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+            unreadCount = unread ?: 0,
+            updatedAt = lastMessage?.created_at?.toDisplayTime() ?: lastTime?.toDisplayTime().orEmpty(),
+            updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessages()
+                ?: lastTime?.toEpochMillisFromBetterMessages(),
+            participantIds = participants.map { "wp:$it" },
+            participantNames = participantNames,
+            isGroup = type == "group" || participants.size > 2,
+            isMuted = isMuted == true,
+            isVisible = isHidden != 1 && isDeleted != 1,
+            moderatorIds = moderators.map { "wp:$it" },
+            canMembersInvite = meta?.allowInvite == true || permissions?.canInvite == true
+        )
+    }
 
     private fun CommunityProfile.toUser(): User =
         User(
@@ -636,6 +769,13 @@ class ChatRepositoryImpl(
             ?: nombre?.takeIf { it.isNotBlank() }
             ?: phone_local?.takeIf { it.isNotBlank() }
             ?: "Usuario"
+
+    private fun CommunityProfile.matchesWall(wallNames: Set<String>): Boolean {
+        if (wallNames.isEmpty()) return false
+        return listOfNotNull(neighborhood, barrio, barrio_normalized)
+            .map { it.normalizeName() }
+            .any { it in wallNames }
+    }
 
     private fun visitorId(profileId: String): String {
         val deviceId = runCatching {

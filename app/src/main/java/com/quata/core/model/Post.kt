@@ -21,5 +21,6 @@ data class PostComment(
     val message: String,
     val timestamp: String,
     val replyToAuthorName: String? = null,
-    val replyToMessage: String? = null
+    val replyToMessage: String? = null,
+    val replyToCommentId: String? = null
 )

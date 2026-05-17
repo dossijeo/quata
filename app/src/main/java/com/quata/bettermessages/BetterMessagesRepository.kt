@@ -77,68 +77,89 @@ class BetterMessagesRepository(
     }
 
     suspend fun loadThread(profileId: String, threadId: Int, knownMessageIds: List<Int> = emptyList()): BmThreadResponse {
-        prepareRestSession(profileId)
-        return client.rest.getThread(threadId, knownMessageIds)
+        return withRestSession(profileId) {
+            client.rest.getThread(threadId, knownMessageIds)
+        }
+    }
+
+    suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String): BmThreadResponse {
+        val targetUserId = client.lookupWordPressUserId(peerProfileId)
+            ?: throw BetterMessagesBridgeException("WordPress did not return a user_id for target profile")
+        return withRestSession(profileId) {
+            client.rest.getPrivateThread(targetUserId, create = true)
+        }
     }
 
     suspend fun sendText(profileId: String, threadId: Int, text: String): BmSendMessageResponse {
-        prepareRestSession(profileId)
-        return client.rest.sendMessage(threadId, text)
+        return withRestSession(profileId) {
+            client.rest.sendMessage(threadId, text)
+        }
     }
 
     suspend fun sendReply(profileId: String, threadId: Int, text: String, replyToMessageId: Int): BmSendMessageResponse {
-        prepareRestSession(profileId)
-        return client.rest.sendReply(threadId, text, replyToMessageId)
+        return withRestSession(profileId) {
+            client.rest.sendReply(threadId, text, replyToMessageId)
+        }
     }
 
     suspend fun uploadFile(profileId: String, threadId: Int, file: File, mimeType: String): BmUploadResponse {
-        prepareRestSession(profileId)
-        return client.rest.uploadFile(threadId, file, mimeType)
+        return withRestSession(profileId) {
+            client.rest.uploadFile(threadId, file, mimeType)
+        }
     }
 
     suspend fun sendFiles(profileId: String, threadId: Int, fileIds: List<Int>, message: String = ""): BmSendMessageResponse {
-        prepareRestSession(profileId)
-        return client.rest.sendFiles(threadId, fileIds, message)
+        return withRestSession(profileId) {
+            client.rest.sendFiles(threadId, fileIds, message)
+        }
     }
 
     suspend fun forwardMessage(profileId: String, messageId: Int, threadIds: List<Int>): BmForwardResponse {
-        prepareRestSession(profileId)
-        return client.rest.forwardMessage(messageId, threadIds)
+        return withRestSession(profileId) {
+            client.rest.forwardMessage(messageId, threadIds)
+        }
     }
 
     suspend fun favoriteMessage(profileId: String, threadId: Int, messageId: Int, favorite: Boolean): Boolean {
-        prepareRestSession(profileId)
-        return if (favorite) client.rest.favoriteMessage(threadId, messageId) else client.rest.unfavoriteMessage(threadId, messageId)
+        return withRestSession(profileId) {
+            if (favorite) client.rest.favoriteMessage(threadId, messageId) else client.rest.unfavoriteMessage(threadId, messageId)
+        }
     }
 
     suspend fun deleteMessages(profileId: String, threadId: Int, messageIds: List<Int>): BmThreadResponse {
-        prepareRestSession(profileId)
-        return client.rest.deleteMessages(threadId, messageIds)
+        return withRestSession(profileId) {
+            client.rest.deleteMessages(threadId, messageIds)
+        }
     }
 
     suspend fun muteThread(profileId: String, threadId: Int, muted: Boolean): Boolean {
-        prepareRestSession(profileId)
-        return if (muted) client.rest.muteThread(threadId) else client.rest.unmuteThread(threadId)
+        return withRestSession(profileId) {
+            if (muted) client.rest.muteThread(threadId) else client.rest.unmuteThread(threadId)
+        }
     }
 
     suspend fun addParticipant(profileId: String, threadId: Int, wpUserIds: List<Int>): Boolean {
-        prepareRestSession(profileId)
-        return client.rest.addParticipant(threadId, wpUserIds)
+        return withRestSession(profileId) {
+            client.rest.addParticipant(threadId, wpUserIds)
+        }
     }
 
     suspend fun leaveThread(profileId: String, threadId: Int): Boolean {
-        prepareRestSession(profileId)
-        return client.rest.leaveThread(threadId)
+        return withRestSession(profileId) {
+            client.rest.leaveThread(threadId)
+        }
     }
 
     suspend fun deleteThread(profileId: String, threadId: Int): Boolean {
-        prepareRestSession(profileId)
-        return client.rest.deleteThread(threadId)
+        return withRestSession(profileId) {
+            client.rest.deleteThread(threadId)
+        }
     }
 
     suspend fun restoreThread(profileId: String, threadId: Int): Boolean {
-        prepareRestSession(profileId)
-        return client.rest.restoreThread(threadId)
+        return withRestSession(profileId) {
+            client.rest.restoreThread(threadId)
+        }
     }
 
     suspend fun sendSos(profileId: String, message: String): BmSendSosData {
@@ -150,6 +171,17 @@ class BetterMessagesRepository(
         val session = prepareBridgeContext(profileId)
         refreshRestNonce(profileId)
         return session.currentWpUserId
+    }
+
+    private suspend fun <T> withRestSession(profileId: String, block: suspend () -> T): T {
+        prepareRestSession(profileId)
+        return try {
+            block()
+        } catch (error: BetterMessagesHttpException) {
+            if (error.statusCode != 401 && error.statusCode != 403) throw error
+            prepareRestSession(profileId)
+            block()
+        }
     }
 }
 

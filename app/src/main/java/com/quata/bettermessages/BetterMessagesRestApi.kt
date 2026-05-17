@@ -34,6 +34,15 @@ class BetterMessagesRestApi(
         )
     }
 
+    suspend fun getPrivateThread(userId: Int, create: Boolean = true): BmThreadResponse {
+        return postJson(
+            path = "/getPrivateThread",
+            request = BmPrivateThreadRequest(userId = userId, create = create),
+            requestSerializer = BmPrivateThreadRequest.serializer(),
+            responseSerializer = BmThreadResponse.serializer()
+        )
+    }
+
     suspend fun checkNew(
         lastUpdate: Long,
         visibleThreads: List<Int> = emptyList(),

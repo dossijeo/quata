@@ -72,6 +72,7 @@ class NeighborhoodsViewModel(
     }
 
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
+        if (_uiState.value.isOpeningChat) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isOpeningChat = true, error = null)
             repository.openPrivateChat(userId)

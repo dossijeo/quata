@@ -39,6 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -138,6 +139,7 @@ fun NeighborhoodsScreen(
             padding = padding,
             community = communityForDialog,
             currentUserId = currentUserId,
+            isOpeningChat = state.isOpeningChat,
             onBack = { selectedCommunity = null },
             onFollowUser = { viewModel.toggleFollowUser(it.id) },
             onOpenProfile = { onOpenUserProfile(it.id) },
@@ -313,6 +315,7 @@ private fun NeighborhoodUsersScreen(
     padding: PaddingValues,
     community: NeighborhoodCommunity,
     currentUserId: String?,
+    isOpeningChat: Boolean,
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
@@ -359,6 +362,7 @@ private fun NeighborhoodUsersScreen(
                     NeighborhoodUserRow(
                         user = user,
                         isOwnUser = user.id == currentUserId,
+                        isOpeningChat = isOpeningChat,
                         onFollowUser = { onFollowUser(user) },
                         onOpenProfile = { onOpenProfile(user) },
                         onOpenPrivateChat = { onOpenPrivateChat(user) }
@@ -375,6 +379,8 @@ fun CommunityProfileScreen(
     padding: PaddingValues,
     profile: CommunityUserProfile,
     currentUserId: String? = null,
+    isOpeningChat: Boolean = false,
+    chatError: String? = null,
     onReportPost: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
@@ -410,7 +416,8 @@ fun CommunityProfileScreen(
                 onBack = { userListTitle = null },
                 onFollowUser = { user -> onFollowUser(user.id) },
                 onOpenProfile = { user -> onOpenUserProfile(user.id) },
-                onOpenPrivateChat = { user -> onOpenPrivateChat(user.id) }
+                onOpenPrivateChat = { user -> onOpenPrivateChat(user.id) },
+                isOpeningChat = isOpeningChat
             )
         } else {
             LazyColumn(
@@ -454,15 +461,27 @@ fun CommunityProfileScreen(
                         }
                         OutlinedButton(
                             onClick = { onOpenPrivateChat(profile.user.id) },
-                            enabled = !isOwnProfile,
+                            enabled = !isOwnProfile && !isOpeningChat,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                            if (isOpeningChat) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = QuataOrange
+                                )
+                            } else {
+                                Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.common_chat), fontSize = 18.sp)
                         }
+                    }
+                    chatError?.let { error ->
+                        Spacer(Modifier.height(10.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(18.dp))
                     ProfileAttachmentsSection(
@@ -565,6 +584,7 @@ private fun ProfileAttachment.toAttachmentPreview(): AttachmentPreview =
 private fun NeighborhoodUserRow(
     user: NeighborhoodUser,
     isOwnUser: Boolean,
+    isOpeningChat: Boolean,
     onFollowUser: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivateChat: () -> Unit
@@ -606,12 +626,20 @@ private fun NeighborhoodUserRow(
             }
             OutlinedButton(
                 onClick = onOpenPrivateChat,
-                enabled = !isOwnUser,
+                enabled = !isOwnUser && !isOpeningChat,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange)
             ) {
-                Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                if (isOpeningChat) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = QuataOrange
+                    )
+                } else {
+                    Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.common_chat), fontSize = 14.sp, maxLines = 1)
             }
@@ -627,7 +655,8 @@ private fun ProfileUsersListContent(
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
-    onOpenPrivateChat: (NeighborhoodUser) -> Unit
+    onOpenPrivateChat: (NeighborhoodUser) -> Unit,
+    isOpeningChat: Boolean
 ) {
     Column(
         Modifier
@@ -651,6 +680,7 @@ private fun ProfileUsersListContent(
                 NeighborhoodUserRow(
                     user = user,
                     isOwnUser = user.id == currentUserId,
+                    isOpeningChat = isOpeningChat,
                     onFollowUser = { onFollowUser(user) },
                     onOpenProfile = { onOpenProfile(user) },
                     onOpenPrivateChat = { onOpenPrivateChat(user) }

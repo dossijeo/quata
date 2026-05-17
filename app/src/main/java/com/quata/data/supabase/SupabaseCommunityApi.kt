@@ -214,6 +214,18 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         mapOf("select" to WALL_FOLLOW_SELECT, "profile_id" to profileId?.let { "eq.$it" }, "wall_id" to wallId?.let { "eq.$it" })
     )
 
+    suspend fun ensureWallFollow(wallId: String, profileId: String): CommunityWallFollow? {
+        val existing = client.getSingleOrNull<CommunityWallFollow>(
+            "community_wall_follows",
+            mapOf("select" to WALL_FOLLOW_SELECT, "wall_id" to "eq.$wallId", "profile_id" to "eq.$profileId")
+        )
+        return existing ?: client.post<CommunityWallFollow, CommunityWallFollowCreate>(
+            "community_wall_follows",
+            CommunityWallFollowCreate(wallId, profileId),
+            select = WALL_FOLLOW_SELECT
+        )
+    }
+
     suspend fun getProfileFollows(
         followerProfileId: String? = null,
         followedProfileId: String? = null,

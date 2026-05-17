@@ -33,6 +33,12 @@ data class BmThreadRequest(
 )
 
 @Serializable
+data class BmPrivateThreadRequest(
+    @SerialName("user_id") val userId: Int,
+    val create: Boolean
+)
+
+@Serializable
 data class BmSendMessageRequest(
     val message: String = "",
     val files: List<Int>? = null,

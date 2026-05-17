@@ -7,6 +7,8 @@ class ChatRemoteDataSource(
 ) {
     suspend fun getProfiles(ids: Collection<String>? = null) = supabaseApi.getProfiles(ids)
     suspend fun getActiveWalls() = supabaseApi.getActiveWallsStats()
+    suspend fun getWallFollows(wallId: String) = supabaseApi.getWallFollows(wallId = wallId)
+    suspend fun ensureWallFollow(wallId: String, profileId: String) = supabaseApi.ensureWallFollow(wallId, profileId)
     suspend fun getCommunityMessages(wallId: String, limit: Int = 250) = supabaseApi.getCommunityMessages(wallId, limit = limit)
     suspend fun sendCommunityMessage(wallId: String, profileId: String, body: String) =
         supabaseApi.sendCommunityMessage(wallId, profileId, body)

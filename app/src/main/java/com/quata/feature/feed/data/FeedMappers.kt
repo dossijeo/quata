@@ -43,12 +43,63 @@ fun CommunityPost.toDomain(
 )
 
 fun CommunityComment.toDomain(authorName: String): PostComment =
-    PostComment(
-        id = id,
-        authorName = authorName,
-        message = body.orEmpty(),
-        timestamp = created_at.orEmpty()
+    body.orEmpty().parseReplyShortcode().let { parsed ->
+        PostComment(
+            id = id,
+            authorName = authorName,
+            message = parsed.message,
+            timestamp = created_at.orEmpty(),
+            replyToAuthorName = parsed.authorName,
+            replyToCommentId = parsed.commentId
+        )
+    }
+
+fun List<CommunityComment>.toDomainComments(authorNameFor: (CommunityComment) -> String): List<PostComment> {
+    val parsedById = associate { comment -> comment.id to comment.body.orEmpty().parseReplyShortcode() }
+    return map { comment ->
+        val parsed = parsedById.getValue(comment.id)
+        val target = parsed.commentId?.let { targetId -> firstOrNull { it.id == targetId } }
+        val targetParsed = target?.let { parsedById[it.id] }
+        PostComment(
+            id = comment.id,
+            authorName = authorNameFor(comment),
+            message = parsed.message,
+            timestamp = comment.created_at.orEmpty(),
+            replyToAuthorName = parsed.authorName ?: target?.let(authorNameFor),
+            replyToMessage = targetParsed?.message,
+            replyToCommentId = parsed.commentId
+        )
+    }
+}
+
+fun PostComment.toRemoteBody(): String {
+    val cleanMessage = message.trim()
+    val replyId = replyToCommentId?.takeIf { it.isNotBlank() && !it.startsWith("local_") }
+    val replyAuthor = replyToAuthorName?.takeIf { it.isNotBlank() }?.replace("]", "")?.replace("\n", " ")
+    return if (replyId != null && replyAuthor != null) {
+        "[reply:$replyId:$replyAuthor] $cleanMessage"
+    } else {
+        cleanMessage
+    }
+}
+
+private fun String.parseReplyShortcode(): ParsedCommentBody {
+    val match = ReplyShortcodeRegex.find(this)
+    if (match == null) return ParsedCommentBody(message = trim())
+    return ParsedCommentBody(
+        commentId = match.groupValues.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() },
+        authorName = match.groupValues.getOrNull(2)?.trim()?.takeIf { it.isNotBlank() },
+        message = removeRange(match.range).trim()
     )
+}
+
+private data class ParsedCommentBody(
+    val message: String,
+    val commentId: String? = null,
+    val authorName: String? = null
+)
+
+private val ReplyShortcodeRegex = Regex("""^\s*\[reply:([^:\]]+):([^\]]+)]\s*""")
 
 fun CommunityProfile.toDomainUser(): User =
     User(
