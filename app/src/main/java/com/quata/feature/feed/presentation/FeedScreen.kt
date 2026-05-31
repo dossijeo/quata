@@ -108,6 +108,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
@@ -588,10 +589,11 @@ private fun ReelMedia(
 @Composable
 private fun TextOnlyReel(post: Post) {
     val displayText = remember(post.text) { post.text.parsePostShortcodeContent().cleanText }
+    val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(textCanvasBrush(displayText))
+            .background(textCanvasBrush(seedText))
             .padding(horizontal = 30.dp),
         contentAlignment = Alignment.Center
     ) {

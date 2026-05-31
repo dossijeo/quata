@@ -21,4 +21,13 @@ fun String.parsePostShortcodeContent(): PostShortcodeContent {
 
 fun String.withoutPostShortcodes(): String = parsePostShortcodeContent().cleanText
 
+fun String.cleanTextCanvasSeedBody(): String =
+    replace(Regex("""\[CANAL:[^\]]+]""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\[UBICACION:[^\]]+]""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\[MEDIA_TITULO:[^\]]+]""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\[VIDEO_PROCESANDO(?::[^\]]+)?]""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\[ALKA_TIPO:[^\]]+]""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\[ALKA]""", RegexOption.IGNORE_CASE), "")
+        .trim()
+
 private val PostShortcodeRegex = Regex("""\[[A-Za-z0-9_]+:([^\]]+)]""")

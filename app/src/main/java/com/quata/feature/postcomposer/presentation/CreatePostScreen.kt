@@ -91,6 +91,7 @@ import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -570,12 +571,13 @@ private fun ComposerActionButton(
 
 @Composable
 private fun TextReelPreview(text: String) {
+    val seedText = remember(text) { text.cleanTextCanvasSeedBody() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(360.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(textCanvasBrush(text))
+            .background(textCanvasBrush(seedText))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
             .padding(28.dp),
         contentAlignment = Alignment.Center

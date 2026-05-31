@@ -2,6 +2,7 @@ package com.quata.core.ui
 
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.absoluteValue
 
 private val textCanvasPalettes = listOf(
@@ -15,12 +16,16 @@ private val textCanvasPalettes = listOf(
 
 fun textCanvasBrush(seedText: String?): Brush {
     val (start, end) = textCanvasPalette(seedText)
-    return Brush.linearGradient(listOf(start, end))
+    return Brush.linearGradient(
+        colors = listOf(start, end),
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
 }
 
 private fun textCanvasPalette(seedText: String?): Pair<Color, Color> {
     var hash = 0
-    (seedText ?: "Q").forEach { ch ->
+    (seedText?.takeIf { it.isNotEmpty() } ?: "Q").forEach { ch ->
         hash = ((hash shl 5) - hash + ch.code)
     }
     return textCanvasPalettes[hash.toLong().absoluteValue.mod(textCanvasPalettes.size)]

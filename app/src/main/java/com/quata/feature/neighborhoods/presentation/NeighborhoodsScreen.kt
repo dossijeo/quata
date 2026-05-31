@@ -86,6 +86,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.withoutPostShortcodes
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AttachmentPreview
@@ -833,6 +834,7 @@ private fun ProfilePostPreview(
     }
     val likes = (post.likesCount + likeDelta).coerceAtLeast(0)
     val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
+    val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -870,7 +872,7 @@ private fun ProfilePostPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(430.dp)
-                    .background(textCanvasBrush(cleanPostText))
+                    .background(textCanvasBrush(seedText))
                     .padding(22.dp),
                 contentAlignment = Alignment.Center
             ) {
