@@ -14,7 +14,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,8 +31,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,8 +84,13 @@ import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
+import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -109,14 +111,6 @@ private enum class ComposerStep {
 private enum class CaptureTarget {
     Photo,
     Video
-}
-
-private enum class EmojiSection(@StringRes val labelRes: Int, val emojis: List<String>) {
-    Recentes(R.string.emoji_recent, listOf("😀", "😁", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤩", "🤗", "😴", "🤔", "😅", "😳", "😭", "😤", "😡", "🤯", "🥳", "👏", "👎", "🙏", "💪", "🔥")),
-    Frecuentes(R.string.emoji_frequent, listOf("😀", "😍", "😂", "🥰", "👏", "🙌", "🔥", "❤️", "👍", "🙏", "💯", "✨", "🌍", "⭐", "🎉", "📍", "✅", "👀", "💬", "💎")),
-    Gestos(R.string.emoji_gestures, listOf("👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✊", "🤞", "☝️", "👉", "👈", "🖕", "👇", "👍", "👎", "👊", "🤜", "🤛", "🙌", "🙏", "🤝")),
-    Objetos(R.string.emoji_objects_symbols, listOf("🏢", "💻", "🕘", "📷", "🎥", "📺", "🎮", "🎧", "🧠", "🫀", "💡", "📌", "📎", "✂️", "🔒", "🔑", "🪙", "💸", "💰", "🧾", "💎", "⚙️", "🛒", "🧳")),
-    Animales(R.string.emoji_animals_nature, listOf("🐶", "🐱", "🦁", "🐵", "🐼", "🦋", "🐝", "🌴", "🌿", "🍃", "🌺", "🌸", "🌞", "🌙", "⭐", "☁️", "🌧️", "🌊", "🔥", "🌍"))
 }
 
 @Composable
@@ -262,6 +256,7 @@ fun CreatePostScreen(
                         viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text))
                     },
                     onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
+                    onDismissEmojiPanel = { isEmojiPanelOpen = false },
                     onEmoji = { emoji ->
                         val updated = textValue.insertAtSelection(emoji)
                         textValue = updated
@@ -368,50 +363,65 @@ private fun TextPostForm(
     isEmojiPanelOpen: Boolean,
     onTextChange: (TextFieldValue) -> Unit,
     onToggleEmojiPanel: () -> Unit,
+    onDismissEmojiPanel: () -> Unit,
     onEmoji: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
-    ComposerPanel(stringResource(R.string.composer_content), highlighted = true) {
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = onTextChange,
-            placeholder = {
-                Text(
-                    stringResource(R.string.composer_text_placeholder),
-                    color = Color(0xFF111827).copy(alpha = 0.52f)
-                )
-            },
-            minLines = 5,
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color(0xFF111827),
-                unfocusedTextColor = Color(0xFF111827),
-                focusedBorderColor = QuataOrange,
-                unfocusedBorderColor = Color(0xFF111827).copy(alpha = 0.24f),
-                cursorColor = QuataOrange
-            ),
-            trailingIcon = {
-                CompactIconButton(onClick = onToggleEmojiPanel) {
-                    CompactIcon(
-                        Icons.Filled.InsertEmoticon,
-                        contentDescription = stringResource(R.string.comments_show_emojis),
-                        tint = Color(0xFFFFC55C)
-                    )
-                }
-            }
+    val emojiDismissState = rememberCommunityEmojiPanelDismissState(onDismissEmojiPanel)
+    Column(
+        modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(
+            isVisible = isEmojiPanelOpen,
+            state = emojiDismissState
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text(stringResource(R.string.composer_word_count, state.text.length), color = Color(0xFF111827).copy(alpha = 0.62f))
+    ) {
+        ComposerPanel(stringResource(R.string.composer_content), highlighted = true) {
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = onTextChange,
+                placeholder = {
+                    Text(
+                        stringResource(R.string.composer_text_placeholder),
+                        color = Color(0xFF111827).copy(alpha = 0.52f)
+                    )
+                },
+                minLines = 5,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color(0xFF111827),
+                    unfocusedTextColor = Color(0xFF111827),
+                    focusedBorderColor = QuataOrange,
+                    unfocusedBorderColor = Color(0xFF111827).copy(alpha = 0.24f),
+                    cursorColor = QuataOrange
+                ),
+                trailingIcon = {
+                    CompactIconButton(
+                        onClick = onToggleEmojiPanel,
+                        modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                    ) {
+                        CompactIcon(
+                            Icons.Filled.InsertEmoticon,
+                            contentDescription = stringResource(R.string.comments_show_emojis),
+                            tint = Color(0xFFFFC55C)
+                        )
+                    }
+                }
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(stringResource(R.string.composer_word_count, state.text.length), color = Color(0xFF111827).copy(alpha = 0.62f))
+            }
         }
+        if (isEmojiPanelOpen) {
+            Spacer(Modifier.height(10.dp))
+            CommunityEmojiPanel(
+                onEmojiClick = onEmoji,
+                modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
+            )
+        }
+        PreviewPanel(stringResource(R.string.composer_preview)) {
+            TextReelPreview(state.text)
+        }
+        PublishButton(state.isLoading, onSubmit)
     }
-    if (isEmojiPanelOpen) {
-        Spacer(Modifier.height(10.dp))
-        ExpandedEmojiPanel(onEmoji = onEmoji)
-    }
-    PreviewPanel(stringResource(R.string.composer_preview)) {
-        TextReelPreview(state.text)
-    }
-    PublishButton(state.isLoading, onSubmit)
 }
 
 @Composable
@@ -601,52 +611,6 @@ private fun EmptyPreview(title: String, tag: String, body: String) {
         }
         Spacer(Modifier.height(18.dp))
         Text(body, color = Color.White.copy(alpha = 0.72f), textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun ExpandedEmojiPanel(onEmoji: (String) -> Unit) {
-    var section by rememberSaveable { mutableStateOf(EmojiSection.Frecuentes) }
-    Surface(
-        color = Color(0xFF101827),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, QuataOrange.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(EmojiSection.entries.toList()) { item ->
-                    Surface(
-                        color = if (item == section) QuataOrange.copy(alpha = 0.34f) else Color.Transparent,
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.clickable { section = item }
-                    ) {
-                        Text(
-                            stringResource(item.labelRes),
-                            color = Color.White.copy(alpha = if (item == section) 1f else 0.76f),
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(section.emojis) { emoji ->
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
-                            .clickable { onEmoji(emoji) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(emoji, fontSize = 26.sp)
-                    }
-                }
-            }
-        }
     }
 }
 

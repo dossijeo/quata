@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forward
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Security
@@ -103,9 +104,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -127,9 +130,14 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.openAttachmentWithChooser
+import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
+import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
@@ -165,6 +173,13 @@ fun ChatScreen(
     var lastShownError by remember { mutableStateOf<String?>(null) }
     var previousIncomingCount by remember(conversationId) { mutableStateOf(0) }
     var attachmentMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var isEmojiPickerVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
+    val emojiDismissState = rememberCommunityEmojiPanelDismissState {
+        isEmojiPickerVisible = false
+    }
+    var messageFieldValue by rememberSaveable(conversationId, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(state.messageText))
+    }
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraMimeType by rememberSaveable { mutableStateOf<String?>(null) }
@@ -181,6 +196,16 @@ fun ChatScreen(
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
     val backgroundSeed = state.conversation?.chatDisplayTitle()?.ifBlank { conversationId }
+
+    LaunchedEffect(state.messageText) {
+        if (state.messageText != messageFieldValue.text) {
+            messageFieldValue = TextFieldValue(
+                text = state.messageText,
+                selection = TextRange(state.messageText.length)
+            )
+        }
+    }
+
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
     }
@@ -275,6 +300,10 @@ fun ChatScreen(
             Column(
                 Modifier
                     .fillMaxSize()
+                    .dismissCommunityEmojiPanelOnOutsideTap(
+                        isVisible = !isFavoritesConversation && isEmojiPickerVisible,
+                        state = emojiDismissState
+                    )
                     .imePadding()
             ) {
                 if (state.isForwardDialogOpen) {
@@ -408,6 +437,20 @@ fun ChatScreen(
                             onClear = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }
                         )
                     }
+                    if (!isFavoritesConversation && isEmojiPickerVisible) {
+                        CommunityEmojiPanel(
+                            onEmojiClick = { emoji ->
+                                val updated = messageFieldValue.insertAtSelection(emoji)
+                                messageFieldValue = updated
+                                viewModel.onEvent(ChatUiEvent.MessageChanged(updated.text))
+                                isEmojiPickerVisible = false
+                            },
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .trackCommunityEmojiPanelBounds(emojiDismissState)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
                     if (!isFavoritesConversation) Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -454,18 +497,34 @@ fun ChatScreen(
                         }
                     }
                     OutlinedTextField(
-                        value = state.messageText,
-                        onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
+                        value = messageFieldValue,
+                        onValueChange = {
+                            messageFieldValue = it
+                            viewModel.onEvent(ChatUiEvent.MessageChanged(it.text))
+                        },
                         label = { Text(stringResource(R.string.conversation_message)) },
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 58.dp),
                         singleLine = true,
+                        leadingIcon = {
+                            CompactIconButton(
+                                onClick = { isEmojiPickerVisible = !isEmojiPickerVisible },
+                                modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                            ) {
+                                CompactIcon(
+                                    imageVector = Icons.Filled.InsertEmoticon,
+                                    contentDescription = stringResource(R.string.comments_show_emojis),
+                                    tint = Color(0xFFFFC55C)
+                                )
+                            }
+                        },
                         trailingIcon = {
                             CompactIconButton(
-                                enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
+                                enabled = messageFieldValue.text.isNotBlank() || state.attachmentUri != null,
                                 onClick = {
                                     context.playChatSound(R.raw.sent)
+                                    isEmojiPickerVisible = false
                                     viewModel.onEvent(ChatUiEvent.Send)
                                 }
                             ) {
@@ -1580,6 +1639,19 @@ private fun String.toLinkAnnotatedString(linkColor: Color): AnnotatedString =
             append(this@toLinkAnnotatedString.substring(currentIndex))
         }
     }
+
+private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
+    val start = selection.start.coerceIn(0, text.length)
+    val end = selection.end.coerceIn(0, text.length)
+    val replaceStart = minOf(start, end)
+    val replaceEnd = maxOf(start, end)
+    val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
+    val cursor = replaceStart + value.length
+    return TextFieldValue(
+        text = updatedText,
+        selection = TextRange(cursor)
+    )
+}
 
 private fun Message.attachmentPreview(): AttachmentPreview? {
     val uri = attachmentUri?.takeIf { it.isNotBlank() } ?: return null

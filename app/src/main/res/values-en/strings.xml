@@ -259,8 +259,11 @@
     <string name="emoji_recent">Recent</string>
     <string name="emoji_frequent">Frequent</string>
     <string name="emoji_gestures">Gestures</string>
+    <string name="emoji_people">People</string>
     <string name="emoji_objects_symbols">Objects and symbols</string>
     <string name="emoji_animals_nature">Animals and nature</string>
+    <string name="emoji_food_drink">Food and drink</string>
+    <string name="emoji_flags">Flags</string>
     <string name="neighborhoods_title">DISTRICTS</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>

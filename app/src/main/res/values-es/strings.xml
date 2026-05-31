@@ -280,8 +280,11 @@
     <string name="emoji_recent">Recientes</string>
     <string name="emoji_frequent">Frecuentes</string>
     <string name="emoji_gestures">Gestos</string>
+    <string name="emoji_people">Personas</string>
     <string name="emoji_objects_symbols">Objetos y símbolos</string>
     <string name="emoji_animals_nature">Animales y naturaleza</string>
+    <string name="emoji_food_drink">Comida y bebida</string>
+    <string name="emoji_flags">Banderas</string>
     <string name="neighborhoods_title">BARRIOS</string>
     <string name="neighborhoods_open_community">Abre una comunidad</string>
     <string name="neighborhoods_subtitle">Selecciona o busca un barrio para abrir su chat comunitario.</string>

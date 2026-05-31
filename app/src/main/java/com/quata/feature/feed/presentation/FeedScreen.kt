@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.VerticalPager
@@ -52,8 +51,13 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
+import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -988,6 +992,9 @@ private fun CommentsSheet(
     }
     var replyTarget by remember { mutableStateOf<PostComment?>(null) }
     var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
+    val emojiDismissState = rememberCommunityEmojiPanelDismissState {
+        isEmojiPickerVisible = false
+    }
     var shouldScrollToCommentsEnd by remember { mutableStateOf(true) }
     val commentsListState = rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(
@@ -1019,6 +1026,10 @@ private fun CommentsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.92f)
+                .dismissCommunityEmojiPanelOnOutsideTap(
+                    isVisible = isEmojiPickerVisible,
+                    state = emojiDismissState
+                )
                 .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1061,10 +1072,13 @@ private fun CommentsSheet(
             }
             Spacer(Modifier.height(18.dp))
             if (isEmojiPickerVisible) {
-                EmojiPicker { emoji ->
-                    draft = draft.insertAtSelection(emoji)
-                    isEmojiPickerVisible = false
-                }
+                CommunityEmojiPanel(
+                    onEmojiClick = { emoji ->
+                        draft = draft.insertAtSelection(emoji)
+                        isEmojiPickerVisible = false
+                    },
+                    modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
+                )
                 Spacer(Modifier.height(18.dp))
             }
             replyTarget?.let { target ->
@@ -1080,7 +1094,10 @@ private fun CommentsSheet(
                     onValueChange = { draft = it },
                     placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                     leadingIcon = {
-                        CompactIconButton(onClick = { isEmojiPickerVisible = !isEmojiPickerVisible }) {
+                        CompactIconButton(
+                            onClick = { isEmojiPickerVisible = !isEmojiPickerVisible },
+                            modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                        ) {
                             CompactIcon(
                                 imageVector = Icons.Filled.InsertEmoticon,
                                 contentDescription = stringResource(R.string.comments_show_emojis),
@@ -1264,30 +1281,6 @@ private fun CommentRow(
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmojiPicker(onEmojiClick: (String) -> Unit) {
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(listOf("😀", "😍", "😂", "🥰", "👏", "🙌", "🔥", "❤️", "👍", "🙏")) { emoji ->
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White.copy(alpha = 0.06f))
-                    .clickable { onEmojiClick(emoji) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = emoji, fontSize = 24.sp)
             }
         }
     }
