@@ -5,6 +5,8 @@ import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
+import com.quata.core.media.ImageUploadOptions
+import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityProfile
 import com.quata.feature.profile.domain.EmergencyContactCandidate
@@ -17,7 +19,8 @@ import com.quata.feature.profile.domain.UserProfile
 class ProfileRepositoryImpl(
     private val remote: ProfileRemoteDataSource,
     private val sessionManager: SessionManager,
-    private val context: Context
+    private val context: Context,
+    private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : ProfileRepository {
     private val emergencyMessageStore = EmergencyMessageStore(context)
 
@@ -58,7 +61,9 @@ class ProfileRepositoryImpl(
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = runCatching {
         if (!AppConfig.USE_MOCK_BACKEND) {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-            remote.saveProfile(session.userId, update.toRemotePatch())
+            val avatarUrl = uploadAvatarIfNeeded(session.userId, update.avatarUri)
+            val remoteUpdate = update.copy(avatarUri = avatarUrl)
+            remote.saveProfile(session.userId, remoteUpdate.toRemotePatch())
             remote.saveEmergencyContacts(session.userId, update.emergencyContactIds)
             emergencyMessageStore.save(
                 profileId = session.userId,
@@ -168,6 +173,22 @@ class ProfileRepositoryImpl(
             put("secret_question", secretQuestion)
             if (secretAnswer.isNotBlank()) put("secret_answer", secretAnswer)
         }
+
+    private suspend fun uploadAvatarIfNeeded(profileId: String, avatarUri: String?): String? {
+        if (!mediaUploadOptimizer.isLocalUploadUri(avatarUri)) return avatarUri
+        val media = mediaUploadOptimizer.prepareImageUpload(
+            uriString = avatarUri ?: return null,
+            fallbackMimeType = "image/jpeg",
+            fallbackFileNameBase = "avatar",
+            options = ImageUploadOptions.Avatar
+        )
+        return remote.uploadAvatar(
+            profileId = profileId,
+            bytes = media.bytes,
+            extension = media.extension,
+            mimeType = media.mimeType
+        ).publicUrl ?: error("Supabase no devolvio URL de avatar")
+    }
 
     private fun buildProfileConfig(
         emergencyCandidates: List<EmergencyContactCandidate>

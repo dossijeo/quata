@@ -7,20 +7,20 @@ import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
+import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.wordpress.QuataWordPressClient
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class PostComposerRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
     private val wordpressClient: QuataWordPressClient,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : PostComposerRepository {
     override suspend fun createPost(draft: PostComposerDraft): Result<String?> = runCatching {
         validateDraft(draft)
@@ -44,7 +44,11 @@ class PostComposerRepositoryImpl(
 
         val wallId = resolveWallId(session.userId)
         val imageUrl = if (draft.type == PostComposerType.Image) {
-            val media = appContext.readMedia(draft.imageUri ?: error("Selecciona una imagen"), fallbackMimeType = "image/jpeg")
+            val media = mediaUploadOptimizer.prepareImageUpload(
+                uriString = draft.imageUri ?: error("Selecciona una imagen"),
+                fallbackMimeType = "image/jpeg",
+                fallbackFileNameBase = "imagen"
+            )
             supabaseApi.uploadPostImage(
                 profileId = session.userId,
                 bytes = media.bytes,
@@ -55,7 +59,11 @@ class PostComposerRepositoryImpl(
             null
         }
         val videoUrl = if (draft.type == PostComposerType.Video) {
-            val media = appContext.readMedia(draft.videoUri ?: error("Selecciona o graba un video"), fallbackMimeType = "video/mp4")
+            val media = mediaUploadOptimizer.prepareVideoUpload(
+                uriString = draft.videoUri ?: error("Selecciona o graba un video"),
+                fallbackMimeType = "video/mp4",
+                fallbackFileNameBase = "video"
+            )
             val upload = wordpressClient.uploadPostVideoRest(
                 fileName = media.fileName,
                 bytes = media.bytes,
@@ -98,22 +106,6 @@ class PostComposerRepositoryImpl(
         PostComposerType.Video -> text.ifBlank { "Video" }
     }
 
-    private suspend fun Context.readMedia(uriString: String, fallbackMimeType: String): MediaPayload = withContext(Dispatchers.IO) {
-        val uri = Uri.parse(uriString)
-        val mimeType = contentResolver.getType(uri) ?: fallbackMimeType
-        val fileName = displayName(uri).ifBlank {
-            "quata-${System.currentTimeMillis()}.${mimeType.substringAfter('/', "bin")}"
-        }
-        val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: error("No se pudo leer el archivo seleccionado")
-        MediaPayload(
-            fileName = fileName,
-            mimeType = mimeType,
-            extension = fileName.substringAfterLast('.', mimeType.substringAfter('/', "bin")).lowercase(),
-            bytes = bytes
-        )
-    }
-
     private fun Context.displayName(uri: Uri): String {
         val fromProvider = runCatching {
             contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
@@ -125,11 +117,4 @@ class PostComposerRepositoryImpl(
             ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
             ?: ""
     }
-
-    private data class MediaPayload(
-        val fileName: String,
-        val mimeType: String,
-        val extension: String,
-        val bytes: ByteArray
-    )
 }

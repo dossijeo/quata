@@ -6,6 +6,7 @@ import com.quata.core.camera.CameraCaptureManager
 import com.quata.core.camera.ImageCompressor
 import com.quata.core.camera.ImagePickerManager
 import com.quata.core.common.AppDispatchers
+import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.network.NetworkModule
 import com.quata.core.notifications.NotificationChannels
 import com.quata.core.notifications.PushTokenManager
@@ -47,6 +48,7 @@ class AppContainer(context: Context) {
     val imagePickerManager = ImagePickerManager()
     val cameraCaptureManager = CameraCaptureManager()
     val imageCompressor = ImageCompressor()
+    val mediaUploadOptimizer = MediaUploadOptimizer(appContext)
     val notificationChannels = NotificationChannels(appContext).also { it.ensureChannels() }
     val pushTokenManager = PushTokenManager(networkModule.supabaseApi)
 
@@ -70,7 +72,8 @@ class AppContainer(context: Context) {
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         wordpressClient = networkModule.quataWordPressClient,
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        mediaUploadOptimizer = mediaUploadOptimizer
     )
 
     val chatRepository: ChatRepository = ChatRepositoryImpl(
@@ -78,7 +81,8 @@ class AppContainer(context: Context) {
         remote = ChatRemoteDataSource(networkModule.supabaseCommunityApi),
         betterMessagesRepository = networkModule.betterMessagesRepository,
         wordpressClient = networkModule.quataWordPressClient,
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        mediaUploadOptimizer = mediaUploadOptimizer
     )
 
     val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(
@@ -91,7 +95,8 @@ class AppContainer(context: Context) {
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(
         remote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager,
-        context = appContext
+        context = appContext,
+        mediaUploadOptimizer = mediaUploadOptimizer
     )
 
     val neighborhoodRepository: NeighborhoodRepository = NeighborhoodRepositoryImpl(

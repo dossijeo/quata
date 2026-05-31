@@ -1,9 +1,7 @@
 package com.quata.feature.chat.data
 
 import android.content.Context
-import android.net.Uri
 import android.os.Build
-import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import com.quata.BuildConfig
@@ -20,6 +18,7 @@ import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.common.serverMessageOrNull
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
+import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.model.AuthSession
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
@@ -64,7 +63,8 @@ class ChatRepositoryImpl(
     private val remote: ChatRemoteDataSource,
     private val betterMessagesRepository: BetterMessagesRepository,
     private val wordpressClient: QuataWordPressClient,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : ChatRepository {
     private val mockReplyScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val realConversationsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -267,7 +267,7 @@ class ChatRepositoryImpl(
 
         val wallId = conversationId.wallIdOrNull() ?: error("Conversacion no reconocida")
         if (!attachmentUri.isNullOrBlank() && attachmentMimeType?.startsWith("image/") == true) {
-            val media = appContext.readUriBytes(attachmentUri, attachmentName, attachmentMimeType)
+            val media = mediaUploadOptimizer.prepareAttachmentUpload(attachmentUri, attachmentName, attachmentMimeType)
             val upload = remote.uploadCommunityChatImage(session.userId, media.bytes, media.extension, media.mimeType)
             val imageUrl = upload.publicUrl ?: error("Supabase no devolvio URL de imagen")
             remote.sendCommunityImageMessage(wallId, session.userId, imageUrl, media.fileName, media.mimeType, text)
@@ -2112,41 +2112,13 @@ class ChatRepositoryImpl(
 
     private suspend fun Context.copyUriToCache(uriString: String, attachmentName: String?, attachmentMimeType: String?): CachedMedia =
         withContext(Dispatchers.IO) {
-            val media = readUriBytes(uriString, attachmentName, attachmentMimeType)
+            val media = mediaUploadOptimizer.prepareAttachmentUpload(uriString, attachmentName, attachmentMimeType)
             val uploadDir = File(cacheDir, "quata-bm-upload-${System.currentTimeMillis()}-${Random.nextInt(1_000, 9_999)}")
             uploadDir.mkdirs()
             val file = File(uploadDir, media.fileName.sanitizeUploadFileName())
             file.writeBytes(media.bytes)
             CachedMedia(file = file, mimeType = media.mimeType)
         }
-
-    private suspend fun Context.readUriBytes(uriString: String, attachmentName: String?, attachmentMimeType: String?): MediaPayload =
-        withContext(Dispatchers.IO) {
-            val uri = Uri.parse(uriString)
-            val mimeType = attachmentMimeType ?: contentResolver.getType(uri) ?: "application/octet-stream"
-            val fileName = attachmentName?.takeIf { it.isNotBlank() }
-                ?: displayName(uri).ifBlank { "quata-${System.currentTimeMillis()}.${mimeType.substringAfter('/', "bin")}" }
-            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: error("No se pudo leer el archivo seleccionado")
-            MediaPayload(
-                fileName = fileName,
-                mimeType = mimeType,
-                extension = fileName.substringAfterLast('.', mimeType.substringAfter('/', "bin")).lowercase(),
-                bytes = bytes
-            )
-        }
-
-    private fun Context.displayName(uri: Uri): String {
-        val fromProvider = runCatching {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
-            }
-        }.getOrNull()
-        return fromProvider?.takeIf { it.isNotBlank() }
-            ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-            ?: ""
-    }
 
     private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
 
@@ -2269,13 +2241,6 @@ class ChatRepositoryImpl(
             }
         }
     }
-
-    private data class MediaPayload(
-        val fileName: String,
-        val mimeType: String,
-        val extension: String,
-        val bytes: ByteArray
-    )
 
     private data class BetterMessagesThreadPollState(
         val threadId: Int,
