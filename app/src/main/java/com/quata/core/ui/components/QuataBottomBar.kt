@@ -56,7 +56,7 @@ fun QuataBottomBar(
 ) {
     NavigationBar(
         containerColor = QuataBackground,
-        modifier = Modifier.height(58.dp)
+        modifier = Modifier.height(68.dp)
     ) {
         bottomDestinations.forEach { item ->
             val selected = currentRoute == item.route

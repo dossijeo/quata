@@ -495,7 +495,7 @@ private fun QuataAppTopSpacer() {
         contentColor = Color.White,
         modifier = Modifier
             .fillMaxWidth()
-            .height(76.dp)
+            .height(68.dp)
     ) {}
 }
 
