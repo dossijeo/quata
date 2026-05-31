@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -134,15 +137,24 @@ fun PrefixDropdownField(
                     .padding(8.dp),
                 shape = RoundedCornerShape(14.dp)
             )
-            filteredOptions.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.label) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                        query = ""
-                    }
-                )
+            LazyColumn(
+                modifier = Modifier
+                    .width(320.dp)
+                    .height(304.dp)
+            ) {
+                items(
+                    items = filteredOptions,
+                    key = { option -> "${option.code}:${option.label}" }
+                ) { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                            query = ""
+                        }
+                    )
+                }
             }
         }
     }
