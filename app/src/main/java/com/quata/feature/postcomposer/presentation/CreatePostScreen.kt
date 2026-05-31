@@ -119,6 +119,8 @@ fun CreatePostScreen(
     padding: PaddingValues,
     repository: PostComposerRepository,
     resetToken: Int,
+    canPublish: Boolean,
+    onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
@@ -132,6 +134,14 @@ fun CreatePostScreen(
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
+
+    fun submitIfAuthenticated(type: PostComposerType) {
+        if (canPublish) {
+            viewModel.submit(type)
+        } else {
+            onAuthRequired()
+        }
+    }
 
     fun resolveLocation(location: Location) {
         scope.launch {
@@ -263,7 +273,7 @@ fun CreatePostScreen(
                         textValue = updated
                         viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
                     },
-                    onSubmit = { viewModel.submit(PostComposerType.Text) }
+                    onSubmit = { submitIfAuthenticated(PostComposerType.Text) }
                 )
                 ComposerStep.Image -> ImagePostForm(
                     state = state,
@@ -276,7 +286,7 @@ fun CreatePostScreen(
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
-                    onSubmit = { viewModel.submit(PostComposerType.Image) }
+                    onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
                 )
                 ComposerStep.Video -> VideoPostForm(
                     state = state,
@@ -290,7 +300,7 @@ fun CreatePostScreen(
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
-                    onSubmit = { viewModel.submit(PostComposerType.Video) }
+                    onSubmit = { submitIfAuthenticated(PostComposerType.Video) }
                 )
             }
 

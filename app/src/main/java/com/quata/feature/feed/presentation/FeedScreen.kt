@@ -135,6 +135,7 @@ fun FeedScreen(
     openingProfileUserId: String? = null,
     focusedPostId: String? = null,
     onFocusedPostHandled: () -> Unit = {},
+    onAuthRequired: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -144,6 +145,7 @@ fun FeedScreen(
     var isLiveOpen by remember { mutableStateOf(false) }
     var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
+    val canParticipate = currentUserId != null
 
     LaunchedEffect(state.posts, pendingDeletedPostId) {
         val deletedPostId = pendingDeletedPostId ?: return@LaunchedEffect
@@ -206,7 +208,13 @@ fun FeedScreen(
                         onOpenComments = { commentsPost = post },
                         onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                         onOpenLive = { isLiveOpen = true },
-                        onLike = { viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) },
+                        onLike = {
+                            if (canParticipate) {
+                                viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
+                            } else {
+                                onAuthRequired()
+                            }
+                        },
                         onDelete = { postPendingDeletion = post },
                         onShare = {
                             val shareText = postShareText(post)
@@ -218,8 +226,12 @@ fun FeedScreen(
                         },
                         onReport = {
                             if (!post.isReportedByCurrentUser) {
-                                viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
-                                Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                                if (canParticipate) {
+                                    viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
+                                    Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    onAuthRequired()
+                                }
                             }
                         }
                     )
@@ -230,6 +242,8 @@ fun FeedScreen(
                 val currentPost = state.posts.firstOrNull { it.id == post.id } ?: post
                 CommentsSheet(
                     post = currentPost,
+                    canParticipate = canParticipate,
+                    onAuthRequired = onAuthRequired,
                     onAddComment = { comment ->
                         viewModel.onEvent(FeedUiEvent.AddComment(currentPost.id, comment))
                     },
@@ -1008,6 +1022,8 @@ private fun ReelActions(
 @Composable
 private fun CommentsSheet(
     post: Post,
+    canParticipate: Boolean,
+    onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1134,21 +1150,25 @@ private fun CommentsSheet(
                         CompactIconButton(
                             enabled = draft.text.isNotBlank(),
                             onClick = {
-                                onAddComment(
-                                    PostComment(
-                                        id = "local_${post.id}_${System.currentTimeMillis()}",
-                                        authorName = context.getString(R.string.comments_you),
-                                        message = draft.text.trim(),
-                                        timestamp = nowCommentTimestamp(),
-                                        replyToAuthorName = replyTarget?.authorName,
-                                        replyToMessage = replyTarget?.message,
-                                        replyToCommentId = replyTarget?.id
+                                if (canParticipate) {
+                                    onAddComment(
+                                        PostComment(
+                                            id = "local_${post.id}_${System.currentTimeMillis()}",
+                                            authorName = context.getString(R.string.comments_you),
+                                            message = draft.text.trim(),
+                                            timestamp = nowCommentTimestamp(),
+                                            replyToAuthorName = replyTarget?.authorName,
+                                            replyToMessage = replyTarget?.message,
+                                            replyToCommentId = replyTarget?.id
+                                        )
                                     )
-                                )
-                                shouldScrollToCommentsEnd = true
-                                draft = TextFieldValue("")
-                                replyTarget = null
-                                isEmojiPickerVisible = false
+                                    shouldScrollToCommentsEnd = true
+                                    draft = TextFieldValue("")
+                                    replyTarget = null
+                                    isEmojiPickerVisible = false
+                                } else {
+                                    onAuthRequired()
+                                }
                             }
                         ) {
                             CompactIcon(

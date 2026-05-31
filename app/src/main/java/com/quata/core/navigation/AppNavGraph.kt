@@ -20,7 +20,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import com.quata.core.ui.components.CompactIcon
@@ -38,6 +41,7 @@ import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -111,10 +115,11 @@ fun AppNavGraph(
     val currentConversationId = currentBackStackEntry?.arguments?.getString("conversationId")
     val authState by container.sessionManager.authState.collectAsState()
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
+    val isAuthenticated = currentUserId != null
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
-    val startDestination = if (container.sessionManager.isLoggedIn()) AppDestinations.Feed.route else AppDestinations.Login.route
+    val startDestination = AppDestinations.Feed.route
     val showAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route &&
@@ -153,6 +158,31 @@ fun AppNavGraph(
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
+    fun requestAuthentication() {
+        isAuthRequiredPromptOpen = true
+    }
+
+    fun navigateToFeed() {
+        val poppedToFeed = navController.popBackStack(AppDestinations.Feed.route, inclusive = false)
+        if (!poppedToFeed) {
+            navController.navigate(AppDestinations.Feed.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
+    fun navigateToChat(conversationId: String) {
+        if (!isAuthenticated) {
+            requestAuthentication()
+            navigateToFeed()
+            return
+        }
+        chatFocusedMessageId = null
+        navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
+            launchSingleTop = true
+        }
+    }
     val globalProfileViewModel: NeighborhoodsViewModel = viewModel(
         key = "global_user_profile",
         factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
@@ -190,11 +220,7 @@ fun AppNavGraph(
             globalProfileViewModel.closeUserProfile()
             feedFocusedPostId = null
             chatFocusedMessageId = null
-            if (container.sessionManager.isLoggedIn()) {
-                navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
-                    launchSingleTop = true
-                }
-            }
+            navigateToChat(conversationId)
             onIncomingLinkHandled()
             return@LaunchedEffect
         }
@@ -203,11 +229,9 @@ fun AppNavGraph(
         feedFocusedPostId = postId
         globalProfileViewModel.closeUserProfile()
         chatFocusedMessageId = null
-        if (container.sessionManager.isLoggedIn()) {
-            navController.navigate(AppDestinations.Feed.route) {
-                popUpTo(AppDestinations.Feed.route) { inclusive = false }
-                launchSingleTop = true
-            }
+        navController.navigate(AppDestinations.Feed.route) {
+            popUpTo(AppDestinations.Feed.route) { inclusive = false }
+            launchSingleTop = true
         }
         onIncomingLinkHandled()
     }
@@ -226,15 +250,14 @@ fun AppNavGraph(
             bottomBar = {
                 if (currentRoute in bottomRoutes) {
                     QuataBottomBar(currentRoute = currentRoute) { route ->
-                        if (route == AppDestinations.CreatePost.route && currentRoute == AppDestinations.CreatePost.route) {
+                        val requiresAuthentication = route == AppDestinations.Conversations.route ||
+                            route == AppDestinations.Profile.route
+                        if (requiresAuthentication && !isAuthenticated) {
+                            requestAuthentication()
+                        } else if (route == AppDestinations.CreatePost.route && currentRoute == AppDestinations.CreatePost.route) {
                             createPostResetToken += 1
                         } else if (route == AppDestinations.Feed.route) {
-                            val poppedToFeed = navController.popBackStack(AppDestinations.Feed.route, inclusive = false)
-                            if (!poppedToFeed) {
-                                navController.navigate(AppDestinations.Feed.route) {
-                                    launchSingleTop = true
-                                }
-                            }
+                            navigateToFeed()
                         } else {
                             navController.navigate(route) {
                                 popUpTo(AppDestinations.Feed.route) { saveState = true }
@@ -255,7 +278,9 @@ fun AppNavGraph(
                         onForgotPassword = { navController.navigate(AppDestinations.ForgotPassword.route) },
                         onLoginSuccess = {
                             navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Login.route) { inclusive = true }
+                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                launchSingleTop = true
+                                restoreState = true
                             }
                         }
                     )
@@ -268,7 +293,9 @@ fun AppNavGraph(
                         onBack = { navController.popBackStack() },
                         onRegisterSuccess = {
                             navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Login.route) { inclusive = true }
+                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                launchSingleTop = true
+                                restoreState = true
                             }
                         }
                     )
@@ -292,7 +319,8 @@ fun AppNavGraph(
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         openingProfileUserId = globalProfileState.openingProfileUserId,
                         focusedPostId = feedFocusedPostId,
-                        onFocusedPostHandled = { feedFocusedPostId = null }
+                        onFocusedPostHandled = { feedFocusedPostId = null },
+                        onAuthRequired = { requestAuthentication() }
                     )
                 }
 
@@ -303,12 +331,12 @@ fun AppNavGraph(
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         openingProfileUserId = globalProfileState.openingProfileUserId,
                         onOpenConversation = { id ->
-                            chatFocusedMessageId = null
-                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                            navigateToChat(id)
                         },
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
-                        }
+                        },
+                        onAuthRequired = { requestAuthentication() }
                     )
                 }
 
@@ -317,6 +345,8 @@ fun AppNavGraph(
                         padding = padding,
                         repository = container.postComposerRepository,
                         resetToken = createPostResetToken,
+                        canPublish = isAuthenticated,
+                        onAuthRequired = { requestAuthentication() },
                         onPostCreated = { postId ->
                             feedFocusedPostId = postId
                             navController.navigate(AppDestinations.Feed.route) {
@@ -328,22 +358,27 @@ fun AppNavGraph(
                 }
 
                 composable(AppDestinations.Conversations.route) {
-                    ConversationsScreen(
-                        padding = padding,
-                        repository = container.chatRepository,
-                        openingProfileUserId = globalProfileState.openingProfileUserId,
-                        onOpenUserProfile = { userId ->
-                            globalProfileViewModel.openUserProfile(userId)
-                        },
-                        onOpenFavorites = {
-                            chatFocusedMessageId = null
-                            navController.navigate(AppDestinations.Chat.createRoute(AppDestinations.FavoriteMessagesConversationId))
-                        },
-                        onOpenConversation = { id ->
-                            chatFocusedMessageId = null
-                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                    if (!isAuthenticated) {
+                        LaunchedEffect(Unit) {
+                            requestAuthentication()
+                            navigateToFeed()
                         }
-                    )
+                    } else {
+                        ConversationsScreen(
+                            padding = padding,
+                            repository = container.chatRepository,
+                            openingProfileUserId = globalProfileState.openingProfileUserId,
+                            onOpenUserProfile = { userId ->
+                                globalProfileViewModel.openUserProfile(userId)
+                            },
+                            onOpenFavorites = {
+                                navigateToChat(AppDestinations.FavoriteMessagesConversationId)
+                            },
+                            onOpenConversation = { id ->
+                                navigateToChat(id)
+                            }
+                        )
+                    }
                 }
 
                 composable(
@@ -351,26 +386,32 @@ fun AppNavGraph(
                     arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
                 ) { entry ->
                     val conversationId = entry.arguments?.getString("conversationId")?.let(Uri::decode) ?: ""
-                    ChatScreen(
-                        padding = padding,
-                        conversationId = conversationId,
-                        repository = container.chatRepository,
-                        openingProfileUserId = globalProfileState.openingProfileUserId,
-                        onOpenUserProfile = { userId ->
-                            globalProfileViewModel.openUserProfile(userId)
-                        },
-                        onOpenConversation = { id ->
-                            chatFocusedMessageId = null
-                            navController.navigate(AppDestinations.Chat.createRoute(id))
-                        },
-                        focusedMessageId = chatFocusedMessageId,
-                        onFocusedMessageHandled = { chatFocusedMessageId = null },
-                        onOpenMessageConversation = { targetConversationId, messageId ->
-                            chatFocusedMessageId = messageId
-                            navController.navigate(AppDestinations.Chat.createRoute(targetConversationId))
-                        },
-                        onBack = { navController.popBackStack() }
-                    )
+                    if (!isAuthenticated) {
+                        LaunchedEffect(conversationId) {
+                            requestAuthentication()
+                            navigateToFeed()
+                        }
+                    } else {
+                        ChatScreen(
+                            padding = padding,
+                            conversationId = conversationId,
+                            repository = container.chatRepository,
+                            openingProfileUserId = globalProfileState.openingProfileUserId,
+                            onOpenUserProfile = { userId ->
+                                globalProfileViewModel.openUserProfile(userId)
+                            },
+                            onOpenConversation = { id ->
+                                navigateToChat(id)
+                            },
+                            focusedMessageId = chatFocusedMessageId,
+                            onFocusedMessageHandled = { chatFocusedMessageId = null },
+                            onOpenMessageConversation = { targetConversationId, messageId ->
+                                chatFocusedMessageId = messageId
+                                navigateToChat(targetConversationId)
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
 
                 composable(AppDestinations.Notifications.route) {
@@ -379,34 +420,41 @@ fun AppNavGraph(
                         repository = container.notificationsRepository,
                         onBack = { navController.popBackStack() },
                         onOpenConversation = { id ->
-                            chatFocusedMessageId = null
-                            navController.navigate(AppDestinations.Chat.createRoute(id))
+                            navigateToChat(id)
                         }
                     )
                 }
 
                 composable(AppDestinations.Profile.route) {
-                    ProfileScreen(
-                        padding = padding,
-                        sessionManager = container.sessionManager,
-                        repository = container.profileRepository,
-                        touchFlowEnabled = touchFlowEnabled,
-                        onTouchFlowEnabledChange = { enabled ->
-                            container.touchFlowPreferences.setEnabled(currentUserId, enabled)
-                        },
-                        onLogout = {
-                            navController.navigate(AppDestinations.Login.route) {
-                                popUpTo(0)
-                            }
-                        },
-                        onProfileSaved = {
-                            navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                    if (!isAuthenticated) {
+                        LaunchedEffect(Unit) {
+                            requestAuthentication()
+                            navigateToFeed()
                         }
-                    )
+                    } else {
+                        ProfileScreen(
+                            padding = padding,
+                            sessionManager = container.sessionManager,
+                            repository = container.profileRepository,
+                            touchFlowEnabled = touchFlowEnabled,
+                            onTouchFlowEnabledChange = { enabled ->
+                                container.touchFlowPreferences.setEnabled(currentUserId, enabled)
+                            },
+                            onLogout = {
+                                navController.navigate(AppDestinations.Feed.route) {
+                                    popUpTo(0)
+                                    launchSingleTop = true
+                                }
+                            },
+                            onProfileSaved = {
+                                navController.navigate(AppDestinations.Feed.route) {
+                                    popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
                 }
 
             }
@@ -430,6 +478,8 @@ fun AppNavGraph(
             )
             GlobalSosButton(
                 container = container,
+                isAuthenticated = isAuthenticated,
+                onAuthRequired = { requestAuthentication() },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 14.dp, end = topChromePlacement.sosEndPadding)
@@ -444,16 +494,27 @@ fun AppNavGraph(
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
                 chatError = globalProfileState.error,
-                onReportPost = { postId -> globalProfileViewModel.reportProfilePost(postId) },
+                onAuthRequired = { requestAuthentication() },
+                onReportPost = { postId ->
+                    if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
+                },
                 onBack = { globalProfileViewModel.closeUserProfile() },
-                onFollow = { globalProfileViewModel.toggleFollowUser(profile.user.id) },
-                onFollowUser = { userId -> globalProfileViewModel.toggleFollowUser(userId) },
+                onFollow = {
+                    if (isAuthenticated) globalProfileViewModel.toggleFollowUser(profile.user.id) else requestAuthentication()
+                },
+                onFollowUser = { userId ->
+                    if (isAuthenticated) globalProfileViewModel.toggleFollowUser(userId) else requestAuthentication()
+                },
                 onOpenPrivateChat = { userId ->
-                    globalProfileViewModel.openPrivateChat(userId) { conversationId ->
-                        globalProfileViewModel.closeUserProfile()
-                        chatFocusedMessageId = null
-                        if (currentRoute != AppDestinations.Chat.route || currentConversationId != conversationId) {
-                            navController.navigate(AppDestinations.Chat.createRoute(conversationId))
+                    if (!isAuthenticated) {
+                        requestAuthentication()
+                    } else {
+                        globalProfileViewModel.openPrivateChat(userId) { conversationId ->
+                            globalProfileViewModel.closeUserProfile()
+                            chatFocusedMessageId = null
+                            if (currentRoute != AppDestinations.Chat.route || currentConversationId != conversationId) {
+                                navigateToChat(conversationId)
+                            }
                         }
                     }
                 },
@@ -461,7 +522,65 @@ fun AppNavGraph(
                 openingProfileUserId = globalProfileState.openingProfileUserId
             )
         }
+
+        if (isAuthRequiredPromptOpen) {
+            AuthRequiredDialog(
+                onDismiss = { isAuthRequiredPromptOpen = false },
+                onCreateAccount = {
+                    isAuthRequiredPromptOpen = false
+                    navController.navigate(AppDestinations.Register.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onLogin = {
+                    isAuthRequiredPromptOpen = false
+                    navController.navigate(AppDestinations.Login.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun AuthRequiredDialog(
+    onDismiss: () -> Unit,
+    onCreateAccount: () -> Unit,
+    onLogin: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.auth_required_title),
+                fontWeight = FontWeight.ExtraBold
+            )
+        },
+        text = {
+            Column {
+                Text(stringResource(R.string.auth_required_intro))
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.auth_required_send_messages))
+                Text(stringResource(R.string.auth_required_comment_posts))
+                Text(stringResource(R.string.auth_required_create_content))
+                Text(stringResource(R.string.auth_required_follow_communities))
+                Text(stringResource(R.string.auth_required_configure_sos))
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.auth_required_outro))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCreateAccount) {
+                Text(stringResource(R.string.auth_required_create_account))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onLogin) {
+                Text(stringResource(R.string.auth_required_login))
+            }
+        }
+    )
 }
 
 private fun chatPollingModeFor(
@@ -597,6 +716,25 @@ private fun Rect.intersects(other: Rect): Boolean =
 @Composable
 private fun GlobalSosButton(
     container: AppContainer,
+    isAuthenticated: Boolean,
+    onAuthRequired: () -> Unit,
+    modifier: Modifier = Modifier,
+ ) {
+    if (!isAuthenticated) {
+        GlobalSosButtonSurface(
+            modifier = modifier,
+            isSendingSos = false,
+            onClick = onAuthRequired
+        )
+        return
+    }
+
+    AuthenticatedGlobalSosButton(container = container, modifier = modifier)
+}
+
+@Composable
+private fun AuthenticatedGlobalSosButton(
+    container: AppContainer,
     modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel = viewModel(
         key = "global_sos_profile",
@@ -687,29 +825,16 @@ private fun GlobalSosButton(
         }
     }
 
-    Surface(
-        color = Color(0xFFE0303B),
-        contentColor = Color.White,
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier
-            .size(width = 70.dp, height = 34.dp)
-            .graphicsLayer {
-                val scale = if (isSendingSos) sosPulseScale else 1f
-                scaleX = scale
-                scaleY = scale
-            }
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.clickableNoRipple {
-                if (isSendingSos) return@clickableNoRipple
-                val profile = state.profile ?: return@clickableNoRipple
-                startSos(profile)
-            }
-        ) {
-            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+    GlobalSosButtonSurface(
+        modifier = modifier,
+        isSendingSos = isSendingSos,
+        pulseScale = sosPulseScale,
+        onClick = {
+            if (isSendingSos) return@GlobalSosButtonSurface
+            val profile = state.profile ?: return@GlobalSosButtonSurface
+            startSos(profile)
         }
-    }
+    )
 
     val profile = state.profile
     if (isConfigOpen && profile != null) {
@@ -730,6 +855,34 @@ private fun GlobalSosButton(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun GlobalSosButtonSurface(
+    modifier: Modifier,
+    isSendingSos: Boolean,
+    pulseScale: Float = 1f,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = Color(0xFFE0303B),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .size(width = 70.dp, height = 34.dp)
+            .graphicsLayer {
+                val scale = if (isSendingSos) pulseScale else 1f
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.clickableNoRipple(onClick)
+        ) {
+            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+        }
     }
 }
 

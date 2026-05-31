@@ -85,6 +85,16 @@
     <string name="auth_password_updated">Password updated</string>
     <string name="auth_creating">Creating…</string>
     <string name="auth_mock_notice">Mock mode is active by default. Configure AppConfig to use the real backend.</string>
+    <string name="auth_required_title">Join Q&#220;ATA to participate</string>
+    <string name="auth_required_intro">You can explore posts freely, but to:</string>
+    <string name="auth_required_send_messages">&#10003; Send messages</string>
+    <string name="auth_required_comment_posts">&#10003; Comment on posts</string>
+    <string name="auth_required_create_content">&#10003; Create content</string>
+    <string name="auth_required_follow_communities">&#10003; Follow communities</string>
+    <string name="auth_required_configure_sos">&#10003; Configure SOS contacts</string>
+    <string name="auth_required_outro">you need an account.</string>
+    <string name="auth_required_create_account">Create account</string>
+    <string name="auth_required_login">I have an account</string>
     <string name="notifications_title">Alerts</string>
     <string name="notifications_subtitle">Push notifications and activity</string>
     <string name="conversations_title">Chats</string>

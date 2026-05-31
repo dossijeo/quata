@@ -123,11 +123,13 @@ fun NeighborhoodsScreen(
     openingProfileUserId: String? = null,
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    onAuthRequired: () -> Unit = {},
     viewModel: NeighborhoodsViewModel = viewModel(factory = NeighborhoodsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
     var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
     var neighborhoodQuery by rememberSaveable { mutableStateOf("") }
+    val canParticipate = currentUserId != null
     val communityForDialog = state.communities.firstOrNull { it.name == selectedCommunity }
     val visibleCommunities = remember(state.communities, neighborhoodQuery) {
         val query = neighborhoodQuery.trim()
@@ -153,12 +155,18 @@ fun NeighborhoodsScreen(
             openingPrivateChatUserId = state.openingPrivateChatUserId,
             openingProfileUserId = openingProfileUserId,
             onBack = { selectedCommunity = null },
-            onFollowUser = { viewModel.toggleFollowUser(it.id) },
+            onFollowUser = { user ->
+                if (canParticipate) viewModel.toggleFollowUser(user.id) else onAuthRequired()
+            },
             onOpenProfile = { onOpenUserProfile(it.id) },
             onOpenPrivateChat = { user ->
-                viewModel.openPrivateChat(user.id) { conversationId ->
-                    selectedCommunity = null
-                    onOpenConversation(conversationId)
+                if (canParticipate) {
+                    viewModel.openPrivateChat(user.id) { conversationId ->
+                        selectedCommunity = null
+                        onOpenConversation(conversationId)
+                    }
+                } else {
+                    onAuthRequired()
                 }
             }
         )
@@ -216,7 +224,11 @@ fun NeighborhoodsScreen(
                         isOpeningChat = state.openingChatNeighborhood == community.name,
                         onShowUsers = { selectedCommunity = community.name },
                         onOpenChat = {
-                            viewModel.openChat(community.name, onOpenConversation)
+                            if (canParticipate) {
+                                viewModel.openChat(community.name, onOpenConversation)
+                            } else {
+                                onAuthRequired()
+                            }
                         }
                     )
                 }
@@ -428,6 +440,7 @@ fun CommunityProfileScreen(
     isOpeningChat: Boolean = false,
     isRefreshingProfile: Boolean = false,
     chatError: String? = null,
+    onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
@@ -462,9 +475,13 @@ fun CommunityProfileScreen(
                 users = if (userListTitle == "followers") profile.followers else profile.following,
                 currentUserId = currentUserId,
                 onBack = { userListTitle = null },
-                onFollowUser = { user -> onFollowUser(user.id) },
+                onFollowUser = { user ->
+                    if (currentUserId == null) onAuthRequired() else onFollowUser(user.id)
+                },
                 onOpenProfile = { user -> onOpenUserProfile(user.id) },
-                onOpenPrivateChat = { user -> onOpenPrivateChat(user.id) },
+                onOpenPrivateChat = { user ->
+                    if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id)
+                },
                 isOpeningChat = isOpeningChat,
                 openingProfileUserId = openingProfileUserId
             )
@@ -498,7 +515,9 @@ fun CommunityProfileScreen(
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         Button(
-                            onClick = { onFollowUser(profile.user.id) },
+                            onClick = {
+                                if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id)
+                            },
                             enabled = !isOwnProfile,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
@@ -509,7 +528,9 @@ fun CommunityProfileScreen(
                             Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
                         }
                         OutlinedButton(
-                            onClick = { onOpenPrivateChat(profile.user.id) },
+                            onClick = {
+                                if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id)
+                            },
                             enabled = !isOwnProfile && !isOpeningChat,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange),
@@ -566,6 +587,8 @@ fun CommunityProfileScreen(
                             ProfilePostsPager(
                                 posts = profile.posts,
                                 pagerState = pagerState,
+                                canParticipate = currentUserId != null,
+                                onAuthRequired = onAuthRequired,
                                 onReportPost = onReportPost
                             )
                         }
@@ -782,6 +805,8 @@ private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier,
 private fun ProfilePostsPager(
     posts: List<Post>,
     pagerState: androidx.compose.foundation.pager.PagerState,
+    canParticipate: Boolean,
+    onAuthRequired: () -> Unit,
     onReportPost: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -793,12 +818,18 @@ private fun ProfilePostsPager(
             ProfilePostPreview(
                 post = post,
                 commentsCount = post.comments.size + localComments[post.id].orEmpty().size,
+                canParticipate = canParticipate,
                 onOpenComments = { commentsPost = post },
+                onAuthRequired = onAuthRequired,
                 onShare = { context.shareProfilePost(post) },
                 onReport = {
                     if (!post.isReportedByCurrentUser) {
-                        onReportPost(post.id)
-                        Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                        if (canParticipate) {
+                            onReportPost(post.id)
+                            Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                        } else {
+                            onAuthRequired()
+                        }
                     }
                 }
             )
@@ -809,6 +840,8 @@ private fun ProfilePostsPager(
         ProfileCommentsDialog(
             post = post,
             localComments = localComments[post.id].orEmpty(),
+            canParticipate = canParticipate,
+            onAuthRequired = onAuthRequired,
             onAddComment = { comment ->
                 localComments[post.id] = localComments[post.id].orEmpty() + comment
             },
@@ -821,7 +854,9 @@ private fun ProfilePostsPager(
 private fun ProfilePostPreview(
     post: Post,
     commentsCount: Int,
+    canParticipate: Boolean,
     onOpenComments: () -> Unit,
+    onAuthRequired: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
@@ -902,7 +937,13 @@ private fun ProfilePostPreview(
                 MiniFeedAction(
                     icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     count = likes.toString(),
-                    onClick = { liked = !liked }
+                    onClick = {
+                        if (canParticipate) {
+                            liked = !liked
+                        } else {
+                            onAuthRequired()
+                        }
+                    }
                 )
                 MiniFeedAction(Icons.Filled.ChatBubble, commentsCount.toString(), onClick = onOpenComments)
                 MiniFeedAction(Icons.Filled.Share, null, onClick = onShare)
@@ -975,6 +1016,8 @@ private fun ProfileVideoPlayer(videoUrl: String) {
 private fun ProfileCommentsDialog(
     post: Post,
     localComments: List<PostComment>,
+    canParticipate: Boolean,
+    onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1030,15 +1073,19 @@ private fun ProfileCommentsDialog(
                     Button(
                         enabled = draft.isNotBlank(),
                         onClick = {
-                            onAddComment(
-                                PostComment(
-                                    id = "profile_${post.id}_${System.currentTimeMillis()}",
-                                    authorName = currentUserName,
-                                    message = draft.trim(),
-                                    timestamp = nowLabel
+                            if (canParticipate) {
+                                onAddComment(
+                                    PostComment(
+                                        id = "profile_${post.id}_${System.currentTimeMillis()}",
+                                        authorName = currentUserName,
+                                        message = draft.trim(),
+                                        timestamp = nowLabel
+                                    )
                                 )
-                            )
-                            draft = ""
+                                draft = ""
+                            } else {
+                                onAuthRequired()
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
                     ) {
