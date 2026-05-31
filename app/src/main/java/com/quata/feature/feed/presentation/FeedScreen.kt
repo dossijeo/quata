@@ -179,8 +179,11 @@ fun FeedScreen(
             }
 
             val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
-            LaunchedEffect(visiblePostId) {
-                visiblePostId?.let { viewModel.onEvent(FeedUiEvent.PostDisplayed(it)) }
+            val nextPostId = state.posts.getOrNull(pagerState.currentPage + 1)?.id
+            LaunchedEffect(visiblePostId, nextPostId) {
+                visiblePostId?.let { postId ->
+                    viewModel.onEvent(FeedUiEvent.PostDisplayed(postId, nextPostId))
+                }
             }
 
             Box(

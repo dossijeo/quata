@@ -20,7 +20,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     fun onEvent(event: FeedUiEvent) {
         when (event) {
             FeedUiEvent.Refresh -> load()
-            is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId)
+            is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
             is FeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
@@ -37,7 +37,14 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
             .onFailure { _uiState.value = FeedUiState(isLoading = false, error = it.message ?: "Error cargando feed") }
     }
 
-    private fun loadDisplayedPostDetails(postId: String) {
+    private fun loadDisplayedPostDetails(postId: String, nextPostId: String?) {
+        loadPostDetails(postId, reportErrors = true)
+        nextPostId
+            ?.takeIf { it != postId }
+            ?.let { loadPostDetails(it, reportErrors = false) }
+    }
+
+    private fun loadPostDetails(postId: String, reportErrors: Boolean) {
         if (postId in loadedDetailPostIds || postId in loadingDetailPostIds) return
         if (_uiState.value.posts.none { it.id == postId }) return
         loadingDetailPostIds += postId
@@ -52,7 +59,9 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                 }
                 .onFailure { error ->
                     loadingDetailPostIds -= postId
-                    _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                    if (reportErrors) {
+                        _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                    }
                 }
         }
     }
