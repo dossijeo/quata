@@ -123,21 +123,8 @@ fun AppNavGraph(
     val notificationCount = observedNotificationCount ?: 0
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
-    var hasRequestedChatNotificationPermission by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
-    val chatNotificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    LaunchedEffect(showAppChrome) {
-        if (
-            showAppChrome &&
-            !hasRequestedChatNotificationPermission &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !appContext.hasNotificationPermission()
-        ) {
-            hasRequestedChatNotificationPermission = true
-            chatNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
     LaunchedEffect(observedNotificationCount) {
         val currentNotificationCount = observedNotificationCount ?: return@LaunchedEffect
         if (!hasObservedNotificationCount) {

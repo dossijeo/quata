@@ -1,21 +1,25 @@
 package com.quata
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.net.ConnectivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.verify.domain.DomainVerificationManager
 import android.content.pm.verify.domain.DomainVerificationUserState
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
@@ -30,12 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
@@ -74,7 +79,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     StartupSettingsPrompts(
-                        enabled = !showSplash && appContainer.sessionManager.isLoggedIn()
+                        enabled = !showSplash
                     )
                 }
             }
@@ -105,52 +110,110 @@ class MainActivity : ComponentActivity() {
 private fun StartupSettingsPrompts(enabled: Boolean) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var issue by rememberSaveable { mutableStateOf<BackgroundAccessIssue?>(null) }
-    var needsAppLinksApproval by rememberSaveable { mutableStateOf(false) }
-    var dismissedIssueName by rememberSaveable { mutableStateOf<String?>(null) }
-    var dismissedAppLinksPrompt by rememberSaveable { mutableStateOf(false) }
+    var activeStep by rememberSaveable { mutableStateOf<StartupPermissionStep?>(null) }
+    var activeBackgroundIssue by rememberSaveable { mutableStateOf<BackgroundAccessIssue?>(null) }
+    var notificationStepHandled by rememberSaveable { mutableStateOf(false) }
+    var backgroundStepHandled by rememberSaveable { mutableStateOf(false) }
+    var appLinksStepHandled by rememberSaveable { mutableStateOf(false) }
+    var waitingForExternalSettings by rememberSaveable { mutableStateOf(false) }
+    var refreshTick by rememberSaveable { mutableStateOf(0) }
 
-    fun refreshSettingsIssues() {
-        issue = if (enabled) context.backgroundAccessIssue() else null
-        needsAppLinksApproval = enabled && context.needsAppLinksUserApproval()
+    fun advanceStartupPermissionFlow() {
+        activeStep = null
+        refreshTick += 1
     }
 
-    LaunchedEffect(enabled) {
-        refreshSettingsIssues()
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationStepHandled = true
+        advanceStartupPermissionFlow()
+    }
+
+    fun resolveNextStartupPermissionStep() {
+        if (!enabled || waitingForExternalSettings || activeStep != null) return
+        if (!notificationStepHandled && context.needsNotificationPermission()) {
+            activeStep = StartupPermissionStep.Notifications
+            return
+        }
+        val backgroundIssue = context.backgroundAccessIssue()
+        if (!backgroundStepHandled && backgroundIssue != null) {
+            activeBackgroundIssue = backgroundIssue
+            activeStep = StartupPermissionStep.BackgroundAccess
+            return
+        }
+        if (!appLinksStepHandled && context.needsAppLinksUserApproval()) {
+            activeStep = StartupPermissionStep.AppLinks
+        }
     }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner, enabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshSettingsIssues()
+                if (waitingForExternalSettings) {
+                    waitingForExternalSettings = false
+                }
+                refreshTick += 1
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val currentIssue = issue?.takeUnless { it.name == dismissedIssueName }
+    LaunchedEffect(enabled, refreshTick, waitingForExternalSettings, activeStep) {
+        if (!enabled) {
+            activeStep = null
+            return@LaunchedEffect
+        }
+        resolveNextStartupPermissionStep()
+    }
+
+    LaunchedEffect(activeStep) {
+        if (activeStep == StartupPermissionStep.Notifications) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    val currentIssue = activeBackgroundIssue.takeIf { activeStep == StartupPermissionStep.BackgroundAccess }
     if (currentIssue != null) {
         BackgroundAccessPrompt(
             issue = currentIssue,
-            onDismiss = { dismissedIssueName = currentIssue.name },
+            onDismiss = {
+                backgroundStepHandled = true
+                advanceStartupPermissionFlow()
+            },
             onOpenSettings = {
-                dismissedIssueName = currentIssue.name
+                backgroundStepHandled = true
+                waitingForExternalSettings = true
+                advanceStartupPermissionFlow()
                 context.openBackgroundAccessSettings(currentIssue)
             }
         )
         return
     }
 
-    if (needsAppLinksApproval && !dismissedAppLinksPrompt) {
+    if (activeStep == StartupPermissionStep.AppLinks) {
         AppLinksPrompt(
-            onDismiss = { dismissedAppLinksPrompt = true },
+            onDismiss = {
+                context.markAppLinksPromptSeen()
+                appLinksStepHandled = true
+                advanceStartupPermissionFlow()
+            },
             onOpenSettings = {
-                dismissedAppLinksPrompt = true
+                context.markAppLinksPromptSeen()
+                appLinksStepHandled = true
+                waitingForExternalSettings = true
+                advanceStartupPermissionFlow()
                 context.openAppLinksSettings()
             }
         )
     }
+}
+
+private enum class StartupPermissionStep {
+    Notifications,
+    BackgroundAccess,
+    AppLinks
 }
 
 @Composable
@@ -230,6 +293,10 @@ private fun Context.backgroundAccessIssue(): BackgroundAccessIssue? {
     return null
 }
 
+private fun Context.needsNotificationPermission(): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+
 @SuppressLint("NewApi")
 private fun Context.needsAppLinksUserApproval(): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
@@ -241,13 +308,20 @@ private fun Context.needsAppLinksUserApproval(): Boolean {
     val quataHosts = listOf("egquata.com", "www.egquata.com")
     val declaredHosts = quataHosts.filter(hostStates::containsKey)
     if (declaredHosts.isEmpty()) return false
-    return declaredHosts.any { host ->
+    val hasSelectedHost = declaredHosts.any { host ->
+        hostStates[host] == DomainVerificationUserState.DOMAIN_STATE_SELECTED
+    }
+    val hasVerifiedHost = declaredHosts.any { host ->
+        hostStates[host] == DomainVerificationUserState.DOMAIN_STATE_VERIFIED
+    }
+    val hasUnapprovedHost = declaredHosts.any { host ->
         when (hostStates[host]) {
             DomainVerificationUserState.DOMAIN_STATE_VERIFIED,
             DomainVerificationUserState.DOMAIN_STATE_SELECTED -> false
             else -> true
         }
     }
+    return hasUnapprovedHost || (!hasSelectedHost && hasVerifiedHost && !hasSeenAppLinksPrompt())
 }
 
 @SuppressLint("BatteryLife")
@@ -299,5 +373,19 @@ private fun Context.openAppLinksSettings() {
         }
 }
 
+private fun Context.hasSeenAppLinksPrompt(): Boolean =
+    getSharedPreferences(STARTUP_PERMISSION_PREFS, Context.MODE_PRIVATE)
+        .getBoolean(KEY_APP_LINKS_PROMPT_SEEN, false)
+
+private fun Context.markAppLinksPromptSeen() {
+    getSharedPreferences(STARTUP_PERMISSION_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_APP_LINKS_PROMPT_SEEN, true)
+        .apply()
+}
+
 private fun Context.appPackageName(): String =
     applicationContext.packageName.takeIf { it.isNotBlank() } ?: BuildConfig.APPLICATION_ID
+
+private const val STARTUP_PERMISSION_PREFS = "quata_startup_permission_prompts"
+private const val KEY_APP_LINKS_PROMPT_SEEN = "app_links_prompt_seen"
