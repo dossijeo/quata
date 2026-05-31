@@ -37,6 +37,10 @@
     <string name="background_access_not_now">Not now</string>
     <string name="app_links_title">Open Q&#252;ata links in the app</string>
     <string name="app_links_body">To open egquata.com links directly in Q&#252;ata, enable supported links for this app in Android settings.</string>
+    <string name="about_title">About Q&#252;ata</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_version_date">Version date: %1$s</string>
+    <string name="about_body">Community feed, districts, chats, favorites, profiles and SOS contacts in one Android experience.</string>
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="error_network">Connection problem. Check your internet and try again.</string>
     <string name="error_network_timeout">The server took too long to respond. Please try again.</string>

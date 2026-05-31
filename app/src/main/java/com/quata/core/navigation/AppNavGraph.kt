@@ -102,6 +102,7 @@ import com.quata.feature.profile.presentation.ProfileViewModel
 import com.quata.feature.profile.presentation.ProfileScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.quata.BuildConfig
 
 @Composable
 fun AppNavGraph(
@@ -130,6 +131,7 @@ fun AppNavGraph(
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
+    var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(observedNotificationCount) {
         val currentNotificationCount = observedNotificationCount ?: return@LaunchedEffect
         if (!hasObservedNotificationCount) {
@@ -464,6 +466,7 @@ fun AppNavGraph(
             QuataAppHeaderActions(
                 notificationCount = notificationCount,
                 isBouncing = isNotificationBounceActive,
+                onLogoClick = { isAboutDialogOpen = true },
                 onNotificationsClick = {
                     navController.navigate(AppDestinations.Notifications.route) {
                         popUpTo(AppDestinations.Feed.route) { saveState = true }
@@ -539,7 +542,52 @@ fun AppNavGraph(
                 }
             )
         }
+
+        if (isAboutDialogOpen) {
+            AboutQuataDialog(
+                onDismiss = { isAboutDialogOpen = false }
+            )
+        }
     }
+}
+
+@Composable
+private fun AboutQuataDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.about_title),
+                fontWeight = FontWeight.ExtraBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(
+                        R.string.about_version,
+                        BuildConfig.VERSION_NAME
+                    )
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.about_version_date,
+                        BuildConfig.APP_VERSION_DATE
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.about_body))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_close))
+            }
+        }
+    )
 }
 
 @Composable
@@ -608,6 +656,7 @@ private fun QuataAppTopSpacer() {
 private fun QuataAppHeaderActions(
     notificationCount: Int,
     isBouncing: Boolean,
+    onLogoClick: () -> Unit,
     onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -632,6 +681,7 @@ private fun QuataAppHeaderActions(
                 .align(Alignment.TopStart)
                 .offset(x = (-18).dp, y = (-2).dp)
                 .width(124.dp)
+                .clickable(onClick = onLogoClick)
         )
         CompactIconButton(
             onClick = onNotificationsClick,

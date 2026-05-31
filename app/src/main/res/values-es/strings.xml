@@ -37,6 +37,10 @@
     <string name="background_access_not_now">Ahora no</string>
     <string name="app_links_title">Abrir enlaces de Q&#252;ata en la app</string>
     <string name="app_links_body">Para abrir los enlaces de egquata.com directamente en Q&#252;ata, activa los enlaces compatibles de esta app en los ajustes de Android.</string>
+    <string name="about_title">Acerca de Q&#252;ata</string>
+    <string name="about_version">Versi&#243;n %1$s</string>
+    <string name="about_version_date">Fecha de versi&#243;n: %1$s</string>
+    <string name="about_body">Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia Android integrada.</string>
     <string name="error_generic">Algo ha fallado. Inténtalo de nuevo.</string>
     <string name="error_network">Hay un problema de conexión. Revisa internet e inténtalo otra vez.</string>
     <string name="error_network_timeout">El servidor ha tardado demasiado en responder. Inténtalo otra vez.</string>
