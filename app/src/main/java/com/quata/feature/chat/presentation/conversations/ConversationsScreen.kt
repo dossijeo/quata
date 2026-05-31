@@ -29,8 +29,9 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -63,6 +64,7 @@ import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
@@ -106,8 +108,8 @@ fun ConversationsScreen(
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onOpenFavorites) {
-                        Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
+                    CompactIconButton(onClick = onOpenFavorites) {
+                        CompactIcon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
                     }
                 }
                 OutlinedTextField(
@@ -241,7 +243,10 @@ private fun UndoDeleteButton(
                 onClick = onUndo,
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                 shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.height(40.dp)
+                modifier = Modifier
+                    .height(32.dp)
+                    .compactButtonMinSize(),
+                contentPadding = CompactButtonContentPadding
             ) {
                 Text(stringResource(R.string.conversation_undo_delete), fontWeight = FontWeight.Bold)
             }
@@ -273,7 +278,12 @@ private fun ConversationCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text(item.relativeUpdatedAt(context), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 if (!item.isMuted && item.unreadCount > 0) {
-                    Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(item.unreadCount.toString()) }
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    ) {
+                        Text(item.unreadCount.toString(), fontSize = 9.sp)
+                    }
                 }
             }
         }
@@ -303,7 +313,7 @@ private fun ConversationAvatar(
                 if (item.isEmergency) {
                     Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                 } else {
-                    Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
                 }
             }
         } else {

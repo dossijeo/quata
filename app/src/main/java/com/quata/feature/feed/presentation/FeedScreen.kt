@@ -52,8 +52,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -278,8 +278,8 @@ private fun FeedMessageScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(message, color = MaterialTheme.colorScheme.onBackground)
                 Spacer(Modifier.height(12.dp))
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
+                CompactIconButton(onClick = onRefresh) {
+                    CompactIcon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                 }
             }
         }
@@ -321,13 +321,13 @@ private fun LiveRankingDialog(
                             fontSize = 14.sp
                         )
                     }
-                    IconButton(
+                    CompactIconButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(48.dp)
                             .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
                     ) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
+                        CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -691,7 +691,7 @@ private fun ReelVideo(
                     .background(Color.Black.copy(alpha = 0.38f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
+                CompactIcon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = Color.White,
@@ -738,8 +738,8 @@ private fun VideoControls(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
-            Icon(
+        CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
+            CompactIcon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) {
                     stringResource(R.string.feed_pause)
@@ -770,7 +770,7 @@ private fun VideoControls(
                     .clickable(onClick = onToggleMute),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
+                CompactIcon(
                     imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = if (isMuted) {
                         stringResource(R.string.feed_unmute)
@@ -887,7 +887,7 @@ private fun ReelRoundChip(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
+        CompactIcon(
             imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
             contentDescription = if (isMuted) {
                 stringResource(R.string.feed_unmute)
@@ -1075,8 +1075,8 @@ private fun CommentsSheet(
                     onValueChange = { draft = it },
                     placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                     leadingIcon = {
-                        IconButton(onClick = { isEmojiPickerVisible = !isEmojiPickerVisible }) {
-                            Icon(
+                        CompactIconButton(onClick = { isEmojiPickerVisible = !isEmojiPickerVisible }) {
+                            CompactIcon(
                                 imageVector = Icons.Filled.InsertEmoticon,
                                 contentDescription = stringResource(R.string.comments_show_emojis),
                                 tint = Color(0xFFFFC55C)
@@ -1084,7 +1084,7 @@ private fun CommentsSheet(
                         }
                     },
                     trailingIcon = {
-                        IconButton(
+                        CompactIconButton(
                             enabled = draft.text.isNotBlank(),
                             onClick = {
                                 onAddComment(
@@ -1104,7 +1104,7 @@ private fun CommentsSheet(
                                 isEmojiPickerVisible = false
                             }
                         ) {
-                            Icon(
+                            CompactIcon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = stringResource(R.string.comments_send)
                             )
@@ -1166,14 +1166,14 @@ private fun ReplyTargetBanner(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            IconButton(
+            CompactIconButton(
                 onClick = onClear,
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.1f))
             ) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
+                CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
             }
         }
     }
@@ -1394,14 +1394,14 @@ private fun ReelActionButton(
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.42f))
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
+                CompactIcon(
                     imageVector = icon,
                     contentDescription = contentDescription,
                     tint = tint,
@@ -1411,9 +1411,9 @@ private fun ReelActionButton(
                     Text(
                         text = count,
                         color = Color.White,
-                        fontSize = 14.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        lineHeight = 16.sp
+                        lineHeight = 11.sp
                     )
                 }
             }

@@ -48,8 +48,9 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -87,6 +88,7 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -351,7 +353,7 @@ private fun TypeCard(
                     .border(1.dp, Color(0xFF28405D), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
+                CompactIcon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
             }
             Spacer(Modifier.width(20.dp))
             Text(label.uppercase(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
@@ -389,8 +391,8 @@ private fun TextPostForm(
                 cursorColor = QuataOrange
             ),
             trailingIcon = {
-                IconButton(onClick = onToggleEmojiPanel) {
-                    Icon(
+                CompactIconButton(onClick = onToggleEmojiPanel) {
+                    CompactIcon(
                         Icons.Filled.InsertEmoticon,
                         contentDescription = stringResource(R.string.comments_show_emojis),
                         tint = Color(0xFFFFC55C)
@@ -426,7 +428,7 @@ private fun ImagePostForm(
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = QuataOrange)
+            CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = QuataOrange)
             Spacer(Modifier.width(8.dp))
             Text(
                 text = state.locationLabel ?: stringResource(R.string.composer_no_location),
@@ -542,9 +544,16 @@ private fun ComposerActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier.height(64.dp), shape = RoundedCornerShape(18.dp)) {
-        Icon(icon, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .height(44.dp)
+            .compactButtonMinSize(),
+        shape = RoundedCornerShape(9.dp),
+        contentPadding = CompactButtonContentPadding
+    ) {
+        CompactIcon(icon, contentDescription = null)
+        Spacer(Modifier.width(4.dp))
         Text(text, fontWeight = FontWeight.ExtraBold)
     }
 }
@@ -648,9 +657,11 @@ private fun PublishButton(isLoading: Boolean, onSubmit: () -> Unit) {
         enabled = !isLoading,
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp),
+            .height(40.dp)
+            .compactButtonMinSize(),
         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(9.dp),
+        contentPadding = CompactButtonContentPadding
     ) {
         Text(
             if (isLoading) stringResource(R.string.composer_publishing) else stringResource(R.string.nav_publish),

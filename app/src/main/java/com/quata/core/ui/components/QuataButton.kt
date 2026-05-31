@@ -23,8 +23,11 @@ fun QuataPrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .compactButtonMinSize(),
+        shape = RoundedCornerShape(9.dp),
+        contentPadding = CompactButtonContentPadding,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -44,8 +47,11 @@ fun QuataSecondaryButton(
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .compactButtonMinSize(),
+        shape = RoundedCornerShape(9.dp),
+        contentPadding = CompactButtonContentPadding,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         Text(text = text, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)

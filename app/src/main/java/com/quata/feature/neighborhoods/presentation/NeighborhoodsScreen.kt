@@ -40,8 +40,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -89,6 +90,7 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.openAttachmentWithChooser
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
@@ -287,7 +289,9 @@ private fun NeighborhoodCard(
             ) {
                 OutlinedButton(
                     onClick = onShowUsers,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.compactButtonMinSize(),
+                    contentPadding = CompactButtonContentPadding
                 ) {
                     Text(stringResource(R.string.neighborhoods_view_users))
                 }
@@ -295,6 +299,8 @@ private fun NeighborhoodCard(
                     onClick = onOpenChat,
                     enabled = canOpenChat && !isOpeningChat,
                     shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.compactButtonMinSize(),
+                    contentPadding = CompactButtonContentPadding,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = QuataSurfaceAlt,
                         contentColor = MaterialTheme.colorScheme.onSurface
@@ -359,8 +365,8 @@ private fun NeighborhoodUsersScreen(
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                CompactIconButton(onClick = onBack) {
+                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
                 Spacer(Modifier.width(4.dp))
                 Column(Modifier.weight(1f)) {
@@ -486,7 +492,7 @@ fun CommunityProfileScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
                         }
@@ -504,7 +510,7 @@ fun CommunityProfileScreen(
                                     color = QuataOrange
                                 )
                             } else {
-                                Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                                CompactIcon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.common_chat), fontSize = 18.sp)
@@ -646,7 +652,7 @@ private fun NeighborhoodUserRow(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(
                     if (user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow),
@@ -669,7 +675,7 @@ private fun NeighborhoodUserRow(
                         color = QuataOrange
                     )
                 } else {
-                    Icon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    CompactIcon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.common_chat), fontSize = 14.sp, maxLines = 1)
@@ -696,8 +702,8 @@ private fun ProfileUsersListContent(
             .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            CompactIconButton(onClick = onBack) {
+                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
             Spacer(Modifier.width(4.dp))
             Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, modifier = Modifier.weight(1f))
@@ -827,7 +833,7 @@ private fun ProfilePostPreview(
                         .background(Color.Black.copy(alpha = 0.42f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Pause, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
+                    CompactIcon(Icons.Filled.Pause, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
                 }
             }
             else -> Box(
@@ -895,7 +901,7 @@ private fun MiniFeedAction(
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            CompactIcon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         }
         if (count != null) Text(count, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
@@ -953,8 +959,8 @@ private fun ProfileCommentsDialog(
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.feed_comments), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
+                    CompactIconButton(onClick = onDismiss) {
+                        CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
                 LazyColumn(

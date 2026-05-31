@@ -16,7 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import com.quata.core.ui.components.CompactIcon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -116,7 +116,7 @@ fun PrefixDropdownField(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                CompactIcon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
         }
         DropdownMenu(

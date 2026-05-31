@@ -29,8 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -111,7 +111,7 @@ fun AttachmentThumbnail(
                 }
             }
 
-            else -> Icon(Icons.Filled.InsertDriveFile, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(30.dp))
+            else -> CompactIcon(Icons.Filled.InsertDriveFile, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(30.dp))
         }
     }
 }
@@ -187,8 +187,8 @@ private fun AttachmentViewerTopBar(title: String, onBack: () -> Unit) {
             .background(Color(0xFF0D1422))
             .padding(horizontal = 8.dp)
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
+        CompactIconButton(onClick = onBack) {
+            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
         }
         Spacer(Modifier.width(4.dp))
         Text(

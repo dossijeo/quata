@@ -43,8 +43,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -83,6 +84,7 @@ import com.quata.core.session.SessionManager
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 
@@ -181,11 +183,14 @@ fun ProfileScreen(
                     Column(Modifier.weight(1f)) {
                         OutlinedButton(
                             onClick = { isPhotoMenuOpen = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .compactButtonMinSize(),
+                            shape = RoundedCornerShape(9.dp),
+                            contentPadding = CompactButtonContentPadding
                         ) {
-                            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
+                            CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
                             Text(stringResource(R.string.profile_change_photo))
                         }
                         DropdownMenu(
@@ -194,7 +199,7 @@ fun ProfileScreen(
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.profile_pick_gallery)) },
-                                leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
                                 onClick = {
                                     isPhotoMenuOpen = false
                                     photoPicker.launch(
@@ -204,7 +209,7 @@ fun ProfileScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.profile_take_photo)) },
-                                leadingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
                                 onClick = {
                                     isPhotoMenuOpen = false
                                     val uri = context.createProfileImageUri()
@@ -264,8 +269,11 @@ fun ProfileScreen(
 
             OutlinedButton(
                 onClick = { isEmergencyDialogOpen = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .compactButtonMinSize(),
+                shape = RoundedCornerShape(9.dp),
+                contentPadding = CompactButtonContentPadding
             ) {
                 Text(stringResource(R.string.profile_configure_emergency_contacts), fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.weight(1f))
@@ -276,9 +284,11 @@ fun ProfileScreen(
                 enabled = !state.isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp),
+                    .height(40.dp)
+                    .compactButtonMinSize(),
                 colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(9.dp),
+                contentPadding = CompactButtonContentPadding
             ) {
                 Text(if (state.isSaving) stringResource(R.string.common_saving) else stringResource(R.string.common_save_changes), fontWeight = FontWeight.ExtraBold)
             }
@@ -287,8 +297,11 @@ fun ProfileScreen(
                     sessionManager.clearSession()
                     onLogout()
                 },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .compactButtonMinSize(),
+                shape = RoundedCornerShape(9.dp),
+                contentPadding = CompactButtonContentPadding
             ) {
                 Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
             }
@@ -375,7 +388,7 @@ private fun <T> DropdownField(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                CompactIcon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
         }
         DropdownMenu(
@@ -446,8 +459,8 @@ fun EmergencyContactsDialog(
                         .padding(bottom = contentBottomSpace)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                        CompactIconButton(onClick = onDismiss) {
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                         Spacer(Modifier.width(6.dp))
                         Surface(color = Color(0xFF5B2730), shape = RoundedCornerShape(16.dp)) {

@@ -73,8 +73,9 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.LinearProgressIndicator
@@ -126,6 +127,7 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.openAttachmentWithChooser
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
@@ -409,13 +411,13 @@ fun ChatScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box {
-                        IconButton(onClick = { attachmentMenuExpanded = true }) {
-                            Icon(Icons.Filled.AttachFile, contentDescription = stringResource(R.string.conversation_attachment))
+                        CompactIconButton(onClick = { attachmentMenuExpanded = true }) {
+                            CompactIcon(Icons.Filled.AttachFile, contentDescription = stringResource(R.string.conversation_attachment))
                         }
                         DropdownMenu(expanded = attachmentMenuExpanded, onDismissRequest = { attachmentMenuExpanded = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_attach_file)) },
-                                leadingIcon = { Icon(Icons.Filled.InsertDriveFile, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.InsertDriveFile, contentDescription = null) },
                                 onClick = {
                                     attachmentMenuExpanded = false
                                     filePicker.launch("*/*")
@@ -423,7 +425,7 @@ fun ChatScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_attach_gallery)) },
-                                leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
                                 onClick = {
                                     attachmentMenuExpanded = false
                                     mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
@@ -431,7 +433,7 @@ fun ChatScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_attach_take_photo)) },
-                                leadingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
                                 onClick = {
                                     attachmentMenuExpanded = false
                                     launchCameraAttachment("photo")
@@ -439,7 +441,7 @@ fun ChatScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_attach_record_video)) },
-                                leadingIcon = { Icon(Icons.Filled.Videocam, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.Videocam, contentDescription = null) },
                                 onClick = {
                                     attachmentMenuExpanded = false
                                     launchCameraAttachment("video")
@@ -456,14 +458,14 @@ fun ChatScreen(
                             .heightIn(min = 58.dp),
                         singleLine = true,
                         trailingIcon = {
-                            IconButton(
+                            CompactIconButton(
                                 enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
                                 onClick = {
                                     context.playChatSound(R.raw.sent)
                                     viewModel.onEvent(ChatUiEvent.Send)
                                 }
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
+                                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
                             }
                         },
                         shape = RoundedCornerShape(18.dp)
@@ -627,8 +629,8 @@ private fun FavoriteMessagesHeader(onBack: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            CompactIconButton(onClick = onBack) {
+                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
             Box(
                 modifier = Modifier
@@ -637,7 +639,7 @@ private fun FavoriteMessagesHeader(onBack: () -> Unit) {
                     .background(QuataOrange.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Star, contentDescription = null, tint = QuataOrange)
+                CompactIcon(Icons.Filled.Star, contentDescription = null, tint = QuataOrange)
             }
             Spacer(Modifier.width(12.dp))
             Text(stringResource(R.string.conversation_favorites_title), fontWeight = FontWeight.ExtraBold)
@@ -724,33 +726,33 @@ private fun ChatHeader(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    IconButton(onClick = onClearSelection) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    CompactIconButton(onClick = onClearSelection) {
+                        CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = onCopySelected) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.conversation_copy_message))
+                    CompactIconButton(onClick = onCopySelected) {
+                        CompactIcon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.conversation_copy_message))
                     }
-                    IconButton(onClick = onReplySelected) {
-                        Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = Color.White)
+                    CompactIconButton(onClick = onReplySelected) {
+                        CompactIcon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = Color.White)
                     }
-                    IconButton(onClick = onForwardSelected) {
-                        Icon(Icons.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = Color.White)
+                    CompactIconButton(onClick = onForwardSelected) {
+                        CompactIcon(Icons.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = Color.White)
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
-                        IconButton(onClick = onEditSelected) {
-                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.conversation_edit_message))
+                        CompactIconButton(onClick = onEditSelected) {
+                            CompactIcon(Icons.Filled.Edit, contentDescription = stringResource(R.string.conversation_edit_message))
                         }
                     }
-                    IconButton(onClick = onToggleFavoriteSelected) {
-                        Icon(
+                    CompactIconButton(onClick = onToggleFavoriteSelected) {
+                        CompactIcon(
                             if (selectedMessage.isFavorite) Icons.Filled.StarBorder else Icons.Filled.Star,
                             contentDescription = stringResource(R.string.conversation_favorite_message)
                         )
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
-                        IconButton(onClick = onDeleteSelected) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.conversation_delete_message))
+                        CompactIconButton(onClick = onDeleteSelected) {
+                            CompactIcon(Icons.Filled.Delete, contentDescription = stringResource(R.string.conversation_delete_message))
                         }
                     }
                 }
@@ -762,8 +764,8 @@ private fun ChatHeader(
                         .padding(horizontal = 8.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    CompactIconButton(onClick = onBack) {
+                        CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                     ChatAvatar(conversation, currentUser, usersById, onOpenUserProfile)
                     Spacer(Modifier.width(12.dp))
@@ -778,8 +780,8 @@ private fun ChatHeader(
                         }
                     }
                     Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
+                        CompactIconButton(onClick = { menuExpanded = true }) {
+                            CompactIcon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -788,7 +790,7 @@ private fun ChatHeader(
                             DropdownMenuItem(
                                 text = { Text(if (conversation?.isMuted == true) stringResource(R.string.conversation_reactivate_notifications) else stringResource(R.string.conversation_mute)) },
                                 leadingIcon = {
-                                    Icon(
+                                    CompactIcon(
                                         if (conversation?.isMuted == true) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
                                         contentDescription = null
                                     )
@@ -813,7 +815,7 @@ private fun ChatHeader(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_add_participants)) },
-                                leadingIcon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PersonAdd, contentDescription = null) },
                                 enabled = canInvite,
                                 onClick = {
                                     menuExpanded = false
@@ -822,7 +824,7 @@ private fun ChatHeader(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_leave)) },
-                                leadingIcon = { Icon(Icons.Filled.PersonRemove, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
                                     onLeaveConversation()
@@ -830,7 +832,7 @@ private fun ChatHeader(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.conversation_delete)) },
-                                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                                leadingIcon = { CompactIcon(Icons.Filled.Delete, contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
                                     onHideConversation()
@@ -866,8 +868,8 @@ private fun ChatHeader(
                             }
                             if (isModerator && member.id != currentUser?.id) {
                                 Box {
-                                    IconButton(onClick = { memberMenuExpanded = true }) {
-                                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
+                                    CompactIconButton(onClick = { memberMenuExpanded = true }) {
+                                        CompactIcon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
                                     }
                                     DropdownMenu(
                                         expanded = memberMenuExpanded,
@@ -888,7 +890,7 @@ private fun ChatHeader(
                                                 if (isMemberModerator) {
                                                     ShieldMinusIcon()
                                                 } else {
-                                                    Icon(Icons.Filled.Security, contentDescription = null)
+                                                    CompactIcon(Icons.Filled.Security, contentDescription = null)
                                                 }
                                             },
                                             onClick = {
@@ -898,7 +900,7 @@ private fun ChatHeader(
                                         )
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.conversation_block_user)) },
-                                            leadingIcon = { Icon(Icons.Filled.Block, contentDescription = null) },
+                                            leadingIcon = { CompactIcon(Icons.Filled.Block, contentDescription = null) },
                                             onClick = {
                                                 memberMenuExpanded = false
                                                 onBlockParticipant(member.id)
@@ -906,7 +908,7 @@ private fun ChatHeader(
                                         )
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.conversation_remove_participant)) },
-                                            leadingIcon = { Icon(Icons.Filled.PersonRemove, contentDescription = null) },
+                                            leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, contentDescription = null) },
                                             onClick = {
                                                 memberMenuExpanded = false
                                                 onRemoveParticipant(member.id)
@@ -1004,14 +1006,18 @@ private fun AddParticipantsDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B5563), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B5563), contentColor = Color.White),
+                        modifier = Modifier.compactButtonMinSize(),
+                        contentPadding = CompactButtonContentPadding
                     ) {
                         Text(stringResource(R.string.common_cancel))
                     }
                     Button(
                         onClick = onAdd,
                         enabled = selectedIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                        modifier = Modifier.compactButtonMinSize(),
+                        contentPadding = CompactButtonContentPadding
                     ) {
                         Text(stringResource(R.string.conversation_add_participants_action))
                     }
@@ -1040,8 +1046,8 @@ private fun ForwardMessageScreen(
                     .padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                CompactIconButton(onClick = onBack) {
+                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
                 Text(
                     stringResource(R.string.conversation_forward_to),
@@ -1097,14 +1103,14 @@ private fun ForwardMessageScreen(
                 color = Color.White.copy(alpha = if (selectedNames.isBlank()) 0.52f else 0.92f),
                 modifier = Modifier.weight(1f)
             )
-            IconButton(
+            CompactIconButton(
                 enabled = selectedIds.isNotEmpty(),
                 onClick = onSend,
                 modifier = Modifier
                     .size(52.dp)
                     .background(QuataOrange.copy(alpha = if (selectedIds.isNotEmpty()) 1f else 0.35f), CircleShape)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send), tint = Color.Black)
+                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send), tint = Color.Black)
             }
         }
     }
@@ -1201,8 +1207,8 @@ private sealed class ConfirmAction {
 @Composable
 private fun ShieldMinusIcon() {
     Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-        Icon(Icons.Filled.Security, contentDescription = null)
-        Icon(Icons.Filled.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+        CompactIcon(Icons.Filled.Security, contentDescription = null)
+        CompactIcon(Icons.Filled.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
     }
 }
 
@@ -1229,7 +1235,7 @@ private fun ChatAvatar(
                 if (conversation?.isEmergency == true) {
                     Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold)
                 } else {
-                    Icon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
                 }
             }
         } else if (privateUser != null) {
@@ -1247,13 +1253,13 @@ private fun ChatAvatar(
 private fun MutedConversationBadge(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(22.dp)
+            .size(16.dp)
             .clip(CircleShape)
             .background(Color(0xFF111827))
             .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text("\uD83D\uDD15", fontSize = 13.sp)
+        Text("\uD83D\uDD15", fontSize = 9.sp)
     }
 }
 
@@ -1403,7 +1409,7 @@ private fun MessageBubble(
                                 )
                             }
                             if (message.isFavorite) {
-                                Icon(
+                                CompactIcon(
                                     Icons.Filled.StarBorder,
                                     contentDescription = stringResource(R.string.conversation_favorite_marker),
                                     tint = textColor.copy(alpha = 0.62f),
@@ -1478,7 +1484,7 @@ private fun MessageBubble(
                             modifier = Modifier.clickable { onOpenAttachment(attachment) }
                         ) {
                             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
+                                CompactIcon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
                                 Spacer(Modifier.width(8.dp))
                                 Text(attachment.name, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }

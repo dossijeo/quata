@@ -33,8 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
@@ -367,13 +368,13 @@ fun AppNavGraph(
                 },
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 20.dp, start = topChromePlacement.logoStartPadding)
+                    .padding(top = 14.dp, start = topChromePlacement.logoStartPadding)
             )
             GlobalSosButton(
                 container = container,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 20.dp, end = topChromePlacement.sosEndPadding)
+                    .padding(top = 14.dp, end = topChromePlacement.sosEndPadding)
             )
         }
 
@@ -410,7 +411,7 @@ private fun QuataAppTopSpacer() {
         contentColor = Color.White,
         modifier = Modifier
             .fillMaxWidth()
-            .height(92.dp)
+            .height(76.dp)
     ) {}
 }
 
@@ -433,7 +434,7 @@ private fun QuataAppHeaderActions(
     )
     val scale = if (isBouncing) bounceScale else 1f
     Box(
-        modifier = modifier.size(width = 160.dp, height = 48.dp)
+        modifier = modifier.size(width = 132.dp, height = 36.dp)
     ) {
         Image(
             painter = painterResource(R.drawable.quata_logo_header),
@@ -441,29 +442,32 @@ private fun QuataAppHeaderActions(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = (-18).dp, y = (-2).dp)
-                .width(120.dp)
+                .width(124.dp)
         )
-        IconButton(
+        CompactIconButton(
             onClick = onNotificationsClick,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 82.dp, y = 4.dp)
+                .offset(x = 88.dp, y = 2.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                 }
-                .size(48.dp)
+                .size(36.dp)
         ) {
             BadgedBox(
                 badge = {
                     if (notificationCount > 0) {
-                        Badge(containerColor = Color(0xFFE0303B)) {
-                            Text(notificationCount.coerceAtMost(99).toString(), color = Color.White)
+                        Badge(
+                            containerColor = Color(0xFFE0303B),
+                            modifier = Modifier.size(14.dp)
+                        ) {
+                            Text(notificationCount.coerceAtMost(99).toString(), color = Color.White, fontSize = 9.sp)
                         }
                     }
                 }
             ) {
-                Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications_title), tint = Color.White)
+                CompactIcon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications_title), tint = Color.White)
             }
         }
     }
@@ -473,12 +477,12 @@ private fun QuataAppHeaderActions(
 private fun rememberTopChromePlacement(): TopChromePlacement {
     val view = LocalView.current
     val density = LocalDensity.current
-    val logoWidthPx = with(density) { 144.dp.roundToPx() }
-    val sosWidthPx = with(density) { 94.dp.roundToPx() }
-    val logoHeightPx = with(density) { 84.dp.roundToPx() }
-    val sosHeightPx = with(density) { 48.dp.roundToPx() }
+    val logoWidthPx = with(density) { 132.dp.roundToPx() }
+    val sosWidthPx = with(density) { 70.dp.roundToPx() }
+    val logoHeightPx = with(density) { 62.dp.roundToPx() }
+    val sosHeightPx = with(density) { 34.dp.roundToPx() }
     val logoTopPx = with(density) { 4.dp.roundToPx() }
-    val sosTopPx = with(density) { 20.dp.roundToPx() }
+    val sosTopPx = with(density) { 14.dp.roundToPx() }
     val marginPx = with(density) { 16.dp.roundToPx() }
     val screenWidthPx = view.rootView.width.takeIf { it > 0 } ?: view.resources.displayMetrics.widthPixels
     return remember(view, screenWidthPx, logoWidthPx, sosWidthPx, logoHeightPx, sosHeightPx, logoTopPx, sosTopPx, marginPx, density.density) {
@@ -617,7 +621,7 @@ private fun GlobalSosButton(
         contentColor = Color.White,
         shape = RoundedCornerShape(12.dp),
         modifier = modifier
-            .size(width = 94.dp, height = 48.dp)
+            .size(width = 70.dp, height = 34.dp)
             .graphicsLayer {
                 val scale = if (isSendingSos) sosPulseScale else 1f
                 scaleX = scale
@@ -632,7 +636,7 @@ private fun GlobalSosButton(
                 startSos(profile)
             }
         ) {
-            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
         }
     }
 

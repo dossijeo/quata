@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,21 +29,21 @@ fun QuataTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(52.dp)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            CompactIconButton(onClick = onBack) {
+                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
         } else {
-            Spacer(Modifier.width(48.dp))
+            Spacer(Modifier.width(36.dp))
         }
         Text(
             text = title,
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
     }
