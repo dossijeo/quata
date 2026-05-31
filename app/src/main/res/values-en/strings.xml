@@ -35,6 +35,8 @@
     <string name="background_access_battery_body">To receive chat alerts while Quata is minimized, let Android run the app without battery restrictions.</string>
     <string name="background_access_open_settings">Open settings</string>
     <string name="background_access_not_now">Not now</string>
+    <string name="app_links_title">Open Q&#252;ata links in the app</string>
+    <string name="app_links_body">To open egquata.com links directly in Q&#252;ata, enable supported links for this app in Android settings.</string>
     <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
     <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
     <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>

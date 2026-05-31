@@ -35,6 +35,8 @@
     <string name="background_access_battery_body">To receive chat alerts while Quata is minimized, let Android run the app without battery restrictions.</string>
     <string name="background_access_open_settings">Open settings</string>
     <string name="background_access_not_now">Not now</string>
+    <string name="app_links_title">Open Q&#252;ata links in the app</string>
+    <string name="app_links_body">To open egquata.com links directly in Q&#252;ata, enable supported links for this app in Android settings.</string>
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="error_network">Connection problem. Check your internet and try again.</string>
     <string name="error_network_timeout">The server took too long to respond. Please try again.</string>

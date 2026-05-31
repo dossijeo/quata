@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.net.ConnectivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.verify.domain.DomainVerificationManager
+import android.content.pm.verify.domain.DomainVerificationUserState
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +30,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -68,7 +73,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    BackgroundAccessPrompt(
+                    StartupSettingsPrompts(
                         enabled = !showSplash && appContainer.sessionManager.isLoggedIn()
                     )
                 }
@@ -97,23 +102,70 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun BackgroundAccessPrompt(enabled: Boolean) {
+private fun StartupSettingsPrompts(enabled: Boolean) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var issue by rememberSaveable { mutableStateOf<BackgroundAccessIssue?>(null) }
+    var needsAppLinksApproval by rememberSaveable { mutableStateOf(false) }
     var dismissedIssueName by rememberSaveable { mutableStateOf<String?>(null) }
+    var dismissedAppLinksPrompt by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(enabled) {
+    fun refreshSettingsIssues() {
         issue = if (enabled) context.backgroundAccessIssue() else null
+        needsAppLinksApproval = enabled && context.needsAppLinksUserApproval()
     }
 
-    val currentIssue = issue?.takeUnless { it.name == dismissedIssueName } ?: return
+    LaunchedEffect(enabled) {
+        refreshSettingsIssues()
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, enabled) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshSettingsIssues()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val currentIssue = issue?.takeUnless { it.name == dismissedIssueName }
+    if (currentIssue != null) {
+        BackgroundAccessPrompt(
+            issue = currentIssue,
+            onDismiss = { dismissedIssueName = currentIssue.name },
+            onOpenSettings = {
+                dismissedIssueName = currentIssue.name
+                context.openBackgroundAccessSettings(currentIssue)
+            }
+        )
+        return
+    }
+
+    if (needsAppLinksApproval && !dismissedAppLinksPrompt) {
+        AppLinksPrompt(
+            onDismiss = { dismissedAppLinksPrompt = true },
+            onOpenSettings = {
+                dismissedAppLinksPrompt = true
+                context.openAppLinksSettings()
+            }
+        )
+    }
+}
+
+@Composable
+private fun BackgroundAccessPrompt(
+    issue: BackgroundAccessIssue,
+    onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     AlertDialog(
-        onDismissRequest = { dismissedIssueName = currentIssue.name },
+        onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.background_access_title)) },
         text = {
             Text(
                 stringResource(
-                    when (currentIssue) {
+                    when (issue) {
                         BackgroundAccessIssue.DataSaver -> R.string.background_access_data_body
                         BackgroundAccessIssue.BatteryOptimization -> R.string.background_access_battery_body
                     }
@@ -122,16 +174,35 @@ private fun BackgroundAccessPrompt(enabled: Boolean) {
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    dismissedIssueName = currentIssue.name
-                    context.openBackgroundAccessSettings(currentIssue)
-                }
+                onClick = onOpenSettings
             ) {
                 Text(stringResource(R.string.background_access_open_settings))
             }
         },
         dismissButton = {
-            TextButton(onClick = { dismissedIssueName = currentIssue.name }) {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.background_access_not_now))
+            }
+        }
+    )
+}
+
+@Composable
+private fun AppLinksPrompt(
+    onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.app_links_title)) },
+        text = { Text(stringResource(R.string.app_links_body)) },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings) {
+                Text(stringResource(R.string.background_access_open_settings))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.background_access_not_now))
             }
         }
@@ -157,6 +228,26 @@ private fun Context.backgroundAccessIssue(): BackgroundAccessIssue? {
         }
     }
     return null
+}
+
+@SuppressLint("NewApi")
+private fun Context.needsAppLinksUserApproval(): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+    val manager = getSystemService(DomainVerificationManager::class.java) ?: return false
+    val state = runCatching { manager.getDomainVerificationUserState(appPackageName()) }.getOrNull()
+        ?: return false
+    if (!state.isLinkHandlingAllowed) return true
+    val hostStates = state.hostToStateMap
+    val quataHosts = listOf("egquata.com", "www.egquata.com")
+    val declaredHosts = quataHosts.filter(hostStates::containsKey)
+    if (declaredHosts.isEmpty()) return false
+    return declaredHosts.any { host ->
+        when (hostStates[host]) {
+            DomainVerificationUserState.DOMAIN_STATE_VERIFIED,
+            DomainVerificationUserState.DOMAIN_STATE_SELECTED -> false
+            else -> true
+        }
+    }
 }
 
 @SuppressLint("BatteryLife")
@@ -187,6 +278,22 @@ private fun Context.openBackgroundAccessSettings(issue: BackgroundAccessIssue) {
             }
             startActivity(fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+        .recoverCatching {
+            startActivity(appDetailsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+}
+
+private fun Context.openAppLinksSettings() {
+    val packageUri = Uri.parse("package:${appPackageName()}")
+    val appDetailsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+    val primaryIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+            data = packageUri
+        }
+    } else {
+        appDetailsIntent
+    }
+    runCatching { startActivity(primaryIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         .recoverCatching {
             startActivity(appDetailsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
