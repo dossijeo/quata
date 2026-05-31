@@ -105,6 +105,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.parsePostShortcodeContent
+import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.textCanvasBrush
@@ -125,6 +126,7 @@ fun FeedScreen(
     feedRepository: FeedRepository,
     onOpenUserProfile: (String) -> Unit,
     currentUserId: String? = null,
+    openingProfileUserId: String? = null,
     focusedPostId: String? = null,
     onFocusedPostHandled: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
@@ -191,6 +193,7 @@ fun FeedScreen(
                         postRank = postRanks[post.id] ?: 1,
                         isCurrentPage = pagerState.currentPage == page,
                         currentUserId = currentUserId,
+                        isAuthorProfileLoading = openingProfileUserId == post.author.id,
                         onOpenComments = { commentsPost = post },
                         onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                         onOpenLive = { isLiveOpen = true },
@@ -458,6 +461,7 @@ private fun ReelPost(
     postRank: Int,
     isCurrentPage: Boolean,
     currentUserId: String?,
+    isAuthorProfileLoading: Boolean,
     onOpenComments: () -> Unit,
     onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
@@ -525,6 +529,7 @@ private fun ReelPost(
             showDescription = isVideo && displayText.isNotBlank(),
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+            isProfileLoading = isAuthorProfileLoading,
             onOpenUserProfile = onOpenUserProfile,
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -1430,6 +1435,7 @@ private fun ReelAuthor(
     showDescription: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
+    isProfileLoading: Boolean,
     onOpenUserProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1450,12 +1456,14 @@ private fun ReelAuthor(
             Spacer(Modifier.height(10.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            UserAvatar(
-                user = post.author,
+            ClickableProfileAvatar(
+                name = post.author.displayName,
+                avatarUrl = post.author.avatarUrl,
+                isLoading = isProfileLoading,
+                onClick = onOpenUserProfile,
                 modifier = Modifier
                     .size(56.dp)
                     .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-                    .clickable(onClick = onOpenUserProfile)
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {

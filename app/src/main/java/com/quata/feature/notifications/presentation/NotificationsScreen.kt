@@ -19,9 +19,13 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.res.stringResource
@@ -35,6 +39,7 @@ import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.presentation.relativeTimeLabel
 import com.quata.feature.notifications.domain.NotificationsRepository
+import kotlinx.coroutines.delay
 
 @Composable
 fun NotificationsScreen(
@@ -45,6 +50,7 @@ fun NotificationsScreen(
     viewModel: NotificationsViewModel = viewModel(factory = NotificationsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
@@ -63,6 +69,7 @@ fun NotificationsScreen(
                 items(state.items, key = { it.id }) { item ->
                     DismissibleNotificationCard(
                         item = item,
+                        timestampNowMillis = timestampNowMillis,
                         onClick = {
                             viewModel.markRead(item)
                             onOpenConversation(item.conversationId)
@@ -73,12 +80,20 @@ fun NotificationsScreen(
             }
         }
     }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000L)
+            timestampNowMillis = System.currentTimeMillis()
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DismissibleNotificationCard(
     item: NotificationItem,
+    timestampNowMillis: Long,
     onClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -98,6 +113,7 @@ private fun DismissibleNotificationCard(
         content = {
             NotificationCard(
                 item = item,
+                timestampNowMillis = timestampNowMillis,
                 modifier = Modifier.clickable(onClick = onClick)
             )
         }
@@ -107,15 +123,16 @@ private fun DismissibleNotificationCard(
 @Composable
 private fun NotificationCard(
     item: NotificationItem,
+    timestampNowMillis: Long,
     modifier: Modifier = Modifier
 ) {
     QuataCard(modifier = modifier) {
         Column(Modifier.padding(16.dp)) {
-            val createdAt = relativeTimeLabel(item.createdAt)
+            val createdAt = relativeTimeLabel(item.createdAt, timestampNowMillis)
             Text(item.title, fontWeight = FontWeight.Bold)
             Text(item.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = if (item.unreadCount > 1) "$createdAt · ${item.unreadCount}" else createdAt,
+                text = if (item.unreadCount > 1) "$createdAt - ${item.unreadCount}" else createdAt,
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 12.sp
             )

@@ -36,6 +36,8 @@ class NeighborhoodRepositoryImpl(
     private val profileRemote: ProfileRemoteDataSource,
     private val sessionManager: SessionManager
 ) : NeighborhoodRepository {
+    private val profileCacheStore = CommunityProfileCacheStore(appContext)
+
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> {
         return if (AppConfig.USE_MOCK_BACKEND) {
             combine(MockData.conversationsFlow, MockData.messagesFlow, MockData.socialFlow) { conversations, messages, _ ->
@@ -155,6 +157,13 @@ class NeighborhoodRepositoryImpl(
         BetterMessagesAbandonedConversationStore(appContext).clearAbandoned(session.userId, threadId)
         "bm:$threadId"
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
+
+    override suspend fun getCachedUserProfile(userId: String): CommunityUserProfile? =
+        profileCacheStore.read(userId)
+
+    override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
+        profileCacheStore.write(profile)
+    }
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {

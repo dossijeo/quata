@@ -1,6 +1,5 @@
 package com.quata.feature.chat.presentation
 
-import android.content.Context
 import com.quata.core.model.Conversation
 import java.time.Instant
 import java.time.LocalDateTime
@@ -17,11 +16,6 @@ fun Conversation.chatDisplayTitle(): String = when {
 }
 
 fun Conversation.relativeUpdatedAt(nowMillis: Long = System.currentTimeMillis()): String {
-    val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
-    return relativeTimeLabel(timestamp, nowMillis)
-}
-
-fun Conversation.relativeUpdatedAt(context: Context, nowMillis: Long = System.currentTimeMillis()): String {
     val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
     return relativeTimeLabel(timestamp, nowMillis)
 }

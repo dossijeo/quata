@@ -30,6 +30,11 @@
     <string name="common_saving">Saving…</string>
     <string name="common_search">Search</string>
     <string name="common_live">LIVE</string>
+    <string name="background_access_title">Enable background notifications</string>
+    <string name="background_access_data_body">To receive chat alerts while Quata is minimized, allow background data and unrestricted data usage for the app.</string>
+    <string name="background_access_battery_body">To receive chat alerts while Quata is minimized, let Android run the app without battery restrictions.</string>
+    <string name="background_access_open_settings">Open settings</string>
+    <string name="background_access_not_now">Not now</string>
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="error_network">Connection problem. Check your internet and try again.</string>
     <string name="error_network_timeout">The server took too long to respond. Please try again.</string>

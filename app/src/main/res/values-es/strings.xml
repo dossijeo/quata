@@ -30,6 +30,11 @@
     <string name="common_saving">Guardando…</string>
     <string name="common_search">Buscar</string>
     <string name="common_live">LIVE</string>
+    <string name="background_access_title">Activar notificaciones en segundo plano</string>
+    <string name="background_access_data_body">Para recibir avisos de chat con Quata minimizada, permite datos en segundo plano y datos sin restricciones para la app.</string>
+    <string name="background_access_battery_body">Para recibir avisos de chat con Quata minimizada, deja que Android ejecute la app sin restricciones de bateria.</string>
+    <string name="background_access_open_settings">Abrir ajustes</string>
+    <string name="background_access_not_now">Ahora no</string>
     <string name="error_generic">Algo ha fallado. Inténtalo de nuevo.</string>
     <string name="error_network">Hay un problema de conexión. Revisa internet e inténtalo otra vez.</string>
     <string name="error_network_timeout">El servidor ha tardado demasiado en responder. Inténtalo otra vez.</string>

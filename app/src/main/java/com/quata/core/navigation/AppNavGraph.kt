@@ -39,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,6 +62,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import androidx.navigation.NavType
@@ -73,6 +77,7 @@ import com.quata.core.di.AppContainer
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
+import com.quata.feature.chat.domain.ChatPollingMode
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
@@ -112,8 +117,21 @@ fun AppNavGraph(
     val notificationCount = observedNotificationCount ?: 0
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
+    var hasRequestedChatNotificationPermission by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
+    val chatNotificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(showAppChrome) {
+        if (
+            showAppChrome &&
+            !hasRequestedChatNotificationPermission &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !appContext.hasNotificationPermission()
+        ) {
+            hasRequestedChatNotificationPermission = true
+            chatNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     LaunchedEffect(observedNotificationCount) {
         val currentNotificationCount = observedNotificationCount ?: return@LaunchedEffect
         if (!hasObservedNotificationCount) {
@@ -147,8 +165,47 @@ fun AppNavGraph(
         factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isAppForeground by remember { mutableStateOf(true) }
+    DisposableEffect(lifecycleOwner, container.chatRepository, showAppChrome, currentRoute) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    isAppForeground = true
+                    container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = true))
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    isAppForeground = false
+                    container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = false))
+                }
+                Lifecycle.Event.ON_DESTROY -> container.chatRepository.setPollingMode(ChatPollingMode.MINIMAL)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    LaunchedEffect(showAppChrome, currentRoute, isAppForeground) {
+        container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isAppForeground))
+    }
 
     LaunchedEffect(incomingLink) {
+        val conversationId = incomingLink?.quataConversationIdOrNull()
+        if (conversationId != null) {
+            globalProfileViewModel.closeUserProfile()
+            feedFocusedPostId = null
+            chatFocusedMessageId = null
+            if (container.sessionManager.isLoggedIn()) {
+                navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
+                    launchSingleTop = true
+                }
+            }
+            onIncomingLinkHandled()
+            return@LaunchedEffect
+        }
+
         val postId = incomingLink?.quataPostIdOrNull() ?: return@LaunchedEffect
         feedFocusedPostId = postId
         globalProfileViewModel.closeUserProfile()
@@ -240,6 +297,7 @@ fun AppNavGraph(
                             globalProfileViewModel.openUserProfile(userId)
                         },
                         currentUserId = container.sessionManager.currentSession()?.userId,
+                        openingProfileUserId = globalProfileState.openingProfileUserId,
                         focusedPostId = feedFocusedPostId,
                         onFocusedPostHandled = { feedFocusedPostId = null }
                     )
@@ -250,6 +308,7 @@ fun AppNavGraph(
                         padding = padding,
                         repository = container.neighborhoodRepository,
                         currentUserId = container.sessionManager.currentSession()?.userId,
+                        openingProfileUserId = globalProfileState.openingProfileUserId,
                         onOpenConversation = { id ->
                             chatFocusedMessageId = null
                             navController.navigate(AppDestinations.Chat.createRoute(id))
@@ -279,6 +338,7 @@ fun AppNavGraph(
                     ConversationsScreen(
                         padding = padding,
                         repository = container.chatRepository,
+                        openingProfileUserId = globalProfileState.openingProfileUserId,
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },
@@ -302,6 +362,7 @@ fun AppNavGraph(
                         padding = padding,
                         conversationId = conversationId,
                         repository = container.chatRepository,
+                        openingProfileUserId = globalProfileState.openingProfileUserId,
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },
@@ -384,6 +445,7 @@ fun AppNavGraph(
                 profile = profile,
                 currentUserId = container.sessionManager.currentSession()?.userId,
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
+                isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
                 chatError = globalProfileState.error,
                 onReportPost = { postId -> globalProfileViewModel.reportProfilePost(postId) },
                 onBack = { globalProfileViewModel.closeUserProfile() },
@@ -398,10 +460,22 @@ fun AppNavGraph(
                         }
                     }
                 },
-                onOpenUserProfile = { userId -> globalProfileViewModel.openUserProfile(userId) }
+                onOpenUserProfile = { userId -> globalProfileViewModel.openUserProfile(userId) },
+                openingProfileUserId = globalProfileState.openingProfileUserId
             )
         }
     }
+}
+
+private fun chatPollingModeFor(
+    showAppChrome: Boolean,
+    currentRoute: String?,
+    isForeground: Boolean
+): ChatPollingMode = when {
+    !showAppChrome -> ChatPollingMode.MINIMAL
+    !isForeground -> ChatPollingMode.RELAXED
+    currentRoute == AppDestinations.Conversations.route || currentRoute == AppDestinations.Chat.route -> ChatPollingMode.AGGRESSIVE
+    else -> ChatPollingMode.MEDIUM
 }
 
 @Composable

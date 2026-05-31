@@ -30,6 +30,11 @@
     <string name="common_saving">Saving…</string>
     <string name="common_search">Search</string>
     <string name="common_live">LIVE</string>
+    <string name="background_access_title">Enable background notifications</string>
+    <string name="background_access_data_body">To receive chat alerts while Quata is minimized, allow background data and unrestricted data usage for the app.</string>
+    <string name="background_access_battery_body">To receive chat alerts while Quata is minimized, let Android run the app without battery restrictions.</string>
+    <string name="background_access_open_settings">Open settings</string>
+    <string name="background_access_not_now">Not now</string>
     <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
     <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
     <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>

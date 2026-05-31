@@ -11,6 +11,9 @@ interface ChatRepository {
     val pendingDeletedConversation: StateFlow<Conversation?>
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
+    fun setAppForeground(isForeground: Boolean)
+    fun setPollingMode(mode: ChatPollingMode)
+    suspend fun pollForBackgroundNotifications(): Result<Unit>
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
@@ -42,4 +45,11 @@ interface ChatRepository {
     suspend fun deleteMessage(messageId: String): Result<Unit>
     suspend fun toggleFavoriteMessage(messageId: String): Result<Unit>
     suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit>
+}
+
+enum class ChatPollingMode {
+    AGGRESSIVE,
+    MEDIUM,
+    RELAXED,
+    MINIMAL
 }

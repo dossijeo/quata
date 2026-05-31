@@ -23,15 +23,17 @@ internal class BetterMessagesReadStateStore(
         profileId: String,
         threadId: Int,
         messages: List<BmMessage>,
-        currentWpUserId: Int?
-    ): Int = mergeObservedMessages(profileId, threadId, messages, currentWpUserId).unreadCount
+        currentWpUserId: Int?,
+        initializeNewThreadAsRead: Boolean = true
+    ): Int = mergeObservedMessages(profileId, threadId, messages, currentWpUserId, initializeNewThreadAsRead).unreadCount
 
     suspend fun readMessageIds(
         profileId: String,
         threadId: Int,
         messages: List<BmMessage>,
-        currentWpUserId: Int?
-    ): Set<Int> = mergeObservedMessages(profileId, threadId, messages, currentWpUserId).readMessageIds
+        currentWpUserId: Int?,
+        initializeNewThreadAsRead: Boolean = true
+    ): Set<Int> = mergeObservedMessages(profileId, threadId, messages, currentWpUserId, initializeNewThreadAsRead).readMessageIds
 
     suspend fun markThreadRead(
         profileId: String,
@@ -57,7 +59,8 @@ internal class BetterMessagesReadStateStore(
         profileId: String,
         threadId: Int,
         messages: List<BmMessage>,
-        currentWpUserId: Int?
+        currentWpUserId: Int?,
+        initializeNewThreadAsRead: Boolean
     ): ObservedReadState = mutex.withLock {
         withContext(Dispatchers.IO) {
             val state = readState(profileId)
@@ -66,10 +69,14 @@ internal class BetterMessagesReadStateStore(
             val knownIds = messages.map { it.messageId }.filter { it > 0 }
             val latestMessageMillis = messages.maxOfOrNull { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L } ?: 0L
 
-            val baseline = current ?: StoredThreadReadState(
-                readMessageIds = knownIds.distinct(),
-                readUntilMillis = maxOf(latestMessageMillis, System.currentTimeMillis())
-            )
+            val baseline = current ?: if (initializeNewThreadAsRead) {
+                StoredThreadReadState(
+                    readMessageIds = knownIds.distinct(),
+                    readUntilMillis = maxOf(latestMessageMillis, System.currentTimeMillis())
+                )
+            } else {
+                StoredThreadReadState()
+            }
 
             val ownMessageIds = messages
                 .filter { currentWpUserId != null && it.senderId == currentWpUserId }

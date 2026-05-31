@@ -100,14 +100,53 @@ class NeighborhoodsViewModel(
 
     fun openUserProfile(userId: String) {
         viewModelScope.launch {
+            val cachedProfile = repository.getCachedUserProfile(userId)
+            if (cachedProfile != null) {
+                _uiState.value = _uiState.value.copy(
+                    selectedProfile = cachedProfile,
+                    openingProfileUserId = null,
+                    refreshingProfileUserId = userId,
+                    error = null
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    openingProfileUserId = userId,
+                    refreshingProfileUserId = null,
+                    error = null
+                )
+            }
             repository.getUserProfile(userId)
-                .onSuccess { profile -> _uiState.value = _uiState.value.copy(selectedProfile = profile, error = null) }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo abrir el perfil") }
+                .onSuccess { profile ->
+                    repository.cacheUserProfile(profile)
+                    val currentState = _uiState.value
+                    val shouldUpdateVisibleProfile =
+                        currentState.selectedProfile?.user?.id == userId ||
+                            currentState.openingProfileUserId == userId ||
+                            currentState.refreshingProfileUserId == userId
+                    _uiState.value = currentState.copy(
+                        openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                        refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
+                        selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
+                        error = null
+                    )
+                }
+                .onFailure { error ->
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                        refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
+                        error = error.message ?: "No se pudo abrir el perfil"
+                    )
+                }
         }
     }
 
     fun closeUserProfile() {
-        _uiState.value = _uiState.value.copy(selectedProfile = null)
+        _uiState.value = _uiState.value.copy(
+            openingProfileUserId = null,
+            refreshingProfileUserId = null,
+            selectedProfile = null
+        )
     }
 
     fun reportProfilePost(postId: String) {

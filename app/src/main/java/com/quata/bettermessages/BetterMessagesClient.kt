@@ -43,11 +43,8 @@ class BetterMessagesClient(
     }
 
     suspend fun lookupWordPressUserId(profileId: String): Int? {
-        val lookupClient = OkHttpClient.Builder()
+        val lookupClient = httpClient.newBuilder()
             .cookieJar(BetterMessagesCookieJar(InMemoryCookieStore()))
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(40, TimeUnit.SECONDS)
-            .writeTimeout(40, TimeUnit.SECONDS)
             .build()
         val lookupBridge = BetterMessagesBridgeApi(
             baseUrl = normalizedBaseUrl,

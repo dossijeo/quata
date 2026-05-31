@@ -14,10 +14,13 @@ import com.quata.data.supabase.SupabaseHttpClient
 import com.quata.data.supabase.SupabaseRealtimeClient
 import com.quata.wordpress.QuataWordPressClient
 import okhttp3.Interceptor
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.Inet4Address
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 class NetworkModule(context: Context) {
@@ -30,6 +33,7 @@ class NetworkModule(context: Context) {
 
     private val wordpressClient = OkHttpClient.Builder()
         .cookieJar(betterMessagesCookieJar)
+        .dns(Ipv4FirstDns)
         .addInterceptor(logging)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -97,5 +101,12 @@ class NetworkModule(context: Context) {
             .header("Authorization", "Bearer ${AppConfig.SUPABASE_ANON_KEY}")
             .build()
         chain.proceed(request)
+    }
+
+    private object Ipv4FirstDns : Dns {
+        override fun lookup(hostname: String): List<InetAddress> =
+            Dns.SYSTEM.lookup(hostname).sortedBy { address ->
+                if (address is Inet4Address) 0 else 1
+            }
     }
 }

@@ -126,6 +126,7 @@ import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
+import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.openAttachmentWithChooser
@@ -142,6 +143,7 @@ fun ChatScreen(
     conversationId: String,
     repository: ChatRepository,
     onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null,
     onOpenConversation: (String) -> Unit = {},
     focusedMessageId: String? = null,
     onFocusedMessageHandled: () -> Unit = {},
@@ -296,6 +298,7 @@ fun ChatScreen(
                             conversation = state.conversation,
                             currentUser = state.currentUser,
                             usersById = usersById,
+                            openingProfileUserId = openingProfileUserId,
                             onOpenUserProfile = onOpenUserProfile,
                             selectedMessage = selectedMessage,
                             onClearSelection = { viewModel.onEvent(ChatUiEvent.MessageSelected(null)) },
@@ -361,6 +364,7 @@ fun ChatScreen(
                                 showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
                                 isSelected = message.id == state.selectedMessageId ||
                                     (message.id == highlightedMessageId && highlightVisible),
+                                isSenderProfileLoading = openingProfileUserId == message.senderId,
                                 onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
                                 onOpenAttachment = { attachment ->
                                     if (attachment.isMedia) {
@@ -689,6 +693,7 @@ private fun ChatHeader(
     conversation: Conversation?,
     currentUser: User?,
     usersById: Map<String, User>,
+    openingProfileUserId: String?,
     onOpenUserProfile: (String) -> Unit,
     selectedMessage: Message?,
     onClearSelection: () -> Unit,
@@ -767,7 +772,7 @@ private fun ChatHeader(
                     CompactIconButton(onClick = onBack) {
                         CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
-                    ChatAvatar(conversation, currentUser, usersById, onOpenUserProfile)
+                    ChatAvatar(conversation, currentUser, usersById, openingProfileUserId, onOpenUserProfile)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -853,12 +858,17 @@ private fun ChatHeader(
                     items(members, key = { it.id }) { member ->
                         var memberMenuExpanded by rememberSaveable(member.id) { mutableStateOf(false) }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            val avatarModifier = if (member.canOpenProfile) {
-                                Modifier.size(38.dp).clickable { onOpenUserProfile(member.id) }
+                            if (member.canOpenProfile) {
+                                ClickableProfileAvatar(
+                                    name = member.name,
+                                    avatarUrl = member.avatarUrl,
+                                    isLoading = openingProfileUserId == member.id,
+                                    onClick = { onOpenUserProfile(member.id) },
+                                    modifier = Modifier.size(38.dp)
+                                )
                             } else {
-                                Modifier.size(38.dp)
+                                AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp))
                             }
-                            AvatarImage(member.name, member.avatarUrl, modifier = avatarModifier)
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(member.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1217,6 +1227,7 @@ private fun ChatAvatar(
     conversation: Conversation?,
     currentUser: User?,
     usersById: Map<String, User>,
+    openingProfileUserId: String?,
     onOpenUserProfile: (String) -> Unit
 ) {
     val privateUser = conversation?.participantIds
@@ -1239,7 +1250,13 @@ private fun ChatAvatar(
                 }
             }
         } else if (privateUser != null) {
-            AvatarImage(privateUser.displayName, privateUser.avatarUrl, modifier = Modifier.size(46.dp).clickable { onOpenUserProfile(privateUser.id) })
+            ClickableProfileAvatar(
+                name = privateUser.displayName,
+                avatarUrl = privateUser.avatarUrl,
+                isLoading = openingProfileUserId == privateUser.id,
+                onClick = { onOpenUserProfile(privateUser.id) },
+                modifier = Modifier.size(46.dp)
+            )
         } else {
             AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
         }
@@ -1342,6 +1359,7 @@ private fun MessageBubble(
     sender: User?,
     showSenderAvatar: Boolean,
     isSelected: Boolean,
+    isSenderProfileLoading: Boolean,
     onOpenSenderProfile: () -> Unit,
     onOpenAttachment: (AttachmentPreview) -> Unit,
     onClick: () -> Unit
@@ -1354,12 +1372,13 @@ private fun MessageBubble(
         verticalAlignment = Alignment.Top
     ) {
         if (showSenderAvatar) {
-            AvatarImage(
+            ClickableProfileAvatar(
                 name = sender?.displayName ?: message.senderName,
                 avatarUrl = sender?.avatarUrl,
+                isLoading = isSenderProfileLoading,
+                onClick = onOpenSenderProfile,
                 modifier = Modifier
                     .size(34.dp)
-                    .clickable(onClick = onOpenSenderProfile)
                     .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
             )
             Spacer(Modifier.width(8.dp))

@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChatBubble
@@ -89,6 +91,8 @@ import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
+import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.ProfileAvatarWithLoadingHalo
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.openAttachmentWithChooser
@@ -115,6 +119,7 @@ fun NeighborhoodsScreen(
     padding: PaddingValues,
     repository: NeighborhoodRepository,
     currentUserId: String? = null,
+    openingProfileUserId: String? = null,
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     viewModel: NeighborhoodsViewModel = viewModel(factory = NeighborhoodsViewModel.factory(repository))
@@ -145,6 +150,7 @@ fun NeighborhoodsScreen(
             currentUserId = currentUserId,
             isOpeningChat = state.isOpeningChat,
             openingPrivateChatUserId = state.openingPrivateChatUserId,
+            openingProfileUserId = openingProfileUserId,
             onBack = { selectedCommunity = null },
             onFollowUser = { viewModel.toggleFollowUser(it.id) },
             onOpenProfile = { onOpenUserProfile(it.id) },
@@ -353,6 +359,7 @@ private fun NeighborhoodUsersScreen(
     currentUserId: String?,
     isOpeningChat: Boolean,
     openingPrivateChatUserId: String?,
+    openingProfileUserId: String?,
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
@@ -400,6 +407,7 @@ private fun NeighborhoodUsersScreen(
                         user = user,
                         isOwnUser = user.id == currentUserId,
                         isOpeningChat = openingPrivateChatUserId == user.id,
+                        isProfileLoading = openingProfileUserId == user.id,
                         onFollowUser = { onFollowUser(user) },
                         onOpenProfile = { onOpenProfile(user) },
                         onOpenPrivateChat = { onOpenPrivateChat(user) }
@@ -417,13 +425,15 @@ fun CommunityProfileScreen(
     profile: CommunityUserProfile,
     currentUserId: String? = null,
     isOpeningChat: Boolean = false,
+    isRefreshingProfile: Boolean = false,
     chatError: String? = null,
     onReportPost: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onFollowUser: (String) -> Unit = { onFollow() },
     onOpenPrivateChat: (String) -> Unit,
-    onOpenUserProfile: (String) -> Unit = {}
+    onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null
 ) {
     val isOwnProfile = profile.user.id == currentUserId
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
@@ -454,7 +464,8 @@ fun CommunityProfileScreen(
                 onFollowUser = { user -> onFollowUser(user.id) },
                 onOpenProfile = { user -> onOpenUserProfile(user.id) },
                 onOpenPrivateChat = { user -> onOpenPrivateChat(user.id) },
-                isOpeningChat = isOpeningChat
+                isOpeningChat = isOpeningChat,
+                openingProfileUserId = openingProfileUserId
             )
         } else {
             LazyColumn(
@@ -471,15 +482,15 @@ fun CommunityProfileScreen(
                     }
                     Spacer(Modifier.height(18.dp))
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        ProfileAvatar(profile.user, Modifier.size(92.dp))
+                        ProfileAvatar(profile.user, Modifier.size(92.dp), isLoading = isRefreshingProfile)
                     }
                     Spacer(Modifier.height(24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount.toString(), stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { showPosts = true })
-                        ProfileKpi(profile.user.followersCount.toString(), stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
+                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { showPosts = true })
+                        ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
                             userListTitle = "followers"
                         })
-                        ProfileKpi(profile.user.followingCount.toString(), stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
+                        ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
                             userListTitle = "following"
                         })
                     }
@@ -622,6 +633,7 @@ private fun NeighborhoodUserRow(
     user: NeighborhoodUser,
     isOwnUser: Boolean,
     isOpeningChat: Boolean,
+    isProfileLoading: Boolean,
     onFollowUser: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivateChat: () -> Unit
@@ -633,7 +645,13 @@ private fun NeighborhoodUserRow(
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarImage(user.displayName, user.avatarUrl, modifier = Modifier.size(48.dp).clickable(onClick = onOpenProfile))
+            ClickableProfileAvatar(
+                name = user.displayName,
+                avatarUrl = user.avatarUrl,
+                isLoading = isProfileLoading,
+                onClick = onOpenProfile,
+                modifier = Modifier.size(48.dp)
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -693,7 +711,8 @@ private fun ProfileUsersListContent(
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
     onOpenPrivateChat: (NeighborhoodUser) -> Unit,
-    isOpeningChat: Boolean
+    isOpeningChat: Boolean,
+    openingProfileUserId: String?
 ) {
     Column(
         Modifier
@@ -718,6 +737,7 @@ private fun ProfileUsersListContent(
                     user = user,
                     isOwnUser = user.id == currentUserId,
                     isOpeningChat = isOpeningChat,
+                    isProfileLoading = openingProfileUserId == user.id,
                     onFollowUser = { onFollowUser(user) },
                     onOpenProfile = { onOpenProfile(user) },
                     onOpenPrivateChat = { onOpenPrivateChat(user) }
@@ -728,12 +748,22 @@ private fun ProfileUsersListContent(
 }
 
 @Composable
-private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier) {
-    AvatarImage(user.displayName, user.avatarUrl, modifier = modifier.clip(CircleShape))
+private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier, isLoading: Boolean = false) {
+    ProfileAvatarWithLoadingHalo(
+        name = user.displayName,
+        avatarUrl = user.avatarUrl,
+        isLoading = isLoading,
+        modifier = modifier
+    )
 }
 
 @Composable
-private fun ProfileKpi(value: String, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val animatedValue by animateIntAsState(
+        targetValue = value,
+        animationSpec = tween(durationMillis = 650),
+        label = "profile_kpi_$label"
+    )
     Column(
         modifier = modifier
             .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
@@ -742,7 +772,7 @@ private fun ProfileKpi(value: String, label: String, modifier: Modifier = Modifi
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(value, fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Text(animatedValue.toString(), fontWeight = FontWeight.Black, fontSize = 22.sp)
         Text(label, fontSize = 13.sp)
     }
 }
