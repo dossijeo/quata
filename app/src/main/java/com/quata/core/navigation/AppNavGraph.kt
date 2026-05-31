@@ -74,6 +74,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
+import com.quata.core.session.AuthState
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
@@ -108,6 +109,11 @@ fun AppNavGraph(
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = currentBackStackEntry?.destination?.route
     val currentConversationId = currentBackStackEntry?.arguments?.getString("conversationId")
+    val authState by container.sessionManager.authState.collectAsState()
+    val currentUserId = (authState as? AuthState.LoggedIn)?.userId
+    val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
+        container.touchFlowPreferences.observeEnabled(currentUserId)
+    }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
     val startDestination = if (container.sessionManager.isLoggedIn()) AppDestinations.Feed.route else AppDestinations.Login.route
     val showAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
@@ -222,7 +228,7 @@ fun AppNavGraph(
     Box(
         Modifier
             .fillMaxSize()
-            .fluidTouchEffect()
+            .fluidTouchEffect(enabled = touchFlowEnabled)
     ) {
         Scaffold(
             topBar = {
@@ -397,6 +403,10 @@ fun AppNavGraph(
                         padding = padding,
                         sessionManager = container.sessionManager,
                         repository = container.profileRepository,
+                        touchFlowEnabled = touchFlowEnabled,
+                        onTouchFlowEnabledChange = { enabled ->
+                            container.touchFlowPreferences.setEnabled(currentUserId, enabled)
+                        },
                         onLogout = {
                             navController.navigate(AppDestinations.Login.route) {
                                 popUpTo(0)

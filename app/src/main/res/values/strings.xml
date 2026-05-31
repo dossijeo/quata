@@ -191,6 +191,7 @@
     <string name="profile_account_label">MY ACCOUNT</string>
     <string name="profile_edit_title">Edit my details</string>
     <string name="profile_edit_subtitle">From here you can change your photo, name, district, password, and recovery details.</string>
+    <string name="profile_touch_flow_setting">Enable Q&#252;ata TouchFlow</string>
     <string name="profile_photo">Profile photo</string>
     <string name="profile_change_photo">Change profile photo</string>
     <string name="profile_pick_gallery">Choose from gallery</string>

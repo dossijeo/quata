@@ -190,6 +190,7 @@
     <string name="profile_account_label">MI CUENTA</string>
     <string name="profile_edit_title">Editar mis datos</string>
     <string name="profile_edit_subtitle">Desde aquí puedes cambiar tu foto, tu nombre, barrio, contraseña y datos de recuperación.</string>
+    <string name="profile_touch_flow_setting">Activar Q&#252;ata TouchFlow</string>
     <string name="profile_photo">Foto de perfil</string>
     <string name="profile_change_photo">Cambiar foto de perfil</string>
     <string name="profile_pick_gallery">Elegir de galería</string>

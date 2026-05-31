@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -98,6 +99,8 @@ fun ProfileScreen(
     padding: PaddingValues,
     sessionManager: SessionManager,
     repository: ProfileRepository,
+    touchFlowEnabled: Boolean,
+    onTouchFlowEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit,
     onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
@@ -157,6 +160,23 @@ fun ProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 23.sp
             )
+
+            ProfilePanel {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.profile_touch_flow_setting),
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = touchFlowEnabled,
+                        onCheckedChange = onTouchFlowEnabledChange
+                    )
+                }
+            }
 
             ProfilePanel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
