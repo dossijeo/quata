@@ -9,6 +9,7 @@ import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.session.SessionManager
+import com.quata.core.text.buildPostBodyWithMeta
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
@@ -102,8 +103,8 @@ class PostComposerRepositoryImpl(
 
     private fun PostComposerDraft.toRemoteText(): String = when (type) {
         PostComposerType.Text -> text
-        PostComposerType.Image -> locationLabel.orEmpty()
-        PostComposerType.Video -> text.ifBlank { "Video" }
+        PostComposerType.Image -> buildPostBodyWithMeta(imageLocation = locationLabel, channel = "feed")
+        PostComposerType.Video -> buildPostBodyWithMeta(mediaTitle = text, channel = "feed")
     }
 
     private fun Context.displayName(uri: Uri): String {

@@ -109,6 +109,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
+import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
@@ -157,7 +158,7 @@ fun FeedScreen(
         state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, stringResource(R.string.feed_empty), onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
         else -> {
             val pagerState = rememberPagerState(pageCount = { state.posts.size })
-            val postRanks = remember(state.posts) { calculateDailyPostRanks(state.posts) }
+            val postRanks = remember(state.posts) { calculatePostRankingMap(state.posts) }
             var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
 
             LaunchedEffect(focusedPostId) {
@@ -195,7 +196,7 @@ fun FeedScreen(
                     val post = state.posts[page]
                     ReelPost(
                         post = post,
-                        postRank = postRanks[post.id] ?: 1,
+                        postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
                         isCurrentPage = pagerState.currentPage == page,
                         currentUserId = currentUserId,
                         isAuthorProfileLoading = openingProfileUserId == post.author.id,
@@ -297,12 +298,12 @@ private fun FeedMessageScreen(
 @Composable
 private fun LiveRankingDialog(
     posts: List<Post>,
-    postRanks: Map<String, Int>,
+    postRanks: Map<String, PostRankingInfo>,
     onDismiss: () -> Unit,
     onOpenPost: (Post) -> Unit
 ) {
     val rankedPosts = remember(posts) {
-        posts.sortedWith(feedRankingComparator())
+        posts.sortedWith(postRankingComparator())
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -369,7 +370,7 @@ private fun LiveRankingDialog(
                 ) {
                     items(rankedPosts) { post ->
                         LiveRankingRow(
-                            rank = postRanks[post.id] ?: (rankedPosts.indexOf(post) + 1),
+                            rank = postRanks[post.id]?.position ?: (rankedPosts.indexOf(post) + 1),
                             post = post,
                             onOpenPost = { onOpenPost(post) }
                         )
@@ -463,7 +464,7 @@ private fun postTypeLabel(post: Post): String = when {
 @Composable
 private fun ReelPost(
     post: Post,
-    postRank: Int,
+    postRankInfo: PostRankingInfo,
     isCurrentPage: Boolean,
     currentUserId: String?,
     isAuthorProfileLoading: Boolean,
@@ -477,6 +478,7 @@ private fun ReelPost(
 ) {
     val isVideo = post.videoUrl != null
     val shortcodeContent = remember(post.text) { post.text.parsePostShortcodeContent() }
+    val postMeta = remember(post.text) { post.text.extractPostMeta() }
     val displayText = shortcodeContent.cleanText
     val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
     var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
@@ -496,9 +498,13 @@ private fun ReelPost(
         ReelScrims()
         ReelTopChips(
             post = post,
-            postRank = postRank,
+            postRankInfo = postRankInfo,
             documentText = shortcodeContent.documentText,
-            showLocation = !isTextOnly && !isVideo,
+            mediaBadgeText = when {
+                post.videoUrl != null -> postMeta.mediaTitle.ifBlank { postMeta.imageLocation }
+                post.imageUrl != null -> postMeta.imageLocation
+                else -> ""
+            },
             isVideo = isVideo,
             isMuted = isVideoMuted,
             onToggleMute = { isVideoMuted = !isVideoMuted },
@@ -531,7 +537,7 @@ private fun ReelPost(
         ReelAuthor(
             post = post,
             displayText = displayText,
-            showDescription = isVideo && displayText.isNotBlank(),
+            showDescription = (isVideo || post.imageUrl != null) && displayText.isNotBlank(),
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
             isProfileLoading = isAuthorProfileLoading,
@@ -853,9 +859,9 @@ private fun ReelScrims() {
 @Composable
 private fun ReelTopChips(
     post: Post,
-    postRank: Int,
+    postRankInfo: PostRankingInfo,
     documentText: String?,
-    showLocation: Boolean,
+    mediaBadgeText: String,
     isVideo: Boolean,
     isMuted: Boolean,
     onToggleMute: () -> Unit,
@@ -867,13 +873,27 @@ private fun ReelTopChips(
             .padding(start = 20.dp, top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (showLocation && post.placeName != null) {
-            ReelChip(text = stringResource(R.string.feed_location_chip, post.placeName))
+        val cleanMediaBadgeText = mediaBadgeText.trim()
+        if (cleanMediaBadgeText.isNotBlank()) {
+            ReelChip(
+                text = if (isVideo) {
+                    "\uD83D\uDCDD $cleanMediaBadgeText"
+                } else {
+                    stringResource(R.string.feed_location_chip, cleanMediaBadgeText)
+                }
+            )
         }
         documentText?.let { text ->
             ReelChip(text = "\uD83D\uDCC4 $text")
         }
-        ReelChip(text = stringResource(R.string.feed_rank_chip, postRank, post.likesCount), highlighted = true)
+        ReelChip(
+            text = stringResource(
+                R.string.feed_rank_chip,
+                postRankInfo.position,
+                postRankInfo.likes
+            ),
+            highlighted = true
+        )
         ReelChip(text = stringResource(R.string.common_live), highlighted = true, onClick = onOpenLive)
         if (isVideo) {
             ReelRoundChip(
@@ -1300,39 +1320,32 @@ private fun formatCommentTimestamp(value: String): String {
     return parsed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
 }
 
-private data class PostRankInfo(
-    val day: LocalDate,
+private data class PostRankingInfo(
+    val position: Int,
+    val likes: Int
+)
+
+private data class PostPublishedAtInfo(
     val publishedAt: LocalDateTime
 )
 
-private fun calculateDailyPostRanks(posts: List<Post>): Map<String, Int> {
-    val now = LocalDateTime.now()
-    return posts
-        .map { post -> post to post.rankInfo(now) }
-        .groupBy { it.second.day }
-        .flatMap { (_, dayPosts) ->
-            dayPosts
-                .sortedWith(
-                    compareByDescending<Pair<Post, PostRankInfo>> { it.first.likesCount }
-                        .thenByDescending { it.second.publishedAt }
-                        .thenBy { it.first.id }
-                )
-                .mapIndexed { index, (post, _) -> post.id to index + 1 }
+private fun calculatePostRankingMap(posts: List<Post>): Map<String, PostRankingInfo> =
+    posts
+        .sortedWith(postRankingComparator())
+        .mapIndexed { index, post ->
+            post.id to PostRankingInfo(position = index + 1, likes = post.likesCount)
         }
         .toMap()
-}
 
-private fun feedRankingComparator(): Comparator<Post> {
+private fun postRankingComparator(): Comparator<Post> {
     val now = LocalDateTime.now()
-    return compareByDescending<Post> { it.rankInfo(now).day }
-        .thenByDescending { it.likesCount }
+    return compareByDescending<Post> { it.likesCount }
         .thenByDescending { it.rankInfo(now).publishedAt }
-        .thenBy { it.id }
 }
 
-private fun Post.rankInfo(now: LocalDateTime): PostRankInfo {
+private fun Post.rankInfo(now: LocalDateTime): PostPublishedAtInfo {
     val publishedAt = parsePostCreatedAt(createdAt, now)
-    return PostRankInfo(day = publishedAt.toLocalDate(), publishedAt = publishedAt)
+    return PostPublishedAtInfo(publishedAt = publishedAt)
 }
 
 private fun parsePostCreatedAt(value: String, now: LocalDateTime): LocalDateTime {
