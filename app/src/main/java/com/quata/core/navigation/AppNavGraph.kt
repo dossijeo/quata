@@ -172,13 +172,13 @@ fun AppNavGraph(
         }
     }
 
-    fun navigateToChat(conversationId: String) {
+    fun navigateToChat(conversationId: String, focusedMessageId: String? = null) {
         if (!isAuthenticated) {
             requestAuthentication()
             navigateToFeed()
             return
         }
-        chatFocusedMessageId = null
+        chatFocusedMessageId = focusedMessageId
         navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
             launchSingleTop = true
         }
@@ -406,8 +406,7 @@ fun AppNavGraph(
                             focusedMessageId = chatFocusedMessageId,
                             onFocusedMessageHandled = { chatFocusedMessageId = null },
                             onOpenMessageConversation = { targetConversationId, messageId ->
-                                chatFocusedMessageId = messageId
-                                navigateToChat(targetConversationId)
+                                navigateToChat(targetConversationId, focusedMessageId = messageId)
                             },
                             onBack = { navController.popBackStack() }
                         )

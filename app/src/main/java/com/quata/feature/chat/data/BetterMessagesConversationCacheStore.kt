@@ -4,6 +4,7 @@ import android.content.Context
 import com.quata.bettermessages.BetterMessagesJson
 import com.quata.bettermessages.BmThreadResponse
 import com.quata.core.model.Conversation
+import com.quata.core.model.Message
 import com.quata.data.supabase.CommunityProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -108,6 +109,94 @@ internal class BetterMessagesConversationCacheStore(
         }
     }
 
+    suspend fun cachedFavoriteMessages(profileId: String): List<Message>? = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val state = readState(profileId)
+            if (state.favoriteMessagesCachedAt <= 0L) {
+                null
+            } else {
+                state.favoriteMessages.map { it.toDomain() }.sortedFavoriteMessages()
+            }
+        }
+    }
+
+    suspend fun hasFavoriteMessagesCache(profileId: String): Boolean = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            readState(profileId).favoriteMessagesCachedAt > 0L
+        }
+    }
+
+    suspend fun replaceFavoriteMessages(profileId: String, messages: List<Message>) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val state = readState(profileId)
+                writeState(
+                    profileId = profileId,
+                    state = state.copy(
+                        favoriteMessagesCachedAt = System.currentTimeMillis(),
+                        favoriteMessages = messages
+                            .filter { it.isFavorite && !it.isDeleted }
+                            .distinctBy { it.id }
+                            .sortedFavoriteMessages()
+                            .map { it.toStored() }
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun upsertFavoriteMessage(profileId: String, message: Message) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val state = readState(profileId)
+                if (state.favoriteMessagesCachedAt <= 0L) return@withContext
+                val updated = (listOf(message) + state.favoriteMessages.map { it.toDomain() }.filterNot { it.id == message.id })
+                    .filter { it.isFavorite && !it.isDeleted }
+                    .distinctBy { it.id }
+                    .sortedFavoriteMessages()
+                writeState(
+                    profileId = profileId,
+                    state = state.copy(
+                        favoriteMessagesCachedAt = System.currentTimeMillis(),
+                        favoriteMessages = updated.map { it.toStored() }
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun removeFavoriteMessage(profileId: String, messageId: String) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val state = readState(profileId)
+                if (state.favoriteMessagesCachedAt <= 0L) return@withContext
+                writeState(
+                    profileId = profileId,
+                    state = state.copy(
+                        favoriteMessagesCachedAt = System.currentTimeMillis(),
+                        favoriteMessages = state.favoriteMessages.filterNot { it.id == messageId }
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun removeFavoriteMessagesForConversation(profileId: String, conversationId: String) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val state = readState(profileId)
+                if (state.favoriteMessagesCachedAt <= 0L) return@withContext
+                writeState(
+                    profileId = profileId,
+                    state = state.copy(
+                        favoriteMessagesCachedAt = System.currentTimeMillis(),
+                        favoriteMessages = state.favoriteMessages.filterNot { it.conversationId == conversationId }
+                    )
+                )
+            }
+        }
+    }
+
     suspend fun cachedProfileDirectory(profileId: String): List<CommunityProfile> = mutex.withLock {
         withContext(Dispatchers.IO) {
             readState(profileId).profiles
@@ -199,13 +288,71 @@ internal class BetterMessagesConversationCacheStore(
         blockedUserIds = blockedUserIds
     )
 
+    private fun Message.toStored(): StoredMessage = StoredMessage(
+        id = id,
+        conversationId = conversationId,
+        senderId = senderId,
+        senderName = senderName,
+        text = text,
+        sentAt = sentAt,
+        sentAtMillis = sentAtMillis,
+        isMine = isMine,
+        isRead = isRead,
+        isEdited = isEdited,
+        isDeleted = isDeleted,
+        isFavorite = isFavorite,
+        replyToMessageId = replyToMessageId,
+        replyToSenderName = replyToSenderName,
+        replyToText = replyToText,
+        forwardedFromSenderId = forwardedFromSenderId,
+        forwardedFromSenderName = forwardedFromSenderName,
+        attachmentUri = attachmentUri,
+        attachmentName = attachmentName,
+        attachmentMimeType = attachmentMimeType,
+        isPending = isPending,
+        isLocalEcho = isLocalEcho
+    )
+
+    private fun StoredMessage.toDomain(): Message = Message(
+        id = id,
+        conversationId = conversationId,
+        senderId = senderId,
+        senderName = senderName,
+        text = text,
+        sentAt = sentAt,
+        sentAtMillis = sentAtMillis,
+        isMine = isMine,
+        isRead = isRead,
+        isEdited = isEdited,
+        isDeleted = isDeleted,
+        isFavorite = isFavorite,
+        replyToMessageId = replyToMessageId,
+        replyToSenderName = replyToSenderName,
+        replyToText = replyToText,
+        forwardedFromSenderId = forwardedFromSenderId,
+        forwardedFromSenderName = forwardedFromSenderName,
+        attachmentUri = attachmentUri,
+        attachmentName = attachmentName,
+        attachmentMimeType = attachmentMimeType,
+        isPending = isPending,
+        isLocalEcho = isLocalEcho
+    )
+
+    private fun List<Message>.sortedFavoriteMessages(): List<Message> =
+        sortedWith(
+            compareByDescending<Message> { it.sentAtMillis ?: 0L }
+                .thenByDescending { it.id }
+        )
+
     @Serializable
     private data class StoredConversationCache(
         val conversationsCachedAt: Long = 0L,
         val conversations: List<StoredConversation> = emptyList(),
         val profilesCachedAt: Long = 0L,
         val profiles: List<CommunityProfile> = emptyList(),
-        val threads: Map<String, StoredThreadResponse> = emptyMap()
+        val threads: Map<String, StoredThreadResponse> = emptyMap(),
+        val favoriteMessagesCachedAt: Long = 0L,
+        val favoriteMessages: List<StoredMessage> = emptyList()
     )
 
     @Serializable
@@ -234,6 +381,32 @@ internal class BetterMessagesConversationCacheStore(
         val moderatorIds: List<String> = emptyList(),
         val canMembersInvite: Boolean = false,
         val blockedUserIds: List<String> = emptyList()
+    )
+
+    @Serializable
+    private data class StoredMessage(
+        val id: String,
+        val conversationId: String,
+        val senderId: String,
+        val senderName: String,
+        val text: String,
+        val sentAt: String,
+        val sentAtMillis: Long? = null,
+        val isMine: Boolean = false,
+        val isRead: Boolean = true,
+        val isEdited: Boolean = false,
+        val isDeleted: Boolean = false,
+        val isFavorite: Boolean = false,
+        val replyToMessageId: String? = null,
+        val replyToSenderName: String? = null,
+        val replyToText: String? = null,
+        val forwardedFromSenderId: String? = null,
+        val forwardedFromSenderName: String? = null,
+        val attachmentUri: String? = null,
+        val attachmentName: String? = null,
+        val attachmentMimeType: String? = null,
+        val isPending: Boolean = false,
+        val isLocalEcho: Boolean = false
     )
 
     private companion object {

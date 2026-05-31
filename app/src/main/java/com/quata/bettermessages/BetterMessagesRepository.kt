@@ -71,6 +71,16 @@ class BetterMessagesRepository(
         return client.rest.getThread(threadId, knownMessageIds)
     }
 
+    suspend fun loadFavoritedInCurrentSession(): BmThreadResponse {
+        return client.rest.getFavorited()
+    }
+
+    suspend fun loadFavorited(profileId: String): BmThreadResponse {
+        return withRestSession(profileId) {
+            client.rest.getFavorited()
+        }
+    }
+
     suspend fun openOrGetPrivateUrl(profileId: String, peerProfileId: String): BmUrlData {
         prepareRestSession(profileId)
         return client.bridge.getPrivateUrl(profileId, peerProfileId)

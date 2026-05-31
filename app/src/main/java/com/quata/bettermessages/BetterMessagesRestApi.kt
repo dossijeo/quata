@@ -63,6 +63,20 @@ class BetterMessagesRestApi(
         )
     }
 
+    suspend fun getFavorited(): BmThreadResponse {
+        val request = Request.Builder()
+            .url("$restBase/getFavorited".withNoCache())
+            .get()
+            .defaultBetterMessagesRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
+            .build()
+
+        return json.decodeFromString(BmThreadResponse.serializer(), executeRest(request))
+    }
+
     suspend fun sendMessage(
         threadId: Int,
         message: String,

@@ -80,6 +80,8 @@ class ChatRepositoryImpl(
     private val betterMessagesUsersByThreadId = ConcurrentHashMap<Int, List<BmUser>>()
     private val betterMessagesThreadResponses = ConcurrentHashMap<Int, MutableStateFlow<BmThreadResponse>>()
     private val betterMessagesThreadPollStates = ConcurrentHashMap<Int, BetterMessagesThreadPollState>()
+    private val favoriteMessagesByProfileId = ConcurrentHashMap<String, MutableStateFlow<List<Message>>>()
+    private val favoriteMessagesLoadedProfileIds = ConcurrentHashMap.newKeySet<String>()
     private val pollingWakeSignal = Channel<Unit>(Channel.CONFLATED)
     private var realConversationsPollJob: Job? = null
     private val _activeConversationId = MutableStateFlow<String?>(null)
@@ -94,6 +96,7 @@ class ChatRepositoryImpl(
     private val betterMessagesGroupThreadIds = ConcurrentHashMap.newKeySet<Int>()
     private val betterMessagesProfilesById = ConcurrentHashMap<String, CommunityProfile>()
     private val betterMessagesProfilesMutex = Mutex()
+    private val realConversationsLoadMutex = Mutex()
     private val ensuredWallMemberships = mutableSetOf<String>()
     private val betterMessagesSessionMutex = Mutex()
     private var betterMessagesSession: BetterMessagesSessionContext? = null
@@ -156,8 +159,13 @@ class ChatRepositoryImpl(
             MockData.conversations
         } else {
             ensureRealConversationsPolling()
-            sessionManager.currentSession()?.let { restoreCachedConversationsIfNeeded(it.userId) }
-            realConversations.value
+            val session = sessionManager.currentSession()
+            if (session == null) {
+                realConversations.value
+            } else {
+                restoreCachedConversationsIfNeeded(session.userId)
+                realConversations.value.takeIf { it.isNotEmpty() } ?: refreshRealConversations()
+            }
         }
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
@@ -199,6 +207,10 @@ class ChatRepositoryImpl(
                 }
             }.collect { emit(it) }
         } else {
+            if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                emitAll(observeFavoriteMessages())
+                return@flow
+            }
             conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
                 emitAll(observeBetterMessagesMessages(threadId))
                 return@flow
@@ -574,6 +586,7 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val (threadId, bmMessageId) = messageId.bmMessagePartsOrNull() ?: error("Mensaje no reconocido")
         betterMessagesRepository.deleteMessages(session.userId, threadId, listOf(bmMessageId))
+        removeFavoriteMessageFromCache(session.userId, messageId)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = runCatching {
@@ -584,7 +597,13 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val (threadId, bmMessageId) = messageId.bmMessagePartsOrNull() ?: error("Mensaje no reconocido")
         val current = loadBetterMessages(threadId).firstOrNull { it.id == messageId }
-        betterMessagesRepository.favoriteMessage(session.userId, threadId, bmMessageId, favorite = current?.isFavorite != true)
+        val nextFavorite = current?.isFavorite != true
+        betterMessagesRepository.favoriteMessage(session.userId, threadId, bmMessageId, favorite = nextFavorite)
+        updateBetterMessagesFavoriteState(threadId, bmMessageId, nextFavorite)
+        current
+            ?.copy(isFavorite = nextFavorite)
+            ?.let { updateFavoriteMessageCacheAfterToggle(session.userId, it) }
+        Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
@@ -693,6 +712,13 @@ class ChatRepositoryImpl(
                 realConversationsLastRefreshedAt = System.currentTimeMillis()
             }
     }
+
+    private suspend fun refreshRealConversations(): List<Conversation> =
+        realConversationsLoadMutex.withLock {
+            loadRealConversations().also { conversations ->
+                setRealConversations(conversations)
+            }
+        }
 
     private suspend fun loadRealConversation(conversationId: String): Conversation? {
         val session = sessionManager.currentSession() ?: return null
@@ -858,8 +884,12 @@ class ChatRepositoryImpl(
     }
 
     private fun removeConversationFromCache(profileId: String, conversationId: String) {
+        favoriteMessagesByProfileId[profileId]?.let { state ->
+            state.value = state.value.filterNot { it.conversationId == conversationId }
+        }
         realConversationsScope.launch {
             betterMessagesConversationCacheStore.removeConversation(profileId, conversationId)
+            betterMessagesConversationCacheStore.removeFavoriteMessagesForConversation(profileId, conversationId)
         }
     }
 
@@ -1010,10 +1040,9 @@ class ChatRepositoryImpl(
                             )
                         }
                     }
-                    runCatching { loadRealConversations() }
+                    runCatching { refreshRealConversations() }
                         .onSuccess { conversations ->
                             logPolling("full load conversations=${conversations.size}")
-                            setRealConversations(conversations)
                             lastInboxRefreshAt = System.currentTimeMillis()
                             lastInboxDiscoveryAt = lastInboxRefreshAt
                         }
@@ -1452,10 +1481,8 @@ class ChatRepositoryImpl(
 
     private suspend fun loadRealMessages(conversationId: String): List<Message> {
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
-            return loadRealConversations()
-                .filter { it.id.betterMessagesThreadIdOrNull() != null }
-                .flatMap { loadRealMessages(it.id) }
-                .filter { it.isFavorite && !it.isDeleted }
+            val session = sessionManager.currentSession() ?: return emptyList()
+            return loadFavoriteMessages(session.userId)
         }
         conversationId.betterMessagesThreadIdOrNull()?.let { return loadBetterMessages(it) }
 
@@ -1482,6 +1509,127 @@ class ChatRepositoryImpl(
                 ?.let { cacheBetterMessagesThreadResponse(threadId, it, persist = false) }
         return (cached ?: loadBetterMessagesThread(session.userId, threadId)).toDomainMessages(session.userId)
     }
+
+    private fun observeFavoriteMessages(): Flow<List<Message>> = flow {
+        val session = sessionManager.currentSession()
+        if (session == null) {
+            emit(emptyList())
+            return@flow
+        }
+        val state = favoriteMessagesState(session.userId)
+        if (session.userId !in favoriteMessagesLoadedProfileIds) {
+            state.value = loadFavoriteMessages(session.userId)
+            favoriteMessagesLoadedProfileIds += session.userId
+        }
+        emitAll(state)
+    }
+
+    private suspend fun loadFavoriteMessages(profileId: String): List<Message> {
+        betterMessagesConversationCacheStore.cachedFavoriteMessages(profileId)?.let { cached ->
+            return cached.sortedFavoriteMessages()
+        }
+        val favorites = loadFavoriteMessagesFromServer(profileId)
+        betterMessagesConversationCacheStore.replaceFavoriteMessages(profileId, favorites)
+        return favorites
+    }
+
+    private suspend fun loadFavoriteMessagesFromServer(profileId: String): List<Message> {
+        val startedAt = System.currentTimeMillis()
+        val favoritedResponse = withBetterMessagesSession(profileId) {
+            betterMessagesRepository.loadFavoritedInCurrentSession()
+        }.let { response ->
+            response.copy(messages = response.messages.map { message ->
+                if (message.favorited == 1) message else message.copy(favorited = 1)
+            })
+        }
+        val visibleThreadIds = favoritedResponse.threads
+            .filter { thread -> thread.isHidden != 1 && thread.isDeleted != 1 }
+            .map { thread -> thread.threadId }
+            .toSet()
+        val effectiveThreadIds = if (favoritedResponse.threads.isNotEmpty()) {
+            visibleThreadIds
+        } else {
+            favoritedResponse.messages.map { it.threadId }.toSet()
+        }
+        val profileDirectory = betterMessagesSession
+            ?.profile
+            ?.let { betterMessagesProfileDirectory(it) }
+        val threadMetadataResponse = favoritedResponse.copy(messages = emptyList())
+        favoritedResponse.threads
+            .filter { thread -> thread.threadId in effectiveThreadIds }
+            .filter { thread -> realConversations.value.none { it.id == betterMessagesConversationId(thread.threadId) } }
+            .forEach { thread ->
+                loadBetterMessagesConversation(
+                    profileId = profileId,
+                    threadId = thread.threadId,
+                    preloadedThreadResponse = threadMetadataResponse,
+                    profileDirectory = profileDirectory
+                )?.let(::upsertRealConversation)
+            }
+
+        val favorites = favoritedResponse
+            .copy(messages = favoritedResponse.messages.filter { it.threadId in effectiveThreadIds })
+            .toDomainMessages(profileId)
+            .filter { it.isFavorite && !it.isDeleted }
+            .distinctBy { it.id }
+            .sortedFavoriteMessages()
+        logPolling("favorites getFavorited messages=${favorites.size} threads=${effectiveThreadIds.size} duration=${System.currentTimeMillis() - startedAt}ms")
+        return favorites
+    }
+
+    private fun favoriteMessagesState(profileId: String): MutableStateFlow<List<Message>> =
+        favoriteMessagesByProfileId.getOrPut(profileId) { MutableStateFlow(emptyList()) }
+
+    private suspend fun updateFavoriteMessageCacheAfterToggle(profileId: String, message: Message) {
+        if (!betterMessagesConversationCacheStore.hasFavoriteMessagesCache(profileId)) return
+        favoriteMessagesByProfileId[profileId]?.let { state ->
+            state.value = state.value.applyFavoriteMessageChange(message)
+        }
+        if (message.isFavorite && !message.isDeleted) {
+            betterMessagesConversationCacheStore.upsertFavoriteMessage(profileId, message)
+        } else {
+            betterMessagesConversationCacheStore.removeFavoriteMessage(profileId, message.id)
+        }
+    }
+
+    private fun removeFavoriteMessageFromCache(profileId: String, messageId: String) {
+        favoriteMessagesByProfileId[profileId]?.let { state ->
+            state.value = state.value.filterNot { it.id == messageId }
+        }
+        realConversationsScope.launch {
+            betterMessagesConversationCacheStore.removeFavoriteMessage(profileId, messageId)
+        }
+    }
+
+    private fun updateBetterMessagesFavoriteState(threadId: Int, messageId: Int, favorite: Boolean) {
+        val currentMessages = betterMessagesByThreadId[threadId].orEmpty()
+        if (currentMessages.none { it.messageId == messageId }) return
+        betterMessagesByThreadId[threadId] = currentMessages.map { message ->
+            if (message.messageId == messageId) {
+                message.copy(favorited = if (favorite) 1 else 0)
+            } else {
+                message
+            }
+        }
+        val response = cachedBetterMessagesThreadResponse(threadId)
+        betterMessagesThreadState(threadId).value = response
+        persistThreadResponse(threadId, response)
+    }
+
+    private fun List<Message>.applyFavoriteMessageChange(message: Message): List<Message> =
+        if (message.isFavorite && !message.isDeleted) {
+            (listOf(message) + filterNot { it.id == message.id })
+                .distinctBy { it.id }
+                .sortedFavoriteMessages()
+        } else {
+            filterNot { it.id == message.id }
+        }
+
+    private fun List<Message>.sortedFavoriteMessages(): List<Message> =
+        sortedWith(
+            compareByDescending<Message> { it.sentAtMillis ?: 0L }
+                .thenByDescending { it.id }
+        )
 
     private suspend fun loadBetterMessagesThread(
         profileId: String,

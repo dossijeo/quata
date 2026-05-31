@@ -186,6 +186,9 @@ fun ChatScreen(
     var pendingCameraKind by rememberSaveable { mutableStateOf<String?>(null) }
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
+    var suppressAutoScrollForFocusedOpen by rememberSaveable(conversationId) {
+        mutableStateOf(focusedMessageId != null)
+    }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     val activeComposerBannerKey = listOfNotNull(
         state.editingMessage?.id?.let { "edit:$it" }?.takeUnless { isFavoritesConversation },
@@ -203,6 +206,12 @@ fun ChatScreen(
                 text = state.messageText,
                 selection = TextRange(state.messageText.length)
             )
+        }
+    }
+
+    LaunchedEffect(focusedMessageId) {
+        if (focusedMessageId != null) {
+            suppressAutoScrollForFocusedOpen = true
         }
     }
 
@@ -540,7 +549,7 @@ fun ChatScreen(
     }
 
     LaunchedEffect(conversationId, state.messages.size) {
-        if (state.messages.isNotEmpty() && focusedMessageId == null) {
+        if (state.messages.isNotEmpty() && focusedMessageId == null && !suppressAutoScrollForFocusedOpen) {
             messagesListState.scrollToItem(state.messages.lastIndex)
         }
     }
@@ -549,6 +558,7 @@ fun ChatScreen(
         val targetMessageId = focusedMessageId ?: return@LaunchedEffect
         val targetIndex = state.messages.indexOfFirst { it.id == targetMessageId }
         if (targetIndex < 0) return@LaunchedEffect
+        suppressAutoScrollForFocusedOpen = true
         messagesListState.scrollToItem(targetIndex)
         highlightedMessageId = targetMessageId
         repeat(4) { index ->
@@ -561,7 +571,12 @@ fun ChatScreen(
     }
 
     LaunchedEffect(activeComposerBannerKey, state.messages.size) {
-        if (activeComposerBannerKey.isBlank() || state.messages.isEmpty() || focusedMessageId != null) return@LaunchedEffect
+        if (
+            activeComposerBannerKey.isBlank() ||
+            state.messages.isEmpty() ||
+            focusedMessageId != null ||
+            suppressAutoScrollForFocusedOpen
+        ) return@LaunchedEffect
         delay(80L)
         messagesListState.animateScrollToItem(state.messages.lastIndex)
     }
