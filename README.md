@@ -1,12 +1,12 @@
 # Q&uuml;ata Android
 
-Version: **0.8.0**
-Fecha de version: **2026-05-31**
+Version: **0.9.0**
+Fecha de version: **2026-06-01**
 Estado: **beta avanzada**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.8.0` refleja que el nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.0` incorpora perfiles con archivos compartidos reales desde Better Messages, localizacion francesa por idioma del sistema y ajustes visuales en la navegacion inferior. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Funcionalidad principal
 
@@ -18,10 +18,12 @@ La version `0.8.0` refleja que el nucleo funcional ya esta muy completo y probad
 - Comentarios, likes, reportes y compartido.
 - Selector global de emojis con secciones tabuladas y carga perezosa.
 - Navegacion anonima: se puede explorar contenido sin cuenta.
+- Localizacion por idioma del sistema en espanol, ingles y frances.
 - Modal de autenticacion para acciones que guardan datos: chats, likes, comentarios, publicar, SOS, seguir, reportar y cuenta.
 - Barrios/comunidades con usuarios, perfiles, publicaciones y chats de comunidad.
-- Panel de perfil con cache local, refresco en segundo plano y animaciones de contador en KPIs.
+- Panel de perfil con cache local, refresco en segundo plano, animaciones de contador en KPIs y archivos compartidos en chats abiertos con el usuario.
 - Halo de carga corporativo en avatares clicables.
+- Barra inferior de navegacion con iconos ampliados para mejorar la pulsacion y convivencia con la navegacion Android de 3 botones.
 - Cuenta con preferencias locales por usuario, incluido `Q&uuml;ata TouchFlow`.
 - SOS con contactos configurables y rate limit.
 
@@ -37,6 +39,7 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - Notificaciones nativas Android solo cuando la app esta en segundo plano o cerrada.
 - Cache local de lista de conversaciones, hilos, mensajes favoritos y perfiles.
 - Retencion de cache: 24 horas, con reconstruccion solo en primer plano cuando expira.
+- Los perfiles usan la cache de conversaciones para localizar hilos abiertos con un usuario y consultar los adjuntos compartidos via Better Messages.
 - Skeleton loading en chats si no hay cache y aun no termino la primera carga real.
 - Mensajes favoritos cacheados: primera entrada consulta `getFavorited`, despues usa almacenamiento local y se actualiza al marcar/desmarcar favoritos.
 - Al abrir un mensaje favorito, se navega al mensaje exacto sin auto-scroll al final.
@@ -58,6 +61,7 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Ajuste de enlaces compatibles para abrir `egquata.com` directamente en Q&uuml;ata.
 - Deep links de posts y chats mediante fragmentos como `https://egquata.com/#post-...`.
 - Reutilizacion de instancia abierta para evitar multiples actividades al abrir enlaces.
+- Barra inferior ajustada para iconos mas grandes y mejor encaje con la barra de navegacion Android en modo de 3 botones.
 
 ## Arquitectura
 
@@ -84,6 +88,7 @@ app/src/main/java/com/quata/
     config/              Configuracion global
     media/               Optimizacion de imagen/video
     navigation/          NavGraph, deep links y chrome global
+    localization/        Seleccion de idioma por locale del sistema
     notifications/       Notificaciones nativas y background polling
     session/             Sesion y estado de autenticacion
     ui/                  Componentes compartidos, TouchFlow, splash
@@ -149,9 +154,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 8
-versionName = 0.8.0
-APP_VERSION_DATE = 2026-05-31
+versionCode = 9
+versionName = 0.9.0
+APP_VERSION_DATE = 2026-06-01
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
