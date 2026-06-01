@@ -104,6 +104,7 @@
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Conversaciones recientes</string>
     <string name="conversations_search_placeholder">Buscar conversación...</string>
+    <string name="conversations_loading">Cargando chats...</string>
     <string name="conversation_message">Mensaje</string>
     <string name="conversation_member_count">%1$d miembros</string>
     <string name="conversation_reactivate_notifications">Reactivar notificaciones</string>
@@ -303,6 +304,7 @@
     <string name="emoji_food_drink">Comida y bebida</string>
     <string name="emoji_flags">Banderas</string>
     <string name="neighborhoods_title">BARRIOS</string>
+    <string name="neighborhoods_loading">Cargando barrios...</string>
     <string name="neighborhoods_open_community">Abre una comunidad</string>
     <string name="neighborhoods_subtitle">Selecciona o busca un barrio para abrir su chat comunitario.</string>
     <string name="neighborhoods_user_count">%1$d usuarios</string>
