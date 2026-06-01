@@ -1,15 +1,19 @@
 package com.quata.core.ui.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -17,6 +21,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MapsHomeWork
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.Surface
@@ -28,11 +33,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataBackground
-import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.QuataDivider
+import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.navigation.AppDestinations
 
 data class BottomDestination(
@@ -56,7 +63,10 @@ fun QuataBottomBar(
 ) {
     NavigationBar(
         containerColor = QuataBackground,
-        modifier = Modifier.height(68.dp)
+        modifier = Modifier
+            .navigationBarsPadding()
+            .height(92.dp),
+        windowInsets = WindowInsets(0.dp)
     ) {
         bottomDestinations.forEach { item ->
             val selected = currentRoute == item.route
@@ -78,33 +88,47 @@ private fun RowScope.CompactBottomBarItem(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    val iconColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    val textColor = if (selected) QuataOrange else MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
+    val selectedContentColor = Color.White
+    val unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val contentColor = if (selected) selectedContentColor else unselectedContentColor
+    Surface(
+        color = if (selected) Color(0xFF0F315D) else QuataSurfaceAlt,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) Color(0xFF2F80ED) else QuataDivider
+        ),
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 5.dp, vertical = 10.dp)
+            .clickable(onClick = onClick)
     ) {
-        Surface(
-            color = if (selected) QuataOrange else Color.Transparent,
-            contentColor = iconColor,
-            shape = RoundedCornerShape(13.dp),
-            modifier = Modifier.size(width = 48.dp, height = 22.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                CompactIcon(icon, contentDescription = label, tint = iconColor)
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = label,
+                color = contentColor,
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
         }
-        Spacer(Modifier.height(1.dp))
-        Text(
-            text = label,
-            color = textColor,
-            fontSize = 10.sp,
-            lineHeight = 10.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-        )
     }
 }
