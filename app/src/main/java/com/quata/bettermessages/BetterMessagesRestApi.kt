@@ -148,6 +148,24 @@ class BetterMessagesRestApi(
         return json.decodeFromString(BmUploadResponse.serializer(), text)
     }
 
+    suspend fun getThreadAttachments(
+        threadId: Int,
+        page: Int = 1,
+        perPage: Int = 20
+    ): BmThreadAttachmentsResponse {
+        val request = Request.Builder()
+            .url("$restBase/thread/$threadId/attachments".withNoCache() + "&page=$page&per_page=$perPage")
+            .get()
+            .defaultBetterMessagesRestHeaders(
+                restNonce = restNonce,
+                origin = origin,
+                referer = restReferer
+            )
+            .build()
+
+        return json.decodeFromString(BmThreadAttachmentsResponse.serializer(), executeRest(request))
+    }
+
     suspend fun forwardMessage(messageId: Int, threadIds: List<Int>): BmForwardResponse {
         return postJson(
             path = "/message/$messageId/forward",

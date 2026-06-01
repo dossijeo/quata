@@ -103,6 +103,36 @@ data class BmUploadResponse(
 )
 
 @Serializable
+data class BmThreadAttachmentsResponse(
+    val files: List<BmThreadAttachmentFile> = emptyList(),
+    val hasMore: Boolean = false,
+    val page: Int = 1,
+    val counts: BmThreadAttachmentCounts = BmThreadAttachmentCounts(),
+    val activeType: String? = null
+)
+
+@Serializable
+data class BmThreadAttachmentFile(
+    val id: Int,
+    val url: String? = null,
+    val thumb: JsonElement? = null,
+    val mimeType: String? = null,
+    val name: String? = null,
+    val size: Long? = null,
+    val ext: String? = null,
+    val date: String? = null,
+    val messageId: Int? = null
+)
+
+@Serializable
+data class BmThreadAttachmentCounts(
+    val photos: Int = 0,
+    val videos: Int = 0,
+    val audio: Int = 0,
+    val files: Int = 0
+)
+
+@Serializable
 data class BmForwardRequest(
     @SerialName("thread_ids") val threadIds: List<Int>
 )

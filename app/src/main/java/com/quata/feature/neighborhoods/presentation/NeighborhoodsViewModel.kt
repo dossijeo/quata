@@ -166,7 +166,10 @@ class NeighborhoodsViewModel(
         val current = _uiState.value.selectedProfile ?: return
         if (current.user.id != userId) return
         repository.getUserProfile(userId)
-            .onSuccess { profile -> _uiState.value = _uiState.value.copy(selectedProfile = profile) }
+            .onSuccess { profile ->
+                repository.cacheUserProfile(profile)
+                _uiState.value = _uiState.value.copy(selectedProfile = profile)
+            }
     }
 
     companion object {

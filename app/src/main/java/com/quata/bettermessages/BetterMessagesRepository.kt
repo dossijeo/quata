@@ -145,6 +145,17 @@ class BetterMessagesRepository(
         }
     }
 
+    suspend fun loadThreadAttachments(
+        profileId: String,
+        threadId: Int,
+        page: Int = 1,
+        perPage: Int = 20
+    ): BmThreadAttachmentsResponse {
+        return withRestSession(profileId) {
+            client.rest.getThreadAttachments(threadId, page, perPage)
+        }
+    }
+
     suspend fun sendFiles(profileId: String, threadId: Int, fileIds: List<Int>, message: String = ""): BmSendMessageResponse {
         return withRestSession(profileId) {
             client.rest.sendFiles(threadId, fileIds, message)
