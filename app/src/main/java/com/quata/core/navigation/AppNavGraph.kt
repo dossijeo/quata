@@ -121,10 +121,12 @@ fun AppNavGraph(
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
     val startDestination = AppDestinations.Feed.route
-    val showAppChrome = currentRoute != null &&
+    var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
+    val routeShowsAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route &&
         currentRoute != AppDestinations.ForgotPassword.route
+    val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen
     val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
     val notificationCount = observedNotificationCount ?: 0
     val appContext = LocalContext.current
@@ -250,7 +252,7 @@ fun AppNavGraph(
                 }
             },
             bottomBar = {
-                if (currentRoute in bottomRoutes) {
+                if (currentRoute in bottomRoutes && !isVideoEditorOpen) {
                     QuataBottomBar(currentRoute = currentRoute) { route ->
                         val requiresAuthentication = route == AppDestinations.Conversations.route ||
                             route == AppDestinations.Profile.route
@@ -355,7 +357,8 @@ fun AppNavGraph(
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }
                                 launchSingleTop = true
                             }
-                        }
+                        },
+                        onVideoEditorVisibilityChange = { isVideoEditorOpen = it }
                     )
                 }
 

@@ -6,11 +6,12 @@ Estado: **beta avanzada**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.0` incorpora perfiles con archivos compartidos reales desde Better Messages, localizacion francesa por idioma del sistema y ajustes visuales en la navegacion inferior. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.0` incorpora perfiles con archivos compartidos reales desde Better Messages, localizacion francesa por idioma del sistema, ajustes visuales en la navegacion inferior y un editor nativo de video para el flujo de publicacion. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Funcionalidad principal
 
 - Feed visual tipo reel con publicaciones de texto, imagen y video.
+- Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute y exportacion.
 - Ranking de publicaciones por likes y fecha, con badge `#rank`.
 - Publicaciones de texto con fondo degradado determinista a partir del contenido.
 - Shortcodes embebidos en el texto del post para canal, ubicacion, titulo de media, Alka y estado de video.
@@ -47,6 +48,11 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 ## Publicacion y media
 
 - Publicacion de texto, imagen y video.
+- Los videos seleccionados para publicar pasan por un editor nativo en Compose antes de incorporarse a la publicacion.
+- El editor permite recortar duracion desde la timeline, mover la posicion de reproduccion, silenciar, aplicar recorte de encuadre con zoom y guardar el resultado.
+- La previsualizacion del editor y la exportacion mantienen siempre salida vertical `9:16`, con el video/crop centrado y fondo desenfocado basado en el area visible cuando la fuente no encaja en ese formato.
+- La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
+- El feed actualiza explicitamente el reproductor de video cuando se publica o elimina una publicacion para evitar estados negros al reutilizar paginas del reel.
 - Optimizacion global de imagenes antes de subir: redimensionado, conversion JPEG y compresion.
 - Optimizacion de video cuando el archivo o la conexion lo aconsejan.
 - La misma capa de optimizacion se reutiliza en publicar, foto de perfil y adjuntos de chat.
@@ -76,7 +82,7 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Cache local JSON bajo almacenamiento privado de la app.
 - JobService para polling suave en segundo plano.
 - Coil para imagenes.
-- Media3 para reproduccion/procesado multimedia.
+- Media3 para reproduccion, previsualizacion y procesado multimedia, incluido Transformer para exportar videos editados.
 - kotlinx.serialization para modelos y cache.
 
 ## Estructura relevante
@@ -100,6 +106,7 @@ app/src/main/java/com/quata/
     neighborhoods/       Barrios, comunidades y perfiles publicos
     notifications/       Avisos dentro de la app
     postcomposer/        Publicacion de contenido
+      videoeditor/       Editor nativo de video en Compose + Media3 Transformer
     profile/             Cuenta, avatar, preferencias y SOS
 ```
 

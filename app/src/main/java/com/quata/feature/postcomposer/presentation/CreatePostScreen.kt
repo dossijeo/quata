@@ -55,6 +55,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -95,6 +96,7 @@ import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
+import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,6 +124,7 @@ fun CreatePostScreen(
     canPublish: Boolean,
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
+    onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -133,6 +136,7 @@ fun CreatePostScreen(
     var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
+    var videoEditorUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
 
     fun submitIfAuthenticated(type: PostComposerType) {
@@ -174,10 +178,10 @@ fun CreatePostScreen(
         }
     }
     val galleryVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        viewModel.onEvent(CreatePostUiEvent.VideoSelected(uri?.toString()))
+        uri?.let { videoEditorUri = it }
     }
     val cameraVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { saved ->
-        if (saved) viewModel.onEvent(CreatePostUiEvent.VideoSelected(pendingVideoUri?.toString()))
+        if (saved) pendingVideoUri?.let { videoEditorUri = it }
     }
     val launchPhotoCapture = {
         val uri = context.createMediaUri("quata_photo_", "image/jpeg", MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
@@ -218,100 +222,126 @@ fun CreatePostScreen(
         }
     }
 
-    QuataScreen(padding) {
-        val screenTitle = when (step) {
-            ComposerStep.TypePicker -> stringResource(R.string.composer_title)
-            ComposerStep.Text -> stringResource(R.string.composer_text_post_title)
-            ComposerStep.Image -> stringResource(R.string.composer_image_post_title)
-            ComposerStep.Video -> stringResource(R.string.composer_video_post_title)
+    LaunchedEffect(videoEditorUri) {
+        onVideoEditorVisibilityChange(videoEditorUri != null)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { onVideoEditorVisibilityChange(false) }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        QuataScreen(padding) {
+            val screenTitle = when (step) {
+                ComposerStep.TypePicker -> stringResource(R.string.composer_title)
+                ComposerStep.Text -> stringResource(R.string.composer_text_post_title)
+                ComposerStep.Image -> stringResource(R.string.composer_image_post_title)
+                ComposerStep.Video -> stringResource(R.string.composer_video_post_title)
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = screenTitle,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(28.dp))
+
+                when (step) {
+                    ComposerStep.TypePicker -> TypePicker(
+                        onText = {
+                            textValue = TextFieldValue("")
+                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                            step = ComposerStep.Text
+                        },
+                        onImage = {
+                            textValue = TextFieldValue("")
+                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                            step = ComposerStep.Image
+                        },
+                        onVideo = {
+                            textValue = TextFieldValue("")
+                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                            step = ComposerStep.Video
+                        }
+                    )
+                    ComposerStep.Text -> TextPostForm(
+                        state = state,
+                        textValue = textValue,
+                        isEmojiPanelOpen = isEmojiPanelOpen,
+                        onTextChange = {
+                            textValue = it
+                            viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text))
+                        },
+                        onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
+                        onDismissEmojiPanel = { isEmojiPanelOpen = false },
+                        onEmoji = { emoji ->
+                            val updated = textValue.insertAtSelection(emoji)
+                            textValue = updated
+                            viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
+                        },
+                        onSubmit = { submitIfAuthenticated(PostComposerType.Text) }
+                    )
+                    ComposerStep.Image -> ImagePostForm(
+                        state = state,
+                        onPickImage = { galleryImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onTakePhoto = {
+                            pendingCaptureTarget = CaptureTarget.Photo
+                            if (context.hasCameraPermission()) {
+                                launchPhotoCapture()
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
+                    )
+                    ComposerStep.Video -> VideoPostForm(
+                        state = state,
+                        onDescriptionChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it)) },
+                        onPickVideo = { galleryVideoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
+                        onRecordVideo = {
+                            pendingCaptureTarget = CaptureTarget.Video
+                            if (context.hasCameraPermission()) {
+                                launchVideoCapture()
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onEditVideo = {
+                            state.videoUri
+                                ?.let(Uri::parse)
+                                ?.let { videoEditorUri = it }
+                        },
+                        onSubmit = { submitIfAuthenticated(PostComposerType.Video) }
+                    )
+                }
+
+                state.error?.let {
+                    Spacer(Modifier.height(14.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+                state.successMessage?.let {
+                    Spacer(Modifier.height(14.dp))
+                    Text(it, color = QuataOrange, fontWeight = FontWeight.Bold)
+                }
+            }
         }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = screenTitle,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 24.sp,
-                color = Color.White
+
+        videoEditorUri?.let { sourceUri ->
+            QuataVideoEditorDialog(
+                videoUri = sourceUri,
+                onDismiss = { videoEditorUri = null },
+                onExported = { editedUri ->
+                    viewModel.onEvent(CreatePostUiEvent.VideoSelected(editedUri.toString()))
+                    videoEditorUri = null
+                }
             )
-            Spacer(Modifier.height(28.dp))
-
-            when (step) {
-                ComposerStep.TypePicker -> TypePicker(
-                    onText = {
-                        textValue = TextFieldValue("")
-                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                        step = ComposerStep.Text
-                    },
-                    onImage = {
-                        textValue = TextFieldValue("")
-                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                        step = ComposerStep.Image
-                    },
-                    onVideo = {
-                        textValue = TextFieldValue("")
-                        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                        step = ComposerStep.Video
-                    }
-                )
-                ComposerStep.Text -> TextPostForm(
-                    state = state,
-                    textValue = textValue,
-                    isEmojiPanelOpen = isEmojiPanelOpen,
-                    onTextChange = {
-                        textValue = it
-                        viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text))
-                    },
-                    onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
-                    onDismissEmojiPanel = { isEmojiPanelOpen = false },
-                    onEmoji = { emoji ->
-                        val updated = textValue.insertAtSelection(emoji)
-                        textValue = updated
-                        viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
-                    },
-                    onSubmit = { submitIfAuthenticated(PostComposerType.Text) }
-                )
-                ComposerStep.Image -> ImagePostForm(
-                    state = state,
-                    onPickImage = { galleryImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    onTakePhoto = {
-                        pendingCaptureTarget = CaptureTarget.Photo
-                        if (context.hasCameraPermission()) {
-                            launchPhotoCapture()
-                        } else {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
-                    },
-                    onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
-                )
-                ComposerStep.Video -> VideoPostForm(
-                    state = state,
-                    onDescriptionChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it)) },
-                    onPickVideo = { galleryVideoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                    onRecordVideo = {
-                        pendingCaptureTarget = CaptureTarget.Video
-                        if (context.hasCameraPermission()) {
-                            launchVideoCapture()
-                        } else {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
-                    },
-                    onSubmit = { submitIfAuthenticated(PostComposerType.Video) }
-                )
-            }
-
-            state.error?.let {
-                Spacer(Modifier.height(14.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-            }
-            state.successMessage?.let {
-                Spacer(Modifier.height(14.dp))
-                Text(it, color = QuataOrange, fontWeight = FontWeight.Bold)
-            }
         }
     }
 }
@@ -492,6 +522,7 @@ private fun VideoPostForm(
     onDescriptionChange: (String) -> Unit,
     onPickVideo: () -> Unit,
     onRecordVideo: () -> Unit,
+    onEditVideo: () -> Unit,
     onSubmit: () -> Unit
 ) {
     val context = LocalContext.current
@@ -507,6 +538,10 @@ private fun VideoPostForm(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        if (state.videoUri != null) {
+            Spacer(Modifier.height(12.dp))
+            ComposerActionButton(stringResource(R.string.video_editor_edit_video), Icons.Filled.Edit, onEditVideo)
+        }
     }
     ComposerPanel(stringResource(R.string.composer_description)) {
         OutlinedTextField(

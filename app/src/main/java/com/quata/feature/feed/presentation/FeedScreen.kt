@@ -77,6 +77,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -199,42 +200,44 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val post = state.posts[page]
-                    ReelPost(
-                        post = post,
-                        postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
-                        isCurrentPage = pagerState.currentPage == page,
-                        currentUserId = currentUserId,
-                        isAuthorProfileLoading = openingProfileUserId == post.author.id,
-                        onOpenComments = { commentsPost = post },
-                        onOpenUserProfile = { onOpenUserProfile(post.author.id) },
-                        onOpenLive = { isLiveOpen = true },
-                        onLike = {
-                            if (canParticipate) {
-                                viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
-                            } else {
-                                onAuthRequired()
-                            }
-                        },
-                        onDelete = { postPendingDeletion = post },
-                        onShare = {
-                            val shareText = postShareText(post)
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.feed_share_post)))
-                        },
-                        onReport = {
-                            if (!post.isReportedByCurrentUser) {
+                    key(post.id, post.videoUrl) {
+                        ReelPost(
+                            post = post,
+                            postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
+                            isCurrentPage = pagerState.currentPage == page,
+                            currentUserId = currentUserId,
+                            isAuthorProfileLoading = openingProfileUserId == post.author.id,
+                            onOpenComments = { commentsPost = post },
+                            onOpenUserProfile = { onOpenUserProfile(post.author.id) },
+                            onOpenLive = { isLiveOpen = true },
+                            onLike = {
                                 if (canParticipate) {
-                                    viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
-                                    Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                                    viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
                                 } else {
                                     onAuthRequired()
                                 }
+                            },
+                            onDelete = { postPendingDeletion = post },
+                            onShare = {
+                                val shareText = postShareText(post)
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.feed_share_post)))
+                            },
+                            onReport = {
+                                if (!post.isReportedByCurrentUser) {
+                                    if (canParticipate) {
+                                        viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
+                                        Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onAuthRequired()
+                                    }
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
 
@@ -639,8 +642,8 @@ private fun ReelVideo(
 ) {
     val context = LocalContext.current
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
-    var positionMs by remember { mutableLongStateOf(0L) }
-    var durationMs by remember { mutableLongStateOf(0L) }
+    var positionMs by remember(videoUrl) { mutableLongStateOf(0L) }
+    var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
     var centerFeedbackIcon by remember { mutableStateOf<ImageVector?>(null) }
     var centerFeedbackTick by remember { mutableLongStateOf(0L) }
     val player = remember(videoUrl) {
@@ -708,6 +711,13 @@ private fun ReelVideo(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                }
+            },
+            update = {
+                it.useController = false
+                it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                if (it.player !== player) {
+                    it.player = player
                 }
             }
         )
