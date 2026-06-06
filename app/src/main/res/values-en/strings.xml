@@ -295,6 +295,10 @@
     <string name="composer_created">Post created</string>
     <string name="composer_publish_error">Could not publish</string>
     <string name="composer_camera_permission">We need camera permission to use this option</string>
+    <string name="composer_cancel_upload_title">Cancel upload?</string>
+    <string name="composer_cancel_upload_body">The post is still uploading. If you leave now, the upload will be cancelled.</string>
+    <string name="composer_cancel_upload_confirm">Cancel upload</string>
+    <string name="composer_cancel_upload_keep">Keep uploading</string>
     <string name="video_editor_title">Editor</string>
     <string name="video_editor_back">Back</string>
     <string name="video_editor_mute">Mute</string>

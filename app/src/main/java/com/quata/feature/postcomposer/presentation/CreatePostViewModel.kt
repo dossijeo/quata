@@ -6,14 +6,17 @@ import androidx.lifecycle.viewModelScope
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class CreatePostViewModel(private val repository: PostComposerRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
+    private var submitJob: Job? = null
 
     fun onEvent(event: CreatePostUiEvent) {
         when (event) {
@@ -45,22 +48,41 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
         }
     }
 
-    fun submit(type: PostComposerType) = viewModelScope.launch {
+    fun submit(type: PostComposerType) {
+        if (submitJob?.isActive == true) return
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null, successMessage = null)
-        repository.createPost(
-            PostComposerDraft(
-                type = type,
-                text = state.text,
-                imageUri = state.imageUri,
-                videoUri = state.videoUri,
-                locationLabel = state.locationLabel,
-                latitude = state.latitude,
-                longitude = state.longitude
-            )
-        )
-            .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = "Publicacion creada", createdPostId = postId) }
-            .onFailure { _uiState.value = state.copy(isLoading = false, error = it.message ?: "No se pudo publicar") }
+        submitJob = viewModelScope.launch {
+            try {
+                repository.createPost(
+                    PostComposerDraft(
+                        type = type,
+                        text = state.text,
+                        imageUri = state.imageUri,
+                        videoUri = state.videoUri,
+                        locationLabel = state.locationLabel,
+                        latitude = state.latitude,
+                        longitude = state.longitude
+                    )
+                )
+                    .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = "Publicacion creada", createdPostId = postId) }
+                    .onFailure { throwable ->
+                        if (throwable is CancellationException) {
+                            _uiState.value = state.copy(isLoading = false)
+                        } else {
+                            _uiState.value = state.copy(isLoading = false, error = throwable.message ?: "No se pudo publicar")
+                        }
+                    }
+            } finally {
+                submitJob = null
+            }
+        }
+    }
+
+    fun cancelSubmit() {
+        submitJob?.cancel()
+        submitJob = null
+        _uiState.value = _uiState.value.copy(isLoading = false)
     }
 
     companion object {

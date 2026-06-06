@@ -65,6 +65,7 @@ class AppContainer(context: Context) {
         appContext = appContext,
         remote = FeedRemoteDataSource(networkModule.supabaseCommunityApi),
         profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
+        wordpressClient = networkModule.quataWordPressClient,
         sessionManager = sessionManager
     )
 

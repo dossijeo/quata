@@ -47,6 +47,13 @@ data class VideoUploadData(
     val rawJson: String = ""
 )
 
+data class MediaDeleteData(
+    val deleted: Boolean = false,
+    val url: String? = null,
+    val file: String? = null,
+    val rawJson: String = ""
+)
+
 data class ProfileFollowStateData(
     val isFollowing: Boolean = false,
     val rawJson: String = ""

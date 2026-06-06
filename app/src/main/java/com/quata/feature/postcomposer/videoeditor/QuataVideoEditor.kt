@@ -339,6 +339,7 @@ fun QuataVideoEditorDialog(
                     sourceUri = videoUri,
                     trimStartMs = trimStartMs,
                     trimEndMs = trimEndMs,
+                    sourceDurationMs = durationMs,
                     removeAudio = isMuted,
                     cropRect = cropRect.takeUnless { it.isFullFrame },
                     backgroundCropRect = if (cropRect.isFullFrame && metadata.hasNineSixteenAspect()) {
@@ -1389,6 +1390,10 @@ private suspend fun Context.exportEditedVideo(
     request: VideoEditorExportRequest,
     onProgress: (Float) -> Unit
 ): Uri {
+    if (request.canUseOriginalVideoInstantly()) {
+        onProgress(1f)
+        return request.sourceUri
+    }
     val outputFile = createVideoEditorExportFile()
     if (request.canUseDirectStreamCopy()) {
         runCatching {
@@ -1410,6 +1415,7 @@ private suspend fun Context.exportEditedVideo(
                 sourceUri = Uri.fromFile(intermediateFile),
                 trimStartMs = 0L,
                 trimEndMs = request.trimDurationMs,
+                sourceDurationMs = request.trimDurationMs,
                 sourceWidth = intermediateWidth,
                 sourceHeight = intermediateHeight,
                 sourceRotation = 0
@@ -1777,6 +1783,12 @@ private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
         hasNineSixteenSourceAspect() &&
         isWithinDirectStreamSizeLimit()
 
+private fun VideoEditorExportRequest.canUseOriginalVideoInstantly(): Boolean =
+    canUseDirectStreamCopy() &&
+        !removeAudio &&
+        trimStartMs <= DirectOriginalTrimToleranceMs &&
+        trimEndMs >= sourceDurationMs - DirectOriginalTrimToleranceMs
+
 private fun VideoEditorExportRequest.hasNineSixteenSourceAspect(): Boolean {
     if (sourceWidth <= 0 || sourceHeight <= 0) return false
     val aspect = sourceWidth.toFloat() / sourceHeight.toFloat()
@@ -2089,6 +2101,7 @@ private data class VideoEditorExportRequest(
     val sourceUri: Uri,
     val trimStartMs: Long,
     val trimEndMs: Long,
+    val sourceDurationMs: Long,
     val removeAudio: Boolean,
     val cropRect: NormalizedCropRect?,
     val backgroundCropRect: NormalizedCropRect?,
@@ -2136,4 +2149,5 @@ private const val EditorBackgroundCompositorScale = 1f
 private const val DirectStreamAspectTolerance = 0.01f
 private const val DirectStreamCopyDefaultBufferSize = 1 * 1024 * 1024
 private const val DirectStreamProgressIntervalMs = 250L
+private const val DirectOriginalTrimToleranceMs = 80L
 private const val VideoEditorLogTag = "QuataVideoEditor"

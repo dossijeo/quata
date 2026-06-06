@@ -10,7 +10,9 @@ import android.location.LocationManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.provider.MediaStore
+import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,16 +38,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
@@ -52,13 +62,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -68,6 +82,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -79,9 +94,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
@@ -97,8 +118,11 @@ import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
+import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
+import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -123,10 +147,12 @@ fun CreatePostScreen(
     padding: PaddingValues,
     repository: PostComposerRepository,
     resetToken: Int,
+    cancelUploadToken: Int = 0,
     canPublish: Boolean,
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
+    onUploadStateChange: (Boolean) -> Unit = {},
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -136,16 +162,27 @@ fun CreatePostScreen(
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     var isEmojiPanelOpen by rememberSaveable { mutableStateOf(false) }
     var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
+    var lastHandledCancelUploadToken by rememberSaveable { mutableStateOf(cancelUploadToken) }
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
+    var imageEditorUri by remember { mutableStateOf<Uri?>(null) }
+    var editedImageTempUri by remember { mutableStateOf<Uri?>(null) }
     var videoEditorUri by remember { mutableStateOf<Uri?>(null) }
     var editedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
+    val latestEditedImageTempUri by rememberUpdatedState(editedImageTempUri)
     val latestEditedVideoTempUri by rememberUpdatedState(editedVideoTempUri)
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
+    var isCancelUploadDialogOpen by remember { mutableStateOf(false) }
+    val latestIsLoading by rememberUpdatedState(state.isLoading)
 
     fun deleteEditedVideoTemp(uri: Uri?) {
         uri ?: return
         context.deleteQuataEditedVideoTemp(uri)
+    }
+
+    fun deleteEditedImageTemp(uri: Uri?) {
+        uri ?: return
+        context.deleteQuataEditedImageTemp(uri)
     }
 
     fun clearEditedVideoTemp() {
@@ -154,11 +191,23 @@ fun CreatePostScreen(
         deleteEditedVideoTemp(uri)
     }
 
+    fun clearEditedImageTemp() {
+        val uri = editedImageTempUri
+        editedImageTempUri = null
+        deleteEditedImageTemp(uri)
+    }
+
     fun submitIfAuthenticated(type: PostComposerType) {
         if (canPublish) {
             viewModel.submit(type)
         } else {
             onAuthRequired()
+        }
+    }
+
+    fun requestLeaveComposer() {
+        if (state.isLoading) {
+            isCancelUploadDialogOpen = true
         }
     }
 
@@ -174,22 +223,24 @@ fun CreatePostScreen(
             context.lastKnownLocation()?.let { resolveLocation(it) }
         }
     }
-    val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        viewModel.onEvent(CreatePostUiEvent.ImageSelected(uri?.toString()))
-        uri?.let {
-            val exifLocation = context.exifLocationFromUri(it)
-            if (exifLocation != null) {
-                resolveLocation(exifLocation)
-            } else {
-                locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-            }
+
+    fun openImageEditorWithOriginal(uri: Uri?) {
+        uri ?: return
+        val exifLocation = context.exifLocationFromUri(uri)
+        if (exifLocation != null) {
+            resolveLocation(exifLocation)
+        } else {
+            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
+        imageEditorUri = uri
+    }
+
+    val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        openImageEditorWithOriginal(uri)
     }
     val cameraImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         if (saved) {
-            val uri = pendingImageUri
-            viewModel.onEvent(CreatePostUiEvent.ImageSelected(uri?.toString()))
-            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            openImageEditorWithOriginal(pendingImageUri)
         }
     }
     val galleryVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -222,6 +273,7 @@ fun CreatePostScreen(
 
     LaunchedEffect(resetToken) {
         if (resetToken != lastHandledResetToken) {
+            clearEditedImageTemp()
             clearEditedVideoTemp()
             step = ComposerStep.TypePicker
             textValue = TextFieldValue("")
@@ -230,24 +282,46 @@ fun CreatePostScreen(
         }
     }
 
+    LaunchedEffect(cancelUploadToken) {
+        if (cancelUploadToken != lastHandledCancelUploadToken) {
+            viewModel.cancelSubmit()
+            isCancelUploadDialogOpen = false
+            lastHandledCancelUploadToken = cancelUploadToken
+        }
+    }
+
     LaunchedEffect(state.successMessage) {
         state.successMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            clearEditedImageTemp()
             clearEditedVideoTemp()
             onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
     }
 
-    LaunchedEffect(videoEditorUri) {
-        onVideoEditorVisibilityChange(videoEditorUri != null)
+    LaunchedEffect(imageEditorUri, videoEditorUri) {
+        onVideoEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null)
+    }
+
+    LaunchedEffect(state.isLoading) {
+        onUploadStateChange(state.isLoading)
     }
 
     DisposableEffect(Unit) {
         onDispose {
+            if (latestIsLoading) {
+                viewModel.cancelSubmit()
+            }
             onVideoEditorVisibilityChange(false)
+            onUploadStateChange(false)
+            deleteEditedImageTemp(latestEditedImageTempUri)
             deleteEditedVideoTemp(latestEditedVideoTempUri)
         }
+    }
+
+    BackHandler(enabled = state.isLoading) {
+        requestLeaveComposer()
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -276,18 +350,21 @@ fun CreatePostScreen(
                 when (step) {
                     ComposerStep.TypePicker -> TypePicker(
                         onText = {
+                            clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Text
                         },
                         onImage = {
+                            clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Image
                         },
                         onVideo = {
+                            clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
@@ -321,6 +398,11 @@ fun CreatePostScreen(
                             } else {
                                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                             }
+                        },
+                        onEditImage = {
+                            state.imageUri
+                                ?.let(Uri::parse)
+                                ?.let { imageEditorUri = it }
                         },
                         onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
                     )
@@ -356,6 +438,22 @@ fun CreatePostScreen(
             }
         }
 
+        imageEditorUri?.let { sourceUri ->
+            QuataImageEditorDialog(
+                imageUri = sourceUri,
+                onDismiss = { imageEditorUri = null },
+                onEdited = { editedUri ->
+                    val previousEditedUri = editedImageTempUri
+                    editedImageTempUri = editedUri
+                    viewModel.onEvent(CreatePostUiEvent.ImageSelected(editedUri.toString()))
+                    imageEditorUri = null
+                    if (previousEditedUri != editedUri) {
+                        deleteEditedImageTemp(previousEditedUri)
+                    }
+                }
+            )
+        }
+
         videoEditorUri?.let { sourceUri ->
             QuataVideoEditorDialog(
                 videoUri = sourceUri,
@@ -367,6 +465,29 @@ fun CreatePostScreen(
                     videoEditorUri = null
                     if (previousEditedUri != editedUri) {
                         deleteEditedVideoTemp(previousEditedUri)
+                    }
+                }
+            )
+        }
+
+        if (isCancelUploadDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { isCancelUploadDialogOpen = false },
+                title = { Text(stringResource(R.string.composer_cancel_upload_title)) },
+                text = { Text(stringResource(R.string.composer_cancel_upload_body)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.cancelSubmit()
+                            isCancelUploadDialogOpen = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.composer_cancel_upload_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isCancelUploadDialogOpen = false }) {
+                        Text(stringResource(R.string.composer_cancel_upload_keep))
                     }
                 }
             )
@@ -498,12 +619,17 @@ private fun ImagePostForm(
     state: CreatePostUiState,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
+    onEditImage: () -> Unit,
     onSubmit: () -> Unit
 ) {
     ComposerPanel(stringResource(R.string.composer_image), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
             ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, Modifier.weight(1f))
+        }
+        if (state.imageUri != null) {
+            Spacer(Modifier.height(12.dp))
+            ComposerActionButton(stringResource(R.string.video_editor_crop), Icons.Filled.Edit, onEditImage)
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -518,21 +644,26 @@ private fun ImagePostForm(
     }
     PreviewPanel(stringResource(R.string.composer_preview)) {
         if (state.imageUri != null) {
-            AsyncImage(
-                model = state.imageUri,
-                contentDescription = stringResource(R.string.composer_selected_image),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.74f)
-                    .clip(RoundedCornerShape(20.dp))
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                stringResource(R.string.feed_location_chip, state.locationLabel ?: stringResource(R.string.composer_pending_location)),
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            ComposerFeedPreviewFrame(
+                isVideo = false,
+                description = "",
+                locationLabel = state.locationLabel
+            ) {
+                AsyncImage(
+                    model = state.imageUri,
+                    contentDescription = stringResource(R.string.composer_selected_image),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            state.locationLabel?.let { label ->
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    stringResource(R.string.feed_location_chip, label),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         } else {
             EmptyPreview(
                 stringResource(R.string.composer_image_preview_title),
@@ -581,13 +712,388 @@ private fun VideoPostForm(
         )
     }
     PreviewPanel(stringResource(R.string.composer_preview)) {
-        EmptyPreview(
-            title = if (state.videoUri == null) stringResource(R.string.composer_video_preview_empty) else stringResource(R.string.composer_video_ready),
-            tag = stringResource(R.string.composer_video_preview_tag),
-            body = state.text.ifBlank { stringResource(R.string.composer_video_preview_body) }
-        )
+        if (state.videoUri != null) {
+            ComposerFeedPreviewFrame(
+                isVideo = true,
+                description = state.text,
+                locationLabel = null
+            ) {
+                ComposerPreviewVideoPlayer(videoUri = state.videoUri)
+            }
+        } else {
+            EmptyPreview(
+                title = stringResource(R.string.composer_video_preview_empty),
+                tag = stringResource(R.string.composer_video_preview_tag),
+                body = state.text.ifBlank { stringResource(R.string.composer_video_preview_body) }
+            )
+        }
     }
     PublishButton(state.isLoading, onSubmit)
+}
+
+@Composable
+private fun ComposerFeedPreviewFrame(
+    isVideo: Boolean,
+    description: String,
+    locationLabel: String?,
+    media: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(9f / 16f)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.Black)
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+    ) {
+        media()
+        ComposerPreviewScrims()
+        ComposerPreviewTopChips(
+            isVideo = isVideo,
+            locationLabel = locationLabel,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 14.dp, top = 14.dp)
+        )
+        ComposerPreviewActions(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 14.dp, bottom = 18.dp)
+        )
+        ComposerPreviewAuthor(
+            description = description,
+            locationLabel = locationLabel,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 14.dp, end = 76.dp, bottom = if (isVideo) 78.dp else 18.dp)
+        )
+    }
+}
+
+@Composable
+private fun ComposerPreviewVideoPlayer(videoUri: String) {
+    val context = LocalContext.current
+    var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
+    var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
+    var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
+    val player = remember(videoUri) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUri))
+            repeatMode = Player.REPEAT_MODE_OFF
+            playWhenReady = false
+            volume = 1f
+            prepare()
+        }
+    }
+
+    LaunchedEffect(player) {
+        while (true) {
+            positionMs = player.currentPosition.coerceAtLeast(0L)
+            durationMs = player.duration.takeIf { it > 0 } ?: 0L
+            isPlaying = player.isPlaying
+            delay(250L)
+        }
+    }
+
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+
+    fun togglePlayback() {
+        if (player.isPlaying) {
+            player.pause()
+            isPlaying = false
+        } else {
+            if (player.playbackState == Player.STATE_ENDED) {
+                player.seekTo(0L)
+            }
+            player.play()
+            isPlaying = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { viewContext ->
+                PlayerView(viewContext).apply {
+                    this.player = player
+                    useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+            },
+            update = { view ->
+                view.useController = false
+                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                if (view.player !== player) {
+                    view.player = player
+                }
+            }
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable { togglePlayback() }
+        )
+        ComposerPreviewVideoControls(
+            isPlaying = isPlaying,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            onPlayPause = { togglePlayback() },
+            onReplay = {
+                player.seekTo(0L)
+                positionMs = 0L
+                player.play()
+                isPlaying = true
+            },
+            onSeek = { targetMs ->
+                player.seekTo(targetMs)
+                positionMs = targetMs
+            },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 10.dp, end = 78.dp, bottom = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun ComposerPreviewVideoControls(
+    isPlaying: Boolean,
+    positionMs: Long,
+    durationMs: Long,
+    onPlayPause: () -> Unit,
+    onReplay: () -> Unit,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val duration = durationMs.coerceAtLeast(1L)
+    val progress = (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(34.dp)) {
+            CompactIcon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) stringResource(R.string.feed_pause) else stringResource(R.string.feed_play),
+                tint = Color.White
+            )
+        }
+        CompactIconButton(onClick = onReplay, modifier = Modifier.size(34.dp)) {
+            CompactIcon(
+                imageVector = Icons.Filled.Replay,
+                contentDescription = stringResource(R.string.video_editor_previous),
+                tint = Color.White
+            )
+        }
+        Slider(
+            value = progress,
+            onValueChange = { onSeek((it * duration).toLong()) },
+            enabled = durationMs > 0,
+            modifier = Modifier
+                .weight(1f)
+                .height(28.dp)
+        )
+        Text(
+            text = "${formatComposerVideoTime(positionMs)} / ${formatComposerVideoTime(durationMs)}",
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(70.dp),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun ComposerPreviewScrims() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.34f),
+                    0.28f to Color.Transparent,
+                    0.58f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.7f)
+                )
+            )
+    )
+}
+
+@Composable
+private fun ComposerPreviewTopChips(
+    isVideo: Boolean,
+    locationLabel: String?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        locationLabel?.takeIf { it.isNotBlank() }?.let { label ->
+            ComposerPreviewChip(text = stringResource(R.string.feed_location_chip, label))
+        }
+        ComposerPreviewChip(text = stringResource(R.string.feed_rank_chip, 3, 0), highlighted = true)
+        ComposerPreviewChip(text = stringResource(R.string.common_live), highlighted = true)
+        if (isVideo) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.16f))
+                    .border(1.dp, Color(0xFFE5D45C), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                CompactIcon(
+                    imageVector = Icons.AutoMirrored.Filled.VolumeOff,
+                    contentDescription = stringResource(R.string.feed_mute),
+                    tint = Color(0xFFFFF29E),
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComposerPreviewChip(
+    text: String,
+    highlighted: Boolean = false
+) {
+    val borderColor = if (highlighted) Color(0xFFE5D45C) else Color.White.copy(alpha = 0.22f)
+    val textColor = if (highlighted) Color(0xFFFFF29E) else Color.White
+    Surface(
+        color = Color.White.copy(alpha = if (highlighted) 0.16f else 0.12f),
+        contentColor = textColor,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.border(1.dp, borderColor, RoundedCornerShape(28.dp))
+    ) {
+        Text(
+            text = text,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+        )
+    }
+}
+
+@Composable
+private fun ComposerPreviewActions(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ComposerPreviewActionButton(Icons.Filled.FavoriteBorder, stringResource(R.string.feed_like), "0")
+        ComposerPreviewActionButton(Icons.Filled.ChatBubble, stringResource(R.string.feed_comments), "0")
+        ComposerPreviewActionButton(Icons.Filled.Share, stringResource(R.string.feed_share))
+        ComposerPreviewActionButton(Icons.Filled.Flag, stringResource(R.string.feed_report))
+    }
+}
+
+@Composable
+private fun ComposerPreviewActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    count: String? = null
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.42f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CompactIcon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+            count?.let {
+                Text(
+                    text = it,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 10.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComposerPreviewAuthor(
+    description: String,
+    locationLabel: String?,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        description.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                color = Color.White.copy(alpha = 0.92f),
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+            )
+            Spacer(Modifier.height(9.dp))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(QuataOrange)
+                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("QÜ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "Qüata",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
+                    color = QuataOrange,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun formatComposerVideoTime(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
 @Composable
@@ -691,20 +1197,38 @@ private fun EmptyPreview(title: String, tag: String, body: String) {
 
 @Composable
 private fun PublishButton(isLoading: Boolean, onSubmit: () -> Unit) {
-    Button(
-        onClick = onSubmit,
-        enabled = !isLoading,
+    var progress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isLoading) {
+        progress = 0f
+        while (isLoading) {
+            delay(180L)
+            progress = (progress + 0.018f).coerceAtMost(0.92f)
+        }
+    }
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .compactButtonMinSize(),
-        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-        shape = RoundedCornerShape(9.dp),
-        contentPadding = CompactButtonContentPadding
+            .compactButtonMinSize()
+            .clip(RoundedCornerShape(9.dp))
+            .background(if (isLoading) Color(0xFFFFB45E) else QuataOrange)
+            .clickable(enabled = !isLoading, onClick = onSubmit),
+        contentAlignment = Alignment.Center
     ) {
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .align(Alignment.CenterStart)
+                    .background(Color(0xFFE86F12))
+            )
+        }
         Text(
             if (isLoading) stringResource(R.string.composer_publishing) else stringResource(R.string.nav_publish),
-            fontWeight = FontWeight.ExtraBold
+            color = Color.Black,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(horizontal = 12.dp)
         )
     }
 }
@@ -795,6 +1319,18 @@ private fun Context.deleteQuataEditedVideoTemp(uri: Uri) {
         val cache = cacheDir.canonicalFile
         val file = File(path).canonicalFile
         if (file.parentFile == cache && file.name.startsWith(QuataEditedVideoFilePrefix)) {
+            file.delete()
+        }
+    }
+}
+
+private fun Context.deleteQuataEditedImageTemp(uri: Uri) {
+    if (uri.scheme != "file") return
+    val path = uri.path ?: return
+    runCatching {
+        val cache = cacheDir.canonicalFile
+        val file = File(path).canonicalFile
+        if (file.parentFile == cache && file.name.startsWith(QuataEditedImageFilePrefix)) {
             file.delete()
         }
     }

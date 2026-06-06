@@ -295,6 +295,10 @@
     <string name="composer_created">Publication creee</string>
     <string name="composer_publish_error">Impossible de publier</string>
     <string name="composer_camera_permission">Permission camera requise pour cette option</string>
+    <string name="composer_cancel_upload_title">Annuler l\'envoi ?</string>
+    <string name="composer_cancel_upload_body">La publication est encore en cours d\'envoi. Si tu quittes maintenant, l\'envoi sera annule.</string>
+    <string name="composer_cancel_upload_confirm">Annuler l\'envoi</string>
+    <string name="composer_cancel_upload_keep">Continuer l\'envoi</string>
     <string name="video_editor_title">Editeur</string>
     <string name="video_editor_back">Retour</string>
     <string name="video_editor_mute">Muet</string>

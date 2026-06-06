@@ -295,6 +295,10 @@
     <string name="composer_created">Publicación creada</string>
     <string name="composer_publish_error">No se pudo publicar</string>
     <string name="composer_camera_permission">Necesitamos permiso de cámara para usar esta opción</string>
+    <string name="composer_cancel_upload_title">¿Cancelar subida?</string>
+    <string name="composer_cancel_upload_body">La publicación todavía se está subiendo. Si sales ahora, se cancelará la subida.</string>
+    <string name="composer_cancel_upload_confirm">Cancelar subida</string>
+    <string name="composer_cancel_upload_keep">Seguir subiendo</string>
     <string name="video_editor_title">Editor</string>
     <string name="video_editor_back">Volver</string>
     <string name="video_editor_mute">Silenciar</string>

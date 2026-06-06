@@ -122,6 +122,8 @@ fun AppNavGraph(
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
     val startDestination = AppDestinations.Feed.route
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
+    var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
+    var pendingCreatePostUploadRoute by rememberSaveable { mutableStateOf<String?>(null) }
     val routeShowsAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route &&
@@ -160,6 +162,7 @@ fun AppNavGraph(
         AppDestinations.Profile.route
     )
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
+    var createPostCancelUploadToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
@@ -185,6 +188,37 @@ fun AppNavGraph(
         chatFocusedMessageId = focusedMessageId
         navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
             launchSingleTop = true
+        }
+    }
+
+    fun navigateBottomRoute(route: String) {
+        val requiresAuthentication = route == AppDestinations.Conversations.route ||
+            route == AppDestinations.Profile.route
+        if (requiresAuthentication && !isAuthenticated) {
+            requestAuthentication()
+        } else if (route == AppDestinations.CreatePost.route) {
+            createPostResetToken += 1
+            navController.navigate(AppDestinations.CreatePost.route) {
+                popUpTo(AppDestinations.Feed.route) { saveState = false }
+                launchSingleTop = false
+                restoreState = false
+            }
+        } else if (route == AppDestinations.Feed.route) {
+            navigateToFeed()
+        } else {
+            navController.navigate(route) {
+                popUpTo(AppDestinations.Feed.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    fun handleBottomRoute(route: String) {
+        if (currentRoute == AppDestinations.CreatePost.route && isCreatePostUploadInProgress) {
+            pendingCreatePostUploadRoute = route
+        } else {
+            navigateBottomRoute(route)
         }
     }
     val globalProfileViewModel: NeighborhoodsViewModel = viewModel(
@@ -216,6 +250,13 @@ fun AppNavGraph(
     }
     LaunchedEffect(showAppChrome, currentRoute, isAppForeground) {
         container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isAppForeground))
+    }
+
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != AppDestinations.CreatePost.route) {
+            isCreatePostUploadInProgress = false
+            pendingCreatePostUploadRoute = null
+        }
     }
 
     LaunchedEffect(incomingLink) {
@@ -253,23 +294,7 @@ fun AppNavGraph(
             },
             bottomBar = {
                 if (currentRoute in bottomRoutes && !isVideoEditorOpen) {
-                    QuataBottomBar(currentRoute = currentRoute) { route ->
-                        val requiresAuthentication = route == AppDestinations.Conversations.route ||
-                            route == AppDestinations.Profile.route
-                        if (requiresAuthentication && !isAuthenticated) {
-                            requestAuthentication()
-                        } else if (route == AppDestinations.CreatePost.route && currentRoute == AppDestinations.CreatePost.route) {
-                            createPostResetToken += 1
-                        } else if (route == AppDestinations.Feed.route) {
-                            navigateToFeed()
-                        } else {
-                            navController.navigate(route) {
-                                popUpTo(AppDestinations.Feed.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    }
+                    QuataBottomBar(currentRoute = currentRoute, onDestinationClick = ::handleBottomRoute)
                 }
             }
         ) { padding ->
@@ -349,16 +374,25 @@ fun AppNavGraph(
                         padding = padding,
                         repository = container.postComposerRepository,
                         resetToken = createPostResetToken,
+                        cancelUploadToken = createPostCancelUploadToken,
                         canPublish = isAuthenticated,
                         onAuthRequired = { requestAuthentication() },
                         onPostCreated = { postId ->
+                            isCreatePostUploadInProgress = false
+                            isVideoEditorOpen = false
+                            pendingCreatePostUploadRoute = null
                             feedFocusedPostId = postId
                             navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                popUpTo(AppDestinations.Feed.route) {
+                                    inclusive = false
+                                    saveState = false
+                                }
                                 launchSingleTop = true
+                                restoreState = false
                             }
                         },
-                        onVideoEditorVisibilityChange = { isVideoEditorOpen = it }
+                        onVideoEditorVisibilityChange = { isVideoEditorOpen = it },
+                        onUploadStateChange = { isCreatePostUploadInProgress = it }
                     )
                 }
 
@@ -541,6 +575,31 @@ fun AppNavGraph(
                     isAuthRequiredPromptOpen = false
                     navController.navigate(AppDestinations.Login.route) {
                         launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        pendingCreatePostUploadRoute?.let { targetRoute ->
+            AlertDialog(
+                onDismissRequest = { pendingCreatePostUploadRoute = null },
+                title = { Text(stringResource(R.string.composer_cancel_upload_title)) },
+                text = { Text(stringResource(R.string.composer_cancel_upload_body)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingCreatePostUploadRoute = null
+                            createPostCancelUploadToken += 1
+                            isCreatePostUploadInProgress = false
+                            navigateBottomRoute(targetRoute)
+                        }
+                    ) {
+                        Text(stringResource(R.string.composer_cancel_upload_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingCreatePostUploadRoute = null }) {
+                        Text(stringResource(R.string.composer_cancel_upload_keep))
                     }
                 }
             )

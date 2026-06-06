@@ -13,6 +13,7 @@ import okio.BufferedSink
 import okio.source
 import java.io.IOException
 import java.io.InputStream
+import java.net.URI
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -23,6 +24,7 @@ class QuataWordPressClient(
     private val rootUrl: String = baseUrl.trimEnd('/') + "/"
     private val ajaxUrl: String = rootUrl + "wp-admin/admin-ajax.php"
     private val uploadVideoRestUrl: String = rootUrl + "wp-json/quqos/v1/upload-video"
+    private val deletePostMediaRestUrl: String = rootUrl + "wp-json/quqos/v1/post-media"
 
     suspend fun checkRegistrationGuard(
         deviceId: String,
@@ -375,6 +377,62 @@ class QuataWordPressClient(
             errorMessage = extractWordPressError(json),
             rawJson = json
         )
+    }
+
+    /**
+     * DELETE /wp-json/quqos/v1/post-media
+     * form-data: url=<media-url>, post_id=<supabase-post-id>, profile_id=<supabase-profile-id>
+     */
+    suspend fun deletePostMediaRest(
+        mediaUrl: String,
+        postId: String,
+        profileId: String
+    ): AjaxEnvelope<MediaDeleteData> {
+        val body = FormBody.Builder()
+            .add("url", mediaUrl)
+            .add("post_id", postId)
+            .add("profile_id", profileId)
+            .build()
+
+        val request = Request.Builder()
+            .url(deletePostMediaRestUrl)
+            .delete(body)
+            .header("X-Requested-With", "XMLHttpRequest")
+            .build()
+
+        val json = execute(request)
+        if (json.contains(""""message"""") && json.contains(""""code"""")) {
+            return AjaxEnvelope(
+                success = false,
+                data = MediaDeleteData(rawJson = json),
+                errorMessage = JsonLite.string(json, "message"),
+                rawJson = json
+            )
+        }
+
+        val dataJson = JsonLite.objectBody(json, "data") ?: json
+        val envelopeSuccess = JsonLite.bool(json, "success")
+        val deleted = JsonLite.bool(dataJson, "deleted")
+            ?: JsonLite.bool(json, "deleted")
+            ?: (envelopeSuccess != false)
+        val success = envelopeSuccess != false && deleted
+        return AjaxEnvelope(
+            success = success,
+            data = MediaDeleteData(
+                deleted = deleted,
+                url = JsonLite.string(dataJson, "url") ?: JsonLite.string(json, "url") ?: mediaUrl,
+                file = JsonLite.string(dataJson, "file") ?: JsonLite.string(json, "file"),
+                rawJson = dataJson
+            ),
+            errorMessage = if (success) null else extractWordPressError(json) ?: JsonLite.string(json, "message"),
+            rawJson = json
+        )
+    }
+
+    fun ownsUrl(url: String): Boolean {
+        val rootHost = runCatching { URI(rootUrl).host?.lowercase() }.getOrNull() ?: return false
+        val mediaHost = runCatching { URI(url).host?.lowercase() }.getOrNull() ?: return false
+        return mediaHost == rootHost || mediaHost.endsWith(".$rootHost")
     }
 
     /**

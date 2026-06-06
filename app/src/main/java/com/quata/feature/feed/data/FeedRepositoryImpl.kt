@@ -9,13 +9,16 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
+import com.quata.data.supabase.CommunityPost
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.profile.data.ProfileRemoteDataSource
+import com.quata.wordpress.QuataWordPressClient
 
 class FeedRepositoryImpl(
     private val appContext: Context,
     private val remote: FeedRemoteDataSource,
     private val profileRemote: ProfileRemoteDataSource,
+    private val wordpressClient: QuataWordPressClient,
     private val sessionManager: SessionManager
 ) : FeedRepository {
     override suspend fun getFeed(): Result<List<Post>> =
@@ -72,10 +75,29 @@ class FeedRepositoryImpl(
             val deleted = MockData.deletePost(postId, session.userId)
             if (!deleted) error("No se pudo borrar la publicacion")
         } else {
+            val post = remote.getPost(postId)
+            deleteWordPressMedia(post, session.userId)
             remote.deletePost(postId, session.userId)
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    private suspend fun deleteWordPressMedia(post: CommunityPost?, profileId: String) {
+        val remotePost = post ?: return
+        val mediaUrl = remotePost.video_url?.takeIf { it.isNotBlank() }
+            ?: remotePost.image_url?.takeIf { it.isNotBlank() }
+            ?: return
+        if (!wordpressClient.ownsUrl(mediaUrl)) return
+
+        val deleteResult = wordpressClient.deletePostMediaRest(
+            mediaUrl = mediaUrl,
+            postId = remotePost.id,
+            profileId = profileId
+        )
+        if (!deleteResult.success || deleteResult.data?.deleted == false) {
+            error(deleteResult.errorMessage ?: "WordPress no pudo borrar el recurso multimedia")
+        }
+    }
 
     private suspend fun loadPostShells(): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
