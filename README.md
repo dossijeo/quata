@@ -1,17 +1,17 @@
 # Q&uuml;ata Android
 
-Version: **0.9.0**
-Fecha de version: **2026-06-01**
+Version: **0.9.1**
+Fecha de version: **2026-06-06**
 Estado: **beta avanzada**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.0` incorpora perfiles con archivos compartidos reales desde Better Messages, localizacion francesa por idioma del sistema, ajustes visuales en la navegacion inferior y un editor nativo de video para el flujo de publicacion. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.1` consolida el editor nativo de video con salida vertical `9:16`, fondo desenfocado dinamico, subtitulos automaticos incrustados, exportacion optimizada y limpieza de temporales. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Funcionalidad principal
 
 - Feed visual tipo reel con publicaciones de texto, imagen y video.
-- Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute y exportacion.
+- Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute, subtitulos y exportacion.
 - Ranking de publicaciones por likes y fecha, con badge `#rank`.
 - Publicaciones de texto con fondo degradado determinista a partir del contenido.
 - Shortcodes embebidos en el texto del post para canal, ubicacion, titulo de media, Alka y estado de video.
@@ -52,6 +52,11 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - El editor permite recortar duracion desde la timeline, mover la posicion de reproduccion, silenciar, aplicar recorte de encuadre con zoom y guardar el resultado.
 - La previsualizacion del editor y la exportacion mantienen siempre salida vertical `9:16`, con el video/crop centrado y fondo desenfocado basado en el area visible cuando la fuente no encaja en ese formato.
 - La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
+- Cuando no hay recorte visual, captions ni reencuadre y la fuente ya es `9:16`, el editor usa copia directa con `MediaExtractor`/`MediaMuxer` para evitar recodificar; si el video esta silenciado, se remuxea sin pista de audio.
+- Durante exportacion, el boton atras muestra confirmacion para cancelar y elimina el temporal si el usuario cancela.
+- Los archivos temporales exportados por el editor se eliminan al publicar, al reemplazar el video editado, al cancelar la exportacion o al salir de la pantalla de publicacion sin publicar.
+- Los captions automaticos usan Vosk con modelo ingles incluido como fallback base y modelos espanol/frances en recursos `raw-es`/`raw-fr`, preparados para splits de idioma en AAB.
+- Las plantillas de captions disponibles son `Karaoke`, `PopWord`, `Hormozi` y `Typewriter`, con preview PNG transparente sobre la previsualizacion y burn-in durante la exportacion.
 - El feed actualiza explicitamente el reproductor de video cuando se publica o elimina una publicacion para evitar estados negros al reutilizar paginas del reel.
 - Optimizacion global de imagenes antes de subir: redimensionado, conversion JPEG y compresion.
 - Optimizacion de video cuando el archivo o la conexion lo aconsejan.
@@ -93,6 +98,7 @@ app/src/main/java/com/quata/
   core/
     config/              Configuracion global
     media/               Optimizacion de imagen/video
+    captions/            Transcripcion, layout, plantillas y burn-in de subtitulos
     navigation/          NavGraph, deep links y chrome global
     localization/        Seleccion de idioma por locale del sistema
     notifications/       Notificaciones nativas y background polling
@@ -106,7 +112,7 @@ app/src/main/java/com/quata/
     neighborhoods/       Barrios, comunidades y perfiles publicos
     notifications/       Avisos dentro de la app
     postcomposer/        Publicacion de contenido
-      videoeditor/       Editor nativo de video en Compose + Media3 Transformer
+      videoeditor/       Editor nativo de video en Compose + Media3 Transformer/MediaMuxer
     profile/             Cuenta, avatar, preferencias y SOS
 ```
 
@@ -161,9 +167,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 9
-versionName = 0.9.0
-APP_VERSION_DATE = 2026-06-01
+versionCode = 10
+versionName = 0.9.1
+APP_VERSION_DATE = 2026-06-06
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

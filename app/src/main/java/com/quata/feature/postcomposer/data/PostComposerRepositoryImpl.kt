@@ -60,16 +60,21 @@ class PostComposerRepositoryImpl(
             null
         }
         val videoUrl = if (draft.type == PostComposerType.Video) {
-            val media = mediaUploadOptimizer.prepareVideoUpload(
+            val media = mediaUploadOptimizer.prepareVideoUploadStream(
                 uriString = draft.videoUri ?: error("Selecciona o graba un video"),
                 fallbackMimeType = "video/mp4",
                 fallbackFileNameBase = "video"
             )
-            val upload = wordpressClient.uploadPostVideoRest(
-                fileName = media.fileName,
-                bytes = media.bytes,
-                mimeType = media.mimeType
-            )
+            val upload = try {
+                wordpressClient.uploadPostVideoRest(
+                    fileName = media.fileName,
+                    mimeType = media.mimeType,
+                    contentLength = media.sizeBytes,
+                    openStream = media::openStream
+                )
+            } finally {
+                media.cleanup()
+            }
             upload.data?.url ?: error(upload.errorMessage ?: "WordPress no devolvio URL de video")
         } else {
             null

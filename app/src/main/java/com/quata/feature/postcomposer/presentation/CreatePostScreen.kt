@@ -61,6 +61,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -100,6 +101,7 @@ import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -137,7 +139,20 @@ fun CreatePostScreen(
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
     var videoEditorUri by remember { mutableStateOf<Uri?>(null) }
+    var editedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
+    val latestEditedVideoTempUri by rememberUpdatedState(editedVideoTempUri)
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
+
+    fun deleteEditedVideoTemp(uri: Uri?) {
+        uri ?: return
+        context.deleteQuataEditedVideoTemp(uri)
+    }
+
+    fun clearEditedVideoTemp() {
+        val uri = editedVideoTempUri
+        editedVideoTempUri = null
+        deleteEditedVideoTemp(uri)
+    }
 
     fun submitIfAuthenticated(type: PostComposerType) {
         if (canPublish) {
@@ -207,6 +222,7 @@ fun CreatePostScreen(
 
     LaunchedEffect(resetToken) {
         if (resetToken != lastHandledResetToken) {
+            clearEditedVideoTemp()
             step = ComposerStep.TypePicker
             textValue = TextFieldValue("")
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
@@ -217,6 +233,7 @@ fun CreatePostScreen(
     LaunchedEffect(state.successMessage) {
         state.successMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            clearEditedVideoTemp()
             onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
@@ -227,7 +244,10 @@ fun CreatePostScreen(
     }
 
     DisposableEffect(Unit) {
-        onDispose { onVideoEditorVisibilityChange(false) }
+        onDispose {
+            onVideoEditorVisibilityChange(false)
+            deleteEditedVideoTemp(latestEditedVideoTempUri)
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -256,16 +276,19 @@ fun CreatePostScreen(
                 when (step) {
                     ComposerStep.TypePicker -> TypePicker(
                         onText = {
+                            clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Text
                         },
                         onImage = {
+                            clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Image
                         },
                         onVideo = {
+                            clearEditedVideoTemp()
                             textValue = TextFieldValue("")
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Video
@@ -338,8 +361,13 @@ fun CreatePostScreen(
                 videoUri = sourceUri,
                 onDismiss = { videoEditorUri = null },
                 onExported = { editedUri ->
+                    val previousEditedUri = editedVideoTempUri
+                    editedVideoTempUri = editedUri
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(editedUri.toString()))
                     videoEditorUri = null
+                    if (previousEditedUri != editedUri) {
+                        deleteEditedVideoTemp(previousEditedUri)
+                    }
                 }
             )
         }
@@ -759,3 +787,17 @@ private fun Context.createMediaUri(prefix: String, mimeType: String, collection:
     }
     return contentResolver.insert(collection, values)
 }
+
+private fun Context.deleteQuataEditedVideoTemp(uri: Uri) {
+    if (uri.scheme != "file") return
+    val path = uri.path ?: return
+    runCatching {
+        val cache = cacheDir.canonicalFile
+        val file = File(path).canonicalFile
+        if (file.parentFile == cache && file.name.startsWith(QuataEditedVideoFilePrefix)) {
+            file.delete()
+        }
+    }
+}
+
+private const val QuataEditedVideoFilePrefix = "quata-edited-video-"

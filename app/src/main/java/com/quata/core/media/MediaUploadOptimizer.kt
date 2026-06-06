@@ -32,6 +32,8 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.InputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.max
@@ -44,6 +46,21 @@ data class UploadMediaPayload(
     val extension: String,
     val bytes: ByteArray
 )
+
+class UploadVideoPayload internal constructor(
+    val fileName: String,
+    val mimeType: String,
+    val extension: String,
+    val sizeBytes: Long?,
+    private val cleanupFile: File?,
+    private val openStreamProvider: () -> InputStream
+) {
+    fun openStream(): InputStream = openStreamProvider()
+
+    fun cleanup() {
+        cleanupFile?.delete()
+    }
+}
 
 data class ImageUploadOptions(
     val compressAboveBytes: Long = 850L * 1024L,
@@ -95,6 +112,21 @@ class MediaUploadOptimizer(private val appContext: Context) {
         )
         val optimized = optimizeVideoForUpload(source, options)
         return optimized ?: source.readPayload()
+    }
+
+    suspend fun prepareVideoUploadStream(
+        uriString: String,
+        fallbackMimeType: String = "video/mp4",
+        fallbackFileNameBase: String = "video",
+        options: VideoUploadOptions = VideoUploadOptions()
+    ): UploadVideoPayload {
+        val source = readSource(
+            uriString = uriString,
+            fallbackMimeType = fallbackMimeType,
+            fallbackFileNameBase = fallbackFileNameBase
+        )
+        val optimized = optimizeVideoForUploadStream(source, options)
+        return optimized ?: source.toStreamingPayload()
     }
 
     suspend fun prepareAttachmentUpload(
@@ -229,6 +261,25 @@ class MediaUploadOptimizer(private val appContext: Context) {
         source: MediaSource,
         options: VideoUploadOptions
     ): UploadMediaPayload? {
+        val optimized = optimizeVideoForUploadStream(source, options) ?: return null
+        return try {
+            val bytes = withContext(Dispatchers.IO) { optimized.openStream().use { it.readBytes() } }
+            UploadMediaPayload(
+                fileName = optimized.fileName,
+                mimeType = optimized.mimeType,
+                extension = optimized.extension,
+                bytes = bytes
+            )
+        } finally {
+            optimized.cleanup()
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private suspend fun optimizeVideoForUploadStream(
+        source: MediaSource,
+        options: VideoUploadOptions
+    ): UploadVideoPayload? {
         if (options.skipOptimize) return null
         if (!source.mimeType.startsWith("video/", ignoreCase = true)) return null
         val sourceSize = source.sizeBytes ?: 0L
@@ -241,6 +292,7 @@ class MediaUploadOptimizer(private val appContext: Context) {
             appContext.cacheDir,
             "quata-video-${System.currentTimeMillis()}-${Random.nextInt(1_000, 9_999)}.mp4"
         )
+        var keepOutputFile = false
         return try {
             val inputHeight = source.videoHeight()
             val videoEffects = if (inputHeight != null && inputHeight > options.targetHeight) {
@@ -254,20 +306,23 @@ class MediaUploadOptimizer(private val appContext: Context) {
             withContext(Dispatchers.Main) {
                 exportVideo(editedMediaItem, outputFile, options.targetBitrate)
             }
-            val outputBytes = withContext(Dispatchers.IO) { outputFile.readBytes() }
-            if (outputBytes.isEmpty()) return null
-            if (sourceSize > 0 && outputBytes.size >= sourceSize) return null
+            val outputSize = withContext(Dispatchers.IO) { outputFile.length() }
+            if (outputSize <= 0L) return null
+            if (sourceSize > 0 && outputSize >= sourceSize) return null
             val baseName = source.fileName.substringBeforeLast('.', source.fileName).ifBlank { "video" }
-            UploadMediaPayload(
+            keepOutputFile = true
+            UploadVideoPayload(
                 fileName = "$baseName-quata.mp4",
                 mimeType = "video/mp4",
                 extension = "mp4",
-                bytes = outputBytes
+                sizeBytes = outputSize,
+                cleanupFile = outputFile,
+                openStreamProvider = { FileInputStream(outputFile) }
             )
         } catch (_: Throwable) {
             null
         } finally {
-            runCatching { outputFile.delete() }
+            if (!keepOutputFile) runCatching { outputFile.delete() }
         }
     }
 
@@ -388,6 +443,22 @@ class MediaUploadOptimizer(private val appContext: Context) {
             .lowercase()
             .takeIf { it.isNotBlank() && it.length <= 8 }
             ?: mimeType.substringAfter('/', "bin")
+
+    private fun MediaSource.toStreamingPayload(): UploadVideoPayload =
+        UploadVideoPayload(
+            fileName = fileName,
+            mimeType = mimeType,
+            extension = fileName.uploadExtension(mimeType),
+            sizeBytes = sizeBytes,
+            cleanupFile = null,
+            openStreamProvider = {
+                when (uri.scheme?.lowercase()) {
+                    ContentResolver.SCHEME_FILE -> FileInputStream(File(uri.path ?: error("Ruta de video no valida")))
+                    else -> appContext.contentResolver.openInputStream(uri)
+                        ?: error("No se pudo leer el archivo seleccionado")
+                }
+            }
+        )
 
     private data class ProviderInfo(
         val fileName: String? = null,

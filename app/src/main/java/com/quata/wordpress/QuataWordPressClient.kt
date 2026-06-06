@@ -7,8 +7,12 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import okio.source
 import java.io.IOException
+import java.io.InputStream
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -278,13 +282,30 @@ class QuataWordPressClient(
         fileName: String,
         bytes: ByteArray,
         mimeType: String
+    ): AjaxEnvelope<VideoUploadData> =
+        uploadPostVideoRest(
+            fileName = fileName,
+            mimeType = mimeType,
+            contentLength = bytes.size.toLong(),
+            openStream = { bytes.inputStream() }
+        )
+
+    suspend fun uploadPostVideoRest(
+        fileName: String,
+        mimeType: String,
+        contentLength: Long?,
+        openStream: () -> InputStream
     ): AjaxEnvelope<VideoUploadData> {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart(
                 "video",
                 fileName,
-                bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                StreamingRequestBody(
+                    mimeType = mimeType,
+                    contentLength = contentLength,
+                    openStream = openStream
+                )
             )
             .build()
 
@@ -502,6 +523,22 @@ class QuataWordPressClient(
         if (JsonLite.bool(json, "success") != false) return null
         val dataJson = JsonLite.objectBody(json, "data") ?: json
         return JsonLite.string(dataJson, "message") ?: JsonLite.string(json, "message")
+    }
+
+    private class StreamingRequestBody(
+        private val mimeType: String,
+        private val contentLength: Long?,
+        private val openStream: () -> InputStream
+    ) : RequestBody() {
+        override fun contentType() = mimeType.toMediaTypeOrNull()
+
+        override fun contentLength(): Long = contentLength?.takeIf { it >= 0L } ?: -1L
+
+        override fun writeTo(sink: BufferedSink) {
+            openStream().use { input ->
+                sink.writeAll(input.source())
+            }
+        }
     }
 
     companion object {

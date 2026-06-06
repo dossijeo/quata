@@ -13,15 +13,19 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9.0"
+        versionCode = 10
+        versionName = "0.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += setOf("arm64-v8a", "x86_64")
+        }
 
         // Backend dual. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-01\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-06\"")
     }
 
     buildFeatures {
@@ -41,6 +45,12 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    bundle {
+        language {
+            enableSplit = true
         }
     }
 }
@@ -67,6 +77,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.media3:media3-transformer:1.5.1")
     implementation("androidx.media3:media3-effect:1.5.1")
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
