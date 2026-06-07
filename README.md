@@ -1,17 +1,19 @@
 # Q&uuml;ata Android
 
-Version: **0.9.1**
-Fecha de version: **2026-06-06**
+Version: **0.9.2**
+Fecha de version: **2026-06-07**
 Estado: **beta avanzada**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.1` consolida el editor nativo de video con salida vertical `9:16`, fondo desenfocado dinamico, subtitulos automaticos incrustados, exportacion optimizada y limpieza de temporales. El nucleo funcional ya esta muy completo y probado en emulador, pero todavia queda margen de endurecimiento de release, QA amplio en dispositivos reales, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor nativo de video e imagen con salida vertical `9:16`, fondo desenfocado dinamico, subtitulos automaticos incrustados, previews finales antes de publicar, exportacion adaptativa segun capacidad del dispositivo, rutas rapidas sin recodificacion y limpieza de temporales. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Funcionalidad principal
 
 - Feed visual tipo reel con publicaciones de texto, imagen y video.
 - Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute, subtitulos y exportacion.
+- Editor nativo de imagen integrado en publicar, con crop/zoom vertical `9:16`, limite de salida y preservacion de metadatos utiles de localizacion.
+- Preview de publicacion de imagen/video en formato `9:16`, con aspecto cosmetico equivalente al feed y reproduccion local para validar el resultado antes de publicar.
 - Ranking de publicaciones por likes y fecha, con badge `#rank`.
 - Publicaciones de texto con fondo degradado determinista a partir del contenido.
 - Shortcodes embebidos en el texto del post para canal, ubicacion, titulo de media, Alka y estado de video.
@@ -52,12 +54,19 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - El editor permite recortar duracion desde la timeline, mover la posicion de reproduccion, silenciar, aplicar recorte de encuadre con zoom y guardar el resultado.
 - La previsualizacion del editor y la exportacion mantienen siempre salida vertical `9:16`, con el video/crop centrado y fondo desenfocado basado en el area visible cuando la fuente no encaja en ese formato.
 - La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
-- Cuando no hay recorte visual, captions ni reencuadre y la fuente ya es `9:16`, el editor usa copia directa con `MediaExtractor`/`MediaMuxer` para evitar recodificar; si el video esta silenciado, se remuxea sin pista de audio.
-- Durante exportacion, el boton atras muestra confirmacion para cancelar y elimina el temporal si el usuario cancela.
+- Cuando no hay ediciones y la fuente ya es `9:16` con resolucion compatible, el guardado es instantaneo y usa el video original sin exportar.
+- Cuando solo hay trim temporal, o mute sin efectos visuales, el editor usa rutas rapidas con `MediaExtractor`/`MediaMuxer` para evitar recodificar; si el video esta silenciado, se remuxea sin pista de audio.
+- La resolucion maxima de subida se calcula por dispositivo: `1080x1920@30` si el codec H.264 soporta el punto de rendimiento requerido y `720x1280@30` como fallback; si el video supera ese limite, se fuerza recodificacion.
+- Durante exportacion, la pantalla se mantiene encendida, se ocultan controles no interactivos, el progreso mueve el contador y la linea del timeline, y el boton atras muestra confirmacion para cancelar.
 - Los archivos temporales exportados por el editor se eliminan al publicar, al reemplazar el video editado, al cancelar la exportacion o al salir de la pantalla de publicacion sin publicar.
 - Los captions automaticos usan Vosk con modelo ingles incluido como fallback base y modelos espanol/frances en recursos `raw-es`/`raw-fr`, preparados para splits de idioma en AAB.
 - Las plantillas de captions disponibles son `Karaoke`, `PopWord`, `Hormozi` y `Typewriter`, con preview PNG transparente sobre la previsualizacion y burn-in durante la exportacion.
+- Si se aplican captions, la exportacion fuerza salida de calidad objetivo para preservar nitidez de texto.
+- El editor de imagen genera una copia vertical `9:16` con limite de resolucion, crop/zoom interactivo y conservacion de datos de localizacion de la imagen original cuando estan disponibles.
+- En publicar, los previews de imagen y video se expanden a `9:16` con avatar, acciones y metadatos cosmeticos del feed para validar el aspecto final antes de subir.
+- El boton publicar actua como barra de progreso durante la subida y, si el usuario intenta salir, pregunta si desea cancelar la operacion.
 - El feed actualiza explicitamente el reproductor de video cuando se publica o elimina una publicacion para evitar estados negros al reutilizar paginas del reel.
+- Al eliminar una publicacion con media remota, la app intenta borrar tambien el fichero fisico en WordPress mediante el endpoint AJAX correspondiente; un fallo en ese borrado no bloquea el borrado del post en Supabase.
 - Optimizacion global de imagenes antes de subir: redimensionado, conversion JPEG y compresion.
 - Optimizacion de video cuando el archivo o la conexion lo aconsejan.
 - La misma capa de optimizacion se reutiliza en publicar, foto de perfil y adjuntos de chat.
@@ -113,6 +122,7 @@ app/src/main/java/com/quata/
     notifications/       Avisos dentro de la app
     postcomposer/        Publicacion de contenido
       videoeditor/       Editor nativo de video en Compose + Media3 Transformer/MediaMuxer
+      imageeditor/       Editor nativo de imagen con crop/zoom vertical 9:16
     profile/             Cuenta, avatar, preferencias y SOS
 ```
 
@@ -167,9 +177,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 10
-versionName = 0.9.1
-APP_VERSION_DATE = 2026-06-06
+versionCode = 11
+versionName = 0.9.2
+APP_VERSION_DATE = 2026-06-07
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
