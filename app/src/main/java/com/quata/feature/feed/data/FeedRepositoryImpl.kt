@@ -76,27 +76,17 @@ class FeedRepositoryImpl(
             if (!deleted) error("No se pudo borrar la publicacion")
         } else {
             val post = remote.getPost(postId)
-            deleteWordPressMedia(post, session.userId)
+            deleteWordPressVideo(post)
             remote.deletePost(postId, session.userId)
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    private suspend fun deleteWordPressMedia(post: CommunityPost?, profileId: String) {
-        val remotePost = post ?: return
-        val mediaUrl = remotePost.video_url?.takeIf { it.isNotBlank() }
-            ?: remotePost.image_url?.takeIf { it.isNotBlank() }
+    private suspend fun deleteWordPressVideo(post: CommunityPost?) {
+        val mediaUrl = post?.video_url?.takeIf { it.isNotBlank() }
             ?: return
-        if (!wordpressClient.ownsUrl(mediaUrl)) return
 
-        val deleteResult = wordpressClient.deletePostMediaRest(
-            mediaUrl = mediaUrl,
-            postId = remotePost.id,
-            profileId = profileId
-        )
-        if (!deleteResult.success || deleteResult.data?.deleted == false) {
-            error(deleteResult.errorMessage ?: "WordPress no pudo borrar el recurso multimedia")
-        }
+        runCatching { wordpressClient.deletePostVideoAjax(mediaUrl) }
     }
 
     private suspend fun loadPostShells(): List<Post> {

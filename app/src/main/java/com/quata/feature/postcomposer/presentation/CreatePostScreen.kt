@@ -4,10 +4,13 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import android.provider.MediaStore
 import android.view.ViewGroup
@@ -16,6 +19,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -74,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,6 +89,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -129,6 +135,7 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private enum class ComposerStep {
     TypePicker,
@@ -776,6 +783,12 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
     var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
     var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
+    var hasRenderedFirstFrame by remember(videoUri) { mutableStateOf(false) }
+    val posterFrame by produceState<Bitmap?>(initialValue = null, videoUri) {
+        value = withContext(Dispatchers.IO) {
+            context.loadComposerVideoPosterFrame(Uri.parse(videoUri))
+        }
+    }
     val player = remember(videoUri) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(videoUri))
@@ -783,6 +796,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             playWhenReady = false
             volume = 1f
             prepare()
+            seekTo(0L)
         }
     }
 
@@ -796,7 +810,25 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
     }
 
     DisposableEffect(player) {
-        onDispose { player.release() }
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                hasRenderedFirstFrame = true
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    durationMs = player.duration.takeIf { it > 0 } ?: durationMs
+                    if (player.currentPosition <= 0L && !hasRenderedFirstFrame) {
+                        runCatching { player.seekTo(0L) }
+                    }
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
     }
 
     fun togglePlayback() {
@@ -834,6 +866,14 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
                 }
             }
         )
+        posterFrame?.takeUnless { hasRenderedFirstFrame }?.let { frame ->
+            Image(
+                bitmap = frame.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -1096,6 +1136,70 @@ private fun formatComposerVideoTime(ms: Long): String {
     return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
+private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? =
+    runCatching {
+        MediaMetadataRetriever().use { retriever ->
+            retriever.setComposerVideoSource(this, uri)
+            retriever.getScaledComposerVideoFrameAtTime(
+                timeUs = 0L,
+                option = MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                maxDimension = ComposerPreviewPosterMaxDimension
+            )
+        }
+    }.getOrNull()
+
+private fun MediaMetadataRetriever.setComposerVideoSource(context: Context, uri: Uri) {
+    if (uri.scheme == "content" || uri.scheme == "file") {
+        setDataSource(context, uri)
+    } else {
+        setDataSource(uri.toString(), emptyMap())
+    }
+}
+
+private fun MediaMetadataRetriever.getScaledComposerVideoFrameAtTime(
+    timeUs: Long,
+    option: Int,
+    maxDimension: Int
+): Bitmap? {
+    val targetSize = scaledComposerVideoFrameSize(maxDimension)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && targetSize != null) {
+        runCatching {
+            getScaledFrameAtTime(timeUs, option, targetSize.first, targetSize.second)
+        }.getOrNull()?.let { return it }
+    }
+    return getFrameAtTime(timeUs, option)?.scaleComposerVideoPoster(maxDimension)
+}
+
+private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: Int): Pair<Int, Int>? {
+    val width = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return null
+    val height = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return null
+    if (width <= 0 || height <= 0) return null
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+    val displayWidth = if (rotation == 90 || rotation == 270) height else width
+    val displayHeight = if (rotation == 90 || rotation == 270) width else height
+    val largestDimension = maxOf(displayWidth, displayHeight)
+    if (largestDimension <= 0) return null
+    val scale = maxDimension.toFloat() / largestDimension.toFloat()
+    val targetDisplayWidth = (displayWidth * scale).roundToInt().coerceAtLeast(1)
+    val targetDisplayHeight = (displayHeight * scale).roundToInt().coerceAtLeast(1)
+    return if (rotation == 90 || rotation == 270) {
+        targetDisplayHeight to targetDisplayWidth
+    } else {
+        targetDisplayWidth to targetDisplayHeight
+    }
+}
+
+private fun Bitmap.scaleComposerVideoPoster(maxDimension: Int): Bitmap {
+    val largestDimension = maxOf(width, height)
+    if (largestDimension <= maxDimension) return this
+    val scale = maxDimension.toFloat() / largestDimension.toFloat()
+    val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
+    val scaled = Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+    if (scaled !== this) recycle()
+    return scaled
+}
+
 @Composable
 private fun ComposerPanel(
     title: String,
@@ -1337,3 +1441,4 @@ private fun Context.deleteQuataEditedImageTemp(uri: Uri) {
 }
 
 private const val QuataEditedVideoFilePrefix = "quata-edited-video-"
+private const val ComposerPreviewPosterMaxDimension = 720

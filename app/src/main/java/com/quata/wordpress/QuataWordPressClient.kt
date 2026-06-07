@@ -13,7 +13,6 @@ import okio.BufferedSink
 import okio.source
 import java.io.IOException
 import java.io.InputStream
-import java.net.URI
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +23,6 @@ class QuataWordPressClient(
     private val rootUrl: String = baseUrl.trimEnd('/') + "/"
     private val ajaxUrl: String = rootUrl + "wp-admin/admin-ajax.php"
     private val uploadVideoRestUrl: String = rootUrl + "wp-json/quqos/v1/upload-video"
-    private val deletePostMediaRestUrl: String = rootUrl + "wp-json/quqos/v1/post-media"
 
     suspend fun checkRegistrationGuard(
         deviceId: String,
@@ -380,36 +378,15 @@ class QuataWordPressClient(
     }
 
     /**
-     * DELETE /wp-json/quqos/v1/post-media
-     * form-data: url=<media-url>, post_id=<supabase-post-id>, profile_id=<supabase-profile-id>
+     * POST /wp-admin/admin-ajax.php
+     * action=quqos_delete_post_video
+     * url=<uploaded-video-url>
      */
-    suspend fun deletePostMediaRest(
-        mediaUrl: String,
-        postId: String,
-        profileId: String
-    ): AjaxEnvelope<MediaDeleteData> {
-        val body = FormBody.Builder()
-            .add("url", mediaUrl)
-            .add("post_id", postId)
-            .add("profile_id", profileId)
-            .build()
-
-        val request = Request.Builder()
-            .url(deletePostMediaRestUrl)
-            .delete(body)
-            .header("X-Requested-With", "XMLHttpRequest")
-            .build()
-
-        val json = execute(request)
-        if (json.contains(""""message"""") && json.contains(""""code"""")) {
-            return AjaxEnvelope(
-                success = false,
-                data = MediaDeleteData(rawJson = json),
-                errorMessage = JsonLite.string(json, "message"),
-                rawJson = json
-            )
-        }
-
+    suspend fun deletePostVideoAjax(mediaUrl: String): AjaxEnvelope<MediaDeleteData> {
+        val json = postAjax(
+            action = "quqos_delete_post_video",
+            params = mapOf("url" to mediaUrl)
+        )
         val dataJson = JsonLite.objectBody(json, "data") ?: json
         val envelopeSuccess = JsonLite.bool(json, "success")
         val deleted = JsonLite.bool(dataJson, "deleted")
@@ -427,12 +404,6 @@ class QuataWordPressClient(
             errorMessage = if (success) null else extractWordPressError(json) ?: JsonLite.string(json, "message"),
             rawJson = json
         )
-    }
-
-    fun ownsUrl(url: String): Boolean {
-        val rootHost = runCatching { URI(rootUrl).host?.lowercase() }.getOrNull() ?: return false
-        val mediaHost = runCatching { URI(url).host?.lowercase() }.getOrNull() ?: return false
-        return mediaHost == rootHost || mediaHost.endsWith(".$rootHost")
     }
 
     /**
