@@ -28,11 +28,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -100,6 +97,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -240,7 +238,7 @@ fun QuataVideoEditorDialog(
     LaunchedEffect(durationMs) {
         if (!durationApplied && durationMs > 0L) {
             trimStartMs = 0L
-            trimEndMs = durationMs
+            trimEndMs = durationMs.coerceAtMost(MaximumTrimDurationMs)
             durationApplied = true
         }
     }
@@ -316,6 +314,32 @@ fun QuataVideoEditorDialog(
         player.pause()
         player.seekTo(boundedTarget)
         currentPositionMs = boundedTarget
+    }
+
+    fun applyTrimStartDrag(targetMs: Long) {
+        if (durationMs <= 0L) return
+        val boundedStart = targetMs.coerceIn(0L, (trimEndMs - MinimumTrimMs).coerceAtLeast(0L))
+        val nextEnd = if (trimEndMs - boundedStart > MaximumTrimDurationMs) {
+            (boundedStart + MaximumTrimDurationMs).coerceAtMost(durationMs)
+        } else {
+            trimEndMs
+        }
+        trimStartMs = boundedStart
+        trimEndMs = nextEnd
+        seekPreviewTo(boundedStart)
+    }
+
+    fun applyTrimEndDrag(targetMs: Long) {
+        if (durationMs <= 0L) return
+        val boundedEnd = targetMs.coerceIn((trimStartMs + MinimumTrimMs).coerceAtMost(durationMs), durationMs)
+        val nextStart = if (boundedEnd - trimStartMs > MaximumTrimDurationMs) {
+            (boundedEnd - MaximumTrimDurationMs).coerceAtLeast(0L)
+        } else {
+            trimStartMs
+        }
+        trimStartMs = nextStart
+        trimEndMs = boundedEnd
+        seekPreviewTo((boundedEnd - 33L).coerceAtLeast(nextStart))
     }
 
     fun suspendPreviewForExport() {
@@ -498,16 +522,8 @@ fun QuataVideoEditorDialog(
                 trimEndMs = trimEndMs,
                 currentPositionMs = timelinePositionMs,
                 isExporting = isExporting,
-                onTrimStartChange = { next ->
-                    val boundedStart = next.coerceIn(0L, (trimEndMs - MinimumTrimMs).coerceAtLeast(0L))
-                    trimStartMs = boundedStart
-                    seekPreviewTo(boundedStart)
-                },
-                onTrimEndChange = { next ->
-                    val boundedEnd = next.coerceIn((trimStartMs + MinimumTrimMs).coerceAtMost(durationMs), durationMs)
-                    trimEndMs = boundedEnd
-                    seekPreviewTo((boundedEnd - 33L).coerceAtLeast(trimStartMs))
-                },
+                onTrimStartChange = ::applyTrimStartDrag,
+                onTrimEndChange = ::applyTrimEndDrag,
                 onSeek = { target ->
                     seekPreviewTo(target)
                 },
@@ -935,11 +951,10 @@ private fun VideoTimeline(
     val endFraction = (trimEndMs.toFloat() / safeDuration).coerceIn(startFraction, 1f)
     val currentFraction = (currentPositionMs.toFloat() / safeDuration).coerceIn(0f, 1f)
     val handleWidth = 30.dp
-    val currentStartFraction by rememberUpdatedState(startFraction)
-    val currentEndFraction by rememberUpdatedState(endFraction)
-    val currentOnTrimStartChange by rememberUpdatedState(onTrimStartChange)
-    val currentOnTrimEndChange by rememberUpdatedState(onTrimEndChange)
-    val currentOnSeek by rememberUpdatedState(onSeek)
+    val handleHitWidth = 64.dp
+    val handleHitPadding = (handleHitWidth - handleWidth) / 2f
+    val currentTrimStartMs by rememberUpdatedState(trimStartMs)
+    val currentTrimEndMs by rememberUpdatedState(trimEndMs)
     val baseModifier = modifier
         .clip(RoundedCornerShape(20.dp))
         .background(QuataSurfaceAlt)
@@ -952,40 +967,8 @@ private fun VideoTimeline(
                 return (x.coerceIn(0f, width) / width * safeDuration).roundToLong()
             }
 
-            fun markerFor(x: Float): TimelineMarker {
-                val width = size.width.toFloat().coerceAtLeast(1f)
-                val startX = currentStartFraction * width
-                val endX = currentEndFraction * width
-                return if (abs(x - startX) <= abs(x - endX)) {
-                    TimelineMarker.Start
-                } else {
-                    TimelineMarker.End
-                }
-            }
-
-            fun updateTrim(marker: TimelineMarker, x: Float) {
-                when (marker) {
-                    TimelineMarker.Start -> currentOnTrimStartChange(positionToMs(x))
-                    TimelineMarker.End -> currentOnTrimEndChange(positionToMs(x))
-                }
-            }
-
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                val marker = markerFor(down.position.x)
-                val dragStart = awaitTouchSlopOrCancellation(down.id) { change, _ ->
-                    change.consume()
-                    updateTrim(marker, change.position.x)
-                }
-
-                if (dragStart == null) {
-                    currentOnSeek(positionToMs(down.position.x))
-                } else {
-                    drag(dragStart.id) { change ->
-                        change.consume()
-                        updateTrim(marker, change.position.x)
-                    }
-                }
+            detectTapGestures { offset ->
+                onSeek(positionToMs(offset.x))
             }
         }
     }
@@ -993,6 +976,45 @@ private fun VideoTimeline(
     BoxWithConstraints(
         modifier = interactiveModifier
     ) {
+        val timelineWidthPx = with(LocalDensity.current) { maxWidth.toPx().coerceAtLeast(1f) }
+        fun Modifier.handleDrag(marker: TimelineMarker): Modifier =
+            if (isExporting) {
+                this
+            } else {
+                pointerInput(durationMs, timelineWidthPx, marker) {
+                    var initialStartMs = 0L
+                    var initialEndMs = 0L
+                    var accumulatedDeltaX = 0f
+
+                    fun updateTrimFromDelta() {
+                        val deltaMs = (accumulatedDeltaX / timelineWidthPx * safeDuration).roundToLong()
+                        when (marker) {
+                            TimelineMarker.Start -> {
+                                val target = initialStartMs + deltaMs
+                                onTrimStartChange(target)
+                            }
+                            TimelineMarker.End -> {
+                                val target = initialEndMs + deltaMs
+                                onTrimEndChange(target)
+                            }
+                        }
+                    }
+
+                    detectDragGestures(
+                        onDragStart = {
+                            initialStartMs = currentTrimStartMs
+                            initialEndMs = currentTrimEndMs
+                            accumulatedDeltaX = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            accumulatedDeltaX += dragAmount.x
+                            updateTrimFromDelta()
+                        }
+                    )
+                }
+            }
+
         Row(Modifier.fillMaxSize()) {
             if (frames.isEmpty()) {
                 repeat(TimelineFrameCount) {
@@ -1056,6 +1078,20 @@ private fun VideoTimeline(
                     .width(handleWidth)
                     .fillMaxHeight(),
                 alignStart = false
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * startFraction - handleHitPadding)
+                    .width(handleHitWidth)
+                    .fillMaxHeight()
+                    .handleDrag(TimelineMarker.Start)
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * endFraction - handleWidth - handleHitPadding)
+                    .width(handleHitWidth)
+                    .fillMaxHeight()
+                    .handleDrag(TimelineMarker.End)
             )
         }
     }
@@ -2395,6 +2431,7 @@ private const val PreviewPosterMaxDimension = 480
 private const val PreviewBackgroundSnapshotMaxDimension = 180
 private const val PreviewBackgroundSnapshotIntervalMs = 120L
 private const val MinimumTrimMs = 500L
+private const val MaximumTrimDurationMs = 15 * 60 * 1000L
 private const val EditorVideoBitrate = 2_500_000
 private const val EditorIntermediateVideoBitrate = 4_000_000
 private const val DownsampleExportProgressShare = 0.28f
