@@ -25,11 +25,15 @@ internal class CommunityProfileCacheStore(
     private val appContext = context.applicationContext
     private val mutex = Mutex()
 
-    suspend fun read(userId: String): CommunityUserProfile? = mutex.withLock {
+    suspend fun read(userId: String, maxAgeMillis: Long? = null): CommunityUserProfile? = mutex.withLock {
         withContext(Dispatchers.IO) {
             val file = cacheFile(userId)
             if (!file.exists()) return@withContext null
-            runCatching { json.decodeFromString<StoredCommunityUserProfile>(file.readText()).toDomain() }
+            runCatching {
+                val stored = json.decodeFromString<StoredCommunityUserProfile>(file.readText())
+                if (maxAgeMillis != null && stored.isOlderThan(maxAgeMillis)) return@runCatching null
+                stored.toDomain()
+            }
                 .getOrNull()
         }
     }
@@ -183,6 +187,9 @@ internal class CommunityProfileCacheStore(
             sentAtMillis = sentAtMillis,
             senderName = senderName
         )
+
+    private fun StoredCommunityUserProfile.isOlderThan(maxAgeMillis: Long): Boolean =
+        cachedAtMillis <= 0L || System.currentTimeMillis() - cachedAtMillis > maxAgeMillis
 
     @Serializable
     private data class StoredCommunityUserProfile(

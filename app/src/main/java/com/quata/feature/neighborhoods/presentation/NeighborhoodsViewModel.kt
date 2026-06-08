@@ -3,6 +3,10 @@ package com.quata.feature.neighborhoods.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.feature.neighborhoods.domain.CommunityUserProfile
+import com.quata.feature.neighborhoods.domain.FollowUserResult
+import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
+import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,12 +75,30 @@ class NeighborhoodsViewModel(
     }
 
     fun toggleFollowUser(userId: String) {
+        if (_uiState.value.followingUserId == userId) return
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(followingUserId = userId, error = null)
             repository.toggleFollowUser(userId)
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar el seguimiento")
+                .onSuccess { result ->
+                    val currentState = _uiState.value
+                    val enrichedResult = currentState.withKnownCurrentUser(result)
+                    val selectedProfile = currentState.selectedProfile?.withFollowResult(enrichedResult)
+                    if (selectedProfile != null) {
+                        repository.cacheUserProfile(selectedProfile)
+                    }
+                    _uiState.value = currentState.copy(
+                        followingUserId = null,
+                        selectedProfile = selectedProfile ?: currentState.selectedProfile,
+                        communities = currentState.communities.withFollowResult(enrichedResult),
+                        error = null
+                    )
                 }
-            refreshSelectedProfile(userId)
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        followingUserId = null,
+                        error = error.message ?: "No se pudo actualizar el seguimiento"
+                    )
+                }
         }
     }
 
@@ -100,6 +122,16 @@ class NeighborhoodsViewModel(
 
     fun openUserProfile(userId: String) {
         viewModelScope.launch {
+            val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
+            if (freshCachedProfile != null) {
+                _uiState.value = _uiState.value.copy(
+                    selectedProfile = freshCachedProfile,
+                    openingProfileUserId = null,
+                    refreshingProfileUserId = null,
+                    error = null
+                )
+                return@launch
+            }
             val cachedProfile = repository.getCachedUserProfile(userId)
             if (cachedProfile != null) {
                 _uiState.value = _uiState.value.copy(
@@ -172,7 +204,111 @@ class NeighborhoodsViewModel(
             }
     }
 
+    private fun CommunityUserProfile.withFollowResult(result: FollowUserResult): CommunityUserProfile {
+        val targetUserId = result.userId
+        val currentUserId = result.currentUser.id
+        val targetUser = sequenceOf(user)
+            .plus(followers.asSequence())
+            .plus(following.asSequence())
+            .firstOrNull { it.id == targetUserId }
+        val wasFollowingTarget = following.any { it.id == targetUserId }
+        val updatedUser = user
+            .withFollowResult(result, updateFollowerCount = user.id == targetUserId)
+            .let { updated ->
+                if (user.id == currentUserId) {
+                    updated.withFollowingCountResult(
+                        wasFollowing = wasFollowingTarget,
+                        isFollowing = result.isFollowing
+                    )
+                } else {
+                    updated
+                }
+            }
+        return copy(
+            user = updatedUser,
+            followers = if (user.id == targetUserId) {
+                followers.withCurrentFollower(result)
+            } else {
+                followers.map { it.withFollowResult(result) }
+            },
+            following = if (user.id == currentUserId) {
+                following.withTargetFollowing(result, targetUser)
+            } else {
+                following.map { it.withFollowResult(result) }
+            }
+        )
+    }
+
+    private fun NeighborhoodsUiState.withKnownCurrentUser(result: FollowUserResult): FollowUserResult =
+        findKnownUser(result.currentUser.id)?.let { result.copy(currentUser = it) } ?: result
+
+    private fun NeighborhoodsUiState.findKnownUser(userId: String): NeighborhoodUser? {
+        selectedProfile?.let { profile ->
+            sequenceOf(profile.user)
+                .plus(profile.followers.asSequence())
+                .plus(profile.following.asSequence())
+                .firstOrNull { it.id == userId }
+                ?.let { return it }
+        }
+        return communities
+            .asSequence()
+            .flatMap { it.users.asSequence() }
+            .firstOrNull { it.id == userId }
+    }
+
+    private fun List<NeighborhoodUser>.withCurrentFollower(result: FollowUserResult): List<NeighborhoodUser> {
+        val updated = map { it.withFollowResult(result) }
+        if (!result.isFollowing) return updated.filterNot { it.id == result.currentUser.id }
+        if (updated.any { it.id == result.currentUser.id }) return updated
+        return listOf(result.currentUser) + updated
+    }
+
+    private fun List<NeighborhoodUser>.withTargetFollowing(
+        result: FollowUserResult,
+        targetUser: NeighborhoodUser?
+    ): List<NeighborhoodUser> {
+        val updated = map { it.withFollowResult(result) }
+        if (!result.isFollowing) return updated.filterNot { it.id == result.userId }
+        if (updated.any { it.id == result.userId }) return updated
+        return targetUser?.withFollowResult(result)?.let { listOf(it) + updated } ?: updated
+    }
+
+    private fun List<NeighborhoodCommunity>.withFollowResult(result: FollowUserResult): List<NeighborhoodCommunity> =
+        map { community ->
+            community.copy(users = community.users.map { it.withFollowResult(result) })
+        }
+
+    private fun NeighborhoodUser.withFollowResult(
+        result: FollowUserResult,
+        updateFollowerCount: Boolean = false
+    ): NeighborhoodUser {
+        if (id != result.userId) return this
+        val followerDelta = when {
+            !updateFollowerCount || isFollowing == result.isFollowing -> 0
+            result.isFollowing -> 1
+            else -> -1
+        }
+        return copy(
+            isFollowing = result.isFollowing,
+            followersCount = (followersCount + followerDelta).coerceAtLeast(0)
+        )
+    }
+
+    private fun NeighborhoodUser.withFollowingCountResult(
+        wasFollowing: Boolean,
+        isFollowing: Boolean
+    ): NeighborhoodUser {
+        val followingDelta = when {
+            wasFollowing == isFollowing -> 0
+            isFollowing -> 1
+            else -> -1
+        }
+        return copy(followingCount = (followingCount + followingDelta).coerceAtLeast(0))
+    }
+
     companion object {
+        private const val PROFILE_CACHE_FRESH_MILLIS = 5 * 60_000L
+
         fun factory(repository: NeighborhoodRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =

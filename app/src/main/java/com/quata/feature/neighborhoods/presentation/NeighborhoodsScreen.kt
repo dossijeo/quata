@@ -153,6 +153,7 @@ fun NeighborhoodsScreen(
             isOpeningChat = state.isOpeningChat,
             openingPrivateChatUserId = state.openingPrivateChatUserId,
             openingProfileUserId = openingProfileUserId,
+            followingUserId = state.followingUserId,
             onBack = { selectedCommunity = null },
             onFollowUser = { user ->
                 if (canParticipate) viewModel.toggleFollowUser(user.id) else onAuthRequired()
@@ -375,6 +376,7 @@ private fun NeighborhoodUsersScreen(
     isOpeningChat: Boolean,
     openingPrivateChatUserId: String?,
     openingProfileUserId: String?,
+    followingUserId: String?,
     onBack: () -> Unit,
     onFollowUser: (NeighborhoodUser) -> Unit,
     onOpenProfile: (NeighborhoodUser) -> Unit,
@@ -421,6 +423,7 @@ private fun NeighborhoodUsersScreen(
                     NeighborhoodUserRow(
                         user = user,
                         isOwnUser = user.id == currentUserId,
+                        isFollowingLoading = followingUserId == user.id,
                         isOpeningChat = openingPrivateChatUserId == user.id,
                         isProfileLoading = openingProfileUserId == user.id,
                         onFollowUser = { onFollowUser(user) },
@@ -441,6 +444,7 @@ fun CommunityProfileScreen(
     currentUserId: String? = null,
     isOpeningChat: Boolean = false,
     isRefreshingProfile: Boolean = false,
+    followingUserId: String? = null,
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
@@ -452,6 +456,7 @@ fun CommunityProfileScreen(
     openingProfileUserId: String? = null
 ) {
     val isOwnProfile = profile.user.id == currentUserId
+    val isFollowingLoading = followingUserId == profile.user.id
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
     var userListTitle by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
@@ -486,7 +491,8 @@ fun CommunityProfileScreen(
                     if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id)
                 },
                 isOpeningChat = isOpeningChat,
-                openingProfileUserId = openingProfileUserId
+                openingProfileUserId = openingProfileUserId,
+                followingUserId = followingUserId
             )
         } else {
             LazyColumn(
@@ -521,12 +527,20 @@ fun CommunityProfileScreen(
                             onClick = {
                                 if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id)
                             },
-                            enabled = !isOwnProfile,
+                            enabled = !isOwnProfile && !isFollowingLoading,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
                             modifier = Modifier.weight(1f)
                         ) {
-                            CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            if (isFollowingLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.Black
+                                )
+                            } else {
+                                CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
                             Spacer(Modifier.width(6.dp))
                             Text(if (profile.user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow), fontSize = 18.sp)
                         }
@@ -660,6 +674,7 @@ private fun ProfileAttachment.toAttachmentPreview(): AttachmentPreview =
 private fun NeighborhoodUserRow(
     user: NeighborhoodUser,
     isOwnUser: Boolean,
+    isFollowingLoading: Boolean,
     isOpeningChat: Boolean,
     isProfileLoading: Boolean,
     onFollowUser: () -> Unit,
@@ -695,12 +710,20 @@ private fun NeighborhoodUserRow(
         ) {
             Button(
                 onClick = onFollowUser,
-                enabled = !isOwnUser,
+                enabled = !isOwnUser && !isFollowingLoading,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
             ) {
-                CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                if (isFollowingLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = template.colors.accentContent
+                    )
+                } else {
+                    CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
                 Spacer(Modifier.width(4.dp))
                 Text(
                     if (user.isFollowing) stringResource(R.string.common_following) else stringResource(R.string.common_follow),
@@ -742,7 +765,8 @@ private fun ProfileUsersListContent(
     onOpenProfile: (NeighborhoodUser) -> Unit,
     onOpenPrivateChat: (NeighborhoodUser) -> Unit,
     isOpeningChat: Boolean,
-    openingProfileUserId: String?
+    openingProfileUserId: String?,
+    followingUserId: String?
 ) {
     Column(
         Modifier
@@ -766,6 +790,7 @@ private fun ProfileUsersListContent(
                 NeighborhoodUserRow(
                     user = user,
                     isOwnUser = user.id == currentUserId,
+                    isFollowingLoading = followingUserId == user.id,
                     isOpeningChat = isOpeningChat,
                     isProfileLoading = openingProfileUserId == user.id,
                     onFollowUser = { onFollowUser(user) },

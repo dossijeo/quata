@@ -3,11 +3,17 @@ package com.quata
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.quata.core.di.AppContainer
+import com.quata.core.media.QuataMediaCache
 import com.quata.core.notifications.BetterMessagesBackgroundPollScheduler
 import com.quata.feature.chat.domain.ChatPollingMode
+import java.io.File
 
-class QuataApp : Application() {
+class QuataApp : Application(), ImageLoaderFactory {
     lateinit var container: AppContainer
         private set
     private var startedActivities = 0
@@ -42,5 +48,28 @@ class QuataApp : Application() {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        val imageCacheDir = File(cacheDir, IMAGE_CACHE_DIR).apply { mkdirs() }
+        QuataMediaCache.pruneStaleFiles(imageCacheDir)
+        return ImageLoader.Builder(this)
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.20)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(imageCacheDir)
+                    .maxSizeBytes(MAX_IMAGE_CACHE_BYTES)
+                    .build()
+            }
+            .build()
+    }
+
+    private companion object {
+        const val IMAGE_CACHE_DIR = "quata_image_cache"
+        const val MAX_IMAGE_CACHE_BYTES = 128L * 1024L * 1024L
     }
 }

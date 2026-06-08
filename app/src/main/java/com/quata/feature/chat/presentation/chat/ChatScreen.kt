@@ -1747,10 +1747,14 @@ private fun android.content.Context.openBrowserUrl(url: String) {
 }
 
 private fun android.content.Context.playChatSound(rawResId: Int) {
-    runCatching {
-        MediaPlayer.create(this, rawResId)?.apply {
-            setOnCompletionListener { player -> player.release() }
-            start()
-        }
+    val player = runCatching { MediaPlayer.create(this, rawResId) }.getOrNull() ?: return
+    player.setOnCompletionListener { completedPlayer ->
+        completedPlayer.release()
     }
+    player.setOnErrorListener { errorPlayer, _, _ ->
+        errorPlayer.release()
+        true
+    }
+    runCatching { player.start() }
+        .onFailure { player.release() }
 }

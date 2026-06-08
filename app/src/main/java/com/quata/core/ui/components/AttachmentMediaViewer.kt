@@ -65,6 +65,7 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.designsystem.theme.quataTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -179,21 +180,22 @@ fun Context.openAttachmentWithChooser(attachment: AttachmentPreview) {
 
 @Composable
 private fun AttachmentViewerTopBar(title: String, onBack: () -> Unit) {
+    val template = quataTheme()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .height(62.dp)
-            .background(Color(0xFF0D1422))
+            .background(template.colors.topChrome)
             .padding(horizontal = 8.dp)
     ) {
         CompactIconButton(onClick = onBack) {
-            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
+            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = template.colors.textPrimary)
         }
         Spacer(Modifier.width(4.dp))
         Text(
             title,
-            color = Color.White,
+            color = template.colors.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 18.sp,
             maxLines = 1,

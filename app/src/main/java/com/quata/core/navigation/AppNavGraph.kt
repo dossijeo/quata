@@ -102,11 +102,13 @@ import com.quata.feature.profile.presentation.ProfileScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.BuildConfig
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun AppNavGraph(
     container: AppContainer,
+    themeMode: QuataThemeMode,
     incomingLink: Uri? = null,
     onIncomingLinkHandled: () -> Unit = {}
 ) {
@@ -120,8 +122,6 @@ fun AppNavGraph(
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
-    val themeMode by container.themePreferences.observeThemeMode()
-        .collectAsState(initial = container.themePreferences.themeMode())
     val startDestination = AppDestinations.Feed.route
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
@@ -133,6 +133,7 @@ fun AppNavGraph(
     val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen
     val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
     val notificationCount = observedNotificationCount ?: 0
+    val isAppOnline by container.chatRepository.isPollingOnline.collectAsState()
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
@@ -291,7 +292,12 @@ fun AppNavGraph(
         Scaffold(
             topBar = {
                 if (showAppChrome) {
-                    QuataAppTopSpacer()
+                    Column {
+                        QuataAppTopSpacer()
+                        if (!isAppOnline) {
+                            AppOfflineBanner()
+                        }
+                    }
                 }
             },
             bottomBar = {
@@ -536,6 +542,7 @@ fun AppNavGraph(
                 currentUserId = container.sessionManager.currentSession()?.userId,
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
+                followingUserId = globalProfileState.followingUserId,
                 chatError = globalProfileState.error,
                 onAuthRequired = { requestAuthentication() },
                 onReportPost = { postId ->
@@ -703,7 +710,7 @@ private fun chatPollingModeFor(
 ): ChatPollingMode = when {
     !showAppChrome -> ChatPollingMode.MINIMAL
     !isForeground -> ChatPollingMode.RELAXED
-    currentRoute == AppDestinations.Conversations.route || currentRoute == AppDestinations.Chat.route -> ChatPollingMode.AGGRESSIVE
+    currentRoute == AppDestinations.Chat.route -> ChatPollingMode.AGGRESSIVE
     else -> ChatPollingMode.MEDIUM
 }
 
@@ -720,6 +727,28 @@ private fun QuataAppTopSpacer() {
 }
 
 @Composable
+private fun AppOfflineBanner() {
+    Surface(
+        color = Color(0xFFB3261E),
+        contentColor = Color.White,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(28.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(R.string.app_offline_banner),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuataAppHeaderActions(
     notificationCount: Int,
     isBouncing: Boolean,
@@ -728,17 +757,21 @@ private fun QuataAppHeaderActions(
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    val bounceTransition = rememberInfiniteTransition(label = "notification_bounce")
-    val bounceScale by bounceTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.22f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 260),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "notification_bounce_scale"
-    )
-    val scale = if (isBouncing) bounceScale else 1f
+    val scale = if (isBouncing) {
+        val bounceTransition = rememberInfiniteTransition(label = "notification_bounce")
+        val bounceScale by bounceTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.22f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 260),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "notification_bounce_scale"
+        )
+        bounceScale
+    } else {
+        1f
+    }
     Box(
         modifier = modifier.size(width = 132.dp, height = 36.dp)
     ) {
@@ -863,16 +896,21 @@ private fun AuthenticatedGlobalSosButton(
     var isConfigOpen by rememberSaveable { mutableStateOf(false) }
     var pendingProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isSendingSos by rememberSaveable { mutableStateOf(false) }
-    val sosPulseTransition = rememberInfiniteTransition(label = "sos_pulse")
-    val sosPulseScale by sosPulseTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 420),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "sos_pulse_scale"
-    )
+    val sosPulseScale = if (isSendingSos) {
+        val sosPulseTransition = rememberInfiniteTransition(label = "sos_pulse")
+        val scale by sosPulseTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.12f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 420),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "sos_pulse_scale"
+        )
+        scale
+    } else {
+        1f
+    }
 
     fun buildSosMessage(profile: UserProfile, location: Location?): String {
         val locationText = if (location == null) {

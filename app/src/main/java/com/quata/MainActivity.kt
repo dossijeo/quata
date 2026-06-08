@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     AppNavGraph(
                         container = appContainer,
+                        themeMode = themeMode,
                         incomingLink = incomingLink.value,
                         onIncomingLinkHandled = { incomingLink.value = null }
                     )

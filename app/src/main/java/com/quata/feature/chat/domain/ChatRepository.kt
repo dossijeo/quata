@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 interface ChatRepository {
     val activeConversationId: StateFlow<String?>
     val pendingDeletedConversation: StateFlow<Conversation?>
+    val isPollingOnline: StateFlow<Boolean>
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
     fun setAppForeground(isForeground: Boolean)
@@ -27,6 +28,8 @@ interface ChatRepository {
     ): Result<Unit>
     suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit>
     suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String>
+    suspend fun cachedPrivateConversationId(userId: String): String?
+    suspend fun cachedCommunityConversationId(communityName: String): String?
     suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String>
     suspend fun openGroupConversation(participantIds: List<String>, title: String? = null): Result<String>
     suspend fun markConversationRead(conversationId: String): Result<Unit>

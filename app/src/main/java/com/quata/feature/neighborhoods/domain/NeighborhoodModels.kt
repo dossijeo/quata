@@ -31,6 +31,12 @@ data class CommunityUserProfile(
     val following: List<NeighborhoodUser> = emptyList()
 )
 
+data class FollowUserResult(
+    val userId: String,
+    val isFollowing: Boolean,
+    val currentUser: NeighborhoodUser
+)
+
 data class ProfileAttachment(
     val id: String,
     val name: String,

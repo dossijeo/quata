@@ -44,6 +44,7 @@
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="error_network">Connection problem. Check your internet and try again.</string>
     <string name="error_network_timeout">The server took too long to respond. Please try again.</string>
+    <string name="app_offline_banner">No connection. Messages will sync when your network returns.</string>
     <string name="error_backend_generic">The server could not complete the request.</string>
     <string name="error_backend_bad_request">Some data is not compatible with the server yet. Please try again later.</string>
     <string name="error_backend_unauthorized">Your session could not be verified. Please sign in again.</string>

@@ -99,8 +99,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -109,6 +111,7 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
@@ -587,12 +590,22 @@ private fun ReelMedia(
     onMuteChange: (Boolean) -> Unit
 ) {
     when {
-        post.videoUrl != null -> ReelVideo(
-            videoUrl = post.videoUrl,
-            isActive = isActive,
-            isMuted = isMuted,
-            onMuteChange = onMuteChange
-        )
+        post.videoUrl != null -> {
+            if (isActive) {
+                ReelVideo(
+                    videoUrl = post.videoUrl,
+                    isActive = isActive,
+                    isMuted = isMuted,
+                    onMuteChange = onMuteChange
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                )
+            }
+        }
         post.imageUrl != null -> {
             AsyncImage(
                 model = post.imageUrl,
@@ -658,14 +671,28 @@ private fun ReelVideo(
     var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
     var centerFeedbackIcon by remember { mutableStateOf<ImageVector?>(null) }
     var centerFeedbackTick by remember { mutableLongStateOf(0L) }
+    val mediaSourceFactory = remember(context) { QuataMediaCache.videoMediaSourceFactory(context) }
     val player = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUrl))
-            repeatMode = Player.REPEAT_MODE_ONE
-            playWhenReady = false
-            volume = 0f
-            prepare()
-        }
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                2_500,
+                12_000,
+                500,
+                1_500
+            )
+            .build()
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(videoUrl))
+                repeatMode = Player.REPEAT_MODE_ONE
+                playWhenReady = false
+                volume = 0f
+                setFeedAudioEnabled(false)
+                prepare()
+            }
     }
 
     LaunchedEffect(player, isActive) {
@@ -675,6 +702,7 @@ private fun ReelVideo(
     }
 
     LaunchedEffect(player, isMuted) {
+        player.setFeedAudioEnabled(!isMuted)
         player.volume = if (isMuted) 0f else 1f
     }
 
@@ -683,7 +711,7 @@ private fun ReelVideo(
             positionMs = player.currentPosition.coerceAtLeast(0L)
             durationMs = player.duration.takeIf { it > 0 } ?: 0L
             isPlaying = player.isPlaying
-            delay(500)
+            delay(1_000)
         }
     }
 
@@ -779,6 +807,13 @@ private fun ReelVideo(
                 .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
         )
     }
+}
+
+private fun ExoPlayer.setFeedAudioEnabled(enabled: Boolean) {
+    trackSelectionParameters = trackSelectionParameters
+        .buildUpon()
+        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
+        .build()
 }
 
 @Composable

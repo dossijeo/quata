@@ -33,7 +33,10 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         loadingDetailPostIds.clear()
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         repository.getFeed()
-            .onSuccess { _uiState.value = FeedUiState(isLoading = false, posts = it) }
+            .onSuccess { posts ->
+                loadedDetailPostIds += posts.map { it.id }
+                _uiState.value = FeedUiState(isLoading = false, posts = posts)
+            }
             .onFailure { _uiState.value = FeedUiState(isLoading = false, error = it.message ?: "Error cargando feed") }
     }
 

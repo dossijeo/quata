@@ -79,7 +79,7 @@ class ChatRepositoryImpl(
     private val betterMessagesThreadsById = ConcurrentHashMap<Int, BmThread>()
     private val betterMessagesUsersByThreadId = ConcurrentHashMap<Int, List<BmUser>>()
     private val betterMessagesThreadResponses = ConcurrentHashMap<Int, MutableStateFlow<BmThreadResponse>>()
-    private val betterMessagesThreadPollStates = ConcurrentHashMap<Int, BetterMessagesThreadPollState>()
+    private val betterMessagesRegisteredThreadIds = ConcurrentHashMap.newKeySet<Int>()
     private val favoriteMessagesByProfileId = ConcurrentHashMap<String, MutableStateFlow<List<Message>>>()
     private val favoriteMessagesLoadedProfileIds = ConcurrentHashMap.newKeySet<String>()
     private val pollingWakeSignal = Channel<Unit>(Channel.CONFLATED)
@@ -90,6 +90,8 @@ class ChatRepositoryImpl(
     private val isAppForeground = MutableStateFlow(false)
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
+    private val _isPollingOnline = MutableStateFlow(true)
+    override val isPollingOnline: StateFlow<Boolean> = _isPollingOnline
     private val threadIdsByPeerProfileId = mutableMapOf<String, Int>()
     private val betterMessagesWpUserIdsByProfileId = ConcurrentHashMap<String, Int>()
     private val betterMessagesProfileIdsByWpUserId = ConcurrentHashMap<Int, String>()
@@ -104,6 +106,8 @@ class ChatRepositoryImpl(
     private var realConversationsLoadedForProfileId: String? = null
     private var realConversationsLastRefreshedAt: Long = 0L
     private var betterMessagesProfilesLoadedAt: Long = 0L
+    private var isBetterMessagesPollingOnline: Boolean? = null
+    private var shouldRefreshInboxAfterReconnect: Boolean = false
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -114,6 +118,7 @@ class ChatRepositoryImpl(
     }
 
     override fun setAppForeground(isForeground: Boolean) {
+        if (isAppForeground.value == isForeground) return
         isAppForeground.value = isForeground
         logPolling("foreground=$isForeground")
         wakePolling()
@@ -121,14 +126,13 @@ class ChatRepositoryImpl(
 
     override fun setPollingMode(mode: ChatPollingMode) {
         val previous = pollingMode.value
+        if (previous == mode) {
+            ensureRealConversationsPolling()
+            wakePolling()
+            return
+        }
         pollingMode.value = mode
         logPolling("mode $previous -> $mode")
-        if (mode.ordinal < previous.ordinal) {
-            val now = System.currentTimeMillis()
-            betterMessagesThreadPollStates.values.forEach { state ->
-                state.nextDueAt = state.nextDueAt.coerceAtMost(now)
-            }
-        }
         ensureRealConversationsPolling()
         wakePolling()
     }
@@ -148,10 +152,22 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: return@runCatching
         restoreCachedConversationsIfNeeded(session.userId)
         if (currentBetterMessagesInboxLastUpdate(session.userId) <= 0L) {
-            primeBetterMessagesInboxCursor(session.userId)
+            try {
+                primeBetterMessagesInboxCursor(session.userId)
+                recordPollingSuccess()
+            } catch (error: Throwable) {
+                recordPollingFailure(error)
+                throw error
+            }
             return@runCatching
         }
-        discoverBetterMessagesInboxUpdates(session.userId, emitNativeNotifications = true)
+        try {
+            discoverBetterMessagesInboxUpdates(session.userId, emitNativeNotifications = true)
+            recordPollingSuccess()
+        } catch (error: Throwable) {
+            recordPollingFailure(error)
+            throw error
+        }
     }.mapFailureToUserFacing(appContext, R.string.error_load_notifications)
 
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
@@ -327,6 +343,40 @@ class ChatRepositoryImpl(
         conversationId
     }.mapFailureToUserFacing(appContext, R.string.sos_send_error)
 
+    override suspend fun cachedPrivateConversationId(userId: String): String? {
+        val session = sessionManager.currentSession() ?: return null
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return MockData.conversations.cachedPrivateConversationId(session.userId, userId)
+        }
+        restoreCachedConversationsIfNeeded(session.userId)
+        val conversationId = realConversations.value.cachedPrivateConversationId(session.userId, userId)
+        conversationId
+            ?.betterMessagesThreadIdOrNull()
+            ?.let { threadId ->
+                registerBetterMessagesThread(threadId)
+                threadIdsByPeerProfileId[userId] = threadId
+            }
+        return conversationId
+    }
+
+    override suspend fun cachedCommunityConversationId(communityName: String): String? {
+        val cleanCommunityName = communityName.trim()
+        if (cleanCommunityName.isBlank()) return null
+        val session = sessionManager.currentSession() ?: return null
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return MockData.conversations.cachedCommunityConversationId(cleanCommunityName)
+        }
+        restoreCachedConversationsIfNeeded(session.userId)
+        val conversationId = realConversations.value.cachedCommunityConversationId(cleanCommunityName)
+        conversationId
+            ?.betterMessagesThreadIdOrNull()
+            ?.let { threadId ->
+                markBetterMessagesGroupThread(session.userId, threadId)
+                registerBetterMessagesThread(threadId)
+            }
+        return conversationId
+    }
+
     override suspend fun openCommunityConversation(
         communityId: String,
         title: String,
@@ -340,6 +390,7 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.findOrCreateGroupConversation(peerIds, session.userId, session.displayName, title)
         }
+        cachedCommunityConversationId(title)?.let { return@runCatching it }
         resolveBetterMessagesCommunityConversation(
             profileId = session.userId,
             communityId = communityId,
@@ -724,7 +775,11 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: return null
         conversationId.betterMessagesThreadIdOrNull()?.let { threadId ->
             if (betterMessagesAbandonedConversationStore.isAbandoned(session.userId, threadId)) return null
-            return loadBetterMessagesConversation(session.userId, threadId)
+            return loadBetterMessagesConversation(
+                profileId = session.userId,
+                threadId = threadId,
+                allowProfileRemoteRefresh = false
+            )
         }
         conversationId.wallIdOrNull()?.let { wallId ->
             return remote.getActiveWalls()
@@ -779,7 +834,8 @@ class ChatRepositoryImpl(
         threadId: Int,
         preloadedThreadResponse: BmThreadResponse? = null,
         initializeNewThreadAsRead: Boolean = true,
-        profileDirectory: List<CommunityProfile>? = null
+        profileDirectory: List<CommunityProfile>? = null,
+        allowProfileRemoteRefresh: Boolean = true
     ): Conversation? {
         if (betterMessagesAbandonedConversationStore.isAbandoned(profileId, threadId)) return null
         val context = ensureBetterMessagesSession(profileId)
@@ -809,7 +865,10 @@ class ChatRepositoryImpl(
         }
         val profiles = profileDirectory
             ?.let { (it + listOfNotNull(context.profile)).distinctBy { profile -> profile.id } }
-            ?: betterMessagesProfileDirectory(context.profile)
+            ?: betterMessagesProfileDirectory(
+                contextProfile = context.profile,
+                allowRemoteRefresh = allowProfileRemoteRefresh
+            )
         if (thread.type == "group" || thread.type == BETTER_MESSAGES_WALL_TYPE) {
             markBetterMessagesGroupThread(profileId, threadId)
         }
@@ -899,13 +958,28 @@ class ChatRepositoryImpl(
         }
     }
 
-    private fun registerBetterMessagesThread(threadId: Int, forceDue: Boolean = false): BetterMessagesThreadPollState {
-        val now = System.currentTimeMillis()
-        return betterMessagesThreadPollStates.getOrPut(threadId) {
-            BetterMessagesThreadPollState(threadId = threadId, nextDueAt = now)
-        }.also { state ->
-            if (forceDue) state.nextDueAt = now
+    private fun registerBetterMessagesThread(threadId: Int, forceDue: Boolean = false) {
+        if (threadId > 0) {
+            betterMessagesRegisteredThreadIds += threadId
         }
+        if (forceDue) {
+            wakePolling()
+        }
+    }
+
+    private fun recordPollingSuccess(refreshAfterReconnect: Boolean = true) {
+        val wasOffline = isBetterMessagesPollingOnline == false
+        isBetterMessagesPollingOnline = true
+        _isPollingOnline.value = true
+        if (wasOffline && refreshAfterReconnect) {
+            shouldRefreshInboxAfterReconnect = true
+        }
+    }
+
+    private fun recordPollingFailure(error: Throwable) {
+        logPolling("offline: ${error::class.java.simpleName}")
+        isBetterMessagesPollingOnline = false
+        _isPollingOnline.value = false
     }
 
     private fun List<Conversation>.withActiveConversationPreserved(): List<Conversation> {
@@ -961,6 +1035,31 @@ class ChatRepositoryImpl(
             if (conversation.id == conversationId) conversation.copy(isMuted = muted) else conversation
         }
 
+    private fun List<Conversation>.cachedPrivateConversationId(
+        currentUserId: String,
+        peerUserId: String
+    ): String? {
+        val expectedParticipants = setOf(currentUserId, peerUserId)
+        return firstOrNull { conversation ->
+            conversation.isVisible &&
+                !conversation.isGroup &&
+                !conversation.isEmergency &&
+                conversation.id.betterMessagesThreadIdOrNull() != null &&
+                conversation.participantIds.toSet() == expectedParticipants
+        }?.id
+    }
+
+    private fun List<Conversation>.cachedCommunityConversationId(communityName: String): String? {
+        val normalizedCommunityName = communityName.normalizeName()
+        return firstOrNull { conversation ->
+            conversation.isVisible &&
+                conversation.isGroup &&
+                !conversation.isEmergency &&
+                listOfNotNull(conversation.communityName, conversation.title)
+                    .any { it.normalizeName() == normalizedCommunityName }
+        }?.id
+    }
+
     private fun ensureRealConversationsPolling() {
         if (AppConfig.USE_MOCK_BACKEND || realConversationsPollJob?.isActive == true) return
         realConversationsPollJob = realConversationsScope.launch {
@@ -977,7 +1076,10 @@ class ChatRepositoryImpl(
                     betterMessagesInboxLastUpdate = 0L
                     realConversationsLoadedForProfileId = null
                     realConversationsLastRefreshedAt = 0L
-                    betterMessagesThreadPollStates.clear()
+                    betterMessagesRegisteredThreadIds.clear()
+                    isBetterMessagesPollingOnline = null
+                    _isPollingOnline.value = true
+                    shouldRefreshInboxAfterReconnect = false
                     waitForNextPoll(CONVERSATIONS_POLL_DELAY_MILLIS)
                     continue
                 }
@@ -997,14 +1099,20 @@ class ChatRepositoryImpl(
                 val mode = pollingMode.value
                 if (realConversationsLoadedForProfileId != null && realConversationsLoadedForProfileId != session.userId) {
                     betterMessagesInboxLastUpdate = 0L
-                    betterMessagesThreadPollStates.clear()
+                    betterMessagesRegisteredThreadIds.clear()
+                    isBetterMessagesPollingOnline = null
+                    _isPollingOnline.value = true
+                    shouldRefreshInboxAfterReconnect = false
                 }
                 restoreCachedConversationsIfNeeded(session.userId)
-                val canRebuildCache = mode == ChatPollingMode.AGGRESSIVE || mode == ChatPollingMode.MEDIUM
+                val activeBetterMessagesThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
+                val canRebuildCache = activeBetterMessagesThreadId == null &&
+                    (mode == ChatPollingMode.AGGRESSIVE || mode == ChatPollingMode.MEDIUM)
                 val shouldRebuildExpiredCache = canRebuildCache &&
                     betterMessagesConversationCacheStore.isConversationCacheExpired(session.userId)
                 val shouldLoadInbox = realConversationsLoadedForProfileId != session.userId ||
                     realConversations.value.isEmpty() ||
+                    shouldRefreshInboxAfterReconnect ||
                     shouldRebuildExpiredCache
                 logPolling(
                     "tick mode=$mode conversations=${realConversations.value.size} " +
@@ -1022,9 +1130,13 @@ class ChatRepositoryImpl(
                                     emitNativeNotifications = true
                                 )
                             }
+                                .onSuccess { recordPollingSuccess() }
+                                .onFailure(::recordPollingFailure)
                         } else {
                             logPolling("background prime cursor")
                             runCatching { primeBetterMessagesInboxCursor(session.userId) }
+                                .onSuccess { recordPollingSuccess() }
+                                .onFailure(::recordPollingFailure)
                         }
                         lastInboxRefreshAt = System.currentTimeMillis()
                         lastInboxDiscoveryAt = lastInboxRefreshAt
@@ -1039,13 +1151,18 @@ class ChatRepositoryImpl(
                                 emitNativeNotifications = false
                             )
                         }
+                            .onSuccess { recordPollingSuccess() }
+                            .onFailure(::recordPollingFailure)
                     }
                     runCatching { refreshRealConversations() }
                         .onSuccess { conversations ->
+                            recordPollingSuccess(refreshAfterReconnect = false)
+                            shouldRefreshInboxAfterReconnect = false
                             logPolling("full load conversations=${conversations.size}")
                             lastInboxRefreshAt = System.currentTimeMillis()
                             lastInboxDiscoveryAt = lastInboxRefreshAt
                         }
+                        .onFailure(::recordPollingFailure)
                 } else {
                     if (now - lastInboxDiscoveryAt >= inboxDiscoveryIntervalMillis(mode)) {
                         logPolling("discovery checkNew mode=$mode")
@@ -1055,8 +1172,12 @@ class ChatRepositoryImpl(
                                 emitNativeNotifications = shouldEmitNativeNotifications()
                             )
                         }
-                            .onSuccess { lastInboxDiscoveryAt = System.currentTimeMillis() }
+                            .onSuccess {
+                                recordPollingSuccess()
+                                lastInboxDiscoveryAt = System.currentTimeMillis()
+                            }
                             .onFailure { error ->
+                                recordPollingFailure(error)
                                 logPolling("checkNew failed: ${error::class.java.simpleName}")
                                 val interval = inboxDiscoveryIntervalMillis(mode)
                                 val retryDelay = discoveryFailureRetryMillis(mode)
@@ -1067,7 +1188,6 @@ class ChatRepositoryImpl(
                     activeConversationId.value
                         ?.betterMessagesThreadIdOrNull()
                         ?.let { registerBetterMessagesThread(it) }
-                    pollNextBetterMessagesThread(session.userId)
                 }
 
                 waitForNextPoll()
@@ -1085,48 +1205,6 @@ class ChatRepositoryImpl(
 
     private fun wakePolling() {
         pollingWakeSignal.trySend(Unit)
-    }
-
-    private suspend fun pollNextBetterMessagesThread(profileId: String) {
-        if (shouldEmitNativeNotifications()) return
-        val now = System.currentTimeMillis()
-        val activeThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
-        val threadId = betterMessagesThreadPollStates.values
-            .filter { state -> state.nextDueAt <= now }
-            .sortedWith(
-                compareByDescending<BetterMessagesThreadPollState> { it.threadId == activeThreadId }
-                    .thenBy { it.nextDueAt }
-            )
-            .firstOrNull()
-            ?.threadId
-            ?: return
-        pollBetterMessagesThread(profileId, threadId)
-    }
-
-    private suspend fun pollBetterMessagesThread(profileId: String, threadId: Int) {
-        val state = registerBetterMessagesThread(threadId)
-        val completedAt = runCatching {
-            val knownMessageIds = betterMessagesByThreadId[threadId].orEmpty()
-                .map { it.messageId }
-                .distinct()
-            val response = loadBetterMessagesThread(profileId, threadId, knownMessageIds)
-            loadBetterMessagesConversation(profileId, threadId, response)
-                ?.let { conversation ->
-                    upsertRealConversation(
-                        conversation = conversation,
-                        emitNativeNotification = shouldEmitNativeNotifications()
-                    )
-                }
-            System.currentTimeMillis()
-        }.onSuccess {
-            state.failureCount = 0
-        }.onFailure {
-            state.failureCount = (state.failureCount + 1).coerceAtMost(MAX_THREAD_POLL_FAILURES)
-        }.getOrElse {
-            System.currentTimeMillis()
-        }
-        state.lastCompletedAt = completedAt
-        state.nextDueAt = completedAt + pollIntervalForThread(threadId, pollingMode.value, state.failureCount)
     }
 
     private suspend fun currentBetterMessagesInboxLastUpdate(profileId: String): Long {
@@ -1184,6 +1262,13 @@ class ChatRepositoryImpl(
         val changedThreadIds = (threadsById.keys + messagesByThreadId.keys)
             .filter { it > 0 }
             .distinct()
+            .filter { threadId ->
+                hasBetterMessagesCheckNewDelta(
+                    threadId = threadId,
+                    thread = threadsById[threadId],
+                    messages = messagesByThreadId[threadId].orEmpty()
+                )
+            }
         logPolling("checkNew changedThreads=${changedThreadIds.size}")
         if (changedThreadIds.isEmpty()) return
 
@@ -1210,6 +1295,12 @@ class ChatRepositoryImpl(
                         serverTime = response.currentTime
                     )
                 )
+                    .let {
+                        val knownMessageIds = betterMessagesByThreadId[threadId].orEmpty()
+                            .map { message -> message.messageId }
+                            .distinct()
+                        loadBetterMessagesThread(profileId, threadId, knownMessageIds)
+                    }
                 if (thread?.type == "group" || thread?.type == BETTER_MESSAGES_WALL_TYPE) {
                     markBetterMessagesGroupThread(profileId, threadId)
                 }
@@ -1230,6 +1321,32 @@ class ChatRepositoryImpl(
                     registerBetterMessagesThread(threadId, forceDue = true)
                 }
             }
+    }
+
+    private fun hasBetterMessagesCheckNewDelta(
+        threadId: Int,
+        thread: BmThread?,
+        messages: List<BmMessage>
+    ): Boolean {
+        val cachedThread = betterMessagesThreadsById[threadId]
+        val cachedMessages = betterMessagesByThreadId[threadId].orEmpty()
+        if (cachedThread == null && cachedMessages.isEmpty()) return true
+
+        val incomingLastTime = thread?.lastTime
+        val cachedLastTime = cachedThread?.lastTime ?: 0L
+        if (incomingLastTime != null && incomingLastTime > cachedLastTime) return true
+
+        if (thread?.unread != null && thread.unread != cachedThread?.unread) return true
+        if (thread?.isMuted != null && thread.isMuted != cachedThread?.isMuted) return true
+        if (thread?.isHidden != null && thread.isHidden != cachedThread?.isHidden) return true
+        if (thread?.isDeleted != null && thread.isDeleted != cachedThread?.isDeleted) return true
+
+        if (messages.isEmpty()) return false
+        val cachedMessagesById = cachedMessages.associateBy { it.messageId }
+        return messages.any { message ->
+            val cached = cachedMessagesById[message.messageId] ?: return@any true
+            (message.updated_at ?: message.created_at) > (cached.updated_at ?: cached.created_at)
+        }
     }
 
     private suspend fun loadBetterMessagesInbox(
@@ -2282,18 +2399,10 @@ class ChatRepositoryImpl(
             .trim()
             .ifBlank { "upload.bin" }
 
-    private fun inboxRefreshIntervalMillis(mode: ChatPollingMode): Long =
-        when (mode) {
-            ChatPollingMode.AGGRESSIVE -> 30_000L
-            ChatPollingMode.MEDIUM -> 90_000L
-            ChatPollingMode.RELAXED -> 3L * 60L * 1000L
-            ChatPollingMode.MINIMAL -> 5L * 60L * 1000L
-        }
-
     private fun inboxDiscoveryIntervalMillis(mode: ChatPollingMode): Long =
         when (mode) {
             ChatPollingMode.AGGRESSIVE -> 4_000L
-            ChatPollingMode.MEDIUM -> 15_000L
+            ChatPollingMode.MEDIUM -> 10_000L
             ChatPollingMode.RELAXED -> 60_000L
             ChatPollingMode.MINIMAL -> 5L * 60L * 1000L
         }
@@ -2314,68 +2423,11 @@ class ChatRepositoryImpl(
                 else -> MAX_POLL_LOOP_DELAY_MILLIS
             }
         }
-        val now = System.currentTimeMillis()
-        val nextDue = betterMessagesThreadPollStates.values.minOfOrNull { it.nextDueAt }
-        val waitForThread = nextDue?.let { (it - now).coerceIn(MIN_POLL_LOOP_DELAY_MILLIS, MAX_POLL_LOOP_DELAY_MILLIS) }
-            ?: MAX_POLL_LOOP_DELAY_MILLIS
-        return waitForThread.coerceAtMost(
-            when (pollingMode.value) {
-                ChatPollingMode.AGGRESSIVE -> 2_000L
-                ChatPollingMode.MEDIUM -> 5_000L
-                ChatPollingMode.RELAXED -> 15_000L
-                ChatPollingMode.MINIMAL -> 30_000L
-            }
-        )
-    }
-
-    private fun pollIntervalForThread(threadId: Int, mode: ChatPollingMode, failureCount: Int): Long {
-        val conversation = realConversations.value.firstOrNull { it.id.betterMessagesThreadIdOrNull() == threadId }
-        val activeThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
-        val baseInterval = if (threadId == activeThreadId) {
-            when (mode) {
-                ChatPollingMode.AGGRESSIVE -> 2_000L
-                ChatPollingMode.MEDIUM -> 5_000L
-                ChatPollingMode.RELAXED -> 30_000L
-                ChatPollingMode.MINIMAL -> 90_000L
-            }
-        } else {
-            val tier = conversation.pollPriorityTier()
-            when (mode) {
-                ChatPollingMode.AGGRESSIVE -> when (tier) {
-                    PollPriorityTier.HOT -> 6_000L
-                    PollPriorityTier.WARM -> 18_000L
-                    PollPriorityTier.COLD -> 5L * 60L * 1000L
-                }
-                ChatPollingMode.MEDIUM -> when (tier) {
-                    PollPriorityTier.HOT -> 18_000L
-                    PollPriorityTier.WARM -> 60_000L
-                    PollPriorityTier.COLD -> 5L * 60L * 1000L
-                }
-                ChatPollingMode.RELAXED -> when (tier) {
-                    PollPriorityTier.HOT -> 60_000L
-                    PollPriorityTier.WARM -> 2L * 60L * 1000L
-                    PollPriorityTier.COLD -> 5L * 60L * 1000L
-                }
-                ChatPollingMode.MINIMAL -> 5L * 60L * 1000L
-            }
-        }
-        if (failureCount <= 0) return baseInterval
-        val multiplier = 1L shl failureCount.coerceAtMost(MAX_THREAD_POLL_FAILURES)
-        return (baseInterval * multiplier).coerceAtMost(5L * 60L * 1000L)
-    }
-
-    private fun Conversation?.pollPriorityTier(): PollPriorityTier {
-        if (this == null) return PollPriorityTier.WARM
-        if (unreadCount > 0) return PollPriorityTier.HOT
-        val now = System.currentTimeMillis()
-        val ageMillis = updatedAtMillis?.let { now - it } ?: Long.MAX_VALUE
-        val messageCount = id.betterMessagesThreadIdOrNull()
-            ?.let { betterMessagesByThreadId[it]?.size }
-            ?: 0
-        return when {
-            ageMillis <= 15L * 60L * 1000L || messageCount >= 80 -> PollPriorityTier.HOT
-            ageMillis <= 6L * 60L * 60L * 1000L || messageCount >= 20 -> PollPriorityTier.WARM
-            else -> PollPriorityTier.COLD
+        return when (pollingMode.value) {
+            ChatPollingMode.AGGRESSIVE -> 4_000L
+            ChatPollingMode.MEDIUM -> 10_000L
+            ChatPollingMode.RELAXED -> 15_000L
+            ChatPollingMode.MINIMAL -> 30_000L
         }
     }
 
@@ -2389,15 +2441,6 @@ class ChatRepositoryImpl(
             }
         }
     }
-
-    private data class BetterMessagesThreadPollState(
-        val threadId: Int,
-        var lastCompletedAt: Long = 0L,
-        var nextDueAt: Long = 0L,
-        var failureCount: Int = 0
-    )
-
-    private enum class PollPriorityTier { HOT, WARM, COLD }
 
     private data class BetterMessagesSessionContext(
         val profileId: String,
@@ -2415,11 +2458,9 @@ class ChatRepositoryImpl(
     private companion object {
         const val CONVERSATIONS_POLL_DELAY_MILLIS = 5_000L
         const val MESSAGES_POLL_DELAY_MILLIS = 4_000L
-        const val MIN_POLL_LOOP_DELAY_MILLIS = 1_000L
         const val MAX_POLL_LOOP_DELAY_MILLIS = 20_000L
         const val BACKGROUND_POLL_LOOP_DELAY_MILLIS = 15_000L
         const val MINIMAL_BACKGROUND_POLL_LOOP_DELAY_MILLIS = 30_000L
-        const val MAX_THREAD_POLL_FAILURES = 4
         const val PROFILE_CACHE_RETENTION_MILLIS = 24L * 60L * 60L * 1000L
         const val POLLING_TAG = "QuataChatPolling"
         const val SOS_THREAD_TITLE = "\uD83D\uDEA8 SOS"

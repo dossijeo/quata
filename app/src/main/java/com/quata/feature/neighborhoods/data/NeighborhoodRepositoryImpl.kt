@@ -10,6 +10,7 @@ import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.Conversation
+import com.quata.core.model.AuthSession
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
@@ -24,6 +25,7 @@ import com.quata.feature.feed.data.toDomain
 import com.quata.feature.feed.data.toDomainComments
 import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
+import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
@@ -118,6 +120,8 @@ class NeighborhoodRepositoryImpl(
             return@runCatching MockData.findOrCreateNeighborhoodConversation(cleanNeighborhood, session.userId, session.displayName)
         }
 
+        chatRepository.cachedCommunityConversationId(cleanNeighborhood)?.let { return@runCatching it }
+
         val wall = supabaseApi.getActiveWallsStats()
             .firstOrNull { wall ->
                 wall.name.equals(cleanNeighborhood, ignoreCase = true) ||
@@ -140,13 +144,23 @@ class NeighborhoodRepositoryImpl(
         ).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun toggleFollowUser(userId: String): Result<Unit> = runCatching {
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
+            val nextFollowing = !MockData.isFollowing(userId)
             MockData.toggleFollowUser(userId)
-            return@runCatching
+            return@runCatching FollowUserResult(
+                userId = userId,
+                isFollowing = nextFollowing,
+                currentUser = session.toNeighborhoodUser()
+            )
         }
-        supabaseApi.toggleProfileFollow(session.userId, userId)
+        val toggle = supabaseApi.toggleProfileFollow(session.userId, userId)
+        FollowUserResult(
+            userId = userId,
+            isFollowing = toggle.active == true,
+            currentUser = session.toNeighborhoodUser()
+        )
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun reportPost(postId: String): Result<Unit> = runCatching {
@@ -160,6 +174,7 @@ class NeighborhoodRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
+        chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
         supabaseApi.createOrGetPrivateChat(session.userId, userId)
         val betterUrl = betterMessagesRepository.openOrGetPrivateUrl(session.userId, userId)
         val threadId = betterUrl.threadId?.takeIf { it > 0 }
@@ -172,8 +187,8 @@ class NeighborhoodRepositoryImpl(
         "bm:$threadId"
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
-    override suspend fun getCachedUserProfile(userId: String): CommunityUserProfile? =
-        profileCacheStore.read(userId)
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
+        profileCacheStore.read(userId, maxAgeMillis)
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
         profileCacheStore.write(profile)
@@ -418,6 +433,16 @@ class NeighborhoodRepositoryImpl(
             followingCount = MockData.followingCount(id),
             postsCount = MockData.posts.count { it.author.id == id }
         )
+
+    private fun AuthSession.toNeighborhoodUser(): NeighborhoodUser {
+        MockData.registeredUsers.firstOrNull { it.id == userId }?.let { return it.toNeighborhoodUser() }
+        return NeighborhoodUser(
+            id = userId,
+            displayName = displayName,
+            email = email,
+            neighborhood = ""
+        )
+    }
 
     private fun CommunityProfile.toNeighborhoodUserReal(
         isFollowing: Boolean = false,

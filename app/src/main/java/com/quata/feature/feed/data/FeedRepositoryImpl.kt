@@ -92,19 +92,36 @@ class FeedRepositoryImpl(
     private suspend fun loadPostShells(): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
 
+        val currentUserId = sessionManager.currentSession()?.userId
         val posts = remote.getPosts()
-        val profileIds = posts.mapNotNull { it.profile_id ?: it.author_id }.distinct()
+        val postIds = posts.map { it.id }
+        val comments = if (postIds.isEmpty()) emptyList() else remote.getComments(postIds)
+        val likes = if (postIds.isEmpty()) emptyList() else remote.getLikes(postIds)
+        val profileIds = (
+            posts.mapNotNull { it.profile_id ?: it.author_id } +
+                comments.mapNotNull { it.profile_id } +
+                likes.mapNotNull { it.profile_id }
+            ).distinct()
         val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
+        val commentsByPostId = comments.groupBy { it.post_id }
+        val likesByPostId = likes.groupBy { it.post_id }
 
         return posts.map { post ->
             val authorId = post.profile_id ?: post.author_id.orEmpty()
             val author = profilesById[authorId]?.toDomainUser()
                 ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")
+            val postComments = commentsByPostId[post.id].orEmpty()
+                .toDomainComments { comment ->
+                    profilesById[comment.profile_id]?.display_name
+                        ?: profilesById[comment.profile_id]?.nombre
+                        ?: "Usuario"
+                }
+            val postLikes = likesByPostId[post.id].orEmpty()
             post.toDomain(
                 author = author,
-                comments = emptyList(),
-                likesCount = 0,
-                likedByCurrentUser = false
+                comments = postComments,
+                likesCount = postLikes.size,
+                likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
             )
         }
     }
