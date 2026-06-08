@@ -17,7 +17,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +58,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -80,6 +78,7 @@ import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
 import com.quata.core.session.AuthState
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.components.QuataBrandMark
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.chat.domain.ChatPollingMode
@@ -103,6 +102,7 @@ import com.quata.feature.profile.presentation.ProfileScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.BuildConfig
+import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun AppNavGraph(
@@ -120,6 +120,8 @@ fun AppNavGraph(
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
+    val themeMode by container.themePreferences.observeThemeMode()
+        .collectAsState(initial = container.themePreferences.themeMode())
     val startDestination = AppDestinations.Feed.route
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
@@ -478,6 +480,8 @@ fun AppNavGraph(
                             onTouchFlowEnabledChange = { enabled ->
                                 container.touchFlowPreferences.setEnabled(currentUserId, enabled)
                             },
+                            themeMode = themeMode,
+                            onThemeModeChange = container.themePreferences::setThemeMode,
                             onLogout = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(0)
@@ -705,9 +709,10 @@ private fun chatPollingModeFor(
 
 @Composable
 private fun QuataAppTopSpacer() {
+    val template = quataTheme()
     Surface(
-        color = Color(0xFF0B1220),
-        contentColor = Color.White,
+        color = template.colors.topChrome,
+        contentColor = template.colors.textPrimary,
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
@@ -722,6 +727,7 @@ private fun QuataAppHeaderActions(
     onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     val bounceTransition = rememberInfiniteTransition(label = "notification_bounce")
     val bounceScale by bounceTransition.animateFloat(
         initialValue = 1f,
@@ -736,13 +742,12 @@ private fun QuataAppHeaderActions(
     Box(
         modifier = modifier.size(width = 132.dp, height = 36.dp)
     ) {
-        Image(
-            painter = painterResource(R.drawable.quata_logo_header),
-            contentDescription = stringResource(R.string.quata_logo_content_description),
+        QuataBrandMark(
+            compact = true,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (-18).dp, y = (-2).dp)
-                .width(124.dp)
+                .offset(x = (-8).dp, y = 0.dp)
+                .size(width = 72.dp, height = 40.dp)
                 .clickable(onClick = onLogoClick)
         )
         CompactIconButton(
@@ -760,15 +765,15 @@ private fun QuataAppHeaderActions(
                 badge = {
                     if (notificationCount > 0) {
                         Badge(
-                            containerColor = Color(0xFFE0303B),
+                            containerColor = template.colors.sos,
                             modifier = Modifier.size(14.dp)
                         ) {
-                            Text(notificationCount.coerceAtMost(99).toString(), color = Color.White, fontSize = 9.sp)
+                            Text(notificationCount.coerceAtMost(99).toString(), color = Color.White, fontSize = template.textSizes.badge)
                         }
                     }
                 }
             ) {
-                CompactIcon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications_title), tint = Color.White)
+                CompactIcon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications_title), tint = template.colors.textPrimary)
             }
         }
     }
@@ -976,8 +981,9 @@ private fun GlobalSosButtonSurface(
     pulseScale: Float = 1f,
     onClick: () -> Unit
 ) {
+    val template = quataTheme()
     Surface(
-        color = Color(0xFFE0303B),
+        color = template.colors.sos,
         contentColor = Color.White,
         shape = RoundedCornerShape(12.dp),
         modifier = modifier
@@ -992,7 +998,7 @@ private fun GlobalSosButtonSurface(
             contentAlignment = Alignment.Center,
             modifier = Modifier.clickableNoRipple(onClick)
         ) {
-            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+            Text(stringResource(R.string.sos_button), fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
         }
     }
 }

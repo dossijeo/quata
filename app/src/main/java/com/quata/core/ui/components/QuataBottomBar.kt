@@ -40,6 +40,7 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataBackground
 import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.AppDestinations
 
 data class BottomDestination(
@@ -61,8 +62,9 @@ fun QuataBottomBar(
     currentRoute: String?,
     onDestinationClick: (String) -> Unit
 ) {
+    val template = quataTheme()
     NavigationBar(
-        containerColor = QuataBackground,
+        containerColor = template.colors.background,
         modifier = Modifier
             .navigationBarsPadding()
             .height(92.dp),
@@ -88,16 +90,17 @@ private fun RowScope.CompactBottomBarItem(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    val selectedContentColor = Color.White
+    val template = quataTheme()
+    val selectedContentColor = template.colors.textPrimary
     val unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     val contentColor = if (selected) selectedContentColor else unselectedContentColor
     Surface(
-        color = if (selected) Color(0xFF0F315D) else QuataSurfaceAlt,
+        color = if (selected) template.colors.selectedSurface else template.colors.surfaceAlt,
         contentColor = contentColor,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = if (selected) Color(0xFF2F80ED) else QuataDivider
+            color = if (selected) template.colors.selectedBorder else template.colors.divider
         ),
         modifier = Modifier
             .weight(1f)
@@ -123,8 +126,8 @@ private fun RowScope.CompactBottomBarItem(
             Text(
                 text = label,
                 color = contentColor,
-                fontSize = 11.sp,
-                lineHeight = 12.sp,
+                fontSize = template.textSizes.tiny,
+                lineHeight = template.textSizes.caption,
                 fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1

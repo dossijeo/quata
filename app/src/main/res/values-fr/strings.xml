@@ -208,6 +208,10 @@
     <string name="profile_edit_title">Modifier mes donnees</string>
     <string name="profile_edit_subtitle">Ici, tu peux changer ta photo, ton nom, quartier, mot de passe et donnees de recuperation.</string>
     <string name="profile_touch_flow_setting">Activer Q&#252;ata TouchFlow</string>
+    <string name="profile_theme_setting">Mode de couleur</string>
+    <string name="theme_mode_system">Systeme</string>
+    <string name="theme_mode_dark">Mode sombre</string>
+    <string name="theme_mode_light">Mode clair</string>
     <string name="profile_photo">Photo de profil</string>
     <string name="profile_change_photo">Changer photo de profil</string>
     <string name="profile_pick_gallery">Choisir galerie</string>

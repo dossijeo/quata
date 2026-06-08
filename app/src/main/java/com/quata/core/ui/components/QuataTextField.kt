@@ -10,8 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.quata.core.designsystem.theme.QuataDivider
-import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun QuataTextField(
@@ -23,6 +22,7 @@ fun QuataTextField(
     isPassword: Boolean = false,
     minLines: Int = 1
 ) {
+    val template = quataTheme()
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -33,10 +33,10 @@ fun QuataTextField(
         shape = RoundedCornerShape(18.dp),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = QuataSurfaceAlt,
-            unfocusedContainerColor = QuataSurfaceAlt,
+            focusedContainerColor = template.colors.surfaceAlt,
+            unfocusedContainerColor = template.colors.surfaceAlt,
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = QuataDivider,
+            unfocusedBorderColor = template.colors.inputBorder,
             cursorColor = MaterialTheme.colorScheme.primary
         )
     )

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun <T> QuataDropdownField(
@@ -36,6 +37,7 @@ fun <T> QuataDropdownField(
     displayText: String,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
         Surface(
@@ -44,7 +46,7 @@ fun <T> QuataDropdownField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
                 .clickable { expanded = true }
         ) {
             Row(
@@ -53,7 +55,7 @@ fun <T> QuataDropdownField(
             ) {
                 Text(
                     text = displayText.ifBlank { value },
-                    color = Color.White,
+                    color = template.colors.textPrimary,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

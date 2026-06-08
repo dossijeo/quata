@@ -47,7 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.quataTheme
 import java.util.Locale
 
 @Composable
@@ -56,23 +56,25 @@ fun CommunityEmojiPanel(
     modifier: Modifier = Modifier,
     initialSectionKey: String = "frequent"
 ) {
+    val template = quataTheme()
     val sections = CommunityEmojiCatalog.sections
     var selectedSectionKey by rememberSaveable { mutableStateOf(initialSectionKey) }
     val selectedSection = sections.firstOrNull { it.key == selectedSectionKey } ?: sections.first()
 
     Surface(
-        color = Color(0xFF101827),
+        color = template.colors.surfaceRaised,
+        contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(20.dp),
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, QuataOrange.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+            .border(1.dp, template.colors.accent.copy(alpha = 0.62f), RoundedCornerShape(20.dp))
     ) {
         Column(Modifier.padding(14.dp)) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(sections) { section ->
                     Surface(
                         color = if (section.key == selectedSectionKey) {
-                            QuataOrange.copy(alpha = 0.34f)
+                            template.colors.accent
                         } else {
                             Color.Transparent
                         },
@@ -81,7 +83,11 @@ fun CommunityEmojiPanel(
                     ) {
                         Text(
                             text = stringResource(section.labelRes),
-                            color = Color.White.copy(alpha = if (section.key == selectedSectionKey) 1f else 0.76f),
+                            color = if (section.key == selectedSectionKey) {
+                                template.colors.accentContent
+                            } else {
+                                template.colors.textSecondary
+                            },
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         )
@@ -102,7 +108,8 @@ fun CommunityEmojiPanel(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
+                            .background(template.colors.surfaceAlt)
+                            .border(1.dp, template.colors.divider, RoundedCornerShape(14.dp))
                             .clickable { onEmojiClick(emoji) },
                         contentAlignment = Alignment.Center
                     ) {

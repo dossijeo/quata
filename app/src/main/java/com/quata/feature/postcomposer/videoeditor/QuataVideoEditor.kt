@@ -67,6 +67,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -74,6 +75,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -145,11 +147,8 @@ import com.quata.core.captions.media3.CaptionBurnInTrack
 import com.quata.core.captions.media3.CaptionMedia3BurnIn
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.captions.transcriber.VoskVideoTranscriber
-import com.quata.core.designsystem.theme.QuataBackground
-import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
-import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.VideoExportProfile
 import com.quata.core.media.VideoExportSystemProfile
 import com.quata.core.ui.components.CompactButtonContentPadding
@@ -182,6 +181,7 @@ fun QuataVideoEditorDialog(
     onExported: (Uri) -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
     val view = LocalView.current
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
@@ -469,7 +469,8 @@ fun QuataVideoEditorDialog(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = QuataBackground
+        color = template.colors.background,
+        contentColor = template.colors.textPrimary
     ) {
         Column(
             Modifier
@@ -605,21 +606,26 @@ private fun VideoEditorTopBar(
     onToggleCaptions: () -> Unit,
     onExport: () -> Unit
 ) {
+    val template = quataTheme()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .background(QuataSurface)
+            .background(template.colors.surfaceRaised)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CompactIconButton(onClick = onBack, enabled = true) {
-            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.video_editor_back), tint = Color.White)
+            CompactIcon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.video_editor_back),
+                tint = template.colors.textPrimary
+            )
         }
         Spacer(Modifier.width(6.dp))
         Text(
             text = stringResource(R.string.video_editor_title),
-            color = Color.White,
+            color = template.colors.textPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
@@ -632,14 +638,14 @@ private fun VideoEditorTopBar(
                 enabled = true,
                 onClick = onToggleMute
             ) {
-                CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = Color.White)
+                CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
             }
             VideoToolButton(
                 label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
                 enabled = true,
                 onClick = onToggleCrop
             ) {
-                CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null, tint = Color.White)
+                CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null)
             }
             VideoToolButton(
                 label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
@@ -647,14 +653,14 @@ private fun VideoEditorTopBar(
                 selected = hasCaptions,
                 onClick = onToggleCaptions
             ) {
-                CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null, tint = Color.White)
+                CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null)
             }
             VideoToolButton(
                 label = stringResource(R.string.video_editor_export),
                 enabled = true,
                 onClick = onExport,
             ) {
-                CompactIcon(Icons.Filled.Save, contentDescription = null, tint = Color.White)
+                CompactIcon(Icons.Filled.Save, contentDescription = null)
             }
         }
     }
@@ -668,7 +674,9 @@ private fun VideoToolButton(
     onClick: () -> Unit,
     icon: @Composable () -> Unit
 ) {
+    val template = quataTheme()
     val contentAlpha = if (enabled) 1f else 0.42f
+    val iconColor = if (selected) template.colors.accentContent else template.colors.textPrimary.copy(alpha = contentAlpha)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.widthIn(min = 66.dp)
@@ -677,16 +685,19 @@ private fun VideoToolButton(
             modifier = Modifier
                 .size(width = 52.dp, height = 38.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (selected) QuataOrange.copy(alpha = 0.86f) else Color.White.copy(alpha = if (enabled) 0.18f else 0.08f))
+                .background(if (selected) template.colors.accent else template.colors.surfaceAlt.copy(alpha = if (enabled) 1f else 0.54f))
+                .border(1.dp, if (selected) template.colors.accent else template.colors.divider, RoundedCornerShape(12.dp))
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
-                icon()
+            CompositionLocalProvider(LocalContentColor provides iconColor) {
+                Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+                    icon()
+                }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, color = Color.White.copy(alpha = 0.78f * contentAlpha), fontSize = 11.sp, maxLines = 1)
+        Text(label, color = template.colors.textSecondary.copy(alpha = contentAlpha), fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -946,6 +957,7 @@ private fun VideoTimeline(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     val safeDuration = durationMs.coerceAtLeast(1L)
     val startFraction = (trimStartMs.toFloat() / safeDuration).coerceIn(0f, 1f)
     val endFraction = (trimEndMs.toFloat() / safeDuration).coerceIn(startFraction, 1f)
@@ -957,7 +969,7 @@ private fun VideoTimeline(
     val currentTrimEndMs by rememberUpdatedState(trimEndMs)
     val baseModifier = modifier
         .clip(RoundedCornerShape(20.dp))
-        .background(QuataSurfaceAlt)
+        .background(template.colors.surfaceAlt)
     val interactiveModifier = if (isExporting) {
         baseModifier
     } else {
@@ -1048,7 +1060,7 @@ private fun VideoTimeline(
                 drawRect(Color.Black.copy(alpha = 0.48f), topLeft = Offset.Zero, size = Size(startX, size.height))
                 drawRect(Color.Black.copy(alpha = 0.48f), topLeft = Offset(endX, 0f), size = Size(size.width - endX, size.height))
                 drawRect(
-                    color = QuataOrange,
+                    color = template.colors.accent,
                     topLeft = Offset(startX, 0f),
                     size = Size(endX - startX, size.height),
                     style = Stroke(width = 4.dp.toPx())
@@ -1061,7 +1073,7 @@ private fun VideoTimeline(
                 .offset(x = maxWidth * currentFraction - 1.dp)
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(Color.White.copy(alpha = 0.9f))
+                .background(template.colors.textPrimary.copy(alpha = 0.88f))
         )
 
         if (!isExporting) {
@@ -1102,8 +1114,9 @@ private fun TimelineHandle(
     modifier: Modifier,
     alignStart: Boolean
 ) {
+    val template = quataTheme()
     Box(
-        modifier = modifier.background(QuataOrange),
+        modifier = modifier.background(template.colors.accent),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd
     ) {
         Box(
@@ -1124,11 +1137,12 @@ private fun CropControls(
     onZoomChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(QuataSurface)
-            .border(1.dp, QuataDivider, RoundedCornerShape(18.dp))
+            .background(template.colors.surface)
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
             .padding(12.dp)
     ) {
         Row(
@@ -1141,9 +1155,9 @@ private fun CropControls(
             VideoCropMode.entries.forEach { option ->
                 val selected = option == mode
                 val colors = if (selected) {
-                    ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
+                    ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
                 } else {
-                    ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary)
                 }
                 val shape = RoundedCornerShape(9.dp)
                 if (selected) {
@@ -1177,7 +1191,7 @@ private fun CropControls(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.video_editor_zoom),
-                    color = Color.White.copy(alpha = 0.74f),
+                    color = template.colors.textSecondary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.width(56.dp)
                 )
@@ -1198,16 +1212,17 @@ private fun CaptionControls(
     onStyleChange: (CaptionTemplateStyle?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(QuataSurface)
-            .border(1.dp, QuataDivider, RoundedCornerShape(18.dp))
+            .background(template.colors.surface)
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
             .padding(12.dp)
     ) {
         Text(
             text = stringResource(R.string.video_editor_captions),
-            color = Color.White,
+            color = template.colors.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 13.sp
         )
@@ -1241,11 +1256,12 @@ private fun CaptionStyleButton(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val template = quataTheme()
     val shape = RoundedCornerShape(9.dp)
     if (selected) {
         Button(
             onClick = onClick,
-            colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
             shape = shape,
             contentPadding = CompactButtonContentPadding,
             modifier = Modifier.height(36.dp)
@@ -1257,7 +1273,7 @@ private fun CaptionStyleButton(
     } else {
         OutlinedButton(
             onClick = onClick,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary),
             shape = shape,
             contentPadding = CompactButtonContentPadding,
             modifier = Modifier.height(36.dp)
@@ -1277,10 +1293,11 @@ private fun VideoEditorInfoBar(
     error: String?,
     onPlayPause: () -> Unit
 ) {
+    val template = quataTheme()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(QuataSurface)
+            .background(template.colors.surfaceRaised)
             .padding(horizontal = 18.dp, vertical = 6.dp)
     ) {
         if (isExporting) {
@@ -1289,13 +1306,13 @@ private fun VideoEditorInfoBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(5.dp),
-                color = QuataOrange,
-                trackColor = QuataDivider
+                color = template.colors.accent,
+                trackColor = template.colors.divider
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.video_editor_exporting, (exportProgress * 100).toInt().coerceIn(0, 100)),
-                color = Color.White,
+                color = template.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -1318,8 +1335,8 @@ private fun VideoEditorInfoBar(
                 Spacer(modifier = Modifier.size(44.dp))
             } else {
                 Surface(
-                    color = Color.White.copy(alpha = 0.72f),
-                    contentColor = Color.Black,
+                    color = template.colors.accent,
+                    contentColor = template.colors.accentContent,
                     shape = CircleShape,
                     modifier = Modifier.size(44.dp)
                 ) {
@@ -1347,6 +1364,7 @@ private fun TimeReadout(
     horizontalAlignment: Alignment.Horizontal,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     val label = text.substringBefore(':', text).trim()
     val value = text.substringAfter(':', "").trim()
     Column(
@@ -1356,7 +1374,7 @@ private fun TimeReadout(
     ) {
         Text(
             text = label,
-            color = Color.White.copy(alpha = 0.52f),
+            color = template.colors.textSecondary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 11.sp,
             maxLines = 1,
@@ -1364,7 +1382,7 @@ private fun TimeReadout(
         )
         Text(
             text = value.ifBlank { text },
-            color = Color.White.copy(alpha = 0.68f),
+            color = template.colors.textPrimary,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 16.sp,
             maxLines = 1

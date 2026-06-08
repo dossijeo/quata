@@ -49,6 +49,7 @@ import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -79,8 +80,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quata.R
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.session.SessionManager
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.PhoneInputSection
@@ -101,10 +103,13 @@ fun ProfileScreen(
     repository: ProfileRepository,
     touchFlowEnabled: Boolean,
     onTouchFlowEnabledChange: (Boolean) -> Unit,
+    themeMode: QuataThemeMode,
+    onThemeModeChange: (QuataThemeMode) -> Unit,
     onLogout: () -> Unit,
     onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
 ) {
+    val template = quataTheme()
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     var isEmergencyDialogOpen by rememberSaveable { mutableStateOf(false) }
@@ -141,7 +146,7 @@ fun ProfileScreen(
         val profile = state.profile
         if (state.isLoading || profile == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.profile_loading), color = Color.White.copy(alpha = 0.72f))
+                Text(stringResource(R.string.profile_loading), color = template.colors.textSecondary)
             }
             return@QuataScreen
         }
@@ -153,8 +158,8 @@ fun ProfileScreen(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(stringResource(R.string.profile_account_label), color = Color.White.copy(alpha = 0.78f), letterSpacing = 2.sp)
-            Text(stringResource(R.string.profile_edit_title), fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.profile_account_label), color = template.colors.textSecondary, letterSpacing = 2.sp)
+            Text(stringResource(R.string.profile_edit_title), fontSize = template.textSizes.headline, fontWeight = FontWeight.ExtraBold)
             Text(
                 stringResource(R.string.profile_edit_subtitle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -175,6 +180,38 @@ fun ProfileScreen(
                         checked = touchFlowEnabled,
                         onCheckedChange = onTouchFlowEnabledChange
                     )
+                }
+            }
+
+            ProfilePanel {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.profile_theme_setting),
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ThemeModeButton(
+                            text = stringResource(R.string.theme_mode_system),
+                            selected = themeMode == QuataThemeMode.System,
+                            onClick = { onThemeModeChange(QuataThemeMode.System) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeModeButton(
+                            text = stringResource(R.string.theme_mode_dark),
+                            selected = themeMode == QuataThemeMode.Dark,
+                            onClick = { onThemeModeChange(QuataThemeMode.Dark) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeModeButton(
+                            text = stringResource(R.string.theme_mode_light),
+                            selected = themeMode == QuataThemeMode.Light,
+                            onClick = { onThemeModeChange(QuataThemeMode.Light) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
@@ -245,7 +282,7 @@ fun ProfileScreen(
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.profile_photo_hint), color = Color.White.copy(alpha = 0.66f))
+                        Text(stringResource(R.string.profile_photo_hint), color = template.colors.textSecondary)
                     }
                 }
             }
@@ -346,15 +383,49 @@ fun ProfileScreen(
 
 @Composable
 private fun ProfilePanel(content: @Composable () -> Unit) {
+    val template = quataTheme()
     Surface(
-        color = QuataSurface.copy(alpha = 0.54f),
+        color = template.colors.surface.copy(alpha = 0.82f),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+            .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
     ) {
         Box(Modifier.padding(16.dp)) {
             content()
+        }
+    }
+}
+
+@Composable
+private fun ThemeModeButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Surface(
+        color = if (selected) template.colors.accent else template.colors.surfaceAlt,
+        contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+            .height(44.dp)
+            .border(
+                width = 1.dp,
+                color = if (selected) template.colors.accent else template.colors.divider,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
+            Text(
+                text = text,
+                fontSize = template.textSizes.caption,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -366,6 +437,7 @@ private fun ProfileTextField(
     label: String,
     isPassword: Boolean = false
 ) {
+    val template = quataTheme()
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -373,7 +445,14 @@ private fun ProfileTextField(
         singleLine = !label.contains("respuesta", ignoreCase = true),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(18.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = template.colors.surfaceAlt,
+            unfocusedContainerColor = template.colors.surfaceAlt,
+            focusedBorderColor = template.colors.accent,
+            unfocusedBorderColor = template.colors.inputBorder,
+            cursorColor = template.colors.accent
+        )
     )
 }
 
@@ -386,6 +465,7 @@ private fun <T> DropdownField(
     displayText: String,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
         Surface(
@@ -394,7 +474,7 @@ private fun <T> DropdownField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
                 .clickable { expanded = true }
         ) {
             Row(
@@ -403,7 +483,7 @@ private fun <T> DropdownField(
             ) {
                 Text(
                     text = displayText.ifBlank { value },
-                    color = Color.White,
+                    color = template.colors.textPrimary,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -439,6 +519,7 @@ fun EmergencyContactsDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit
 ) {
+    val template = quataTheme()
     val bottomActionHeight = 54.dp
     val bottomActionOffset = 78.dp
     val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp
@@ -462,8 +543,8 @@ fun EmergencyContactsDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            color = Color(0xFF111827),
-            contentColor = Color.White,
+            color = template.colors.background,
+            contentColor = template.colors.textPrimary,
             modifier = Modifier.fillMaxSize()
         ) {
             Box(
@@ -483,7 +564,7 @@ fun EmergencyContactsDialog(
                             CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                         Spacer(Modifier.width(6.dp))
-                        Surface(color = Color(0xFF5B2730), shape = RoundedCornerShape(16.dp)) {
+                        Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
                             Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
                         }
                         Spacer(Modifier.width(10.dp))
@@ -492,7 +573,7 @@ fun EmergencyContactsDialog(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         stringResource(R.string.emergency_contacts_description),
-                        color = Color.White.copy(alpha = 0.68f),
+                        color = template.colors.textSecondary,
                         lineHeight = 22.sp
                     )
                     Spacer(Modifier.height(14.dp))
@@ -523,7 +604,7 @@ fun EmergencyContactsDialog(
                                 shape = RoundedCornerShape(18.dp)
                             )
                             Spacer(Modifier.height(10.dp))
-                            Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = QuataOrange, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = template.colors.accent, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(14.dp))
                             Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.height(8.dp))
@@ -547,7 +628,7 @@ fun EmergencyContactsDialog(
                                     Spacer(Modifier.height(8.dp))
                                     Text(
                                         stringResource(R.string.emergency_message_hint),
-                                        color = Color.White.copy(alpha = 0.66f)
+                                        color = template.colors.textSecondary
                                     )
                                     Spacer(Modifier.height(10.dp))
                                     OutlinedTextField(
@@ -564,7 +645,7 @@ fun EmergencyContactsDialog(
                 }
                 Button(
                     onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
                     shape = RoundedCornerShape(18.dp),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -586,9 +667,10 @@ private fun EmergencyTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Surface(
-        color = if (selected) QuataOrange else QuataSurface.copy(alpha = 0.5f),
-        contentColor = if (selected) Color.Black else Color.White,
+        color = if (selected) template.colors.accent else template.colors.surfaceAlt,
+        contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
         shape = RoundedCornerShape(16.dp),
         modifier = modifier
             .height(48.dp)
@@ -606,12 +688,13 @@ private fun EmergencyUserRow(
     selected: Boolean,
     onToggle: () -> Unit
 ) {
+    val template = quataTheme()
     Surface(
-        color = QuataSurface.copy(alpha = 0.45f),
+        color = template.colors.surface,
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -621,7 +704,7 @@ private fun EmergencyUserRow(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(user.neighborhood, color = Color.White.copy(alpha = 0.58f), maxLines = 1)
+                Text(user.neighborhood, color = template.colors.textSecondary, maxLines = 1)
             }
             OutlinedButton(onClick = onToggle, shape = RoundedCornerShape(14.dp)) {
                 Text(if (selected) stringResource(R.string.common_remove) else stringResource(R.string.common_add))

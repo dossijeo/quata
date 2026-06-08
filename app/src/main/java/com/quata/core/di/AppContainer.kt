@@ -11,6 +11,7 @@ import com.quata.core.network.NetworkModule
 import com.quata.core.notifications.NotificationChannels
 import com.quata.core.notifications.PushTokenManager
 import com.quata.core.preferences.SessionPreferences
+import com.quata.core.preferences.ThemePreferences
 import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.core.session.SessionManager
 import com.quata.feature.auth.data.AuthRepositoryImpl
@@ -44,6 +45,7 @@ class AppContainer(context: Context) {
     val sessionPreferences = SessionPreferences(appContext)
     val sessionManager = SessionManager(sessionPreferences)
     val touchFlowPreferences = TouchFlowPreferences(appContext)
+    val themePreferences = ThemePreferences(appContext)
 
     val imagePickerManager = ImagePickerManager()
     val cameraCaptureManager = CameraCaptureManager()

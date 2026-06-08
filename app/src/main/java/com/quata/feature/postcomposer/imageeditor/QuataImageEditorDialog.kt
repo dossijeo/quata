@@ -34,10 +34,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -65,10 +67,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.exifinterface.media.ExifInterface
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataBackground
-import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +86,7 @@ fun QuataImageEditorDialog(
     onEdited: (Uri) -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
     val scope = rememberCoroutineScope()
     var bitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUri) { mutableStateOf(true) }
@@ -104,8 +105,8 @@ fun QuataImageEditorDialog(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = QuataBackground,
-        contentColor = Color.White
+        color = template.colors.background,
+        contentColor = template.colors.textPrimary
     ) {
         Column(
             Modifier
@@ -141,10 +142,10 @@ fun QuataImageEditorDialog(
                 contentAlignment = Alignment.Center
             ) {
                 when {
-                    isLoading -> CircularProgressIndicator(color = QuataOrange)
+                    isLoading -> CircularProgressIndicator(color = template.colors.accent)
                     bitmap == null -> Text(
                         text = stringResource(R.string.composer_image_preview_title),
-                        color = Color.White.copy(alpha = 0.78f),
+                        color = template.colors.textSecondary,
                         fontWeight = FontWeight.Bold
                     )
                     else -> bitmap?.let { source ->
@@ -163,10 +164,10 @@ fun QuataImageEditorDialog(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.42f)),
+                            .background(template.colors.mediaScrim),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = QuataOrange)
+                        CircularProgressIndicator(color = template.colors.accent)
                     }
                 }
             }
@@ -197,11 +198,12 @@ private fun ImageEditorTopBar(
     onToggleCrop: () -> Unit,
     onSave: () -> Unit
 ) {
+    val template = quataTheme()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .background(QuataSurface)
+            .background(template.colors.surfaceRaised)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -209,13 +211,13 @@ private fun ImageEditorTopBar(
             CompactIcon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.video_editor_back),
-                tint = Color.White
+                tint = template.colors.textPrimary
             )
         }
         Spacer(Modifier.width(6.dp))
         Text(
             text = stringResource(R.string.video_editor_title),
-            color = Color.White,
+            color = template.colors.textPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
@@ -231,8 +233,7 @@ private fun ImageEditorTopBar(
             ) {
                 CompactIcon(
                     if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop,
-                    contentDescription = null,
-                    tint = Color.White
+                    contentDescription = null
                 )
             }
             ImageToolButton(
@@ -240,7 +241,7 @@ private fun ImageEditorTopBar(
                 enabled = canSave,
                 onClick = onSave
             ) {
-                CompactIcon(Icons.Filled.Save, contentDescription = null, tint = Color.White)
+                CompactIcon(Icons.Filled.Save, contentDescription = null)
             }
         }
     }
@@ -254,7 +255,9 @@ private fun ImageToolButton(
     onClick: () -> Unit,
     icon: @Composable () -> Unit
 ) {
+    val template = quataTheme()
     val contentAlpha = if (enabled) 1f else 0.42f
+    val iconColor = if (selected) template.colors.accentContent else template.colors.textPrimary.copy(alpha = contentAlpha)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.widthIn(min = 66.dp)
@@ -263,7 +266,8 @@ private fun ImageToolButton(
             modifier = Modifier
                 .size(width = 52.dp, height = 38.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (selected) QuataOrange.copy(alpha = 0.86f) else Color.White.copy(alpha = if (enabled) 0.18f else 0.08f)),
+                .background(if (selected) template.colors.accent else template.colors.surfaceAlt.copy(alpha = if (enabled) 1f else 0.54f))
+                .border(1.dp, if (selected) template.colors.accent else template.colors.divider, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
             CompactIconButton(
@@ -271,13 +275,15 @@ private fun ImageToolButton(
                 enabled = enabled,
                 modifier = Modifier.matchParentSize()
             ) {
-                Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
-                    icon()
+                CompositionLocalProvider(LocalContentColor provides iconColor) {
+                    Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+                        icon()
+                    }
                 }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, color = Color.White.copy(alpha = 0.78f * contentAlpha), fontSize = 11.sp, maxLines = 1)
+        Text(label, color = template.colors.textSecondary.copy(alpha = contentAlpha), fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -337,17 +343,18 @@ private fun ImageCropControls(
     onZoomChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(QuataSurface)
-            .border(1.dp, QuataDivider, RoundedCornerShape(18.dp))
+            .background(template.colors.surface)
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(R.string.video_editor_zoom),
-                color = Color.White.copy(alpha = 0.74f),
+                color = template.colors.textSecondary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.width(56.dp)
             )

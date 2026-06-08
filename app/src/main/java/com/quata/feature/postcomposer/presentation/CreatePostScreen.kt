@@ -90,6 +90,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -112,7 +113,7 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
@@ -163,6 +164,7 @@ fun CreatePostScreen(
     viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val template = quataTheme()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var step by rememberSaveable { mutableStateOf(ComposerStep.TypePicker) }
@@ -350,7 +352,7 @@ fun CreatePostScreen(
                     text = screenTitle,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 24.sp,
-                    color = Color.White
+                    color = template.colors.textPrimary
                 )
                 Spacer(Modifier.height(28.dp))
 
@@ -440,7 +442,7 @@ fun CreatePostScreen(
                 }
                 state.successMessage?.let {
                     Spacer(Modifier.height(14.dp))
-                    Text(it, color = QuataOrange, fontWeight = FontWeight.Bold)
+                    Text(it, color = template.colors.accent, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -525,13 +527,15 @@ private fun TypeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Surface(
-        color = QuataSurface.copy(alpha = 0.62f),
+        color = template.colors.surface,
+        contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(24.dp),
         modifier = modifier
             .fillMaxWidth()
             .height(128.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(24.dp))
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -542,13 +546,13 @@ private fun TypeCard(
                 modifier = Modifier
                     .size(82.dp)
                     .clip(CircleShape)
-                    .border(1.dp, Color(0xFF28405D), CircleShape),
+                    .border(1.dp, template.colors.selectedBorder, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                CompactIcon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
+                CompactIcon(icon, contentDescription = null, tint = template.colors.accent, modifier = Modifier.size(34.dp))
             }
             Spacer(Modifier.width(20.dp))
-            Text(label.uppercase(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            Text(label.uppercase(), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.title)
         }
     }
 }
@@ -565,6 +569,7 @@ private fun TextPostForm(
     onSubmit: () -> Unit
 ) {
     val emojiDismissState = rememberCommunityEmojiPanelDismissState(onDismissEmojiPanel)
+    val template = quataTheme()
     Column(
         modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(
             isVisible = isEmojiPanelOpen,
@@ -578,17 +583,17 @@ private fun TextPostForm(
                 placeholder = {
                     Text(
                         stringResource(R.string.composer_text_placeholder),
-                        color = Color(0xFF111827).copy(alpha = 0.52f)
+                        color = template.colors.textSecondary
                     )
                 },
                 minLines = 5,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color(0xFF111827),
-                    unfocusedTextColor = Color(0xFF111827),
-                    focusedBorderColor = QuataOrange,
-                    unfocusedBorderColor = Color(0xFF111827).copy(alpha = 0.24f),
-                    cursorColor = QuataOrange
+                    focusedTextColor = template.colors.textPrimary,
+                    unfocusedTextColor = template.colors.textPrimary,
+                    focusedBorderColor = template.colors.accent,
+                    unfocusedBorderColor = template.colors.divider,
+                    cursorColor = template.colors.accent
                 ),
                 trailingIcon = {
                     CompactIconButton(
@@ -604,7 +609,7 @@ private fun TextPostForm(
                 }
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text(stringResource(R.string.composer_word_count, state.text.length), color = Color(0xFF111827).copy(alpha = 0.62f))
+                Text(stringResource(R.string.composer_word_count, state.text.length), color = template.colors.textSecondary)
             }
         }
         if (isEmojiPanelOpen) {
@@ -629,6 +634,7 @@ private fun ImagePostForm(
     onEditImage: () -> Unit,
     onSubmit: () -> Unit
 ) {
+    val template = quataTheme()
     ComposerPanel(stringResource(R.string.composer_image), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
@@ -640,11 +646,11 @@ private fun ImagePostForm(
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = QuataOrange)
+            CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
             Spacer(Modifier.width(8.dp))
             Text(
                 text = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                color = Color(0xFF111827).copy(alpha = 0.72f),
+                color = template.colors.textSecondary,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -692,6 +698,7 @@ private fun VideoPostForm(
     onSubmit: () -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
     ComposerPanel(stringResource(R.string.composer_video), highlighted = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
@@ -700,7 +707,7 @@ private fun VideoPostForm(
         Spacer(Modifier.height(12.dp))
         Text(
             state.videoUri?.let { context.displayNameFromUriString(it) } ?: stringResource(R.string.composer_no_file),
-            color = Color(0xFF111827).copy(alpha = 0.72f),
+            color = template.colors.textSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -780,6 +787,8 @@ private fun ComposerFeedPreviewFrame(
 @Composable
 private fun ComposerPreviewVideoPlayer(videoUri: String) {
     val context = LocalContext.current
+    val template = quataTheme()
+    val playerBackground = template.colors.surfaceAlt.toArgb()
     var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
     var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
@@ -844,7 +853,11 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(template.colors.surfaceAlt)
+    ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
@@ -852,6 +865,8 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
                     this.player = player
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    setBackgroundColor(playerBackground)
+                    setShutterBackgroundColor(playerBackground)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -861,6 +876,8 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             update = { view ->
                 view.useController = false
                 view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                view.setBackgroundColor(playerBackground)
+                view.setShutterBackgroundColor(playerBackground)
                 if (view.player !== player) {
                     view.player = player
                 }
@@ -976,6 +993,7 @@ private fun ComposerPreviewTopChips(
     locationLabel: String?,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -991,13 +1009,13 @@ private fun ComposerPreviewTopChips(
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.16f))
-                    .border(1.dp, Color(0xFFE5D45C), CircleShape),
+                    .border(1.dp, template.colors.live, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 CompactIcon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeOff,
                     contentDescription = stringResource(R.string.feed_mute),
-                    tint = Color(0xFFFFF29E),
+                    tint = template.colors.live,
                     modifier = Modifier.size(21.dp)
                 )
             }
@@ -1010,10 +1028,11 @@ private fun ComposerPreviewChip(
     text: String,
     highlighted: Boolean = false
 ) {
-    val borderColor = if (highlighted) Color(0xFFE5D45C) else Color.White.copy(alpha = 0.22f)
-    val textColor = if (highlighted) Color(0xFFFFF29E) else Color.White
+    val template = quataTheme()
+    val borderColor = if (highlighted) template.colors.live else Color.White.copy(alpha = 0.22f)
+    val textColor = if (highlighted) template.colors.live else Color.White
     Surface(
-        color = Color.White.copy(alpha = if (highlighted) 0.16f else 0.12f),
+        color = if (highlighted) template.colors.surface.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
         contentColor = textColor,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier.border(1.dp, borderColor, RoundedCornerShape(28.dp))
@@ -1206,9 +1225,10 @@ private fun ComposerPanel(
     highlighted: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val panelColor = if (highlighted) Color.White.copy(alpha = 0.94f) else QuataSurface.copy(alpha = 0.45f)
-    val contentColor = if (highlighted) Color(0xFF111827) else Color.White
-    val borderColor = if (highlighted) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f)
+    val template = quataTheme()
+    val panelColor = if (highlighted) template.colors.surfaceRaised else template.colors.surface
+    val contentColor = template.colors.textPrimary
+    val borderColor = template.colors.divider
     Surface(
         color = panelColor,
         contentColor = contentColor,

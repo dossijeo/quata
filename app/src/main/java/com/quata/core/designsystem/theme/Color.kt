@@ -2,12 +2,12 @@ package com.quata.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 
-val QuataBackground = Color(0xFF0D1422)
-val QuataSurface = Color(0xFF171A23)
-val QuataSurfaceAlt = Color(0xFF202432)
-val QuataOrange = Color(0xFFFF7A1A)
-val QuataOrangeSoft = Color(0xFFFFA451)
-val QuataTextPrimary = Color(0xFFF8F4EF)
-val QuataTextSecondary = Color(0xFFB8B1AA)
-val QuataDivider = Color(0xFF303545)
-val QuataError = Color(0xFFFF5C5C)
+val QuataBackground = QuataTemplates.darkMode.colors.background
+val QuataSurface = QuataTemplates.darkMode.colors.surface
+val QuataSurfaceAlt = QuataTemplates.darkMode.colors.surfaceAlt
+val QuataOrange = QuataTemplates.darkMode.colors.accent
+val QuataOrangeSoft = QuataTemplates.darkMode.colors.accentSoft
+val QuataTextPrimary = QuataTemplates.darkMode.colors.textPrimary
+val QuataTextSecondary = QuataTemplates.darkMode.colors.textSecondary
+val QuataDivider = QuataTemplates.darkMode.colors.divider
+val QuataError = QuataTemplates.darkMode.colors.error

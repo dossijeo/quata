@@ -11,7 +11,9 @@ import android.opengl.EGLSurface
 import android.opengl.GLES20
 import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import com.quata.core.designsystem.theme.QuataChatBackgroundPalette
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -31,9 +33,8 @@ private const val BackgroundBloom = 0.90f
 private const val ProceduralChatBackgroundTag = "ChatBackground"
 
 internal object ProceduralChatBackground {
-    fun cachedBitmap(context: Context, conversationName: String, width: Int, height: Int): ImageBitmap? {
-        val file = cacheFile(context, conversationName).takeIf { it.exists() }
-            ?: legacyCacheFile(context, conversationName).takeIf { it.exists() }
+    fun cachedBitmap(context: Context, conversationName: String, templateId: String, width: Int, height: Int): ImageBitmap? {
+        val file = cacheFile(context, conversationName, templateId).takeIf { it.exists() }
             ?: return null
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -43,19 +44,27 @@ internal object ProceduralChatBackground {
         return BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
     }
 
-    fun generateIfNeeded(context: Context, conversationName: String, width: Int, height: Int): ImageBitmap? {
+    fun generateIfNeeded(
+        context: Context,
+        conversationName: String,
+        templateId: String,
+        palettes: List<QuataChatBackgroundPalette>,
+        width: Int,
+        height: Int
+    ): ImageBitmap? {
         val safeWidth = width.coerceAtLeast(1)
         val safeHeight = height.coerceAtLeast(1)
-        val cached = cachedBitmap(context, conversationName, safeWidth, safeHeight)
+        val cached = cachedBitmap(context, conversationName, templateId, safeWidth, safeHeight)
         if (cached != null) return cached
 
         val bitmap = ProceduralChatBackgroundRenderer.render(
             seedText = conversationName.ifBlank { "quata" },
+            palettes = palettes,
             width = safeWidth,
             height = safeHeight
         ) ?: return null
 
-        val file = cacheFile(context, conversationName)
+        val file = cacheFile(context, conversationName, templateId)
         file.parentFile?.mkdirs()
         file.outputStream().use { output ->
             bitmap.compress(Bitmap.CompressFormat.WEBP, 82, output)
@@ -63,14 +72,9 @@ internal object ProceduralChatBackground {
         return bitmap.asImageBitmap()
     }
 
-    private fun cacheFile(context: Context, conversationName: String): File {
-        val hash = fnv1a(conversationName.ifBlank { "quata" })
+    private fun cacheFile(context: Context, conversationName: String, templateId: String): File {
+        val hash = fnv1a("${templateId}:${conversationName.ifBlank { "quata" }}")
         return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_$hash.webp")
-    }
-
-    private fun legacyCacheFile(context: Context, conversationName: String): File {
-        val hash = fnv1a(conversationName.ifBlank { "quata" })
-        return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_$hash.png")
     }
 
     private fun fnv1a(value: String): Long {
@@ -93,14 +97,17 @@ private object ProceduralChatBackgroundRenderer {
             position(0)
         }
 
-    fun render(seedText: String, width: Int, height: Int): Bitmap? {
+    fun render(seedText: String, palettes: List<QuataChatBackgroundPalette>, width: Int, height: Int): Bitmap? {
         val egl = EglSession.create(width, height) ?: run {
             Log.w(ProceduralChatBackgroundTag, "Could not create EGL session for ${width}x$height")
             return null
         }
         return try {
             val seed = fnv1a(seedText).toFloat()
-            val palette = ChatPalette.values[(seed.toLong() and 0xffffffffL).toInt().floorMod(ChatPalette.values.size)]
+            val paletteValues = palettes.takeIf { it.isNotEmpty() } ?: listOf(
+                QuataChatBackgroundPalette(Color(0xFF030408), Color(0xFF2F8CFF), Color(0xFF7C3CFF), Color(0xFFFF8A1F))
+            )
+            val palette = paletteValues[(seed.toLong() and 0xffffffffL).toInt().floorMod(paletteValues.size)]
             val proceduralProgram = createProgram(FullScreenVertexShader, ProceduralFragmentShader)
             val compositeProgram = createProgram(FullScreenVertexShader, CompositeFragmentShader)
             if (proceduralProgram == 0 || compositeProgram == 0) {
@@ -138,7 +145,7 @@ private object ProceduralChatBackgroundRenderer {
         width: Int,
         height: Int,
         seed: Float,
-        palette: ChatPalette,
+        palette: QuataChatBackgroundPalette,
         mode: Int
     ) {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target.framebuffer)
@@ -152,10 +159,10 @@ private object ProceduralChatBackgroundRenderer {
         GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "uContrast"), BackgroundContrast)
         GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "uBloom"), BackgroundBloom)
         GLES20.glUniform1i(GLES20.glGetUniformLocation(program, "uMode"), mode)
-        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uBase"), palette.base[0], palette.base[1], palette.base[2])
-        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorA"), palette.a[0], palette.a[1], palette.a[2])
-        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorB"), palette.b[0], palette.b[1], palette.b[2])
-        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorC"), palette.c[0], palette.c[1], palette.c[2])
+        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uBase"), palette.base.red, palette.base.green, palette.base.blue)
+        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorA"), palette.a.red, palette.a.green, palette.a.blue)
+        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorB"), palette.b.red, palette.b.green, palette.b.blue)
+        GLES20.glUniform3f(GLES20.glGetUniformLocation(program, "uColorC"), palette.c.red, palette.c.green, palette.c.blue)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
     }
 

@@ -7,17 +7,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.quata.core.designsystem.theme.QuataBackground
+import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun QuataScreen(
     padding: PaddingValues = PaddingValues(),
     content: @Composable () -> Unit
 ) {
+    val template = quataTheme()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(QuataBackground)
+            .background(template.colors.background)
             .padding(padding)
     ) {
         content()

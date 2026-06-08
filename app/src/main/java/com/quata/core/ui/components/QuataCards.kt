@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.User
 
 @Composable
@@ -45,10 +46,11 @@ fun QuataCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val template = quataTheme()
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = QuataSurface),
+        colors = CardDefaults.cardColors(containerColor = template.colors.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         content()
@@ -57,13 +59,14 @@ fun QuataCard(
 
 @Composable
 fun AvatarLetter(name: String, modifier: Modifier = Modifier.size(44.dp)) {
+    val template = quataTheme()
     val letter = name.trim().firstOrNull()?.uppercase() ?: "Q"
     Box(
         modifier = modifier
-            .background(QuataOrange, CircleShape),
+            .background(template.colors.accent, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text(letter, fontWeight = FontWeight.Black, fontSize = 18.sp, color = MaterialTheme.colorScheme.onPrimary)
+        Text(letter, fontWeight = FontWeight.Black, fontSize = template.textSizes.title, color = template.colors.accentContent)
     }
 }
 
@@ -73,6 +76,7 @@ fun AvatarImage(
     avatarUrl: String?,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
+    val template = quataTheme()
     if (avatarUrl.isNullOrBlank()) {
         AvatarLetter(name, modifier)
     } else {
@@ -82,7 +86,7 @@ fun AvatarImage(
             contentScale = ContentScale.Crop,
             modifier = modifier
                 .clip(CircleShape)
-                .border(1.dp, QuataOrange.copy(alpha = 0.42f), CircleShape)
+                .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
         )
     }
 }
@@ -139,6 +143,7 @@ fun ProfileAvatarWithLoadingHalo(
         0f
     }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        val template = quataTheme()
         if (isLoading) {
             Canvas(
                 modifier = Modifier
@@ -186,12 +191,13 @@ fun ProfileAvatarWithLoadingHalo(
 
 @Composable
 fun UserHeader(name: String, meta: String, modifier: Modifier = Modifier) {
+    val template = quataTheme()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         AvatarLetter(name)
         Spacer(Modifier.width(12.dp))
         androidx.compose.foundation.layout.Column {
             Text(name, fontWeight = FontWeight.Bold)
-            Text(meta, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(meta, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = template.textSizes.caption)
         }
     }
 }

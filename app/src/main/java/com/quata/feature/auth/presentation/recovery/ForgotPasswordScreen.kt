@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
@@ -45,6 +47,7 @@ fun ForgotPasswordScreen(
     viewModel: ForgotPasswordViewModel = viewModel(factory = ForgotPasswordViewModel.factory(authRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val template = quataTheme()
     val context = LocalContext.current
     val prefixes = remember(context) { context.countryPrefixOptions() }
     val secretQuestion = remember(context, state.secretQuestion, state.isLoadingQuestion) {
@@ -91,7 +94,14 @@ fun ForgotPasswordScreen(
                 readOnly = true,
                 label = { Text(stringResource(R.string.auth_your_secret_question)) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = template.colors.surfaceAlt,
+                    unfocusedContainerColor = template.colors.surfaceAlt,
+                    focusedBorderColor = template.colors.accent,
+                    unfocusedBorderColor = template.colors.inputBorder,
+                    cursorColor = template.colors.accent
+                )
             )
             Spacer(Modifier.height(12.dp))
             QuataTextField(

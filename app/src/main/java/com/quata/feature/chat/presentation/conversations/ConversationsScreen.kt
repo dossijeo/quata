@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
@@ -235,8 +236,9 @@ private fun UndoDeleteButton(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Surface(
-        color = Color(0xFF111827),
+        color = template.colors.surfaceRaised,
         shape = RoundedCornerShape(18.dp),
         modifier = modifier
     ) {
@@ -253,7 +255,7 @@ private fun UndoDeleteButton(
             Spacer(Modifier.size(8.dp))
             Button(
                 onClick = onUndo,
-                colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .height(32.dp)
@@ -311,6 +313,7 @@ private fun ConversationAvatar(
     openingProfileUserId: String?,
     onOpenUserProfile: (String) -> Unit
 ) {
+    val template = quataTheme()
     val privateUser = item.participantIds
         .firstOrNull { it != currentUser?.id }
         ?.let { usersById[it] }
@@ -320,14 +323,14 @@ private fun ConversationAvatar(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(if (item.isEmergency) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
-                    .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
+                    .background(if (item.isEmergency) template.colors.sosSurface else template.colors.accent.copy(alpha = 0.22f))
+                    .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (item.isEmergency) {
-                    Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
                 } else {
-                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
                 }
             }
         } else {
@@ -349,8 +352,8 @@ private fun ConversationAvatar(
                     .align(Alignment.TopEnd)
                     .size(22.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF111827))
-                    .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+                    .background(template.colors.surfaceRaised)
+                    .border(1.dp, template.colors.divider, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text("\uD83D\uDD15", fontSize = 13.sp)

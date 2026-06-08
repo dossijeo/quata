@@ -85,6 +85,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -106,6 +107,8 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.QuataThemeTemplate
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
@@ -322,19 +325,20 @@ private fun LiveRankingDialog(
     onDismiss: () -> Unit,
     onOpenPost: (Post) -> Unit
 ) {
+    val template = quataTheme()
     val rankedPosts = remember(posts) {
         posts.sortedWith(postRankingComparator())
     }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            color = Color(0xFF111827),
-            contentColor = Color.White,
+            color = template.colors.surfaceRaised,
+            contentColor = template.colors.textPrimary,
             shape = RoundedCornerShape(28.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(580.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
+                .border(1.dp, template.colors.divider, RoundedCornerShape(28.dp))
         ) {
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
@@ -346,7 +350,7 @@ private fun LiveRankingDialog(
                         )
                         Text(
                             text = stringResource(R.string.feed_live_subtitle),
-                            color = Color.White.copy(alpha = 0.66f),
+                            color = template.colors.textSecondary,
                             fontSize = 14.sp
                         )
                     }
@@ -354,14 +358,18 @@ private fun LiveRankingDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(48.dp)
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+                            .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
                     ) {
-                        CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
+                        CompactIcon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.common_close),
+                            tint = template.colors.textPrimary
+                        )
                     }
                 }
                 Spacer(Modifier.height(18.dp))
                 Surface(
-                    color = Color.White.copy(alpha = 0.04f),
+                    color = template.colors.surfaceAlt,
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -377,7 +385,7 @@ private fun LiveRankingDialog(
                             )
                             Text(
                                 text = stringResource(R.string.feed_live_updated),
-                                color = Color.White.copy(alpha = 0.64f)
+                                color = template.colors.textSecondary
                             )
                         }
                         ReelChip(text = stringResource(R.string.common_live), highlighted = true)
@@ -392,6 +400,7 @@ private fun LiveRankingDialog(
                         LiveRankingRow(
                             rank = postRanks[post.id]?.position ?: (rankedPosts.indexOf(post) + 1),
                             post = post,
+                            template = template,
                             onOpenPost = { onOpenPost(post) }
                         )
                     }
@@ -405,26 +414,27 @@ private fun LiveRankingDialog(
 private fun LiveRankingRow(
     rank: Int,
     post: Post,
+    template: QuataThemeTemplate,
     onOpenPost: () -> Unit
 ) {
     val borderColor = when (rank) {
-        1 -> Color(0xFFE5D45C)
-        2 -> Color.White.copy(alpha = 0.26f)
+        1 -> template.colors.live
+        2 -> template.colors.divider
         3 -> QuataOrange.copy(alpha = 0.8f)
-        else -> Color.White.copy(alpha = 0.08f)
+        else -> template.colors.divider.copy(alpha = 0.7f)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, borderColor, RoundedCornerShape(20.dp))
-            .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(20.dp))
+            .background(template.colors.surface, RoundedCornerShape(20.dp))
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "#$rank",
-            color = Color(0xFFFFF29E),
+            color = template.colors.live,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 18.sp,
             modifier = Modifier.width(38.dp)
@@ -441,7 +451,7 @@ private fun LiveRankingRow(
             )
             Text(
                 text = postTypeLabel(post),
-                color = Color.White.copy(alpha = 0.62f),
+                color = template.colors.textSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -459,7 +469,7 @@ private fun LiveRankingRow(
             }
             Spacer(Modifier.height(8.dp))
             Surface(
-                color = Color.White.copy(alpha = 0.1f),
+                color = template.colors.surfaceAlt,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .width(86.dp)
@@ -641,6 +651,8 @@ private fun ReelVideo(
     onMuteChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
+    val playerBackground = template.colors.surfaceAlt.toArgb()
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
     var positionMs by remember(videoUrl) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
@@ -699,7 +711,11 @@ private fun ReelVideo(
         if (showFeedback) centerFeedbackTick = System.currentTimeMillis()
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(template.colors.surfaceAlt)
+    ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
@@ -707,6 +723,8 @@ private fun ReelVideo(
                     this.player = player
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    setBackgroundColor(playerBackground)
+                    setShutterBackgroundColor(playerBackground)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -716,6 +734,8 @@ private fun ReelVideo(
             update = {
                 it.useController = false
                 it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                it.setBackgroundColor(playerBackground)
+                it.setShutterBackgroundColor(playerBackground)
                 if (it.player !== player) {
                     it.player = player
                 }
@@ -936,12 +956,13 @@ private fun ReelRoundChip(
     isMuted: Boolean,
     onClick: () -> Unit
 ) {
+    val template = quataTheme()
     Box(
         modifier = Modifier
             .size(56.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.16f))
-            .border(1.dp, Color(0xFFE5D45C), CircleShape)
+            .background(template.colors.surface.copy(alpha = 0.74f))
+            .border(1.dp, template.colors.live, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -952,7 +973,7 @@ private fun ReelRoundChip(
             } else {
                 stringResource(R.string.feed_mute)
             },
-            tint = Color(0xFFFFF29E),
+            tint = template.colors.live,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -964,11 +985,12 @@ private fun ReelChip(
     highlighted: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
-    val borderColor = if (highlighted) Color(0xFFE5D45C) else Color.White.copy(alpha = 0.22f)
-    val textColor = if (highlighted) Color(0xFFFFF29E) else Color.White
+    val template = quataTheme()
+    val borderColor = if (highlighted) template.colors.live else Color.White.copy(alpha = 0.22f)
+    val textColor = if (highlighted) template.colors.live else Color.White
 
     Surface(
-        color = Color.White.copy(alpha = if (highlighted) 0.16f else 0.12f),
+        color = if (highlighted) template.colors.surface.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
         contentColor = textColor,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier
@@ -1052,6 +1074,7 @@ private fun CommentsSheet(
         skipPartiallyExpanded = true,
         confirmValueChange = { it != SheetValue.PartiallyExpanded }
     )
+    val template = quataTheme()
     val comments = post.comments
 
     LaunchedEffect(post.id) {
@@ -1070,8 +1093,8 @@ private fun CommentsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF11141D),
-        contentColor = Color.White
+        containerColor = template.colors.surfaceRaised,
+        contentColor = template.colors.textPrimary
     ) {
         Column(
             modifier = Modifier
@@ -1088,14 +1111,14 @@ private fun CommentsSheet(
                     text = stringResource(R.string.comments_title),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = Color.White.copy(alpha = 0.68f)
+                    color = template.colors.textSecondary
                 )
                 Spacer(Modifier.width(10.dp))
                 Text("💬", fontSize = 16.sp)
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = comments.size.toString(),
-                    color = Color.White.copy(alpha = 0.74f),
+                    color = template.colors.textSecondary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1215,13 +1238,14 @@ private fun ReplyTargetBanner(
     comment: PostComment,
     onClear: () -> Unit
 ) {
+    val template = quataTheme()
     Surface(
-        color = QuataOrange.copy(alpha = 0.08f),
-        contentColor = Color.White,
+        color = template.colors.accent.copy(alpha = 0.08f),
+        contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, QuataOrange.copy(alpha = 0.34f), RoundedCornerShape(18.dp))
+            .border(1.dp, template.colors.accent.copy(alpha = 0.34f), RoundedCornerShape(18.dp))
     ) {
         Row(
             modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
@@ -1230,14 +1254,14 @@ private fun ReplyTargetBanner(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.comments_replying_to, comment.authorName),
-                    color = Color.White.copy(alpha = 0.94f),
+                    color = template.colors.textPrimary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = comment.message,
-                    color = Color.White.copy(alpha = 0.78f),
+                    color = template.colors.textSecondary,
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1248,7 +1272,7 @@ private fun ReplyTargetBanner(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.1f))
+                    .background(template.colors.surfaceAlt)
             ) {
                 CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
             }
@@ -1261,13 +1285,14 @@ private fun CommentRow(
     comment: PostComment,
     onReply: () -> Unit
 ) {
+    val template = quataTheme()
     Surface(
-        color = Color.White.copy(alpha = 0.055f),
-        contentColor = Color.White,
+        color = template.colors.surface,
+        contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
     ) {
         Row(
             modifier = Modifier
@@ -1280,7 +1305,7 @@ private fun CommentRow(
                     modifier = Modifier
                         .fillMaxHeight()
                         .width(2.dp)
-                        .background(Color(0xFF83DCFF))
+                        .background(template.colors.accent)
                 )
                 Spacer(Modifier.width(14.dp))
             }
@@ -1290,12 +1315,12 @@ private fun CommentRow(
                         text = comment.authorName,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.92f),
+                        color = template.colors.textPrimary,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = formatCommentTimestamp(comment.timestamp),
-                        color = Color.White.copy(alpha = 0.58f),
+                        color = template.colors.textSecondary,
                         fontSize = 13.sp
                     )
                 }
@@ -1303,7 +1328,7 @@ private fun CommentRow(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.comments_reply_to, author),
-                        color = Color(0xFF83DCFF),
+                        color = template.colors.accent,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -1311,7 +1336,7 @@ private fun CommentRow(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = quoted,
-                            color = Color.White.copy(alpha = 0.64f),
+                            color = template.colors.textSecondary,
                             fontSize = 13.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -1321,7 +1346,7 @@ private fun CommentRow(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = comment.message,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = template.colors.textPrimary,
                     fontSize = 16.sp,
                     lineHeight = 21.sp,
                     modifier = Modifier.fillMaxWidth()
@@ -1332,7 +1357,7 @@ private fun CommentRow(
                 ) {
                     Text(
                         text = stringResource(R.string.comments_reply_button),
-                        color = Color(0xFF83DCFF),
+                        color = template.colors.accent,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }

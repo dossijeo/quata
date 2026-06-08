@@ -116,8 +116,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
-import com.quata.core.designsystem.theme.QuataDivider
+import com.quata.core.designsystem.theme.QuataThemeTemplate
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
@@ -279,11 +279,15 @@ fun ChatScreen(
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
+    val template = quataTheme()
     val backgroundImage = backgroundSeed?.let { seed ->
+        val backgroundTemplateId = "${template.id}-clouds-v3"
         rememberProceduralChatBackground(
             conversationName = seed,
             width = metrics.widthPixels,
-            height = metrics.heightPixels
+            height = metrics.heightPixels,
+            template = template,
+            templateId = backgroundTemplateId
         )
     }
 
@@ -291,7 +295,7 @@ fun ChatScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF05070C))
+                .background(template.colors.background)
         ) {
             backgroundImage?.let { image ->
                 Image(
@@ -303,7 +307,7 @@ fun ChatScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.63f))
+                        .background(template.colors.scrim)
                 )
             }
             Column(
@@ -649,26 +653,31 @@ fun ChatScreen(
 private fun rememberProceduralChatBackground(
     conversationName: String,
     width: Int,
-    height: Int
+    height: Int,
+    template: QuataThemeTemplate,
+    templateId: String = template.id
 ): ImageBitmap? {
     val context = LocalContext.current.applicationContext
-    var image by remember(conversationName, width, height) {
+    var image by remember(conversationName, width, height, templateId) {
         mutableStateOf(
             ProceduralChatBackground.cachedBitmap(
                 context = context,
                 conversationName = conversationName,
+                templateId = templateId,
                 width = width,
                 height = height
             )
         )
     }
 
-    LaunchedEffect(conversationName, width, height) {
+    LaunchedEffect(conversationName, width, height, templateId) {
         if (image != null) return@LaunchedEffect
         image = withContext(Dispatchers.IO) {
             ProceduralChatBackground.generateIfNeeded(
                 context = context,
                 conversationName = conversationName,
+                templateId = templateId,
+                palettes = template.colors.chatBackgroundPalettes,
                 width = width,
                 height = height
             )
@@ -683,11 +692,12 @@ private fun ComposerModeBanner(
     text: String,
     onClear: () -> Unit
 ) {
+    val template = quataTheme()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 12.dp, top = 10.dp, end = 12.dp)
-            .background(QuataSurface.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
+            .background(template.colors.surface.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
             .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -700,7 +710,8 @@ private fun ComposerModeBanner(
 
 @Composable
 private fun FavoriteMessagesHeader(onBack: () -> Unit) {
-    Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
+    val template = quataTheme()
+    Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -714,10 +725,10 @@ private fun FavoriteMessagesHeader(onBack: () -> Unit) {
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(QuataOrange.copy(alpha = 0.22f)),
+                    .background(template.colors.accent.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.Center
             ) {
-                CompactIcon(Icons.Filled.Star, contentDescription = null, tint = QuataOrange)
+                CompactIcon(Icons.Filled.Star, contentDescription = null, tint = template.colors.accent)
             }
             Spacer(Modifier.width(12.dp))
             Text(stringResource(R.string.conversation_favorites_title), fontWeight = FontWeight.ExtraBold)
@@ -795,7 +806,8 @@ private fun ChatHeader(
     val members = conversation.membersForDisplay(currentUser, usersById, context)
     val isModerator = currentUser?.id != null && currentUser.id in conversation?.moderatorIds.orEmpty()
     val canInvite = isModerator || conversation?.canMembersInvite == true
-    Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
+    val template = quataTheme()
+    Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
         Column {
             if (selectedMessage != null) {
                 Row(
@@ -813,10 +825,10 @@ private fun ChatHeader(
                         CompactIcon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.conversation_copy_message))
                     }
                     CompactIconButton(onClick = onReplySelected) {
-                        CompactIcon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = Color.White)
+                        CompactIcon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = template.colors.textPrimary)
                     }
                     CompactIconButton(onClick = onForwardSelected) {
-                        CompactIcon(Icons.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = Color.White)
+                        CompactIcon(Icons.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = template.colors.textPrimary)
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
                         CompactIconButton(onClick = onEditSelected) {
@@ -1039,9 +1051,10 @@ private fun AddParticipantsDialog(
                 user.email.contains(query, ignoreCase = true)
         }
 
+    val template = quataTheme()
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            color = Color(0xFF111827),
+            color = template.colors.surfaceRaised,
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1068,7 +1081,8 @@ private fun AddParticipantsDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
+                                .background(template.colors.surface.copy(alpha = 0.54f), RoundedCornerShape(16.dp))
+                                .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
                                 .clickable { onToggleUser(user.id) }
                                 .padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1090,7 +1104,7 @@ private fun AddParticipantsDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B5563), contentColor = Color.White),
+                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.surfaceAlt, contentColor = template.colors.textPrimary),
                         modifier = Modifier.compactButtonMinSize(),
                         contentPadding = CompactButtonContentPadding
                     ) {
@@ -1099,7 +1113,7 @@ private fun AddParticipantsDialog(
                     Button(
                         onClick = onAdd,
                         enabled = selectedIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
                         modifier = Modifier.compactButtonMinSize(),
                         contentPadding = CompactButtonContentPadding
                     ) {
@@ -1119,11 +1133,12 @@ private fun ForwardMessageScreen(
     onBack: () -> Unit,
     onSend: () -> Unit
 ) {
+    val template = quataTheme()
     val selectedNames = conversations
         .filter { it.id in selectedIds }
         .joinToString(", ") { it.chatDisplayTitle() }
     Column(Modifier.fillMaxSize()) {
-        Surface(color = QuataSurface.copy(alpha = 0.88f), modifier = Modifier.fillMaxWidth()) {
+        Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1151,8 +1166,8 @@ private fun ForwardMessageScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
-                        .background(QuataSurface.copy(alpha = 0.72f), RoundedCornerShape(16.dp))
+                        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
+                        .background(template.colors.surface.copy(alpha = 0.72f), RoundedCornerShape(16.dp))
                         .clickable { onToggle(conversation.id) }
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1184,7 +1199,7 @@ private fun ForwardMessageScreen(
                 selectedNames.ifBlank { stringResource(R.string.conversation_forward_none_selected) },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Color.White.copy(alpha = if (selectedNames.isBlank()) 0.52f else 0.92f),
+                color = template.colors.textPrimary.copy(alpha = if (selectedNames.isBlank()) 0.52f else 0.92f),
                 modifier = Modifier.weight(1f)
             )
             CompactIconButton(
@@ -1192,9 +1207,9 @@ private fun ForwardMessageScreen(
                 onClick = onSend,
                 modifier = Modifier
                     .size(52.dp)
-                    .background(QuataOrange.copy(alpha = if (selectedIds.isNotEmpty()) 1f else 0.35f), CircleShape)
+                    .background(template.colors.accent.copy(alpha = if (selectedIds.isNotEmpty()) 1f else 0.35f), CircleShape)
             ) {
-                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send), tint = Color.Black)
+                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send), tint = template.colors.accentContent)
             }
         }
     }
@@ -1304,6 +1319,7 @@ private fun ChatAvatar(
     openingProfileUserId: String?,
     onOpenUserProfile: (String) -> Unit
 ) {
+    val template = quataTheme()
     val privateUser = conversation?.participantIds
         ?.firstOrNull { it != currentUser?.id }
         ?.let { usersById[it] }
@@ -1313,14 +1329,14 @@ private fun ChatAvatar(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(if (conversation?.isEmergency == true) Color(0xFF7F1D1D) else QuataOrange.copy(alpha = 0.22f))
-                    .border(1.dp, QuataOrange.copy(alpha = 0.45f), CircleShape),
+                    .background(if (conversation?.isEmergency == true) template.colors.sosSurface else template.colors.accent.copy(alpha = 0.22f))
+                    .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (conversation?.isEmergency == true) {
-                    Text(stringResource(R.string.common_sos), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold)
                 } else {
-                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = Color.White)
+                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
                 }
             }
         } else if (privateUser != null) {
@@ -1342,12 +1358,13 @@ private fun ChatAvatar(
 
 @Composable
 private fun MutedConversationBadge(modifier: Modifier = Modifier) {
+    val template = quataTheme()
     Box(
         modifier = modifier
             .size(16.dp)
             .clip(CircleShape)
-            .background(Color(0xFF111827))
-            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+            .background(template.colors.surfaceRaised)
+            .border(1.dp, template.colors.divider, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Text("\uD83D\uDD15", fontSize = 9.sp)
@@ -1359,6 +1376,7 @@ private fun ChatMessageSkeleton(
     isMine: Boolean,
     pulseDelayMillis: Int
 ) {
+    val template = quataTheme()
     val transition = rememberInfiniteTransition(label = "chat_message_skeleton")
     val pulse by transition.animateFloat(
         initialValue = 0.48f,
@@ -1369,8 +1387,8 @@ private fun ChatMessageSkeleton(
         ),
         label = "chat_message_skeleton_alpha"
     )
-    val bubbleColor = if (isMine) QuataOrange.copy(alpha = 0.12f + 0.12f * pulse) else Color.White.copy(alpha = 0.05f + 0.08f * pulse)
-    val lineColor = Color.White.copy(alpha = 0.07f + 0.13f * pulse)
+    val bubbleColor = if (isMine) template.colors.accent.copy(alpha = 0.12f + 0.12f * pulse) else template.colors.surface.copy(alpha = 0.28f + 0.20f * pulse)
+    val lineColor = template.colors.textPrimary.copy(alpha = 0.07f + 0.13f * pulse)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1382,7 +1400,7 @@ private fun ChatMessageSkeleton(
                     .padding(top = 4.dp, end = 8.dp)
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f + 0.08f * pulse))
+                    .background(template.colors.surface.copy(alpha = 0.28f + 0.20f * pulse))
             )
         }
         Column(
@@ -1421,7 +1439,7 @@ private fun ChatMessageSkeleton(
                     .padding(start = 8.dp, top = 4.dp)
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(QuataOrange.copy(alpha = 0.08f + 0.10f * pulse))
+                    .background(template.colors.accent.copy(alpha = 0.08f + 0.10f * pulse))
             )
         }
     }
@@ -1439,6 +1457,7 @@ private fun MessageBubble(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
     val mapsUrl = message.text.extractMapsUrl()
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1453,7 +1472,7 @@ private fun MessageBubble(
                 onClick = onOpenSenderProfile,
                 modifier = Modifier
                     .size(34.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+                    .border(1.dp, template.colors.divider, CircleShape)
             )
             Spacer(Modifier.width(8.dp))
         }
@@ -1462,16 +1481,25 @@ private fun MessageBubble(
                 .fillMaxWidth(if (showSenderAvatar) 0.72f else 0.78f)
                 .background(
                     when {
-                        isSelected -> Color(0xFFFFF3C4)
-                        message.isMine -> QuataOrange
-                        else -> QuataSurface
+                        isSelected -> template.colors.chatSelected
+                        message.isMine -> template.colors.chatMine
+                        else -> template.colors.chatOther
                     },
                     RoundedCornerShape(20.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = when {
+                        isSelected -> template.colors.accent.copy(alpha = 0.45f)
+                        message.isMine -> Color.Transparent
+                        else -> template.colors.divider
+                    },
+                    shape = RoundedCornerShape(20.dp)
                 )
                 .clickable(onClick = onClick)
                 .padding(14.dp)
         ) {
-            val textColor = if (message.isMine || isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
+            val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.weight(1f))
                 Box(
@@ -1552,7 +1580,7 @@ private fun MessageBubble(
                     LinkifiedMessageText(
                         text = message.text,
                         color = textColor,
-                        linkColor = if (message.isMine || isSelected) Color.Black else QuataOrange
+                        linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
                     )
                 }
                 message.attachmentPreview()?.let { attachment ->
@@ -1589,7 +1617,7 @@ private fun MessageBubble(
                 Spacer(Modifier.padding(4.dp))
                 Text(
                     text = stringResource(R.string.conversation_open_maps),
-                    color = if (message.isMine) Color.Black else QuataOrange,
+                    color = if (message.isMine) template.colors.accentContent else template.colors.accent,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { context.openMaps(mapsUrl) }
                 )

@@ -81,10 +81,8 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataDivider
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataSurface
-import com.quata.core.designsystem.theme.QuataSurfaceAlt
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.withoutPostShortcodes
@@ -127,6 +125,7 @@ fun NeighborhoodsScreen(
     viewModel: NeighborhoodsViewModel = viewModel(factory = NeighborhoodsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val template = quataTheme()
     var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
     var neighborhoodQuery by rememberSaveable { mutableStateOf("") }
     val canParticipate = currentUserId != null
@@ -205,7 +204,7 @@ fun NeighborhoodsScreen(
                 ) {
                     Text(
                         stringResource(R.string.neighborhoods_loading),
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = template.colors.textSecondary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -246,12 +245,13 @@ private fun NeighborhoodCard(
     onOpenChat: () -> Unit
 ) {
     val context = LocalContext.current
+    val template = quataTheme()
     Card(
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = QuataSurface),
+        colors = CardDefaults.cardColors(containerColor = template.colors.surface),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, QuataDivider, RoundedCornerShape(22.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(22.dp))
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
@@ -321,7 +321,7 @@ private fun NeighborhoodCard(
                     modifier = Modifier.compactButtonMinSize(),
                     contentPadding = CompactButtonContentPadding,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = QuataSurfaceAlt,
+                        containerColor = template.colors.surfaceAlt,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
@@ -342,26 +342,28 @@ private fun NeighborhoodCard(
 
 @Composable
 private fun NeighborhoodAvatar(name: String, modifier: Modifier = Modifier) {
+    val template = quataTheme()
     val letter = name.trim().firstOrNull()?.uppercase() ?: "B"
     Box(
         modifier = modifier
             .size(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(QuataOrange),
+            .background(template.colors.accent),
         contentAlignment = Alignment.Center
     ) {
-        Text(letter, color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
+        Text(letter, color = template.colors.accentContent, fontWeight = FontWeight.Black, fontSize = template.textSizes.title)
     }
 }
 
 @Composable
 private fun CountPill(text: String) {
+    val template = quataTheme()
     Box(
         modifier = Modifier
-            .background(Color(0xFF5A372B), CircleShape)
+            .background(template.colors.sosSurface, CircleShape)
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
-        Text(text, color = Color.White, fontSize = 12.sp)
+        Text(text, color = template.colors.textPrimary, fontSize = template.textSizes.caption)
     }
 }
 
@@ -454,6 +456,7 @@ fun CommunityProfileScreen(
     var userListTitle by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     val context = LocalContext.current
+    val template = quataTheme()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(showPosts) {
@@ -462,8 +465,8 @@ fun CommunityProfileScreen(
     ModalBottomSheet(
         onDismissRequest = onBack,
         sheetState = sheetState,
-        containerColor = Color(0xFF0D1422),
-        contentColor = Color.White
+        containerColor = template.colors.background,
+        contentColor = template.colors.textPrimary
     ) {
         if (userListTitle != null) {
             ProfileUsersListContent(
@@ -630,12 +633,13 @@ private fun ProfileAttachmentsSection(
 
 @Composable
 private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Unit) {
+    val template = quataTheme()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
-            .background(QuataSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
+            .background(template.colors.surface, RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
             .padding(10.dp)
     ) {
@@ -662,10 +666,12 @@ private fun NeighborhoodUserRow(
     onOpenProfile: () -> Unit,
     onOpenPrivateChat: () -> Unit
 ) {
+    val template = quataTheme()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, QuataDivider, RoundedCornerShape(18.dp))
+            .background(template.colors.surface.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -692,7 +698,7 @@ private fun NeighborhoodUserRow(
                 enabled = !isOwnUser,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
+                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
             ) {
                 CompactIcon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
@@ -708,13 +714,13 @@ private fun NeighborhoodUserRow(
                 enabled = !isOwnUser && !isOpeningChat,
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.accent)
             ) {
                 if (isOpeningChat) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = QuataOrange
+                        color = template.colors.accent
                     )
                 } else {
                     CompactIcon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -783,6 +789,7 @@ private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier,
 
 @Composable
 private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val template = quataTheme()
     val animatedValue by animateIntAsState(
         targetValue = value,
         animationSpec = tween(durationMillis = 650),
@@ -790,8 +797,8 @@ private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier,
     )
     Column(
         modifier = modifier
-            .border(1.dp, QuataDivider, RoundedCornerShape(16.dp))
-            .background(QuataSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
+            .background(template.colors.surface, RoundedCornerShape(16.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -1022,13 +1029,14 @@ private fun ProfileCommentsDialog(
     onDismiss: () -> Unit
 ) {
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
+    val template = quataTheme()
     val comments = post.comments + localComments
     val currentUserName = stringResource(R.string.comments_you)
     val nowLabel = stringResource(R.string.common_now)
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
+            colors = CardDefaults.cardColors(containerColor = template.colors.surfaceRaised),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(18.dp)) {
@@ -1045,10 +1053,10 @@ private fun ProfileCommentsDialog(
                     items(comments, key = { it.id }) { comment ->
                         Card(
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.055f)),
+                            colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
                         ) {
                             Column(Modifier.padding(12.dp)) {
                                 Text(comment.authorName, fontWeight = FontWeight.Bold)
@@ -1087,7 +1095,7 @@ private fun ProfileCommentsDialog(
                                 onAuthRequired()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
                     ) {
                         Text(stringResource(R.string.common_send))
                     }

@@ -21,6 +21,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import com.quata.core.ui.components.CompactIcon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.R
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.profile.domain.CountryPrefix
 
 @Composable
@@ -49,6 +51,7 @@ fun PhoneInputSection(
     phoneLabel: String,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     Row(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -72,7 +75,14 @@ fun PhoneInputSection(
             modifier = Modifier
                 .weight(0.62f)
                 .height(58.dp),
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = template.colors.surfaceAlt,
+                unfocusedContainerColor = template.colors.surfaceAlt,
+                focusedBorderColor = template.colors.accent,
+                unfocusedBorderColor = template.colors.inputBorder,
+                cursorColor = template.colors.accent
+            )
         )
     }
 }
@@ -85,6 +95,7 @@ fun PrefixDropdownField(
     displayText: String,
     modifier: Modifier = Modifier
 ) {
+    val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val filteredOptions = remember(options, query) {
@@ -105,7 +116,7 @@ fun PrefixDropdownField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
                 .clickable { expanded = true }
         ) {
             Row(
@@ -114,7 +125,7 @@ fun PrefixDropdownField(
             ) {
                 Text(
                     text = displayText.ifBlank { value },
-                    color = Color.White,
+                    color = template.colors.textPrimary,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
