@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -244,9 +245,9 @@ class ChatRepositoryImpl(
         return if (AppConfig.USE_MOCK_BACKEND) {
             flowOf(MockData.registeredUsers)
         } else {
-            flow {
-                emit(runCatching { remote.getProfiles().map { it.toUser() } }.getOrDefault(emptyList()))
-            }
+            remote.observeProfiles()
+                .map { profiles -> profiles.map { it.toUser() } }
+                .catch { emit(emptyList()) }
         }
     }
 

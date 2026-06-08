@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
 import com.quata.feature.profile.domain.UserProfile
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,9 +18,11 @@ class ProfileViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private var profileJob: Job? = null
+    private var hasLocalEdits = false
 
     init {
-        loadProfile()
+        observeProfile()
     }
 
     fun onEvent(event: ProfileUiEvent) {
@@ -50,28 +53,32 @@ class ProfileViewModel(
         }
     }
 
-    private fun loadProfile() {
-        viewModelScope.launch {
+    private fun observeProfile() {
+        profileJob?.cancel()
+        profileJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            repository.getProfileEditModel()
-                .onSuccess { model ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            profile = model.profile,
-                            countryPrefixes = model.config.countryPrefixes,
-                            secretQuestions = model.config.secretQuestions,
-                            emergencyCandidates = model.config.emergencyCandidates
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "No se pudo cargar el perfil"
-                        )
-                    }
+            repository.observeProfileEditModel()
+                .collect { result ->
+                    result
+                        .onSuccess { model ->
+                            _uiState.update { state ->
+                                state.copy(
+                                    isLoading = false,
+                                    profile = if (!hasLocalEdits && !state.isSaving) model.profile else state.profile,
+                                    countryPrefixes = model.config.countryPrefixes,
+                                    secretQuestions = model.config.secretQuestions,
+                                    emergencyCandidates = model.config.emergencyCandidates
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = error.message ?: "No se pudo cargar el perfil"
+                                )
+                            }
+                        }
                 }
         }
     }
@@ -97,6 +104,7 @@ class ProfileViewModel(
                 )
             )
                 .onSuccess {
+                    hasLocalEdits = false
                     _uiState.update {
                         it.copy(
                             isSaving = false,
@@ -118,6 +126,7 @@ class ProfileViewModel(
     }
 
     private fun updateProfile(transform: UserProfile.() -> UserProfile) {
+        hasLocalEdits = true
         _uiState.update { state ->
             val profile = state.profile ?: return@update state
             state.copy(profile = profile.transform())

@@ -13,6 +13,13 @@ import com.quata.data.supabase.CommunityPost
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import com.quata.wordpress.QuataWordPressClient
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 class FeedRepositoryImpl(
     private val appContext: Context,
@@ -21,6 +28,40 @@ class FeedRepositoryImpl(
     private val wordpressClient: QuataWordPressClient,
     private val sessionManager: SessionManager
 ) : FeedRepository {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeFeed(): Flow<Result<List<Post>>> =
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.postsFlow.map { Result.success(it) }
+        } else {
+            remote.observePosts()
+                .flatMapLatest { posts ->
+                    val postIds = posts.map { it.id }
+                    if (postIds.isEmpty()) {
+                        flowOf(FeedSnapshot(posts = posts))
+                    } else {
+                        combine(
+                            remote.observeComments(postIds),
+                            remote.observeLikes(postIds)
+                        ) { comments, likes ->
+                            FeedSnapshot(posts = posts, comments = comments, likes = likes)
+                        }
+                    }
+                }
+                .flatMapLatest { snapshot ->
+                    val profileIds = snapshot.profileIds()
+                    if (profileIds.isEmpty()) {
+                        flowOf(buildPosts(snapshot.posts, snapshot.comments, snapshot.likes, emptyList()))
+                    } else {
+                        remote.observeProfiles(profileIds)
+                            .map { profiles -> buildPosts(snapshot.posts, snapshot.comments, snapshot.likes, profiles) }
+                    }
+                }
+                .map { posts -> Result.success(posts) }
+                .catch { error ->
+                    emit(Result.failure<List<Post>>(error).mapFailureToUserFacing(appContext, R.string.error_load_feed))
+                }
+        }
+
     override suspend fun getFeed(): Result<List<Post>> =
         runCatching { loadPostShells() }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
     override suspend fun refreshFeed(): Result<List<Post>> = getFeed()
@@ -92,17 +133,23 @@ class FeedRepositoryImpl(
     private suspend fun loadPostShells(): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
 
-        val currentUserId = sessionManager.currentSession()?.userId
         val posts = remote.getPosts()
         val postIds = posts.map { it.id }
         val comments = if (postIds.isEmpty()) emptyList() else remote.getComments(postIds)
         val likes = if (postIds.isEmpty()) emptyList() else remote.getLikes(postIds)
-        val profileIds = (
-            posts.mapNotNull { it.profile_id ?: it.author_id } +
-                comments.mapNotNull { it.profile_id } +
-                likes.mapNotNull { it.profile_id }
-            ).distinct()
+        val profileIds = FeedSnapshot(posts, comments, likes).profileIds()
         val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
+        return buildPosts(posts, comments, likes, profilesById.values.toList())
+    }
+
+    private fun buildPosts(
+        posts: List<CommunityPost>,
+        comments: List<com.quata.data.supabase.CommunityComment>,
+        likes: List<com.quata.data.supabase.CommunityPostLike>,
+        profiles: List<com.quata.data.supabase.CommunityProfile>
+    ): List<Post> {
+        val currentUserId = sessionManager.currentSession()?.userId
+        val profilesById = profiles.associateBy { it.id }
         val commentsByPostId = comments.groupBy { it.post_id }
         val likesByPostId = likes.groupBy { it.post_id }
 
@@ -154,5 +201,17 @@ class FeedRepositoryImpl(
             likesCount = postLikes.size,
             likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
         )
+    }
+
+    private data class FeedSnapshot(
+        val posts: List<CommunityPost>,
+        val comments: List<com.quata.data.supabase.CommunityComment> = emptyList(),
+        val likes: List<com.quata.data.supabase.CommunityPostLike> = emptyList()
+    ) {
+        fun profileIds(): List<String> = (
+            posts.mapNotNull { it.profile_id ?: it.author_id } +
+                comments.mapNotNull { it.profile_id } +
+                likes.mapNotNull { it.profile_id }
+            ).distinct()
     }
 }

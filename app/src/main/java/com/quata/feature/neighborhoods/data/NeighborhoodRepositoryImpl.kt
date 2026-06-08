@@ -14,7 +14,11 @@ import com.quata.core.model.AuthSession
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
+import com.quata.data.supabase.CommunityComment
+import com.quata.data.supabase.CommunityPost
+import com.quata.data.supabase.CommunityPostLike
 import com.quata.data.supabase.CommunityProfile
+import com.quata.data.supabase.CommunityProfileFollow
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
 import com.quata.feature.chat.data.BetterMessagesConversationCacheStore
@@ -31,10 +35,13 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.profile.data.ProfileRemoteDataSource
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -64,32 +71,29 @@ class NeighborhoodRepositoryImpl(
                 )
             }
         } else {
-            val communitiesFlow = flow {
-                while (true) {
-                    runCatching {
-                        val profiles = profileRemote.getDirectoryProfiles().map { it.toNeighborhoodUserReal() }
-                        val walls = supabaseApi.getActiveWallsStats()
-                        walls.map { wall ->
-                            val users = profiles
-                                .filter { user -> user.neighborhood.equals(wall.name, ignoreCase = true) || user.neighborhood.equals(wall.normalized_name, ignoreCase = true) }
-                                .sortedBy { it.displayName.lowercase() }
-                            NeighborhoodCommunity(
-                                name = wall.name ?: wall.slug ?: "Comunidad",
-                                users = users,
-                                conversationId = wallConversationId(wall.id),
-                                lastMessagePreview = null,
-                                lastMessageAtMillis = wall.chat_last_at?.toEpochMillisOrNull(),
-                                messageCount = wall.chat_count ?: 0
-                            )
-                        }.sortedWith(
-                            compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
-                                .thenBy { it.name.lowercase() }
-                        )
-                    }.onSuccess { emit(it) }
-                        .onFailure { emit(emptyList()) }
-                    delay(10_000)
-                }
-            }
+            val communitiesFlow = combine(
+                profileRemote.observeDirectoryProfiles(),
+                supabaseApi.observeActiveWallsStats()
+            ) { profiles, walls ->
+                val users = profiles.map { it.toNeighborhoodUserReal() }
+                walls.map { wall ->
+                    val wallName = wall.name ?: wall.slug ?: "Comunidad"
+                    val wallUsers = users
+                        .filter { user -> user.neighborhood.equals(wall.name, ignoreCase = true) || user.neighborhood.equals(wall.normalized_name, ignoreCase = true) }
+                        .sortedBy { it.displayName.lowercase() }
+                    NeighborhoodCommunity(
+                        name = wallName,
+                        users = wallUsers,
+                        conversationId = wallConversationId(wall.id),
+                        lastMessagePreview = null,
+                        lastMessageAtMillis = wall.chat_last_at?.toEpochMillisOrNull(),
+                        messageCount = wall.chat_count ?: 0
+                    )
+                }.sortedWith(
+                    compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
+                        .thenBy { it.name.lowercase() }
+                )
+            }.catch { emit(emptyList()) }
             combine(communitiesFlow, chatRepository.observeConversations()) { communities, conversations ->
                 communities.map { community ->
                     val communityConversation = conversations.firstOrNull { conversation ->
@@ -194,19 +198,91 @@ class NeighborhoodRepositoryImpl(
         profileCacheStore.write(profile)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return flowOf(runCatching { mockCommunityUserProfile(userId) })
+        }
+        val currentUserId = sessionManager.currentSession()?.userId
+        return profileRemote.observeProfile(userId)
+            .flatMapLatest { profile ->
+                if (profile == null) {
+                    flowOf<Result<CommunityUserProfile>>(Result.failure(IllegalStateException("Usuario no encontrado")))
+                } else {
+                    supabaseApi.observeFeedPosts(profileId = userId)
+                        .flatMapLatest { remotePosts ->
+                            val postIds = remotePosts.map { it.id }
+                            combine(
+                                supabaseApi.observeComments(postIds),
+                                supabaseApi.observeLikes(postIds)
+                            ) { comments, likes ->
+                                ProfilePostSnapshot(
+                                    profile = profile,
+                                    posts = remotePosts,
+                                    comments = comments,
+                                    likes = likes
+                                )
+                            }
+                        }
+                        .flatMapLatest { postSnapshot ->
+                            val interactionProfileIds = postSnapshot.interactionProfileIds()
+                            val interactionProfilesFlow = if (interactionProfileIds.isEmpty()) {
+                                flowOf(emptyList())
+                            } else {
+                                supabaseApi.observeProfiles(interactionProfileIds)
+                            }
+                            combine(
+                                interactionProfilesFlow,
+                                supabaseApi.observeProfileFollows(followedProfileId = userId),
+                                supabaseApi.observeProfileFollows(followerProfileId = userId),
+                                currentUserId
+                                    ?.let { supabaseApi.observeProfileFollows(followerProfileId = it) }
+                                    ?: flowOf(emptyList())
+                            ) { interactionProfiles, followers, following, currentFollowing ->
+                                ProfileRelationshipSnapshot(
+                                    postSnapshot = postSnapshot,
+                                    interactionProfiles = interactionProfiles,
+                                    followers = followers,
+                                    following = following,
+                                    currentFollowing = currentFollowing
+                                )
+                            }
+                        }
+                        .flatMapLatest { relationshipSnapshot ->
+                            val relatedIds = relationshipSnapshot.relatedProfileIds()
+                            val relatedProfilesFlow = if (relatedIds.isEmpty()) {
+                                flowOf(emptyList())
+                            } else {
+                                supabaseApi.observeProfiles(relatedIds)
+                            }
+                            relatedProfilesFlow.map { relatedProfiles ->
+                                val profile = buildCommunityUserProfile(
+                                    profile = relationshipSnapshot.postSnapshot.profile,
+                                    remotePosts = relationshipSnapshot.postSnapshot.posts,
+                                    comments = relationshipSnapshot.postSnapshot.comments,
+                                    likes = relationshipSnapshot.postSnapshot.likes,
+                                    interactionProfiles = relationshipSnapshot.interactionProfiles,
+                                    followers = relationshipSnapshot.followers,
+                                    following = relationshipSnapshot.following,
+                                    relatedProfiles = relatedProfiles,
+                                    currentFollowingIds = relationshipSnapshot.currentFollowing.mapNotNull { it.followed_profile_id }.toSet(),
+                                    currentUserId = currentUserId,
+                                    userId = userId
+                                )
+                                profileCacheStore.write(profile)
+                                Result.success(profile)
+                            }
+                        }
+                }
+            }
+            .catch { error ->
+                emit(Result.failure<CommunityUserProfile>(error).mapFailureToUserFacing(appContext, R.string.error_load_profile))
+            }
+    }
+
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
-            val user = MockData.registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
-            return@runCatching CommunityUserProfile(
-                user = user.toNeighborhoodUser(),
-                posts = MockData.posts.filter { it.author.id == userId },
-                attachments = MockData.profileAttachmentsWith(
-                    userId = userId,
-                    currentUserId = sessionManager.currentSession()?.userId ?: MockData.currentUser.id
-                ),
-                followers = MockData.followersFor(userId).map { it.toNeighborhoodUser() },
-                following = MockData.followingFor(userId).map { it.toNeighborhoodUser() }
-            )
+            return@runCatching mockCommunityUserProfile(userId)
         }
         val profile = profileRemote.getProfile(userId) ?: error("Usuario no encontrado")
         val currentUserId = sessionManager.currentSession()?.userId
@@ -223,6 +299,45 @@ class NeighborhoodRepositoryImpl(
         } else {
             supabaseApi.getProfiles(interactionProfileIds).associateBy { it.id }
         }
+        val followers = supabaseApi.getProfileFollows(followedProfileId = userId)
+        val following = supabaseApi.getProfileFollows(followerProfileId = userId)
+        val relatedIds = (
+            followers.mapNotNull { it.follower_profile_id } +
+                following.mapNotNull { it.followed_profile_id }
+            ).distinct()
+        val relatedProfiles = if (relatedIds.isEmpty()) emptyList() else supabaseApi.getProfiles(relatedIds)
+        val currentFollowingIds = currentUserId
+            ?.let { supabaseApi.getProfileFollows(followerProfileId = it).mapNotNull { follow -> follow.followed_profile_id }.toSet() }
+            .orEmpty()
+        buildCommunityUserProfile(
+            profile = profile,
+            remotePosts = remotePosts,
+            comments = comments,
+            likes = likes,
+            interactionProfiles = interactionProfilesById.values.toList(),
+            followers = followers,
+            following = following,
+            relatedProfiles = relatedProfiles,
+            currentFollowingIds = currentFollowingIds,
+            currentUserId = currentUserId,
+            userId = userId
+        ).also { profileCacheStore.write(it) }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
+
+    private suspend fun buildCommunityUserProfile(
+        profile: CommunityProfile,
+        remotePosts: List<CommunityPost>,
+        comments: List<CommunityComment>,
+        likes: List<CommunityPostLike>,
+        interactionProfiles: List<CommunityProfile>,
+        followers: List<CommunityProfileFollow>,
+        following: List<CommunityProfileFollow>,
+        relatedProfiles: List<CommunityProfile>,
+        currentFollowingIds: Set<String>,
+        currentUserId: String?,
+        userId: String
+    ): CommunityUserProfile {
+        val interactionProfilesById = interactionProfiles.associateBy { it.id }
         val posts = remotePosts.map { post ->
             val postComments = comments
                 .filter { it.post_id == post.id }
@@ -239,16 +354,7 @@ class NeighborhoodRepositoryImpl(
                 likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
             )
         }
-        val followers = supabaseApi.getProfileFollows(followedProfileId = userId)
-        val following = supabaseApi.getProfileFollows(followerProfileId = userId)
-        val relatedIds = (
-            followers.mapNotNull { it.follower_profile_id } +
-                following.mapNotNull { it.followed_profile_id }
-            ).distinct()
-        val relatedProfilesById = if (relatedIds.isEmpty()) emptyMap() else supabaseApi.getProfiles(relatedIds).associateBy { it.id }
-        val currentFollowingIds = currentUserId
-            ?.let { supabaseApi.getProfileFollows(followerProfileId = it).mapNotNull { follow -> follow.followed_profile_id }.toSet() }
-            .orEmpty()
+        val relatedProfilesById = relatedProfiles.associateBy { it.id }
         val followerUsers = followers.mapNotNull { follow ->
             relatedProfilesById[follow.follower_profile_id]?.toNeighborhoodUserReal(
                 isFollowing = follow.follower_profile_id?.let { it in currentFollowingIds } == true
@@ -262,7 +368,7 @@ class NeighborhoodRepositoryImpl(
         val attachments = currentUserId
             ?.let { loadSharedBetterMessagesAttachments(it, userId, profile.displayName()) }
             .orEmpty()
-        CommunityUserProfile(
+        return CommunityUserProfile(
             user = profile.toNeighborhoodUserReal(
                 isFollowing = currentUserId != null && followers.any { it.follower_profile_id == currentUserId },
                 followersCount = followers.size,
@@ -274,7 +380,21 @@ class NeighborhoodRepositoryImpl(
             followers = followerUsers,
             following = followingUsers
         )
-    }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
+    }
+
+    private fun mockCommunityUserProfile(userId: String): CommunityUserProfile {
+        val user = MockData.registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
+        return CommunityUserProfile(
+            user = user.toNeighborhoodUser(),
+            posts = MockData.posts.filter { it.author.id == userId },
+            attachments = MockData.profileAttachmentsWith(
+                userId = userId,
+                currentUserId = sessionManager.currentSession()?.userId ?: MockData.currentUser.id
+            ),
+            followers = MockData.followersFor(userId).map { it.toNeighborhoodUser() },
+            following = MockData.followingFor(userId).map { it.toNeighborhoodUser() }
+        )
+    }
 
     private suspend fun loadSharedBetterMessagesAttachments(
         currentUserId: String,
@@ -491,6 +611,31 @@ class NeighborhoodRepositoryImpl(
             }
 
     private fun String.normalizeName(): String = trim().lowercase()
+
+    private data class ProfilePostSnapshot(
+        val profile: CommunityProfile,
+        val posts: List<CommunityPost>,
+        val comments: List<CommunityComment>,
+        val likes: List<CommunityPostLike>
+    ) {
+        fun interactionProfileIds(): List<String> = (
+            comments.mapNotNull { it.profile_id } +
+                likes.mapNotNull { it.profile_id }
+            ).distinct()
+    }
+
+    private data class ProfileRelationshipSnapshot(
+        val postSnapshot: ProfilePostSnapshot,
+        val interactionProfiles: List<CommunityProfile>,
+        val followers: List<CommunityProfileFollow>,
+        val following: List<CommunityProfileFollow>,
+        val currentFollowing: List<CommunityProfileFollow>
+    ) {
+        fun relatedProfileIds(): List<String> = (
+            followers.mapNotNull { it.follower_profile_id } +
+                following.mapNotNull { it.followed_profile_id }
+            ).distinct()
+    }
 
     private companion object {
         val BETTER_MESSAGES_ATTACHMENT_DATE_FORMAT: DateTimeFormatter =

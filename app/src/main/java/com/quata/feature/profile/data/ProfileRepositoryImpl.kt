@@ -15,6 +15,11 @@ import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
 import com.quata.feature.profile.domain.UserProfile
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 class ProfileRepositoryImpl(
     private val remote: ProfileRemoteDataSource,
@@ -24,24 +29,38 @@ class ProfileRepositoryImpl(
 ) : ProfileRepository {
     private val emergencyMessageStore = EmergencyMessageStore(context)
 
-    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
+    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> {
         if (AppConfig.USE_MOCK_BACKEND) {
-            return@runCatching ProfileEditModel(
-                profile = buildMockProfile(),
+            return flowOf(getMockProfileEditModel())
+        }
+        val session = sessionManager.currentSession()
+            ?: return flowOf(Result.failure(IllegalStateException("No hay sesion activa")))
+        val storedEmergencyMessage = emergencyMessageStore.get(session.userId)
+        return combine(
+            remote.observeEmergencyContactIds(session.userId),
+            remote.observeProfile(session.userId),
+            remote.observeEmergencyCandidates()
+        ) { contactIds, profile, candidates ->
+            val userProfile = profile?.toProfile(session.displayName, contactIds, storedEmergencyMessage)
+                ?: error("Perfil no encontrado")
+            ProfileEditModel(
+                profile = userProfile,
                 config = buildProfileConfig(
-                    emergencyCandidates = MockData.mockAuthProfiles
-                        .filterNot { it.id == (sessionManager.currentSession()?.userId ?: MockData.currentUser.id) }
-                        .map {
-                            EmergencyContactCandidate(
-                                id = it.id,
-                                displayName = it.displayName,
-                                email = it.email,
-                                neighborhood = it.neighborhood,
-                                phone = it.phone
-                            )
-                        }
+                    emergencyCandidates = candidates
+                        .filterNot { it.id == session.userId }
+                        .map { it.toEmergencyCandidate() }
                 )
             )
+        }
+            .map { model -> Result.success(model) }
+            .catch { error ->
+                emit(Result.failure<ProfileEditModel>(error).mapFailureToUserFacing(context, R.string.error_load_profile))
+            }
+    }
+
+    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return@runCatching getMockProfileEditModel().getOrThrow()
         }
 
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -101,6 +120,25 @@ class ProfileRepositoryImpl(
 
     override fun changesSavedMessage(): String =
         context.getString(R.string.profile_changes_saved)
+
+    private fun getMockProfileEditModel(): Result<ProfileEditModel> = runCatching {
+        ProfileEditModel(
+            profile = buildMockProfile(),
+            config = buildProfileConfig(
+                emergencyCandidates = MockData.mockAuthProfiles
+                    .filterNot { it.id == (sessionManager.currentSession()?.userId ?: MockData.currentUser.id) }
+                    .map {
+                        EmergencyContactCandidate(
+                            id = it.id,
+                            displayName = it.displayName,
+                            email = it.email,
+                            neighborhood = it.neighborhood,
+                            phone = it.phone
+                        )
+                    }
+            )
+        )
+    }
 
     private fun buildMockProfile(): UserProfile {
         val session = sessionManager.currentSession()

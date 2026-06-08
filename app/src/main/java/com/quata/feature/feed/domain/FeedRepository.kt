@@ -3,8 +3,10 @@ package com.quata.feature.feed.domain
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import kotlinx.coroutines.flow.Flow
 
 interface FeedRepository {
+    fun observeFeed(): Flow<Result<List<Post>>>
     suspend fun getFeed(): Result<List<Post>>
     suspend fun refreshFeed(): Result<List<Post>>
     suspend fun refreshAuthor(userId: String): Result<User?>

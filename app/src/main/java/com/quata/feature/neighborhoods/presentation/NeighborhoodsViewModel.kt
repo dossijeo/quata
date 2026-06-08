@@ -21,6 +21,7 @@ class NeighborhoodsViewModel(
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
     val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null
+    private var profileJob: Job? = null
 
     fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
@@ -121,23 +122,15 @@ class NeighborhoodsViewModel(
     }
 
     fun openUserProfile(userId: String) {
+        profileJob?.cancel()
         viewModelScope.launch {
             val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
-            if (freshCachedProfile != null) {
-                _uiState.value = _uiState.value.copy(
-                    selectedProfile = freshCachedProfile,
-                    openingProfileUserId = null,
-                    refreshingProfileUserId = null,
-                    error = null
-                )
-                return@launch
-            }
-            val cachedProfile = repository.getCachedUserProfile(userId)
+            val cachedProfile = freshCachedProfile ?: repository.getCachedUserProfile(userId)
             if (cachedProfile != null) {
                 _uiState.value = _uiState.value.copy(
                     selectedProfile = cachedProfile,
                     openingProfileUserId = null,
-                    refreshingProfileUserId = userId,
+                    refreshingProfileUserId = if (freshCachedProfile == null) userId else null,
                     error = null
                 )
             } else {
@@ -147,33 +140,39 @@ class NeighborhoodsViewModel(
                     error = null
                 )
             }
-            repository.getUserProfile(userId)
-                .onSuccess { profile ->
-                    repository.cacheUserProfile(profile)
-                    val currentState = _uiState.value
-                    val shouldUpdateVisibleProfile =
-                        currentState.selectedProfile?.user?.id == userId ||
-                            currentState.openingProfileUserId == userId ||
-                            currentState.refreshingProfileUserId == userId
-                    _uiState.value = currentState.copy(
-                        openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
-                        refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
-                        selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
-                        error = null
-                    )
-                }
-                .onFailure { error ->
-                    val currentState = _uiState.value
-                    _uiState.value = currentState.copy(
-                        openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
-                        refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
-                        error = error.message ?: "No se pudo abrir el perfil"
-                    )
+            profileJob = viewModelScope.launch {
+                repository.observeUserProfile(userId)
+                    .collect { result ->
+                        result
+                            .onSuccess { profile ->
+                                val currentState = _uiState.value
+                                val shouldUpdateVisibleProfile =
+                                    currentState.selectedProfile?.user?.id == userId ||
+                                        currentState.openingProfileUserId == userId ||
+                                        currentState.refreshingProfileUserId == userId
+                                _uiState.value = currentState.copy(
+                                    openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                                    refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
+                                    selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
+                                    error = null
+                                )
+                            }
+                            .onFailure { error ->
+                                val currentState = _uiState.value
+                                _uiState.value = currentState.copy(
+                                    openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                                    refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
+                                    error = error.message ?: "No se pudo abrir el perfil"
+                                )
+                            }
+                    }
                 }
         }
     }
 
     fun closeUserProfile() {
+        profileJob?.cancel()
+        profileJob = null
         _uiState.value = _uiState.value.copy(
             openingProfileUserId = null,
             refreshingProfileUserId = null,

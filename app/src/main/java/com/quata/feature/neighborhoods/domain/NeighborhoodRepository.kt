@@ -10,5 +10,6 @@ interface NeighborhoodRepository {
     suspend fun openPrivateChat(userId: String): Result<String>
     suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long? = null): CommunityUserProfile?
     suspend fun cacheUserProfile(profile: CommunityUserProfile)
+    fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>>
     suspend fun getUserProfile(userId: String): Result<CommunityUserProfile>
 }

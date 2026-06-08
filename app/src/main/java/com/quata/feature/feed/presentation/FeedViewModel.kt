@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.quata.feature.feed.domain.FeedRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
@@ -14,12 +16,13 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
     private val loadedDetailPostIds = mutableSetOf<String>()
     private val loadingDetailPostIds = mutableSetOf<String>()
+    private var feedJob: Job? = null
 
-    init { load() }
+    init { observeFeed() }
 
     fun onEvent(event: FeedUiEvent) {
         when (event) {
-            FeedUiEvent.Refresh -> load()
+            FeedUiEvent.Refresh -> refresh()
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
@@ -28,9 +31,29 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         }
     }
 
-    private fun load() = viewModelScope.launch {
+    private fun observeFeed() {
         loadedDetailPostIds.clear()
         loadingDetailPostIds.clear()
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        feedJob?.cancel()
+        feedJob = viewModelScope.launch {
+            repository.observeFeed().collect { result ->
+                result
+                    .onSuccess { posts ->
+                        loadedDetailPostIds += posts.map { it.id }
+                        _uiState.value = FeedUiState(isLoading = false, posts = posts)
+                    }
+                    .onFailure { error ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.message ?: "Error cargando feed"
+                        )
+                    }
+            }
+        }
+    }
+
+    private fun refresh() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         repository.getFeed()
             .onSuccess { posts ->

@@ -1,6 +1,8 @@
 package com.quata.data.supabase
 
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonElement
 import java.security.MessageDigest
 import java.time.Instant
@@ -8,6 +10,16 @@ import java.time.Instant
 class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun getActiveWallsStats(limit: Int = 250): List<CommunityWallStats> = client.getList(
+        "community_walls_stats",
+        mapOf(
+            "select" to WALL_STATS_SELECT,
+            "is_active" to "eq.true",
+            "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
+            "limit" to limit.toString()
+        )
+    )
+
+    fun observeActiveWallsStats(limit: Int = 250): Flow<List<CommunityWallStats>> = client.observeList(
         "community_walls_stats",
         mapOf(
             "select" to WALL_STATS_SELECT,
@@ -27,7 +39,27 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
+    fun observeWalls(ids: Collection<String>? = null, limit: Int = 500): Flow<List<CommunityWall>> = client.observeList(
+        "community_walls",
+        mapOf(
+            "select" to WALL_SELECT,
+            "id" to ids?.takeIf { it.isNotEmpty() }?.toInFilter(),
+            "order" to "sort_order.asc,created_at.desc",
+            "limit" to limit.toString()
+        )
+    )
+
     suspend fun getMembers(profileId: String? = null, wallId: String? = null, limit: Int = 1000): List<CommunityMember> = client.getList(
+        "community_members",
+        mapOf(
+            "select" to MEMBER_SELECT,
+            "profile_id" to profileId?.let { "eq.$it" },
+            "wall_id" to wallId?.let { "eq.$it" },
+            "limit" to limit.toString()
+        )
+    )
+
+    fun observeMembers(profileId: String? = null, wallId: String? = null, limit: Int = 1000): Flow<List<CommunityMember>> = client.observeList(
         "community_members",
         mapOf(
             "select" to MEMBER_SELECT,
@@ -46,9 +78,19 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
+    fun observeProfiles(ids: Collection<String>? = null, limit: Int = 500): Flow<List<CommunityProfile>> = client.observeList(
+        "community_profiles",
+        mapOf(
+            "select" to PROFILE_PUBLIC_SELECT,
+            "id" to ids?.takeIf { it.isNotEmpty() }?.toInFilter(),
+            "limit" to limit.toString()
+        )
+    )
+
     suspend fun getProfileByPhoneLocal(phoneLocal: String): CommunityProfile? = client.getSingleOrNull(
         "community_profiles",
-        mapOf("select" to PROFILE_AUTH_SELECT, "phone_local" to "eq.${digitsOnly(phoneLocal)}")
+        mapOf("select" to PROFILE_AUTH_SELECT, "phone_local" to "eq.${digitsOnly(phoneLocal)}"),
+        cacheMode = SupabaseCacheMode.NETWORK_ONLY
     )
 
     suspend fun loginByPhoneLocal(phoneLocal: String, passwordPlain: String, updateLastLogin: Boolean = true): LoginResult? {
@@ -97,6 +139,25 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
+    fun observeFeedPosts(
+        limit: Int = 15,
+        offset: Int = 0,
+        wallId: String? = null,
+        profileId: String? = null,
+        postId: String? = null
+    ): Flow<List<CommunityPost>> = client.observeList(
+        "community_posts",
+        mapOf(
+            "select" to POST_SELECT,
+            "id" to postId?.let { "eq.$it" },
+            "wall_id" to wallId?.let { "eq.$it" },
+            "profile_id" to profileId?.let { "eq.$it" },
+            "order" to "created_at.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        )
+    )
+
     suspend fun createPost(wallId: String, profileId: String, body: String? = null, imageUrl: String? = null, videoUrl: String? = null): CommunityPost? =
         client.post<CommunityPost, CommunityPostCreate>("community_posts", CommunityPostCreate(wallId, profileId, body, imageUrl, videoUrl), select = POST_SELECT)
 
@@ -113,6 +174,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         return client.getList("community_comments", mapOf("select" to COMMENT_SELECT, "post_id" to postIds.toInFilter(), "order" to "created_at.asc"))
     }
 
+    fun observeComments(postIds: Collection<String>): Flow<List<CommunityComment>> {
+        if (postIds.isEmpty()) return flowOf(emptyList())
+        return client.observeList("community_comments", mapOf("select" to COMMENT_SELECT, "post_id" to postIds.toInFilter(), "order" to "created_at.asc"))
+    }
+
     suspend fun addComment(postId: String, profileId: String, body: String): CommunityComment? =
         client.post<CommunityComment, CommunityCommentCreate>("community_comments", CommunityCommentCreate(postId, profileId, body), select = COMMENT_SELECT)
 
@@ -121,6 +187,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun getLikes(postIds: Collection<String>): List<CommunityPostLike> {
         if (postIds.isEmpty()) return emptyList()
         return client.getList("community_post_likes", mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()))
+    }
+
+    fun observeLikes(postIds: Collection<String>): Flow<List<CommunityPostLike>> {
+        if (postIds.isEmpty()) return flowOf(emptyList())
+        return client.observeList("community_post_likes", mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()))
     }
 
     suspend fun toggleLike(postId: String, profileId: String): ToggleResult {
@@ -137,6 +208,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun getReactions(postIds: Collection<String>): List<CommunityPostReaction> {
         if (postIds.isEmpty()) return emptyList()
         return client.getList("community_post_reactions", mapOf("select" to REACTION_SELECT, "post_id" to postIds.toInFilter()))
+    }
+
+    fun observeReactions(postIds: Collection<String>): Flow<List<CommunityPostReaction>> {
+        if (postIds.isEmpty()) return flowOf(emptyList())
+        return client.observeList("community_post_reactions", mapOf("select" to REACTION_SELECT, "post_id" to postIds.toInFilter()))
     }
 
     suspend fun toggleReaction(postId: String, profileId: String, reactionType: String): ToggleResult {
@@ -158,6 +234,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         mapOf("select" to MESSAGE_SELECT, "wall_id" to "eq.$wallId", "order" to "created_at.desc", "limit" to limit.toString())
     )
 
+    fun observeCommunityMessages(wallId: String, limit: Int = 250): Flow<List<CommunityMessage>> = client.observeList(
+        "community_messages",
+        mapOf("select" to MESSAGE_SELECT, "wall_id" to "eq.$wallId", "order" to "created_at.desc", "limit" to limit.toString())
+    )
+
     suspend fun sendCommunityMessage(wallId: String, profileId: String, body: String): CommunityMessage? =
         client.post<CommunityMessage, CommunityMessageCreate>("community_messages", CommunityMessageCreate(wallId, profileId, body), select = MESSAGE_SELECT)
 
@@ -165,6 +246,17 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         sendCommunityMessage(wallId, profileId, QuataChatPayloadCodec.encode(QuataChatAttachmentPayload("image", text, imageUrl, fileName, mimeType)))
 
     suspend fun getNotifications(profileId: String, unreadOnly: Boolean = false, limit: Int = 500): List<CommunityNotification> = client.getList(
+        "community_notifications",
+        mapOf(
+            "select" to NOTIFICATION_SELECT,
+            "recipient_profile_id" to "eq.$profileId",
+            "is_read" to if (unreadOnly) "eq.false" else null,
+            "order" to "created_at.desc",
+            "limit" to limit.toString()
+        )
+    )
+
+    fun observeNotifications(profileId: String, unreadOnly: Boolean = false, limit: Int = 500): Flow<List<CommunityNotification>> = client.observeList(
         "community_notifications",
         mapOf(
             "select" to NOTIFICATION_SELECT,
@@ -183,19 +275,38 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             select = NOTIFICATION_SELECT
         )
 
-    suspend fun createOrGetPrivateChat(user1: String, user2: String): String =
-        client.rpc<RpcCreateOrGetPrivateChatRequest, String>("create_or_get_private_chat", RpcCreateOrGetPrivateChatRequest(user1, user2))
+    suspend fun createOrGetPrivateChat(user1: String, user2: String): String {
+        val chatId = client.rpc<RpcCreateOrGetPrivateChatRequest, String>("create_or_get_private_chat", RpcCreateOrGetPrivateChatRequest(user1, user2))
+        client.invalidateTables("community_private_chats")
+        return chatId
+    }
 
-    suspend fun acceptPrivateChat(chatId: String) = client.rpcUnit("accept_private_chat", RpcPrivateChatDecisionRequest(chatId))
+    suspend fun acceptPrivateChat(chatId: String) {
+        client.rpcUnit("accept_private_chat", RpcPrivateChatDecisionRequest(chatId))
+        client.invalidateTables("community_private_chats")
+    }
 
-    suspend fun rejectPrivateChat(chatId: String) = client.rpcUnit("reject_private_chat", RpcPrivateChatDecisionRequest(chatId))
+    suspend fun rejectPrivateChat(chatId: String) {
+        client.rpcUnit("reject_private_chat", RpcPrivateChatDecisionRequest(chatId))
+        client.invalidateTables("community_private_chats")
+    }
 
     suspend fun getPrivateChats(profileId: String, limit: Int = 100): List<CommunityPrivateChat> = client.getList(
         "community_private_chats",
         mapOf("select" to PRIVATE_CHAT_SELECT, "or" to "(user_low_id.eq.$profileId,user_high_id.eq.$profileId)", "order" to "last_message_at.desc", "limit" to limit.toString())
     )
 
+    fun observePrivateChats(profileId: String, limit: Int = 100): Flow<List<CommunityPrivateChat>> = client.observeList(
+        "community_private_chats",
+        mapOf("select" to PRIVATE_CHAT_SELECT, "or" to "(user_low_id.eq.$profileId,user_high_id.eq.$profileId)", "order" to "last_message_at.desc", "limit" to limit.toString())
+    )
+
     suspend fun getPrivateMessages(chatId: String, limit: Int = 250): List<CommunityPrivateMessage> = client.getList(
+        "community_private_messages",
+        mapOf("select" to PRIVATE_MESSAGE_SELECT, "chat_id" to "eq.$chatId", "order" to "created_at.asc", "limit" to limit.toString())
+    )
+
+    fun observePrivateMessages(chatId: String, limit: Int = 250): Flow<List<CommunityPrivateMessage>> = client.observeList(
         "community_private_messages",
         mapOf("select" to PRIVATE_MESSAGE_SELECT, "chat_id" to "eq.$chatId", "order" to "created_at.asc", "limit" to limit.toString())
     )
@@ -220,6 +331,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         mapOf("select" to WALL_FOLLOW_SELECT, "profile_id" to profileId?.let { "eq.$it" }, "wall_id" to wallId?.let { "eq.$it" })
     )
 
+    fun observeWallFollows(profileId: String? = null, wallId: String? = null): Flow<List<CommunityWallFollow>> = client.observeList(
+        "community_wall_follows",
+        mapOf("select" to WALL_FOLLOW_SELECT, "profile_id" to profileId?.let { "eq.$it" }, "wall_id" to wallId?.let { "eq.$it" })
+    )
+
     suspend fun ensureWallFollow(wallId: String, profileId: String): CommunityWallFollow? {
         val existing = client.getSingleOrNull<CommunityWallFollow>(
             "community_wall_follows",
@@ -237,6 +353,20 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         followedProfileId: String? = null,
         limit: Int = 1000
     ): List<CommunityProfileFollow> = client.getList(
+        "community_profile_follows",
+        mapOf(
+            "select" to PROFILE_FOLLOW_SELECT,
+            "follower_profile_id" to followerProfileId?.let { "eq.$it" },
+            "followed_profile_id" to followedProfileId?.let { "eq.$it" },
+            "limit" to limit.toString()
+        )
+    )
+
+    fun observeProfileFollows(
+        followerProfileId: String? = null,
+        followedProfileId: String? = null,
+        limit: Int = 1000
+    ): Flow<List<CommunityProfileFollow>> = client.observeList(
         "community_profile_follows",
         mapOf(
             "select" to PROFILE_FOLLOW_SELECT,
@@ -273,6 +403,16 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     }
 
     suspend fun getEmergencyContacts(profileId: String): List<CommunityEmergencyContact> = client.getList(
+        "community_emergency_contacts",
+        mapOf(
+            "select" to EMERGENCY_CONTACT_SELECT,
+            "profile_id" to "eq.$profileId",
+            "order" to "position.asc,created_at.asc",
+            "limit" to "5"
+        )
+    )
+
+    fun observeEmergencyContacts(profileId: String): Flow<List<CommunityEmergencyContact>> = client.observeList(
         "community_emergency_contacts",
         mapOf(
             "select" to EMERGENCY_CONTACT_SELECT,

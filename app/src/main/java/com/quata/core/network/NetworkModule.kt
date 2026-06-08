@@ -12,6 +12,7 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseConfig
 import com.quata.data.supabase.SupabaseHttpClient
 import com.quata.data.supabase.SupabaseRealtimeClient
+import com.quata.data.supabase.SupabaseResponseCacheStore
 import com.quata.wordpress.QuataWordPressClient
 import okhttp3.Interceptor
 import okhttp3.Dns
@@ -55,10 +56,12 @@ class NetworkModule(context: Context) {
         projectUrl = AppConfig.SUPABASE_URL,
         anonKey = AppConfig.SUPABASE_ANON_KEY
     )
+    private val supabaseResponseCacheStore = SupabaseResponseCacheStore(context)
 
     val supabaseHttpClient = SupabaseHttpClient(
         config = supabaseHelperConfig,
-        okHttp = supabaseClient
+        okHttp = supabaseClient,
+        cacheStore = supabaseResponseCacheStore
     )
 
     val supabaseCommunityApi = SupabaseCommunityApi(supabaseHttpClient)
