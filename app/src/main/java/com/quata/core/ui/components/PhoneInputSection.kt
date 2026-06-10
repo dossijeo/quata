@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -53,7 +52,7 @@ fun PhoneInputSection(
 ) {
     val template = quataTheme()
     Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth()
     ) {
@@ -62,20 +61,18 @@ fun PhoneInputSection(
             options = prefixes,
             onSelected = { onPrefixChange(it.code) },
             displayText = "+$selectedPrefix",
-            modifier = Modifier
-                .weight(0.38f)
-                .offset(y = 4.dp)
+            modifier = Modifier.weight(0.36f)
         )
         OutlinedTextField(
             value = phone,
             onValueChange = onPhoneChange,
-            label = { Text(phoneLabel) },
+            placeholder = { Text(phoneLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             singleLine = true,
             modifier = Modifier
-                .weight(0.62f)
-                .height(58.dp),
-            shape = RoundedCornerShape(18.dp),
+                .weight(0.64f)
+                .height(CompactTextFieldHeight),
+            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = template.colors.surfaceAlt,
                 unfocusedContainerColor = template.colors.surfaceAlt,
@@ -112,15 +109,15 @@ fun PrefixDropdownField(
     Box(modifier) {
         Surface(
             color = Color.Transparent,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
-                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
+                .height(CompactDropdownHeight)
+                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(16.dp))
                 .clickable { expanded = true }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(

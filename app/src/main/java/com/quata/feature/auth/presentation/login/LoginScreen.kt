@@ -57,12 +57,12 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 18.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             QuataLogo(subtitle = stringResource(R.string.auth_tagline))
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(22.dp))
             PhoneInputSection(
                 prefixes = prefixes,
                 selectedPrefix = state.countryCode,
@@ -72,7 +72,7 @@ fun LoginScreen(
                 phoneLabel = stringResource(R.string.auth_phone),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             QuataTextField(
                 value = state.password,
                 onValueChange = { viewModel.onEvent(LoginUiEvent.PasswordChanged(it)) },
@@ -81,27 +81,27 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             if (state.error != null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(14.dp))
             QuataPrimaryButton(
                 text = if (state.isLoading) stringResource(R.string.auth_signing_in) else stringResource(R.string.auth_sign_in),
                 enabled = !state.isLoading
             ) { viewModel.onEvent(LoginUiEvent.Submit) }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             QuataSecondaryButton(
                 text = stringResource(R.string.auth_forgot_password),
                 enabled = !state.isLoading
             ) { onForgotPassword() }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             QuataSecondaryButton(text = stringResource(R.string.auth_create_account), onClick = onGoToRegister)
             if (state.isLoading) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
                 CircularProgressIndicator()
             }
             if (AppConfig.USE_MOCK_BACKEND) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(R.string.auth_mock_notice),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

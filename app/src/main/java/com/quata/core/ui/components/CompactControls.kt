@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 val CompactButtonContentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
 val CompactIconButtonSize = 36.dp
 val CompactIconVisualScale = 0.75f
+val CompactTextFieldHeight = 52.dp
+val CompactDropdownHeight = 52.dp
 
 fun Modifier.compactButtonMinSize(): Modifier =
     defaultMinSize(minWidth = ButtonDefaults.MinWidth * 0.72f, minHeight = ButtonDefaults.MinHeight * 0.7f)

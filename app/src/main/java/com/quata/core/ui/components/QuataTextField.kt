@@ -1,6 +1,7 @@
 package com.quata.core.ui.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -23,14 +24,19 @@ fun QuataTextField(
     minLines: Int = 1
 ) {
     val template = quataTheme()
+    val fieldModifier = if (singleLine && minLines == 1) {
+        modifier.height(CompactTextFieldHeight)
+    } else {
+        modifier
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier,
+        modifier = fieldModifier,
         singleLine = singleLine,
         minLines = minLines,
-        label = { Text(label) },
-        shape = RoundedCornerShape(18.dp),
+        placeholder = { Text(label) },
+        shape = RoundedCornerShape(16.dp),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = template.colors.surfaceAlt,

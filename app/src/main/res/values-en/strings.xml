@@ -205,9 +205,6 @@
     <string name="comments_cancel_reply">Cancel reply</string>
     <string name="comments_reply_to">↳ Reply to %1$s</string>
     <string name="comments_reply_button">→ Reply</string>
-    <string name="profile_account_label">MY ACCOUNT</string>
-    <string name="profile_edit_title">Edit my details</string>
-    <string name="profile_edit_subtitle">From here you can change your photo, name, district, password, and recovery details.</string>
     <string name="profile_touch_flow_setting">Enable Q&#252;ata TouchFlow</string>
     <string name="profile_theme_setting">Color mode</string>
     <string name="theme_mode_system">System</string>
@@ -215,6 +212,7 @@
     <string name="theme_mode_light">Light mode</string>
     <string name="profile_photo">Profile photo</string>
     <string name="profile_change_photo">Change profile photo</string>
+    <string name="profile_my_data">My details</string>
     <string name="profile_pick_gallery">Choose from gallery</string>
     <string name="profile_take_photo">Take photo</string>
     <string name="profile_photo_hint">Upload a square or vertical photo so you look better.</string>

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,9 +32,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -44,9 +43,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import com.quata.core.ui.components.CompactButtonContentPadding
+import com.quata.core.ui.components.CompactDropdownHeight
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
-import androidx.compose.material3.MaterialTheme
+import com.quata.core.ui.components.CompactTextFieldHeight
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -97,6 +97,11 @@ private enum class EmergencyTab {
     Message
 }
 
+private enum class ProfileAccountPage {
+    Overview,
+    Details
+}
+
 @Composable
 fun ProfileScreen(
     padding: PaddingValues,
@@ -116,6 +121,7 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsState()
     var isEmergencyDialogOpen by rememberSaveable { mutableStateOf(false) }
     var isPhotoMenuOpen by rememberSaveable { mutableStateOf(false) }
+    var accountPage by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.onEvent(ProfileUiEvent.AvatarChanged(uri?.toString()))
@@ -135,6 +141,10 @@ fun ProfileScreen(
         if (networkReconnectToken != 0L) {
             viewModel.onEvent(ProfileUiEvent.Refresh)
         }
+    }
+
+    BackHandler(enabled = accountPage == ProfileAccountPage.Details) {
+        accountPage = ProfileAccountPage.Overview
     }
 
     LaunchedEffect(state.successMessage) {
@@ -162,215 +172,242 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(stringResource(R.string.profile_account_label), color = template.colors.textSecondary, letterSpacing = 2.sp)
-            Text(stringResource(R.string.profile_edit_title), fontSize = template.textSizes.headline, fontWeight = FontWeight.ExtraBold)
-            Text(
-                stringResource(R.string.profile_edit_subtitle),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 23.sp
-            )
-
-            ProfilePanel {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.profile_touch_flow_setting),
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = touchFlowEnabled,
-                        onCheckedChange = onTouchFlowEnabledChange
-                    )
-                }
-            }
-
-            ProfilePanel {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = stringResource(R.string.profile_theme_setting),
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        ThemeModeButton(
-                            text = stringResource(R.string.theme_mode_system),
-                            selected = themeMode == QuataThemeMode.System,
-                            onClick = { onThemeModeChange(QuataThemeMode.System) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        ThemeModeButton(
-                            text = stringResource(R.string.theme_mode_dark),
-                            selected = themeMode == QuataThemeMode.Dark,
-                            onClick = { onThemeModeChange(QuataThemeMode.Dark) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        ThemeModeButton(
-                            text = stringResource(R.string.theme_mode_light),
-                            selected = themeMode == QuataThemeMode.Light,
-                            onClick = { onThemeModeChange(QuataThemeMode.Light) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            ProfilePanel {
-                val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
-                val profileAvatarModel = rememberCachedRemoteImageRequest(profileAvatarUri)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(92.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(QuataOrange.copy(alpha = 0.2f))
-                            .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(24.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (profileAvatarUri != null) {
-                            AsyncImage(
-                                model = profileAvatarModel,
-                                contentDescription = stringResource(R.string.profile_photo),
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+            when (accountPage) {
+                ProfileAccountPage.Overview -> {
+                    ProfilePanel(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.profile_touch_flow_setting),
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.weight(1f)
                             )
-                        } else {
-                            AvatarLetter(profile.displayName.ifBlank { "Q" })
+                            Switch(
+                                checked = touchFlowEnabled,
+                                onCheckedChange = onTouchFlowEnabledChange
+                            )
                         }
                     }
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f)) {
-                        OutlinedButton(
-                            onClick = { isPhotoMenuOpen = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .compactButtonMinSize(),
-                            shape = RoundedCornerShape(9.dp),
-                            contentPadding = CompactButtonContentPadding
-                        ) {
-                            CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.profile_change_photo))
+
+                    ProfilePanel(contentPadding = PaddingValues(14.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = stringResource(R.string.profile_theme_setting),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                ThemeModeButton(
+                                    text = stringResource(R.string.theme_mode_system),
+                                    selected = themeMode == QuataThemeMode.System,
+                                    onClick = { onThemeModeChange(QuataThemeMode.System) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ThemeModeButton(
+                                    text = stringResource(R.string.theme_mode_dark),
+                                    selected = themeMode == QuataThemeMode.Dark,
+                                    onClick = { onThemeModeChange(QuataThemeMode.Dark) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ThemeModeButton(
+                                    text = stringResource(R.string.theme_mode_light),
+                                    selected = themeMode == QuataThemeMode.Light,
+                                    onClick = { onThemeModeChange(QuataThemeMode.Light) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
-                        DropdownMenu(
-                            expanded = isPhotoMenuOpen,
-                            onDismissRequest = { isPhotoMenuOpen = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.profile_pick_gallery)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
-                                onClick = {
-                                    isPhotoMenuOpen = false
-                                    photoPicker.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    }
+
+                    ProfilePanel(contentPadding = PaddingValues(12.dp)) {
+                        val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
+                        val profileAvatarModel = rememberCachedRemoteImageRequest(profileAvatarUri)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(QuataOrange.copy(alpha = 0.2f))
+                                    .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(20.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (profileAvatarUri != null) {
+                                    AsyncImage(
+                                        model = profileAvatarModel,
+                                        contentDescription = stringResource(R.string.profile_photo),
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    AvatarLetter(profile.displayName.ifBlank { "Q" })
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { isPhotoMenuOpen = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .compactButtonMinSize(),
+                                    shape = RoundedCornerShape(9.dp),
+                                    contentPadding = CompactButtonContentPadding
+                                ) {
+                                    CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.profile_change_photo))
+                                }
+                                DropdownMenu(
+                                    expanded = isPhotoMenuOpen,
+                                    onDismissRequest = { isPhotoMenuOpen = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.profile_pick_gallery)) },
+                                        leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                                        onClick = {
+                                            isPhotoMenuOpen = false
+                                            photoPicker.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.profile_take_photo)) },
+                                        leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                                        onClick = {
+                                            isPhotoMenuOpen = false
+                                            val uri = context.createProfileImageUri()
+                                            pendingCameraUri = uri
+                                            if (uri != null) {
+                                                if (context.hasCameraPermission()) {
+                                                    cameraLauncher.launch(uri)
+                                                } else {
+                                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                                }
+                                            }
+                                        }
                                     )
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.profile_take_photo)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
-                                onClick = {
-                                    isPhotoMenuOpen = false
-                                    val uri = context.createProfileImageUri()
-                                    pendingCameraUri = uri
-                                    if (uri != null) {
-                                        if (context.hasCameraPermission()) {
-                                            cameraLauncher.launch(uri)
-                                        } else {
-                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        }
-                                    }
+                                OutlinedButton(
+                                    onClick = { accountPage = ProfileAccountPage.Details },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .compactButtonMinSize(),
+                                    shape = RoundedCornerShape(9.dp),
+                                    contentPadding = CompactButtonContentPadding
+                                ) {
+                                    Text(stringResource(R.string.profile_my_data), fontWeight = FontWeight.ExtraBold)
                                 }
-                            )
+                                Text(
+                                    stringResource(R.string.profile_photo_hint),
+                                    color = template.colors.textSecondary,
+                                    fontSize = template.textSizes.caption,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.profile_photo_hint), color = template.colors.textSecondary)
+                    }
+
+                    OutlinedButton(
+                        onClick = { isEmergencyDialogOpen = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .compactButtonMinSize(),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = CompactButtonContentPadding
+                    ) {
+                        Text(stringResource(R.string.profile_configure_emergency_contacts), fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.weight(1f))
+                        Text("${profile.emergencyContactIds.size}/5")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    ProfileSaveButton(
+                        isSaving = state.isSaving,
+                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            sessionManager.clearSession()
+                            onLogout()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .compactButtonMinSize(),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = CompactButtonContentPadding
+                    ) {
+                        Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
                     }
                 }
-            }
 
-            ProfileTextField(
-                value = profile.displayName,
-                onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
-                label = stringResource(R.string.auth_name)
-            )
-            ProfileTextField(
-                value = profile.neighborhood,
-                onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
-                label = stringResource(R.string.profile_neighborhood)
-            )
-            PhoneInputSection(
-                prefixes = state.countryPrefixes,
-                selectedPrefix = profile.countryCode,
-                onPrefixChange = { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) },
-                phone = profile.phone,
-                onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
-                phoneLabel = stringResource(R.string.profile_phone)
-            )
-            ProfileTextField(
-                value = state.newPassword,
-                onValueChange = { viewModel.onEvent(ProfileUiEvent.NewPasswordChanged(it)) },
-                label = stringResource(R.string.profile_new_password),
-                isPassword = true
-            )
-            DropdownField(
-                value = profile.selectedSecretQuestion,
-                options = state.secretQuestions,
-                optionLabel = { it.label },
-                onSelected = { viewModel.onEvent(ProfileUiEvent.SecretQuestionChanged(it.value)) },
-                displayText = state.secretQuestions.firstOrNull { it.value == profile.selectedSecretQuestion }?.label.orEmpty()
-            )
-            ProfileTextField(
-                value = state.newSecretAnswer,
-                onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
-                label = stringResource(R.string.profile_new_secret_answer)
-            )
-
-            OutlinedButton(
-                onClick = { isEmergencyDialogOpen = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .compactButtonMinSize(),
-                shape = RoundedCornerShape(9.dp),
-                contentPadding = CompactButtonContentPadding
-            ) {
-                Text(stringResource(R.string.profile_configure_emergency_contacts), fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.weight(1f))
-                Text("${profile.emergencyContactIds.size}/5")
-            }
-            Button(
-                onClick = { viewModel.onEvent(ProfileUiEvent.Save) },
-                enabled = !state.isSaving,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .compactButtonMinSize(),
-                colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-                shape = RoundedCornerShape(9.dp),
-                contentPadding = CompactButtonContentPadding
-            ) {
-                Text(if (state.isSaving) stringResource(R.string.common_saving) else stringResource(R.string.common_save_changes), fontWeight = FontWeight.ExtraBold)
-            }
-            OutlinedButton(
-                onClick = {
-                    sessionManager.clearSession()
-                    onLogout()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .compactButtonMinSize(),
-                shape = RoundedCornerShape(9.dp),
-                contentPadding = CompactButtonContentPadding
-            ) {
-                Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
+                ProfileAccountPage.Details -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.profile_my_data),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    ProfileTextField(
+                        value = profile.displayName,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
+                        label = stringResource(R.string.auth_name)
+                    )
+                    ProfileTextField(
+                        value = profile.neighborhood,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
+                        label = stringResource(R.string.profile_neighborhood)
+                    )
+                    PhoneInputSection(
+                        prefixes = state.countryPrefixes,
+                        selectedPrefix = profile.countryCode,
+                        onPrefixChange = { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) },
+                        phone = profile.phone,
+                        onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
+                        phoneLabel = stringResource(R.string.profile_phone)
+                    )
+                    ProfileTextField(
+                        value = state.newPassword,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NewPasswordChanged(it)) },
+                        label = stringResource(R.string.profile_new_password),
+                        isPassword = true
+                    )
+                    DropdownField(
+                        value = profile.selectedSecretQuestion,
+                        options = state.secretQuestions,
+                        optionLabel = { it.label },
+                        onSelected = { viewModel.onEvent(ProfileUiEvent.SecretQuestionChanged(it.value)) },
+                        displayText = state.secretQuestions.firstOrNull { it.value == profile.selectedSecretQuestion }?.label.orEmpty()
+                    )
+                    ProfileTextField(
+                        value = state.newSecretAnswer,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
+                        label = stringResource(R.string.profile_new_secret_answer)
+                    )
+                    Spacer(Modifier.weight(1f))
+                    ProfileSaveButton(
+                        isSaving = state.isSaving,
+                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
+                    )
+                }
             }
         }
     }
@@ -392,7 +429,10 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfilePanel(content: @Composable () -> Unit) {
+private fun ProfilePanel(
+    contentPadding: PaddingValues = PaddingValues(14.dp),
+    content: @Composable () -> Unit
+) {
     val template = quataTheme()
     Surface(
         color = template.colors.surface.copy(alpha = 0.82f),
@@ -401,9 +441,32 @@ private fun ProfilePanel(content: @Composable () -> Unit) {
             .fillMaxWidth()
             .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
     ) {
-        Box(Modifier.padding(16.dp)) {
+        Box(Modifier.padding(contentPadding)) {
             content()
         }
+    }
+}
+
+@Composable
+private fun ProfileSaveButton(
+    isSaving: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = !isSaving,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .compactButtonMinSize(),
+        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
+        shape = RoundedCornerShape(9.dp),
+        contentPadding = CompactButtonContentPadding
+    ) {
+        Text(
+            if (isSaving) stringResource(R.string.common_saving) else stringResource(R.string.common_save_changes),
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 
@@ -420,7 +483,7 @@ private fun ThemeModeButton(
         contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
         shape = RoundedCornerShape(14.dp),
         modifier = modifier
-            .height(44.dp)
+            .height(40.dp)
             .border(
                 width = 1.dp,
                 color = if (selected) template.colors.accent else template.colors.divider,
@@ -454,8 +517,10 @@ private fun ProfileTextField(
         placeholder = { Text(label) },
         singleLine = !label.contains("respuesta", ignoreCase = true),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CompactTextFieldHeight),
+        shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = template.colors.surfaceAlt,
             unfocusedContainerColor = template.colors.surfaceAlt,
@@ -483,12 +548,12 @@ private fun <T> DropdownField(
             shape = RoundedCornerShape(18.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
+                .height(CompactDropdownHeight)
                 .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
                 .clickable { expanded = true }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(

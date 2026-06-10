@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,27 +56,26 @@ fun RegisterScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(horizontal = 18.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             QuataLogo(subtitle = stringResource(R.string.auth_create_account_title))
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(14.dp))
             QuataTextField(
                 value = state.displayName,
                 onValueChange = { viewModel.onEvent(RegisterUiEvent.DisplayNameChanged(it)) },
                 label = stringResource(R.string.auth_name),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             QuataTextField(
                 value = state.neighborhood,
                 onValueChange = { viewModel.onEvent(RegisterUiEvent.NeighborhoodChanged(it)) },
                 label = stringResource(R.string.auth_neighborhood_community),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             PhoneInputSection(
                 prefixes = prefixes,
                 selectedPrefix = state.countryCode,
@@ -88,7 +85,7 @@ fun RegisterScreen(
                 phoneLabel = stringResource(R.string.auth_phone),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             QuataTextField(
                 value = state.password,
                 onValueChange = { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) },
@@ -96,7 +93,7 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 isPassword = true
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             QuataDropdownField(
                 value = state.secretQuestion,
                 options = secretQuestions,
@@ -105,7 +102,7 @@ fun RegisterScreen(
                 displayText = selectedQuestionLabel,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             QuataTextField(
                 value = state.secretAnswer,
                 onValueChange = { viewModel.onEvent(RegisterUiEvent.SecretAnswerChanged(it)) },
@@ -113,17 +110,17 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             if (state.error != null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(14.dp))
             QuataPrimaryButton(
                 text = if (state.isLoading) stringResource(R.string.auth_creating) else stringResource(R.string.auth_create_account),
                 enabled = !state.isLoading
             ) {
                 viewModel.onEvent(RegisterUiEvent.Submit)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             QuataSecondaryButton(stringResource(R.string.common_back), onClick = onBack)
         }
     }

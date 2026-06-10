@@ -205,9 +205,6 @@
     <string name="comments_cancel_reply">Annuler reponse</string>
     <string name="comments_reply_to">&#8627; Reponse a %1$s</string>
     <string name="comments_reply_button">&#8594; Repondre</string>
-    <string name="profile_account_label">MON COMPTE</string>
-    <string name="profile_edit_title">Modifier mes donnees</string>
-    <string name="profile_edit_subtitle">Ici, tu peux changer ta photo, ton nom, quartier, mot de passe et donnees de recuperation.</string>
     <string name="profile_touch_flow_setting">Activer Q&#252;ata TouchFlow</string>
     <string name="profile_theme_setting">Mode de couleur</string>
     <string name="theme_mode_system">Systeme</string>
@@ -215,6 +212,7 @@
     <string name="theme_mode_light">Mode clair</string>
     <string name="profile_photo">Photo de profil</string>
     <string name="profile_change_photo">Changer photo de profil</string>
+    <string name="profile_my_data">Mes infos</string>
     <string name="profile_pick_gallery">Choisir galerie</string>
     <string name="profile_take_photo">Prendre photo</string>
     <string name="profile_photo_hint">Ajoute une photo carree ou verticale pour mieux te voir.</string>

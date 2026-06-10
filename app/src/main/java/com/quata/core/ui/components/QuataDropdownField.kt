@@ -42,15 +42,15 @@ fun <T> QuataDropdownField(
     Box(modifier) {
         Surface(
             color = Color.Transparent,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
-                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
+                .height(CompactDropdownHeight)
+                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(16.dp))
                 .clickable { expanded = true }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
