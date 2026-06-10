@@ -48,15 +48,21 @@ class ProfileViewModel(
                 copy(emergencyMessage = event.value, emergencyMessageIsDefault = false)
             }
             is ProfileUiEvent.EmergencyContactToggled -> toggleEmergencyContact(event.contactId)
+            ProfileUiEvent.Refresh -> observeProfile(showLoading = false)
             ProfileUiEvent.Save -> saveProfile()
             ProfileUiEvent.ClearMessages -> _uiState.update { it.copy(errorMessage = null, successMessage = null) }
         }
     }
 
-    private fun observeProfile() {
+    private fun observeProfile(showLoading: Boolean = true) {
         profileJob?.cancel()
         profileJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = showLoading && it.profile == null,
+                    errorMessage = null
+                )
+            }
             repository.observeProfileEditModel()
                 .collect { result ->
                     result

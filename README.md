@@ -10,17 +10,20 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Modo offline-first para lecturas Supabase: las consultas GET usan una cache SQLite local por clave exacta de consulta, emiten el valor cacheado al instante y refrescan desde red en segundo plano.
 - Apertura de chats cache-first desde perfiles y desde **Barrios**: si la conversacion ya esta en la lista/cache local se navega directamente, sin buscar ni crear remoto.
 - Polling de Better Messages simplificado: `checkNew` es la unica vigilancia periodica; `/thread/{id}` solo se consulta cuando `checkNew` indica cambios y esos cambios son delta real frente a la cache local.
-- Sincronizacion completa solo al arranque, al reconstruir una cache expirada en primer plano o al pasar de sin conexion a con conexion.
-- Estado global de conectividad derivado del polling: si falla, aparece una banda **sin conexion** bajo la barra superior de la app; al recuperarse, se fuerza una ronda de sincronizacion.
+- Sin barrido completo de hilos al arrancar o reconectar: el polling solo usa `checkNew` y refresca hilos concretos cuando hay cambios reales.
+- Estado global de conectividad derivado de Android: si el dispositivo pierde red aparece una banda **Sin conexion** bajo la barra superior de toda la app; al recuperar red se reactiva el polling.
 - Cache local de recursos: imagenes con Coil en memoria/disco y videos con Media3 `SimpleCache` LRU de 256 MB, con poda de ficheros antiguos.
-- La cache de imagenes aplica a imagenes del feed, adjuntos, avatares publicos y foto propia en Cuenta.
-- Feed mas ligero: carga comentarios y likes en la primera consulta para evitar peticiones de detalle por post, y solo instancia el reproductor del video activo.
+- La cache de imagenes aplica a imagenes del feed, adjuntos, avatares publicos y foto propia en Cuenta; los avatares reintentan al recuperar red.
+- Feed mas ligero: carga comentarios y likes en la primera consulta para evitar peticiones de detalle por post, mantiene el reproductor actual y vecinos para swipe fluido, y solo recrea el player activo si se recupera la red tras quedar roto.
+- El player del feed usa `texture_view` para respetar el recorte del pager y evitar que el siguiente video se superponga en la parte inferior.
 - Reduccion de llamadas al abrir perfiles: cache local de perfiles con refresco en segundo plano y reutilizacion de informacion ya cargada para no bloquear la UI.
 - Boton **Seguir/Siguiendo** con indicador de carga y actualizacion local inmediata de seguidores, siguiendo, contadores y listas abiertas.
 - Menos trabajo por frame en la UI global: tema claro/oscuro se mantiene en estado superior y se evita crear animaciones infinitas cuando no estan activas.
 - Sonidos del chat con liberacion explicita de `MediaPlayer` en completado, error o fallo de arranque.
+- Publicacion de posts con `author_id` y `content` enviados explicitamente a Supabase para que las politicas RLS y los borrados por autor funcionen de forma consistente.
 
 ## Funcionalidad principal
 
@@ -55,11 +58,12 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - Sin barrido periodico de hilos: la app no repasa conversaciones sin cambios por temporizador.
 - `checkNew` descubre hilos con actividad y la app filtra contra la cache local para distinguir cambios reales de ruido repetido del servidor.
 - Cuando hay delta real en un hilo, se consulta `/thread/{id}` una vez para reconciliar mensajes, ultimo mensaje, unread y metadatos.
-- Ronda completa de sincronizacion solo al arranque, al recuperar conexion o al reconstruir cache expirada en primer plano.
-- Estado de conectividad de polling expuesto a la UI; la app muestra una banda global sin conexion bajo la barra superior si las comprobaciones fallan.
+- Al abrir la app o recuperar conexion no se fuerzan decenas de `/thread/{id}`: la app reanuda `checkNew` y solo refresca los hilos que el servidor marca con actividad.
+- Estado de conectividad del dispositivo expuesto a la UI; la app muestra una banda global **Sin conexion** bajo la barra superior cuando Android informa perdida de red.
 - Notificaciones nativas Android solo cuando la app esta en segundo plano o cerrada.
 - Cache local de lista de conversaciones, hilos, mensajes favoritos y perfiles.
 - Retencion de cache: 24 horas, con reconstruccion solo en primer plano cuando expira.
+- Las conversaciones cacheadas pueden abrirse sin red; si falta cache, la busqueda remota queda como fallback.
 - Los perfiles usan la cache de conversaciones para localizar hilos abiertos con un usuario y consultar los adjuntos compartidos via Better Messages.
 - Apertura cache-first de chats privados desde perfiles y listas de usuarios.
 - Apertura cache-first de chats comunitarios desde **Barrios** cuando la conversacion ya existe en cache/lista.
@@ -98,6 +102,16 @@ El fondo compartido de las pantallas usa el mismo token que la barra superior pa
 
 La seleccion de tema se observa una sola vez en el nivel superior de la app y se propaga como estado, evitando lecturas repetidas del helper de plantillas en recomposiciones calientes.
 
+## Offline-first y cache local
+
+- Las lecturas GET de Supabase pasan por `SupabaseHttpClient` y `SupabaseResponseCacheStore`, una base SQLite privada usada como cache NOSQL.
+- La clave de cache es la consulta exacta (`GET + URL`), y el valor almacenado es el JSON crudo devuelto por Supabase.
+- En modo cache-first, si existe respuesta local, la app la emite inmediatamente y refresca la misma consulta desde red en segundo plano.
+- Las mutaciones (`POST`, `PATCH`, `DELETE`, RPC y uploads) siguen siendo network-only y no se cachean.
+- Tras una mutacion se invalidan las tablas afectadas para que las vistas observables se actualicen con datos frescos.
+- Imagenes y avatares usan Coil con cache de memoria/disco y claves estables por URL; si estaban en cache pueden mostrarse sin red y reintentan al recuperar conectividad.
+- Los videos del feed usan Media3 `SimpleCache` con LRU de 256 MB y poda de ficheros antiguos; al borrar una publicacion propia se purga tambien su entrada local de video.
+
 ## Publicacion y media
 
 - Publicacion de texto, imagen y video.
@@ -108,9 +122,10 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - La seleccion temporal de video tiene un limite maximo de 15 minutos: las asas de la timeline no pueden abrir un intervalo mayor y, si el usuario sigue arrastrando un extremo, el asa contraria se desplaza para mantener el lapso maximo sin bloquear el gesto.
 - La previsualizacion del editor y la exportacion mantienen siempre salida vertical `9:16`, con el video/crop centrado y fondo desenfocado basado en el area visible cuando la fuente no encaja en ese formato.
 - La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
-- Cuando no hay ediciones y la fuente ya es `9:16` con resolucion compatible, el guardado es instantaneo y usa el video original sin exportar.
+- Cuando no hay ediciones y la fuente ya es `9:16`, tiene resolucion compatible y bitrate dentro del objetivo, el guardado puede usar copia directa sin recodificar.
 - Cuando solo hay trim temporal, o mute sin efectos visuales, el editor usa rutas rapidas con `MediaExtractor`/`MediaMuxer` para evitar recodificar; si el video esta silenciado, se remuxea sin pista de audio.
-- La resolucion maxima de subida se calcula por dispositivo: `1080x1920@30` si el codec H.264 soporta el punto de rendimiento requerido y `720x1280@30` como fallback; si el video supera ese limite, se fuerza recodificacion.
+- La resolucion maxima de subida se calcula por dispositivo: `720x1280@30` si el codec H.264 soporta el punto de rendimiento requerido y `480x854@30` como fallback; si el video supera ese limite o viene con bitrate inflado, se fuerza recodificacion.
+- Bitrates actuales de exportacion: `720p` a 1.2 Mbps final y 1.8 Mbps intermedio; `480p` a 800 kbps final y 1.2 Mbps intermedio. La subida directa sin editor optimiza a `480p` y 800 kbps cuando detecta bitrate excesivo.
 - Durante exportacion, la pantalla se mantiene encendida, se ocultan controles no interactivos, el progreso mueve el contador y la linea del timeline, y el boton atras muestra confirmacion para cancelar.
 - Los archivos temporales exportados por el editor se eliminan al publicar, al reemplazar el video editado, al cancelar la exportacion o al salir de la pantalla de publicacion sin publicar.
 - Los captions automaticos usan Vosk con modelo ingles incluido como fallback base y modelos espanol/frances en recursos `raw-es`/`raw-fr`, preparados para splits de idioma en AAB.
@@ -119,11 +134,12 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - El editor de imagen genera una copia vertical `9:16` con limite de resolucion, crop/zoom interactivo y conservacion de datos de localizacion de la imagen original cuando estan disponibles.
 - En publicar, los previews de imagen y video se expanden a `9:16` con avatar, acciones y metadatos cosmeticos del feed para validar el aspecto final antes de subir.
 - El boton publicar actua como barra de progreso durante la subida y, si el usuario intenta salir, pregunta si desea cancelar la operacion.
-- El feed actualiza explicitamente el reproductor de video cuando se publica o elimina una publicacion para evitar estados negros al reutilizar paginas del reel.
-- El feed usa la cache local de video para no volver a descargar recursos ya reproducidos.
-- El feed solo crea `ExoPlayer` para la pagina activa, usa buffers mas contenidos y deshabilita la pista de audio cuando el video esta silenciado.
+- El feed guarda posicion por URL, conserva el player actual y vecinos para evitar flashes al hacer swipe, y solo recrea el player si se recupera red tras un estado roto.
+- El feed usa la cache local de video para no volver a descargar recursos ya reproducidos y purga de esa cache el video de una publicacion propia cuando se elimina.
+- El reproductor del feed usa `texture_view`, buffers contenidos y deshabilita la pista de audio cuando el video esta silenciado.
 - La carga inicial del feed incluye comentarios y likes para rellenar contadores, estado de like y comentarios sin consultas adicionales por publicacion.
 - Al eliminar una publicacion con media remota, la app intenta borrar tambien el fichero fisico en WordPress mediante el endpoint AJAX correspondiente; un fallo en ese borrado no bloquea el borrado del post en Supabase.
+- La creacion de posts en Supabase envia `author_id` y `content` explicitamente para evitar filas inconsistentes cuando el serializador omite valores por defecto.
 - Optimizacion global de imagenes antes de subir: redimensionado, conversion JPEG y compresion.
 - Optimizacion de video cuando el archivo o la conexion lo aconsejan.
 - La misma capa de optimizacion se reutiliza en publicar, foto de perfil y adjuntos de chat.
@@ -150,7 +166,7 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Navegacion con Navigation Compose.
 - Capa de datos real para Supabase, WordPress y Better Messages.
 - Modo mock disponible mediante propiedad Gradle.
-- Cache local JSON bajo almacenamiento privado de la app.
+- Cache local bajo almacenamiento privado: SQLite para respuestas Supabase, JSON para Better Messages/perfiles, Coil para imagenes y Media3 para videos.
 - JobService para polling suave en segundo plano.
 - Coil para imagenes.
 - Media3 para reproduccion, previsualizacion y procesado multimedia, incluido Transformer para exportar videos editados.

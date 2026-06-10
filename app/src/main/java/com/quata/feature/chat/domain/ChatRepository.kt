@@ -10,6 +10,7 @@ interface ChatRepository {
     val activeConversationId: StateFlow<String?>
     val pendingDeletedConversation: StateFlow<Conversation?>
     val isPollingOnline: StateFlow<Boolean>
+    fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
     fun setAppForeground(isForeground: Boolean)

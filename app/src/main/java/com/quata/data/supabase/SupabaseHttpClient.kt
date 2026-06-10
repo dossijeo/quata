@@ -14,6 +14,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
@@ -47,7 +48,7 @@ class SupabaseHttpClient(
         query: Map<String, String?> = emptyMap(),
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<T> {
-        val body = execute("GET", restUrl(table, query), null, cacheTable = table, cacheMode = cacheMode)
+        val body = execute("GET", restUrl(table, query), null, cacheTable = table, cacheQuery = query, cacheMode = cacheMode)
         return decodeList(serializer, body)
     }
 
@@ -75,10 +76,23 @@ class SupabaseHttpClient(
         return channelFlow {
             var lastBody: String? = null
             var hasValue = false
+            suspend fun emitBody(body: String) {
+                if (body != lastBody) {
+                    lastBody = body
+                    hasValue = true
+                    send(decodeList(serializer, body))
+                }
+            }
             fun refreshNetwork() = launch {
                 val result = runCatching { refreshCachedGet(key, url, table) }
                 if (result.isFailure && !hasValue) close(result.exceptionOrNull())
             }
+
+            val initialBody = store.read(key)?.responseJson ?: readReusableCachedGet(table, query)
+            if (initialBody != null) {
+                emitBody(initialBody)
+            }
+
             val cacheJob = launch {
                 store.observe(key).collect { cached ->
                     val body = cached?.responseJson
@@ -88,11 +102,7 @@ class SupabaseHttpClient(
                         }
                         return@collect
                     }
-                    if (body != lastBody) {
-                        lastBody = body
-                        hasValue = true
-                        send(decodeList(serializer, body))
-                    }
+                    emitBody(body)
                 }
             }
             val refreshJob = refreshNetwork()
@@ -184,10 +194,11 @@ class SupabaseHttpClient(
         body: String?,
         prefer: String? = null,
         cacheTable: String? = null,
+        cacheQuery: Map<String, String?>? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): String {
         if (method.equals("GET", ignoreCase = true)) {
-            return executeCachedGet(url, cacheTable, cacheMode)
+            return executeCachedGet(url, cacheTable, cacheQuery, cacheMode)
         }
         val builder = baseRequest(url)
         if (prefer != null) builder.addHeader("Prefer", prefer)
@@ -204,6 +215,7 @@ class SupabaseHttpClient(
     private suspend fun executeCachedGet(
         url: String,
         tableName: String?,
+        query: Map<String, String?>?,
         cacheMode: SupabaseCacheMode
     ): String {
         val store = cacheStore
@@ -211,14 +223,54 @@ class SupabaseHttpClient(
             return executeGetRequest(url)
         }
         val key = cacheKey("GET", url)
-        val cached = store.read(key)
-        if (cached != null) {
+        val cachedBody = store.read(key)?.responseJson ?: readReusableCachedGet(tableName, query)
+        if (cachedBody != null) {
             refreshScope.launch {
                 runCatching { refreshCachedGet(key, url, tableName) }
             }
-            return cached.responseJson
+            return cachedBody
         }
         return refreshCachedGet(key, url, tableName)
+    }
+
+    private suspend fun readReusableCachedGet(
+        tableName: String?,
+        query: Map<String, String?>?
+    ): String? {
+        val store = cacheStore ?: return null
+        if (tableName != "community_profiles") return null
+        val profileIds = parseIdFilter(query?.get("id")) ?: return null
+        if (profileIds.isEmpty()) return null
+
+        val profilesById = LinkedHashMap<String, JsonObject>()
+        store.readTable(tableName).forEach cachedEntries@{ cached ->
+            val array = runCatching { json.parseToJsonElement(cached.responseJson) as? JsonArray }
+                .getOrNull()
+                ?: return@cachedEntries
+            array.forEach { item ->
+                val profile = item as? JsonObject ?: return@forEach
+                val id = (profile["id"] as? JsonPrimitive)?.content ?: return@forEach
+                profilesById[id] = profile
+            }
+        }
+
+        val selectedProfiles = profileIds.mapNotNull { id -> profilesById[id] }
+        if (selectedProfiles.isEmpty()) return null
+        return JsonArray(selectedProfiles).toString()
+    }
+
+    private fun parseIdFilter(filter: String?): List<String>? {
+        val value = filter?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when {
+            value.startsWith("eq.") -> listOf(value.removePrefix("eq.").trim()).filter { it.isNotBlank() }
+            value.startsWith("in.(") && value.endsWith(")") -> value
+                .removePrefix("in.(")
+                .removeSuffix(")")
+                .split(',')
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            else -> null
+        }
     }
 
     private suspend fun refreshCachedGet(key: String, url: String, tableName: String?): String {

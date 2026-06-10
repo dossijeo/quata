@@ -93,6 +93,7 @@ class ChatRepositoryImpl(
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
     private val _isPollingOnline = MutableStateFlow(true)
     override val isPollingOnline: StateFlow<Boolean> = _isPollingOnline
+    private val deviceNetworkAvailable = MutableStateFlow(true)
     private val threadIdsByPeerProfileId = mutableMapOf<String, Int>()
     private val betterMessagesWpUserIdsByProfileId = ConcurrentHashMap<String, Int>()
     private val betterMessagesProfileIdsByWpUserId = ConcurrentHashMap<Int, String>()
@@ -108,7 +109,20 @@ class ChatRepositoryImpl(
     private var realConversationsLastRefreshedAt: Long = 0L
     private var betterMessagesProfilesLoadedAt: Long = 0L
     private var isBetterMessagesPollingOnline: Boolean? = null
-    private var shouldRefreshInboxAfterReconnect: Boolean = false
+    override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
+        deviceNetworkAvailable.value = isAvailable
+        if (isAvailable) {
+            if (_isPollingOnline.value == false) {
+                logPolling("device network available")
+                _isPollingOnline.value = true
+            }
+            wakePolling()
+        } else {
+            logPolling("device network unavailable")
+            isBetterMessagesPollingOnline = false
+            _isPollingOnline.value = false
+        }
+    }
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
@@ -921,7 +935,13 @@ class ChatRepositoryImpl(
         val cachedConversations = betterMessagesConversationCacheStore.cachedConversations(profileId)
         if (cachedConversations.isEmpty()) return
         cachedConversations.forEach { conversation ->
-            conversation.id.betterMessagesThreadIdOrNull()?.let(::registerBetterMessagesThread)
+            conversation.id.betterMessagesThreadIdOrNull()?.let { threadId ->
+                registerBetterMessagesThread(threadId)
+                if (!cachedBetterMessagesThreadResponse(threadId).hasContentForThread(threadId)) {
+                    betterMessagesConversationCacheStore.cachedThreadResponse(profileId, threadId)
+                        ?.let { cacheBetterMessagesThreadResponse(threadId, it, persist = false) }
+                }
+            }
         }
         realConversations.value = cachedConversations.withActiveConversationPreserved()
         realConversationsLoadedForProfileId = profileId
@@ -968,13 +988,9 @@ class ChatRepositoryImpl(
         }
     }
 
-    private fun recordPollingSuccess(refreshAfterReconnect: Boolean = true) {
-        val wasOffline = isBetterMessagesPollingOnline == false
+    private fun recordPollingSuccess() {
         isBetterMessagesPollingOnline = true
         _isPollingOnline.value = true
-        if (wasOffline && refreshAfterReconnect) {
-            shouldRefreshInboxAfterReconnect = true
-        }
     }
 
     private fun recordPollingFailure(error: Throwable) {
@@ -1080,7 +1096,21 @@ class ChatRepositoryImpl(
                     betterMessagesRegisteredThreadIds.clear()
                     isBetterMessagesPollingOnline = null
                     _isPollingOnline.value = true
-                    shouldRefreshInboxAfterReconnect = false
+                    waitForNextPoll(CONVERSATIONS_POLL_DELAY_MILLIS)
+                    continue
+                }
+
+                val now = System.currentTimeMillis()
+                val mode = pollingMode.value
+                if (realConversationsLoadedForProfileId != null && realConversationsLoadedForProfileId != session.userId) {
+                    betterMessagesInboxLastUpdate = 0L
+                    betterMessagesRegisteredThreadIds.clear()
+                    isBetterMessagesPollingOnline = null
+                    _isPollingOnline.value = true
+                }
+                restoreCachedConversationsIfNeeded(session.userId)
+                if (!deviceNetworkAvailable.value) {
+                    logPolling("tick skipped: device network unavailable")
                     waitForNextPoll(CONVERSATIONS_POLL_DELAY_MILLIS)
                     continue
                 }
@@ -1096,72 +1126,20 @@ class ChatRepositoryImpl(
                             ?.let(::upsertRealConversation)
                     }
 
-                val now = System.currentTimeMillis()
-                val mode = pollingMode.value
-                if (realConversationsLoadedForProfileId != null && realConversationsLoadedForProfileId != session.userId) {
-                    betterMessagesInboxLastUpdate = 0L
-                    betterMessagesRegisteredThreadIds.clear()
-                    isBetterMessagesPollingOnline = null
-                    _isPollingOnline.value = true
-                    shouldRefreshInboxAfterReconnect = false
-                }
-                restoreCachedConversationsIfNeeded(session.userId)
                 val activeBetterMessagesThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
-                val canRebuildCache = activeBetterMessagesThreadId == null &&
-                    (mode == ChatPollingMode.AGGRESSIVE || mode == ChatPollingMode.MEDIUM)
-                val shouldRebuildExpiredCache = canRebuildCache &&
-                    betterMessagesConversationCacheStore.isConversationCacheExpired(session.userId)
-                val shouldLoadInbox = realConversationsLoadedForProfileId != session.userId ||
-                    realConversations.value.isEmpty() ||
-                    shouldRefreshInboxAfterReconnect ||
-                    shouldRebuildExpiredCache
+                val hasInboxCursor = currentBetterMessagesInboxLastUpdate(session.userId) > 0L
                 logPolling(
                     "tick mode=$mode conversations=${realConversations.value.size} " +
-                        "shouldLoad=$shouldLoadInbox rebuildExpired=$shouldRebuildExpiredCache " +
+                        "hasCursor=$hasInboxCursor activeThread=$activeBetterMessagesThreadId " +
                         "lastDiscoveryAge=${now - lastInboxDiscoveryAt}"
                 )
 
-                if (shouldLoadInbox) {
-                    if (shouldEmitNativeNotifications()) {
-                        if (currentBetterMessagesInboxLastUpdate(session.userId) > 0L) {
-                            logPolling("background checkNew from shouldLoad")
-                            runCatching {
-                                discoverBetterMessagesInboxUpdates(
-                                    profileId = session.userId,
-                                    emitNativeNotifications = true
-                                )
-                            }
-                                .onSuccess { recordPollingSuccess() }
-                                .onFailure(::recordPollingFailure)
-                        } else {
-                            logPolling("background prime cursor")
-                            runCatching { primeBetterMessagesInboxCursor(session.userId) }
-                                .onSuccess { recordPollingSuccess() }
-                                .onFailure(::recordPollingFailure)
-                        }
-                        lastInboxRefreshAt = System.currentTimeMillis()
-                        lastInboxDiscoveryAt = lastInboxRefreshAt
-                        waitForNextPoll()
-                        continue
-                    }
-                    if (currentBetterMessagesInboxLastUpdate(session.userId) > 0L) {
-                        logPolling("foreground checkNew before full load")
-                        runCatching {
-                            discoverBetterMessagesInboxUpdates(
-                                profileId = session.userId,
-                                emitNativeNotifications = false
-                            )
-                        }
-                            .onSuccess { recordPollingSuccess() }
-                            .onFailure(::recordPollingFailure)
-                    }
-                    runCatching { refreshRealConversations() }
-                        .onSuccess { conversations ->
-                            recordPollingSuccess(refreshAfterReconnect = false)
-                            shouldRefreshInboxAfterReconnect = false
-                            logPolling("full load conversations=${conversations.size}")
-                            lastInboxRefreshAt = System.currentTimeMillis()
-                            lastInboxDiscoveryAt = lastInboxRefreshAt
+                if (!hasInboxCursor) {
+                    logPolling("prime cursor with checkNew")
+                    runCatching { primeBetterMessagesInboxCursor(session.userId) }
+                        .onSuccess {
+                            recordPollingSuccess()
+                            lastInboxDiscoveryAt = System.currentTimeMillis()
                         }
                         .onFailure(::recordPollingFailure)
                 } else {
@@ -1186,10 +1164,10 @@ class ChatRepositoryImpl(
                                     (interval - retryDelay).coerceAtLeast(0L)
                             }
                     }
-                    activeConversationId.value
-                        ?.betterMessagesThreadIdOrNull()
-                        ?.let { registerBetterMessagesThread(it) }
                 }
+                activeConversationId.value
+                    ?.betterMessagesThreadIdOrNull()
+                    ?.let { registerBetterMessagesThread(it) }
 
                 waitForNextPoll()
             }
@@ -1589,7 +1567,11 @@ class ChatRepositoryImpl(
         if (betterMessagesByThreadId[threadId].isNullOrEmpty()) {
             betterMessagesConversationCacheStore.cachedThreadResponse(session.userId, threadId)
                 ?.let { cacheBetterMessagesThreadResponse(threadId, it, persist = false) }
-                ?: runCatching { loadBetterMessagesThread(session.userId, threadId) }.getOrNull()
+                ?: if (deviceNetworkAvailable.value) {
+                    runCatching { loadBetterMessagesThread(session.userId, threadId) }.getOrNull()
+                } else {
+                    null
+                }
         }
         emitAll(
             betterMessagesThreadState(threadId)
@@ -1625,7 +1607,9 @@ class ChatRepositoryImpl(
         val cached = cachedBetterMessagesThreadResponse(threadId).takeIf { it.hasContentForThread(threadId) }
             ?: betterMessagesConversationCacheStore.cachedThreadResponse(session.userId, threadId)
                 ?.let { cacheBetterMessagesThreadResponse(threadId, it, persist = false) }
-        return (cached ?: loadBetterMessagesThread(session.userId, threadId)).toDomainMessages(session.userId)
+        if (cached != null) return cached.toDomainMessages(session.userId)
+        if (!deviceNetworkAvailable.value) return emptyList()
+        return loadBetterMessagesThread(session.userId, threadId).toDomainMessages(session.userId)
     }
 
     private fun observeFavoriteMessages(): Flow<List<Message>> = flow {

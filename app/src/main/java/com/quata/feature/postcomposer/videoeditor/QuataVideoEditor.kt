@@ -420,6 +420,7 @@ fun QuataVideoEditorDialog(
                     sourceHeight = metadata.displayHeight,
                     sourceRotation = metadata.rotation,
                     sourceFrameRate = metadata.frameRate,
+                    sourceBitrate = metadata.bitrate,
                     exportProfile = exportProfile,
                     captionTrack = captionTrack
                 )
@@ -1403,6 +1404,7 @@ private fun rememberVideoEditorMetadata(uri: Uri): VideoEditorMetadata {
                     val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
                     val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
                     val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+                    val bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
                     val retrieverFrameRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull()
                     } else {
@@ -1413,6 +1415,7 @@ private fun rememberVideoEditorMetadata(uri: Uri): VideoEditorMetadata {
                         width = width,
                         height = height,
                         rotation = rotation,
+                        bitrate = bitrate,
                         frameRate = retrieverFrameRate ?: context.readVideoFrameRate(uri)
                     )
                 }
@@ -1566,7 +1569,8 @@ private suspend fun Context.exportEditedVideo(
                 sourceWidth = intermediateWidth,
                 sourceHeight = intermediateHeight,
                 sourceRotation = 0,
-                sourceFrameRate = request.exportProfile.maxFrameRate.toFloat()
+                sourceFrameRate = request.exportProfile.maxFrameRate.toFloat(),
+                sourceBitrate = request.exportProfile.intermediateBitrate.toLong()
             )
             exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
                 onProgress(DownsampleExportProgressShare + progress * (1f - DownsampleExportProgressShare))
@@ -1637,7 +1641,7 @@ private suspend fun Context.exportDownsampledIntermediate(
             val encoderFactory = DefaultEncoderFactory.Builder(this@exportDownsampledIntermediate)
                 .setRequestedVideoEncoderSettings(
                     VideoEncoderSettings.Builder()
-                        .setBitrate(EditorIntermediateVideoBitrate)
+                        .setBitrate(request.exportProfile.intermediateBitrate)
                         .build()
                 )
                 .build()
@@ -1789,7 +1793,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             val encoderFactory = DefaultEncoderFactory.Builder(this@exportEditedVideoWithTransformer)
                 .setRequestedVideoEncoderSettings(
                     VideoEncoderSettings.Builder()
-                        .setBitrate(EditorVideoBitrate)
+                        .setBitrate(request.exportProfile.targetBitrate)
                         .build()
                 )
                 .build()
@@ -1970,7 +1974,8 @@ private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
         cropRect == null &&
         backgroundCropRect == null &&
         hasNineSixteenSourceAspect() &&
-        isWithinDirectStreamSizeLimit()
+        isWithinDirectStreamSizeLimit() &&
+        isWithinDirectStreamBitrateLimit()
 
 private fun VideoEditorExportRequest.canUseOriginalVideoInstantly(): Boolean =
     canUseDirectStreamCopy() &&
@@ -1985,7 +1990,12 @@ private fun VideoEditorExportRequest.hasNineSixteenSourceAspect(): Boolean {
 }
 
 private fun VideoEditorExportRequest.isWithinDirectStreamSizeLimit(): Boolean =
-    sourceWidth in 1..DirectOriginalMaxWidth && sourceHeight in 1..DirectOriginalMaxHeight
+    sourceWidth in 1..outputWidth && sourceHeight in 1..outputHeight
+
+private fun VideoEditorExportRequest.isWithinDirectStreamBitrateLimit(): Boolean {
+    val bitrate = sourceBitrate ?: return false
+    return bitrate <= exportProfile.targetBitrate + DirectStreamAudioBitrateAllowance
+}
 
 private fun VideoEditorExportRequest.needsBlurredBackground(): Boolean =
     backgroundCropRect != null
@@ -2386,6 +2396,7 @@ private data class VideoEditorMetadata(
     val width: Int = 0,
     val height: Int = 0,
     val rotation: Int = 0,
+    val bitrate: Long? = null,
     val frameRate: Float? = null
 ) {
     val displayWidth: Int
@@ -2422,6 +2433,7 @@ private data class VideoEditorExportRequest(
     val sourceHeight: Int,
     val sourceRotation: Int,
     val sourceFrameRate: Float?,
+    val sourceBitrate: Long?,
     val exportProfile: VideoExportProfile,
     val captionTrack: CaptionBurnInTrack?
 )
@@ -2450,11 +2462,7 @@ private const val PreviewBackgroundSnapshotMaxDimension = 180
 private const val PreviewBackgroundSnapshotIntervalMs = 120L
 private const val MinimumTrimMs = 500L
 private const val MaximumTrimDurationMs = 15 * 60 * 1000L
-private const val EditorVideoBitrate = 2_500_000
-private const val EditorIntermediateVideoBitrate = 4_000_000
 private const val DownsampleExportProgressShare = 0.28f
-private const val DirectOriginalMaxWidth = 1080
-private const val DirectOriginalMaxHeight = 1920
 private const val EditorTargetFrameRate = 30
 private const val SourceSixtyFpsLowerBound = 50f
 private const val SourceSixtyFpsUpperBound = 70f
@@ -2469,4 +2477,5 @@ private const val DirectStreamAspectTolerance = 0.01f
 private const val DirectStreamCopyDefaultBufferSize = 1 * 1024 * 1024
 private const val DirectStreamProgressIntervalMs = 250L
 private const val DirectOriginalTrimToleranceMs = 80L
+private const val DirectStreamAudioBitrateAllowance = 160_000L
 private const val VideoEditorLogTag = "QuataVideoEditor"

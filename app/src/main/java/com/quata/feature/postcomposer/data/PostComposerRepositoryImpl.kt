@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.data
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
@@ -10,6 +11,7 @@ import com.quata.core.data.MockData
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.session.SessionManager
 import com.quata.core.text.buildPostBodyWithMeta
+import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
@@ -59,6 +61,7 @@ class PostComposerRepositoryImpl(
         } else {
             null
         }
+        var uploadedVideoUrl: String? = null
         val videoUrl = if (draft.type == PostComposerType.Video) {
             val media = mediaUploadOptimizer.prepareVideoUploadStream(
                 uriString = draft.videoUri ?: error("Selecciona o graba un video"),
@@ -75,18 +78,41 @@ class PostComposerRepositoryImpl(
             } finally {
                 media.cleanup()
             }
-            upload.data?.url ?: error(upload.errorMessage ?: "WordPress no devolvio URL de video")
+            Log.d(
+                POST_COMPOSER_LOG_TAG,
+                "video upload completed success=${upload.success} hasUrl=${!upload.data?.url.isNullOrBlank()} " +
+                    "error=${upload.errorMessage?.take(240)}"
+            )
+            (upload.data?.url ?: error(upload.errorMessage ?: "WordPress no devolvio URL de video"))
+                .also { uploadedVideoUrl = it }
         } else {
             null
         }
 
-        supabaseApi.createPost(
-            wallId = wallId,
-            profileId = session.userId,
-            body = draft.toRemoteText(),
-            imageUrl = imageUrl,
-            videoUrl = videoUrl
-        )?.id
+        runCatching {
+            supabaseApi.createPost(
+                wallId = wallId,
+                profileId = session.userId,
+                body = draft.toRemoteText(),
+                imageUrl = imageUrl,
+                videoUrl = videoUrl
+            )?.id
+        }.onFailure { throwable ->
+            Log.e(
+                POST_COMPOSER_LOG_TAG,
+                "createPost failed type=${draft.type} wallId=$wallId profileId=${session.userId} " +
+                    "hasImage=${imageUrl != null} hasVideo=${videoUrl != null} " +
+                    "status=${(throwable as? SupabaseApiException)?.statusCode} " +
+                    "body=${(throwable as? SupabaseApiException)?.responseBody?.take(800)}",
+                throwable
+            )
+            uploadedVideoUrl?.let { orphanUrl ->
+                runCatching { wordpressClient.deletePostVideoAjax(orphanUrl) }
+                    .onFailure { cleanupError ->
+                        Log.w(POST_COMPOSER_LOG_TAG, "Could not clean orphan uploaded video: $orphanUrl", cleanupError)
+                    }
+            }
+        }.getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_publish_post)
 
     private suspend fun resolveWallId(profileId: String): String {
@@ -122,5 +148,9 @@ class PostComposerRepositoryImpl(
         return fromProvider?.takeIf { it.isNotBlank() }
             ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
             ?: ""
+    }
+
+    private companion object {
+        const val POST_COMPOSER_LOG_TAG = "QuataPostComposer"
     }
 }

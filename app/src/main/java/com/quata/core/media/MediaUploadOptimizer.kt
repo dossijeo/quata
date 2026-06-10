@@ -75,13 +75,15 @@ data class ImageUploadOptions(
 }
 
 data class VideoUploadOptions(
-    val autoOptimizeBytes: Long = 24L * 1024L * 1024L,
-    val slowConnectionRecommendedBytes: Long = 8L * 1024L * 1024L,
-    val targetHeight: Int = 720,
-    val targetBitrate: Int = 2_000_000,
+    val autoOptimizeBytes: Long = 10L * 1024L * 1024L,
+    val slowConnectionRecommendedBytes: Long = 4L * 1024L * 1024L,
+    val targetHeight: Int = 480,
+    val targetBitrate: Int = 800_000,
     val force: Boolean = false,
     val skipOptimize: Boolean = false
 )
+
+private const val VIDEO_BITRATE_AUDIO_ALLOWANCE = 160_000L
 
 class MediaUploadOptimizer(private val appContext: Context) {
     suspend fun prepareImageUpload(
@@ -283,7 +285,9 @@ class MediaUploadOptimizer(private val appContext: Context) {
         if (options.skipOptimize) return null
         if (!source.mimeType.startsWith("video/", ignoreCase = true)) return null
         val sourceSize = source.sizeBytes ?: 0L
+        val sourceBitrate = source.videoBitrate()
         val shouldOptimize = options.force ||
+            sourceBitrate.exceedsTargetVideoBitrate(options.targetBitrate) ||
             (isSlowConnectionMode() && sourceSize > options.slowConnectionRecommendedBytes) ||
             sourceSize > options.autoOptimizeBytes
         if (!shouldOptimize) return null
@@ -371,6 +375,20 @@ class MediaUploadOptimizer(private val appContext: Context) {
                 retriever.release()
             }
         }.getOrNull()
+
+    private fun MediaSource.videoBitrate(): Long? =
+        runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(appContext, uri)
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
+            } finally {
+                retriever.release()
+            }
+        }.getOrNull()
+
+    private fun Long?.exceedsTargetVideoBitrate(targetBitrate: Int): Boolean =
+        this != null && this > targetBitrate + VIDEO_BITRATE_AUDIO_ALLOWANCE
 
     private fun isSlowConnectionMode(): Boolean {
         val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager

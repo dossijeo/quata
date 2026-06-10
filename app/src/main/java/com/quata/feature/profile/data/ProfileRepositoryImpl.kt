@@ -174,7 +174,7 @@ class ProfileRepositoryImpl(
             neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
             countryCode = country_code?.takeIf { it.isNotBlank() } ?: code?.takeIf { it.isNotBlank() } ?: "240",
             phone = phone_local?.takeIf { it.isNotBlank() } ?: phone.orEmpty(),
-            avatarUri = avatar_url ?: avatar,
+            avatarUri = avatar_url.cleanValue() ?: avatar.cleanValue(),
             selectedSecretQuestion = secret_question.orEmpty(),
             emergencyContactIds = emergencyContactIds,
             emergencyMessage = storedEmergencyMessage
@@ -207,7 +207,7 @@ class ProfileRepositoryImpl(
             put("phone_local", phone)
             put("phone", "+${countryCode.filter(Char::isDigit)}${phone.filter(Char::isDigit)}")
             put("telefono", phone)
-            put("avatar_url", avatarUri)
+            put("avatar_url", avatarUri.cleanValue())
             put("secret_question", secretQuestion)
             if (secretAnswer.isNotBlank()) put("secret_answer", secretAnswer)
         }
@@ -236,4 +236,7 @@ class ProfileRepositoryImpl(
             secretQuestions = context.profileSecretQuestionOptions(),
             emergencyCandidates = emergencyCandidates
         )
+
+    private fun String?.cleanValue(): String? =
+        this?.trim()?.takeIf { it.isNotBlank() }
 }

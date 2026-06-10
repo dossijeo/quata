@@ -46,6 +46,24 @@ class SupabaseResponseCacheStore(context: Context) {
         }
     }
 
+    suspend fun readTable(tableName: String): List<CachedSupabaseResponse> = withContext(Dispatchers.IO) {
+        val cached = mutableListOf<CachedSupabaseResponse>()
+        helper.readableDatabase.query(
+            TABLE_CACHE,
+            COLUMNS,
+            "$COL_TABLE_NAME = ?",
+            arrayOf(tableName),
+            null,
+            null,
+            "$COL_UPDATED_AT ASC"
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                cached += cursor.toCachedResponse()
+            }
+        }
+        cached
+    }
+
     suspend fun write(
         key: String,
         method: String,

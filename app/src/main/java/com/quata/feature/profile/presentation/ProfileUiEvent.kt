@@ -11,6 +11,7 @@ sealed class ProfileUiEvent {
     data class SecretAnswerChanged(val value: String) : ProfileUiEvent()
     data class EmergencyMessageChanged(val value: String) : ProfileUiEvent()
     data class EmergencyContactToggled(val contactId: String) : ProfileUiEvent()
+    data object Refresh : ProfileUiEvent()
     data object Save : ProfileUiEvent()
     data object ClearMessages : ProfileUiEvent()
 }

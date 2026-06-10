@@ -88,6 +88,7 @@ import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 
@@ -105,6 +106,7 @@ fun ProfileScreen(
     onTouchFlowEnabledChange: (Boolean) -> Unit,
     themeMode: QuataThemeMode,
     onThemeModeChange: (QuataThemeMode) -> Unit,
+    networkReconnectToken: Long = 0L,
     onLogout: () -> Unit,
     onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
@@ -126,6 +128,12 @@ fun ProfileScreen(
             pendingCameraUri?.let { cameraLauncher.launch(it) }
         } else {
             Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(networkReconnectToken) {
+        if (networkReconnectToken != 0L) {
+            viewModel.onEvent(ProfileUiEvent.Refresh)
         }
     }
 
@@ -216,6 +224,8 @@ fun ProfileScreen(
             }
 
             ProfilePanel {
+                val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
+                val profileAvatarModel = rememberCachedRemoteImageRequest(profileAvatarUri)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -225,9 +235,9 @@ fun ProfileScreen(
                             .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(24.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (profile.avatarUri != null) {
+                        if (profileAvatarUri != null) {
                             AsyncImage(
-                                model = profile.avatarUri,
+                                model = profileAvatarModel,
                                 contentDescription = stringResource(R.string.profile_photo),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

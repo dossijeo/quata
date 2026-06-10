@@ -5,6 +5,7 @@ import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.data.MockData
+import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
@@ -40,8 +41,8 @@ class FeedRepositoryImpl(
                         flowOf(FeedSnapshot(posts = posts))
                     } else {
                         combine(
-                            remote.observeComments(postIds),
-                            remote.observeLikes(postIds)
+                            remote.observeComments(postIds).emptyOnFailure(),
+                            remote.observeLikes(postIds).emptyOnFailure()
                         ) { comments, likes ->
                             FeedSnapshot(posts = posts, comments = comments, likes = likes)
                         }
@@ -53,6 +54,7 @@ class FeedRepositoryImpl(
                         flowOf(buildPosts(snapshot.posts, snapshot.comments, snapshot.likes, emptyList()))
                     } else {
                         remote.observeProfiles(profileIds)
+                            .emptyOnFailure()
                             .map { profiles -> buildPosts(snapshot.posts, snapshot.comments, snapshot.likes, profiles) }
                     }
                 }
@@ -113,12 +115,15 @@ class FeedRepositoryImpl(
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
+            val videoUrl = MockData.posts.firstOrNull { it.id == postId }?.videoUrl
             val deleted = MockData.deletePost(postId, session.userId)
             if (!deleted) error("No se pudo borrar la publicacion")
+            QuataMediaCache.removeVideo(appContext, videoUrl)
         } else {
             val post = remote.getPost(postId)
             deleteWordPressVideo(post)
             remote.deletePost(postId, session.userId)
+            QuataMediaCache.removeVideo(appContext, post?.video_url)
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -214,4 +219,7 @@ class FeedRepositoryImpl(
                 likes.mapNotNull { it.profile_id }
             ).distinct()
     }
+
+    private fun <T> Flow<List<T>>.emptyOnFailure(): Flow<List<T>> =
+        catch { emit(emptyList()) }
 }

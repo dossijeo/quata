@@ -159,7 +159,19 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     )
 
     suspend fun createPost(wallId: String, profileId: String, body: String? = null, imageUrl: String? = null, videoUrl: String? = null): CommunityPost? =
-        client.post<CommunityPost, CommunityPostCreate>("community_posts", CommunityPostCreate(wallId, profileId, body, imageUrl, videoUrl), select = POST_SELECT)
+        client.post<CommunityPost, CommunityPostCreate>(
+            "community_posts",
+            CommunityPostCreate(
+                wall_id = wallId,
+                profile_id = profileId,
+                body = body,
+                image_url = imageUrl,
+                video_url = videoUrl,
+                author_id = profileId,
+                content = body
+            ),
+            select = POST_SELECT
+        )
 
     suspend fun deletePost(postId: String, profileId: String? = null) = client.delete(
         "community_posts",

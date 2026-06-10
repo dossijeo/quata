@@ -77,11 +77,12 @@ fun AvatarImage(
     modifier: Modifier = Modifier.size(44.dp)
 ) {
     val template = quataTheme()
+    val imageModel = rememberCachedRemoteImageRequest(avatarUrl)
     if (avatarUrl.isNullOrBlank()) {
         AvatarLetter(name, modifier)
     } else {
         AsyncImage(
-            model = avatarUrl,
+            model = imageModel,
             contentDescription = name,
             contentScale = ContentScale.Crop,
             modifier = modifier

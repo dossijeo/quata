@@ -7,8 +7,13 @@ import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
 import android.media.RingtoneManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,10 +47,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,8 +84,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
 import com.quata.core.session.AuthState
+import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataBrandMark
+import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.feature.chat.domain.ChatPollingMode
@@ -133,12 +142,22 @@ fun AppNavGraph(
     val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen
     val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
     val notificationCount = observedNotificationCount ?: 0
-    val isAppOnline by container.chatRepository.isPollingOnline.collectAsState()
+    val isDeviceNetworkAvailable = rememberDeviceNetworkAvailable()
+    val isAppOnline = isDeviceNetworkAvailable
+    var feedNetworkReconnectToken by rememberSaveable { mutableLongStateOf(0L) }
+    var previousDeviceNetworkAvailable by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val appContext = LocalContext.current
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
     var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(isDeviceNetworkAvailable) {
+        container.chatRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
+        if (previousDeviceNetworkAvailable == false && isDeviceNetworkAvailable) {
+            feedNetworkReconnectToken = System.currentTimeMillis()
+        }
+        previousDeviceNetworkAvailable = isDeviceNetworkAvailable
+    }
     LaunchedEffect(observedNotificationCount) {
         val currentNotificationCount = observedNotificationCount ?: return@LaunchedEffect
         if (!hasObservedNotificationCount) {
@@ -284,11 +303,17 @@ fun AppNavGraph(
         onIncomingLinkHandled()
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .fluidTouchEffect(enabled = touchFlowEnabled)
+    CompositionLocalProvider(
+        LocalQuataNetworkImageState provides QuataNetworkImageState(
+            isNetworkAvailable = isDeviceNetworkAvailable,
+            reconnectToken = feedNetworkReconnectToken
+        )
     ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .fluidTouchEffect(enabled = touchFlowEnabled)
+        ) {
         Scaffold(
             topBar = {
                 if (showAppChrome) {
@@ -356,6 +381,8 @@ fun AppNavGraph(
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         openingProfileUserId = globalProfileState.openingProfileUserId,
                         focusedPostId = feedFocusedPostId,
+                        networkReconnectToken = feedNetworkReconnectToken,
+                        isNetworkAvailable = isDeviceNetworkAvailable,
                         onFocusedPostHandled = { feedFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() }
                     )
@@ -488,6 +515,7 @@ fun AppNavGraph(
                             },
                             themeMode = themeMode,
                             onThemeModeChange = container.themePreferences::setThemeMode,
+                            networkReconnectToken = feedNetworkReconnectToken,
                             onLogout = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(0)
@@ -622,6 +650,7 @@ fun AppNavGraph(
             )
         }
     }
+    }
 }
 
 @Composable
@@ -711,7 +740,54 @@ private fun chatPollingModeFor(
     !showAppChrome -> ChatPollingMode.MINIMAL
     !isForeground -> ChatPollingMode.RELAXED
     currentRoute == AppDestinations.Chat.route -> ChatPollingMode.AGGRESSIVE
+    currentRoute == AppDestinations.Feed.route -> ChatPollingMode.RELAXED
     else -> ChatPollingMode.MEDIUM
+}
+
+@Composable
+private fun rememberDeviceNetworkAvailable(): Boolean {
+    val context = LocalContext.current.applicationContext
+    var isAvailable by remember(context) { mutableStateOf(context.hasUsableNetwork()) }
+    DisposableEffect(context) {
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        if (connectivityManager == null) return@DisposableEffect onDispose {}
+        val mainHandler = Handler(Looper.getMainLooper())
+        fun refresh() {
+            mainHandler.post {
+                isAvailable = context.hasUsableNetwork()
+            }
+        }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                refresh()
+            }
+
+            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+                refresh()
+            }
+
+            override fun onLost(network: Network) {
+                refresh()
+            }
+
+            override fun onUnavailable() {
+                refresh()
+            }
+        }
+        refresh()
+        connectivityManager.registerDefaultNetworkCallback(callback)
+        onDispose {
+            runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+        }
+    }
+    return isAvailable
+}
+
+private fun Context.hasUsableNetwork(): Boolean {
+    val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return true
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
 
 @Composable

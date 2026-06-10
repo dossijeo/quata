@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import android.content.Intent
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import com.quata.core.ui.components.CommunityEmojiPanel
@@ -73,16 +75,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -121,6 +124,7 @@ import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.UserAvatar
+import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
@@ -141,6 +145,8 @@ fun FeedScreen(
     currentUserId: String? = null,
     openingProfileUserId: String? = null,
     focusedPostId: String? = null,
+    networkReconnectToken: Long = 0L,
+    isNetworkAvailable: Boolean = true,
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
@@ -154,6 +160,12 @@ fun FeedScreen(
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
     val canParticipate = currentUserId != null
 
+    LaunchedEffect(networkReconnectToken) {
+        if (networkReconnectToken != 0L) {
+            viewModel.onEvent(FeedUiEvent.Refresh)
+        }
+    }
+
     LaunchedEffect(state.posts, pendingDeletedPostId) {
         val deletedPostId = pendingDeletedPostId ?: return@LaunchedEffect
         if (state.posts.none { it.id == deletedPostId }) {
@@ -163,11 +175,12 @@ fun FeedScreen(
     }
 
     when {
-        state.error != null -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
+        state.error != null && state.posts.isEmpty() -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
         state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, stringResource(R.string.feed_empty), onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
         else -> {
             val pagerState = rememberPagerState(pageCount = { state.posts.size })
             val postRanks = remember(state.posts) { calculatePostRankingMap(state.posts) }
+            val videoPositions = remember { mutableMapOf<String, Long>() }
             var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
 
             LaunchedEffect(focusedPostId) {
@@ -203,9 +216,11 @@ fun FeedScreen(
             ) {
                 VerticalPager(
                     state = pagerState,
+                    beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val post = state.posts[page]
+                    val videoPositionKey = post.videoUrl
                     key(post.id, post.videoUrl) {
                         ReelPost(
                             post = post,
@@ -213,6 +228,12 @@ fun FeedScreen(
                             isCurrentPage = pagerState.currentPage == page,
                             currentUserId = currentUserId,
                             isAuthorProfileLoading = openingProfileUserId == post.author.id,
+                            networkReconnectToken = networkReconnectToken,
+                            isNetworkAvailable = isNetworkAvailable,
+                            initialVideoPositionMs = videoPositionKey?.let { videoPositions[it] } ?: 0L,
+                            onVideoPositionChanged = { positionMs ->
+                                videoPositionKey?.let { videoPositions[it] = positionMs }
+                            },
                             onOpenComments = { commentsPost = post },
                             onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                             onOpenLive = { isLiveOpen = true },
@@ -501,6 +522,10 @@ private fun ReelPost(
     isCurrentPage: Boolean,
     currentUserId: String?,
     isAuthorProfileLoading: Boolean,
+    networkReconnectToken: Long,
+    isNetworkAvailable: Boolean,
+    initialVideoPositionMs: Long,
+    onVideoPositionChanged: (Long) -> Unit,
     onOpenComments: () -> Unit,
     onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
@@ -520,12 +545,17 @@ private fun ReelPost(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .background(Color.Black)
     ) {
         ReelMedia(
             post = post,
             isActive = isCurrentPage,
             isMuted = isVideoMuted,
+            networkReconnectToken = networkReconnectToken,
+            isNetworkAvailable = isNetworkAvailable,
+            initialVideoPositionMs = initialVideoPositionMs,
+            onVideoPositionChanged = onVideoPositionChanged,
             onMuteChange = { isVideoMuted = it }
         )
         ReelScrims()
@@ -587,28 +617,29 @@ private fun ReelMedia(
     post: Post,
     isActive: Boolean,
     isMuted: Boolean,
+    networkReconnectToken: Long,
+    isNetworkAvailable: Boolean,
+    initialVideoPositionMs: Long,
+    onVideoPositionChanged: (Long) -> Unit,
     onMuteChange: (Boolean) -> Unit
 ) {
     when {
         post.videoUrl != null -> {
-            if (isActive) {
-                ReelVideo(
-                    videoUrl = post.videoUrl,
-                    isActive = isActive,
-                    isMuted = isMuted,
-                    onMuteChange = onMuteChange
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                )
-            }
+            ReelVideo(
+                videoUrl = post.videoUrl,
+                isActive = isActive,
+                isMuted = isMuted,
+                networkReconnectToken = networkReconnectToken,
+                isNetworkAvailable = isNetworkAvailable,
+                initialPositionMs = initialVideoPositionMs,
+                onPositionChanged = onVideoPositionChanged,
+                onMuteChange = onMuteChange
+            )
         }
         post.imageUrl != null -> {
+            val imageModel = rememberCachedRemoteImageRequest(post.imageUrl)
             AsyncImage(
-                model = post.imageUrl,
+                model = imageModel,
                 contentDescription = post.imageTitle(),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -661,25 +692,36 @@ private fun ReelVideo(
     videoUrl: String,
     isActive: Boolean,
     isMuted: Boolean,
+    networkReconnectToken: Long,
+    isNetworkAvailable: Boolean,
+    initialPositionMs: Long,
+    onPositionChanged: (Long) -> Unit,
     onMuteChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
-    val template = quataTheme()
-    val playerBackground = template.colors.surfaceAlt.toArgb()
+    val playerBackground = Color.Black.toArgb()
+    val latestIsActive by rememberUpdatedState(isActive)
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
-    var positionMs by remember(videoUrl) { mutableLongStateOf(0L) }
+    var positionMs by remember(videoUrl) { mutableLongStateOf(initialPositionMs) }
     var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
     var centerFeedbackIcon by remember { mutableStateOf<ImageVector?>(null) }
     var centerFeedbackTick by remember { mutableLongStateOf(0L) }
+    var hasPlaybackError by remember(videoUrl) { mutableStateOf(false) }
+    var isBuffering by remember(videoUrl) { mutableStateOf(false) }
+    var hasStartedPlayback by remember(videoUrl) { mutableStateOf(initialPositionMs > 0L) }
+    var retryCount by remember(videoUrl) { mutableStateOf(0) }
+    var retrySignal by remember(videoUrl) { mutableLongStateOf(0L) }
+    var playerGeneration by remember(videoUrl) { mutableLongStateOf(0L) }
     val mediaSourceFactory = remember(context) { QuataMediaCache.videoMediaSourceFactory(context) }
-    val player = remember(videoUrl) {
+    val player = remember(videoUrl, playerGeneration) {
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                2_500,
-                12_000,
-                500,
-                1_500
+                10_000,
+                35_000,
+                1_500,
+                4_000
             )
+            .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -687,6 +729,9 @@ private fun ReelVideo(
             .build()
             .apply {
                 setMediaItem(MediaItem.fromUri(videoUrl))
+                if (initialPositionMs > 0L) {
+                    seekTo(initialPositionMs)
+                }
                 repeatMode = Player.REPEAT_MODE_ONE
                 playWhenReady = false
                 volume = 0f
@@ -695,10 +740,45 @@ private fun ReelVideo(
             }
     }
 
+    LaunchedEffect(networkReconnectToken, isActive) {
+        if (networkReconnectToken != 0L && isActive && (hasPlaybackError || player.playbackState == Player.STATE_IDLE)) {
+            hasPlaybackError = false
+            retryCount = 0
+            retrySignal = 0L
+            isPlaying = false
+            isBuffering = false
+            playerGeneration = networkReconnectToken
+        }
+    }
+
+    fun syncBufferingState() {
+        isBuffering = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady
+    }
+
+    fun startPlayback() {
+        if (hasPlaybackError || player.playbackState == Player.STATE_IDLE) {
+            hasPlaybackError = false
+            player.prepare()
+        }
+        if (player.playbackState == Player.STATE_ENDED) {
+            player.seekTo(0)
+        }
+        player.playWhenReady = true
+        player.play()
+        syncBufferingState()
+    }
+
     LaunchedEffect(player, isActive) {
-        player.playWhenReady = isActive
-        if (isActive) player.play() else player.pause()
-        isPlaying = isActive
+        if (isActive) {
+            if (!hasPlaybackError || player.playbackState == Player.STATE_IDLE) {
+                startPlayback()
+            }
+        } else {
+            player.playWhenReady = false
+            player.pause()
+            isPlaying = false
+            isBuffering = false
+        }
     }
 
     LaunchedEffect(player, isMuted) {
@@ -709,14 +789,70 @@ private fun ReelVideo(
     LaunchedEffect(player, isActive) {
         while (isActive) {
             positionMs = player.currentPosition.coerceAtLeast(0L)
+            onPositionChanged(positionMs)
+            if (positionMs > 0L) hasStartedPlayback = true
             durationMs = player.duration.takeIf { it > 0 } ?: 0L
             isPlaying = player.isPlaying
             delay(1_000)
         }
     }
 
+    LaunchedEffect(player, retrySignal, isActive, isNetworkAvailable) {
+        val signal = retrySignal
+        if (signal == 0L || !isActive || !isNetworkAvailable) return@LaunchedEffect
+        val retryDelay = when (retryCount) {
+            0, 1 -> 3_000L
+            2 -> 7_000L
+            3 -> 12_000L
+            else -> 20_000L
+        }
+        delay(retryDelay)
+        if (latestIsActive && hasPlaybackError && retrySignal == signal) {
+            hasPlaybackError = false
+            startPlayback()
+        }
+    }
+
     DisposableEffect(player) {
-        onDispose { player.release() }
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
+                if (isPlayingNow) hasStartedPlayback = true
+                isPlaying = isPlayingNow
+                syncBufferingState()
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                durationMs = player.duration.takeIf { it > 0 } ?: durationMs
+                if (playbackState == Player.STATE_READY) {
+                    hasPlaybackError = false
+                    retryCount = 0
+                    if (latestIsActive && player.playWhenReady) {
+                        player.play()
+                    }
+                }
+                syncBufferingState()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                syncBufferingState()
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                hasPlaybackError = true
+                retryCount = (retryCount + 1).coerceAtMost(5)
+                isPlaying = false
+                isBuffering = false
+                player.playWhenReady = false
+                player.pause()
+                retrySignal = System.currentTimeMillis()
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            onPositionChanged(player.currentPosition.coerceAtLeast(0L))
+            player.removeListener(listener)
+            player.release()
+        }
     }
 
     LaunchedEffect(centerFeedbackTick) {
@@ -727,13 +863,22 @@ private fun ReelVideo(
     }
 
     fun togglePlayback(showFeedback: Boolean) {
+        if (hasPlaybackError) {
+            retryCount = 0
+            startPlayback()
+            if (showFeedback) {
+                centerFeedbackIcon = Icons.Filled.PlayArrow
+                centerFeedbackTick = System.currentTimeMillis()
+            }
+            return
+        }
         if (player.isPlaying) {
             player.pause()
             isPlaying = false
+            isBuffering = false
             if (showFeedback) centerFeedbackIcon = Icons.Filled.Pause
         } else {
-            player.play()
-            isPlaying = true
+            startPlayback()
             if (showFeedback) centerFeedbackIcon = Icons.Filled.PlayArrow
         }
         if (showFeedback) centerFeedbackTick = System.currentTimeMillis()
@@ -742,12 +887,16 @@ private fun ReelVideo(
     Box(
         Modifier
             .fillMaxSize()
-            .background(template.colors.surfaceAlt)
+            .clipToBounds()
+            .background(Color.Black)
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds(),
             factory = { viewContext ->
-                PlayerView(viewContext).apply {
+                (LayoutInflater.from(viewContext)
+                    .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
                     this.player = player
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -791,8 +940,19 @@ private fun ReelVideo(
                 )
             }
         }
+        val showRebuffering = isBuffering && hasStartedPlayback
+        if (showRebuffering && centerFeedbackIcon == null) {
+            CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 3.dp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(48.dp)
+            )
+        }
         VideoControls(
             isPlaying = isPlaying,
+            isBuffering = showRebuffering,
             positionMs = positionMs,
             durationMs = durationMs,
             isMuted = isMuted,
@@ -819,6 +979,7 @@ private fun ExoPlayer.setFeedAudioEnabled(enabled: Boolean) {
 @Composable
 private fun VideoControls(
     isPlaying: Boolean,
+    isBuffering: Boolean,
     positionMs: Long,
     durationMs: Long,
     isMuted: Boolean,
@@ -838,15 +999,23 @@ private fun VideoControls(
         verticalAlignment = Alignment.CenterVertically
     ) {
         CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
-            CompactIcon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) {
-                    stringResource(R.string.feed_pause)
-                } else {
-                    stringResource(R.string.feed_play)
-                },
-                tint = Color.White
-            )
+            if (isBuffering) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                CompactIcon(
+                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (isPlaying) {
+                        stringResource(R.string.feed_pause)
+                    } else {
+                        stringResource(R.string.feed_play)
+                    },
+                    tint = Color.White
+                )
+            }
         }
         TimelineThumb(
             progress = progress,

@@ -111,8 +111,8 @@ data class CommunityPostCreate(
     val body: String? = null,
     val image_url: String? = null,
     val video_url: String? = null,
-    val author_id: String? = profile_id,
-    val content: String? = body
+    val author_id: String? = null,
+    val content: String? = null
 )
 
 @Serializable

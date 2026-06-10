@@ -70,9 +70,7 @@ class ChatViewModel(
         }
         viewModelScope.launch {
             repository.observeParticipantCandidates()
-                .catch { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudieron cargar los contactos")
-                }
+                .catch { emit(emptyList()) }
                 .collect { candidates ->
                     _uiState.value = _uiState.value.copy(participantCandidates = candidates)
                 }

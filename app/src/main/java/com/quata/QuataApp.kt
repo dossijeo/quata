@@ -51,7 +51,9 @@ class QuataApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader {
-        val imageCacheDir = File(cacheDir, IMAGE_CACHE_DIR).apply { mkdirs() }
+        val imageCacheDir = File(filesDir, IMAGE_CACHE_DIR)
+        migrateLegacyImageCache(imageCacheDir)
+        imageCacheDir.mkdirs()
         QuataMediaCache.pruneStaleFiles(imageCacheDir)
         return ImageLoader.Builder(this)
             .memoryCache {
@@ -65,7 +67,22 @@ class QuataApp : Application(), ImageLoaderFactory {
                     .maxSizeBytes(MAX_IMAGE_CACHE_BYTES)
                     .build()
             }
+            .respectCacheHeaders(false)
             .build()
+    }
+
+    private fun migrateLegacyImageCache(targetDir: File) {
+        val legacyDir = File(cacheDir, IMAGE_CACHE_DIR)
+        if (!legacyDir.exists() || legacyDir.listFiles().isNullOrEmpty()) return
+        if (targetDir.exists() && !targetDir.listFiles().isNullOrEmpty()) return
+
+        targetDir.parentFile?.mkdirs()
+        if (!targetDir.exists() && runCatching { legacyDir.renameTo(targetDir) }.getOrDefault(false)) {
+            return
+        }
+        runCatching {
+            legacyDir.copyRecursively(targetDir, overwrite = false)
+        }
     }
 
     private companion object {

@@ -10,23 +10,29 @@ data class VideoExportProfile(
     val width: Int,
     val height: Int,
     val maxFrameRate: Int,
-    val label: String
+    val label: String,
+    val targetBitrate: Int,
+    val intermediateBitrate: Int
 ) {
     val aspectRatio: Float get() = width.toFloat() / height.toFloat()
 }
 
 object VideoExportSystemProfile {
+    private val sd480 = VideoExportProfile(
+        width = 480,
+        height = 854,
+        maxFrameRate = 30,
+        label = "480p",
+        targetBitrate = 800_000,
+        intermediateBitrate = 1_200_000
+    )
     private val hd720 = VideoExportProfile(
         width = 720,
         height = 1280,
         maxFrameRate = 30,
-        label = "720p"
-    )
-    private val fullHd1080 = VideoExportProfile(
-        width = 1080,
-        height = 1920,
-        maxFrameRate = 30,
-        label = "1080p"
+        label = "720p",
+        targetBitrate = 1_200_000,
+        intermediateBitrate = 1_800_000
     )
 
     @Volatile
@@ -35,16 +41,16 @@ object VideoExportSystemProfile {
     fun current(): VideoExportProfile =
         cachedProfile ?: synchronized(this) {
             cachedProfile ?: detectProfile().also { cachedProfile = it }
-        }
+    }
 
     private fun detectProfile(): VideoExportProfile {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return hd720
-        return if (supportsH264PerformancePoint()) fullHd1080 else hd720
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return sd480
+        return if (supportsH264PerformancePoint()) hd720 else sd480
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun supportsH264PerformancePoint(): Boolean {
-        val requiredPoint = MediaCodecInfo.VideoCapabilities.PerformancePoint(1920, 1080, 60)
+        val requiredPoint = MediaCodecInfo.VideoCapabilities.PerformancePoint(1280, 720, 30)
         return runCatching {
             MediaCodecList(MediaCodecList.REGULAR_CODECS)
                 .codecInfos
@@ -56,7 +62,7 @@ object VideoExportSystemProfile {
                     val videoCapabilities = capabilities.videoCapabilities
                     val performancePoints = videoCapabilities.supportedPerformancePoints
                     if (performancePoints == null) {
-                        videoCapabilities.areSizeAndRateSupported(1920, 1080, 60.0)
+                        videoCapabilities.areSizeAndRateSupported(1280, 720, 30.0)
                     } else {
                         performancePoints.any { it.covers(requiredPoint) }
                     }

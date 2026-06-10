@@ -315,7 +315,10 @@ class QuataWordPressClient(
             .build()
 
         val json = execute(request)
-        if (json.contains(""""message"""") && json.contains(""""code"""")) {
+        val dataJson = JsonLite.objectBody(json, "data")
+        val uploadedUrl = JsonLite.string(json, "url") ?: dataJson?.let { JsonLite.string(it, "url") }
+        val hasRestError = json.contains(""""message"""") && json.contains(""""code"""")
+        if (hasRestError && uploadedUrl.isNullOrBlank()) {
             return AjaxEnvelope(
                 success = false,
                 data = VideoUploadData(rawJson = json),
@@ -327,12 +330,13 @@ class QuataWordPressClient(
         return AjaxEnvelope(
             success = true,
             data = VideoUploadData(
-                url = JsonLite.string(json, "url"),
-                size = JsonLite.long(json, "size"),
-                mime = JsonLite.string(json, "mime"),
-                file = JsonLite.string(json, "file"),
+                url = uploadedUrl,
+                size = JsonLite.long(json, "size") ?: dataJson?.let { JsonLite.long(it, "size") },
+                mime = JsonLite.string(json, "mime") ?: dataJson?.let { JsonLite.string(it, "mime") },
+                file = JsonLite.string(json, "file") ?: dataJson?.let { JsonLite.string(it, "file") },
                 rawJson = json
             ),
+            errorMessage = if (hasRestError) JsonLite.string(json, "message") else null,
             rawJson = json
         )
     }
