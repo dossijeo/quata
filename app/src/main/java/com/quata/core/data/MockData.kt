@@ -579,7 +579,7 @@ object MockData {
             ?.let { id -> registeredUsers.firstOrNull { it.id == id } }
         val senderName = sender?.displayName
             ?: conversation.participantNames.firstOrNull { !it.equals(currentUserName, ignoreCase = true) }
-            ?: "QÜATA"
+            ?: "Q\u00FCata"
         val senderId = sender?.id ?: "mock_contact"
         val now = System.currentTimeMillis()
         mutableMessages.add(

@@ -1123,12 +1123,12 @@ private fun ComposerPreviewAuthor(
                     .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("QÜ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                Text("Q\u0308", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Qüata",
+                    text = "Q\u00FCata",
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 16.sp,

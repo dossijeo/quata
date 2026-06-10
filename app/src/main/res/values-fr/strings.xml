@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Q&#252;ata</string>
-    <string name="quata_logo_content_description">QUATA</string>
-    <string name="nav_neighborhoods">Quartiers</string>
+    <string name="quata_logo_content_description">Q&#252;ata</string>
+    <string name="nav_neighborhoods">Q&#252;ata</string>
     <string name="nav_chats">Chats</string>
     <string name="nav_publish">Publier</string>
     <string name="nav_feed">Feed</string>
@@ -347,7 +347,7 @@
     <string name="emoji_animals_nature">Animaux et nature</string>
     <string name="emoji_food_drink">Cuisine et boissons</string>
     <string name="emoji_flags">Drapeaux</string>
-    <string name="neighborhoods_title">QUARTIERS</string>
+    <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Chargement quartiers...</string>
     <string name="neighborhoods_open_community">Ouvre une communaute</string>
     <string name="neighborhoods_subtitle">Selectionne ou cherche un quartier pour ouvrir son chat communautaire.</string>
@@ -380,5 +380,5 @@
     <string name="neighborhoods_time_years">Il y a %1$d ans</string>
     <string name="notification_permission_not_configured">Google Sign-In non configure</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
-    <string name="splash_mark">Q&#220;</string>
+    <string name="splash_mark">Q&#776;</string>
 </resources>

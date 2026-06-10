@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">Qüata</string>
-    <string name="quata_logo_content_description">QUATA</string>
-    <string name="nav_neighborhoods">Barrios</string>
+    <string name="app_name">Q&#252;ata</string>
+    <string name="quata_logo_content_description">Q&#252;ata</string>
+    <string name="nav_neighborhoods">Q&#252;ata</string>
     <string name="nav_chats">Chats</string>
     <string name="nav_publish">Publicar</string>
     <string name="nav_feed">Feed</string>
@@ -190,7 +190,7 @@
     <string name="feed_report">Reportar</string>
     <string name="feed_delete_post">Eliminar publicación</string>
     <string name="feed_delete_post_confirm_title">¿Eliminar publicación?</string>
-    <string name="feed_delete_post_confirm_message">Esta publicación se eliminará de QÜATA.</string>
+    <string name="feed_delete_post_confirm_message">Esta publicación se eliminará de Q&#220;ATA.</string>
     <string name="feed_delete_post_success">Publicación eliminada</string>
     <string name="feed_pause">Pausar</string>
     <string name="feed_play">Reproducir</string>
@@ -347,7 +347,7 @@
     <string name="emoji_animals_nature">Animales y naturaleza</string>
     <string name="emoji_food_drink">Comida y bebida</string>
     <string name="emoji_flags">Banderas</string>
-    <string name="neighborhoods_title">BARRIOS</string>
+    <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Cargando barrios...</string>
     <string name="neighborhoods_open_community">Abre una comunidad</string>
     <string name="neighborhoods_subtitle">Selecciona o busca un barrio para abrir su chat comunitario.</string>
@@ -379,6 +379,6 @@
     <string name="neighborhoods_time_one_year">Hace 1 año</string>
     <string name="neighborhoods_time_years">Hace %1$d años</string>
     <string name="notification_permission_not_configured">Google Sign-In no configurado</string>
-    <string name="splash_brand_letters">Q Ü A T A</string>
-    <string name="splash_mark">QÜ</string>
+    <string name="splash_brand_letters">Q &#220; A T A</string>
+    <string name="splash_mark">Q&#776;</string>
 </resources>

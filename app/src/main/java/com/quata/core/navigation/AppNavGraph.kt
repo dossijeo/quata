@@ -22,6 +22,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -86,7 +89,6 @@ import com.quata.core.di.AppContainer
 import com.quata.core.session.AuthState
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
-import com.quata.core.ui.components.QuataBrandMark
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
@@ -849,21 +851,42 @@ private fun QuataAppHeaderActions(
         1f
     }
     Box(
-        modifier = modifier.size(width = 132.dp, height = 36.dp)
+        modifier = modifier.size(width = 92.dp, height = 36.dp)
     ) {
-        QuataBrandMark(
-            compact = true,
+        val badgeShape = RoundedCornerShape(10.dp)
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (-8).dp, y = 0.dp)
-                .size(width = 72.dp, height = 40.dp)
-                .clickable(onClick = onLogoClick)
-        )
+                .size(32.dp)
+                .shadow(
+                    elevation = 10.dp,
+                    shape = badgeShape,
+                    ambientColor = Color(0x40FF6A00),
+                    spotColor = Color(0x40FF6A00)
+                )
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color(0xFFFF6A00), Color(0xFFFF7F1A))
+                    ),
+                    shape = badgeShape
+                )
+                .clickable(onClick = onLogoClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Q\u0308",
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = 17.sp,
+                lineHeight = 17.sp,
+                letterSpacing = (-0.6).sp
+            )
+        }
         CompactIconButton(
             onClick = onNotificationsClick,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 88.dp, y = 2.dp)
+                .offset(x = 54.dp, y = 0.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -892,9 +915,9 @@ private fun QuataAppHeaderActions(
 private fun rememberTopChromePlacement(): TopChromePlacement {
     val view = LocalView.current
     val density = LocalDensity.current
-    val logoWidthPx = with(density) { 132.dp.roundToPx() }
+    val logoWidthPx = with(density) { 92.dp.roundToPx() }
     val sosWidthPx = with(density) { 70.dp.roundToPx() }
-    val logoHeightPx = with(density) { 62.dp.roundToPx() }
+    val logoHeightPx = with(density) { 40.dp.roundToPx() }
     val sosHeightPx = with(density) { 34.dp.roundToPx() }
     val logoTopPx = with(density) { 4.dp.roundToPx() }
     val sosTopPx = with(density) { 14.dp.roundToPx() }

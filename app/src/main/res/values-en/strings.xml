@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">Qüata</string>
-    <string name="quata_logo_content_description">QUATA</string>
-    <string name="nav_neighborhoods">Districts</string>
+    <string name="app_name">Q&#252;ata</string>
+    <string name="quata_logo_content_description">Q&#252;ata</string>
+    <string name="nav_neighborhoods">Q&#252;ata</string>
     <string name="nav_chats">Chats</string>
     <string name="nav_publish">Publish</string>
     <string name="nav_feed">Feed</string>
@@ -190,7 +190,7 @@
     <string name="feed_report">Report</string>
     <string name="feed_delete_post">Delete post</string>
     <string name="feed_delete_post_confirm_title">Delete post?</string>
-    <string name="feed_delete_post_confirm_message">This post will be removed from QÜATA.</string>
+    <string name="feed_delete_post_confirm_message">This post will be removed from Q&#220;ATA.</string>
     <string name="feed_delete_post_success">Post deleted</string>
     <string name="feed_pause">Pause</string>
     <string name="feed_play">Play</string>
@@ -347,7 +347,7 @@
     <string name="emoji_animals_nature">Animals and nature</string>
     <string name="emoji_food_drink">Food and drink</string>
     <string name="emoji_flags">Flags</string>
-    <string name="neighborhoods_title">DISTRICTS</string>
+    <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Loading districts...</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
@@ -379,6 +379,6 @@
     <string name="neighborhoods_time_one_year">1 year ago</string>
     <string name="neighborhoods_time_years">%1$d years ago</string>
     <string name="notification_permission_not_configured">Google Sign-In is not configured</string>
-    <string name="splash_brand_letters">Q Ü A T A</string>
-    <string name="splash_mark">QÜ</string>
+    <string name="splash_brand_letters">Q &#220; A T A</string>
+    <string name="splash_mark">Q&#776;</string>
 </resources>

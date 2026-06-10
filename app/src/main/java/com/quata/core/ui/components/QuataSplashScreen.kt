@@ -193,21 +193,9 @@ private fun IntroStage(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.widthIn(min = 240.dp, max = 320.dp)
     ) {
-        Text(
-            text = "Q\u00DC",
+        QuataMarkSymbol(
             color = Color(0xFFFB923C),
-            fontSize = 96.sp,
-            lineHeight = 96.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 14.sp,
-            textAlign = TextAlign.Center,
-            style = TextStyle(
-                shadow = Shadow(
-                    color = Color(0x47F97316),
-                    offset = Offset(0f, 10f),
-                    blurRadius = 30f
-                )
-            ),
+            compact = false,
             modifier = Modifier.graphicsLayer {
                 alpha = brandReveal
                 translationY = (1f - brandReveal) * 28.dp.toPx()

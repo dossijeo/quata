@@ -1,8 +1,10 @@
 package com.quata.core.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -49,8 +51,6 @@ fun QuataBrandMark(
     } else {
         Color(0xFFFFEDD5)
     }
-    val markSize = if (compact) 22.sp else 70.sp
-    val markLineHeight = if (compact) 22.sp else 70.sp
     val wordSize = if (compact) 5.sp else 18.sp
     val wordLineHeight = if (compact) 7.sp else 22.sp
     val lineWidth = if (compact) 42.dp else 128.dp
@@ -59,21 +59,9 @@ fun QuataBrandMark(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(horizontal = if (compact) 4.dp else 0.dp)
     ) {
-        Text(
-            text = "Q\u00DC",
+        QuataMarkSymbol(
             color = template.colors.accent,
-            fontSize = markSize,
-            lineHeight = markLineHeight,
-            fontWeight = FontWeight.Black,
-            letterSpacing = if (compact) 3.sp else 7.sp,
-            textAlign = TextAlign.Center,
-            style = TextStyle(
-                shadow = Shadow(
-                    color = template.colors.accent.copy(alpha = 0.30f),
-                    offset = Offset(0f, if (compact) 1.2f else 3f),
-                    blurRadius = if (compact) 5f else 14f
-                )
-            )
+            compact = compact
         )
         Canvas(
             modifier = Modifier
@@ -103,5 +91,47 @@ fun QuataBrandMark(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = if (compact) 2.dp else 8.dp)
         )
+    }
+}
+
+@Composable
+fun QuataMarkSymbol(
+    color: Color,
+    compact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val markWidth = if (compact) 34.dp else 98.dp
+    val markHeight = if (compact) 30.dp else 96.dp
+    val qSize = if (compact) 30.sp else 96.sp
+    val qLineHeight = if (compact) 30.sp else 96.sp
+    Box(
+        modifier = modifier
+            .width(markWidth)
+            .height(markHeight),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Q",
+            color = color,
+            fontSize = qSize,
+            lineHeight = qLineHeight,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            style = TextStyle(
+                shadow = Shadow(
+                    color = color.copy(alpha = 0.30f),
+                    offset = Offset(0f, if (compact) 1.2f else 3f),
+                    blurRadius = if (compact) 5f else 14f
+                )
+            )
+        )
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val radius = size.minDimension * if (compact) 0.07f else 0.075f
+            val gap = size.width * if (compact) 0.11f else 0.12f
+            val y = size.height * if (compact) 0.12f else 0.11f
+            val centerX = size.width / 2f
+            drawCircle(color = color, radius = radius, center = Offset(centerX - gap, y))
+            drawCircle(color = color, radius = radius, center = Offset(centerX + gap, y))
+        }
     }
 }
