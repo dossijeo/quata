@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.imageeditor
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Rotate90DegreesCw
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
@@ -119,6 +121,12 @@ fun QuataImageEditorDialog(
                 isSaving = isSaving,
                 canSave = bitmap != null,
                 onBack = onDismiss,
+                onRotate = {
+                    bitmap = bitmap?.rotateClockwise()
+                    zoom = 1f
+                    pan = Offset.Zero
+                    isCropPanelOpen = true
+                },
                 onToggleCrop = { isCropPanelOpen = !isCropPanelOpen },
                 onSave = {
                     val source = bitmap ?: return@ImageEditorTopBar
@@ -195,6 +203,7 @@ private fun ImageEditorTopBar(
     isSaving: Boolean,
     canSave: Boolean,
     onBack: () -> Unit,
+    onRotate: () -> Unit,
     onToggleCrop: () -> Unit,
     onSave: () -> Unit
 ) {
@@ -225,6 +234,13 @@ private fun ImageEditorTopBar(
             modifier = Modifier.weight(1f)
         )
         if (!isSaving) {
+            ImageToolButton(
+                label = stringResource(R.string.image_editor_rotate),
+                enabled = canSave,
+                onClick = onRotate
+            ) {
+                CompactIcon(Icons.Filled.Rotate90DegreesCw, contentDescription = null)
+            }
             ImageToolButton(
                 label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
                 enabled = canSave,
@@ -491,7 +507,9 @@ private fun Context.loadEditorBitmap(uri: Uri): Bitmap? {
         inPreferredConfig = Bitmap.Config.ARGB_8888
         inSampleSize = calculateImageSampleSize(bounds.outWidth, bounds.outHeight, ImageEditorDecodeMaxSize)
     }
-    return contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    val decoded = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+        ?: return null
+    return decoded.orientFromExif(readImageOrientation(uri))
 }
 
 private fun calculateImageSampleSize(width: Int, height: Int, maxSize: Int): Int {
@@ -521,6 +539,44 @@ private fun Context.exportEditedImage(
     } finally {
         output.recycle()
     }
+}
+
+private fun Context.readImageOrientation(uri: Uri): Int =
+    runCatching {
+        contentResolver.openInputStream(uri)?.use { input ->
+            ExifInterface(input).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+        } ?: ExifInterface.ORIENTATION_NORMAL
+    }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+private fun Bitmap.rotateClockwise(): Bitmap {
+    val matrix = Matrix().apply { postRotate(90f) }
+    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+}
+
+private fun Bitmap.orientFromExif(orientation: Int): Bitmap {
+    val matrix = Matrix()
+    when (orientation) {
+        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+        ExifInterface.ORIENTATION_TRANSPOSE -> {
+            matrix.postRotate(90f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_TRANSVERSE -> {
+            matrix.postRotate(270f)
+            matrix.postScale(-1f, 1f)
+        }
+        else -> return this
+    }
+    val oriented = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    if (oriented !== this) recycle()
+    return oriented
 }
 
 private fun Context.copyImageGpsMetadata(sourceUri: Uri, outputFile: File) {

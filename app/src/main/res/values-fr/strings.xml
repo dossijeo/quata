@@ -306,6 +306,7 @@
     <string name="video_editor_back">Retour</string>
     <string name="video_editor_mute">Muet</string>
     <string name="video_editor_unmute">Son</string>
+    <string name="image_editor_rotate">Pivoter</string>
     <string name="video_editor_crop">Recadrer</string>
     <string name="video_editor_crop_done">Termine</string>
     <string name="video_editor_captions">Sous-titres</string>

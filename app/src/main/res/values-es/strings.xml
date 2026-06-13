@@ -306,6 +306,7 @@
     <string name="video_editor_back">Volver</string>
     <string name="video_editor_mute">Silenciar</string>
     <string name="video_editor_unmute">Sonido</string>
+    <string name="image_editor_rotate">Rotar</string>
     <string name="video_editor_crop">Recortar</string>
     <string name="video_editor_crop_done">Hecho</string>
     <string name="video_editor_captions">Subtítulos</string>

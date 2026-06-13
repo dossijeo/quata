@@ -669,14 +669,6 @@ private fun ImagePostForm(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            state.locationLabel?.let { label ->
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    stringResource(R.string.feed_location_chip, label),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
         } else {
             EmptyPreview(
                 stringResource(R.string.composer_image_preview_title),
