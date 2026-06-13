@@ -1353,7 +1353,6 @@ private fun CommentsSheet(
                 CommunityEmojiPanel(
                     onEmojiClick = { emoji ->
                         draft = draft.insertAtSelection(emoji)
-                        isEmojiPickerVisible = false
                     },
                     modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
                 )

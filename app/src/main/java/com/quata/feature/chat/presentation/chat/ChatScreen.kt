@@ -456,7 +456,6 @@ fun ChatScreen(
                                 val updated = messageFieldValue.insertAtSelection(emoji)
                                 messageFieldValue = updated
                                 viewModel.onEvent(ChatUiEvent.MessageChanged(updated.text))
-                                isEmojiPickerVisible = false
                             },
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
