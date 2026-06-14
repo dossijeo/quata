@@ -112,6 +112,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
+import com.quata.core.config.AppConfig
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CommunityEmojiPanel
@@ -204,6 +205,11 @@ fun CreatePostScreen(
         val uri = editedImageTempUri
         editedImageTempUri = null
         deleteEditedImageTemp(uri)
+    }
+
+    fun keepEditedTempsForMockPost() {
+        editedImageTempUri = null
+        editedVideoTempUri = null
     }
 
     fun submitIfAuthenticated(type: PostComposerType) {
@@ -302,8 +308,12 @@ fun CreatePostScreen(
     LaunchedEffect(state.successMessage) {
         state.successMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            clearEditedImageTemp()
-            clearEditedVideoTemp()
+            if (AppConfig.USE_MOCK_BACKEND) {
+                keepEditedTempsForMockPost()
+            } else {
+                clearEditedImageTemp()
+                clearEditedVideoTemp()
+            }
             onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
