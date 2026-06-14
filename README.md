@@ -1,18 +1,20 @@
 # Q&uuml;ata Android
 
-Version: **0.9.2**
-Fecha de version: **2026-06-07**
+Version: **0.9.3**
+Fecha de version: **2026-06-14**
 Estado: **beta avanzada**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor nativo de video e imagen con salida vertical `9:16`, fondo desenfocado dinamico, subtitulos automaticos incrustados, previews finales antes de publicar, exportacion adaptativa segun capacidad del dispositivo, rutas rapidas sin recodificacion y limpieza de temporales. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.3` consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling de Better Messages y actualiza la identidad visual de Q&uuml;ata. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
 - Modo offline-first para lecturas Supabase: las consultas GET usan una cache SQLite local por clave exacta de consulta, emiten el valor cacheado al instante y refrescan desde red en segundo plano.
-- Apertura de chats cache-first desde perfiles y desde **Barrios**: si la conversacion ya esta en la lista/cache local se navega directamente, sin buscar ni crear remoto.
+- Apertura de chats cache-first desde perfiles y desde **Q&uuml;ata**: si la conversacion ya esta en la lista/cache local se navega directamente, sin buscar ni crear remoto.
 - Polling de Better Messages simplificado: `checkNew` es la unica vigilancia periodica; `/thread/{id}` solo se consulta cuando `checkNew` indica cambios y esos cambios son delta real frente a la cache local.
+- Primer arranque sin cache de mensajes: el barrido inicial de Better Messages se carga como leido y sin disparar notificaciones ni sonidos.
+- Cadencia de `checkNew` corregida: el modo relajado consulta cada 15 segundos y el minimo cada 30 segundos cuando la app esta viva, evitando esperas de un minuto tras el bootstrap.
 - Sin barrido completo de hilos al arrancar o reconectar: el polling solo usa `checkNew` y refresca hilos concretos cuando hay cambios reales.
 - Estado global de conectividad derivado de Android: si el dispositivo pierde red aparece una banda **Sin conexion** bajo la barra superior de toda la app; al recuperar red se reactiva el polling.
 - Cache local de recursos: imagenes con Coil en memoria/disco y videos con Media3 `SimpleCache` LRU de 256 MB, con poda de ficheros antiguos.
@@ -25,6 +27,7 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 - Sonidos del chat con liberacion explicita de `MediaPlayer` en completado, error o fallo de arranque.
 - Publicacion de posts con `author_id` y `content` enviados explicitamente a Supabase para que las politicas RLS y los borrados por autor funcionen de forma consistente.
 - Modo traductor Fang integrado en chats y comentarios: deteccion local de idioma, warmup del Space remoto, overlay esmerilado, traducciones cacheadas en SQLite y toggle entre texto original/traducido por mensaje.
+- Identidad visual actualizada: la seccion principal pasa a llamarse **Q&uuml;ata**, el logo compacto usa `Q&#776;` como marca aislada y el splash nativo usa el nuevo icono corporativo.
 
 ## Funcionalidad principal
 
@@ -43,12 +46,13 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 - Traductor Fang para mensajes de chat y comentarios del feed, con rutas ES/EN/FR -> FAN y FAN -> idioma de interfaz.
 - Modo de color configurable: sistema, modo oscuro y modo claro, con plantillas globales para colores y tamanos de texto.
 - Modal de autenticacion para acciones que guardan datos: chats, likes, comentarios, publicar, SOS, seguir, reportar y cuenta.
-- Barrios/comunidades con usuarios, perfiles, publicaciones y chats de comunidad.
+- **Q&uuml;ata** como seccion principal de barrios/comunidades, con usuarios, perfiles, publicaciones y chats de comunidad.
 - Panel de perfil con cache local, refresco en segundo plano, animaciones de contador en KPIs y archivos compartidos en chats abiertos con el usuario.
 - Seguimiento de usuarios con estado de carga, actualizacion optimista/local de contadores y listas de seguidores/siguiendo.
 - Halo de carga corporativo en avatares clicables.
 - Barra inferior de navegacion con iconos ampliados para mejorar la pulsacion y convivencia con la navegacion Android de 3 botones.
 - Cuenta con preferencias locales por usuario, incluido `Q&uuml;ata TouchFlow`.
+- Pantallas de Cuenta, login, registro y recuperacion ajustadas para funcionar como pantallas completas sin scroll en resoluciones bajas.
 - SOS con contactos configurables y rate limit.
 
 ## Chat y Better Messages
@@ -56,7 +60,8 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 El chat usa Better Messages en WordPress como backend principal, con una capa Android propia para cache, polling y estado de UI.
 
 - Polling centralizado para conversaciones y mensajes basado en `checkNew`.
-- Modos de polling: agresivo en chats, medio en la app, relajado en segundo plano y minimo con la app cerrada; ahora regulan la frecuencia de `checkNew`.
+- Modos de polling: agresivo en chats, medio en la app, relajado en segundo plano y minimo con la app cerrada; ahora regulan la frecuencia real de `checkNew`.
+- Si la app arranca sin cache de mensajes, el primer `checkNew(lastUpdate=0)` procesa todos los hilos devueltos, los persiste, los marca como leidos y no dispara notificaciones.
 - Sin barrido periodico de hilos: la app no repasa conversaciones sin cambios por temporizador.
 - `checkNew` descubre hilos con actividad y la app filtra contra la cache local para distinguir cambios reales de ruido repetido del servidor.
 - Cuando hay delta real en un hilo, se consulta `/thread/{id}` una vez para reconciliar mensajes, ultimo mensaje, unread y metadatos.
@@ -68,7 +73,7 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - Las conversaciones cacheadas pueden abrirse sin red; si falta cache, la busqueda remota queda como fallback.
 - Los perfiles usan la cache de conversaciones para localizar hilos abiertos con un usuario y consultar los adjuntos compartidos via Better Messages.
 - Apertura cache-first de chats privados desde perfiles y listas de usuarios.
-- Apertura cache-first de chats comunitarios desde **Barrios** cuando la conversacion ya existe en cache/lista.
+- Apertura cache-first de chats comunitarios desde **Q&uuml;ata** cuando la conversacion ya existe en cache/lista.
 - Skeleton loading en chats si no hay cache y aun no termino la primera carga real.
 - Mensajes favoritos cacheados: primera entrada consulta `getFavorited`, despues usa almacenamiento local y se actualiza al marcar/desmarcar favoritos.
 - Al abrir un mensaje favorito, se navega al mensaje exacto sin auto-scroll al final.
@@ -139,7 +144,8 @@ Componentes y pantallas tematizados:
 
 - Chrome global, barra superior, barra inferior y logo generado sin fondo.
 - Pantallas de login, registro y recuperacion mediante logo generado.
-- Barrios, chats, feed, publicar, cuenta, SOS, comentarios y ranking LIVE.
+- Icono de aplicacion, splash nativo, splash personalizado, logo de auth y logo superior actualizados para la marca compacta `Q&#776;` sin romper claro/oscuro.
+- Q&uuml;ata, chats, feed, publicar, cuenta, SOS, comentarios y ranking LIVE.
 - Editor de video y editor de imagen en sus barras, paneles, controles y estados de carga.
 - Selector de emojis compartido.
 - Campos de texto, dropdowns y selector de prefijo telefonico con borde de input comun.
@@ -245,7 +251,7 @@ app/src/main/java/com/quata/
     auth/                Login, registro y recuperacion
     chat/                Conversaciones, mensajes, favoritos, SOS
     feed/                Feed, comentarios y acciones sociales
-    neighborhoods/       Barrios, comunidades y perfiles publicos
+    neighborhoods/       Q&uuml;ata, comunidades y perfiles publicos
     notifications/       Avisos dentro de la app
     postcomposer/        Publicacion de contenido
       videoeditor/       Editor nativo de video en Compose + Media3 Transformer/MediaMuxer
@@ -304,9 +310,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 11
-versionName = 0.9.2
-APP_VERSION_DATE = 2026-06-07
+versionCode = 12
+versionName = 0.9.3
+APP_VERSION_DATE = 2026-06-14
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
