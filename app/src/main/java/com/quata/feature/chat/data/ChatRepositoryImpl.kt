@@ -168,7 +168,11 @@ class ChatRepositoryImpl(
         restoreCachedConversationsIfNeeded(session.userId)
         if (currentBetterMessagesInboxLastUpdate(session.userId) <= 0L) {
             try {
-                primeBetterMessagesInboxCursor(session.userId)
+                discoverBetterMessagesInboxUpdates(
+                    profileId = session.userId,
+                    emitNativeNotifications = false,
+                    lastUpdateOverride = 0L
+                )
                 recordPollingSuccess()
             } catch (error: Throwable) {
                 recordPollingFailure(error)
@@ -1022,6 +1026,10 @@ class ChatRepositoryImpl(
         !isAppForeground.value &&
             (pollingMode.value == ChatPollingMode.RELAXED || pollingMode.value == ChatPollingMode.MINIMAL)
 
+    private suspend fun hasBetterMessagesMessageCache(profileId: String): Boolean =
+        betterMessagesByThreadId.values.any { messages -> messages.isNotEmpty() } ||
+            betterMessagesConversationCacheStore.hasCachedThreadMessages(profileId)
+
     private suspend fun refreshVisibleBetterMessagesConversationDetails(profileId: String) {
         val current = realConversations.value
         if (current.isEmpty()) return
@@ -1135,8 +1143,14 @@ class ChatRepositoryImpl(
                 )
 
                 if (!hasInboxCursor) {
-                    logPolling("prime cursor with checkNew")
-                    runCatching { primeBetterMessagesInboxCursor(session.userId) }
+                    logPolling("bootstrap checkNew")
+                    runCatching {
+                        discoverBetterMessagesInboxUpdates(
+                            profileId = session.userId,
+                            emitNativeNotifications = false,
+                            lastUpdateOverride = 0L
+                        )
+                    }
                         .onSuccess {
                             recordPollingSuccess()
                             lastInboxDiscoveryAt = System.currentTimeMillis()
@@ -1200,27 +1214,16 @@ class ChatRepositoryImpl(
         betterMessagesPollingStateStore.updateLastInboxUpdate(profileId, value)
     }
 
-    private suspend fun primeBetterMessagesInboxCursor(profileId: String) {
-        val response = withBetterMessagesSession(profileId) {
-            betterMessagesRepository.checkNewInCurrentSession(lastUpdate = 0)
-        }
-        updateBetterMessagesInboxLastUpdate(
-            profileId = profileId,
-            value = response.currentTime
-                ?: response.messages.maxOfOrNull { it.updated_at ?: it.created_at }
-                ?: response.threads.maxOfOrNull { it.lastTime ?: 0L }
-                ?: System.currentTimeMillis()
-        )
-    }
-
     private suspend fun discoverBetterMessagesInboxUpdates(
         profileId: String,
-        emitNativeNotifications: Boolean
+        emitNativeNotifications: Boolean,
+        lastUpdateOverride: Long? = null
     ) {
         logPolling("checkNew start native=$emitNativeNotifications")
         val context = ensureBetterMessagesSession(profileId)
         val activeThreadId = activeConversationId.value?.betterMessagesThreadIdOrNull()
-        val lastInboxUpdate = currentBetterMessagesInboxLastUpdate(profileId)
+        val lastInboxUpdate = lastUpdateOverride ?: currentBetterMessagesInboxLastUpdate(profileId)
+        val initialMessageBootstrap = !hasBetterMessagesMessageCache(profileId)
         val response = withBetterMessagesSession(profileId) {
             betterMessagesRepository.checkNewInCurrentSession(
                 lastUpdate = lastInboxUpdate,
@@ -1248,7 +1251,7 @@ class ChatRepositoryImpl(
                     messages = messagesByThreadId[threadId].orEmpty()
                 )
             }
-        logPolling("checkNew changedThreads=${changedThreadIds.size}")
+        logPolling("checkNew changedThreads=${changedThreadIds.size} initialBootstrap=$initialMessageBootstrap")
         if (changedThreadIds.isEmpty()) return
 
         val abandonedThreadIds = betterMessagesAbandonedConversationStore.abandonedThreadIds(profileId)
@@ -1287,17 +1290,22 @@ class ChatRepositoryImpl(
                     profileId = profileId,
                     threadId = threadId,
                     preloadedThreadResponse = threadResponse,
-                    initializeNewThreadAsRead = wasKnown || threadId == activeThreadId,
+                    initializeNewThreadAsRead = initialMessageBootstrap || wasKnown || threadId == activeThreadId,
                     profileDirectory = profileDirectory
                 )
                     ?.let { conversation ->
+                        val displayedConversation = if (initialMessageBootstrap) {
+                            conversation.copy(unreadCount = 0)
+                        } else {
+                            conversation
+                        }
                         upsertRealConversation(
-                            conversation = conversation,
-                            emitNativeNotification = emitNativeNotifications
+                            conversation = displayedConversation,
+                            emitNativeNotification = emitNativeNotifications && !initialMessageBootstrap
                         )
                     }
                 if (!wasKnown) {
-                    registerBetterMessagesThread(threadId, forceDue = true)
+                    registerBetterMessagesThread(threadId)
                 }
             }
     }
@@ -2388,8 +2396,8 @@ class ChatRepositoryImpl(
         when (mode) {
             ChatPollingMode.AGGRESSIVE -> 4_000L
             ChatPollingMode.MEDIUM -> 10_000L
-            ChatPollingMode.RELAXED -> 60_000L
-            ChatPollingMode.MINIMAL -> 5L * 60L * 1000L
+            ChatPollingMode.RELAXED -> 15_000L
+            ChatPollingMode.MINIMAL -> 30_000L
         }
 
     private fun discoveryFailureRetryMillis(mode: ChatPollingMode): Long =

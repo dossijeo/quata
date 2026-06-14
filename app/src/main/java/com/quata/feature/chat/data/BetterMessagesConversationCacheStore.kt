@@ -92,6 +92,14 @@ internal class BetterMessagesConversationCacheStore(
         }
     }
 
+    suspend fun hasCachedThreadMessages(profileId: String): Boolean = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            readState(profileId).threads.values.any { stored ->
+                stored.response.messages.isNotEmpty()
+            }
+        }
+    }
+
     suspend fun upsertThreadResponse(profileId: String, threadId: Int, response: BmThreadResponse) {
         mutex.withLock {
             withContext(Dispatchers.IO) {
