@@ -24,6 +24,7 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 - Menos trabajo por frame en la UI global: tema claro/oscuro se mantiene en estado superior y se evita crear animaciones infinitas cuando no estan activas.
 - Sonidos del chat con liberacion explicita de `MediaPlayer` en completado, error o fallo de arranque.
 - Publicacion de posts con `author_id` y `content` enviados explicitamente a Supabase para que las politicas RLS y los borrados por autor funcionen de forma consistente.
+- Modo traductor Fang integrado en chats y comentarios: deteccion local de idioma, warmup del Space remoto, overlay esmerilado, traducciones cacheadas en SQLite y toggle entre texto original/traducido por mensaje.
 
 ## Funcionalidad principal
 
@@ -39,6 +40,7 @@ La version `0.9.2` deja muy avanzado el flujo de publicacion multimedia: editor 
 - Selector global de emojis con secciones tabuladas y carga perezosa.
 - Navegacion anonima: se puede explorar contenido sin cuenta.
 - Localizacion por idioma del sistema en espanol, ingles y frances.
+- Traductor Fang para mensajes de chat y comentarios del feed, con rutas ES/EN/FR -> FAN y FAN -> idioma de interfaz.
 - Modo de color configurable: sistema, modo oscuro y modo claro, con plantillas globales para colores y tamanos de texto.
 - Modal de autenticacion para acciones que guardan datos: chats, likes, comentarios, publicar, SOS, seguir, reportar y cuenta.
 - Barrios/comunidades con usuarios, perfiles, publicaciones y chats de comunidad.
@@ -72,6 +74,50 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - Al abrir un mensaje favorito, se navega al mensaje exacto sin auto-scroll al final.
 - Los fondos procedurales de chat usan paletas dependientes de la plantilla de color y guardan cache separada por modo para regenerarse al cambiar entre claro y oscuro.
 - Efectos de sonido del chat con ciclo de vida seguro para evitar `MediaPlayer finalized without being released`.
+
+## Traductor Fang
+
+La app incluye un modo traductor pensado para conversaciones y comentarios. No vive en el encabezado global: se abre desde el encabezado de una conversacion y desde el panel flotante de comentarios de una publicacion.
+
+- El icono esta construido en Compose: globo terraqueo trasero y etiqueta frontal `fang`, adaptado a modo claro y oscuro sin depender de un PNG estatico.
+- Al abrir el modo traductor se lanza `POST /warmup` en segundo plano contra el Space remoto para despertar el runtime antes de la primera traduccion real.
+- La pantalla actual se captura en memoria a baja resolucion y se usa como fondo del overlay, con una textura esmerilada semitransparente para mantener contexto sin distraer.
+- En comentarios, el overlay se monta por encima del `ModalBottomSheet`, conserva el viewport real del panel y respeta barras de estado/navegacion, incluida la navegacion Android de 3 botones.
+- En chat, el overlay se alinea con la vista de conversacion y clona las burbujas con el mismo estilo visual que los mensajes originales.
+- En comentarios, las tarjetas traducibles clonadas mantienen el aspecto de las tarjetas reales, incluidos autor, fecha, respuesta, borde y contenido.
+- El overlay entra y sale con fade. El pie usa un icono de toque naranja sin fondo y el texto "Toca cualquier mensaje para traducirlo".
+- Los textos traducibles se marcan desde Compose con metadatos propios para que el modo traductor pueda replicar sus cajas y asociarlas al texto original.
+- Al tocar una caja traducible se detecta el idioma con el modelo FastText local incluido en assets (`es`, `fr`, `en`, `fan`).
+- Si el texto no esta en Fang, se traduce hacia `fan_Latn`; si ya esta en Fang, se traduce hacia el idioma de interfaz (`spa_Latn`, `eng_Latn` o `fra_Latn`).
+- Al terminar la traduccion, el texto de la caja cambia al resultado traducido y se muestra una insignia de direccion (`ES->FAN`, `FAN->ES`, etc.).
+- Tocar de nuevo una caja traducida funciona como toggle y restaura el texto original sin hacer otra llamada de red.
+- Mientras una traduccion esta en curso se muestra spinner y un leve cambio visual de estado, sin la animacion circular de borde que generaba ruido visual.
+- En chat, la insignia de traduccion se ubica en la fila superior junto a la hora para no robar espacio al cuerpo del mensaje ni provocar solapes.
+
+La API remota esta alojada en Hugging Face Spaces:
+
+```text
+https://dossijeo-nllb-fang-quata.hf.space
+```
+
+Endpoints usados por la app:
+
+- `GET /` para health check.
+- `POST /warmup` para cargar tokenizer/runtime antes de traducir.
+- `POST /translate` para traducir texto.
+
+Codigos soportados por el servicio:
+
+```text
+fan_Latn  Fang
+spa_Latn  Espanol
+eng_Latn  Ingles
+fra_Latn  Frances
+```
+
+El modelo remoto `NLLB-Fang-Q&uuml;ata` es un prototipo experimental afinado desde `facebook/nllb-200-distilled-600M`, exportado a ONNX, cuantizado y servido mediante FastAPI. El README publico del Space describe que el modelo se entreno con corpus paralelo del Nuevo Testamento, diccionario Fang-Espanol curado, pivotes multilingues sinteticos y remapeo de tokenizer para mantener calidad con un vocabulario compacto. La ruta `fan_Latn -> eng_Latn` usa pivote interno por frances (`fan_Latn -> fra_Latn -> eng_Latn`) porque es la direccion inversa mas fuerte. Ver documentacion del Space: https://huggingface.co/spaces/dossijeo/NLLB-Fang-Quata/blob/main/README.md
+
+Las traducciones usan cache SQLite local independiente de Supabase. La clave incluye texto normalizado, idioma origen, idioma destino y `max_new_tokens`; si existe respuesta local, se devuelve al instante y no se refresca desde red porque la salida del modelo se considera estable para esa clave.
 
 ## Tema claro/oscuro
 
@@ -111,6 +157,7 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - Tras una mutacion se invalidan las tablas afectadas para que las vistas observables se actualicen con datos frescos.
 - Imagenes y avatares usan Coil con cache de memoria/disco y claves estables por URL; si estaban en cache pueden mostrarse sin red y reintentan al recuperar conectividad.
 - Los videos del feed usan Media3 `SimpleCache` con LRU de 256 MB y poda de ficheros antiguos; al borrar una publicacion propia se purga tambien su entrada local de video.
+- Las traducciones se cachean en SQLite por texto/idiomas/tokens y se sirven cache-first sin refresco de fondo.
 
 ## Publicacion y media
 
@@ -167,6 +214,9 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Capa de datos real para Supabase, WordPress y Better Messages.
 - Modo mock disponible mediante propiedad Gradle.
 - Cache local bajo almacenamiento privado: SQLite para respuestas Supabase, JSON para Better Messages/perfiles, Coil para imagenes y Media3 para videos.
+- Cache SQLite especifica para traducciones Fang.
+- Detector local de idioma mediante modelo FastText incluido en assets.
+- Cliente HTTP para el Space `NLLB-Fang-Q&uuml;ata` con warmup y traduccion.
 - JobService para polling suave en segundo plano.
 - Coil para imagenes.
 - Media3 para reproduccion, previsualizacion y procesado multimedia, incluido Transformer para exportar videos editados.
@@ -182,6 +232,8 @@ app/src/main/java/com/quata/
     designsystem/theme/  Plantillas dark-mode/light-mode, tokens de color y tamanos de texto
     media/               Optimizacion de imagen/video y QuataMediaCache
     captions/            Transcripcion, layout, plantillas y burn-in de subtitulos
+    language/            Detector local de idioma FastText para es/fr/en/fan
+    translation/          Cliente API, cache SQLite y overlay del modo traductor Fang
     navigation/          NavGraph, deep links y chrome global
     localization/        Seleccion de idioma por locale del sistema
     notifications/       Notificaciones nativas y background polling

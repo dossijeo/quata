@@ -1,8 +1,11 @@
 package com.quata.feature.feed.presentation
 
 import android.content.Intent
+import android.os.Build
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -17,16 +20,20 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -92,6 +99,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -101,6 +109,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -112,6 +122,7 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
@@ -125,6 +136,10 @@ import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
+import com.quata.core.translation.FangTranslatorIconButton
+import com.quata.core.translation.LocalQuataTranslatorModeController
+import com.quata.core.translation.QuataTranslatorOverlaySource
+import com.quata.core.translation.quataTranslatableText
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
@@ -1280,6 +1295,7 @@ private fun CommentsSheet(
     )
     val template = quataTheme()
     val comments = post.comments
+    val translatorModeController = LocalQuataTranslatorModeController.current
 
     LaunchedEffect(post.id) {
         sheetState.expand()
@@ -1298,19 +1314,36 @@ private fun CommentsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = template.colors.surfaceRaised,
-        contentColor = template.colors.textPrimary
+        contentColor = template.colors.textPrimary,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
-        Column(
+        ConfigureCommentsSheetSystemBars(template)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.92f)
+        ) {
+            Spacer(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                    .background(template.colors.background)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
                 .dismissCommunityEmojiPanelOnOutsideTap(
                     isVisible = isEmojiPickerVisible,
                     state = emojiDismissState
                 )
                 .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = stringResource(R.string.comments_title),
                     fontWeight = FontWeight.ExtraBold,
@@ -1324,6 +1357,12 @@ private fun CommentsSheet(
                     text = comments.size.toString(),
                     color = template.colors.textSecondary,
                     fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.weight(1f))
+                FangTranslatorIconButton(
+                    onClick = { view ->
+                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                    }
                 )
             }
             Spacer(Modifier.height(16.dp))
@@ -1422,6 +1461,50 @@ private fun CommentsSheet(
         }
     }
 }
+}
+
+@Suppress("DEPRECATION")
+@Composable
+private fun ConfigureCommentsSheetSystemBars(template: QuataThemeTemplate) {
+    val view = LocalView.current
+    DisposableEffect(view, template.id) {
+        val window = view.findDialogWindow()
+        if (window == null) {
+            return@DisposableEffect onDispose {}
+        }
+        val originalNavigationBarColor = window.navigationBarColor
+        val originalContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced
+        } else {
+            null
+        }
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        val originalLightNavigationBars = controller.isAppearanceLightNavigationBars
+
+        window.navigationBarColor = template.colors.background.toArgb()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        controller.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
+
+        onDispose {
+            window.navigationBarColor = originalNavigationBarColor
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && originalContrastEnforced != null) {
+                window.isNavigationBarContrastEnforced = originalContrastEnforced
+            }
+            controller.isAppearanceLightNavigationBars = originalLightNavigationBars
+        }
+    }
+}
+
+private tailrec fun View.findDialogWindow(): Window? {
+    val parentView = parent
+    return when (parentView) {
+        is DialogWindowProvider -> parentView.window
+        is View -> parentView.findDialogWindow()
+        else -> null
+    }
+}
 
 private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
     val start = selection.start.coerceIn(0, text.length)
@@ -1489,12 +1572,23 @@ private fun CommentRow(
     onReply: () -> Unit
 ) {
     val template = quataTheme()
+    val translatorReplyText = comment.replyToAuthorName?.let { author ->
+        stringResource(R.string.comments_reply_to, author)
+    }
+    val translatorDisplayText = remember(comment, translatorReplyText) {
+        comment.translatorDisplayText(translatorReplyText)
+    }
     Surface(
         color = template.colors.surface,
         contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .quataTranslatableText(
+                id = "feed-comment:${comment.id}",
+                text = comment.message,
+                displayText = translatorDisplayText
+            )
             .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
     ) {
         Row(
@@ -1568,6 +1662,28 @@ private fun CommentRow(
         }
     }
 }
+
+private fun PostComment.translatorDisplayText(replyText: String?): String =
+    buildString {
+        append(authorName)
+        val timestampText = formatCommentTimestamp(timestamp)
+        if (timestampText.isNotBlank()) {
+            append(" · ")
+            append(timestampText)
+        }
+        replyText?.let { reply ->
+            append('\n')
+            append(reply)
+        }
+        replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
+            append('\n')
+            append(quoted)
+        }
+        if (message.isNotBlank()) {
+            append('\n')
+            append(message)
+        }
+    }
 
 private fun nowCommentTimestamp(): String =
     LocalDateTime.now().format(DateTimeFormatter.ofPattern("d/M/yyyy, H:mm:ss"))

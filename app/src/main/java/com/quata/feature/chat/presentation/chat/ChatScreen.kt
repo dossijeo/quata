@@ -138,6 +138,10 @@ import com.quata.core.ui.components.openAttachmentWithChooser
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.core.translation.FangTranslatorIconButton
+import com.quata.core.translation.LocalQuataTranslatorModeController
+import com.quata.core.translation.QuataTranslatorOverlaySource
+import com.quata.core.translation.quataTranslatableText
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
@@ -377,7 +381,8 @@ fun ChatScreen(
                             onLeaveConversation = { confirmAction = ConfirmAction.LeaveConversation },
                             onHideConversation = {
                                 confirmAction = ConfirmAction.DeleteConversation
-                            }
+                            },
+                            isTranslatorAvailable = state.messages.isNotEmpty()
                         )
                         if (state.isConversationActionInProgress) {
                             ConversationActionProgressBar()
@@ -795,7 +800,8 @@ private fun ChatHeader(
     onBlockParticipant: (String) -> Unit,
     onRemoveParticipant: (String) -> Unit,
     onLeaveConversation: () -> Unit,
-    onHideConversation: () -> Unit
+    onHideConversation: () -> Unit,
+    isTranslatorAvailable: Boolean
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -847,6 +853,7 @@ private fun ChatHeader(
                     }
                 }
             } else {
+                val translatorModeController = LocalQuataTranslatorModeController.current
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -869,6 +876,13 @@ private fun ChatHeader(
                             )
                         }
                     }
+                    FangTranslatorIconButton(
+                        onClick = { view ->
+                            translatorModeController.activate(view, QuataTranslatorOverlaySource.Chat)
+                        },
+                        enabled = isTranslatorAvailable,
+                        modifier = Modifier.padding(end = 2.dp)
+                    )
                     Box {
                         CompactIconButton(onClick = { menuExpanded = true }) {
                             CompactIcon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
@@ -1495,6 +1509,17 @@ private fun MessageBubble(
                     },
                     shape = RoundedCornerShape(20.dp)
                 )
+                .then(
+                    if (!message.isDeleted && message.text.isNotBlank()) {
+                        Modifier.quataTranslatableText(
+                            id = "chat-message:${message.id}",
+                            text = message.text,
+                            displayText = message.translatorDisplayText()
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
                 .clickable(onClick = onClick)
                 .padding(14.dp)
         ) {
@@ -1720,6 +1745,16 @@ private fun Message.chatTimestampLabel(): String {
         elapsed < 365L * day -> "hace ${elapsed / (31L * day)} mes"
         else -> "hace un año"
     }
+}
+
+private fun Message.translatorDisplayText(): String = buildString {
+    append(if (isMine) "mine" else "other")
+    append(" | ")
+    append(senderName)
+    append(" | ")
+    append(chatTimestampLabel())
+    append('\n')
+    append(text)
 }
 
 private fun android.content.Context.displayNameForUri(uri: Uri): String {

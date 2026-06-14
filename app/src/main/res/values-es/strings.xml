@@ -45,6 +45,10 @@
     <string name="error_network">Hay un problema de conexión. Revisa internet e inténtalo otra vez.</string>
     <string name="error_network_timeout">El servidor ha tardado demasiado en responder. Inténtalo otra vez.</string>
     <string name="app_offline_banner">Sin conexi&#243;n</string>
+    <string name="translator_button_content_description">Traductor Fang</string>
+    <string name="translator_mode_active_title">Modo traductor activo</string>
+    <string name="translator_mode_active_hint">Toca cualquier mensaje para traducirlo</string>
+    <string name="translator_mode_exit">Salir</string>
     <string name="error_backend_generic">El servidor no pudo completar la petición.</string>
     <string name="error_backend_bad_request">Algunos datos todavía no son compatibles con el servidor. Inténtalo más tarde.</string>
     <string name="error_backend_unauthorized">No se pudo verificar tu sesión. Vuelve a iniciar sesión.</string>

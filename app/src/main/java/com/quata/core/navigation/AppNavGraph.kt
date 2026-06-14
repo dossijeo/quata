@@ -3,6 +3,8 @@ package com.quata.core.navigation
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.ColorDrawable
 import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
@@ -14,7 +16,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
+import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -33,6 +40,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,15 +73,23 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -92,6 +108,13 @@ import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
+import com.quata.core.translation.QuataTranslatableTextRegistry
+import com.quata.core.translation.QuataTranslatorBackground
+import com.quata.core.translation.QuataTranslatorModeProvider
+import com.quata.core.translation.QuataTranslatorOverlay
+import com.quata.core.translation.QuataTranslatorOverlaySource
+import com.quata.core.translation.QuataTranslatorModeController
+import com.quata.core.translation.captureTranslatorBackground
 import com.quata.feature.chat.domain.ChatPollingMode
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
@@ -113,8 +136,10 @@ import com.quata.feature.profile.presentation.ProfileScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.BuildConfig
+import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.language.QuataTranslator
 
 @Composable
 fun AppNavGraph(
@@ -149,6 +174,24 @@ fun AppNavGraph(
     var feedNetworkReconnectToken by rememberSaveable { mutableLongStateOf(0L) }
     var previousDeviceNetworkAvailable by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val appContext = LocalContext.current
+    val rootView = LocalView.current
+    val appScope = rememberCoroutineScope()
+    val translatorRegistry = remember { QuataTranslatableTextRegistry() }
+    var isTranslatorModeActive by remember { mutableStateOf(false) }
+    var isTranslatorOverlayMounted by remember { mutableStateOf(false) }
+    var translatorBackground by remember { mutableStateOf<QuataTranslatorBackground?>(null) }
+    var translatorOverlaySource by remember { mutableStateOf(QuataTranslatorOverlaySource.Chat) }
+    val translatorModeController = remember(rootView, appScope) {
+        QuataTranslatorModeController { anchorView, source ->
+            appScope.launch {
+                launch { runCatching { QuataTranslator.shared.warmup() } }
+                translatorOverlaySource = source
+                translatorBackground = captureTranslatorBackground(anchorView)
+                isTranslatorOverlayMounted = true
+                isTranslatorModeActive = true
+            }
+        }
+    }
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
@@ -311,6 +354,10 @@ fun AppNavGraph(
             reconnectToken = feedNetworkReconnectToken
         )
     ) {
+        QuataTranslatorModeProvider(
+            registry = translatorRegistry,
+            controller = translatorModeController
+        ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -651,7 +698,180 @@ fun AppNavGraph(
                 onDismiss = { isAboutDialogOpen = false }
             )
         }
+
+        if (isTranslatorOverlayMounted && translatorOverlaySource == QuataTranslatorOverlaySource.Chat) {
+            AnimatedVisibility(
+                visible = isTranslatorModeActive,
+                enter = fadeIn(animationSpec = tween(durationMillis = 180)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(10_000f)
+            ) {
+                QuataTranslatorOverlay(
+                    registry = translatorRegistry,
+                    background = translatorBackground,
+                    source = translatorOverlaySource,
+                    onDismiss = {
+                        isTranslatorModeActive = false
+                        appScope.launch {
+                            delay(140)
+                            if (!isTranslatorModeActive) {
+                                translatorBackground = null
+                                isTranslatorOverlayMounted = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        if (isTranslatorOverlayMounted && translatorOverlaySource == QuataTranslatorOverlaySource.Comments) {
+            val screenConfiguration = LocalConfiguration.current
+            Dialog(
+                onDismissRequest = {
+                    isTranslatorModeActive = false
+                    appScope.launch {
+                        delay(140)
+                        if (!isTranslatorModeActive) {
+                            translatorBackground = null
+                            isTranslatorOverlayMounted = false
+                        }
+                    }
+                },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = false,
+                    decorFitsSystemWindows = false
+                )
+            ) {
+                ConfigureTranslatorDialogWindow()
+                AnimatedVisibility(
+                    visible = isTranslatorModeActive,
+                    enter = fadeIn(animationSpec = tween(durationMillis = 180)),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+                    modifier = Modifier
+                        .requiredSize(
+                            width = screenConfiguration.screenWidthDp.dp,
+                            height = screenConfiguration.screenHeightDp.dp
+                        )
+                        .zIndex(10_000f)
+                ) {
+                    QuataTranslatorOverlay(
+                        registry = translatorRegistry,
+                        background = translatorBackground,
+                        source = translatorOverlaySource,
+                        onDismiss = {
+                            isTranslatorModeActive = false
+                            appScope.launch {
+                                delay(140)
+                                if (!isTranslatorModeActive) {
+                                    translatorBackground = null
+                                    isTranslatorOverlayMounted = false
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
     }
+    }
+    }
+}
+
+@Suppress("DEPRECATION")
+@Composable
+private fun ConfigureTranslatorDialogWindow() {
+    val view = LocalView.current
+    val template = quataTheme()
+    DisposableEffect(view, template.id) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        if (window == null) {
+            return@DisposableEffect onDispose {}
+        }
+        val originalAnimations = window.attributes.windowAnimations
+        val originalDimAmount = window.attributes.dimAmount
+        val originalNavigationBarColor = window.navigationBarColor
+        val originalStatusBarColor = window.statusBarColor
+        val originalNavigationBarContrast = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced
+        } else {
+            null
+        }
+        val originalStatusBarContrast = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced
+        } else {
+            null
+        }
+        val systemBarsController = WindowInsetsControllerCompat(window, window.decorView)
+        val originalLightNavigationBars = systemBarsController.isAppearanceLightNavigationBars
+        val originalLightStatusBars = systemBarsController.isAppearanceLightStatusBars
+        val originalHadDim = window.attributes.flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND != 0
+        val originalGravity = window.attributes.gravity
+        val originalX = window.attributes.x
+        val originalY = window.attributes.y
+        val originalWidth = window.attributes.width
+        val originalHeight = window.attributes.height
+        val fullscreenLayout = {
+            val attributes = window.attributes
+            attributes.width = WindowManager.LayoutParams.MATCH_PARENT
+            attributes.height = WindowManager.LayoutParams.MATCH_PARENT
+            attributes.gravity = Gravity.TOP or Gravity.START
+            attributes.x = 0
+            attributes.y = 0
+            window.attributes = attributes
+            window.setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+            window.decorView.setPadding(0, 0, 0, 0)
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setWindowAnimations(0)
+        window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
+        window.navigationBarColor = template.colors.background.toArgb()
+        window.statusBarColor = template.colors.topChrome.toArgb()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
+        systemBarsController.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
+        systemBarsController.isAppearanceLightStatusBars = template.resolvedTheme == QuataResolvedTheme.Light
+        window.setDimAmount(0f)
+        window.setGravity(Gravity.TOP or Gravity.START)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        fullscreenLayout()
+        window.decorView.post { fullscreenLayout() }
+        onDispose {
+            window.setWindowAnimations(originalAnimations)
+            window.setDimAmount(originalDimAmount)
+            val attributes = window.attributes
+            attributes.gravity = originalGravity
+            attributes.x = originalX
+            attributes.y = originalY
+            attributes.width = originalWidth
+            attributes.height = originalHeight
+            window.attributes = attributes
+            window.navigationBarColor = originalNavigationBarColor
+            window.statusBarColor = originalStatusBarColor
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (originalNavigationBarContrast != null) {
+                    window.isNavigationBarContrastEnforced = originalNavigationBarContrast
+                }
+                if (originalStatusBarContrast != null) {
+                    window.isStatusBarContrastEnforced = originalStatusBarContrast
+                }
+            }
+            systemBarsController.isAppearanceLightNavigationBars = originalLightNavigationBars
+            systemBarsController.isAppearanceLightStatusBars = originalLightStatusBars
+            if (originalHadDim) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            } else {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            }
+        }
     }
 }
 
