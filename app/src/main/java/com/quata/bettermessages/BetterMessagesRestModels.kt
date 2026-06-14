@@ -6,8 +6,11 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class BmThreadResponse(
+    @Serializable(with = FlexibleBmThreadListSerializer::class)
     val threads: List<BmThread> = emptyList(),
+    @Serializable(with = FlexibleBmUserListSerializer::class)
     val users: List<BmUser> = emptyList(),
+    @Serializable(with = FlexibleBmMessageListSerializer::class)
     val messages: List<BmMessage> = emptyList(),
     val serverTime: Long? = null
 )
@@ -21,8 +24,11 @@ data class BmCheckNewRequest(
 
 @Serializable
 data class BmCheckNewResponse(
+    @Serializable(with = FlexibleBmUserListSerializer::class)
     val users: List<BmUser> = emptyList(),
+    @Serializable(with = FlexibleBmMessageListSerializer::class)
     val messages: List<BmMessage> = emptyList(),
+    @Serializable(with = FlexibleBmThreadListSerializer::class)
     val threads: List<BmThread> = emptyList(),
     val currentTime: Long? = null
 )
@@ -72,8 +78,11 @@ data class BmNewThreadResponse(
     @SerialName("thread_id") val threadId: Int? = null,
     val redirect: Boolean? = null,
     val update: BmThreadResponse? = null,
+    @Serializable(with = FlexibleBmThreadListSerializer::class)
     val threads: List<BmThread> = emptyList(),
+    @Serializable(with = FlexibleBmUserListSerializer::class)
     val users: List<BmUser> = emptyList(),
+    @Serializable(with = FlexibleBmMessageListSerializer::class)
     val messages: List<BmMessage> = emptyList(),
     val serverTime: Long? = null
 ) {
@@ -104,6 +113,7 @@ data class BmUploadResponse(
 
 @Serializable
 data class BmThreadAttachmentsResponse(
+    @Serializable(with = FlexibleThreadAttachmentFileListSerializer::class)
     val files: List<BmThreadAttachmentFile> = emptyList(),
     val hasMore: Boolean = false,
     val page: Int = 1,
@@ -192,52 +202,83 @@ data class BmThread(
     val subject: String? = null,
     val image: String? = null,
     val lastTime: Long? = null,
+    @Serializable(with = FlexibleIntListSerializer::class)
     val participants: List<Int> = emptyList(),
     val participantsCount: Int? = null,
+    @Serializable(with = FlexibleIntListSerializer::class)
     val moderators: List<Int> = emptyList(),
     val url: String? = null,
+    @Serializable(with = FlexibleBmThreadMetaSerializer::class)
     val meta: BmThreadMeta? = null,
     val isPinned: Int? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val isMuted: Boolean? = null,
+    @Serializable(with = FlexibleBmPermissionsSerializer::class)
     val permissions: BmPermissions? = null,
+    @Serializable(with = FlexibleJsonElementListSerializer::class)
     val mentions: List<JsonElement> = emptyList(),
     val unread: Int? = null
 )
 
 @Serializable
 data class BmThreadMeta(
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val allowInvite: Boolean? = null
 )
 
 @Serializable
 data class BmPermissions(
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val isModerator: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val deleteAllowed: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canDeleteOwnMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canDeleteAllMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canEditOwnMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canEditAllMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canFavorite: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canMuteThread: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canEraseThread: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canClearThread: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canInvite: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canLeave: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canUpload: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canVideoCall: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canAudioCall: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canMaximize: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canPinMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canMinimize: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canReply: Boolean? = null,
+    @Serializable(with = FlexibleIntListSerializer::class)
     val canReplyMsg: List<Int> = emptyList(),
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val requireModeration: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val preventVoiceMessages: Boolean? = null,
+    @Serializable(with = FlexibleNullableBooleanSerializer::class)
     val canBlockUser: Boolean? = null
 )
 
 @Serializable
 data class BmUser(
+    @Serializable(with = FlexibleStringSerializer::class)
     val id: String,
     @SerialName("user_id") val userId: Int? = null,
     val name: String? = null,
@@ -261,13 +302,16 @@ data class BmMessage(
     val updated_at: Long? = null,
     val temp_id: String? = null,
     @SerialName("message_id") val messageId: Int,
+    @Serializable(with = FlexibleBmMessageMetaSerializer::class)
     val meta: BmMessageMeta = BmMessageMeta(),
     val favorited: Int? = null
 )
 
 @Serializable
 data class BmMessageMeta(
+    @Serializable(with = FlexibleJsonElementListSerializer::class)
     val reactions: List<JsonElement> = emptyList(),
+    @Serializable(with = FlexibleBmFileListSerializer::class)
     val files: List<BmFile> = emptyList(),
     val replyTo: Int? = null,
     val forwardedFrom: Int? = null,
