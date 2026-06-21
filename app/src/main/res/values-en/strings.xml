@@ -291,6 +291,7 @@
     <string name="composer_location_helper">If GPS does not detect it correctly, you can edit it here.</string>
     <string name="composer_location_required">Add a place or location before publishing this image.</string>
     <string name="composer_pending_location">Pending location</string>
+    <string name="composer_detected_location">Detected location</string>
     <string name="composer_selected_image">Selected image</string>
     <string name="composer_image_preview_title">Photo with location</string>
     <string name="composer_image_preview_tag">PHOTO + LOCATION</string>

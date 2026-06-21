@@ -245,7 +245,8 @@ fun CreatePostScreen(
 
     fun resolveLocation(location: Location) {
         scope.launch {
-            val label = context.resolvePlaceName(location) ?: location.toLocationLabel()
+            val label = context.resolvePlaceName(location)
+                ?: context.getString(R.string.composer_detected_location)
             viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, location.latitude, location.longitude))
         }
     }
@@ -1552,8 +1553,6 @@ private fun Context.lastKnownLocation(): Location? {
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-private fun Location.toLocationLabel(): String = "%.5f, %.5f".format(latitude, longitude)
-
 private suspend fun Context.resolvePlaceName(location: Location): String? = withContext(Dispatchers.IO) {
     runCatching {
         val geocoder = Geocoder(this@resolvePlaceName, Locale.getDefault())
@@ -1563,17 +1562,65 @@ private suspend fun Context.resolvePlaceName(location: Location): String? = with
             .firstOrNull()
             ?: return@runCatching null
 
-        listOf(
-            address.subLocality,
-            address.premises,
-            address.featureName,
-            address.locality,
-            address.subAdminArea,
-            address.adminArea
-        ).firstOrNull { candidate ->
-            !candidate.isNullOrBlank() && !candidate.matches(Regex("""[-\d.,\s]+"""))
-        }?.trim()
+        address.readableLocationLabel()
     }.getOrNull()
+}
+
+private fun android.location.Address.readableLocationLabel(): String? {
+    val representativePlace = listOf(premises, featureName)
+        .mapNotNull { it.toReadableLocationText() }
+        .firstOrNull { !it.looksLikeStreetAddress() }
+    val neighborhood = subLocality.toReadableLocationText()
+    val city = locality.toReadableLocationText()
+    val area = subAdminArea.toReadableLocationText()
+    val region = adminArea.toReadableLocationText()
+
+    val areaParts = when {
+        representativePlace != null -> listOf(representativePlace, city ?: area ?: region)
+        neighborhood != null -> listOf(neighborhood, city ?: area ?: region)
+        city != null -> listOf(city, region ?: area)
+        area != null -> listOf(area, region)
+        else -> listOf(region)
+    }
+        .filterNotNull()
+        .distinctBy { it.lowercase(Locale.ROOT) }
+
+    return areaParts
+        .joinToString(", ")
+        .takeIf { it.isNotBlank() }
+        ?: countryName.toReadableLocationText()
+}
+
+private fun String?.toReadableLocationText(): String? {
+    val value = this?.trim().orEmpty()
+    return value.takeIf { it.isNotBlank() && !it.matches(Regex("""[-+\d.,\s]+""")) }
+}
+
+private fun String.looksLikeStreetAddress(): Boolean {
+    val normalized = lowercase(Locale.ROOT)
+    if (normalized.firstOrNull()?.isDigit() == true) return true
+    return listOf(
+        "street",
+        "st.",
+        "avenue",
+        "ave",
+        "road",
+        "rd.",
+        "boulevard",
+        "blvd",
+        "drive",
+        "dr.",
+        "parkway",
+        "pkwy",
+        "calle",
+        "avenida",
+        "av.",
+        "carretera",
+        "camino",
+        "rue",
+        "route",
+        "chemin"
+    ).any { marker -> normalized.contains(marker) }
 }
 
 private fun Context.createMediaUri(prefix: String, mimeType: String, collection: Uri): Uri? {
