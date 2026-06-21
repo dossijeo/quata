@@ -11,6 +11,7 @@ import com.quata.core.di.AppContainer
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.notifications.BetterMessagesBackgroundPollScheduler
 import com.quata.feature.chat.domain.ChatPollingMode
+import com.google.android.play.core.splitcompat.SplitCompat
 import java.io.File
 
 class QuataApp : Application(), ImageLoaderFactory {
@@ -18,6 +19,11 @@ class QuataApp : Application(), ImageLoaderFactory {
         private set
     private var startedActivities = 0
     private var resumedActivities = 0
+
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(base)
+        SplitCompat.install(this)
+    }
 
     override fun onCreate() {
         super.onCreate()

@@ -2,6 +2,11 @@
 .idea/
 build/
 local.properties
+release-signing.properties
+keystores/
+*.jks
+*.keystore
+*.p12
 *.iml
 .DS_Store
 captures/

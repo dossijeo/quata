@@ -146,6 +146,9 @@ import com.quata.core.captions.android.CaptionPreviewRenderer
 import com.quata.core.captions.media3.CaptionBurnInTrack
 import com.quata.core.captions.media3.CaptionMedia3BurnIn
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.captions.transcriber.VoskModelDeliveryManager
+import com.quata.core.captions.transcriber.VoskModelLanguage
+import com.quata.core.captions.transcriber.VoskModelNotInstalledException
 import com.quata.core.captions.transcriber.VoskVideoTranscriber
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
@@ -206,6 +209,10 @@ fun QuataVideoEditorDialog(
     var exportError by remember(videoUri) { mutableStateOf<String?>(null) }
     var exportJob by remember(videoUri) { mutableStateOf<Job?>(null) }
     var isCancelExportDialogOpen by remember(videoUri) { mutableStateOf(false) }
+    var pendingCaptionModelLanguage by remember(videoUri) { mutableStateOf<VoskModelLanguage?>(null) }
+    var isCaptionModelDownloading by remember(videoUri) { mutableStateOf(false) }
+    var captionModelDownloadProgress by remember(videoUri) { mutableStateOf<Float?>(null) }
+    val voskModelDeliveryManager = remember(appContext) { VoskModelDeliveryManager(appContext) }
     val captionPreviewFrame = remember(appContext, captionStyle) {
         captionStyle?.let { style ->
             CaptionPreviewRenderer.renderPreviewBitmap(appContext, style, CaptionPreviewWidth, CaptionPreviewHeight)
@@ -441,6 +448,13 @@ fun QuataVideoEditorDialog(
                 isExporting = false
                 exportJob = null
                 restorePreviewAfterExportInterruption()
+            } catch (missingModel: VoskModelNotInstalledException) {
+                isCancelExportDialogOpen = false
+                exportProgress = 0f
+                isExporting = false
+                exportJob = null
+                pendingCaptionModelLanguage = missingModel.language
+                restorePreviewAfterExportInterruption()
             } catch (throwable: Throwable) {
                 isCancelExportDialogOpen = false
                 isExporting = false
@@ -448,6 +462,30 @@ fun QuataVideoEditorDialog(
                 restorePreviewAfterExportInterruption()
                 Log.e(VideoEditorLogTag, "export failed", throwable)
                 exportError = throwable.message ?: appContext.getString(R.string.video_editor_export_failed)
+            }
+        }
+    }
+
+    fun downloadPendingCaptionModel() {
+        val language = pendingCaptionModelLanguage ?: return
+        if (isCaptionModelDownloading) return
+        isCaptionModelDownloading = true
+        captionModelDownloadProgress = null
+        exportError = null
+        scope.launch {
+            try {
+                voskModelDeliveryManager.install(language) { progress ->
+                    captionModelDownloadProgress = progress.fraction
+                }
+                pendingCaptionModelLanguage = null
+                isCaptionModelDownloading = false
+                captionModelDownloadProgress = null
+                export()
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) throw throwable
+                isCaptionModelDownloading = false
+                captionModelDownloadProgress = null
+                exportError = throwable.message ?: appContext.getString(R.string.caption_model_download_failed)
             }
         }
     }
@@ -588,6 +626,49 @@ fun QuataVideoEditorDialog(
             dismissButton = {
                 TextButton(onClick = { isCancelExportDialogOpen = false }) {
                     Text(stringResource(R.string.video_editor_continue_export))
+                }
+            }
+        )
+    }
+
+    pendingCaptionModelLanguage?.let { language ->
+        AlertDialog(
+            onDismissRequest = {
+                if (!isCaptionModelDownloading) pendingCaptionModelLanguage = null
+            },
+            title = { Text(stringResource(R.string.caption_model_download_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        stringResource(
+                            R.string.caption_model_download_message,
+                            stringResource(language.titleRes)
+                        )
+                    )
+                    if (isCaptionModelDownloading) {
+                        captionModelDownloadProgress?.let { progress ->
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isCaptionModelDownloading,
+                    onClick = ::downloadPendingCaptionModel
+                ) {
+                    Text(stringResource(R.string.caption_model_download_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isCaptionModelDownloading,
+                    onClick = { pendingCaptionModelLanguage = null }
+                ) {
+                    Text(stringResource(R.string.caption_model_download_cancel))
                 }
             }
         )

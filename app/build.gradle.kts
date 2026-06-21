@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,9 +7,32 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val releaseSigningPropertiesFile = rootProject.file("release-signing.properties")
+val releaseSigningProperties = Properties().apply {
+    if (releaseSigningPropertiesFile.isFile) {
+        releaseSigningPropertiesFile.inputStream().use(::load)
+    }
+}
+
+fun releaseSigningValue(propertyName: String, environmentName: String): String? =
+    releaseSigningProperties.getProperty(propertyName)
+        ?: providers.environmentVariable(environmentName).orNull
+
+val releaseStoreFile = releaseSigningValue("storeFile", "QUATA_SIGNING_STORE_FILE")
+val releaseStorePassword = releaseSigningValue("storePassword", "QUATA_SIGNING_STORE_PASSWORD")
+val releaseKeyAlias = releaseSigningValue("keyAlias", "QUATA_SIGNING_KEY_ALIAS")
+val releaseKeyPassword = releaseSigningValue("keyPassword", "QUATA_SIGNING_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.quata"
     compileSdk = 35
+    dynamicFeatures += setOf(":vosk_model_en", ":vosk_model_es", ":vosk_model_fr")
 
     defaultConfig {
         applicationId = "com.quata"
@@ -31,6 +56,25 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {
@@ -82,6 +126,7 @@ dependencies {
     implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("com.google.android.play:feature-delivery:2.1.0")
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

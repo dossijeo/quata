@@ -173,22 +173,25 @@ class VoskVideoTranscriber(
         }.getOrDefault(emptyList())
 }
 
-class CaptionTranscriptionException(message: String) : Exception(message)
+open class CaptionTranscriptionException(message: String) : Exception(message)
 
 private class VoskModelResolver(
     private val context: Context,
     private val locale: Locale
 ) {
     fun resolve(): File? {
-        val language = when (locale.language.lowercase(Locale.US)) {
-            "es" -> "es"
-            "fr" -> "fr"
-            else -> "en"
+        val language = VoskModelLanguage.from(locale)
+        val languageCode = language.languageCode
+        val bundledTarget = File(context.filesDir, "vosk/$languageCode")
+        findModelDirectory(bundledTarget)?.let { return it }
+
+        if (!VoskModelDeliveryManager(context).isInstalled(language)) {
+            throw VoskModelNotInstalledException(language)
         }
-        val bundledTarget = File(context.filesDir, "vosk/$language")
-        unpackBundledModelIfPresent(bundledTarget)
+
+        unpackBundledModelIfPresent(language, bundledTarget)
         return findModelDirectory(bundledTarget)
-            ?: candidateDirectories(language).firstNotNullOfOrNull { findModelDirectory(it) }
+            ?: candidateDirectories(languageCode).firstNotNullOfOrNull { findModelDirectory(it) }
     }
 
     private fun candidateDirectories(language: String): List<File> {
@@ -205,11 +208,15 @@ private class VoskModelResolver(
         }
     }
 
-    private fun unpackBundledModelIfPresent(targetRoot: File) {
+    private fun unpackBundledModelIfPresent(language: VoskModelLanguage, targetRoot: File) {
         if (findModelDirectory(targetRoot) != null) return
         targetRoot.mkdirs()
         val canonicalTarget = targetRoot.canonicalFile
-        ZipInputStream(context.resources.openRawResource(R.raw.vosk_model)).use { zip ->
+        val resourceId = context.resources.getIdentifier(language.resourceName, "raw", context.packageName)
+        if (resourceId == 0) {
+            throw VoskModelNotInstalledException(language)
+        }
+        ZipInputStream(context.resources.openRawResource(resourceId)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 val outputFile = File(canonicalTarget, entry.name).canonicalFile

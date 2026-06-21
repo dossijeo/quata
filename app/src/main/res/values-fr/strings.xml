@@ -348,6 +348,14 @@
     <string name="caption_preview_placeholder">Sous-titres Q&#252;ata</string>
     <string name="caption_transcription_model_missing">Impossible de preparer le modele de langue Vosk.</string>
     <string name="caption_transcription_audio_missing">Impossible de lire la piste audio de la video.</string>
+    <string name="caption_model_language_english">anglais</string>
+    <string name="caption_model_language_spanish">espagnol</string>
+    <string name="caption_model_language_french">francais</string>
+    <string name="caption_model_download_title">Telecharger le modele de sous-titres</string>
+    <string name="caption_model_download_message">Pour generer des sous-titres automatiques, Q&#252;ata doit telecharger le paquet de langue %1$s.</string>
+    <string name="caption_model_download_confirm">Telecharger</string>
+    <string name="caption_model_download_cancel">Pas maintenant</string>
+    <string name="caption_model_download_failed">Impossible de telecharger le modele de sous-titres.</string>
     <string name="emoji_recent">Recents</string>
     <string name="emoji_frequent">Frequents</string>
     <string name="emoji_gestures">Gestes</string>

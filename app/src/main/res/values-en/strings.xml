@@ -348,6 +348,14 @@
     <string name="caption_preview_placeholder">Quata captions</string>
     <string name="caption_transcription_model_missing">Could not prepare the Vosk language model.</string>
     <string name="caption_transcription_audio_missing">Could not read the video audio track.</string>
+    <string name="caption_model_language_english">English</string>
+    <string name="caption_model_language_spanish">Spanish</string>
+    <string name="caption_model_language_french">French</string>
+    <string name="caption_model_download_title">Download captions model</string>
+    <string name="caption_model_download_message">To generate automatic captions, Q&#252;ata needs to download the %1$s language package.</string>
+    <string name="caption_model_download_confirm">Download</string>
+    <string name="caption_model_download_cancel">Not now</string>
+    <string name="caption_model_download_failed">Could not download the captions model.</string>
     <string name="emoji_recent">Recent</string>
     <string name="emoji_frequent">Frequent</string>
     <string name="emoji_gestures">Gestures</string>

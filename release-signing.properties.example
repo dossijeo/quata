@@ -1,0 +1,4 @@
+storeFile=keystores/quata-release.jks
+storePassword=REPLACE_WITH_YOUR_KEYSTORE_PASSWORD
+keyAlias=quata-release
+keyPassword=REPLACE_WITH_YOUR_KEY_PASSWORD

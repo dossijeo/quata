@@ -348,6 +348,14 @@
     <string name="caption_preview_placeholder">Subtítulos Qüata</string>
     <string name="caption_transcription_model_missing">No se pudo preparar el modelo de idioma de Vosk.</string>
     <string name="caption_transcription_audio_missing">No se pudo leer la pista de audio del vídeo.</string>
+    <string name="caption_model_language_english">inglés</string>
+    <string name="caption_model_language_spanish">español</string>
+    <string name="caption_model_language_french">francés</string>
+    <string name="caption_model_download_title">Descargar modelo de subtítulos</string>
+    <string name="caption_model_download_message">Para generar subtítulos automáticos, Qüata necesita descargar el paquete de idioma %1$s.</string>
+    <string name="caption_model_download_confirm">Descargar</string>
+    <string name="caption_model_download_cancel">Ahora no</string>
+    <string name="caption_model_download_failed">No se pudo descargar el modelo de subtítulos.</string>
     <string name="emoji_recent">Recientes</string>
     <string name="emoji_frequent">Frecuentes</string>
     <string name="emoji_gestures">Gestos</string>
