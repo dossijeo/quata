@@ -1,12 +1,12 @@
 # Q&uuml;ata Android
 
-Version: **0.9.3**
-Fecha de version: **2026-06-14**
-Estado: **beta avanzada**
+Version: **0.9.4**
+Fecha de version: **2026-06-21**
+Estado: **candidata para prueba privada de Play Store**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.3` consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling de Better Messages y actualiza la identidad visual de Q&uuml;ata. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.4` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata y cierra detalles de UX detectados en dispositivo fisico. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
@@ -15,6 +15,7 @@ La version `0.9.3` consolida la app como una beta avanzada offline-first: mantie
 - Polling de Better Messages simplificado: `checkNew` es la unica vigilancia periodica; `/thread/{id}` solo se consulta cuando `checkNew` indica cambios y esos cambios son delta real frente a la cache local.
 - Primer arranque sin cache de mensajes: el barrido inicial de Better Messages se carga como leido y sin disparar notificaciones ni sonidos.
 - Cadencia de `checkNew` corregida: el modo relajado consulta cada 15 segundos y el minimo cada 30 segundos cuando la app esta viva, evitando esperas de un minuto tras el bootstrap.
+- Notificaciones nativas corregidas para app minimizada o pantalla apagada: una conversacion activa en memoria solo silencia la notificacion si la app esta realmente visible; en segundo plano se notifica con Android y se evita el sonido interno del chat.
 - Sin barrido completo de hilos al arrancar o reconectar: el polling solo usa `checkNew` y refresca hilos concretos cuando hay cambios reales.
 - Estado global de conectividad derivado de Android: si el dispositivo pierde red aparece una banda **Sin conexion** bajo la barra superior de toda la app; al recuperar red se reactiva el polling.
 - Cache local de recursos: imagenes con Coil en memoria/disco y videos con Media3 `SimpleCache` LRU de 256 MB, con poda de ficheros antiguos.
@@ -27,6 +28,9 @@ La version `0.9.3` consolida la app como una beta avanzada offline-first: mantie
 - Sonidos del chat con liberacion explicita de `MediaPlayer` en completado, error o fallo de arranque.
 - Publicacion de posts con `author_id` y `content` enviados explicitamente a Supabase para que las politicas RLS y los borrados por autor funcionen de forma consistente.
 - Modo traductor Fang integrado en chats y comentarios: deteccion local de idioma, warmup del Space remoto, overlay esmerilado, traducciones cacheadas en SQLite y toggle entre texto original/traducido por mensaje.
+- Cajas de escritura de chat y comentarios con altura minima estricta y selector de emojis ajustado para convivir con el teclado sin tapar el texto.
+- Textos de chat y comentarios descodifican entidades HTML como `&quot;` antes de renderizarse.
+- Publicacion de imagen con ubicacion editable manualmente: si EXIF/GPS falla o detecta mal el lugar, el usuario puede escribirlo; al intentar publicar sin lugar, la pantalla sube a esa seccion y resalta el boton de edicion.
 - Identidad visual actualizada: la seccion principal pasa a llamarse **Q&uuml;ata**, el logo compacto usa `Q&#776;` como marca aislada y el splash nativo usa el nuevo icono corporativo.
 
 ## Funcionalidad principal
@@ -67,7 +71,9 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - Cuando hay delta real en un hilo, se consulta `/thread/{id}` una vez para reconciliar mensajes, ultimo mensaje, unread y metadatos.
 - Al abrir la app o recuperar conexion no se fuerzan decenas de `/thread/{id}`: la app reanuda `checkNew` y solo refresca los hilos que el servidor marca con actividad.
 - Estado de conectividad del dispositivo expuesto a la UI; la app muestra una banda global **Sin conexion** bajo la barra superior cuando Android informa perdida de red.
-- Notificaciones nativas Android solo cuando la app esta en segundo plano o cerrada.
+- Notificaciones nativas Android cuando la app esta en segundo plano, cerrada, minimizada o con pantalla apagada; el chat activo solo se considera visible si la app esta en `RESUMED`.
+- El hilo activo solo se envia a Better Messages como `visibleThreads` en primer plano real, evitando marcar como leidos mensajes recibidos mientras el usuario no mira la conversacion.
+- El sonido interno de mensaje recibido solo se reproduce en primer plano; en background se delega en la notificacion nativa Android.
 - Cache local de lista de conversaciones, hilos, mensajes favoritos y perfiles.
 - Retencion de cache: 24 horas, con reconstruccion solo en primer plano cuando expira.
 - Las conversaciones cacheadas pueden abrirse sin red; si falta cache, la busqueda remota queda como fallback.
@@ -98,6 +104,7 @@ La app incluye un modo traductor pensado para conversaciones y comentarios. No v
 - Tocar de nuevo una caja traducida funciona como toggle y restaura el texto original sin hacer otra llamada de red.
 - Mientras una traduccion esta en curso se muestra spinner y un leve cambio visual de estado, sin la animacion circular de borde que generaba ruido visual.
 - En chat, la insignia de traduccion se ubica en la fila superior junto a la hora para no robar espacio al cuerpo del mensaje ni provocar solapes.
+- El modo traductor consume los gestos de arrastre mientras esta activo para traducir exactamente lo que habia en pantalla al abrirlo, sin desplazar accidentalmente la conversacion o los comentarios.
 
 La API remota esta alojada en Hugging Face Spaces:
 
@@ -187,6 +194,8 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - El editor de imagen genera una copia vertical `9:16` con limite de resolucion, crop/zoom interactivo y conservacion de datos de localizacion de la imagen original cuando estan disponibles.
 - En publicar, los previews de imagen y video se expanden a `9:16` con avatar, acciones y metadatos cosmeticos del feed para validar el aspecto final antes de subir.
 - El boton publicar actua como barra de progreso durante la subida y, si el usuario intenta salir, pregunta si desea cancelar la operacion.
+- En publicaciones de imagen, el lugar/ubicacion detectado por EXIF o reverse geocoding es editable como texto libre. Si no hay GPS, no se detecta nada o el lugar es incorrecto, el usuario puede escribirlo antes de publicar.
+- Si se intenta publicar una imagen sin lugar/ubicacion, la pantalla hace scroll automatico al bloque de ubicacion, abre el campo de texto y resalta el boton; al abrirse el editor, el boton cambia de **Editar** a **Guardar**.
 - El feed guarda posicion por URL, conserva el player actual y vecinos para evitar flashes al hacer swipe, y solo recrea el player si se recupera red tras un estado roto.
 - El feed usa la cache local de video para no volver a descargar recursos ya reproducidos y purga de esa cache el video de una publicacion propia cuando se elimina.
 - El reproductor del feed usa `texture_view`, buffers contenidos y deshabilita la pista de audio cuando el video esta silenciado.
@@ -310,9 +319,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 12
-versionName = 0.9.3
-APP_VERSION_DATE = 2026-06-14
+versionCode = 13
+versionName = 0.9.4
+APP_VERSION_DATE = 2026-06-21
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
