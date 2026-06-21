@@ -42,6 +42,11 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                 error = null,
                 successMessage = null
             )
+            is CreatePostUiEvent.LocationLabelChanged -> _uiState.value = _uiState.value.copy(
+                locationLabel = event.value.takeIf { it.isNotBlank() },
+                error = null,
+                successMessage = null
+            )
             CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState()
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
             CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(successMessage = null, error = null)
@@ -60,7 +65,7 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                         text = state.text,
                         imageUri = state.imageUri,
                         videoUri = state.videoUri,
-                        locationLabel = state.locationLabel,
+                        locationLabel = state.locationLabel?.trim()?.takeIf { it.isNotBlank() },
                         latitude = state.latitude,
                         longitude = state.longitude
                     )

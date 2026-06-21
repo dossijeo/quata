@@ -26,6 +26,7 @@ import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.notifications.NotificationFactory
 import com.quata.core.session.SessionManager
+import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityWallStats
 import com.quata.feature.chat.domain.ChatRepository
@@ -88,7 +89,8 @@ class ChatRepositoryImpl(
     private val _activeConversationId = MutableStateFlow<String?>(null)
     override val activeConversationId: StateFlow<String?> = _activeConversationId
     private val pollingMode = MutableStateFlow(ChatPollingMode.MINIMAL)
-    private val isAppForeground = MutableStateFlow(false)
+    private val appForegroundState = MutableStateFlow(false)
+    override val isAppForeground: StateFlow<Boolean> = appForegroundState
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation
     private val _isPollingOnline = MutableStateFlow(true)
@@ -133,8 +135,8 @@ class ChatRepositoryImpl(
     }
 
     override fun setAppForeground(isForeground: Boolean) {
-        if (isAppForeground.value == isForeground) return
-        isAppForeground.value = isForeground
+        if (appForegroundState.value == isForeground) return
+        appForegroundState.value = isForeground
         logPolling("foreground=$isForeground")
         wakePolling()
     }
@@ -162,7 +164,7 @@ class ChatRepositoryImpl(
 
     override suspend fun pollForBackgroundNotifications(): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) return@runCatching
-        if (isAppForeground.value) return@runCatching
+        if (appForegroundState.value) return@runCatching
         if (pollingMode.value == ChatPollingMode.AGGRESSIVE || pollingMode.value == ChatPollingMode.MEDIUM) return@runCatching
         val session = sessionManager.currentSession() ?: return@runCatching
         restoreCachedConversationsIfNeeded(session.userId)
@@ -744,7 +746,7 @@ class ChatRepositoryImpl(
                     peerAvatarUrl = peer?.avatar_url ?: peer?.avatar,
                     currentProfileId = session.userId
                 ).copy(
-                    lastMessagePreview = lastMessage?.message?.stripHtml() ?: chat.last_message_preview.orEmpty(),
+                    lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode() ?: chat.last_message_preview.orEmpty().stripHtmlTagsAndDecode(),
                     unreadCount = unreadCount,
                     updatedAt = lastMessage?.created_at?.toDisplayTime() ?: chat.last_message_at.orEmpty(),
                     updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
@@ -1018,13 +1020,13 @@ class ChatRepositoryImpl(
         activeConversationId.value?.betterMessagesThreadIdOrNull() == threadId
 
     private fun shouldNotifyNative(previous: Conversation?, updated: Conversation): Boolean {
-        if (updated.isMuted || updated.id == activeConversationId.value) return false
+        if (updated.isMuted) return false
+        if (appForegroundState.value && updated.id == activeConversationId.value) return false
         return updated.unreadCount > (previous?.unreadCount ?: 0)
     }
 
     private fun shouldEmitNativeNotifications(): Boolean =
-        !isAppForeground.value &&
-            (pollingMode.value == ChatPollingMode.RELAXED || pollingMode.value == ChatPollingMode.MINIMAL)
+        !appForegroundState.value
 
     private suspend fun hasBetterMessagesMessageCache(profileId: String): Boolean =
         betterMessagesByThreadId.values.any { messages -> messages.isNotEmpty() } ||
@@ -1227,7 +1229,10 @@ class ChatRepositoryImpl(
         val response = withBetterMessagesSession(profileId) {
             betterMessagesRepository.checkNewInCurrentSession(
                 lastUpdate = lastInboxUpdate,
-                visibleThreads = activeThreadId?.let(::listOf).orEmpty(),
+                visibleThreads = activeThreadId
+                    ?.takeIf { appForegroundState.value }
+                    ?.let(::listOf)
+                    .orEmpty(),
                 threadIds = emptyList()
             )
         }
@@ -1290,7 +1295,9 @@ class ChatRepositoryImpl(
                     profileId = profileId,
                     threadId = threadId,
                     preloadedThreadResponse = threadResponse,
-                    initializeNewThreadAsRead = initialMessageBootstrap || wasKnown || threadId == activeThreadId,
+                    initializeNewThreadAsRead = initialMessageBootstrap ||
+                        wasKnown ||
+                        (appForegroundState.value && threadId == activeThreadId),
                     profileDirectory = profileDirectory
                 )
                     ?.let { conversation ->
@@ -1357,7 +1364,7 @@ class ChatRepositoryImpl(
         return inbox.threads
             .filter { thread -> thread.threadId > 0 && thread.isHidden != 1 && thread.isDeleted != 1 }
             .filterNot { thread -> thread.threadId in abandonedThreadIds }
-            .filterNot { thread -> thread.threadId == activeThreadId }
+            .filterNot { thread -> appForegroundState.value && thread.threadId == activeThreadId }
             .filter { thread -> currentWpUserId == null || currentWpUserId in thread.participants }
             .mapNotNull { thread ->
                 val knownMessages = messagesByThreadId[thread.threadId].orEmpty()
@@ -1414,7 +1421,7 @@ class ChatRepositoryImpl(
                     id = betterMessagesConversationId(fullThread.threadId),
                     title = title,
                     avatarUrl = fullThread.image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
-                    lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+                    lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode().orEmpty(),
                     unreadCount = unreadCount,
                     updatedAt = lastMessage?.created_at?.toDisplayTime() ?: fullThread.lastTime?.toDisplayTime().orEmpty(),
                     updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
@@ -2236,7 +2243,7 @@ class ChatRepositoryImpl(
             id = betterMessagesConversationId(threadId),
             title = displayTitle,
             avatarUrl = image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
-            lastMessagePreview = lastMessage?.message?.stripHtml().orEmpty(),
+            lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode().orEmpty(),
             unreadCount = unread ?: 0,
             updatedAt = lastMessage?.created_at?.toDisplayTime() ?: lastTime?.toDisplayTime().orEmpty(),
             updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
@@ -2377,8 +2384,6 @@ class ChatRepositoryImpl(
             file.writeBytes(media.bytes)
             CachedMedia(file = file, mimeType = media.mimeType)
         }
-
-    private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
 
     private fun String.normalizeName(): String = trim().lowercase(Locale.ROOT)
 

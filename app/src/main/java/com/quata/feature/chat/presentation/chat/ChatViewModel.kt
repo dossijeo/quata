@@ -26,7 +26,16 @@ class ChatViewModel(
         repository.setActiveConversation(conversationId)
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
         viewModelScope.launch {
-            repository.markConversationRead(conversationId)
+            if (repository.isAppForeground.value) {
+                repository.markConversationRead(conversationId)
+            }
+        }
+        viewModelScope.launch {
+            repository.isAppForeground.collect { isForeground ->
+                if (isForeground) {
+                    repository.markConversationRead(conversationId)
+                }
+            }
         }
         viewModelScope.launch {
             repository.observeConversations()
@@ -65,7 +74,9 @@ class ChatViewModel(
                             }
                     }
                     publishMessages(isLoading = false)
-                    repository.markConversationRead(conversationId)
+                    if (repository.isAppForeground.value) {
+                        repository.markConversationRead(conversationId)
+                    }
                 }
         }
         viewModelScope.launch {

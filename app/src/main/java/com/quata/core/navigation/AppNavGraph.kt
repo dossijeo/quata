@@ -294,19 +294,26 @@ fun AppNavGraph(
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    var isAppForeground by remember { mutableStateOf(true) }
+    var isAppForeground by remember {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
     DisposableEffect(lifecycleOwner, container.chatRepository, showAppChrome, currentRoute) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> {
+                Lifecycle.Event.ON_RESUME -> {
                     isAppForeground = true
+                    container.chatRepository.setAppForeground(true)
                     container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = true))
                 }
-                Lifecycle.Event.ON_STOP -> {
+                Lifecycle.Event.ON_PAUSE -> {
                     isAppForeground = false
+                    container.chatRepository.setAppForeground(false)
                     container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = false))
                 }
-                Lifecycle.Event.ON_DESTROY -> container.chatRepository.setPollingMode(ChatPollingMode.MINIMAL)
+                Lifecycle.Event.ON_DESTROY -> {
+                    container.chatRepository.setAppForeground(false)
+                    container.chatRepository.setPollingMode(ChatPollingMode.MINIMAL)
+                }
                 else -> Unit
             }
         }
@@ -316,6 +323,7 @@ fun AppNavGraph(
         }
     }
     LaunchedEffect(showAppChrome, currentRoute, isAppForeground) {
+        container.chatRepository.setAppForeground(isAppForeground)
         container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isAppForeground))
     }
 

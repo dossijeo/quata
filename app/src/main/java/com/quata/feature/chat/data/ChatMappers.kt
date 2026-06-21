@@ -5,6 +5,8 @@ import com.quata.bettermessages.BmThread
 import com.quata.bettermessages.BmUser
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.text.decodeHtmlEntities
+import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.data.supabase.CommunityMessage
 import com.quata.data.supabase.CommunityWallStats
 import java.time.Instant
@@ -72,7 +74,7 @@ fun CommunityMessage.toDomain(
         conversationId = conversationId,
         senderId = profile_id.orEmpty(),
         senderName = senderName,
-        text = body.orEmpty(),
+        text = body.orEmpty().decodeHtmlEntities(),
         sentAt = created_at.orEmpty(),
         sentAtMillis = created_at?.toEpochMillisOrNull(),
         isMine = profile_id == currentProfileId,
@@ -92,7 +94,7 @@ fun BmMessage.toDomain(
         conversationId = betterMessagesConversationId(threadId),
         senderId = senderId.toString(),
         senderName = usersByWpId[senderId]?.name ?: "Usuario",
-        text = message.stripHtml(),
+        text = message.stripHtmlTagsAndDecode(),
         sentAt = created_at.toDisplayTime(),
         sentAtMillis = created_at.toEpochMillisFromBetterMessages(),
         isMine = currentWpUserId != null && senderId == currentWpUserId,
@@ -101,7 +103,7 @@ fun BmMessage.toDomain(
         isFavorite = favorited == 1,
         replyToMessageId = meta.replyTo?.let { bmMessageDomainId(threadId, it) },
         replyToSenderName = reply?.let { usersByWpId[it.senderId]?.name },
-        replyToText = reply?.message?.stripHtml(),
+        replyToText = reply?.message?.stripHtmlTagsAndDecode(),
         forwardedFromSenderId = meta.forwardedFromUser?.toString(),
         attachmentUri = firstFile?.url,
         attachmentName = firstFile?.name,
@@ -142,7 +144,5 @@ private fun String.toEpochMillisOrNull(): Long? =
     } catch (_: DateTimeParseException) {
         null
     }
-
-private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "").trim()
 
 private const val MAX_REASONABLE_EPOCH_MILLIS = 4_102_444_800_000L

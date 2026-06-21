@@ -19,6 +19,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,6 +46,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
@@ -91,6 +93,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -168,9 +172,13 @@ fun CreatePostScreen(
     val template = quataTheme()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val composerScrollState = rememberScrollState()
     var step by rememberSaveable { mutableStateOf(ComposerStep.TypePicker) }
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     var isEmojiPanelOpen by rememberSaveable { mutableStateOf(false) }
+    var isLocationEditorOpen by rememberSaveable { mutableStateOf(false) }
+    var highlightLocationEditor by rememberSaveable { mutableStateOf(false) }
+    var imageLocationOffsetPx by remember { mutableStateOf(0) }
     var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
     var lastHandledCancelUploadToken by rememberSaveable { mutableStateOf(cancelUploadToken) }
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -213,6 +221,15 @@ fun CreatePostScreen(
     }
 
     fun submitIfAuthenticated(type: PostComposerType) {
+        if (type == PostComposerType.Image && state.imageUri != null && state.locationLabel.isNullOrBlank()) {
+            isLocationEditorOpen = true
+            highlightLocationEditor = true
+            scope.launch {
+                val target = (composerScrollState.value + imageLocationOffsetPx - 120).coerceAtLeast(0)
+                composerScrollState.animateScrollTo(target)
+            }
+            return
+        }
         if (canPublish) {
             viewModel.submit(type)
         } else {
@@ -241,6 +258,9 @@ fun CreatePostScreen(
 
     fun openImageEditorWithOriginal(uri: Uri?) {
         uri ?: return
+        viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(""))
+        isLocationEditorOpen = false
+        highlightLocationEditor = false
         val exifLocation = context.exifLocationFromUri(uri)
         if (exifLocation != null) {
             resolveLocation(exifLocation)
@@ -292,6 +312,8 @@ fun CreatePostScreen(
             clearEditedVideoTemp()
             step = ComposerStep.TypePicker
             textValue = TextFieldValue("")
+            isLocationEditorOpen = false
+            highlightLocationEditor = false
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
             lastHandledResetToken = resetToken
         }
@@ -314,6 +336,8 @@ fun CreatePostScreen(
                 clearEditedImageTemp()
                 clearEditedVideoTemp()
             }
+            isLocationEditorOpen = false
+            highlightLocationEditor = false
             onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
@@ -354,7 +378,7 @@ fun CreatePostScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(composerScrollState)
                     .padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -372,6 +396,8 @@ fun CreatePostScreen(
                             clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
+                            isLocationEditorOpen = false
+                            highlightLocationEditor = false
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Text
                         },
@@ -379,6 +405,8 @@ fun CreatePostScreen(
                             clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
+                            isLocationEditorOpen = false
+                            highlightLocationEditor = false
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Image
                         },
@@ -386,6 +414,8 @@ fun CreatePostScreen(
                             clearEditedImageTemp()
                             clearEditedVideoTemp()
                             textValue = TextFieldValue("")
+                            isLocationEditorOpen = false
+                            highlightLocationEditor = false
                             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
                             step = ComposerStep.Video
                         }
@@ -409,6 +439,8 @@ fun CreatePostScreen(
                     )
                     ComposerStep.Image -> ImagePostForm(
                         state = state,
+                        isLocationEditorOpen = isLocationEditorOpen,
+                        highlightLocationEditor = highlightLocationEditor,
                         onPickImage = { galleryImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                         onTakePhoto = {
                             pendingCaptureTarget = CaptureTarget.Photo
@@ -423,6 +455,17 @@ fun CreatePostScreen(
                                 ?.let(Uri::parse)
                                 ?.let { imageEditorUri = it }
                         },
+                        onLocationEditorOpenChange = { isOpen ->
+                            isLocationEditorOpen = isOpen
+                            if (isOpen) {
+                                highlightLocationEditor = false
+                            }
+                        },
+                        onLocationChange = {
+                            highlightLocationEditor = false
+                            viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
+                        },
+                        onLocationPositioned = { offsetPx -> imageLocationOffsetPx = offsetPx },
                         onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
                     )
                     ComposerStep.Video -> VideoPostForm(
@@ -639,9 +682,14 @@ private fun TextPostForm(
 @Composable
 private fun ImagePostForm(
     state: CreatePostUiState,
+    isLocationEditorOpen: Boolean,
+    highlightLocationEditor: Boolean,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
     onEditImage: () -> Unit,
+    onLocationEditorOpenChange: (Boolean) -> Unit,
+    onLocationChange: (String) -> Unit,
+    onLocationPositioned: (Int) -> Unit,
     onSubmit: () -> Unit
 ) {
     val template = quataTheme()
@@ -655,13 +703,71 @@ private fun ImagePostForm(
             ComposerActionButton(stringResource(R.string.video_editor_crop), Icons.Filled.Edit, onEditImage)
         }
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
-            Spacer(Modifier.width(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    onLocationPositioned(coordinates.positionInRoot().y.roundToInt())
+                }
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.composer_location),
+                        color = template.colors.textPrimary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = state.locationLabel ?: stringResource(R.string.composer_no_location),
+                        color = template.colors.textSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                LocationEditButton(
+                    isEditing = isLocationEditorOpen,
+                    highlighted = highlightLocationEditor,
+                    onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) }
+                )
+            }
+            if (isLocationEditorOpen) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = state.locationLabel.orEmpty(),
+                    onValueChange = onLocationChange,
+                    placeholder = { Text(stringResource(R.string.composer_location_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = template.colors.textPrimary,
+                        unfocusedTextColor = template.colors.textPrimary,
+                        focusedBorderColor = template.colors.accent,
+                        unfocusedBorderColor = template.colors.divider,
+                        cursorColor = template.colors.accent
+                    )
+                )
+            }
+            val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
             Text(
-                text = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                color = template.colors.textSecondary,
-                modifier = Modifier.weight(1f)
+                text = stringResource(
+                    if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
+                ),
+                color = if (shouldEmphasizeLocation) {
+                    template.colors.accent
+                } else {
+                    template.colors.textSecondary
+                },
+                fontSize = 12.sp,
+                fontWeight = if (shouldEmphasizeLocation) {
+                    FontWeight.ExtraBold
+                } else {
+                    FontWeight.Medium
+                },
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
     }
@@ -1271,6 +1377,47 @@ private fun ComposerActionButton(
         CompactIcon(icon, contentDescription = null)
         Spacer(Modifier.width(4.dp))
         Text(text, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun LocationEditButton(
+    isEditing: Boolean,
+    highlighted: Boolean,
+    onClick: () -> Unit
+) {
+    val template = quataTheme()
+    val backgroundColor by animateColorAsState(
+        targetValue = if (highlighted) template.colors.accent.copy(alpha = 0.22f) else Color.Transparent
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (highlighted) template.colors.accent else template.colors.divider
+    )
+    Surface(
+        color = backgroundColor,
+        contentColor = if (highlighted) template.colors.accent else template.colors.textPrimary,
+        shape = RoundedCornerShape(9.dp),
+        modifier = Modifier
+            .height(40.dp)
+            .compactButtonMinSize()
+            .border(1.dp, borderColor, RoundedCornerShape(9.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompactIcon(
+                if (isEditing) Icons.Filled.Check else Icons.Filled.Edit,
+                contentDescription = null,
+                tint = if (highlighted) template.colors.accent else template.colors.textPrimary
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                stringResource(if (isEditing) R.string.composer_save_location else R.string.composer_edit_location),
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
     }
 }
 

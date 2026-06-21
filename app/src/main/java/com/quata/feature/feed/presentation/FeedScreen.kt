@@ -26,10 +26,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -99,6 +101,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -1294,6 +1297,8 @@ private fun CommentsSheet(
         confirmValueChange = { it != SheetValue.PartiallyExpanded }
     )
     val template = quataTheme()
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
     val comments = post.comments
     val translatorModeController = LocalQuataTranslatorModeController.current
 
@@ -1393,6 +1398,7 @@ private fun CommentsSheet(
                     onEmojiClick = { emoji ->
                         draft = draft.insertAtSelection(emoji)
                     },
+                    gridMaxHeight = emojiGridMaxHeight,
                     modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
                 )
                 Spacer(Modifier.height(18.dp))
@@ -1404,7 +1410,10 @@ private fun CommentsSheet(
                 )
                 Spacer(Modifier.height(14.dp))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.requiredHeightIn(min = 82.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
@@ -1454,7 +1463,7 @@ private fun CommentsSheet(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 58.dp),
+                        .requiredHeightIn(min = 68.dp),
                     singleLine = true
                 )
             }

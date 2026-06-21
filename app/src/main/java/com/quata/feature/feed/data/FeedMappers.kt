@@ -3,6 +3,8 @@ package com.quata.feature.feed.data
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.text.decodeHtmlEntities
+import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.core.network.wordpress.WordpressPostDto
 import com.quata.data.supabase.CommunityComment
 import com.quata.data.supabase.CommunityPost
@@ -13,7 +15,7 @@ fun WordpressPostDto.toDomain(): Post {
     return Post(
         id = id.toString(),
         author = User(author?.toString() ?: "wp", "", "WordPress"),
-        text = body.stripHtml().trim().ifBlank { "Publicacion de WordPress" },
+        text = body.stripHtmlTagsAndDecode().ifBlank { "Publicacion de WordPress" },
         imageUrl = null,
         placeName = null,
         rankingLabel = "#0",
@@ -31,7 +33,7 @@ fun CommunityPost.toDomain(
 ): Post = Post(
     id = id,
     author = author,
-    text = body ?: content.orEmpty(),
+    text = (body ?: content.orEmpty()).decodeHtmlEntities(),
     imageUrl = image_url,
     videoUrl = video_url,
     placeName = null,
@@ -43,7 +45,7 @@ fun CommunityPost.toDomain(
 )
 
 fun CommunityComment.toDomain(authorName: String): PostComment =
-    body.orEmpty().parseReplyShortcode().let { parsed ->
+    body.orEmpty().decodeHtmlEntities().parseReplyShortcode().let { parsed ->
         PostComment(
             id = id,
             authorName = authorName,
@@ -55,7 +57,7 @@ fun CommunityComment.toDomain(authorName: String): PostComment =
     }
 
 fun List<CommunityComment>.toDomainComments(authorNameFor: (CommunityComment) -> String): List<PostComment> {
-    val parsedById = associate { comment -> comment.id to comment.body.orEmpty().parseReplyShortcode() }
+    val parsedById = associate { comment -> comment.id to comment.body.orEmpty().decodeHtmlEntities().parseReplyShortcode() }
     return map { comment ->
         val parsed = parsedById.getValue(comment.id)
         val target = parsed.commentId?.let { targetId -> firstOrNull { it.id == targetId } }
@@ -112,5 +114,3 @@ fun CommunityProfile.toDomainUser(): User =
         neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
         avatarUrl = avatar_url ?: avatar
     )
-
-private fun String.stripHtml(): String = replace(Regex("<[^>]*>"), "")

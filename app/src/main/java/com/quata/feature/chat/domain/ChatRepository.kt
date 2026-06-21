@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface ChatRepository {
     val activeConversationId: StateFlow<String?>
+    val isAppForeground: StateFlow<Boolean>
     val pendingDeletedConversation: StateFlow<Conversation?>
     val isPollingOnline: StateFlow<Boolean>
     fun setDeviceNetworkAvailable(isAvailable: Boolean)

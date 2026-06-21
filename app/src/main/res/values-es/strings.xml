@@ -283,7 +283,13 @@
     <string name="composer_word_count">%1$d / 500 palabras</string>
     <string name="composer_pick_image">Elegir foto</string>
     <string name="composer_take_photo">Hacer foto</string>
-    <string name="composer_no_location">Sin ubicación. Se leerá EXIF o se pedirá la ubicación del teléfono.</string>
+    <string name="composer_no_location">Sin lugar o ubicaci&#243;n. Puedes escribirlo manualmente.</string>
+    <string name="composer_location">Lugar o ubicaci&#243;n</string>
+    <string name="composer_edit_location">Editar</string>
+    <string name="composer_save_location">Guardar</string>
+    <string name="composer_location_placeholder">Escribe lugar o ubicaci&#243;n</string>
+    <string name="composer_location_helper">Si el GPS no lo detecta correctamente, puedes editarlo aqu&#237;.</string>
+    <string name="composer_location_required">A&#241;ade un lugar o ubicaci&#243;n antes de publicar esta imagen.</string>
     <string name="composer_pending_location">Ubicación pendiente</string>
     <string name="composer_selected_image">Imagen seleccionada</string>
     <string name="composer_image_preview_title">Foto con ubicación</string>

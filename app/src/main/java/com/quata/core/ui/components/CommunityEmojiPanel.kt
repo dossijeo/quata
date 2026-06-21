@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.quata.R
 import com.quata.core.designsystem.theme.quataTheme
@@ -54,7 +55,8 @@ import java.util.Locale
 fun CommunityEmojiPanel(
     onEmojiClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    initialSectionKey: String = "frequent"
+    initialSectionKey: String = "frequent",
+    gridMaxHeight: Dp = 220.dp
 ) {
     val template = quataTheme()
     val sections = CommunityEmojiCatalog.sections
@@ -99,7 +101,7 @@ fun CommunityEmojiPanel(
                 columns = GridCells.Adaptive(minSize = 44.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 96.dp, max = 220.dp),
+                    .heightIn(min = 96.dp, max = gridMaxHeight),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {

@@ -60,6 +60,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -396,6 +398,7 @@ fun QuataTranslatorOverlay(
                 .width(viewportWidth)
                 .height(viewportHeight)
                 .clipToBounds()
+                .consumeTranslatorScrollGestures()
                 .background(template.colors.background)
         ) {
             if (background != null) {
@@ -459,6 +462,18 @@ fun QuataTranslatorOverlay(
         }
     }
 }
+
+private fun Modifier.consumeTranslatorScrollGestures(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent()
+                event.changes
+                    .filter { it.positionChanged() }
+                    .forEach { it.consume() }
+            }
+        }
+    }
 
 @Composable
 private fun TranslatorTextOverlayBox(

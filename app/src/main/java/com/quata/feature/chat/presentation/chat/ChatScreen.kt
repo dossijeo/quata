@@ -25,13 +25,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
@@ -101,6 +104,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -167,6 +171,7 @@ fun ChatScreen(
     )
 ) {
     val state by viewModel.uiState.collectAsState()
+    val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val metrics = context.resources.displayMetrics
@@ -284,6 +289,8 @@ fun ChatScreen(
         }
     }
     val template = quataTheme()
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
     val backgroundImage = backgroundSeed?.let { seed ->
         val backgroundTemplateId = "${template.id}-clouds-v3"
         rememberProceduralChatBackground(
@@ -462,6 +469,7 @@ fun ChatScreen(
                                 messageFieldValue = updated
                                 viewModel.onEvent(ChatUiEvent.MessageChanged(updated.text))
                             },
+                            gridMaxHeight = emojiGridMaxHeight,
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
                                 .trackCommunityEmojiPanelBounds(emojiDismissState)
@@ -471,6 +479,7 @@ fun ChatScreen(
                     if (!isFavoritesConversation) Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .requiredHeightIn(min = 82.dp)
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -522,7 +531,7 @@ fun ChatScreen(
                         label = { Text(stringResource(R.string.conversation_message)) },
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 58.dp),
+                            .requiredHeightIn(min = 68.dp),
                         singleLine = true,
                         leadingIcon = {
                             CompactIconButton(
@@ -595,7 +604,7 @@ fun ChatScreen(
 
     LaunchedEffect(state.messages) {
         val incomingCount = state.messages.count { !it.isMine }
-        if (incomingCount > previousIncomingCount) {
+        if (isAppForeground && incomingCount > previousIncomingCount) {
             context.playChatSound(R.raw.notification)
         }
         previousIncomingCount = incomingCount
