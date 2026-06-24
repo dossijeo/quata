@@ -69,7 +69,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -93,6 +92,7 @@ import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 
@@ -177,8 +177,7 @@ fun ProfileScreen(
 
     QuataScreen(padding) {
         val profile = state.profile
-        val configuration = LocalConfiguration.current
-        val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+        val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
         val accountScrollState = rememberScrollState(accountPage.ordinal)
         if (state.isLoading || profile == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -615,8 +614,7 @@ fun EmergencyContactsDialog(
     onSave: () -> Unit
 ) {
     val template = quataTheme()
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val bottomActionHeight = 54.dp
     val bottomActionOffset = 78.dp
     val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp

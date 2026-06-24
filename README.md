@@ -1,12 +1,12 @@
 # Q&uuml;ata Android
 
-Version: **0.9.7**
+Version: **0.9.8**
 Fecha de version: **2026-06-24**
 Estado: **candidata para prueba privada de Play Store**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.7` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte landscape en Android 9 y Android moderno, y cierra los detalles finales del editor de video para que el crop sea consistente en pausa, reproduccion, exportacion y preview del post. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.8` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra los detalles finales del editor de video para que el crop sea consistente en pausa, reproduccion, exportacion y preview del post. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
@@ -35,6 +35,7 @@ La version `0.9.7` es la candidata para la prueba privada de Play Store. Consoli
 - Landscape revisado para pantallas grandes y Android moderno: navegacion lateral contenida, cabeceras compactas, SOS flotante, ajuste de insets y comportamiento validado en Android 9 y API 37.
 - Ventana SOS adaptada a horizontal con distribucion en dos columnas para contactos y mensaje, evitando el scroll inutil en pantallas anchas.
 - Selector de emojis ajustado en chat y comentarios para cerrarle espacio al teclado en landscape y colocarse junto al borde util de la pantalla.
+- Compatibilidad edge-to-edge revisada para Android 15+: insets seguros, corte de pantalla siempre permitido, barra lateral contenida en API 28/API 37 y sin superposicion del rail sobre el feed.
 - Editor de video reforzado: crops `Original`, `1:1`, `4:5`, `9:16` y `16:9` mantienen el mismo encuadre en preview, reproduccion y exportacion dentro de una salida final `9:16` con bandas difuminadas, incluyendo fuentes con rotacion de camara y exportacion compatible con Android 9 y Android moderno.
 
 ## Funcionalidad principal
@@ -323,8 +324,8 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 16
-versionName = 0.9.7
+versionCode = 17
+versionName = 0.9.8
 APP_VERSION_DATE = 2026-06-24
 ```
 

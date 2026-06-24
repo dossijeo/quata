@@ -108,7 +108,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -149,6 +148,7 @@ import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.CommunityEmojiPanelDismissState
 import com.quata.core.ui.components.QuataScreen
@@ -194,8 +194,7 @@ fun FeedScreen(
     var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
     val canParticipate = currentUserId != null
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
 
     LaunchedEffect(commentsPost, isLandscapeLayout) {
         onLandscapeCommentsOverlayActiveChange(commentsPost != null && isLandscapeLayout)
@@ -586,8 +585,7 @@ private fun ReelPost(
     val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
     var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
     var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
 
     Box(
         modifier = Modifier
@@ -747,8 +745,7 @@ private fun ReelVideo(
     onMuteChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val playerBackground = Color.Black.toArgb()
     val latestIsActive by rememberUpdatedState(isActive)
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
@@ -1340,8 +1337,7 @@ private fun CommentsSheet(
     val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
     val comments = post.comments
     val translatorModeController = LocalQuataTranslatorModeController.current
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     fun setEmojiPickerVisible(visible: Boolean) {
         isEmojiPickerVisible = visible
         if (visible) {

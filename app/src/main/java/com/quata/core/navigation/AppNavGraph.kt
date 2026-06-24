@@ -83,7 +83,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -112,12 +111,12 @@ import com.quata.core.di.AppContainer
 import com.quata.core.session.AuthState
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
-import com.quata.core.ui.components.QuataNavigationRailContentInset
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.translation.QuataTranslatableTextRegistry
 import com.quata.core.translation.QuataTranslatorBackground
 import com.quata.core.translation.QuataTranslatorModeProvider
@@ -170,6 +169,7 @@ fun AppNavGraph(
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
     val startDestination = AppDestinations.Feed.route
+    val template = quataTheme()
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
     var pendingCreatePostUploadRoute by rememberSaveable { mutableStateOf<String?>(null) }
@@ -253,10 +253,10 @@ fun AppNavGraph(
         AppDestinations.Conversations.route,
         AppDestinations.Profile.route
     )
-    val screenConfiguration = LocalConfiguration.current
     val layoutDirection = LocalLayoutDirection.current
-    val isLandscapeLayout = screenConfiguration.screenWidthDp > screenConfiguration.screenHeightDp
-    val translatorViewportKey = "${screenConfiguration.orientation}:${screenConfiguration.screenWidthDp}:${screenConfiguration.screenHeightDp}"
+    val windowLayoutInfo = rememberQuataWindowLayoutInfo()
+    val isLandscapeLayout = windowLayoutInfo.isLandscape
+    val translatorViewportKey = windowLayoutInfo.viewportKey
     LaunchedEffect(translatorViewportKey) {
         if (isTranslatorOverlayMounted || isTranslatorModeActive || translatorBackground != null) {
             translatorActivationToken += 1L
@@ -409,9 +409,12 @@ fun AppNavGraph(
         Box(
             Modifier
                 .fillMaxSize()
+                .background(template.colors.background)
                 .fluidTouchEffect(enabled = touchFlowEnabled)
         ) {
         Scaffold(
+            containerColor = template.colors.background,
+            contentColor = template.colors.textPrimary,
             topBar = {
                 if (showAppChrome) {
                     Column {
@@ -430,14 +433,13 @@ fun AppNavGraph(
                 }
             }
         ) { scaffoldPadding ->
-            val navigationRailContentInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                QuataNavigationRailWidth
-            } else {
-                QuataNavigationRailContentInset
-            }
+            val scaffoldStartPadding = scaffoldPadding.calculateStartPadding(layoutDirection)
+            val railStartSafePadding = WindowInsets.safeDrawing
+                .asPaddingValues()
+                .calculateStartPadding(layoutDirection)
             val padding = if (useNavigationRail) {
                 PaddingValues(
-                    start = scaffoldPadding.calculateStartPadding(layoutDirection) + navigationRailContentInset,
+                    start = maxOf(scaffoldStartPadding, railStartSafePadding) + QuataNavigationRailWidth,
                     top = scaffoldPadding.calculateTopPadding(),
                     end = scaffoldPadding.calculateEndPadding(layoutDirection),
                     bottom = scaffoldPadding.calculateBottomPadding()

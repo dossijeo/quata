@@ -61,7 +61,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +74,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,8 +91,7 @@ fun QuataImageEditorDialog(
 ) {
     val context = LocalContext.current
     val template = quataTheme()
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val scope = rememberCoroutineScope()
     var bitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUri) { mutableStateOf(true) }

@@ -4,16 +4,24 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,8 +67,7 @@ val bottomDestinations = listOf(
     BottomDestination(AppDestinations.Profile.route, R.string.nav_account, Icons.Filled.AccountCircle)
 )
 
-val QuataNavigationRailWidth = 112.dp
-val QuataNavigationRailContentInset = 68.dp
+val QuataNavigationRailWidth = 68.dp
 
 @Composable
 fun QuataBottomBar(
@@ -70,7 +78,7 @@ fun QuataBottomBar(
     NavigationBar(
         containerColor = template.colors.background,
         modifier = Modifier
-            .navigationBarsPadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
             .height(92.dp),
         windowInsets = WindowInsets(0.dp)
     ) {
@@ -97,36 +105,64 @@ fun QuataNavigationRail(
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    Surface(
-        color = template.colors.background,
-        contentColor = template.colors.textPrimary,
+    val layoutDirection = LocalLayoutDirection.current
+    val safeStartPadding = WindowInsets.safeDrawing.asPaddingValues().calculateStartPadding(layoutDirection)
+    BoxWithConstraints(
         modifier = modifier
-            .width(QuataNavigationRailWidth)
+            .width(safeStartPadding + QuataNavigationRailWidth)
             .fillMaxHeight()
-            .navigationBarsPadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Top)
+        val isShortRail = maxHeight < 420.dp
+        val itemHeight = if (isShortRail) 46.dp else 52.dp
+        val itemSpacing = if (isShortRail) 4.dp else 5.dp
+        val spacerHeight = if (isShortRail) 4.dp else 8.dp
+        val verticalPadding = if (isShortRail) 4.dp else 6.dp
+        val horizontalPadding = if (isShortRail) 4.dp else 5.dp
+        val navigationIconSize = if (isShortRail) 17.dp else 19.dp
+        val notificationIconSize = if (isShortRail) {
+            if (isNotificationBouncing) 20.dp else 17.dp
+        } else {
+            if (isNotificationBouncing) 22.dp else 19.dp
+        }
+        val labelSize = if (isShortRail) 8.sp else 9.sp
+        Surface(
+            color = template.colors.background,
+            contentColor = template.colors.textPrimary,
+            modifier = Modifier.fillMaxSize()
         ) {
-            CompactNotificationRailItem(
-                notificationCount = notificationCount,
-                isBouncing = isNotificationBouncing,
-                onClick = onNotificationsClick
-            )
-            Spacer(Modifier.height(8.dp))
-            bottomDestinations.forEach { item ->
-                val selected = currentRoute == item.route
-                val label = stringResource(item.labelRes)
-                CompactNavigationRailItem(
-                    selected = selected,
-                    label = label,
-                    icon = item.icon,
-                    onClick = { onDestinationClick(item.route) }
-                )
+            Box(Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .padding(start = safeStartPadding)
+                        .width(QuataNavigationRailWidth)
+                        .fillMaxHeight()
+                        .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.Top)
+                ) {
+                    CompactNotificationRailItem(
+                        notificationCount = notificationCount,
+                        iconSize = notificationIconSize,
+                        labelSize = labelSize,
+                        itemHeight = itemHeight,
+                        onClick = onNotificationsClick
+                    )
+                    Spacer(Modifier.height(spacerHeight))
+                    bottomDestinations.forEach { item ->
+                        val selected = currentRoute == item.route
+                        val label = stringResource(item.labelRes)
+                        CompactNavigationRailItem(
+                            selected = selected,
+                            label = label,
+                            icon = item.icon,
+                            iconSize = navigationIconSize,
+                            labelSize = labelSize,
+                            itemHeight = itemHeight,
+                            onClick = { onDestinationClick(item.route) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -135,7 +171,9 @@ fun QuataNavigationRail(
 @Composable
 private fun CompactNotificationRailItem(
     notificationCount: Int,
-    isBouncing: Boolean,
+    iconSize: androidx.compose.ui.unit.Dp,
+    labelSize: androidx.compose.ui.unit.TextUnit,
+    itemHeight: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit
 ) {
     val template = quataTheme()
@@ -148,7 +186,7 @@ private fun CompactNotificationRailItem(
         border = BorderStroke(width = 1.dp, color = template.colors.divider),
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(itemHeight)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -176,15 +214,15 @@ private fun CompactNotificationRailItem(
                     imageVector = Icons.Filled.Notifications,
                     contentDescription = label,
                     tint = contentColor,
-                    modifier = Modifier.size(if (isBouncing) 23.dp else 20.dp)
+                    modifier = Modifier.size(iconSize)
                 )
             }
             Spacer(Modifier.height(2.dp))
             Text(
                 text = label,
                 color = contentColor,
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
+                fontSize = labelSize,
+                lineHeight = labelSize,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1
@@ -251,6 +289,9 @@ private fun CompactNavigationRailItem(
     selected: Boolean,
     label: String,
     icon: ImageVector,
+    iconSize: androidx.compose.ui.unit.Dp,
+    labelSize: androidx.compose.ui.unit.TextUnit,
+    itemHeight: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit
 ) {
     val template = quataTheme()
@@ -267,7 +308,7 @@ private fun CompactNavigationRailItem(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(itemHeight)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -282,14 +323,14 @@ private fun CompactNavigationRailItem(
                 imageVector = icon,
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(iconSize)
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 text = label,
                 color = contentColor,
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
+                fontSize = labelSize,
+                lineHeight = labelSize,
                 fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1

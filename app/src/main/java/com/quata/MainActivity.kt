@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
+        configureEdgeToEdgeCutoutMode()
         super.onCreate(savedInstanceState)
 
         appContainer = (application as QuataApp).container
@@ -107,6 +109,15 @@ class MainActivity : ComponentActivity() {
 
     private fun clearStaleChatNotifications() {
         appContainer.chatRepository.clearChatNotifications()
+    }
+
+    private fun configureEdgeToEdgeCutoutMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+        }
     }
 
 }

@@ -99,7 +99,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -159,6 +158,7 @@ import com.quata.core.media.VideoExportSystemProfile
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -199,8 +199,7 @@ fun QuataVideoEditorDialog(
             }
         }
     }
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val view = LocalView.current
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
@@ -587,6 +586,7 @@ fun QuataVideoEditorDialog(
                         previewFrame = previewFrame,
                         isPlaying = isPlaying,
                         cropRect = cropRect,
+                        videoRotationDegrees = metadata.rotation,
                         captionPreviewFrame = captionPreviewFrame,
                         isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
                         onCropDrag = { dx, dy ->
@@ -659,14 +659,15 @@ fun QuataVideoEditorDialog(
                 }
             } else {
                 VideoPreviewPane(
-                    player = player,
-                    aspectRatio = videoAspect,
-                    previewFrame = previewFrame,
-                    isPlaying = isPlaying,
-                    cropRect = cropRect,
-                    captionPreviewFrame = captionPreviewFrame,
-                    isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                    onCropDrag = { dx, dy ->
+                        player = player,
+                        aspectRatio = videoAspect,
+                        previewFrame = previewFrame,
+                        isPlaying = isPlaying,
+                        cropRect = cropRect,
+                        videoRotationDegrees = metadata.rotation,
+                        captionPreviewFrame = captionPreviewFrame,
+                        isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                        onCropDrag = { dx, dy ->
                         val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
                         cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                     },
@@ -912,6 +913,7 @@ private fun VideoPreviewPane(
     previewFrame: Bitmap?,
     isPlaying: Boolean,
     cropRect: NormalizedCropRect,
+    videoRotationDegrees: Int,
     captionPreviewFrame: Bitmap?,
     isCropVisible: Boolean,
     onCropDrag: (Float, Float) -> Unit,
@@ -953,6 +955,9 @@ private fun VideoPreviewPane(
         val foregroundFrame = remember(previewFrame, appliedCrop) {
             previewFrame?.cropNormalized(appliedCrop)
         }
+        val useBitmapPlayback = remember(appliedCrop, videoRotationDegrees) {
+            appliedCrop.requiresLegacyBitmapPlayback(videoRotationDegrees)
+        }
         val playbackPlayer = player
 
         Box(
@@ -987,7 +992,7 @@ private fun VideoPreviewPane(
                     .align(Alignment.Center)
                     .clipToBounds()
             ) {
-                if (isPlaying && !isCropVisible) {
+                if (isPlaying && !isCropVisible && !useBitmapPlayback) {
                     AndroidView(
                         factory = { androidContext ->
                             TextureView(androidContext).apply {
@@ -2518,8 +2523,18 @@ private fun VideoEditorExportRequest.needsBlurredBackground(): Boolean =
 private val VideoEditorExportRequest.trimDurationMs: Long
     get() = (trimEndMs - trimStartMs).coerceAtLeast(MinimumTrimMs)
 
-private fun VideoEditorExportRequest.shouldDownsampleBeforeTransformer(): Boolean =
-    false
+private fun VideoEditorExportRequest.shouldDownsampleBeforeTransformer(): Boolean {
+    val needsVideoComposition = needsBlurredBackground() || cropRect != null || captionTrack != null || shouldDownsampleFrameRate()
+    if (!needsVideoComposition || sourceWidth <= 0 || sourceHeight <= 0 || outputWidth <= 0 || outputHeight <= 0) {
+        return false
+    }
+    val sourcePixels = sourceWidth.toLong() * sourceHeight.toLong()
+    val outputPixels = outputWidth.toLong() * outputHeight.toLong()
+    val exceedsOutputEnvelope = sourceWidth > outputWidth || sourceHeight > outputHeight
+    val sourceMuchLargerThanOutput = sourcePixels > outputPixels * 2L
+    val sourceBitrateTooHigh = sourceBitrate?.let { it > exportProfile.intermediateBitrate.toLong() * 2L } == true
+    return exceedsOutputEnvelope || sourceMuchLargerThanOutput || sourceBitrateTooHigh || shouldDownsampleFrameRate()
+}
 
 private fun VideoEditorExportRequest.isWithinUploadSizeLimit(): Boolean {
     if (sourceWidth <= 0 || sourceHeight <= 0) return false
@@ -2731,6 +2746,12 @@ private fun Int.normalizedVideoRotation(): Int {
 private fun Int.videoRotationCorrectionDegrees(): Int {
     val normalizedRotation = normalizedVideoRotation()
     return normalizedRotation
+}
+
+private fun NormalizedCropRect.requiresLegacyBitmapPlayback(rotationDegrees: Int): Boolean {
+    if (isFullFrame || Build.VERSION.SDK_INT > Build.VERSION_CODES.P) return false
+    val rotation = rotationDegrees.normalizedVideoRotation()
+    return rotation == 90 || rotation == 270
 }
 
 private fun TextureView.applyVideoEditorCropTransform(crop: NormalizedCropRect) {

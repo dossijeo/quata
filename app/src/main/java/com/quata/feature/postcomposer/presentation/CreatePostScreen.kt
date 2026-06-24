@@ -103,7 +103,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -135,6 +134,7 @@ import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.postcomposer.domain.PostComposerRepository
@@ -193,14 +193,11 @@ fun CreatePostScreen(
     var lastHandledCancelUploadToken by rememberSaveable { mutableStateOf(cancelUploadToken) }
     var pendingImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var imageEditorUri by remember { mutableStateOf<Uri?>(null) }
-    var editedImageTempUri by remember { mutableStateOf<Uri?>(null) }
-    var videoEditorUri by remember { mutableStateOf<Uri?>(null) }
-    var editedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
-    var preparedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
-    val latestEditedImageTempUri by rememberUpdatedState(editedImageTempUri)
-    val latestEditedVideoTempUri by rememberUpdatedState(editedVideoTempUri)
-    val latestPreparedVideoTempUri by rememberUpdatedState(preparedVideoTempUri)
+    var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var editedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var editedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var preparedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
     var isCancelUploadDialogOpen by remember { mutableStateOf(false) }
     val latestIsLoading by rememberUpdatedState(state.isLoading)
@@ -393,6 +390,7 @@ fun CreatePostScreen(
             } else {
                 clearEditedImageTemp()
                 clearEditedVideoTemp()
+                clearPreparedVideoTemp()
             }
             isLocationEditorOpen = false
             highlightLocationEditor = false
@@ -416,9 +414,6 @@ fun CreatePostScreen(
             }
             onVideoEditorVisibilityChange(false)
             onUploadStateChange(false)
-            deleteEditedImageTemp(latestEditedImageTempUri)
-            deleteEditedVideoTemp(latestEditedVideoTempUri)
-            deletePreparedVideoTemp(latestPreparedVideoTempUri)
         }
     }
 
@@ -428,8 +423,7 @@ fun CreatePostScreen(
 
     Box(Modifier.fillMaxSize()) {
         QuataScreen(padding) {
-            val configuration = LocalConfiguration.current
-            val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+            val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
             val composerContentPadding = if (isLandscapeLayout) {
                 PaddingValues(start = 8.dp, top = 14.dp, end = 18.dp, bottom = 18.dp)
             } else {
@@ -599,14 +593,17 @@ fun CreatePostScreen(
                 onExported = { editedUri ->
                     val previousEditedUri = editedVideoTempUri
                     val previousPreparedUri = preparedVideoTempUri
-                    editedVideoTempUri = editedUri
-                    preparedVideoTempUri = null
+                    val isPreparedOutput = editedUri == previousPreparedUri
+                    editedVideoTempUri = editedUri.takeUnless { isPreparedOutput }
+                    preparedVideoTempUri = editedUri.takeIf { isPreparedOutput }
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(editedUri.toString()))
                     videoEditorUri = null
                     if (previousEditedUri != editedUri) {
                         deleteEditedVideoTemp(previousEditedUri)
                     }
-                    deletePreparedVideoTemp(previousPreparedUri)
+                    if (previousPreparedUri != editedUri) {
+                        deletePreparedVideoTemp(previousPreparedUri)
+                    }
                 }
             )
         }
@@ -1572,6 +1569,10 @@ private fun Context.hasNonEmptyComposerVideo(uri: Uri): Boolean =
     }.getOrDefault(false)
 
 private fun Context.prepareComposerVideoSource(sourceUri: Uri): Uri? {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canUseComposerVideoSourceDirectly(sourceUri)) {
+        return sourceUri
+    }
+
     val outputFile = createComposerPreparedVideoFile()
     return runCatching {
         remuxComposerVideoForEditor(sourceUri, outputFile)
@@ -1581,6 +1582,17 @@ private fun Context.prepareComposerVideoSource(sourceUri: Uri): Uri? {
         outputFile.delete()
     }.getOrNull()
 }
+
+private fun Context.canUseComposerVideoSourceDirectly(uri: Uri): Boolean =
+    runCatching {
+        withComposerMetadataRetriever { retriever ->
+            retriever.setComposerVideoSource(this, uri)
+            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: return@withComposerMetadataRetriever false
+            width > 0 && height > 0 && durationMs > 0L
+        }
+    }.getOrDefault(false)
 
 private fun Context.remuxComposerVideoForEditor(sourceUri: Uri, outputFile: File) {
     val extractor = MediaExtractor()
@@ -1740,8 +1752,11 @@ private fun MediaFormat.composerFallbackSampleDurationUs(mimeType: String, isVid
 
 private fun MediaFormat.composerVideoTimestampsNeedRepair(isVideo: Boolean): Boolean {
     if (!isVideo) return false
-    val durationUs = composerLongOrNull(MediaFormat.KEY_DURATION)?.takeIf { it > 0L } ?: return true
     val frameRate = composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 1..240 }
+    if (frameRate != null) {
+        return true
+    }
+    val durationUs = composerLongOrNull(MediaFormat.KEY_DURATION)?.takeIf { it > 0L } ?: return true
     val expectedMinDurationUs = frameRate?.let { 1_000_000L / it } ?: 1L
     return durationUs < expectedMinDurationUs
 }

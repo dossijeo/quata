@@ -49,7 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +67,7 @@ import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
@@ -108,8 +108,7 @@ fun ConversationsScreen(
         }
     }
 
-    val configuration = LocalConfiguration.current
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val contentPadding = if (isLandscapeLayout) {
         PaddingValues(start = 8.dp, top = 18.dp, end = 18.dp, bottom = 18.dp)
     } else {

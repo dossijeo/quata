@@ -105,7 +105,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -147,6 +146,7 @@ import com.quata.core.ui.components.openAttachmentWithChooser
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.translation.FangTranslatorIconButton
 import com.quata.core.translation.LocalQuataTranslatorModeController
 import com.quata.core.translation.QuataTranslatorOverlaySource
@@ -181,7 +181,6 @@ fun ChatScreen(
     val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val configuration = LocalConfiguration.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val metrics = context.resources.displayMetrics
@@ -299,7 +298,7 @@ fun ChatScreen(
         }
     }
     val template = quataTheme()
-    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val emojiGridMaxHeight = when {
         isLandscapeLayout -> 128.dp
