@@ -234,7 +234,7 @@
     <string name="profile_configure_emergency_contacts">Configurar contactos de emergencia</string>
     <string name="profile_logout">Cerrar sesión</string>
     <string name="profile_loading">Cargando perfil…</string>
-    <string name="profile_camera_permission_photo">Necesitamos permiso de cámara para hacer la foto</string>
+    <string name="profile_camera_permission_photo">Necesitamos permiso de c&#225;mara y multimedia para hacer la foto</string>
     <string name="profile_changes_saved">Cambios guardados</string>
     <string name="profile_save_error">No se pudieron guardar los cambios</string>
     <string name="profile_load_error">No se pudo cargar el perfil</string>
@@ -251,6 +251,7 @@
     <string name="emergency_message_title">Mensaje de socorro</string>
     <string name="emergency_message_hint">Este texto llegará a tus contactos cuando pulses SOS.</string>
     <string name="emergency_save_contacts">Guardar / actualizar contactos</string>
+    <string name="emergency_save_contacts_short">Guardar contactos</string>
     <string name="sos_button">SOS 🚨</string>
     <string name="sos_sent">SOS enviado</string>
     <string name="sos_send_error">No se pudo enviar el SOS</string>
@@ -298,6 +299,7 @@
     <string name="composer_image_preview_body">La vista previa aparecerá cuando selecciones una foto.</string>
     <string name="composer_pick_video">Elegir vídeo</string>
     <string name="composer_record_video">Grabar vídeo</string>
+    <string name="composer_video_capture_error">No se pudo abrir el v&#237;deo grabado. Int&#233;ntalo de nuevo.</string>
     <string name="composer_no_file">Sin archivo seleccionado.</string>
     <string name="composer_description_placeholder">Descripción opcional…</string>
     <string name="composer_video_preview_empty">Vídeo con título\no descripción</string>
@@ -308,7 +310,7 @@
     <string name="composer_publishing">Publicando…</string>
     <string name="composer_created">Publicación creada</string>
     <string name="composer_publish_error">No se pudo publicar</string>
-    <string name="composer_camera_permission">Necesitamos permiso de cámara para usar esta opción</string>
+    <string name="composer_camera_permission">Necesitamos permiso de c&#225;mara y multimedia para usar esta opci&#243;n</string>
     <string name="composer_cancel_upload_title">¿Cancelar subida?</string>
     <string name="composer_cancel_upload_body">La publicación todavía se está subiendo. Si sales ahora, se cancelará la subida.</string>
     <string name="composer_cancel_upload_confirm">Cancelar subida</string>

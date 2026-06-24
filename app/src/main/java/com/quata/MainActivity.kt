@@ -19,6 +19,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,12 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.quata.core.di.AppContainer
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
@@ -49,16 +48,18 @@ import com.quata.core.ui.components.QuataSplashScreen
 
 class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
+    private lateinit var appContainer: AppContainer
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(QuataLanguageManager.wrap(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        hideStatusBar()
 
-        val appContainer = (application as QuataApp).container
+        appContainer = (application as QuataApp).container
+        clearStaleChatNotifications()
         incomingLink.value = intent?.data
 
         setContent {
@@ -93,21 +94,21 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        clearStaleChatNotifications()
         incomingLink.value = intent.data
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideStatusBar()
-    }
-
-    private fun hideStatusBar() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.statusBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    override fun onResume() {
+        super.onResume()
+        if (::appContainer.isInitialized) {
+            clearStaleChatNotifications()
         }
     }
+
+    private fun clearStaleChatNotifications() {
+        appContainer.chatRepository.clearChatNotifications()
+    }
+
 }
 
 @Composable

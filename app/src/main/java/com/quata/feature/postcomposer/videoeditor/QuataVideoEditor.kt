@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.Surface
 import android.view.TextureView
 import android.view.WindowManager
@@ -52,6 +51,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +99,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -109,6 +111,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Effect
+import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.DebugViewProvider
 import androidx.media3.common.FrameInfo
@@ -120,6 +123,7 @@ import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.VideoFrameProcessingException
 import androidx.media3.common.VideoFrameProcessor
 import androidx.media3.common.util.TimestampIterator
+import androidx.media3.effect.Brightness
 import androidx.media3.effect.Crop
 import androidx.media3.effect.DefaultVideoFrameProcessor
 import androidx.media3.effect.FrameDropEffect
@@ -129,8 +133,6 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.VideoCompositorSettings
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.util.Size as Media3Size
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
@@ -167,9 +169,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.Executor
-import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
@@ -185,33 +187,45 @@ fun QuataVideoEditorDialog(
 ) {
     val context = LocalContext.current
     val template = quataTheme()
+    val editorSourceUri = rememberVideoEditorSourceUri(videoUri)
+    if (editorSourceUri == null) {
+        VideoEditorPreparingSurface()
+        return
+    }
+    DisposableEffect(editorSourceUri, videoUri) {
+        onDispose {
+            if (editorSourceUri != videoUri) {
+                context.deleteVideoEditorSourceTemp(editorSourceUri)
+            }
+        }
+    }
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
     val view = LocalView.current
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
-    val metadata = rememberVideoEditorMetadata(videoUri)
+    val metadata = rememberVideoEditorMetadata(editorSourceUri)
     val exportProfile = remember { VideoExportSystemProfile.current() }
-    val durationMs = metadata.durationMs
     val videoAspect = metadata.aspectRatio ?: (9f / 16f)
-    val frames = rememberTimelineFrames(videoUri, durationMs)
 
-    var trimStartMs by remember(videoUri) { mutableLongStateOf(0L) }
-    var trimEndMs by remember(videoUri) { mutableLongStateOf(0L) }
-    var durationApplied by remember(videoUri) { mutableStateOf(false) }
-    var isMuted by remember(videoUri) { mutableStateOf(false) }
-    var isCropPanelOpen by remember(videoUri) { mutableStateOf(false) }
-    var cropMode by remember(videoUri) { mutableStateOf(VideoCropMode.Original) }
-    var cropZoom by remember(videoUri) { mutableFloatStateOf(1f) }
-    var cropCenter by remember(videoUri) { mutableStateOf(Offset(0.5f, 0.5f)) }
-    var captionStyle by remember(videoUri) { mutableStateOf<CaptionTemplateStyle?>(null) }
-    var isCaptionPanelOpen by remember(videoUri) { mutableStateOf(false) }
-    var isExporting by remember(videoUri) { mutableStateOf(false) }
-    var exportProgress by remember(videoUri) { mutableFloatStateOf(0f) }
-    var exportError by remember(videoUri) { mutableStateOf<String?>(null) }
-    var exportJob by remember(videoUri) { mutableStateOf<Job?>(null) }
-    var isCancelExportDialogOpen by remember(videoUri) { mutableStateOf(false) }
-    var pendingCaptionModelLanguage by remember(videoUri) { mutableStateOf<VoskModelLanguage?>(null) }
-    var isCaptionModelDownloading by remember(videoUri) { mutableStateOf(false) }
-    var captionModelDownloadProgress by remember(videoUri) { mutableStateOf<Float?>(null) }
+    var trimStartMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
+    var trimEndMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
+    var durationApplied by remember(editorSourceUri) { mutableStateOf(false) }
+    var isMuted by remember(editorSourceUri) { mutableStateOf(false) }
+    var isCropPanelOpen by remember(editorSourceUri) { mutableStateOf(false) }
+    var cropMode by remember(editorSourceUri) { mutableStateOf(VideoCropMode.Original) }
+    var cropZoom by remember(editorSourceUri) { mutableFloatStateOf(1f) }
+    var cropCenter by remember(editorSourceUri) { mutableStateOf(Offset(0.5f, 0.5f)) }
+    var captionStyle by remember(editorSourceUri) { mutableStateOf<CaptionTemplateStyle?>(null) }
+    var isCaptionPanelOpen by remember(editorSourceUri) { mutableStateOf(false) }
+    var isExporting by remember(editorSourceUri) { mutableStateOf(false) }
+    var exportProgress by remember(editorSourceUri) { mutableFloatStateOf(0f) }
+    var exportError by remember(editorSourceUri) { mutableStateOf<String?>(null) }
+    var exportJob by remember(editorSourceUri) { mutableStateOf<Job?>(null) }
+    var isCancelExportDialogOpen by remember(editorSourceUri) { mutableStateOf(false) }
+    var pendingCaptionModelLanguage by remember(editorSourceUri) { mutableStateOf<VoskModelLanguage?>(null) }
+    var isCaptionModelDownloading by remember(editorSourceUri) { mutableStateOf(false) }
+    var captionModelDownloadProgress by remember(editorSourceUri) { mutableStateOf<Float?>(null) }
     val voskModelDeliveryManager = remember(appContext) { VoskModelDeliveryManager(appContext) }
     val captionPreviewFrame = remember(appContext, captionStyle) {
         captionStyle?.let { style ->
@@ -219,27 +233,29 @@ fun QuataVideoEditorDialog(
         }
     }
 
-    val player = remember(videoUri) {
+    val player = remember(editorSourceUri) {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUri))
+            setMediaItem(MediaItem.fromUri(editorSourceUri))
             repeatMode = Player.REPEAT_MODE_OFF
             prepare()
         }
     }
     var isPlaying by remember(player) { mutableStateOf(false) }
     var currentPositionMs by remember(player) { mutableLongStateOf(0L) }
-    val posterFrame = rememberVideoPosterFrame(videoUri) ?: frames.firstOrNull()
+    var playerDurationMs by remember(player) { mutableLongStateOf(0L) }
+    val durationMs = maxOf(metadata.durationMs, playerDurationMs)
+    val frames = rememberTimelineFrames(editorSourceUri, durationMs, metadata.rotation)
+    val posterFrame = rememberVideoPosterFrame(editorSourceUri, metadata.rotation) ?: frames.firstOrNull()
+    val dynamicPreviewFrame = rememberVideoPreviewFrame(
+        uri = editorSourceUri,
+        positionMs = currentPositionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)),
+        enabled = isPlaying || currentPositionMs > 50L,
+        rotationDegrees = metadata.rotation
+    )
+    val previewFrame = dynamicPreviewFrame ?: posterFrame
 
     val cropRect = remember(cropMode, cropZoom, cropCenter, videoAspect) {
         cropMode.cropRect(videoAspect, cropZoom, cropCenter)
-    }
-
-    LaunchedEffect(cropMode, cropZoom, cropCenter, cropRect, isCropPanelOpen, videoAspect) {
-        Log.d(
-            VideoEditorLogTag,
-            "cropState mode=$cropMode zoom=${cropZoom.formatLog()} center=${cropCenter.formatLog()} " +
-                "rect=${cropRect.formatLog()} panelOpen=$isCropPanelOpen sourceAspect=${videoAspect.formatLog()}"
-        )
     }
 
     LaunchedEffect(durationMs) {
@@ -268,12 +284,27 @@ fun QuataVideoEditorDialog(
     }
 
     DisposableEffect(player) {
+        fun updatePlayerDuration() {
+            val knownDuration = player.duration
+            if (knownDuration > 0L && knownDuration != C.TIME_UNSET) {
+                playerDurationMs = knownDuration
+            }
+        }
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlayingNow: Boolean) {
                 isPlaying = isPlayingNow
             }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                updatePlayerDuration()
+            }
+
+            override fun onEvents(player: Player, events: Player.Events) {
+                updatePlayerDuration()
+            }
         }
         player.addListener(listener)
+        updatePlayerDuration()
         onDispose {
             player.removeListener(listener)
             player.release()
@@ -361,7 +392,7 @@ fun QuataVideoEditorDialog(
 
     fun restorePreviewAfterExportInterruption() {
         runCatching {
-            player.setMediaItem(MediaItem.fromUri(videoUri))
+            player.setMediaItem(MediaItem.fromUri(editorSourceUri))
             player.repeatMode = Player.REPEAT_MODE_OFF
             player.prepare()
             player.seekTo(currentPositionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)))
@@ -395,39 +426,45 @@ fun QuataVideoEditorDialog(
         isExporting = true
         exportProgress = 0f
         val selectedCaptionStyle = captionStyle
+        val selectedCropRect = cropRect.takeUnless { it.isFullFrame }
+        val backgroundCropRect = if (cropRect.isFullFrame && metadata.hasNineSixteenAspect()) {
+            null
+        } else {
+            cropRect
+                .centerCropToAspect(EditorOutputAspectRatio, videoAspect)
+                .takeUnless { it.isFullFrame }
+        }
+        val targetOutputWidth = exportProfile.width
+        val targetOutputHeight = exportProfile.height
         exportJob = scope.launch {
             try {
                 val captionTrack = selectedCaptionStyle?.let { style ->
                     exportProgress = 0.03f
                     val captionDocument = VoskVideoTranscriber(appContext)
-                        .transcribe(videoUri)
+                        .transcribe(editorSourceUri)
                         .trimTo(trimStartMs, trimEndMs)
                     CaptionBurnInTrack(
                         document = captionDocument,
                         style = style,
-                        outputWidth = exportProfile.width,
-                        outputHeight = exportProfile.height
+                        outputWidth = targetOutputWidth,
+                        outputHeight = targetOutputHeight
                     )
                 }
                 val request = VideoEditorExportRequest(
-                    sourceUri = videoUri,
+                    sourceUri = editorSourceUri,
                     trimStartMs = trimStartMs,
                     trimEndMs = trimEndMs,
                     sourceDurationMs = durationMs,
                     removeAudio = isMuted,
-                    cropRect = cropRect.takeUnless { it.isFullFrame },
-                    backgroundCropRect = if (cropRect.isFullFrame && metadata.hasNineSixteenAspect()) {
-                        null
-                    } else {
-                        cropRect
-                            .centerCropToAspect(EditorOutputAspectRatio, videoAspect)
-                            .takeUnless { it.isFullFrame }
-                    },
+                    cropRect = selectedCropRect,
+                    backgroundCropRect = backgroundCropRect,
                     sourceWidth = metadata.displayWidth,
                     sourceHeight = metadata.displayHeight,
                     sourceRotation = metadata.rotation,
                     sourceFrameRate = metadata.frameRate,
                     sourceBitrate = metadata.bitrate,
+                    outputWidth = targetOutputWidth,
+                    outputHeight = targetOutputHeight,
                     exportProfile = exportProfile,
                     captionTrack = captionTrack
                 )
@@ -515,7 +552,7 @@ fun QuataVideoEditorDialog(
             Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(bottom = 56.dp)
+                .padding(bottom = 0.dp)
         ) {
             VideoEditorTopBar(
                 isMuted = isMuted,
@@ -536,80 +573,165 @@ fun QuataVideoEditorDialog(
                 onExport = ::export
             )
 
-            VideoPreviewPane(
-                player = player,
-                aspectRatio = videoAspect,
-                posterFrame = posterFrame,
-                isPlaying = isPlaying,
-                showPoster = posterFrame != null && !isPlaying && currentPositionMs <= 50L,
-                cropRect = cropRect,
-                captionPreviewFrame = captionPreviewFrame,
-                isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                onCropDrag = { dx, dy ->
-                    val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-                    cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            )
+            if (isLandscapeLayout) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    VideoPreviewPane(
+                        player = player,
+                        aspectRatio = videoAspect,
+                        previewFrame = previewFrame,
+                        isPlaying = isPlaying,
+                        cropRect = cropRect,
+                        captionPreviewFrame = captionPreviewFrame,
+                        isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                        onCropDrag = { dx, dy ->
+                            val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
+                            cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
 
-            VideoTimeline(
-                frames = frames,
-                durationMs = durationMs,
-                trimStartMs = trimStartMs,
-                trimEndMs = trimEndMs,
-                currentPositionMs = timelinePositionMs,
-                isExporting = isExporting,
-                onTrimStartChange = ::applyTrimStartDrag,
-                onTrimEndChange = ::applyTrimEndDrag,
-                onSeek = { target ->
-                    seekPreviewTo(target)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(88.dp)
-                    .padding(horizontal = 48.dp)
-            )
+                    Column(
+                        modifier = Modifier
+                            .width(312.dp)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        VideoTimeline(
+                            frames = frames,
+                            durationMs = durationMs,
+                            trimStartMs = trimStartMs,
+                            trimEndMs = trimEndMs,
+                            currentPositionMs = timelinePositionMs,
+                            isExporting = isExporting,
+                            onTrimStartChange = ::applyTrimStartDrag,
+                            onTrimEndChange = ::applyTrimEndDrag,
+                            onSeek = { target ->
+                                seekPreviewTo(target)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(82.dp)
+                        )
 
-            if (isCropPanelOpen && !isExporting) {
-                CropControls(
-                    mode = cropMode,
-                    zoom = cropZoom,
-                    onModeChange = { mode ->
-                        cropMode = mode
-                        cropZoom = 1f
-                        cropCenter = Offset(0.5f, 0.5f)
+                        if (isCropPanelOpen && !isExporting) {
+                            CropControls(
+                                mode = cropMode,
+                                zoom = cropZoom,
+                                onModeChange = { mode ->
+                                    cropMode = mode
+                                    cropZoom = 1f
+                                    cropCenter = Offset(0.5f, 0.5f)
+                                },
+                                onZoomChange = { nextZoom ->
+                                    cropZoom = nextZoom
+                                    cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        if (isCaptionPanelOpen && !isExporting) {
+                            CaptionControls(
+                                selectedStyle = captionStyle,
+                                onStyleChange = { captionStyle = it },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        VideoEditorInfoBar(
+                            currentPositionMs = infoPositionMs,
+                            selectedDurationMs = selectedDurationMs,
+                            isPlaying = isPlaying,
+                            isExporting = isExporting,
+                            exportProgress = exportProgress,
+                            error = exportError,
+                            onPlayPause = ::playOrPause
+                        )
+                    }
+                }
+            } else {
+                VideoPreviewPane(
+                    player = player,
+                    aspectRatio = videoAspect,
+                    previewFrame = previewFrame,
+                    isPlaying = isPlaying,
+                    cropRect = cropRect,
+                    captionPreviewFrame = captionPreviewFrame,
+                    isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                    onCropDrag = { dx, dy ->
+                        val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
+                        cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                     },
-                    onZoomChange = { nextZoom ->
-                        cropZoom = nextZoom
-                        cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+
+                VideoTimeline(
+                    frames = frames,
+                    durationMs = durationMs,
+                    trimStartMs = trimStartMs,
+                    trimEndMs = trimEndMs,
+                    currentPositionMs = timelinePositionMs,
+                    isExporting = isExporting,
+                    onTrimStartChange = ::applyTrimStartDrag,
+                    onTrimEndChange = ::applyTrimEndDrag,
+                    onSeek = { target ->
+                        seekPreviewTo(target)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 10.dp)
+                        .height(88.dp)
+                        .padding(horizontal = 48.dp)
                 )
-            }
-            if (isCaptionPanelOpen && !isExporting) {
-                CaptionControls(
-                    selectedStyle = captionStyle,
-                    onStyleChange = { captionStyle = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 10.dp)
-                )
-            }
 
-            VideoEditorInfoBar(
-                currentPositionMs = infoPositionMs,
-                selectedDurationMs = selectedDurationMs,
-                isPlaying = isPlaying,
-                isExporting = isExporting,
-                exportProgress = exportProgress,
-                error = exportError,
-                onPlayPause = ::playOrPause
-            )
+                if (isCropPanelOpen && !isExporting) {
+                    CropControls(
+                        mode = cropMode,
+                        zoom = cropZoom,
+                        onModeChange = { mode ->
+                            cropMode = mode
+                            cropZoom = 1f
+                            cropCenter = Offset(0.5f, 0.5f)
+                        },
+                        onZoomChange = { nextZoom ->
+                            cropZoom = nextZoom
+                            cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    )
+                }
+                if (isCaptionPanelOpen && !isExporting) {
+                    CaptionControls(
+                        selectedStyle = captionStyle,
+                        onStyleChange = { captionStyle = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    )
+                }
+
+                VideoEditorInfoBar(
+                    currentPositionMs = infoPositionMs,
+                    selectedDurationMs = selectedDurationMs,
+                    isPlaying = isPlaying,
+                    isExporting = isExporting,
+                    exportProgress = exportProgress,
+                    error = exportError,
+                    onPlayPause = ::playOrPause
+                )
+            }
         }
     }
 
@@ -787,9 +909,8 @@ private fun VideoToolButton(
 private fun VideoPreviewPane(
     player: ExoPlayer,
     aspectRatio: Float,
-    posterFrame: Bitmap?,
+    previewFrame: Bitmap?,
     isPlaying: Boolean,
-    showPoster: Boolean,
     cropRect: NormalizedCropRect,
     captionPreviewFrame: Bitmap?,
     isCropVisible: Boolean,
@@ -805,8 +926,6 @@ private fun VideoPreviewPane(
         val backgroundCrop = remember(cropRect, aspectRatio) {
             cropRect.centerCropToAspect(EditorOutputAspectRatio, aspectRatio)
         }
-        var foregroundTextureView by remember(player) { mutableStateOf<TextureView?>(null) }
-        var playbackBackgroundFrame by remember(player) { mutableStateOf<Bitmap?>(null) }
         val foregroundAspectRatio = appliedCrop.displayAspectRatio(aspectRatio)
         val widthFromHeight = maxHeight * previewAspectRatio
         val previewWidth: Dp
@@ -828,45 +947,13 @@ private fun VideoPreviewPane(
             foregroundWidth = previewWidth
             foregroundHeight = previewWidth / foregroundAspectRatio
         }
-        val foregroundPosterFrame = remember(posterFrame, appliedCrop) {
-            posterFrame?.cropNormalized(appliedCrop)
+        val backgroundFrame = remember(previewFrame, backgroundCrop) {
+            previewFrame?.cropNormalized(backgroundCrop)
         }
-        val stillBackgroundFrame = remember(posterFrame, backgroundCrop) {
-            posterFrame?.cropNormalized(backgroundCrop)
+        val foregroundFrame = remember(previewFrame, appliedCrop) {
+            previewFrame?.cropNormalized(appliedCrop)
         }
-        val backgroundPosterFrame = playbackBackgroundFrame ?: stillBackgroundFrame
-
-        LaunchedEffect(foregroundTextureView, isPlaying, appliedCrop) {
-            val textureView = foregroundTextureView
-            if (!isPlaying || textureView == null) return@LaunchedEffect
-            while (true) {
-                textureView.snapshotScaledBitmap(PreviewBackgroundSnapshotMaxDimension)?.let { snapshot ->
-                    playbackBackgroundFrame = snapshot
-                }
-                delay(PreviewBackgroundSnapshotIntervalMs)
-            }
-        }
-
-        LaunchedEffect(
-            aspectRatio,
-            isCropVisible,
-            appliedCrop,
-            cropRect,
-            backgroundCrop,
-            previewWidth,
-            previewHeight,
-            foregroundWidth,
-            foregroundHeight
-        ) {
-            Log.d(
-                VideoEditorLogTag,
-                "previewGeometry visibleCrop=${appliedCrop.formatLog()} overlayCrop=${cropRect.formatLog()} " +
-                    "backgroundCrop=${backgroundCrop.formatLog()} isCropVisible=$isCropVisible " +
-                    "preview=${previewWidth.value.formatLog()}x${previewHeight.value.formatLog()}dp " +
-                    "fg=${foregroundWidth.value.formatLog()}x${foregroundHeight.value.formatLog()}dp " +
-                    "sourceAspect=${aspectRatio.formatLog()} cropAspect=${foregroundAspectRatio.formatLog()}"
-            )
-        }
+        val playbackPlayer = player
 
         Box(
             modifier = Modifier
@@ -874,7 +961,7 @@ private fun VideoPreviewPane(
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.Black)
         ) {
-            if (backgroundPosterFrame != null) {
+            if (backgroundFrame != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -882,7 +969,7 @@ private fun VideoPreviewPane(
                         .align(Alignment.Center)
                 ) {
                     Image(
-                        bitmap = backgroundPosterFrame.asImageBitmap(),
+                        bitmap = backgroundFrame.asImageBitmap(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -900,43 +987,36 @@ private fun VideoPreviewPane(
                     .align(Alignment.Center)
                     .clipToBounds()
             ) {
-                AndroidView(
-                    factory = { viewContext ->
-                        (LayoutInflater.from(viewContext)
-                            .inflate(R.layout.quata_video_editor_player_texture, null, false) as PlayerView).apply {
-                            useController = false
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                            setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                            setKeepContentOnPlayerReset(true)
-                            setEnableComposeSurfaceSyncWorkaround(true)
-                            this.player = player
-                            applyVideoEditorTextureCrop(appliedCrop, "foreground")
-                            post {
-                                (getVideoSurfaceView() as? TextureView)?.let { texture ->
-                                    if (foregroundTextureView !== texture) foregroundTextureView = texture
-                                }
+                if (isPlaying && !isCropVisible) {
+                    AndroidView(
+                        factory = { androidContext ->
+                            TextureView(androidContext).apply {
+                                isOpaque = true
+                                playbackPlayer.setVideoTextureView(this)
+                                tag = playbackPlayer
                             }
-                        }
-                    },
-                    update = {
-                        it.useController = false
-                        it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                        it.setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        it.setKeepContentOnPlayerReset(true)
-                        it.setEnableComposeSurfaceSyncWorkaround(true)
-                        if (it.player !== player) it.player = player
-                        it.applyVideoEditorTextureCrop(appliedCrop, "foreground")
-                        (it.getVideoSurfaceView() as? TextureView)?.let { texture ->
-                            if (foregroundTextureView !== texture) foregroundTextureView = texture
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            if (showPoster && foregroundPosterFrame != null) {
-                Image(
-                        bitmap = foregroundPosterFrame.asImageBitmap(),
+                        },
+                        update = { textureView ->
+                            if (textureView.tag !== playbackPlayer) {
+                                (textureView.tag as? ExoPlayer)?.clearVideoTextureView(textureView)
+                                playbackPlayer.setVideoTextureView(textureView)
+                                textureView.tag = playbackPlayer
+                            }
+                            textureView.applyVideoEditorCropTransform(appliedCrop)
+                        },
+                        onRelease = { textureView ->
+                            (textureView.tag as? ExoPlayer)?.clearVideoTextureView(textureView)
+                            textureView.tag = null
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                    )
+                } else if (foregroundFrame != null) {
+                    Image(
+                        bitmap = foregroundFrame.asImageBitmap(),
                         contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.FillBounds,
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.Black)
@@ -1478,8 +1558,8 @@ private fun rememberVideoEditorMetadata(uri: Uri): VideoEditorMetadata {
     var metadata by remember(uri) { mutableStateOf(VideoEditorMetadata()) }
     LaunchedEffect(uri) {
         metadata = withContext(Dispatchers.IO) {
-            runCatching {
-                MediaMetadataRetriever().use { retriever ->
+            val retrieverMetadata = runCatching {
+                withVideoMetadataRetriever { retriever ->
                     retriever.setSource(context, uri)
                     val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                     val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
@@ -1500,23 +1580,65 @@ private fun rememberVideoEditorMetadata(uri: Uri): VideoEditorMetadata {
                         frameRate = retrieverFrameRate ?: context.readVideoFrameRate(uri)
                     )
                 }
+            }.onFailure { throwable ->
+                Log.w(VideoEditorLogTag, "metadataRetriever failed uri=$uri", throwable)
             }.getOrDefault(VideoEditorMetadata())
+            val extractorMetadata = context.readVideoEditorExtractorMetadata(uri)
+            retrieverMetadata.withFallback(extractorMetadata)
         }
     }
     return metadata
 }
 
+private fun VideoEditorMetadata.withFallback(fallback: VideoEditorMetadata): VideoEditorMetadata =
+    VideoEditorMetadata(
+        durationMs = durationMs.takeIf { it > 0L } ?: fallback.durationMs,
+        width = width.takeIf { it > 0 } ?: fallback.width,
+        height = height.takeIf { it > 0 } ?: fallback.height,
+        rotation = rotation.normalizedVideoRotation().takeIf { it != 0 } ?: fallback.rotation.normalizedVideoRotation(),
+        bitrate = bitrate ?: fallback.bitrate,
+        frameRate = frameRate ?: fallback.frameRate
+    )
+
+private fun Context.readVideoEditorExtractorMetadata(uri: Uri): VideoEditorMetadata {
+    val extractor = MediaExtractor()
+    return try {
+        extractor.setVideoEditorSource(this, uri)
+        for (trackIndex in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(trackIndex)
+            val mimeType = format.mimeType() ?: continue
+            if (!mimeType.startsWith("video/")) continue
+            val frameRate = format.videoEditorIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.toFloat()
+            val durationUs = format.videoEditorLongOrNull(MediaFormat.KEY_DURATION)?.takeIf { it > 0L }
+            return VideoEditorMetadata(
+                durationMs = durationUs?.let { it / 1000L } ?: 0L,
+                width = format.videoEditorIntegerOrNull(MediaFormat.KEY_WIDTH) ?: 0,
+                height = format.videoEditorIntegerOrNull(MediaFormat.KEY_HEIGHT) ?: 0,
+                rotation = format.videoEditorIntegerOrNull(MediaFormat.KEY_ROTATION)?.normalizedVideoRotation() ?: 0,
+                bitrate = format.videoEditorIntegerOrNull(MediaFormat.KEY_BIT_RATE)?.toLong(),
+                frameRate = frameRate
+            )
+        }
+        VideoEditorMetadata()
+    } catch (_: Throwable) {
+        VideoEditorMetadata()
+    } finally {
+        extractor.release()
+    }
+}
+
 @Composable
-private fun rememberTimelineFrames(uri: Uri, durationMs: Long): List<Bitmap> {
+private fun rememberTimelineFrames(uri: Uri, durationMs: Long, rotationDegrees: Int): List<Bitmap> {
     val context = LocalContext.current
-    var frames by remember(uri) { mutableStateOf(emptyList<Bitmap>()) }
-    LaunchedEffect(uri, durationMs) {
+    val displayRotation = rotationDegrees.normalizedVideoRotation()
+    var frames by remember(uri, displayRotation) { mutableStateOf(emptyList<Bitmap>()) }
+    LaunchedEffect(uri, durationMs, displayRotation) {
         frames = emptyList()
         if (durationMs <= 0L) return@LaunchedEffect
         delay(TimelineFrameLoadDelayMs)
         frames = withContext(Dispatchers.IO) {
             runCatching {
-                MediaMetadataRetriever().use { retriever ->
+                withVideoMetadataRetriever { retriever ->
                     retriever.setSource(context, uri)
                     List(TimelineFrameCount) { index ->
                         val fraction = if (TimelineFrameCount == 1) 0f else index.toFloat() / (TimelineFrameCount - 1)
@@ -1534,18 +1656,54 @@ private fun rememberTimelineFrames(uri: Uri, durationMs: Long): List<Bitmap> {
     return frames
 }
 
-private fun MediaMetadataRetriever.setSource(context: Context, uri: Uri) {
-    if (uri.scheme == "content" || uri.scheme == "file") {
-        setDataSource(context, uri)
-    } else {
-        setDataSource(uri.toString(), emptyMap())
+private inline fun <T> withVideoMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        block(retriever)
+    } finally {
+        retriever.release()
     }
+}
+
+private fun MediaMetadataRetriever.setSource(context: Context, uri: Uri) {
+    when (uri.scheme) {
+        "content" -> {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
+                if (descriptor.length >= 0L) {
+                    setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+                } else {
+                    setDataSource(descriptor.fileDescriptor)
+                }
+                return
+            }
+            setDataSource(context, uri)
+        }
+        "file" -> {
+            val path = uri.path ?: return setDataSource(context, uri)
+            FileInputStream(path).use { stream ->
+                setDataSource(stream.fd)
+            }
+        }
+        else -> setDataSource(uri.toString(), emptyMap())
+    }
+}
+
+private fun MediaExtractor.setVideoEditorSource(context: Context, uri: Uri) {
+    if (uri.scheme == "file") {
+        uri.path?.let { path ->
+            FileInputStream(path).use { stream ->
+                setDataSource(stream.fd)
+            }
+            return
+        }
+    }
+    setDataSource(context, uri, null)
 }
 
 private fun Context.readVideoFrameRate(uri: Uri): Float? {
     val extractor = MediaExtractor()
     return try {
-        extractor.setDataSource(this, uri, null)
+        extractor.setVideoEditorSource(this, uri)
         for (trackIndex in 0 until extractor.trackCount) {
             val format = extractor.getTrackFormat(trackIndex)
             val mimeType = format.mimeType() ?: continue
@@ -1566,19 +1724,49 @@ private fun MediaMetadataRetriever.getScaledVideoFrameAtTime(
     maxDimension: Int
 ): Bitmap? {
     val targetSize = scaledVideoFrameSize(maxDimension)
+    val rawWidth = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+    val rawHeight = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+        ?.toIntOrNull()
+        ?.normalizedVideoRotation()
+        ?: 0
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && targetSize != null) {
         runCatching {
             getScaledFrameAtTime(timeUs, option, targetSize.first, targetSize.second)
-        }.getOrNull()?.let { return it }
+        }.getOrNull()
+            ?.orientVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
+            ?.let { return it }
     }
-    return getFrameAtTime(timeUs, option)?.scaleToMaxDimension(maxDimension)
+    return getFrameAtTime(timeUs, option)
+        ?.scaleToMaxDimension(maxDimension)
+        ?.orientVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
+}
+
+private fun Bitmap.orientVideoFrameIfNeeded(
+    rawWidth: Int,
+    rawHeight: Int,
+    rotationDegrees: Int
+): Bitmap {
+    val rotation = rotationDegrees.normalizedVideoRotation()
+    if (rotation != 90 && rotation != 270) return this
+    if (rawWidth <= 0 || rawHeight <= 0 || width <= 0 || height <= 0) return this
+    val expectedPortrait = rawHeight < rawWidth
+    val bitmapPortrait = height > width
+    if (expectedPortrait == bitmapPortrait) return this
+    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    if (rotated !== this) recycle()
+    return rotated
 }
 
 private fun MediaMetadataRetriever.scaledVideoFrameSize(maxDimension: Int): Pair<Int, Int>? {
     val width = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return null
     val height = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return null
     if (width <= 0 || height <= 0) return null
-    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+        ?.toIntOrNull()
+        ?.normalizedVideoRotation()
+        ?: 0
     val displayWidth = if (rotation == 90 || rotation == 270) height else width
     val displayHeight = if (rotation == 90 || rotation == 270) width else height
     val largestDimension = maxOf(displayWidth, displayHeight)
@@ -1607,6 +1795,140 @@ private fun Bitmap.scaleToMaxDimension(maxDimension: Int): Bitmap {
 }
 
 private fun Bitmap.scaleForPreviewPoster(): Bitmap = scaleToMaxDimension(PreviewPosterMaxDimension)
+
+@Composable
+private fun rememberVideoEditorSourceUri(sourceUri: Uri): Uri? {
+    return sourceUri
+}
+
+@Composable
+private fun VideoEditorPreparingSurface() {
+    val template = quataTheme()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(template.colors.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = template.colors.accent)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Preparing video...",
+                color = template.colors.textPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+private suspend fun Context.prepareVideoEditorSourceUri(sourceUri: Uri): Uri =
+    runCatching {
+        val metadata = withContext(Dispatchers.IO) { readVideoEditorSourceMetadata(sourceUri) }
+        if (metadata.rotation.normalizedVideoRotation() == 0) return@runCatching sourceUri
+        val displayWidth = metadata.displayWidth.takeIf { it > 0 } ?: return@runCatching sourceUri
+        val displayHeight = metadata.displayHeight.takeIf { it > 0 } ?: return@runCatching sourceUri
+        val outputFile = createVideoEditorSourceTempFile()
+        try {
+            normalizeVideoEditorSource(
+                sourceUri = sourceUri,
+                outputFile = outputFile,
+                outputWidth = displayWidth,
+                outputHeight = displayHeight
+            )
+            Uri.fromFile(outputFile)
+        } catch (throwable: Throwable) {
+            runCatching { outputFile.delete() }
+            throw throwable
+        }
+    }.onFailure { throwable ->
+        Log.w(VideoEditorLogTag, "Could not normalize video editor source source=$sourceUri", throwable)
+    }.getOrDefault(sourceUri)
+
+private fun Context.readVideoEditorSourceMetadata(uri: Uri): VideoEditorMetadata {
+    val retrieverMetadata = runCatching {
+        withVideoMetadataRetriever { retriever ->
+            retriever.setSource(this, uri)
+            VideoEditorMetadata(
+                durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L,
+                width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0,
+                height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0,
+                rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0,
+                bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull(),
+                frameRate = null
+            )
+        }
+    }.getOrDefault(VideoEditorMetadata())
+    return retrieverMetadata.withFallback(readVideoEditorExtractorMetadata(uri))
+}
+
+private suspend fun Context.normalizeVideoEditorSource(
+    sourceUri: Uri,
+    outputFile: File,
+    outputWidth: Int,
+    outputHeight: Int
+) {
+    withContext(Dispatchers.Main) {
+        suspendCancellableCoroutine { continuation ->
+            lateinit var transformer: Transformer
+            val mediaItem = MediaItem.fromUri(sourceUri)
+            val editedMediaItem = EditedMediaItem.Builder(mediaItem)
+                .setEffects(
+                    Effects(
+                        emptyList(),
+                        listOf(
+                            Brightness(VideoEditorForceGlBrightness),
+                            Presentation.createForWidthAndHeight(
+                                outputWidth,
+                                outputHeight,
+                                Presentation.LAYOUT_SCALE_TO_FIT
+                            )
+                        )
+                    )
+                )
+                .build()
+            val composition = Composition.Builder(
+                listOf(EditedMediaItemSequence.Builder(editedMediaItem).build())
+            ).build()
+            transformer = Transformer.Builder(this@normalizeVideoEditorSource)
+                .setPortraitEncodingEnabled(true)
+                .setVideoMimeType(MimeTypes.VIDEO_H264)
+                .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                .addListener(object : Transformer.Listener {
+                    override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                        if (continuation.isActive) continuation.resume(Unit)
+                    }
+
+                    override fun onError(
+                        composition: Composition,
+                        exportResult: ExportResult,
+                        exportException: ExportException
+                    ) {
+                        if (continuation.isActive) continuation.resumeWithException(exportException)
+                    }
+                })
+                .build()
+
+            continuation.invokeOnCancellation {
+                runCatching { transformer.cancel() }
+                runCatching { outputFile.delete() }
+            }
+            transformer.start(composition, outputFile.absolutePath)
+        }
+    }
+}
+
+private fun Context.createVideoEditorSourceTempFile(): File =
+    File(cacheDir, "quata-editor-source-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}.mp4")
+
+private fun Context.deleteVideoEditorSourceTemp(uri: Uri) {
+    if (uri.scheme != "file") return
+    val file = uri.path?.let(::File) ?: return
+    if (file.name.startsWith("quata-editor-source-")) {
+        runCatching { file.delete() }
+    }
+}
 
 private fun Bitmap.cropNormalized(rect: NormalizedCropRect): Bitmap {
     if (rect.isFullFrame) return this
@@ -1687,14 +2009,63 @@ private suspend fun Context.exportDownsampledIntermediate(
             val handler = Handler(Looper.getMainLooper())
             val progressHolder = ProgressHolder()
             lateinit var transformer: Transformer
-            val progressRunnable = object : Runnable {
+            lateinit var progressRunnable: Runnable
+            lateinit var completionFallbackRunnable: Runnable
+            var stableOutputSizeBytes = -1L
+            var stableOutputSinceMs = 0L
+            fun completeFromStableOutput(reason: String) {
+                handler.removeCallbacks(progressRunnable)
+                handler.removeCallbacks(completionFallbackRunnable)
+                onProgress(1f)
+                Log.w(
+                    VideoEditorLogTag,
+                    "Completing Transformer export from stable output fallback reason=$reason output=${outputFile.name} size=${outputFile.length()}"
+                )
+                if (continuation.isActive) {
+                    continuation.resume(Uri.fromFile(outputFile))
+                }
+            }
+            fun checkStableOutputCompletion(reason: String): Boolean {
+                if (progressHolder.progress < TransformerCompletionFallbackProgress) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                val nowMs = System.currentTimeMillis()
+                val outputSizeBytes = outputFile.length()
+                if (outputSizeBytes <= 0L) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                if (outputSizeBytes == stableOutputSizeBytes) {
+                    if (stableOutputSinceMs == 0L) stableOutputSinceMs = nowMs
+                    if (nowMs - stableOutputSinceMs >= TransformerStableOutputCompletionMs) {
+                        completeFromStableOutput(reason)
+                        return true
+                    }
+                } else {
+                    stableOutputSizeBytes = outputSizeBytes
+                    stableOutputSinceMs = nowMs
+                }
+                return false
+            }
+            progressRunnable = object : Runnable {
                 override fun run() {
                     if (!continuation.isActive) return
                     val progressState = transformer.getProgress(progressHolder)
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(progressHolder.progress / 100f)
                     }
+                    if (checkStableOutputCompletion("progress")) return
                     handler.postDelayed(this, 250L)
+                }
+            }
+            completionFallbackRunnable = object : Runnable {
+                override fun run() {
+                    if (!continuation.isActive) return
+                    if (checkStableOutputCompletion("watchdog")) return
+                    handler.postDelayed(this, 500L)
                 }
             }
 
@@ -1727,6 +2098,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                 )
                 .build()
             transformer = Transformer.Builder(this@exportDownsampledIntermediate)
+                .setPortraitEncodingEnabled(true)
                 .setEncoderFactory(encoderFactory)
                 .configureFrameDroppingIfNeeded(request)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
@@ -1734,7 +2106,9 @@ private suspend fun Context.exportDownsampledIntermediate(
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         handler.removeCallbacks(progressRunnable)
+                        handler.removeCallbacks(completionFallbackRunnable)
                         onProgress(1f)
+                        Log.d(VideoEditorLogTag, "transformerExport completed output=${outputFile.name} result=$exportResult")
                         if (continuation.isActive) continuation.resume(Uri.fromFile(outputFile))
                     }
 
@@ -1744,6 +2118,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                         exportException: ExportException
                     ) {
                         handler.removeCallbacks(progressRunnable)
+                        handler.removeCallbacks(completionFallbackRunnable)
                         runCatching { outputFile.delete() }
                         Log.e(
                             VideoEditorLogTag,
@@ -1759,17 +2134,13 @@ private suspend fun Context.exportDownsampledIntermediate(
 
             continuation.invokeOnCancellation {
                 handler.removeCallbacks(progressRunnable)
+                handler.removeCallbacks(completionFallbackRunnable)
                 runCatching { transformer.cancel() }
                 runCatching { outputFile.delete() }
             }
-            Log.d(
-                VideoEditorLogTag,
-                "downsampleIntermediate source=${request.sourceWidth}x${request.sourceHeight} " +
-                    "output=${outputWidth}x$outputHeight trim=${request.trimStartMs}-${request.trimEndMs} " +
-                    "sourceFps=${request.sourceFrameRate?.formatLog()} dropFps=${request.shouldDownsampleFrameRate()}"
-            )
             transformer.start(composition, outputFile.absolutePath)
             handler.post(progressRunnable)
+            handler.postDelayed(completionFallbackRunnable, 500L)
         }
     }
 }
@@ -1784,14 +2155,63 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             val handler = Handler(Looper.getMainLooper())
             val progressHolder = ProgressHolder()
             lateinit var transformer: Transformer
-            val progressRunnable = object : Runnable {
+            lateinit var progressRunnable: Runnable
+            lateinit var completionFallbackRunnable: Runnable
+            var stableOutputSizeBytes = -1L
+            var stableOutputSinceMs = 0L
+            fun completeFromStableOutput(reason: String) {
+                handler.removeCallbacks(progressRunnable)
+                handler.removeCallbacks(completionFallbackRunnable)
+                onProgress(1f)
+                Log.w(
+                    VideoEditorLogTag,
+                    "Completing Transformer export from stable output fallback reason=$reason output=${outputFile.name} size=${outputFile.length()}"
+                )
+                if (continuation.isActive) {
+                    continuation.resume(Uri.fromFile(outputFile))
+                }
+            }
+            fun checkStableOutputCompletion(reason: String): Boolean {
+                if (progressHolder.progress < TransformerCompletionFallbackProgress) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                val nowMs = System.currentTimeMillis()
+                val outputSizeBytes = outputFile.length()
+                if (outputSizeBytes < TransformerStableOutputMinBytes) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                if (outputSizeBytes == stableOutputSizeBytes) {
+                    if (stableOutputSinceMs == 0L) stableOutputSinceMs = nowMs
+                    if (nowMs - stableOutputSinceMs >= TransformerStableOutputCompletionMs) {
+                        completeFromStableOutput(reason)
+                        return true
+                    }
+                } else {
+                    stableOutputSizeBytes = outputSizeBytes
+                    stableOutputSinceMs = nowMs
+                }
+                return false
+            }
+            progressRunnable = object : Runnable {
                 override fun run() {
                     if (!continuation.isActive) return
                     val progressState = transformer.getProgress(progressHolder)
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(progressHolder.progress / 100f)
                     }
+                    if (checkStableOutputCompletion("progress")) return
                     handler.postDelayed(this, 250L)
+                }
+            }
+            completionFallbackRunnable = object : Runnable {
+                override fun run() {
+                    if (!continuation.isActive) return
+                    if (checkStableOutputCompletion("watchdog")) return
+                    handler.postDelayed(this, 500L)
                 }
             }
 
@@ -1799,13 +2219,6 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             val cropEffects = request.cropRect?.let { listOf<Effect>(it.toMedia3Crop()) }.orEmpty()
             val frameRateEffects = request.frameRateEffects()
             val needsBackground = request.needsBlurredBackground()
-            Log.d(
-                VideoEditorLogTag,
-                "exportGeometry foreground=${(request.cropRect ?: NormalizedCropRect.Full).formatLog()} " +
-                    "background=${(request.backgroundCropRect ?: NormalizedCropRect.Full).formatLog()} " +
-                    "foregroundScale=${request.foregroundScale().formatLog()} needsBackground=$needsBackground " +
-                    "sourceFps=${request.sourceFrameRate?.formatLog()} dropFps=${request.shouldDownsampleFrameRate()}"
-            )
             val compositionEffects = CaptionMedia3BurnIn.effectsFor(request.captionTrack)
             val composition = if (needsBackground) {
                 val backgroundCropEffects = request.backgroundCropRect
@@ -1879,6 +2292,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                 )
                 .build()
             transformer = Transformer.Builder(this@exportEditedVideoWithTransformer)
+                .setPortraitEncodingEnabled(true)
                 .setEncoderFactory(encoderFactory)
                 .configureFrameDroppingIfNeeded(request)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
@@ -1886,7 +2300,9 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         handler.removeCallbacks(progressRunnable)
+                        handler.removeCallbacks(completionFallbackRunnable)
                         onProgress(1f)
+                        Log.d(VideoEditorLogTag, "transformerExport completed output=${outputFile.name} result=$exportResult")
                         if (continuation.isActive) continuation.resume(Uri.fromFile(outputFile))
                     }
 
@@ -1896,6 +2312,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                         exportException: ExportException
                     ) {
                         handler.removeCallbacks(progressRunnable)
+                        handler.removeCallbacks(completionFallbackRunnable)
                         runCatching { outputFile.delete() }
                         Log.e(
                             VideoEditorLogTag,
@@ -1913,11 +2330,13 @@ private suspend fun Context.exportEditedVideoWithTransformer(
 
             continuation.invokeOnCancellation {
                 handler.removeCallbacks(progressRunnable)
+                handler.removeCallbacks(completionFallbackRunnable)
                 runCatching { transformer.cancel() }
                 runCatching { outputFile.delete() }
             }
             transformer.start(composition, outputFile.absolutePath)
             handler.post(progressRunnable)
+            handler.postDelayed(completionFallbackRunnable, 500L)
         }
     }
 }
@@ -2050,8 +2469,23 @@ private fun MediaFormat.maxInputSizeOrNull(): Int? =
         null
     }
 
+private fun MediaFormat.videoEditorIntegerOrNull(key: String): Int? =
+    if (containsKey(key)) {
+        runCatching { getInteger(key) }.getOrNull()
+    } else {
+        null
+    }
+
+private fun MediaFormat.videoEditorLongOrNull(key: String): Long? =
+    if (containsKey(key)) {
+        runCatching { getLong(key) }.getOrNull()
+    } else {
+        null
+    }
+
 private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
     captionTrack == null &&
+        sourceRotation.normalizedVideoRotation() == 0 &&
         cropRect == null &&
         backgroundCropRect == null &&
         hasNineSixteenSourceAspect() &&
@@ -2085,8 +2519,7 @@ private val VideoEditorExportRequest.trimDurationMs: Long
     get() = (trimEndMs - trimStartMs).coerceAtLeast(MinimumTrimMs)
 
 private fun VideoEditorExportRequest.shouldDownsampleBeforeTransformer(): Boolean =
-    !isWithinUploadSizeLimit() &&
-        (needsBlurredBackground() || cropRect != null || captionTrack != null)
+    false
 
 private fun VideoEditorExportRequest.isWithinUploadSizeLimit(): Boolean {
     if (sourceWidth <= 0 || sourceHeight <= 0) return false
@@ -2116,12 +2549,6 @@ private fun VideoEditorExportRequest.foregroundScale(): Float {
         outputHeight.toFloat() / croppedHeight
     ).coerceAtLeast(0.01f)
 }
-
-private val VideoEditorExportRequest.outputWidth: Int
-    get() = exportProfile.width
-
-private val VideoEditorExportRequest.outputHeight: Int
-    get() = exportProfile.height
 
 private fun VideoEditorExportRequest.shouldDownsampleFrameRate(): Boolean {
     val sourceRate = sourceFrameRate ?: return false
@@ -2243,18 +2670,7 @@ private class NineSixteenVideoCompositorSettings(
     private val outputWidth: Int,
     private val outputHeight: Int
 ) : VideoCompositorSettings {
-    private var didLogInputSizes = false
-
     override fun getOutputSize(inputSizes: MutableList<Media3Size>): Media3Size {
-        if (!didLogInputSizes) {
-            didLogInputSizes = true
-            Log.d(
-                VideoEditorLogTag,
-                "exportCompositorSizes foreground=${inputSizes.getOrNull(EditorForegroundInputId)?.formatLog()} " +
-                    "background=${inputSizes.getOrNull(EditorBackgroundInputId)?.formatLog()} " +
-                    "foregroundScale=${foregroundScale.formatLog()}"
-            )
-        }
         return Media3Size(outputWidth, outputHeight)
     }
 
@@ -2275,10 +2691,6 @@ private fun NormalizedCropRect.toMedia3Crop(): Crop {
     val rightNdc = (right * 2f - 1f).coerceIn(leftNdc + 0.01f, 1f)
     val topNdc = (1f - top * 2f).coerceIn(-0.98f, 1f)
     val bottomNdc = (1f - bottom * 2f).coerceIn(-1f, topNdc - 0.01f)
-    Log.d(
-        VideoEditorLogTag,
-        "media3Crop rect=${formatLog()} ndc=(${leftNdc.formatLog()},${rightNdc.formatLog()},${bottomNdc.formatLog()},${topNdc.formatLog()})"
-    )
     return Crop(leftNdc, rightNdc, bottomNdc, topNdc)
 }
 
@@ -2308,32 +2720,20 @@ private fun NormalizedCropRect.centerCropToAspect(
         right = clampedCenter.x + nextWidth / 2f,
         bottom = clampedCenter.y + nextHeight / 2f
     )
-    Log.d(
-        VideoEditorLogTag,
-        "backgroundSourceCrop base=${formatLog()} targetAspect=${safeTargetAspect.formatLog()} " +
-            "sourceAspect=${safeSourceAspect.formatLog()} result=${result.formatLog()}"
-    )
     return result
 }
 
-private fun PlayerView.applyVideoEditorTextureCrop(
-    crop: NormalizedCropRect,
-    logLabel: String
-) {
-    val textureView = getVideoSurfaceView() as? TextureView
-    if (textureView == null) {
-        post {
-            (getVideoSurfaceView() as? TextureView)?.applyVideoEditorCropTransform(crop, logLabel)
-        }
-        return
-    }
-    textureView.applyVideoEditorCropTransform(crop, logLabel)
+private fun Int.normalizedVideoRotation(): Int {
+    val normalized = ((this % 360) + 360) % 360
+    return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
 }
 
-private fun TextureView.applyVideoEditorCropTransform(
-    crop: NormalizedCropRect,
-    logLabel: String
-) {
+private fun Int.videoRotationCorrectionDegrees(): Int {
+    val normalizedRotation = normalizedVideoRotation()
+    return normalizedRotation
+}
+
+private fun TextureView.applyVideoEditorCropTransform(crop: NormalizedCropRect) {
     fun applyTransform() {
         val viewWidth = width.toFloat()
         val viewHeight = height.toFloat()
@@ -2350,12 +2750,6 @@ private fun TextureView.applyVideoEditorCropTransform(
         }
         setTransform(matrix)
         invalidate()
-        Log.d(
-            VideoEditorLogTag,
-            "textureCrop label=$logLabel view=${viewWidth.formatLog()}x${viewHeight.formatLog()} " +
-                "crop=${crop.formatLog()} scale=${scaleX.formatLog()},${scaleY.formatLog()} " +
-                "translate=${translateX.formatLog()},${translateY.formatLog()}"
-        )
     }
     if (width > 0 && height > 0) {
         applyTransform()
@@ -2363,25 +2757,6 @@ private fun TextureView.applyVideoEditorCropTransform(
         post { applyTransform() }
     }
 }
-
-private fun TextureView.snapshotScaledBitmap(maxDimension: Int): Bitmap? {
-    if (!isAvailable || width <= 0 || height <= 0) return null
-    val largestDimension = maxOf(width, height)
-    if (largestDimension <= 0) return null
-    val scale = maxDimension.toFloat() / largestDimension.toFloat()
-    val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
-    val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
-    return runCatching { getBitmap(targetWidth, targetHeight) }.getOrNull()
-}
-
-private fun Float.formatLog(): String = String.format(Locale.US, "%.3f", this)
-
-private fun Media3Size.formatLog(): String = "${width}x$height"
-
-private fun Offset.formatLog(): String = "(${x.formatLog()},${y.formatLog()})"
-
-private fun NormalizedCropRect.formatLog(): String =
-    "(l=${left.formatLog()},t=${top.formatLog()},r=${right.formatLog()},b=${bottom.formatLog()},w=${width.formatLog()},h=${height.formatLog()})"
 
 private fun Long.formatVideoTime(): String {
     val totalSeconds = (this / 1000L).coerceAtLeast(0L)
@@ -2396,16 +2771,49 @@ private fun Long.formatVideoTime(): String {
 }
 
 @Composable
-private fun rememberVideoPosterFrame(uri: Uri): Bitmap? {
+private fun rememberVideoPosterFrame(uri: Uri, rotationDegrees: Int): Bitmap? {
     val context = LocalContext.current
-    var frame by remember(uri) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(uri) {
+    val displayRotation = rotationDegrees.normalizedVideoRotation()
+    var frame by remember(uri, displayRotation) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(uri, displayRotation) {
         frame = withContext(Dispatchers.IO) {
             runCatching {
-                MediaMetadataRetriever().use { retriever ->
+                withVideoMetadataRetriever { retriever ->
                     retriever.setSource(context, uri)
                     retriever.getScaledVideoFrameAtTime(
                         timeUs = 0L,
+                        option = MediaMetadataRetriever.OPTION_CLOSEST,
+                        maxDimension = PreviewPosterMaxDimension
+                    )
+                }
+            }.getOrNull()
+        }
+    }
+    return frame
+}
+
+@Composable
+private fun rememberVideoPreviewFrame(
+    uri: Uri,
+    positionMs: Long,
+    enabled: Boolean,
+    rotationDegrees: Int
+): Bitmap? {
+    val context = LocalContext.current
+    val displayRotation = rotationDegrees.normalizedVideoRotation()
+    val frameBucket = positionMs / PreviewPlaybackFrameIntervalMs
+    var frame by remember(uri, displayRotation) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(uri, frameBucket, enabled, displayRotation) {
+        if (!enabled) {
+            frame = null
+            return@LaunchedEffect
+        }
+        frame = withContext(Dispatchers.IO) {
+            runCatching {
+                withVideoMetadataRetriever { retriever ->
+                    retriever.setSource(context, uri)
+                    retriever.getScaledVideoFrameAtTime(
+                        timeUs = positionMs * 1000L,
                         option = MediaMetadataRetriever.OPTION_CLOSEST,
                         maxDimension = PreviewPosterMaxDimension
                     )
@@ -2482,13 +2890,15 @@ private data class VideoEditorMetadata(
 ) {
     val displayWidth: Int
         get() {
-            val rotated = rotation == 90 || rotation == 270
+            val normalizedRotation = rotation.normalizedVideoRotation()
+            val rotated = normalizedRotation == 90 || normalizedRotation == 270
             return if (rotated) height else width
         }
 
     val displayHeight: Int
         get() {
-            val rotated = rotation == 90 || rotation == 270
+            val normalizedRotation = rotation.normalizedVideoRotation()
+            val rotated = normalizedRotation == 90 || normalizedRotation == 270
             return if (rotated) width else height
         }
 
@@ -2515,6 +2925,8 @@ private data class VideoEditorExportRequest(
     val sourceRotation: Int,
     val sourceFrameRate: Float?,
     val sourceBitrate: Long?,
+    val outputWidth: Int,
+    val outputHeight: Int,
     val exportProfile: VideoExportProfile,
     val captionTrack: CaptionBurnInTrack?
 )
@@ -2539,14 +2951,17 @@ private const val TimelineFrameCount = 6
 private const val TimelineFrameMaxDimension = 120
 private const val TimelineFrameLoadDelayMs = 350L
 private const val PreviewPosterMaxDimension = 480
-private const val PreviewBackgroundSnapshotMaxDimension = 180
-private const val PreviewBackgroundSnapshotIntervalMs = 120L
+private const val PreviewPlaybackFrameIntervalMs = 120L
 private const val MinimumTrimMs = 500L
 private const val MaximumTrimDurationMs = 15 * 60 * 1000L
+private const val TransformerCompletionFallbackProgress = 95
+private const val TransformerStableOutputCompletionMs = 3_500L
+private const val TransformerStableOutputMinBytes = 128 * 1024L
 private const val DownsampleExportProgressShare = 0.28f
 private const val EditorTargetFrameRate = 30
 private const val SourceSixtyFpsLowerBound = 50f
 private const val SourceSixtyFpsUpperBound = 70f
+private const val VideoEditorForceGlBrightness = 0.0001f
 private const val CaptionPreviewWidth = 540
 private const val CaptionPreviewHeight = 960
 private const val EditorForegroundInputId = 0

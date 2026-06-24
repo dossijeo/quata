@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -107,9 +108,17 @@ fun ConversationsScreen(
         }
     }
 
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    val contentPadding = if (isLandscapeLayout) {
+        PaddingValues(start = 8.dp, top = 18.dp, end = 18.dp, bottom = 18.dp)
+    } else {
+        PaddingValues(18.dp)
+    }
+
     QuataScreen(padding) {
         Box(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(18.dp)) {
+            Column(Modifier.padding(contentPadding)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                     CompactIconButton(onClick = onOpenFavorites) {

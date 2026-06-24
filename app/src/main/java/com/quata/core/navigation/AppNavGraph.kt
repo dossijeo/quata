@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
+import android.graphics.Point
 import android.graphics.drawable.ColorDrawable
 import android.graphics.Rect
 import android.location.Location
@@ -17,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -35,12 +37,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,17 +73,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -105,6 +112,9 @@ import com.quata.core.di.AppContainer
 import com.quata.core.session.AuthState
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.components.QuataNavigationRailContentInset
+import com.quata.core.ui.components.QuataNavigationRail
+import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.effects.fluidTouchEffect
@@ -112,6 +122,7 @@ import com.quata.core.translation.QuataTranslatableTextRegistry
 import com.quata.core.translation.QuataTranslatorBackground
 import com.quata.core.translation.QuataTranslatorModeProvider
 import com.quata.core.translation.QuataTranslatorOverlay
+import com.quata.core.translation.QuataTranslatorOverlayBackdrop
 import com.quata.core.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.QuataTranslatorModeController
 import com.quata.core.translation.captureTranslatorBackground
@@ -181,14 +192,28 @@ fun AppNavGraph(
     var isTranslatorOverlayMounted by remember { mutableStateOf(false) }
     var translatorBackground by remember { mutableStateOf<QuataTranslatorBackground?>(null) }
     var translatorOverlaySource by remember { mutableStateOf(QuataTranslatorOverlaySource.Chat) }
+    var translatorActivationToken by remember { mutableLongStateOf(0L) }
+    var isFeedCommentsOverlayVisible by remember { mutableStateOf(false) }
     val translatorModeController = remember(rootView, appScope) {
         QuataTranslatorModeController { anchorView, source ->
+            val activationToken = translatorActivationToken + 1L
+            translatorActivationToken = activationToken
             appScope.launch {
                 launch { runCatching { QuataTranslator.shared.warmup() } }
                 translatorOverlaySource = source
-                translatorBackground = captureTranslatorBackground(anchorView)
-                isTranslatorOverlayMounted = true
-                isTranslatorModeActive = true
+                val capturedBackground = captureTranslatorBackground(
+                    view = anchorView,
+                    cropNavigationBars = source != QuataTranslatorOverlaySource.Comments
+                )
+                if (translatorActivationToken == activationToken) {
+                    translatorBackground = capturedBackground
+                    isTranslatorOverlayMounted = true
+                    isTranslatorModeActive = false
+                    withFrameNanos { }
+                    if (translatorActivationToken == activationToken) {
+                        isTranslatorModeActive = true
+                    }
+                }
             }
         }
     }
@@ -228,6 +253,21 @@ fun AppNavGraph(
         AppDestinations.Conversations.route,
         AppDestinations.Profile.route
     )
+    val screenConfiguration = LocalConfiguration.current
+    val layoutDirection = LocalLayoutDirection.current
+    val isLandscapeLayout = screenConfiguration.screenWidthDp > screenConfiguration.screenHeightDp
+    val translatorViewportKey = "${screenConfiguration.orientation}:${screenConfiguration.screenWidthDp}:${screenConfiguration.screenHeightDp}"
+    LaunchedEffect(translatorViewportKey) {
+        if (isTranslatorOverlayMounted || isTranslatorModeActive || translatorBackground != null) {
+            translatorActivationToken += 1L
+            isTranslatorModeActive = false
+            translatorBackground = null
+            isTranslatorOverlayMounted = false
+        }
+    }
+    val showPrimaryNavigation = currentRoute in bottomRoutes && !isVideoEditorOpen
+    val showBottomNavigation = showPrimaryNavigation && !isLandscapeLayout
+    val useNavigationRail = showAppChrome && isLandscapeLayout
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
     var createPostCancelUploadToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -375,7 +415,9 @@ fun AppNavGraph(
             topBar = {
                 if (showAppChrome) {
                     Column {
-                        QuataAppTopSpacer()
+                        if (!isLandscapeLayout) {
+                            QuataAppTopSpacer(extraHeight = 68.dp)
+                        }
                         if (!isAppOnline) {
                             AppOfflineBanner()
                         }
@@ -383,12 +425,28 @@ fun AppNavGraph(
                 }
             },
             bottomBar = {
-                if (currentRoute in bottomRoutes && !isVideoEditorOpen) {
+                if (showBottomNavigation) {
                     QuataBottomBar(currentRoute = currentRoute, onDestinationClick = ::handleBottomRoute)
                 }
             }
-        ) { padding ->
-            NavHost(navController = navController, startDestination = startDestination) {
+        ) { scaffoldPadding ->
+            val navigationRailContentInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                QuataNavigationRailWidth
+            } else {
+                QuataNavigationRailContentInset
+            }
+            val padding = if (useNavigationRail) {
+                PaddingValues(
+                    start = scaffoldPadding.calculateStartPadding(layoutDirection) + navigationRailContentInset,
+                    top = scaffoldPadding.calculateTopPadding(),
+                    end = scaffoldPadding.calculateEndPadding(layoutDirection),
+                    bottom = scaffoldPadding.calculateBottomPadding()
+                )
+            } else {
+                scaffoldPadding
+            }
+            Box(Modifier.fillMaxSize()) {
+                NavHost(navController = navController, startDestination = startDestination) {
                 composable(AppDestinations.Login.route) {
                     LoginScreen(
                         padding = padding,
@@ -441,7 +499,8 @@ fun AppNavGraph(
                         networkReconnectToken = feedNetworkReconnectToken,
                         isNetworkAvailable = isDeviceNetworkAvailable,
                         onFocusedPostHandled = { feedFocusedPostId = null },
-                        onAuthRequired = { requestAuthentication() }
+                        onAuthRequired = { requestAuthentication() },
+                        onLandscapeCommentsOverlayActiveChange = { isFeedCommentsOverlayVisible = it }
                     )
                 }
 
@@ -539,7 +598,8 @@ fun AppNavGraph(
                             onOpenMessageConversation = { targetConversationId, messageId ->
                                 navigateToChat(targetConversationId, focusedMessageId = messageId)
                             },
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            compactHeader = isLandscapeLayout
                         )
                     }
                 }
@@ -591,10 +651,30 @@ fun AppNavGraph(
                 }
 
             }
+                if (useNavigationRail) {
+                    QuataNavigationRail(
+                        currentRoute = currentRoute,
+                        onDestinationClick = ::handleBottomRoute,
+                        notificationCount = notificationCount,
+                        isNotificationBouncing = isNotificationBounceActive,
+                        onNotificationsClick = {
+                            navController.navigate(AppDestinations.Notifications.route) {
+                                popUpTo(AppDestinations.Feed.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                    )
+                }
+            }
         }
 
-        if (showAppChrome) {
+        if (showAppChrome && !isLandscapeLayout) {
             val topChromePlacement = rememberTopChromePlacement()
+            val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+            val statusBarTop = safeDrawingPadding.calculateTopPadding()
             QuataAppHeaderActions(
                 notificationCount = notificationCount,
                 isBouncing = isNotificationBounceActive,
@@ -608,7 +688,11 @@ fun AppNavGraph(
                 },
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 14.dp, start = topChromePlacement.logoStartPadding)
+                    .padding(
+                        top = statusBarTop + 14.dp,
+                        start = topChromePlacement.logoStartPadding +
+                            safeDrawingPadding.calculateStartPadding(layoutDirection)
+                    )
             )
             GlobalSosButton(
                 container = container,
@@ -616,7 +700,27 @@ fun AppNavGraph(
                 onAuthRequired = { requestAuthentication() },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 14.dp, end = topChromePlacement.sosEndPadding)
+                    .padding(
+                        top = statusBarTop + 14.dp,
+                        end = topChromePlacement.sosEndPadding +
+                            safeDrawingPadding.calculateEndPadding(layoutDirection)
+                    )
+            )
+        } else if (showAppChrome) {
+            val topChromePlacement = rememberTopChromePlacement()
+            val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+            val statusBarTop = safeDrawingPadding.calculateTopPadding()
+            GlobalSosButton(
+                container = container,
+                isAuthenticated = isAuthenticated,
+                onAuthRequired = { requestAuthentication() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(
+                        top = statusBarTop + 14.dp,
+                        end = topChromePlacement.sosEndPadding +
+                            safeDrawingPadding.calculateEndPadding(layoutDirection)
+                    )
             )
         }
 
@@ -707,6 +811,15 @@ fun AppNavGraph(
             )
         }
 
+        if (isFeedCommentsOverlayVisible) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.30f))
+                    .zIndex(9_000f)
+            )
+        }
+
         if (isTranslatorOverlayMounted && translatorOverlaySource == QuataTranslatorOverlaySource.Chat) {
             AnimatedVisibility(
                 visible = isTranslatorModeActive,
@@ -735,7 +848,19 @@ fun AppNavGraph(
         }
 
         if (isTranslatorOverlayMounted && translatorOverlaySource == QuataTranslatorOverlaySource.Comments) {
-            val screenConfiguration = LocalConfiguration.current
+            AnimatedVisibility(
+                visible = isTranslatorModeActive,
+                enter = fadeIn(animationSpec = tween(durationMillis = 180)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 120)),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(9_999f)
+            ) {
+                QuataTranslatorOverlayBackdrop(
+                    background = translatorBackground,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
             Dialog(
                 onDismissRequest = {
                     isTranslatorModeActive = false
@@ -760,10 +885,7 @@ fun AppNavGraph(
                     enter = fadeIn(animationSpec = tween(durationMillis = 180)),
                     exit = fadeOut(animationSpec = tween(durationMillis = 120)),
                     modifier = Modifier
-                        .requiredSize(
-                            width = screenConfiguration.screenWidthDp.dp,
-                            height = screenConfiguration.screenHeightDp.dp
-                        )
+                        .fillMaxSize()
                         .zIndex(10_000f)
                 ) {
                     QuataTranslatorOverlay(
@@ -801,15 +923,8 @@ private fun ConfigureTranslatorDialogWindow() {
         }
         val originalAnimations = window.attributes.windowAnimations
         val originalDimAmount = window.attributes.dimAmount
-        val originalNavigationBarColor = window.navigationBarColor
-        val originalStatusBarColor = window.statusBarColor
         val originalNavigationBarContrast = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced
-        } else {
-            null
-        }
-        val originalStatusBarContrast = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isStatusBarContrastEnforced
         } else {
             null
         }
@@ -822,28 +937,47 @@ private fun ConfigureTranslatorDialogWindow() {
         val originalY = window.attributes.y
         val originalWidth = window.attributes.width
         val originalHeight = window.attributes.height
+        val originalFlags = window.attributes.flags
+        val originalSystemUiVisibility = window.decorView.systemUiVisibility
+        val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode
+        } else {
+            null
+        }
         val fullscreenLayout = {
+            val displaySize = Point()
+            @Suppress("DEPRECATION")
+            window.windowManager.defaultDisplay.getRealSize(displaySize)
+            val targetWidth = displaySize.x.coerceAtLeast(1)
+            val targetHeight = displaySize.y.coerceAtLeast(1)
             val attributes = window.attributes
-            attributes.width = WindowManager.LayoutParams.MATCH_PARENT
-            attributes.height = WindowManager.LayoutParams.MATCH_PARENT
+            attributes.width = targetWidth
+            attributes.height = targetHeight
             attributes.gravity = Gravity.TOP or Gravity.START
             attributes.x = 0
             attributes.y = 0
+            attributes.flags = attributes.flags or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                attributes.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
             window.attributes = attributes
-            window.setLayout(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT
-            )
+            window.setLayout(targetWidth, targetHeight)
             window.decorView.setPadding(0, 0, 0, 0)
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setWindowAnimations(0)
         window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
-        window.navigationBarColor = template.colors.background.toArgb()
-        window.statusBarColor = template.colors.topChrome.toArgb()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
-            window.isStatusBarContrastEnforced = false
         }
         systemBarsController.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
         systemBarsController.isAppearanceLightStatusBars = template.resolvedTheme == QuataResolvedTheme.Light
@@ -861,15 +995,16 @@ private fun ConfigureTranslatorDialogWindow() {
             attributes.y = originalY
             attributes.width = originalWidth
             attributes.height = originalHeight
+            attributes.flags = originalFlags
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && originalCutoutMode != null) {
+                attributes.layoutInDisplayCutoutMode = originalCutoutMode
+            }
             window.attributes = attributes
-            window.navigationBarColor = originalNavigationBarColor
-            window.statusBarColor = originalStatusBarColor
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = originalSystemUiVisibility
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 if (originalNavigationBarContrast != null) {
                     window.isNavigationBarContrastEnforced = originalNavigationBarContrast
-                }
-                if (originalStatusBarContrast != null) {
-                    window.isStatusBarContrastEnforced = originalStatusBarContrast
                 }
             }
             systemBarsController.isAppearanceLightNavigationBars = originalLightNavigationBars
@@ -1021,14 +1156,15 @@ private fun Context.hasUsableNetwork(): Boolean {
 }
 
 @Composable
-private fun QuataAppTopSpacer() {
+private fun QuataAppTopSpacer(extraHeight: Dp) {
     val template = quataTheme()
+    val statusBarTop = WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding()
     Surface(
         color = template.colors.topChrome,
         contentColor = template.colors.textPrimary,
         modifier = Modifier
             .fillMaxWidth()
-            .height(68.dp)
+            .height(statusBarTop + extraHeight)
     ) {}
 }
 

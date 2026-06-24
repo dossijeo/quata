@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.quata.core.model.Message
+import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -294,7 +295,16 @@ class ChatViewModel(
 
     private fun Message.matchesLocalEcho(local: Message): Boolean {
         if (!local.isLocalEcho || local.isPending || !isMine) return false
-        val sameText = text.trim() == local.text.trim()
+        val remoteText = text.normalizedEchoText()
+        val localText = local.text.normalizedEchoText()
+        val sameLink = local.text.echoUrls()
+            .takeIf { it.isNotEmpty() }
+            ?.let { localUrls -> text.echoUrls().any { it in localUrls } }
+            ?: false
+        val sameText = remoteText == localText ||
+            sameLink ||
+            localText.canMatchEnrichedRemoteText() &&
+            (remoteText.contains(localText) || localText.contains(remoteText))
         val sameAttachment = local.attachmentName.isNullOrBlank() ||
             attachmentName == local.attachmentName ||
             attachmentMimeType == local.attachmentMimeType
@@ -304,6 +314,19 @@ class ChatViewModel(
             remoteTime in (localTime - LOCAL_ECHO_MATCH_PAST_TOLERANCE_MILLIS)..(localTime + LOCAL_ECHO_MATCH_FUTURE_TOLERANCE_MILLIS)
         return sameText && sameAttachment && closeInTime
     }
+
+    private fun String.normalizedEchoText(): String =
+        stripHtmlTagsAndDecode()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+    private fun String.canMatchEnrichedRemoteText(): Boolean =
+        length >= LOCAL_ECHO_ENRICHED_TEXT_MIN_LENGTH || ECHO_URL_REGEX.containsMatchIn(this)
+
+    private fun String.echoUrls(): Set<String> =
+        ECHO_URL_REGEX.findAll(this)
+            .map { match -> match.value.trimEnd('.', ',', ';', ':', ')', ']', '>', '"', '\'') }
+            .toSet()
 
     private fun toggleParticipant(userId: String) {
         val current = _uiState.value.selectedParticipantIds
@@ -461,6 +484,8 @@ class ChatViewModel(
     companion object {
         private const val LOCAL_ECHO_MATCH_PAST_TOLERANCE_MILLIS = 2L * 60L * 1000L
         private const val LOCAL_ECHO_MATCH_FUTURE_TOLERANCE_MILLIS = 10L * 60L * 1000L
+        private const val LOCAL_ECHO_ENRICHED_TEXT_MIN_LENGTH = 12
+        private val ECHO_URL_REGEX = Regex("""https?://\S+|www\.\S+""", RegexOption.IGNORE_CASE)
 
         fun factory(conversationId: String, repository: ChatRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")

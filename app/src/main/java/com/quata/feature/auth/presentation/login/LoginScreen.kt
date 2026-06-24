@@ -1,13 +1,9 @@
 package com.quata.feature.auth.presentation.login
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,7 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -26,11 +21,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.ui.components.PhoneInputSection
-import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
-import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.QuataSecondaryButton
 import com.quata.core.ui.components.QuataTextField
+import com.quata.feature.auth.presentation.AuthResponsiveLayout
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.profile.data.countryPrefixOptions
 
@@ -53,16 +47,11 @@ fun LoginScreen(
         }
     }
 
-    QuataScreen(padding) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            QuataLogo(subtitle = stringResource(R.string.auth_tagline))
-            Spacer(Modifier.height(22.dp))
+    AuthResponsiveLayout(
+        padding = padding,
+        subtitle = stringResource(R.string.auth_tagline),
+        portraitLogoSpacing = 22.dp
+    ) { isLandscape ->
             PhoneInputSection(
                 prefixes = prefixes,
                 selectedPrefix = state.countryCode,
@@ -72,7 +61,7 @@ fun LoginScreen(
                 phoneLabel = stringResource(R.string.auth_phone),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataTextField(
                 value = state.password,
                 onValueChange = { viewModel.onEvent(LoginUiEvent.PasswordChanged(it)) },
@@ -81,33 +70,32 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             if (state.error != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
                 Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
             QuataPrimaryButton(
                 text = if (state.isLoading) stringResource(R.string.auth_signing_in) else stringResource(R.string.auth_sign_in),
                 enabled = !state.isLoading
             ) { viewModel.onEvent(LoginUiEvent.Submit) }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataSecondaryButton(
                 text = stringResource(R.string.auth_forgot_password),
                 enabled = !state.isLoading
             ) { onForgotPassword() }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataSecondaryButton(text = stringResource(R.string.auth_create_account), onClick = onGoToRegister)
             if (state.isLoading) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp))
                 CircularProgressIndicator()
             }
             if (AppConfig.USE_MOCK_BACKEND) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp))
                 Text(
                     text = stringResource(R.string.auth_mock_notice),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
             }
-        }
     }
 }

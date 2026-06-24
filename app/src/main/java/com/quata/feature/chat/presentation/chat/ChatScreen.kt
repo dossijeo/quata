@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -44,6 +45,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
@@ -103,8 +105,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -165,6 +170,8 @@ fun ChatScreen(
     onFocusedMessageHandled: () -> Unit = {},
     onOpenMessageConversation: (String, String) -> Unit = { targetConversationId, _ -> onOpenConversation(targetConversationId) },
     onBack: () -> Unit,
+    compactHeader: Boolean = false,
+    appHeaderActions: (@Composable RowScope.() -> Unit)? = null,
     viewModel: ChatViewModel = viewModel(
         key = "chat_$conversationId",
         factory = ChatViewModel.factory(conversationId, repository)
@@ -174,6 +181,9 @@ fun ChatScreen(
     val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val configuration = LocalConfiguration.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val metrics = context.resources.displayMetrics
     val messagesListState = rememberLazyListState()
     val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
@@ -289,8 +299,20 @@ fun ChatScreen(
         }
     }
     val template = quataTheme()
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
+    val emojiGridMaxHeight = when {
+        isLandscapeLayout -> 128.dp
+        isImeVisible -> 168.dp
+        else -> 220.dp
+    }
+    fun setEmojiPickerVisible(visible: Boolean) {
+        isEmojiPickerVisible = visible
+        if (visible) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+        }
+    }
     val backgroundImage = backgroundSeed?.let { seed ->
         val backgroundTemplateId = "${template.id}-clouds-v3"
         rememberProceduralChatBackground(
@@ -389,7 +411,9 @@ fun ChatScreen(
                             onHideConversation = {
                                 confirmAction = ConfirmAction.DeleteConversation
                             },
-                            isTranslatorAvailable = state.messages.isNotEmpty()
+                            isTranslatorAvailable = state.messages.isNotEmpty(),
+                            compact = compactHeader,
+                            appHeaderActions = appHeaderActions
                         )
                         if (state.isConversationActionInProgress) {
                             ConversationActionProgressBar()
@@ -462,7 +486,7 @@ fun ChatScreen(
                             onClear = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }
                         )
                     }
-                    if (!isFavoritesConversation && isEmojiPickerVisible) {
+                    if (!isFavoritesConversation && isEmojiPickerVisible && !isLandscapeLayout) {
                         CommunityEmojiPanel(
                             onEmojiClick = { emoji ->
                                 val updated = messageFieldValue.insertAtSelection(emoji)
@@ -531,11 +555,16 @@ fun ChatScreen(
                         label = { Text(stringResource(R.string.conversation_message)) },
                         modifier = Modifier
                             .weight(1f)
-                            .requiredHeightIn(min = 68.dp),
+                            .requiredHeightIn(min = 68.dp)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused && isEmojiPickerVisible) {
+                                    isEmojiPickerVisible = false
+                                }
+                            },
                         singleLine = true,
                         leadingIcon = {
                             CompactIconButton(
-                                onClick = { isEmojiPickerVisible = !isEmojiPickerVisible },
+                                onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
                                 modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
                             ) {
                                 CompactIcon(
@@ -561,6 +590,21 @@ fun ChatScreen(
                     )
                     }
                 }
+            }
+            if (!isFavoritesConversation && isEmojiPickerVisible && isLandscapeLayout) {
+                CommunityEmojiPanel(
+                    onEmojiClick = { emoji ->
+                        val updated = messageFieldValue.insertAtSelection(emoji)
+                        messageFieldValue = updated
+                        viewModel.onEvent(ChatUiEvent.MessageChanged(updated.text))
+                    },
+                    gridMaxHeight = emojiGridMaxHeight,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 94.dp, start = 24.dp)
+                        .fillMaxWidth(0.58f)
+                        .trackCommunityEmojiPanelBounds(emojiDismissState)
+                )
             }
         }
     }
@@ -810,7 +854,9 @@ private fun ChatHeader(
     onRemoveParticipant: (String) -> Unit,
     onLeaveConversation: () -> Unit,
     onHideConversation: () -> Unit,
-    isTranslatorAvailable: Boolean
+    isTranslatorAvailable: Boolean,
+    compact: Boolean = false,
+    appHeaderActions: (@Composable RowScope.() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -821,13 +867,14 @@ private fun ChatHeader(
     val isModerator = currentUser?.id != null && currentUser.id in conversation?.moderatorIds.orEmpty()
     val canInvite = isModerator || conversation?.canMembersInvite == true
     val template = quataTheme()
+    val headerVerticalPadding = if (compact) 6.dp else 10.dp
     Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
         Column {
             if (selectedMessage != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = headerVerticalPadding),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -860,6 +907,9 @@ private fun ChatHeader(
                             CompactIcon(Icons.Filled.Delete, contentDescription = stringResource(R.string.conversation_delete_message))
                         }
                     }
+                    if (compact) {
+                        Spacer(Modifier.width(120.dp))
+                    }
                 }
             } else {
                 val translatorModeController = LocalQuataTranslatorModeController.current
@@ -867,13 +917,20 @@ private fun ChatHeader(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = isGroup) { expanded = !expanded }
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = headerVerticalPadding),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CompactIconButton(onClick = onBack) {
                         CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
-                    ChatAvatar(conversation, currentUser, usersById, openingProfileUserId, onOpenUserProfile)
+                    ChatAvatar(
+                        conversation = conversation,
+                        currentUser = currentUser,
+                        usersById = usersById,
+                        openingProfileUserId = openingProfileUserId,
+                        onOpenUserProfile = onOpenUserProfile,
+                        compact = compact
+                    )
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -885,6 +942,7 @@ private fun ChatHeader(
                             )
                         }
                     }
+                    appHeaderActions?.invoke(this)
                     FangTranslatorIconButton(
                         onClick = { view ->
                             translatorModeController.activate(view, QuataTranslatorOverlaySource.Chat)
@@ -952,6 +1010,9 @@ private fun ChatHeader(
                                 }
                             )
                         }
+                    }
+                    if (compact) {
+                        Spacer(Modifier.width(120.dp))
                     }
                 }
             }
@@ -1339,17 +1400,20 @@ private fun ChatAvatar(
     currentUser: User?,
     usersById: Map<String, User>,
     openingProfileUserId: String?,
-    onOpenUserProfile: (String) -> Unit
+    onOpenUserProfile: (String) -> Unit,
+    compact: Boolean = false
 ) {
     val template = quataTheme()
     val privateUser = conversation?.participantIds
         ?.firstOrNull { it != currentUser?.id }
         ?.let { usersById[it] }
-    Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+    val containerSize = if (compact) 44.dp else 52.dp
+    val avatarSize = if (compact) 38.dp else 46.dp
+    Box(modifier = Modifier.size(containerSize), contentAlignment = Alignment.Center) {
         if (conversation?.isGroup == true || conversation?.isEmergency == true) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(avatarSize)
                     .clip(CircleShape)
                     .background(if (conversation?.isEmergency == true) template.colors.sosSurface else template.colors.accent.copy(alpha = 0.22f))
                     .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
@@ -1367,10 +1431,10 @@ private fun ChatAvatar(
                 avatarUrl = privateUser.avatarUrl,
                 isLoading = openingProfileUserId == privateUser.id,
                 onClick = { onOpenUserProfile(privateUser.id) },
-                modifier = Modifier.size(46.dp)
+                modifier = Modifier.size(avatarSize)
             )
         } else {
-            AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(46.dp))
+            AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(avatarSize))
         }
         if (conversation?.isMuted == true) {
             MutedConversationBadge(Modifier.align(Alignment.TopEnd))

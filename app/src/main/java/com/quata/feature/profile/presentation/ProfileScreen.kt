@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -32,7 +33,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -66,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -129,9 +133,20 @@ fun ProfileScreen(
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         if (saved) viewModel.onEvent(ProfileUiEvent.AvatarChanged(pendingCameraUri?.toString()))
     }
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            pendingCameraUri?.let { cameraLauncher.launch(it) }
+
+    fun launchProfilePhotoCapture() {
+        val uri = context.createProfileImageUri()
+        if (uri == null) {
+            Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
+            return
+        }
+        pendingCameraUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (context.hasCapturePermissions()) {
+            launchProfilePhotoCapture()
         } else {
             Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
         }
@@ -162,6 +177,9 @@ fun ProfileScreen(
 
     QuataScreen(padding) {
         val profile = state.profile
+        val configuration = LocalConfiguration.current
+        val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+        val accountScrollState = rememberScrollState(accountPage.ordinal)
         if (state.isLoading || profile == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.profile_loading), color = template.colors.textSecondary)
@@ -172,7 +190,13 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .verticalScroll(accountScrollState)
+                .padding(
+                    start = if (isLandscapeLayout) 8.dp else 14.dp,
+                    top = if (isLandscapeLayout) 10.dp else 12.dp,
+                    end = 14.dp,
+                    bottom = 12.dp
+                ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             when (accountPage) {
@@ -285,14 +309,10 @@ fun ProfileScreen(
                                         leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
                                         onClick = {
                                             isPhotoMenuOpen = false
-                                            val uri = context.createProfileImageUri()
-                                            pendingCameraUri = uri
-                                            if (uri != null) {
-                                                if (context.hasCameraPermission()) {
-                                                    cameraLauncher.launch(uri)
-                                                } else {
-                                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                                }
+                                            if (context.hasCapturePermissions()) {
+                                                launchProfilePhotoCapture()
+                                            } else {
+                                                cameraPermissionLauncher.launch(capturePermissions())
                                             }
                                         }
                                     )
@@ -330,7 +350,7 @@ fun ProfileScreen(
                         Spacer(Modifier.weight(1f))
                         Text("${profile.emergencyContactIds.size}/5")
                     }
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
                     ProfileSaveButton(
                         isSaving = state.isSaving,
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
@@ -402,7 +422,7 @@ fun ProfileScreen(
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
                         label = stringResource(R.string.profile_new_secret_answer)
                     )
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
                     ProfileSaveButton(
                         isSaving = state.isSaving,
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
@@ -595,6 +615,8 @@ fun EmergencyContactsDialog(
     onSave: () -> Unit
 ) {
     val template = quataTheme()
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
     val bottomActionHeight = 54.dp
     val bottomActionOffset = 78.dp
     val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp
@@ -626,50 +648,154 @@ fun EmergencyContactsDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .padding(horizontal = 18.dp)
-                    .padding(top = 14.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = contentBottomSpace)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CompactIconButton(onClick = onDismiss) {
-                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                        }
-                        Spacer(Modifier.width(6.dp))
-                        Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
-                            Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(stringResource(R.string.emergency_contacts_title), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.emergency_contacts_description),
-                        color = template.colors.textSecondary,
-                        lineHeight = 22.sp
+                    .padding(
+                        start = if (isLandscapeLayout) 16.dp else 18.dp,
+                        end = if (isLandscapeLayout) 72.dp else 18.dp
                     )
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        EmergencyTabButton(
-                            text = stringResource(R.string.emergency_contacts_tab),
-                            selected = selectedTab == EmergencyTab.Contacts,
-                            onClick = { selectedTab = EmergencyTab.Contacts },
-                            modifier = Modifier.weight(1f)
-                        )
-                        EmergencyTabButton(
-                            text = stringResource(R.string.emergency_message_tab),
-                            selected = selectedTab == EmergencyTab.Message,
-                            onClick = { selectedTab = EmergencyTab.Message },
-                            modifier = Modifier.weight(1f)
-                        )
+                    .padding(top = if (isLandscapeLayout) 10.dp else 14.dp, bottom = if (isLandscapeLayout) 10.dp else 0.dp)
+            ) {
+                if (isLandscapeLayout) {
+                    Column(Modifier.fillMaxSize()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CompactIconButton(onClick = onDismiss) {
+                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
+                                Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(stringResource(R.string.emergency_contacts_title), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(12.dp))
+                            Button(
+                                onClick = onSave,
+                                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .height(42.dp)
+                                    .width(196.dp)
+                            ) {
+                                Text(
+                                    stringResource(R.string.emergency_save_contacts_short),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Column(Modifier.weight(1.08f)) {
+                                Text(stringResource(R.string.emergency_contacts_tab), fontWeight = FontWeight.ExtraBold)
+                                Spacer(Modifier.height(6.dp))
+                                OutlinedTextField(
+                                    value = query,
+                                    onValueChange = { query = it },
+                                    placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = template.colors.accent, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(8.dp))
+                                LazyColumn(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(visibleUsers, key = { it.id }) { user ->
+                                        EmergencyUserRow(
+                                            user = user,
+                                            selected = user.id in selectedIds,
+                                            onToggle = { onToggleContact(user) }
+                                        )
+                                    }
+                                }
+                            }
+                            Column(Modifier.weight(0.92f)) {
+                                Text(stringResource(R.string.emergency_message_tab), fontWeight = FontWeight.ExtraBold)
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.emergency_contacts_description),
+                                    color = template.colors.textSecondary,
+                                    lineHeight = 18.sp,
+                                    fontSize = 13.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                ProfilePanel(contentPadding = PaddingValues(12.dp)) {
+                                    Column {
+                                        Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            stringResource(R.string.emergency_message_hint),
+                                            color = template.colors.textSecondary,
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = message,
+                                            onValueChange = onMessageChange,
+                                            minLines = 4,
+                                            maxLines = 5,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(10.dp))
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = contentBottomSpace)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CompactIconButton(onClick = onDismiss) {
+                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
+                                Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(stringResource(R.string.emergency_contacts_title), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.emergency_contacts_description),
+                            color = template.colors.textSecondary,
+                            lineHeight = 22.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            EmergencyTabButton(
+                                text = stringResource(R.string.emergency_contacts_tab),
+                                selected = selectedTab == EmergencyTab.Contacts,
+                                onClick = { selectedTab = EmergencyTab.Contacts },
+                                modifier = Modifier.weight(1f)
+                            )
+                            EmergencyTabButton(
+                                text = stringResource(R.string.emergency_message_tab),
+                                selected = selectedTab == EmergencyTab.Message,
+                                onClick = { selectedTab = EmergencyTab.Message },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
 
-                    when (selectedTab) {
-                        EmergencyTab.Contacts -> Column(Modifier.weight(1f)) {
+                        when (selectedTab) {
+                            EmergencyTab.Contacts -> Column(Modifier.weight(1f)) {
                             OutlinedTextField(
                                 value = query,
                                 onValueChange = { query = it },
@@ -717,18 +843,19 @@ fun EmergencyContactsDialog(
                             }
                         }
                     }
-                }
-                Button(
-                    onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                    shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = bottomActionOffset)
-                        .fillMaxWidth()
-                        .height(bottomActionHeight)
-                ) {
-                    Text(stringResource(R.string.emergency_save_contacts), fontWeight = FontWeight.ExtraBold)
+                    }
+                    Button(
+                        onClick = onSave,
+                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = bottomActionOffset)
+                            .fillMaxWidth()
+                            .height(bottomActionHeight)
+                    ) {
+                        Text(stringResource(R.string.emergency_save_contacts), fontWeight = FontWeight.ExtraBold)
+                    }
                 }
             }
         }
@@ -793,8 +920,22 @@ private fun Context.createProfileImageUri(): Uri? {
         put(MediaStore.Images.Media.DISPLAY_NAME, "quata_profile_${System.currentTimeMillis()}.jpg")
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
     }
-    return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+    return runCatching { contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) }.getOrNull()
 }
+
+private fun Context.hasCapturePermissions(): Boolean =
+    hasCameraPermission() && hasMediaWritePermission()
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.hasMediaWritePermission(): Boolean =
+    Build.VERSION.SDK_INT > Build.VERSION_CODES.P ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+
+private fun capturePermissions(): Array<String> =
+    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+        arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    } else {
+        arrayOf(Manifest.permission.CAMERA)
+    }

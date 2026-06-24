@@ -105,8 +105,17 @@ data class QuataTranslatorBackground(
     val originTopPx: Int,
     val widthPx: Int,
     val heightPx: Int,
-    val excludesNavigationBar: Boolean = false
-)
+    val navigationCropLeftPx: Int = 0,
+    val navigationCropTopPx: Int = 0,
+    val navigationCropRightPx: Int = 0,
+    val navigationCropBottomPx: Int = 0
+) {
+    val excludesNavigationBar: Boolean
+        get() = navigationCropLeftPx > 0 ||
+            navigationCropTopPx > 0 ||
+            navigationCropRightPx > 0 ||
+            navigationCropBottomPx > 0
+}
 
 enum class QuataTranslatorOverlaySource {
     Chat,
@@ -176,12 +185,15 @@ fun Modifier.quataTranslatableText(
     }
 }
 
-suspend fun captureTranslatorBackground(view: View): QuataTranslatorBackground? {
+suspend fun captureTranslatorBackground(
+    view: View,
+    cropNavigationBars: Boolean = true
+): QuataTranslatorBackground? {
     val captureView = view.rootView ?: view
     val activityWindow = view.context.findActivity()?.window
     val activityDecorView = activityWindow?.decorView
     if (activityDecorView != null && captureView !== activityDecorView) {
-        captureView.drawTranslatorBackgroundOrNull()?.let { return it }
+        captureView.drawTranslatorBackgroundOrNull(cropNavigationBars)?.let { return it }
     }
 
     val width = view.width
@@ -223,15 +235,14 @@ suspend fun captureTranslatorBackground(view: View): QuataTranslatorBackground? 
                 }
             }
             if (copied) {
-                val cropBottomPx = view.navigationBarCaptureCropHeightPx(context = view.context, topPx = location[1], heightPx = height)
-                val croppedBitmap = bitmap.cropBottom(cropBottomPx)
-                return QuataTranslatorBackground(
-                    image = croppedBitmap.asImageBitmap(),
-                    originLeftPx = location[0],
-                    originTopPx = location[1],
+                return createTranslatorBackground(
+                    bitmap = bitmap,
+                    leftPx = location[0],
+                    topPx = location[1],
                     widthPx = width,
-                    heightPx = height - cropBottomPx,
-                    excludesNavigationBar = cropBottomPx > 0
+                    heightPx = height,
+                    view = view,
+                    cropNavigationBars = cropNavigationBars
                 )
             }
         }
@@ -241,20 +252,19 @@ suspend fun captureTranslatorBackground(view: View): QuataTranslatorBackground? 
     canvas.scale(CaptureScale, CaptureScale)
     return runCatching {
         view.draw(canvas)
-        val cropBottomPx = view.navigationBarCaptureCropHeightPx(context = view.context, topPx = location[1], heightPx = height)
-        val croppedBitmap = bitmap.cropBottom(cropBottomPx)
-        QuataTranslatorBackground(
-            image = croppedBitmap.asImageBitmap(),
-            originLeftPx = location[0],
-            originTopPx = location[1],
+        createTranslatorBackground(
+            bitmap = bitmap,
+            leftPx = location[0],
+            topPx = location[1],
             widthPx = width,
-            heightPx = height - cropBottomPx,
-            excludesNavigationBar = cropBottomPx > 0
+            heightPx = height,
+            view = view,
+            cropNavigationBars = cropNavigationBars
         )
     }.getOrNull()
 }
 
-private fun View.drawTranslatorBackgroundOrNull(): QuataTranslatorBackground? {
+private fun View.drawTranslatorBackgroundOrNull(cropNavigationBars: Boolean): QuataTranslatorBackground? {
     val width = width
     val height = height
     if (width <= 0 || height <= 0) return null
@@ -269,15 +279,14 @@ private fun View.drawTranslatorBackgroundOrNull(): QuataTranslatorBackground? {
     canvas.scale(CaptureScale, CaptureScale)
     return runCatching {
         draw(canvas)
-        val cropBottomPx = navigationBarCaptureCropHeightPx(context = context, topPx = location[1], heightPx = height)
-        val croppedBitmap = bitmap.cropBottom(cropBottomPx)
-        QuataTranslatorBackground(
-            image = croppedBitmap.asImageBitmap(),
-            originLeftPx = location[0],
-            originTopPx = location[1],
+        createTranslatorBackground(
+            bitmap = bitmap,
+            leftPx = location[0],
+            topPx = location[1],
             widthPx = width,
-            heightPx = height - cropBottomPx,
-            excludesNavigationBar = cropBottomPx > 0
+            heightPx = height,
+            view = this,
+            cropNavigationBars = cropNavigationBars
         )
     }.getOrNull()
 }
@@ -345,6 +354,42 @@ fun FangTranslatorIconButton(
 }
 
 @Composable
+fun QuataTranslatorOverlayBackdrop(
+    background: QuataTranslatorBackground?,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Box(
+        modifier = modifier
+            .background(template.colors.background)
+    ) {
+        if (background != null) {
+            Image(
+                bitmap = background.image,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.86f },
+                contentScale = ContentScale.FillBounds
+            )
+        }
+        Image(
+            painter = painterResource(R.drawable.quata_translator_frosted_texture),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = 0.70f },
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.16f))
+        )
+    }
+}
+
+@Composable
 fun QuataTranslatorOverlay(
     registry: QuataTranslatableTextRegistry,
     background: QuataTranslatorBackground?,
@@ -369,60 +414,58 @@ fun QuataTranslatorOverlay(
         modifier = modifier
             .fillMaxSize()
             .background(template.colors.background),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.TopStart
     ) {
         val density = LocalDensity.current
         val localView = LocalView.current
         val isCommentOverlay = source == QuataTranslatorOverlaySource.Comments
-        val statusBarCorrectionPx = if (isCommentOverlay) {
-            localView.visibleStatusBarHeightPx(context)
+        val statusBarCorrectionPx = 0
+        val navigationInsets = if (isCommentOverlay || background?.excludesNavigationBar == true) {
+            TranslatorCropInsets.Zero
         } else {
-            0
+            localView.visibleNavigationBarInsetsPx(context)
         }
-        val navigationBarCorrectionPx = if (background?.excludesNavigationBar == true) {
+        val viewportWidthPx = if (isCommentOverlay) {
+            constraints.maxWidth
+        } else {
+            ((background?.widthPx ?: constraints.maxWidth) - navigationInsets.horizontal)
+                .coerceAtLeast(1)
+                .coerceAtMost(constraints.maxWidth)
+        }
+        val viewportHeightPx = if (isCommentOverlay) {
+            constraints.maxHeight
+        } else {
+            ((background?.heightPx ?: constraints.maxHeight) - statusBarCorrectionPx - navigationInsets.vertical)
+                .coerceAtLeast(1)
+                .coerceAtMost(constraints.maxHeight)
+        }
+        val viewportOriginLeftPx = if (isCommentOverlay) {
             0
         } else {
-            localView.visibleNavigationBarHeightPx(context)
+            (background?.originLeftPx ?: 0) + navigationInsets.left
         }
-        val viewportWidthPx = (background?.widthPx ?: constraints.maxWidth).coerceAtMost(constraints.maxWidth)
-        val viewportHeightPx = ((background?.heightPx ?: constraints.maxHeight) - statusBarCorrectionPx - navigationBarCorrectionPx)
-            .coerceAtLeast(1)
-            .coerceAtMost(constraints.maxHeight)
-        val viewportOriginLeftPx = background?.originLeftPx ?: 0
-        val viewportOriginTopPx = (background?.originTopPx ?: 0) + statusBarCorrectionPx
+        val viewportOriginTopPx = if (isCommentOverlay) {
+            0
+        } else {
+            (background?.originTopPx ?: 0) + statusBarCorrectionPx + navigationInsets.top
+        }
         val viewportWidth = with(density) { viewportWidthPx.toDp() }
         val viewportHeight = with(density) { viewportHeightPx.toDp() }
+        val viewportOffsetX = with(density) { viewportOriginLeftPx.toDp() }
+        val viewportOffsetY = with(density) { viewportOriginTopPx.toDp() }
 
         Box(
             modifier = Modifier
+                .offset(x = viewportOffsetX, y = viewportOffsetY)
                 .width(viewportWidth)
                 .height(viewportHeight)
                 .clipToBounds()
                 .consumeTranslatorScrollGestures()
                 .background(template.colors.background)
         ) {
-            if (background != null) {
-                Image(
-                    bitmap = background.image,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = 0.86f },
-                    contentScale = ContentScale.FillBounds
-                )
-            }
-            Image(
-                painter = painterResource(R.drawable.quata_translator_frosted_texture),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 0.70f },
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.16f))
+            QuataTranslatorOverlayBackdrop(
+                background = background,
+                modifier = Modifier.fillMaxSize()
             )
 
             boxes.forEach { box ->
@@ -1095,44 +1138,143 @@ private fun View.visibleStatusBarHeightPx(context: Context): Int {
     return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
 }
 
-private fun View.visibleNavigationBarHeightPx(context: Context): Int {
-    val insetBottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
+private fun View.visibleNavigationBarInsetsPx(context: Context): TranslatorCropInsets {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val insets = rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())
+        if (insets != null) {
+            return TranslatorCropInsets(
+                left = insets.left,
+                top = insets.top,
+                right = insets.right,
+                bottom = insets.bottom
+            )
+        }
     } else {
         @Suppress("DEPRECATION")
-        rootWindowInsets?.systemWindowInsetBottom ?: 0
+        rootWindowInsets?.let { insets ->
+            return TranslatorCropInsets(
+                left = insets.systemWindowInsetLeft,
+                right = insets.systemWindowInsetRight,
+                bottom = insets.systemWindowInsetBottom
+            )
+        }
     }
-    if (insetBottom > 0) return insetBottom
+
     val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
-    return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+    val bottom = if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
+    return TranslatorCropInsets(bottom = bottom)
 }
 
-private fun View.navigationBarCaptureCropHeightPx(
-    context: Context,
+private fun createTranslatorBackground(
+    bitmap: Bitmap,
+    leftPx: Int,
     topPx: Int,
-    heightPx: Int
-): Int {
-    val navigationBarHeight = visibleNavigationBarHeightPx(context)
-    if (navigationBarHeight <= 0 || heightPx <= navigationBarHeight) return 0
+    widthPx: Int,
+    heightPx: Int,
+    view: View,
+    cropNavigationBars: Boolean
+): QuataTranslatorBackground {
+    val crop = if (cropNavigationBars) {
+        view.navigationBarCaptureCropInsetsPx(
+            context = view.context,
+            leftPx = leftPx,
+            topPx = topPx,
+            widthPx = widthPx,
+            heightPx = heightPx
+        )
+    } else {
+        TranslatorCropInsets.Zero
+    }
+    val croppedBitmap = bitmap.crop(crop)
+    return QuataTranslatorBackground(
+        image = croppedBitmap.asImageBitmap(),
+        originLeftPx = leftPx + crop.left,
+        originTopPx = topPx + crop.top,
+        widthPx = widthPx - crop.left - crop.right,
+        heightPx = heightPx - crop.top - crop.bottom,
+        navigationCropLeftPx = crop.left,
+        navigationCropTopPx = crop.top,
+        navigationCropRightPx = crop.right,
+        navigationCropBottomPx = crop.bottom
+    )
+}
 
-    val rootHeight = rootView.height
-    val displayHeight = maxOf(context.resources.displayMetrics.heightPixels, rootHeight)
+private fun View.navigationBarCaptureCropInsetsPx(
+    context: Context,
+    leftPx: Int,
+    topPx: Int,
+    widthPx: Int,
+    heightPx: Int
+): TranslatorCropInsets {
+    if (widthPx <= 1 || heightPx <= 1) return TranslatorCropInsets.Zero
+
+    val navigationInsets = visibleNavigationBarInsetsPx(context)
+    if (navigationInsets.isZero) return TranslatorCropInsets.Zero
+
+    val rootWidth = maxOf(rootView.width, context.resources.displayMetrics.widthPixels)
+    val rootHeight = maxOf(rootView.height, context.resources.displayMetrics.heightPixels)
+    val capturedRight = leftPx + widthPx
     val capturedBottom = topPx + heightPx
-    val overlapsNavigationBar = capturedBottom > displayHeight - navigationBarHeight / 2
-    return if (overlapsNavigationBar) {
-        navigationBarHeight.coerceAtMost(heightPx - 1)
+
+    val cropLeft = if (navigationInsets.left > 0 && leftPx < navigationInsets.left) {
+        (navigationInsets.left - leftPx).coerceIn(0, widthPx - 1)
     } else {
         0
     }
+    val cropTop = if (navigationInsets.top > 0 && topPx < navigationInsets.top) {
+        (navigationInsets.top - topPx).coerceIn(0, heightPx - 1)
+    } else {
+        0
+    }
+    val cropRight = if (navigationInsets.right > 0 && capturedRight > rootWidth - navigationInsets.right) {
+        (capturedRight - (rootWidth - navigationInsets.right)).coerceIn(0, widthPx - cropLeft - 1)
+    } else {
+        0
+    }
+    val cropBottom = if (navigationInsets.bottom > 0 && capturedBottom > rootHeight - navigationInsets.bottom) {
+        (capturedBottom - (rootHeight - navigationInsets.bottom)).coerceIn(0, heightPx - cropTop - 1)
+    } else {
+        0
+    }
+
+    return TranslatorCropInsets(
+        left = cropLeft,
+        top = cropTop,
+        right = cropRight,
+        bottom = cropBottom
+    )
 }
 
-private fun Bitmap.cropBottom(cropBottomPx: Int): Bitmap {
-    if (cropBottomPx <= 0) return this
-    val scaledCropBottom = (cropBottomPx * CaptureScale)
-        .roundToInt()
-        .coerceIn(0, height - 1)
-    if (scaledCropBottom <= 0) return this
-    return Bitmap.createBitmap(this, 0, 0, width, height - scaledCropBottom)
+private fun Bitmap.crop(crop: TranslatorCropInsets): Bitmap {
+    if (crop.isZero) return this
+    val scaledLeft = (crop.left * CaptureScale).roundToInt().coerceIn(0, width - 1)
+    val scaledTop = (crop.top * CaptureScale).roundToInt().coerceIn(0, height - 1)
+    val scaledRight = (crop.right * CaptureScale).roundToInt().coerceIn(0, width - scaledLeft - 1)
+    val scaledBottom = (crop.bottom * CaptureScale).roundToInt().coerceIn(0, height - scaledTop - 1)
+    val croppedWidth = width - scaledLeft - scaledRight
+    val croppedHeight = height - scaledTop - scaledBottom
+    if (croppedWidth <= 0 || croppedHeight <= 0) return this
+    return Bitmap.createBitmap(this, scaledLeft, scaledTop, croppedWidth, croppedHeight)
+}
+
+private data class TranslatorCropInsets(
+    val left: Int = 0,
+    val top: Int = 0,
+    val right: Int = 0,
+    val bottom: Int = 0
+) {
+    val isZero: Boolean
+        get() = left == 0 && top == 0 && right == 0 && bottom == 0
+
+    val horizontal: Int
+        get() = left + right
+
+    val vertical: Int
+        get() = top + bottom
+
+    companion object {
+        val Zero = TranslatorCropInsets()
+    }
 }
 
 data class TranslatorBoxState(

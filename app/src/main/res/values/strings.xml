@@ -234,7 +234,7 @@
     <string name="profile_configure_emergency_contacts">Configure emergency contacts</string>
     <string name="profile_logout">Log out</string>
     <string name="profile_loading">Loading profile…</string>
-    <string name="profile_camera_permission_photo">We need camera permission to take the photo</string>
+    <string name="profile_camera_permission_photo">We need camera and media permission to take the photo</string>
     <string name="profile_changes_saved">Changes saved</string>
     <string name="profile_save_error">Could not save changes</string>
     <string name="profile_load_error">Could not load profile</string>
@@ -251,6 +251,7 @@
     <string name="emergency_message_title">Emergency message</string>
     <string name="emergency_message_hint">This text will reach your contacts when you press SOS.</string>
     <string name="emergency_save_contacts">Save / update contacts</string>
+    <string name="emergency_save_contacts_short">Save contacts</string>
     <string name="sos_button">SOS 🚨</string>
     <string name="sos_sent">SOS sent</string>
     <string name="sos_send_error">Could not send SOS</string>
@@ -298,6 +299,7 @@
     <string name="composer_image_preview_body">The preview will appear when you select a photo.</string>
     <string name="composer_pick_video">Choose video</string>
     <string name="composer_record_video">Record video</string>
+    <string name="composer_video_capture_error">The recorded video could not be opened. Please try again.</string>
     <string name="composer_no_file">No file selected.</string>
     <string name="composer_description_placeholder">Optional description…</string>
     <string name="composer_video_preview_empty">Video with title\nor description</string>
@@ -308,7 +310,7 @@
     <string name="composer_publishing">Publishing…</string>
     <string name="composer_created">Post created</string>
     <string name="composer_publish_error">Could not publish</string>
-    <string name="composer_camera_permission">We need camera permission to use this option</string>
+    <string name="composer_camera_permission">We need camera and media permission to use this option</string>
     <string name="composer_cancel_upload_title">Cancel upload?</string>
     <string name="composer_cancel_upload_body">The post is still uploading. If you leave now, the upload will be cancelled.</string>
     <string name="composer_cancel_upload_confirm">Cancel upload</string>

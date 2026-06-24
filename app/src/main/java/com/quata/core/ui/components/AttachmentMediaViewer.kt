@@ -276,7 +276,7 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
     LaunchedEffect(uri) {
         bitmap = withContext(Dispatchers.IO) {
             runCatching {
-                MediaMetadataRetriever().use { retriever ->
+                withAttachmentMediaMetadataRetriever { retriever ->
                     val parsedUri = Uri.parse(uri)
                     if (parsedUri.scheme == "content" || parsedUri.scheme == "file") {
                         retriever.setDataSource(context, parsedUri)
@@ -289,4 +289,13 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
         }
     }
     return bitmap
+}
+
+private inline fun <T> withAttachmentMediaMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        block(retriever)
+    } finally {
+        retriever.release()
+    }
 }

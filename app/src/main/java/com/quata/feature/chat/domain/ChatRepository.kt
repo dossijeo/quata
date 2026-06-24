@@ -16,6 +16,7 @@ interface ChatRepository {
     fun setActiveConversation(conversationId: String?)
     fun setAppForeground(isForeground: Boolean)
     fun setPollingMode(mode: ChatPollingMode)
+    fun clearChatNotifications()
     suspend fun pollForBackgroundNotifications(): Result<Unit>
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeConversations(): Flow<List<Conversation>>

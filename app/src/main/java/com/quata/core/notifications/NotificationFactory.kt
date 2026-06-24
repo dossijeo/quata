@@ -20,7 +20,7 @@ class NotificationFactory(private val context: Context) {
         if (conversation.isMuted || conversation.unreadCount <= 0) return
         if (!hasNotificationPermission()) return
 
-        val notificationId = CHAT_NOTIFICATION_BASE_ID + (conversation.id.hashCode() and 0x0FFFFFFF)
+        val notificationId = chatNotificationId(conversation.id)
         val contentTitle = conversation.notificationTitle().ifBlank {
             context.getString(R.string.common_chat)
         }
@@ -51,6 +51,28 @@ class NotificationFactory(private val context: Context) {
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId, notification)
+        rememberPostedNotificationId(notificationId)
+    }
+
+    fun clearChatMessage(conversationId: String) {
+        val notificationId = chatNotificationId(conversationId)
+        NotificationManagerCompat.from(context).cancel(notificationId)
+        val remainingIds = postedNotificationIds() - notificationId.toString()
+        notificationPreferences()
+            .edit()
+            .putStringSet(KEY_POSTED_CHAT_NOTIFICATION_IDS, remainingIds)
+            .apply()
+    }
+
+    fun clearChatMessages() {
+        val manager = NotificationManagerCompat.from(context)
+        postedNotificationIds()
+            .mapNotNull { it.toIntOrNull() }
+            .forEach(manager::cancel)
+        notificationPreferences()
+            .edit()
+            .remove(KEY_POSTED_CHAT_NOTIFICATION_IDS)
+            .apply()
     }
 
     private fun hasNotificationPermission(): Boolean =
@@ -65,7 +87,29 @@ class NotificationFactory(private val context: Context) {
         else -> context.getString(R.string.common_chat)
     }
 
+    private fun chatNotificationId(conversationId: String): Int =
+        CHAT_NOTIFICATION_BASE_ID + (conversationId.hashCode() and 0x0FFFFFFF)
+
+    private fun rememberPostedNotificationId(notificationId: Int) {
+        val updatedIds = postedNotificationIds() + notificationId.toString()
+        notificationPreferences()
+            .edit()
+            .putStringSet(KEY_POSTED_CHAT_NOTIFICATION_IDS, updatedIds)
+            .apply()
+    }
+
+    private fun postedNotificationIds(): Set<String> =
+        notificationPreferences()
+            .getStringSet(KEY_POSTED_CHAT_NOTIFICATION_IDS, emptySet())
+            .orEmpty()
+            .toSet()
+
+    private fun notificationPreferences() =
+        context.getSharedPreferences(CHAT_NOTIFICATION_PREFS, Context.MODE_PRIVATE)
+
     private companion object {
         const val CHAT_NOTIFICATION_BASE_ID = 20_000
+        const val CHAT_NOTIFICATION_PREFS = "quata_chat_notifications"
+        const val KEY_POSTED_CHAT_NOTIFICATION_IDS = "posted_chat_notification_ids"
     }
 }

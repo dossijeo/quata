@@ -1,17 +1,23 @@
 package com.quata.feature.feed.presentation
 
+import android.graphics.Color as AndroidColor
+import android.graphics.Point
+import android.graphics.drawable.ColorDrawable
 import android.content.Intent
 import android.os.Build
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,6 +42,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,6 +50,7 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -100,8 +108,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -109,10 +120,13 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.C
@@ -136,6 +150,7 @@ import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.CommunityEmojiPanelDismissState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
@@ -148,6 +163,7 @@ import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -167,6 +183,7 @@ fun FeedScreen(
     isNetworkAvailable: Boolean = true,
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
+    onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -177,6 +194,16 @@ fun FeedScreen(
     var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
     val canParticipate = currentUserId != null
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+
+    LaunchedEffect(commentsPost, isLandscapeLayout) {
+        onLandscapeCommentsOverlayActiveChange(commentsPost != null && isLandscapeLayout)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { onLandscapeCommentsOverlayActiveChange(false) }
+    }
 
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) {
@@ -559,6 +586,8 @@ private fun ReelPost(
     val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
     var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
     var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
 
     Box(
         modifier = Modifier
@@ -588,6 +617,7 @@ private fun ReelPost(
             },
             isVideo = isVideo,
             isMuted = isVideoMuted,
+            showMuteButton = !isLandscapeLayout,
             onToggleMute = { isVideoMuted = !isVideoMuted },
             onOpenLive = onOpenLive
         )
@@ -717,6 +747,8 @@ private fun ReelVideo(
     onMuteChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
     val playerBackground = Color.Black.toArgb()
     val latestIsActive by rememberUpdatedState(isActive)
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
@@ -980,6 +1012,7 @@ private fun ReelVideo(
                 positionMs = targetMs
             },
             onToggleMute = { onMuteChange(!isMuted) },
+            showMuteButton = !isLandscapeLayout,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
@@ -1004,6 +1037,7 @@ private fun VideoControls(
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onToggleMute: () -> Unit,
+    showMuteButton: Boolean,
     modifier: Modifier = Modifier
 ) {
     val duration = durationMs.coerceAtLeast(1L)
@@ -1048,23 +1082,25 @@ private fun VideoControls(
             fontSize = 12.sp,
             modifier = Modifier.width(82.dp)
         )
-        Box(contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onToggleMute),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIcon(
-                    imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = if (isMuted) {
-                        stringResource(R.string.feed_unmute)
-                    } else {
-                        stringResource(R.string.feed_mute)
-                    },
-                    tint = Color.White
-                )
+        if (showMuteButton) {
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onToggleMute),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CompactIcon(
+                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = if (isMuted) {
+                            stringResource(R.string.feed_unmute)
+                        } else {
+                            stringResource(R.string.feed_mute)
+                        },
+                        tint = Color.White
+                    )
+                }
             }
         }
     }
@@ -1133,6 +1169,7 @@ private fun ReelTopChips(
     mediaBadgeText: String,
     isVideo: Boolean,
     isMuted: Boolean,
+    showMuteButton: Boolean,
     onToggleMute: () -> Unit,
     onOpenLive: () -> Unit
 ) {
@@ -1164,7 +1201,7 @@ private fun ReelTopChips(
             highlighted = true
         )
         ReelChip(text = stringResource(R.string.common_live), highlighted = true, onClick = onOpenLive)
-        if (isVideo) {
+        if (isVideo && showMuteButton) {
             ReelRoundChip(
                 isMuted = isMuted,
                 onClick = onToggleMute
@@ -1282,6 +1319,8 @@ private fun CommentsSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(""))
     }
@@ -1301,6 +1340,15 @@ private fun CommentsSheet(
     val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
     val comments = post.comments
     val translatorModeController = LocalQuataTranslatorModeController.current
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
+    fun setEmojiPickerVisible(visible: Boolean) {
+        isEmojiPickerVisible = visible
+        if (visible) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+        }
+    }
 
     LaunchedEffect(post.id) {
         sheetState.expand()
@@ -1313,6 +1361,73 @@ private fun CommentsSheet(
             commentsListState.animateScrollToItem(comments.size)
             shouldScrollToCommentsEnd = false
         }
+    }
+
+    if (isLandscapeLayout) {
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            ConfigureCommentsSheetSystemBars(template, fullscreen = true)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 72.dp, vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val panelInteractionSource = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .pointerInput(onDismiss) {
+                            detectTapGestures { onDismiss() }
+                        }
+                )
+                Surface(
+                    color = template.colors.surfaceRaised,
+                    contentColor = template.colors.textPrimary,
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.76f)
+                        .fillMaxHeight(0.90f)
+                        .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
+                        .clickable(
+                            interactionSource = panelInteractionSource,
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
+                    LandscapeCommentsPanel(
+                        post = post,
+                        comments = comments,
+                        commentsListState = commentsListState,
+                        draft = draft,
+                        onDraftChange = { draft = it },
+                        replyTarget = replyTarget,
+                        onReplyTargetChange = { replyTarget = it },
+                        isEmojiPickerVisible = isEmojiPickerVisible,
+                        onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
+                        emojiDismissState = emojiDismissState,
+                        emojiGridMaxHeight = emojiGridMaxHeight,
+                        canParticipate = canParticipate,
+                        onAuthRequired = onAuthRequired,
+                        onAddComment = onAddComment,
+                        onCommentAdded = { shouldScrollToCommentsEnd = true },
+                        onTranslatorClick = { view ->
+                            translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                        },
+                        onDismiss = onDismiss,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+        return
     }
 
     ModalBottomSheet(
@@ -1356,7 +1471,7 @@ private fun CommentsSheet(
                     color = template.colors.textSecondary
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("💬", fontSize = 16.sp)
+                Text("\uD83D\uDCAC", fontSize = 16.sp)
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = comments.size.toString(),
@@ -1420,7 +1535,7 @@ private fun CommentsSheet(
                     placeholder = { Text(stringResource(R.string.comments_placeholder)) },
                     leadingIcon = {
                         CompactIconButton(
-                            onClick = { isEmojiPickerVisible = !isEmojiPickerVisible },
+                            onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
                             modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
                         ) {
                             CompactIcon(
@@ -1463,7 +1578,12 @@ private fun CommentsSheet(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .requiredHeightIn(min = 68.dp),
+                        .requiredHeightIn(min = 68.dp)
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused && isEmojiPickerVisible) {
+                                isEmojiPickerVisible = false
+                            }
+                        },
                     singleLine = true
                 )
             }
@@ -1472,16 +1592,189 @@ private fun CommentsSheet(
 }
 }
 
+@Composable
+private fun LandscapeCommentsPanel(
+    post: Post,
+    comments: List<PostComment>,
+    commentsListState: LazyListState,
+    draft: TextFieldValue,
+    onDraftChange: (TextFieldValue) -> Unit,
+    replyTarget: PostComment?,
+    onReplyTargetChange: (PostComment?) -> Unit,
+    isEmojiPickerVisible: Boolean,
+    onEmojiPickerVisibleChange: (Boolean) -> Unit,
+    emojiDismissState: CommunityEmojiPanelDismissState,
+    emojiGridMaxHeight: Dp,
+    canParticipate: Boolean,
+    onAuthRequired: () -> Unit,
+    onAddComment: (PostComment) -> Unit,
+    onCommentAdded: () -> Unit,
+    onTranslatorClick: (View) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val template = quataTheme()
+    Box(
+        modifier = modifier
+            .dismissCommunityEmojiPanelOnOutsideTap(
+                isVisible = isEmojiPickerVisible,
+                state = emojiDismissState
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 18.dp)
+        ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.comments_title),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 15.sp,
+                color = template.colors.textSecondary
+            )
+            Spacer(Modifier.width(10.dp))
+            Text("\uD83D\uDCAC", fontSize = 16.sp)
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = comments.size.toString(),
+                color = template.colors.textSecondary,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.weight(1f))
+            FangTranslatorIconButton(onClick = onTranslatorClick)
+            Spacer(Modifier.width(8.dp))
+            CompactIconButton(onClick = onDismiss) {
+                CompactIcon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.common_close),
+                    tint = template.colors.textSecondary
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(
+            state = commentsListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .heightIn(min = 140.dp),
+            contentPadding = PaddingValues(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(comments) { comment ->
+                CommentRow(
+                    comment = comment,
+                    onReply = { onReplyTargetChange(comment) }
+                )
+            }
+            item(key = "comments-end") {
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+        replyTarget?.let { target ->
+            Spacer(Modifier.height(10.dp))
+            ReplyTargetBanner(
+                comment = target,
+                onClear = { onReplyTargetChange(null) }
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.requiredHeightIn(min = 64.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = onDraftChange,
+                placeholder = { Text(stringResource(R.string.comments_placeholder)) },
+                leadingIcon = {
+                    CompactIconButton(
+                        onClick = { onEmojiPickerVisibleChange(!isEmojiPickerVisible) },
+                        modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                    ) {
+                        CompactIcon(
+                            imageVector = Icons.Filled.InsertEmoticon,
+                            contentDescription = stringResource(R.string.comments_show_emojis),
+                            tint = Color(0xFFFFC55C)
+                        )
+                    }
+                },
+                trailingIcon = {
+                    CompactIconButton(
+                        enabled = draft.text.isNotBlank(),
+                        onClick = {
+                            if (canParticipate) {
+                                onAddComment(
+                                    PostComment(
+                                        id = "local_${post.id}_${System.currentTimeMillis()}",
+                                        authorName = context.getString(R.string.comments_you),
+                                        message = draft.text.trim(),
+                                        timestamp = nowCommentTimestamp(),
+                                        replyToAuthorName = replyTarget?.authorName,
+                                        replyToMessage = replyTarget?.message,
+                                        replyToCommentId = replyTarget?.id
+                                    )
+                                )
+                                onCommentAdded()
+                                onDraftChange(TextFieldValue(""))
+                                onReplyTargetChange(null)
+                                onEmojiPickerVisibleChange(false)
+                            } else {
+                                onAuthRequired()
+                            }
+                        }
+                    ) {
+                        CompactIcon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = stringResource(R.string.comments_send)
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .requiredHeightIn(min = 58.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && isEmojiPickerVisible) {
+                            onEmojiPickerVisibleChange(false)
+                        }
+                    },
+                singleLine = true
+            )
+        }
+        }
+        if (isEmojiPickerVisible) {
+            CommunityEmojiPanel(
+                onEmojiClick = { emoji ->
+                    onDraftChange(draft.insertAtSelection(emoji))
+                },
+                gridMaxHeight = emojiGridMaxHeight,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 84.dp, start = 24.dp)
+                    .fillMaxWidth(0.62f)
+                    .trackCommunityEmojiPanelBounds(emojiDismissState)
+            )
+        }
+    }
+}
+
 @Suppress("DEPRECATION")
 @Composable
-private fun ConfigureCommentsSheetSystemBars(template: QuataThemeTemplate) {
+private fun ConfigureCommentsSheetSystemBars(
+    template: QuataThemeTemplate,
+    fullscreen: Boolean = false
+) {
     val view = LocalView.current
     DisposableEffect(view, template.id) {
         val window = view.findDialogWindow()
         if (window == null) {
             return@DisposableEffect onDispose {}
         }
-        val originalNavigationBarColor = window.navigationBarColor
         val originalContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced
         } else {
@@ -1489,15 +1782,78 @@ private fun ConfigureCommentsSheetSystemBars(template: QuataThemeTemplate) {
         }
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         val originalLightNavigationBars = controller.isAppearanceLightNavigationBars
+        val originalAttributes = window.attributes
+        val originalGravity = originalAttributes.gravity
+        val originalX = originalAttributes.x
+        val originalY = originalAttributes.y
+        val originalWidth = originalAttributes.width
+        val originalHeight = originalAttributes.height
+        val originalFlags = originalAttributes.flags
+        val originalSystemUiVisibility = window.decorView.systemUiVisibility
+        val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            originalAttributes.layoutInDisplayCutoutMode
+        } else {
+            null
+        }
+        val fullscreenLayout = {
+            val displaySize = Point()
+            @Suppress("DEPRECATION")
+            window.windowManager.defaultDisplay.getRealSize(displaySize)
+            val targetWidth = displaySize.x.coerceAtLeast(1)
+            val targetHeight = displaySize.y.coerceAtLeast(1)
+            val attributes = window.attributes
+            attributes.width = targetWidth
+            attributes.height = targetHeight
+            attributes.gravity = Gravity.TOP or Gravity.START
+            attributes.x = 0
+            attributes.y = 0
+            attributes.flags = attributes.flags or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                attributes.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+            window.attributes = attributes
+            window.setLayout(targetWidth, targetHeight)
+            window.decorView.setPadding(0, 0, 0, 0)
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        }
 
-        window.navigationBarColor = template.colors.background.toArgb()
+        if (fullscreen) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
         controller.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
+        if (fullscreen) {
+            fullscreenLayout()
+            window.decorView.post { fullscreenLayout() }
+        }
 
         onDispose {
-            window.navigationBarColor = originalNavigationBarColor
+            if (fullscreen) {
+                val attributes = window.attributes
+                attributes.gravity = originalGravity
+                attributes.x = originalX
+                attributes.y = originalY
+                attributes.width = originalWidth
+                attributes.height = originalHeight
+                attributes.flags = originalFlags
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && originalCutoutMode != null) {
+                    attributes.layoutInDisplayCutoutMode = originalCutoutMode
+                }
+                window.attributes = attributes
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = originalSystemUiVisibility
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && originalContrastEnforced != null) {
                 window.isNavigationBarContrastEnforced = originalContrastEnforced
             }
@@ -1700,9 +2056,7 @@ private fun nowCommentTimestamp(): String =
 private fun formatCommentTimestamp(value: String): String {
     val normalized = value.trim()
     if (normalized.isBlank()) return ""
-    val parsed = parseLocalDateTime(normalized)
-        ?: runCatching { LocalDateTime.ofInstant(Instant.parse(normalized), ZoneId.systemDefault()) }.getOrNull()
-        ?: return normalized
+    val parsed = parseAbsoluteDateTime(normalized) ?: return normalized
     return parsed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
 }
 
@@ -1741,13 +2095,7 @@ private fun parsePostCreatedAt(value: String, now: LocalDateTime): LocalDateTime
 
     parseRelativeCreatedAt(normalized, now)?.let { return it }
 
-    parseLocalDateTime(normalized)?.let { return it }
-
-    return try {
-        LocalDateTime.ofInstant(Instant.parse(normalized), ZoneId.systemDefault())
-    } catch (_: DateTimeParseException) {
-        now
-    }
+    return parseAbsoluteDateTime(normalized) ?: now
 }
 
 private fun parseRelativeCreatedAt(value: String, now: LocalDateTime): LocalDateTime? {
@@ -1779,6 +2127,18 @@ private fun parseLocalDateTime(value: String): LocalDateTime? {
         }
     }
     return null
+}
+
+private fun parseAbsoluteDateTime(value: String): LocalDateTime? {
+    parseLocalDateTime(value)?.let { return it }
+    runCatching {
+        OffsetDateTime.parse(value)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .toLocalDateTime()
+    }.getOrNull()?.let { return it }
+    return runCatching {
+        LocalDateTime.ofInstant(Instant.parse(value), ZoneId.systemDefault())
+    }.getOrNull()
 }
 
 @Composable

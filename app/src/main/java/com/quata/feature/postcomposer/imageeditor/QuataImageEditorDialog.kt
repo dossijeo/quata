@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +91,8 @@ fun QuataImageEditorDialog(
 ) {
     val context = LocalContext.current
     val template = quataTheme()
+    val configuration = LocalConfiguration.current
+    val isLandscapeLayout = configuration.screenWidthDp > configuration.screenHeightDp
     val scope = rememberCoroutineScope()
     var bitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUri) { mutableStateOf(true) }
@@ -114,7 +118,7 @@ fun QuataImageEditorDialog(
             Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(bottom = ImageEditorBottomAir)
+                .padding(bottom = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir)
         ) {
             ImageEditorTopBar(
                 isCropPanelOpen = isCropPanelOpen,
@@ -142,56 +146,111 @@ fun QuataImageEditorDialog(
                 }
             )
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                when {
-                    isLoading -> CircularProgressIndicator(color = template.colors.accent)
-                    bitmap == null -> Text(
-                        text = stringResource(R.string.composer_image_preview_title),
-                        color = template.colors.textSecondary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    else -> bitmap?.let { source ->
-                        ImagePreviewPane(
-                            bitmap = source,
-                            zoom = zoom,
-                            pan = pan,
-                            isCropVisible = isCropPanelOpen,
-                            onPanChange = { pan = it },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-
-                if (isSaving) {
-                    Box(
+            if (isLandscapeLayout && isCropPanelOpen) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ImageEditorPreviewArea(
+                        bitmap = bitmap,
+                        isLoading = isLoading,
+                        isSaving = isSaving,
+                        zoom = zoom,
+                        pan = pan,
+                        isCropPanelOpen = isCropPanelOpen,
+                        onPanChange = { pan = it },
                         modifier = Modifier
-                            .matchParentSize()
-                            .background(template.colors.mediaScrim),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = template.colors.accent)
-                    }
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    ImageCropControls(
+                        zoom = zoom,
+                        enabled = !isSaving && bitmap != null,
+                        onZoomChange = { nextZoom ->
+                            zoom = nextZoom
+                            pan = pan.clampedPan()
+                        },
+                        modifier = Modifier.width(284.dp)
+                    )
+                }
+            } else {
+                ImageEditorPreviewArea(
+                    bitmap = bitmap,
+                    isLoading = isLoading,
+                    isSaving = isSaving,
+                    zoom = zoom,
+                    pan = pan,
+                    isCropPanelOpen = isCropPanelOpen,
+                    onPanChange = { pan = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+
+                if (isCropPanelOpen) {
+                    ImageCropControls(
+                        zoom = zoom,
+                        enabled = !isSaving && bitmap != null,
+                        onZoomChange = { nextZoom ->
+                            zoom = nextZoom
+                            pan = pan.clampedPan()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    )
                 }
             }
+        }
+    }
+}
 
-            if (isCropPanelOpen) {
-                ImageCropControls(
-                    zoom = zoom,
-                    enabled = !isSaving && bitmap != null,
-                    onZoomChange = { nextZoom ->
-                        zoom = nextZoom
-                        pan = pan.clampedPan()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 10.dp)
-                )
+@Composable
+private fun ImageEditorPreviewArea(
+    bitmap: Bitmap?,
+    isLoading: Boolean,
+    isSaving: Boolean,
+    zoom: Float,
+    pan: Offset,
+    isCropPanelOpen: Boolean,
+    onPanChange: (Offset) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            isLoading -> CircularProgressIndicator(color = template.colors.accent)
+            bitmap == null -> Text(
+                text = stringResource(R.string.composer_image_preview_title),
+                color = template.colors.textSecondary,
+                fontWeight = FontWeight.Bold
+            )
+            else -> ImagePreviewPane(
+                bitmap = bitmap,
+                zoom = zoom,
+                pan = pan,
+                isCropVisible = isCropPanelOpen,
+                onPanChange = onPanChange,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (isSaving) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(template.colors.mediaScrim),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = template.colors.accent)
             }
         }
     }

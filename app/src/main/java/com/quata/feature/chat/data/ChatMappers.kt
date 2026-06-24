@@ -95,8 +95,8 @@ fun BmMessage.toDomain(
         senderId = senderId.toString(),
         senderName = usersByWpId[senderId]?.name ?: "Usuario",
         text = message.stripHtmlTagsAndDecode(),
-        sentAt = created_at.toDisplayTime(),
-        sentAtMillis = created_at.toEpochMillisFromBetterMessages(),
+        sentAt = betterMessagesDisplayTime(),
+        sentAtMillis = betterMessagesTimestampMillisOrNull(),
         isMine = currentWpUserId != null && senderId == currentWpUserId,
         isRead = isRead,
         isEdited = updated_at != null && updated_at != created_at,
@@ -137,6 +137,21 @@ fun Long.toDisplayTime(): String =
     toEpochMillisFromBetterMessagesOrNull()
         ?.let { Instant.ofEpochMilli(it).toString() }
         .orEmpty()
+
+fun BmMessage.betterMessagesTimestampMillisOrNull(): Long? =
+    created_at.toEpochMillisFromBetterMessagesOrNull()
+        ?: updated_at?.toEpochMillisFromBetterMessagesOrNull()
+
+fun BmMessage.betterMessagesSortMillis(): Long =
+    betterMessagesTimestampMillisOrNull() ?: Long.MAX_VALUE
+
+fun BmMessage.betterMessagesDisplayTime(): String =
+    betterMessagesTimestampMillisOrNull()
+        ?.let { Instant.ofEpochMilli(it).toString() }
+        .orEmpty()
+
+fun List<BmMessage>.sortedByBetterMessagesTime(): List<BmMessage> =
+    sortedWith(compareBy<BmMessage> { it.betterMessagesSortMillis() }.thenBy { it.messageId })
 
 private fun String.toEpochMillisOrNull(): Long? =
     try {

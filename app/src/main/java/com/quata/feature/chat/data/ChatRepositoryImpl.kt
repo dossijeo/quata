@@ -154,6 +154,18 @@ class ChatRepositoryImpl(
         wakePolling()
     }
 
+    override fun clearChatNotifications() {
+        notificationFactory.clearChatMessages()
+        val knownConversations = if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.conversations
+        } else {
+            realConversations.value
+        }
+        knownConversations.forEach { conversation ->
+            notificationFactory.clearChatMessage(conversation.id)
+        }
+    }
+
     override fun currentUser(): User? {
         val session = sessionManager.currentSession() ?: return null
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -438,6 +450,7 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
+        notificationFactory.clearChatMessage(conversationId)
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.markConversationRead(conversationId)
             return@runCatching
@@ -736,9 +749,7 @@ class ChatRepositoryImpl(
                     messages = threadMessages,
                     currentWpUserId = currentWpUserId
                 )
-                val lastMessage = threadResponse?.messages?.maxByOrNull {
-                    it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
-                }
+                val lastMessage = threadResponse?.messages?.maxByOrNull { it.betterMessagesSortMillis() }
                 thread.toConversation(
                     title = peer?.displayName().orEmpty(),
                     peerProfileId = peerId,
@@ -748,8 +759,8 @@ class ChatRepositoryImpl(
                 ).copy(
                     lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode() ?: chat.last_message_preview.orEmpty().stripHtmlTagsAndDecode(),
                     unreadCount = unreadCount,
-                    updatedAt = lastMessage?.created_at?.toDisplayTime() ?: chat.last_message_at.orEmpty(),
-                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+                    updatedAt = lastMessage?.betterMessagesDisplayTime() ?: chat.last_message_at.orEmpty(),
+                    updatedAtMillis = lastMessage?.betterMessagesTimestampMillisOrNull()
                         ?: chat.last_message_at?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
                     isGroup = false
                 )
@@ -1396,9 +1407,7 @@ class ChatRepositoryImpl(
                 val participantNames = resolvedParticipants
                     .filterNot { it.profileId == profileId }
                     .map { it.name }
-                val lastMessage = threadMessages.maxByOrNull {
-                    it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
-                }
+                val lastMessage = threadMessages.maxByOrNull { it.betterMessagesSortMillis() }
                 val unreadCount = betterMessagesReadStateStore.unreadCount(
                     profileId = profileId,
                     threadId = fullThread.threadId,
@@ -1423,8 +1432,8 @@ class ChatRepositoryImpl(
                     avatarUrl = fullThread.image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
                     lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode().orEmpty(),
                     unreadCount = unreadCount,
-                    updatedAt = lastMessage?.created_at?.toDisplayTime() ?: fullThread.lastTime?.toDisplayTime().orEmpty(),
-                    updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+                    updatedAt = lastMessage?.betterMessagesDisplayTime() ?: fullThread.lastTime?.toDisplayTime().orEmpty(),
+                    updatedAtMillis = lastMessage?.betterMessagesTimestampMillisOrNull()
                         ?: fullThread.lastTime?.toEpochMillisFromBetterMessagesOrNull(),
                     participantIds = resolvedParticipants.map { it.profileId },
                     participantNames = resolvedParticipants.map { it.name },
@@ -1785,7 +1794,7 @@ class ChatRepositoryImpl(
             .map { (_, versions) ->
                 versions.maxBy { message -> message.updated_at ?: message.created_at }
             }
-            .sortedBy { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L }
+            .sortedByBetterMessagesTime()
         if (mergedMessages.isNotEmpty()) {
             betterMessagesByThreadId[threadId] = mergedMessages
         }
@@ -2153,7 +2162,7 @@ class ChatRepositoryImpl(
                 )
             }
         return messages
-            .sortedBy { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L }
+            .sortedByBetterMessagesTime()
             .map { message ->
                 message.toDomain(
                     usersByWpId = usersByWpId,
@@ -2231,9 +2240,7 @@ class ChatRepositoryImpl(
             ?.filter { it.wpUserId != currentWpUserId }
             ?.map { it.name }
             ?: peerUsers.mapNotNull { it.name?.takeIf(String::isNotBlank) }
-        val lastMessage = messages.maxByOrNull {
-            it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L
-        }
+        val lastMessage = messages.maxByOrNull { it.betterMessagesSortMillis() }
         val defaultParticipantsTitle = "${participantsCount ?: participants.size} participantes"
         val displayTitle = subject?.takeIf { it.isNotBlank() }
             ?: title?.takeIf { it.isNotBlank() && it != defaultParticipantsTitle }
@@ -2245,8 +2252,8 @@ class ChatRepositoryImpl(
             avatarUrl = image?.takeIf { it.isNotBlank() } ?: peerUsers.firstOrNull()?.avatar,
             lastMessagePreview = lastMessage?.message?.stripHtmlTagsAndDecode().orEmpty(),
             unreadCount = unread ?: 0,
-            updatedAt = lastMessage?.created_at?.toDisplayTime() ?: lastTime?.toDisplayTime().orEmpty(),
-            updatedAtMillis = lastMessage?.created_at?.toEpochMillisFromBetterMessagesOrNull()
+            updatedAt = lastMessage?.betterMessagesDisplayTime() ?: lastTime?.toDisplayTime().orEmpty(),
+            updatedAtMillis = lastMessage?.betterMessagesTimestampMillisOrNull()
                 ?: lastTime?.toEpochMillisFromBetterMessagesOrNull(),
             participantIds = resolvedParticipants
                 .takeIf { it.isNotEmpty() }

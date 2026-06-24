@@ -1,12 +1,12 @@
 # Q&uuml;ata Android
 
-Version: **0.9.4**
-Fecha de version: **2026-06-21**
+Version: **0.9.7**
+Fecha de version: **2026-06-24**
 Estado: **candidata para prueba privada de Play Store**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.4` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata y cierra detalles de UX detectados en dispositivo fisico. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.7` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte landscape en Android 9 y Android moderno, y cierra los detalles finales del editor de video para que el crop sea consistente en pausa, reproduccion, exportacion y preview del post. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
@@ -32,6 +32,10 @@ La version `0.9.4` es la candidata para la prueba privada de Play Store. Consoli
 - Textos de chat y comentarios descodifican entidades HTML como `&quot;` antes de renderizarse.
 - Publicacion de imagen con ubicacion editable manualmente: si EXIF/GPS falla o detecta mal el lugar, el usuario puede escribirlo; al intentar publicar sin lugar, la pantalla sube a esa seccion y resalta el boton de edicion.
 - Identidad visual actualizada: la seccion principal pasa a llamarse **Q&uuml;ata**, el logo compacto usa `Q&#776;` como marca aislada y el splash nativo usa el nuevo icono corporativo.
+- Landscape revisado para pantallas grandes y Android moderno: navegacion lateral contenida, cabeceras compactas, SOS flotante, ajuste de insets y comportamiento validado en Android 9 y API 37.
+- Ventana SOS adaptada a horizontal con distribucion en dos columnas para contactos y mensaje, evitando el scroll inutil en pantallas anchas.
+- Selector de emojis ajustado en chat y comentarios para cerrarle espacio al teclado en landscape y colocarse junto al borde util de la pantalla.
+- Editor de video reforzado: crops `Original`, `1:1`, `4:5`, `9:16` y `16:9` mantienen el mismo encuadre en preview, reproduccion y exportacion dentro de una salida final `9:16` con bandas difuminadas, incluyendo fuentes con rotacion de camara y exportacion compatible con Android 9 y Android moderno.
 
 ## Funcionalidad principal
 
@@ -180,7 +184,7 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - Los videos seleccionados para publicar pasan por un editor nativo en Compose antes de incorporarse a la publicacion.
 - El editor permite recortar duracion desde la timeline, mover la posicion de reproduccion, silenciar, aplicar recorte de encuadre con zoom y guardar el resultado.
 - La seleccion temporal de video tiene un limite maximo de 15 minutos: las asas de la timeline no pueden abrir un intervalo mayor y, si el usuario sigue arrastrando un extremo, el asa contraria se desplaza para mantener el lapso maximo sin bloquear el gesto.
-- La previsualizacion del editor y la exportacion mantienen siempre salida vertical `9:16`, con el video/crop centrado y fondo desenfocado basado en el area visible cuando la fuente no encaja en ese formato.
+- La previsualizacion del editor y la exportacion fuerzan el formato final `9:16`: el crop elegido (`Original`, `1:1`, `4:5`, `9:16` o `16:9`) se centra sobre un fondo desenfocado para que preview, reproduccion, guardado y preview de publicacion coincidan.
 - La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
 - Cuando no hay ediciones y la fuente ya es `9:16`, tiene resolucion compatible y bitrate dentro del objetivo, el guardado puede usar copia directa sin recodificar.
 - Cuando solo hay trim temporal, o mute sin efectos visuales, el editor usa rutas rapidas con `MediaExtractor`/`MediaMuxer` para evitar recodificar; si el video esta silenciado, se remuxea sin pista de audio.
@@ -319,9 +323,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 13
-versionName = 0.9.4
-APP_VERSION_DATE = 2026-06-21
+versionCode = 16
+versionName = 0.9.7
+APP_VERSION_DATE = 2026-06-24
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

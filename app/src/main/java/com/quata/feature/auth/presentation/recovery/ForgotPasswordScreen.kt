@@ -1,14 +1,10 @@
 package com.quata.feature.auth.presentation.recovery
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -19,7 +15,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,12 +24,11 @@ import com.quata.R
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactTextFieldHeight
 import com.quata.core.ui.components.PhoneInputSection
-import com.quata.core.ui.components.QuataLogo
 import com.quata.core.ui.components.QuataPrimaryButton
-import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.QuataSecondaryButton
 import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.presentation.AuthResponsiveLayout
 import com.quata.feature.profile.data.countryPrefixOptions
 import com.quata.feature.profile.data.secretQuestionLabel
 
@@ -66,16 +60,11 @@ fun ForgotPasswordScreen(
         }
     }
 
-    QuataScreen(padding) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            QuataLogo(subtitle = stringResource(R.string.auth_recover_password_title))
-            Spacer(Modifier.height(14.dp))
+    AuthResponsiveLayout(
+        padding = padding,
+        subtitle = stringResource(R.string.auth_recover_password_title),
+        portraitLogoSpacing = 14.dp
+    ) { isLandscape ->
             PhoneInputSection(
                 prefixes = prefixes,
                 selectedPrefix = state.countryCode,
@@ -85,7 +74,7 @@ fun ForgotPasswordScreen(
                 phoneLabel = stringResource(R.string.auth_your_phone),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             OutlinedTextField(
                 value = secretQuestion,
                 onValueChange = {},
@@ -103,14 +92,14 @@ fun ForgotPasswordScreen(
                     cursorColor = template.colors.accent
                 )
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataTextField(
                 value = state.secretAnswer,
                 onValueChange = { viewModel.onEvent(ForgotPasswordUiEvent.SecretAnswerChanged(it)) },
                 label = stringResource(R.string.auth_your_secret_answer),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataTextField(
                 value = state.newPassword,
                 onValueChange = { viewModel.onEvent(ForgotPasswordUiEvent.NewPasswordChanged(it)) },
@@ -119,18 +108,17 @@ fun ForgotPasswordScreen(
                 isPassword = true
             )
             if (state.error != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
                 Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
             QuataPrimaryButton(
                 text = if (state.isUpdating) stringResource(R.string.common_saving) else stringResource(R.string.auth_update_password),
                 enabled = !state.isUpdating
             ) {
                 viewModel.onEvent(ForgotPasswordUiEvent.Submit)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
             QuataSecondaryButton(stringResource(R.string.common_back), onClick = onBack)
-        }
     }
 }

@@ -45,7 +45,7 @@ internal class BetterMessagesReadStateStore(
                 val state = readState(profileId)
                 val current = state.threads[threadId.toString()] ?: StoredThreadReadState()
                 val messageIds = messages.map { it.messageId }.filter { it > 0 }
-                val latestMessageMillis = messages.maxOfOrNull { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L } ?: 0L
+                val latestMessageMillis = messages.maxOfOrNull { it.betterMessagesTimestampMillisOrNull() ?: 0L } ?: 0L
                 val updated = current.copy(
                     readMessageIds = (current.readMessageIds + messageIds).distinct(),
                     readUntilMillis = maxOf(current.readUntilMillis, latestMessageMillis, System.currentTimeMillis())
@@ -67,7 +67,7 @@ internal class BetterMessagesReadStateStore(
             val threadKey = threadId.toString()
             val current = state.threads[threadKey]
             val knownIds = messages.map { it.messageId }.filter { it > 0 }
-            val latestMessageMillis = messages.maxOfOrNull { it.created_at.toEpochMillisFromBetterMessagesOrNull() ?: 0L } ?: 0L
+            val latestMessageMillis = messages.maxOfOrNull { it.betterMessagesTimestampMillisOrNull() ?: 0L } ?: 0L
 
             val baseline = current ?: if (initializeNewThreadAsRead) {
                 StoredThreadReadState(
@@ -84,7 +84,7 @@ internal class BetterMessagesReadStateStore(
                 .filter { it > 0 }
             val readUntilMessageIds = messages
                 .filter { message ->
-                    message.created_at.toEpochMillisFromBetterMessagesOrNull()
+                    message.betterMessagesTimestampMillisOrNull()
                         ?.let { it <= baseline.readUntilMillis } == true
                 }
                 .map { it.messageId }
@@ -97,7 +97,7 @@ internal class BetterMessagesReadStateStore(
 
             val readIds = readMessageIds.toSet()
             val unread = messages.count { message ->
-                val messageMillis = message.created_at.toEpochMillisFromBetterMessagesOrNull() ?: Long.MAX_VALUE
+                val messageMillis = message.betterMessagesTimestampMillisOrNull() ?: Long.MAX_VALUE
                 message.messageId > 0 &&
                     message.senderId != currentWpUserId &&
                     message.messageId !in readIds &&
