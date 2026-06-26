@@ -82,6 +82,7 @@ import com.quata.core.model.PostComment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
@@ -94,7 +95,7 @@ import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.ProfileAvatarWithLoadingHalo
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
-import com.quata.core.ui.components.openAttachmentWithChooser
+import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -174,7 +175,11 @@ fun NeighborhoodsScreen(
     }
 
     QuataScreen(padding) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 18.dp, vertical = 16.dp)
+        ) {
             Text(
                 text = stringResource(R.string.neighborhoods_title),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -213,8 +218,9 @@ fun NeighborhoodsScreen(
             }
 
             LazyColumn(
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(bottom = 18.dp)
+                contentPadding = PaddingValues(bottom = 4.dp)
             ) {
                 items(visibleCommunities, key = { it.name }) { community ->
                     NeighborhoodCard(
@@ -578,7 +584,10 @@ fun CommunityProfileScreen(
                             if (preview.isMedia) {
                                 selectedAttachment = preview
                             } else {
-                                context.openAttachmentWithChooser(preview)
+                                context.openAttachmentWithDocumentReaderOrChooser(
+                                    attachment = preview,
+                                    isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
+                                )
                             }
                         }
                     )

@@ -367,23 +367,17 @@ class MediaUploadOptimizer(private val appContext: Context) {
 
     private fun MediaSource.videoHeight(): Int? =
         runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
+            withQuataMediaMetadataRetriever { retriever ->
                 retriever.setDataSource(appContext, uri)
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
-            } finally {
-                retriever.release()
             }
         }.getOrNull()
 
     private fun MediaSource.videoBitrate(): Long? =
         runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
+            withQuataMediaMetadataRetriever { retriever ->
                 retriever.setDataSource(appContext, uri)
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
-            } finally {
-                retriever.release()
             }
         }.getOrNull()
 

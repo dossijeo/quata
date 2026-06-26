@@ -66,6 +66,8 @@ import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.media.withQuataMediaMetadataRetriever
+import com.quata.documentreader.QuataDocumentReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -178,6 +180,25 @@ fun Context.openAttachmentWithChooser(attachment: AttachmentPreview) {
     }
 }
 
+fun Context.openAttachmentWithDocumentReaderOrChooser(
+    attachment: AttachmentPreview,
+    isDarkMode: Boolean
+) {
+    val uri = Uri.parse(attachment.uri)
+    val openedInternally = runCatching {
+        QuataDocumentReader.open(
+            context = this,
+            uri = uri,
+            fileName = attachment.name,
+            mimeType = attachment.mimeType,
+            isDarkMode = isDarkMode
+        )
+    }.getOrDefault(false)
+    if (!openedInternally) {
+        openAttachmentWithChooser(attachment)
+    }
+}
+
 @Composable
 private fun AttachmentViewerTopBar(title: String, onBack: () -> Unit) {
     val template = quataTheme()
@@ -276,13 +297,10 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
     LaunchedEffect(uri) {
         bitmap = withContext(Dispatchers.IO) {
             runCatching {
-                withAttachmentMediaMetadataRetriever { retriever ->
-                    val parsedUri = Uri.parse(uri)
-                    if (parsedUri.scheme == "content" || parsedUri.scheme == "file") {
-                        retriever.setDataSource(context, parsedUri)
-                    } else {
-                        retriever.setDataSource(uri, emptyMap())
-                    }
+                val parsedUri = Uri.parse(uri)
+                if (!parsedUri.isLocalAttachmentUri()) return@runCatching null
+                withQuataMediaMetadataRetriever { retriever ->
+                    retriever.setDataSource(context, parsedUri)
                     retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 }
             }.getOrNull()
@@ -291,11 +309,5 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
     return bitmap
 }
 
-private inline fun <T> withAttachmentMediaMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
-    val retriever = MediaMetadataRetriever()
-    return try {
-        block(retriever)
-    } finally {
-        retriever.release()
-    }
-}
+private fun Uri.isLocalAttachmentUri(): Boolean =
+    scheme == null || scheme == "content" || scheme == "file" || scheme == "android.resource"

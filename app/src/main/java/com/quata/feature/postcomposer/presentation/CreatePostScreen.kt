@@ -127,6 +127,7 @@ import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
@@ -1694,12 +1695,7 @@ private fun Context.readComposerVideoRotation(uri: Uri): Int? =
     }.getOrNull()
 
 private inline fun <T> withComposerMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
-    val retriever = MediaMetadataRetriever()
-    return try {
-        block(retriever)
-    } finally {
-        retriever.release()
-    }
+    return withQuataMediaMetadataRetriever(block)
 }
 
 private class ComposerVideoRemuxTrack(

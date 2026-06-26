@@ -117,7 +117,11 @@ fun ConversationsScreen(
 
     QuataScreen(padding) {
         Box(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(contentPadding)) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                     CompactIconButton(onClick = onOpenFavorites) {
@@ -133,7 +137,10 @@ fun ConversationsScreen(
                     shape = RoundedCornerShape(16.dp)
                 )
                 Spacer(Modifier.padding(8.dp))
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     if (state.isLoading && state.conversations.isEmpty()) {
                         items(6) { index ->
                             ConversationCardSkeleton(pulseDelayMillis = index * 85)

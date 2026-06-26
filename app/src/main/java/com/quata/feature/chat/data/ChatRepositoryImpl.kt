@@ -311,6 +311,7 @@ class ChatRepositoryImpl(
                 val response = betterMessagesRepository.sendText(session.userId, threadId, text)
                 if (!response.result) error("Better Messages no pudo enviar el mensaje")
                 cacheBetterMessagesUpdate(threadId, response.update)
+                refreshBetterMessagesConversationAfterSuccessfulSend(session.userId, threadId)
             } else {
                 val media = appContext.copyUriToCache(attachmentUri, attachmentName, attachmentMimeType)
                 try {
@@ -319,6 +320,7 @@ class ChatRepositoryImpl(
                     val response = betterMessagesRepository.sendFiles(session.userId, threadId, listOf(fileId), text)
                     if (!response.result) error("Better Messages no pudo enviar el adjunto")
                     cacheBetterMessagesUpdate(threadId, response.update)
+                    refreshBetterMessagesConversationAfterSuccessfulSend(session.userId, threadId)
                 } finally {
                     media.delete()
                 }
@@ -332,8 +334,16 @@ class ChatRepositoryImpl(
             val upload = remote.uploadCommunityChatImage(session.userId, media.bytes, media.extension, media.mimeType)
             val imageUrl = upload.publicUrl ?: error("Supabase no devolvio URL de imagen")
             remote.sendCommunityImageMessage(wallId, session.userId, imageUrl, media.fileName, media.mimeType, text)
+            upsertConversationAfterLocalSend(
+                conversationId = conversationId,
+                preview = text.ifBlank { media.fileName }
+            )
         } else {
             remote.sendCommunityMessage(wallId, session.userId, text.ifBlank { attachmentUri.orEmpty() })
+            upsertConversationAfterLocalSend(
+                conversationId = conversationId,
+                preview = text.ifBlank { attachmentName ?: attachmentUri.orEmpty() }
+            )
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -351,6 +361,7 @@ class ChatRepositoryImpl(
             val response = betterMessagesRepository.sendReply(session.userId, threadId, text, replyMessageId)
             if (!response.result) error("Better Messages no pudo enviar la respuesta")
             cacheBetterMessagesUpdate(threadId, response.update)
+            refreshBetterMessagesConversationAfterSuccessfulSend(session.userId, threadId)
         } else {
             sendMessage(conversationId, text).getOrThrow()
         }
@@ -937,6 +948,31 @@ class ChatRepositoryImpl(
             notificationFactory.showChatMessage(conversation)
         }
         persistConversation(conversation)
+    }
+
+    private suspend fun refreshBetterMessagesConversationAfterSuccessfulSend(profileId: String, threadId: Int) {
+        val threadResponse = runCatching { loadBetterMessagesThread(profileId, threadId) }
+            .getOrElse { cachedBetterMessagesThreadResponse(threadId) }
+        val conversation = loadBetterMessagesConversation(
+            profileId = profileId,
+            threadId = threadId,
+            preloadedThreadResponse = threadResponse,
+            initializeNewThreadAsRead = true,
+            allowProfileRemoteRefresh = false
+        ) ?: return
+        upsertRealConversation(conversation)
+    }
+
+    private fun upsertConversationAfterLocalSend(conversationId: String, preview: String) {
+        val cleanPreview = preview.stripHtmlTagsAndDecode()
+        val now = System.currentTimeMillis()
+        val current = realConversations.value.firstOrNull { it.id == conversationId } ?: return
+        upsertRealConversation(
+            current.copy(
+                lastMessagePreview = cleanPreview,
+                updatedAtMillis = now
+            )
+        )
     }
 
     private fun setRealConversations(conversations: List<Conversation>) {

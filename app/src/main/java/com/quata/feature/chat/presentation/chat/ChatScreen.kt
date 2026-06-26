@@ -142,7 +142,7 @@ import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
-import com.quata.core.ui.components.openAttachmentWithChooser
+import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
@@ -157,6 +157,7 @@ import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import com.quata.core.designsystem.theme.QuataResolvedTheme
 
 @Composable
 fun ChatScreen(
@@ -434,7 +435,10 @@ fun ChatScreen(
                             )
                         }
                     } else {
-                        items(state.messages) { message ->
+                        items(
+                            items = state.messages,
+                            key = { message -> message.id }
+                        ) { message ->
                             MessageBubble(
                                 message = message,
                                 sender = usersById[message.senderId],
@@ -447,7 +451,10 @@ fun ChatScreen(
                                     if (attachment.isMedia) {
                                         selectedAttachment = attachment
                                     } else {
-                                        context.openAttachmentWithChooser(attachment)
+                                        context.openAttachmentWithDocumentReaderOrChooser(
+                                            attachment = attachment,
+                                            isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
+                                        )
                                     }
                                 },
                                 onClick = {

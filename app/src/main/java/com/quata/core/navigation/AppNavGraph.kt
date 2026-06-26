@@ -1,12 +1,12 @@
 package com.quata.core.navigation
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.graphics.Point
 import android.graphics.drawable.ColorDrawable
-import android.graphics.Rect
 import android.location.Location
 import android.location.LocationManager
 import android.media.RingtoneManager
@@ -71,6 +71,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -80,7 +81,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -89,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
@@ -221,6 +222,7 @@ fun AppNavGraph(
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
     var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
+    ConfigureAppSystemBars()
     LaunchedEffect(isDeviceNetworkAvailable) {
         container.chatRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
         if (previousDeviceNetworkAvailable == false && isDeviceNetworkAvailable) {
@@ -674,7 +676,6 @@ fun AppNavGraph(
         }
 
         if (showAppChrome && !isLandscapeLayout) {
-            val topChromePlacement = rememberTopChromePlacement()
             val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
             val statusBarTop = safeDrawingPadding.calculateTopPadding()
             QuataAppHeaderActions(
@@ -692,8 +693,7 @@ fun AppNavGraph(
                     .align(Alignment.TopStart)
                     .padding(
                         top = statusBarTop + 14.dp,
-                        start = topChromePlacement.logoStartPadding +
-                            safeDrawingPadding.calculateStartPadding(layoutDirection)
+                        start = 16.dp + safeDrawingPadding.calculateStartPadding(layoutDirection)
                     )
             )
             GlobalSosButton(
@@ -704,12 +704,10 @@ fun AppNavGraph(
                     .align(Alignment.TopEnd)
                     .padding(
                         top = statusBarTop + 14.dp,
-                        end = topChromePlacement.sosEndPadding +
-                            safeDrawingPadding.calculateEndPadding(layoutDirection)
+                        end = 16.dp + safeDrawingPadding.calculateEndPadding(layoutDirection)
                     )
             )
         } else if (showAppChrome) {
-            val topChromePlacement = rememberTopChromePlacement()
             val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
             val statusBarTop = safeDrawingPadding.calculateTopPadding()
             GlobalSosButton(
@@ -720,8 +718,7 @@ fun AppNavGraph(
                     .align(Alignment.TopEnd)
                     .padding(
                         top = statusBarTop + 14.dp,
-                        end = topChromePlacement.sosEndPadding +
-                            safeDrawingPadding.calculateEndPadding(layoutDirection)
+                        end = 16.dp + safeDrawingPadding.calculateEndPadding(layoutDirection)
                     )
             )
         }
@@ -912,6 +909,35 @@ fun AppNavGraph(
     }
     }
 }
+
+@Composable
+private fun ConfigureAppSystemBars() {
+    val view = LocalView.current
+    val context = LocalContext.current
+    val template = quataTheme()
+    SideEffect {
+        val window = context.findActivity()?.window ?: return@SideEffect
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        val useDarkSystemBarIcons = template.resolvedTheme == QuataResolvedTheme.Light
+        window.statusBarColor = AndroidColor.TRANSPARENT
+        window.navigationBarColor = template.colors.background.toArgb()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+        controller.isAppearanceLightStatusBars = useDarkSystemBarIcons
+        controller.isAppearanceLightNavigationBars = useDarkSystemBarIcons
+        @Suppress("DEPRECATION")
+        view.systemUiVisibility = view.systemUiVisibility or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is android.content.ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 
 @Suppress("DEPRECATION")
 @Composable
@@ -1276,56 +1302,6 @@ private fun QuataAppHeaderActions(
         }
     }
 }
-
-@Composable
-private fun rememberTopChromePlacement(): TopChromePlacement {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    val logoWidthPx = with(density) { 92.dp.roundToPx() }
-    val sosWidthPx = with(density) { 70.dp.roundToPx() }
-    val logoHeightPx = with(density) { 40.dp.roundToPx() }
-    val sosHeightPx = with(density) { 34.dp.roundToPx() }
-    val logoTopPx = with(density) { 4.dp.roundToPx() }
-    val sosTopPx = with(density) { 14.dp.roundToPx() }
-    val marginPx = with(density) { 16.dp.roundToPx() }
-    val screenWidthPx = view.rootView.width.takeIf { it > 0 } ?: view.resources.displayMetrics.widthPixels
-    return remember(view, screenWidthPx, logoWidthPx, sosWidthPx, logoHeightPx, sosHeightPx, logoTopPx, sosTopPx, marginPx, density.density) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return@remember TopChromePlacement()
-        val windowInsets = view.rootWindowInsets ?: return@remember TopChromePlacement()
-        val displayCutout = windowInsets.displayCutout ?: return@remember TopChromePlacement()
-        val cutouts = displayCutout.boundingRects
-        if (cutouts.isEmpty()) return@remember TopChromePlacement()
-        var logoStartPx = marginPx
-        var sosEndPx = marginPx
-
-        cutouts.forEach { cutout ->
-            val logoRect = Rect(logoStartPx, logoTopPx, logoStartPx + logoWidthPx, logoTopPx + logoHeightPx)
-            if (logoRect.intersects(cutout)) {
-                logoStartPx = (cutout.right + marginPx).coerceAtMost(screenWidthPx - logoWidthPx - marginPx)
-            }
-
-            val sosLeft = screenWidthPx - sosEndPx - sosWidthPx
-            val sosRect = Rect(sosLeft, sosTopPx, sosLeft + sosWidthPx, sosTopPx + sosHeightPx)
-            if (sosRect.intersects(cutout)) {
-                val shiftedEnd = screenWidthPx - cutout.left + marginPx
-                sosEndPx = shiftedEnd.coerceAtMost(screenWidthPx - sosWidthPx - marginPx)
-            }
-        }
-
-        TopChromePlacement(
-            logoStartPadding = with(density) { logoStartPx.toDp() },
-            sosEndPadding = with(density) { sosEndPx.toDp() }
-        )
-    }
-}
-
-private data class TopChromePlacement(
-    val logoStartPadding: Dp = 16.dp,
-    val sosEndPadding: Dp = 16.dp
-)
-
-private fun Rect.intersects(other: Rect): Boolean =
-    left < other.right && right > other.left && top < other.bottom && bottom > other.top
 
 @Composable
 private fun GlobalSosButton(

@@ -38,8 +38,8 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.9.8"
+        versionCode = 18
+        versionName = "0.9.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -50,7 +50,7 @@ android {
         // Backend dual. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-24\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-26\"")
     }
 
     buildFeatures {
@@ -101,6 +101,8 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
+
+    implementation(project(":document-reader"))
 
     implementation(composeBom)
     androidTestImplementation(composeBom)

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name=".activity.PDF_Reader_Activity"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.PrintPdfActivity"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.ViewFiles_Activity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.CSVViewer_Activity"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.ViewRtf_Activity"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.QuataTextDocumentActivity"
+            android:exported="false"
+            android:theme="@style/NewAppTheme" />
+        <activity
+            android:name=".activity.All_Document_Reader_Activity"
+            android:configChanges="keyboardHidden|orientation"
+            android:exported="false"
+            android:label="@string/quata_document_reader_title"
+            android:theme="@style/NewAppTheme" />
+    </application>
+
+</manifest>

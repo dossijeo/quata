@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/activityRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@color/bg">
+
+            <ImageView
+                android:id="@+id/img_back"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:src="@drawable/back_arrow"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="8dp"
+                app:tint="@color/navigation_text_color_selected" />
+
+            <TextView
+                android:id="@+id/header_title_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="8dp"
+                android:textColor="@color/title_info_color"
+                android:layout_toLeftOf="@+id/img_share"
+                android:layout_toRightOf="@+id/img_back"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/img_share"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_alignParentRight="true"
+                android:layout_marginRight="8dp"
+                android:padding="10dp"
+                android:src="@drawable/ic_download_24"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="8dp"
+                app:tint="@color/navigation_text_color_selected" />
+        </RelativeLayout>
+
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerHorizontal="true"
+                android:layout_centerVertical="true"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/appFrame"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:id="@+id/pptSlideControls"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/document_reader_slide_controls_bg"
+                android:elevation="8dp"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/btnPptPrevious"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/document_reader_slide_button_bg"
+                    android:contentDescription="@string/quata_document_reader_previous_slide"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_chevron_left_white_24dp" />
+
+                <TextView
+                    android:id="@+id/pptSlideCounter"
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:textColor="@color/title_info_color"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnPptNext"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/document_reader_slide_button_bg"
+                    android:contentDescription="@string/quata_document_reader_next_slide"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_chevron_right_white_24dp" />
+            </LinearLayout>
+        </RelativeLayout>
+
+    </LinearLayout>
+
+
+</RelativeLayout>

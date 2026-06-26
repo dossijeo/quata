@@ -1,16 +1,23 @@
 # Q&uuml;ata Android
 
-Version: **0.9.8**
-Fecha de version: **2026-06-24**
+Version: **0.9.9**
+Fecha de version: **2026-06-26**
 Estado: **candidata para prueba privada de Play Store**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.8` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra los detalles finales del editor de video para que el crop sea consistente en pausa, reproduccion, exportacion y preview del post. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.9` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, integra visor interno de documentos, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra detalles de estabilidad de multimedia, barras del sistema, cache de chats y layout. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
 - Modo offline-first para lecturas Supabase: las consultas GET usan una cache SQLite local por clave exacta de consulta, emiten el valor cacheado al instante y refrescan desde red en segundo plano.
+- Visor interno de documentos para `doc`, `docx`, `pdf`, `ppt`, `pptx`, `rtf`, `txt`, `xls`, `xlsx` y `csv`, integrado visualmente en Q&uuml;ata con cabecera propia, boton de descarga, tema claro/oscuro y localizacion.
+- PDF del visor interno basado en APIs de plataforma, sin librerias nativas Pdfium, para cumplir con dispositivos Android de 16 KB page size.
+- PowerPoint en el visor interno con controles de diapositiva anterior/siguiente y contador de pagina; Excel permite scroll y zoom tactil por gesto.
+- Barras del sistema sincronizadas con el tema: en modo oscuro el reloj y los iconos de estado usan color claro, y la cabecera superior ya no calcula desplazamientos extra por camara cuando la app vive dentro del area segura.
+- Q&uuml;ata y Chats ajustan sus listas al area util para eliminar la franja inferior sobrante sobre la navegacion.
+- Envio de mensajes propios reconciliado con la cache de conversaciones: tras confirmacion del servidor, la lista de Chats actualiza preview, fecha y orden sin esperar a un `checkNew` posterior.
+- Uso de `MediaMetadataRetriever` centralizado con cierre explicito seguro y miniaturas de video remotas sin extractor nativo para reducir crashes de finalizador en dispositivos Android 13 de gama baja.
 - Apertura de chats cache-first desde perfiles y desde **Q&uuml;ata**: si la conversacion ya esta en la lista/cache local se navega directamente, sin buscar ni crear remoto.
 - Polling de Better Messages simplificado: `checkNew` es la unica vigilancia periodica; `/thread/{id}` solo se consulta cuando `checkNew` indica cambios y esos cambios son delta real frente a la cache local.
 - Primer arranque sin cache de mensajes: el barrido inicial de Better Messages se carga como leido y sin disparar notificaciones ni sonidos.
@@ -80,6 +87,7 @@ El chat usa Better Messages en WordPress como backend principal, con una capa An
 - El hilo activo solo se envia a Better Messages como `visibleThreads` en primer plano real, evitando marcar como leidos mensajes recibidos mientras el usuario no mira la conversacion.
 - El sonido interno de mensaje recibido solo se reproduce en primer plano; en background se delega en la notificacion nativa Android.
 - Cache local de lista de conversaciones, hilos, mensajes favoritos y perfiles.
+- Los mensajes enviados por el usuario actual se inyectan en la cache/lista de conversaciones cuando el backend confirma el envio, de modo que la conversacion sube de posicion y actualiza fecha y previsualizacion al instante.
 - Retencion de cache: 24 horas, con reconstruccion solo en primer plano cuando expira.
 - Las conversaciones cacheadas pueden abrirse sin red; si falta cache, la busqueda remota queda como fallback.
 - Los perfiles usan la cache de conversaciones para localizar hilos abiertos con un usuario y consultar los adjuntos compartidos via Better Messages.
@@ -324,9 +332,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 17
-versionName = 0.9.8
-APP_VERSION_DATE = 2026-06-24
+versionCode = 18
+versionName = 0.9.9
+APP_VERSION_DATE = 2026-06-26
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

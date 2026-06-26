@@ -234,9 +234,17 @@ class ChatViewModel(
         }
         val visibleMessages = (editedBackendMessages + localEchoMessages)
             .distinctBy { it.id }
-            .sortedBy { it.sentAtMillis ?: Long.MAX_VALUE }
+            .withIndex()
+            .sortedWith(
+                compareBy<IndexedValue<Message>> { it.value.visibleSortMillis() }
+                    .thenBy { it.index }
+            )
+            .map { it.value }
         _uiState.value = _uiState.value.copy(messages = visibleMessages, isLoading = isLoading)
     }
+
+    private fun Message.visibleSortMillis(): Long =
+        if (isLocalEcho) Long.MAX_VALUE else sentAtMillis ?: Long.MAX_VALUE
 
     private fun createOptimisticMessage(draft: OutgoingDraft): Message {
         val currentUser = _uiState.value.currentUser

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="NewAppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryDark">@color/purple_700</item>
+        <item name="colorAccent">@color/navigation_text_color_selected</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:textColorPrimary">@color/title_info_color</item>
+        <item name="android:textColorSecondary">@color/subject_child_color</item>
+        <item name="android:textColorHighlight">@color/navigation_text_color_selected</item>
+        <item name="android:textColorHint">@color/subject_child_color</item>
+        <item name="android:colorFocusedHighlight">@color/navigation_text_color_selected</item>
+        <item name="android:colorControlNormal">@color/title_info_color</item>
+        <item name="android:colorControlActivated">@color/navigation_text_color_selected</item>
+        <item name="android:colorControlHighlight">@color/list_item_pressed</item>
+        <item name="android:windowSharedElementEnterTransition">@transition/shared_element_enter_exit</item>
+        <item name="android:windowSharedElementExitTransition">@transition/shared_element_enter_exit</item>
+    </style>
+</resources>

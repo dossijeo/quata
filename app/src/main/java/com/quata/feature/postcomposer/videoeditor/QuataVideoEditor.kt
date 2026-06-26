@@ -155,6 +155,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.VideoExportProfile
 import com.quata.core.media.VideoExportSystemProfile
+import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
@@ -1662,12 +1663,7 @@ private fun rememberTimelineFrames(uri: Uri, durationMs: Long, rotationDegrees: 
 }
 
 private inline fun <T> withVideoMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
-    val retriever = MediaMetadataRetriever()
-    return try {
-        block(retriever)
-    } finally {
-        retriever.release()
-    }
+    return withQuataMediaMetadataRetriever(block)
 }
 
 private fun MediaMetadataRetriever.setSource(context: Context, uri: Uri) {
