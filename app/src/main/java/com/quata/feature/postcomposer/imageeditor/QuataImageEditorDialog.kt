@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Rotate90DegreesCw
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,11 +75,13 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.MessageDigest
 import kotlin.math.roundToInt
 
 const val QuataEditedImageFilePrefix = "quata-edited-image-"
@@ -93,16 +96,25 @@ fun QuataImageEditorDialog(
     val template = quataTheme()
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val scope = rememberCoroutineScope()
+    var originalBitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var bitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUri) { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
-    var isCropPanelOpen by remember(imageUri) { mutableStateOf(true) }
+    var isCropPanelOpen by remember(imageUri) { mutableStateOf(false) }
+    var isCropApplied by remember(imageUri) { mutableStateOf(false) }
+    var imageGradientSeed by remember(imageUri) { mutableStateOf(imageUri.toString()) }
     var zoom by remember(imageUri) { mutableFloatStateOf(1f) }
     var pan by remember(imageUri) { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(imageUri) {
         isLoading = true
-        bitmap = withContext(Dispatchers.IO) { context.loadEditorBitmap(imageUri) }
+        val loaded = withContext(Dispatchers.IO) {
+            val seed = context.imageHashSeed(imageUri)
+            seed to context.loadEditorBitmap(imageUri)
+        }
+        imageGradientSeed = loaded.first ?: imageUri.toString()
+        originalBitmap = loaded.second
+        bitmap = loaded.second
         isLoading = false
     }
 
@@ -124,20 +136,44 @@ fun QuataImageEditorDialog(
                 isSaving = isSaving,
                 canSave = bitmap != null,
                 onBack = onDismiss,
+                onReset = {
+                    originalBitmap?.let { original ->
+                        bitmap = original
+                        zoom = 1f
+                        pan = Offset.Zero
+                        isCropPanelOpen = false
+                        isCropApplied = false
+                    }
+                },
                 onRotate = {
                     bitmap = bitmap?.rotateClockwise()
                     zoom = 1f
                     pan = Offset.Zero
-                    isCropPanelOpen = true
+                    isCropApplied = false
                 },
-                onToggleCrop = { isCropPanelOpen = !isCropPanelOpen },
+                onToggleCrop = {
+                    if (isCropPanelOpen) {
+                        isCropApplied = true
+                        isCropPanelOpen = false
+                    } else {
+                        isCropPanelOpen = true
+                    }
+                },
                 onSave = {
                     val source = bitmap ?: return@ImageEditorTopBar
+                    val cropToNineSixteen = isCropPanelOpen || isCropApplied
                     isSaving = true
                     isCropPanelOpen = false
+                    isCropApplied = cropToNineSixteen
                     scope.launch {
                         val edited = withContext(Dispatchers.IO) {
-                            context.exportEditedImage(sourceUri = imageUri, source = source, zoom = zoom, pan = pan)
+                            context.exportEditedImage(
+                                sourceUri = imageUri,
+                                source = source,
+                                zoom = zoom,
+                                pan = pan,
+                                cropToNineSixteen = cropToNineSixteen
+                            )
                         }
                         isSaving = false
                         onEdited(edited)
@@ -159,7 +195,9 @@ fun QuataImageEditorDialog(
                         isSaving = isSaving,
                         zoom = zoom,
                         pan = pan,
+                        gradientSeed = imageGradientSeed,
                         isCropPanelOpen = isCropPanelOpen,
+                        isCropApplied = isCropApplied,
                         onPanChange = { pan = it },
                         modifier = Modifier
                             .weight(1f)
@@ -183,7 +221,9 @@ fun QuataImageEditorDialog(
                     isSaving = isSaving,
                     zoom = zoom,
                     pan = pan,
+                    gradientSeed = imageGradientSeed,
                     isCropPanelOpen = isCropPanelOpen,
+                    isCropApplied = isCropApplied,
                     onPanChange = { pan = it },
                     modifier = Modifier
                         .weight(1f)
@@ -216,7 +256,9 @@ private fun ImageEditorPreviewArea(
     isSaving: Boolean,
     zoom: Float,
     pan: Offset,
+    gradientSeed: String,
     isCropPanelOpen: Boolean,
+    isCropApplied: Boolean,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -236,7 +278,9 @@ private fun ImageEditorPreviewArea(
                 bitmap = bitmap,
                 zoom = zoom,
                 pan = pan,
+                gradientSeed = gradientSeed,
                 isCropVisible = isCropPanelOpen,
+                isCropApplied = isCropApplied,
                 onPanChange = onPanChange,
                 modifier = Modifier.fillMaxSize()
             )
@@ -261,6 +305,7 @@ private fun ImageEditorTopBar(
     isSaving: Boolean,
     canSave: Boolean,
     onBack: () -> Unit,
+    onReset: () -> Unit,
     onRotate: () -> Unit,
     onToggleCrop: () -> Unit,
     onSave: () -> Unit
@@ -292,6 +337,13 @@ private fun ImageEditorTopBar(
             modifier = Modifier.weight(1f)
         )
         if (!isSaving) {
+            ImageToolButton(
+                label = stringResource(R.string.image_editor_reset),
+                enabled = canSave,
+                onClick = onReset
+            ) {
+                CompactIcon(Icons.Filled.Replay, contentDescription = null)
+            }
             ImageToolButton(
                 label = stringResource(R.string.image_editor_rotate),
                 enabled = canSave,
@@ -366,7 +418,9 @@ private fun ImagePreviewPane(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
+    gradientSeed: String,
     isCropVisible: Boolean,
+    isCropApplied: Boolean,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -387,11 +441,9 @@ private fun ImagePreviewPane(
         Box(
             modifier = Modifier
                 .size(previewWidth, previewHeight)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.Black)
         ) {
             if (isCropVisible) {
-                ImageCropAdjustmentCanvas(
+                ImageCropAdjustmentPane(
                     bitmap = bitmap,
                     zoom = zoom,
                     pan = pan,
@@ -399,12 +451,26 @@ private fun ImagePreviewPane(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                ImageCroppedPreviewCanvas(
-                    bitmap = bitmap,
-                    zoom = zoom,
-                    pan = pan,
-                    modifier = Modifier.fillMaxSize()
-                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(ImageEditorPreviewCornerRadius))
+                        .background(textCanvasBrush(gradientSeed))
+                ) {
+                    if (isCropApplied) {
+                        ImageCroppedPreviewCanvas(
+                            bitmap = bitmap,
+                            zoom = zoom,
+                            pan = pan,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        ImageFittedPreviewCanvas(
+                            bitmap = bitmap,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
             }
         }
     }
@@ -458,24 +524,100 @@ private fun ImageCroppedPreviewCanvas(
 }
 
 @Composable
-private fun ImageCropAdjustmentCanvas(
+private fun ImageFittedPreviewCanvas(
+    bitmap: Bitmap,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val scale = minOf(size.width / bitmap.width.toFloat(), size.height / bitmap.height.toFloat())
+        val drawWidth = bitmap.width * scale
+        val drawHeight = bitmap.height * scale
+        val left = (size.width - drawWidth) / 2f
+        val top = (size.height - drawHeight) / 2f
+        val dst = RectF(left, top, left + drawWidth, top + drawHeight)
+        drawContext.canvas.nativeCanvas.drawBitmap(bitmap, null, dst, PreviewPaint)
+    }
+}
+
+@Composable
+private fun ImageCropAdjustmentPane(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(ImageCropAnchorInset)
+                .clip(RoundedCornerShape(ImageEditorPreviewCornerRadius))
+                .background(Color.Black)
+        ) {
+            ImageCropContentCanvas(
+                bitmap = bitmap,
+                zoom = zoom,
+                pan = pan,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        ImageCropOverlayCanvas(
+            bitmap = bitmap,
+            zoom = zoom,
+            pan = pan,
+            onPanChange = onPanChange,
+            contentInset = ImageCropAnchorInset,
+            modifier = Modifier.matchParentSize()
+        )
+    }
+}
+
+@Composable
+private fun ImageCropContentCanvas(
+    bitmap: Bitmap,
+    zoom: Float,
+    pan: Offset,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val geometry = bitmap.cropGeometryForNineSixteen(
+            zoom = zoom,
+            pan = pan,
+            canvasWidth = size.width,
+            canvasHeight = size.height
+        )
+        val crop = geometry.cropDst
+        drawContext.canvas.nativeCanvas.drawBitmap(bitmap, null, geometry.imageDst, PreviewPaint)
+        val overlay = Color.Black.copy(alpha = 0.52f)
+        drawRect(overlay, topLeft = Offset.Zero, size = Size(size.width, crop.top))
+        drawRect(overlay, topLeft = Offset(0f, crop.bottom), size = Size(size.width, size.height - crop.bottom))
+        drawRect(overlay, topLeft = Offset(0f, crop.top), size = Size(crop.left, crop.height()))
+        drawRect(overlay, topLeft = Offset(crop.right, crop.top), size = Size(size.width - crop.right, crop.height()))
+    }
+}
+
+@Composable
+private fun ImageCropOverlayCanvas(
+    bitmap: Bitmap,
+    zoom: Float,
+    pan: Offset,
+    onPanChange: (Offset) -> Unit,
+    contentInset: Dp,
+    modifier: Modifier = Modifier
+) {
     val currentPan by rememberUpdatedState(pan)
     val currentOnPanChange by rememberUpdatedState(onPanChange)
     Canvas(
-        modifier = modifier.pointerInput(bitmap, zoom) {
+        modifier = modifier.pointerInput(bitmap, zoom, contentInset) {
             detectDragGestures { change, dragAmount ->
                 change.consume()
+                val insetPx = contentInset.toPx()
                 val geometry = bitmap.cropGeometryForNineSixteen(
                     zoom = zoom,
                     pan = currentPan,
-                    canvasWidth = size.width.toFloat().coerceAtLeast(1f),
-                    canvasHeight = size.height.toFloat().coerceAtLeast(1f)
+                    canvasWidth = (size.width.toFloat() - insetPx * 2f).coerceAtLeast(1f),
+                    canvasHeight = (size.height.toFloat() - insetPx * 2f).coerceAtLeast(1f)
                 )
                 val nextX = if (geometry.maxShiftX > 0f) {
                     currentPan.x + dragAmount.x / (geometry.maxShiftX * geometry.scale)
@@ -491,26 +633,21 @@ private fun ImageCropAdjustmentCanvas(
             }
         }
     ) {
+        val insetPx = contentInset.toPx()
         val geometry = bitmap.cropGeometryForNineSixteen(
             zoom = zoom,
             pan = pan,
-            canvasWidth = size.width,
-            canvasHeight = size.height
+            canvasWidth = (size.width - insetPx * 2f).coerceAtLeast(1f),
+            canvasHeight = (size.height - insetPx * 2f).coerceAtLeast(1f)
         )
-        val crop = geometry.cropDst
-        drawContext.canvas.nativeCanvas.drawBitmap(bitmap, null, geometry.imageDst, PreviewPaint)
-        val overlay = Color.Black.copy(alpha = 0.52f)
-        drawRect(overlay, topLeft = Offset.Zero, size = Size(size.width, crop.top))
-        drawRect(overlay, topLeft = Offset(0f, crop.bottom), size = Size(size.width, size.height - crop.bottom))
-        drawRect(overlay, topLeft = Offset(0f, crop.top), size = Size(crop.left, crop.height()))
-        drawRect(overlay, topLeft = Offset(crop.right, crop.top), size = Size(size.width - crop.right, crop.height()))
+        val crop = RectF(geometry.cropDst).apply { offset(insetPx, insetPx) }
         drawRect(
             color = QuataOrange,
             topLeft = Offset(crop.left, crop.top),
             size = Size(crop.width(), crop.height()),
             style = Stroke(width = 4.dp.toPx())
         )
-        val radius = 6.5f.dp.toPx()
+        val radius = ImageCropAnchorRadius.toPx()
         drawCircle(QuataOrange, radius, Offset(crop.left, crop.top))
         drawCircle(QuataOrange, radius, Offset(crop.right, crop.top))
         drawCircle(QuataOrange, radius, Offset(crop.left, crop.bottom))
@@ -558,15 +695,18 @@ private fun Bitmap.cropGeometryForNineSixteen(
 
 private fun Context.loadEditorBitmap(uri: Uri): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val boundsDecoded = runCatching {
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    }.isSuccess
+    if (!boundsDecoded || bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
     val options = BitmapFactory.Options().apply {
         inPreferredConfig = Bitmap.Config.ARGB_8888
         inSampleSize = calculateImageSampleSize(bounds.outWidth, bounds.outHeight, ImageEditorDecodeMaxSize)
     }
-    val decoded = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-        ?: return null
+    val decoded = runCatching {
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    }.getOrNull() ?: return null
     return decoded.orientFromExif(readImageOrientation(uri))
 }
 
@@ -582,9 +722,16 @@ private fun Context.exportEditedImage(
     sourceUri: Uri,
     source: Bitmap,
     zoom: Float,
-    pan: Offset
+    pan: Offset,
+    cropToNineSixteen: Boolean
 ): Uri {
     val outputFile = File(cacheDir, "$QuataEditedImageFilePrefix${System.currentTimeMillis()}.jpg")
+    if (!cropToNineSixteen) {
+        outputFile.outputStream().use { source.compress(Bitmap.CompressFormat.JPEG, ImageEditorJpegQuality, it) }
+        copyImageGpsMetadata(sourceUri, outputFile)
+        return Uri.fromFile(outputFile)
+    }
+
     val output = Bitmap.createBitmap(ImageEditorOutputWidth, ImageEditorOutputHeight, Bitmap.Config.ARGB_8888)
     try {
         val canvas = android.graphics.Canvas(output)
@@ -608,6 +755,20 @@ private fun Context.readImageOrientation(uri: Uri): Int =
             )
         } ?: ExifInterface.ORIENTATION_NORMAL
     }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+private fun Context.imageHashSeed(uri: Uri): String? =
+    runCatching {
+        val digest = MessageDigest.getInstance("SHA-256")
+        contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        } ?: return@runCatching null
+        digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }.getOrNull()
 
 private fun Bitmap.rotateClockwise(): Bitmap {
     val matrix = Matrix().apply { postRotate(90f) }
@@ -710,3 +871,6 @@ private const val ImageEditorOutputAspectRatio = 9f / 16f
 private const val ImageEditorDecodeMaxSize = 2160
 private const val ImageEditorJpegQuality = 92
 private val ImageEditorBottomAir = 56.dp
+private val ImageEditorPreviewCornerRadius = 16.dp
+private val ImageCropAnchorRadius = 6.5.dp
+private val ImageCropAnchorInset = 8.dp

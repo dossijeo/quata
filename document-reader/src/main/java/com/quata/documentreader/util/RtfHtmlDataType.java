@@ -9,7 +9,7 @@ import java.util.Stack;
 
 
 public class RtfHtmlDataType {
-    private String output;
+    private StringBuilder output;
     private Stack<RtfState> states;
     private RtfState state;
     private RtfState previousState;
@@ -37,14 +37,15 @@ public class RtfHtmlDataType {
         states.push(state);
 
         // Do the job.
-        output = "<p>";
+        output = new StringBuilder(4096);
+        output.append("<p>");
         newRootPar = true;
         formatGroup(root);
         if (page) {
             wrapTags();
         }
 
-        return output;
+        return output.toString();
     }
 
 
@@ -285,7 +286,7 @@ public class RtfHtmlDataType {
                     // Close previously opened tags.
                     closeTags();
 
-                    output += "<p>";
+                    output.append("<p>");
                     openedTags.put("p", true);
                     newRootPar = true;
                 }
@@ -294,28 +295,28 @@ public class RtfHtmlDataType {
     protected void applyStyle(String txt) {
         // Create span only when a style change occurs or a root paragraph start was just inserted.
         if (!state.equals(previousState) || newRootPar) {
-            String span = "";
+            StringBuilder span = new StringBuilder(128);
 
             if (state.font >= 0) {
-                span += "font-family:" + printFontFamily(state.font) + ";";
+                span.append("font-family:").append(printFontFamily(state.font)).append(";");
             }
             if (state.bold) {
-                span += "font-weight:bold;";
+                span.append("font-weight:bold;");
             }
             if (state.italic) {
-                span += "font-style:italic;";
+                span.append("font-style:italic;");
             }
             if (state.underline) {
-                span += "text-decoration:underline;";
+                span.append("text-decoration:underline;");
             }
             if (state.strike) {
-                span += "text-decoration:strikethrough;";
+                span.append("text-decoration:strikethrough;");
             }
             if (state.hidden) {
-                span += "display:none;";
+                span.append("display:none;");
             }
             if (state.fontSize != 0) {
-                span += "font-size:" + state.fontSize + "px;";
+                span.append("font-size:").append(state.fontSize).append("px;");
             }
             // RTF dn/up:
             // By spec, RTF fs and RTF dn/up are independent of each other;
@@ -324,21 +325,21 @@ public class RtfHtmlDataType {
             // Thus, RTF dn/up is rendered with implicit font size reduction.
             // This font-size setting supersedes the explicit "fs" font-size setting.
             if (state.dnup != 0) {
-                span += calculateReducedFontSize() + "vertical-align:" + state.dnup + "px;";
+                span.append(calculateReducedFontSize()).append("vertical-align:").append(state.dnup).append("px;");
             }
             // RTF sub/super:
             // Reduced font-size and vertical-align supersede settings from fs,dn,up.
             if (state.subscript) {
-                span += calculateReducedFontSize() + "vertical-align:sub;";
+                span.append(calculateReducedFontSize()).append("vertical-align:sub;");
             }
             if (state.superscript) {
-                span += calculateReducedFontSize() + "vertical-align:super;";
+                span.append(calculateReducedFontSize()).append("vertical-align:super;");
             }
             if (state.textColor != 0) {
-                span += "color:" + printColor(state.textColor) + ";";
+                span.append("color:").append(printColor(state.textColor)).append(";");
             }
             if (state.background != 0) {
-                span += "background-color:" + printColor(state.background) + ";";
+                span.append("background-color:").append(printColor(state.background)).append(";");
             }
 
             // Keep track of preceding style.
@@ -347,10 +348,10 @@ public class RtfHtmlDataType {
             // Close previously opened "span" tag.
             closeTag("span");
 
-            output += "<span style=\"" + span + "\">" + txt;
+            output.append("<span style=\"").append(span).append("\">").append(txt);
             openedTags.put("span", true);
         } else {
-            output += txt;
+            output.append(txt);
         }
         newRootPar = false;
     }
@@ -369,7 +370,7 @@ public class RtfHtmlDataType {
 
     protected String printFontFamily(int index) {
         // index is 0-based
-        if (index >= 0 && index < fonttbl.size()) {
+        if (fonttbl != null && index >= 0 && index < fonttbl.size()) {
             return fonttbl.get(index);
         } else {
             return "";
@@ -378,7 +379,7 @@ public class RtfHtmlDataType {
 
 
     protected String printColor(int index) {
-        if (index >= 1 && index < colortbl.size()) {
+        if (colortbl != null && index >= 1 && index < colortbl.size()) {
             return colortbl.get(index);
         } else {
             return "";
@@ -388,7 +389,7 @@ public class RtfHtmlDataType {
 
     protected void closeTag(String tag) {
         if (openedTags.get(tag)) {
-            output += "</" + tag + ">";
+            output.append("</").append(tag).append(">");
             openedTags.put(tag, false);
         }
     }
@@ -402,17 +403,17 @@ public class RtfHtmlDataType {
 
 
     protected void wrapTags() {
-        StringBuilder source = new StringBuilder();
+        StringBuilder source = new StringBuilder(output.length() + 180);
         source.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
         source.append("<html>\n");
         source.append("  <head>\n");
         source.append("    <meta content=\"text/html;charset=UTF-8\" http-equiv=\"content-type\"/>\n");
         source.append("  </head>\n");
         source.append("  <body>\n");
-        source.append(output + "\n");
+        source.append(output).append("\n");
         source.append("  </body>\n");
         source.append("</html>\n");
-        output = source.toString();
+        output = source;
     }
 
 
@@ -421,7 +422,7 @@ public class RtfHtmlDataType {
             applyStyle("&#" + rtfSymbol.parameter + ";");
         }
         if (rtfSymbol.symbol == '~') {
-            output += "&nbsp;";
+            output.append("&nbsp;");
         }
     }
 

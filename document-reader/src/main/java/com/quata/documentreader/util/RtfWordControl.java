@@ -6,9 +6,5 @@ public class RtfWordControl extends RtfElement {
 
     @Override
     public void dump(int level) {
-        System.out.println("<div style='color:green'>");
-        indent(level);
-        System.out.println("WORD " + word + " (" + parameter + ")");
-        System.out.println("</div>");
     }
 }

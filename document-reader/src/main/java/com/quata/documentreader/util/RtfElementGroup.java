@@ -48,44 +48,5 @@ public class RtfElementGroup extends RtfElement {
 
     @Override
     public void dump(int level) {
-        System.out.println("<div>");
-        indent(level);
-        System.out.println("{");
-        System.out.println("</div>");
-
-        for (RtfElement child : children) {
-            if (child instanceof RtfElementGroup) {
-                RtfElementGroup group = (RtfElementGroup) child;
-
-                // Can we ignore this group?
-                if (group.getType().equals("fonttbl")) {
-                    continue;
-                }
-                if (group.getType().equals("colortbl")) {
-                    continue;
-                }
-                if (group.getType().equals("stylesheet")) {
-                    continue;
-                }
-                if (group.getType().equals("info")) {
-                    continue;
-                }
-
-                // Skip any pictures and destinations.
-                if (group.getType().length() >= 4 && group.getType().substring(0, 4).equals("pict")) {
-                    continue;
-                }
-                if (group.isDestination()) {
-                    continue;
-                }
-            }
-
-            child.dump(level + 2);
-        }
-
-        System.out.println("<div>");
-        indent(level);
-        System.out.println("}");
-        System.out.println("</div>");
     }
 }

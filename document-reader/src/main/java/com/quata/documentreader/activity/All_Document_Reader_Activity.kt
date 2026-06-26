@@ -12,7 +12,6 @@ import com.quata.documentreader.DocumentReaderChrome
 import com.quata.documentreader.QuataDocumentReader
 import com.quata.documentreader.QuataDocumentReaderTheme
 import com.quata.documentreader.R
-import com.quata.documentreader.util.Utility
 import com.quata.documentreader.xs.constant.MainConstant
 import java.io.File
 import java.io.FileOutputStream
@@ -24,6 +23,7 @@ import kotlin.concurrent.thread
 class All_Document_Reader_Activity : AppCompatActivity() {
     private var fileName: String? = null
     private var mimeType: String? = null
+    private var prepareGeneration = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         QuataDocumentReaderTheme.apply(this)
@@ -31,6 +31,17 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         setContentView(R.layout.activity_document_reader_loading)
         DocumentReaderChrome.apply(this, findViewById(R.id.documentReaderLoadingRoot))
 
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        val generation = ++prepareGeneration
         fileName = intent.getStringExtra(QuataDocumentReader.EXTRA_FILE_NAME)
         mimeType = intent.getStringExtra(QuataDocumentReader.EXTRA_MIME_TYPE)
             ?: intent.type
@@ -38,7 +49,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         val directPath = intent.getStringExtra("path")
             ?.takeIf { it.isNotBlank() && File(it).exists() }
         if (directPath != null) {
-            openLocalFile(directPath)
+            openLocalFile(directPath, generation)
             return
         }
 
@@ -59,10 +70,11 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         thread(name = "QuataDocumentReaderPrepare") {
             val localPath = runCatching { resolveUriToLocalPath(source) }.getOrNull()
             runOnUiThread {
+                if (generation != prepareGeneration || isFinishing || isDestroyed) return@runOnUiThread
                 if (localPath.isNullOrBlank()) {
                     showOpenError()
                 } else {
-                    openLocalFile(localPath)
+                    openLocalFile(localPath, generation)
                 }
             }
         }
@@ -128,7 +140,6 @@ class All_Document_Reader_Activity : AppCompatActivity() {
 
     private fun targetFileFor(name: String?, mimeType: String?): File {
         val tempDir = File(cacheDir, "quata_document_reader").apply {
-            Utility.deleteDir(this)
             mkdirs()
         }
         val safeName = sanitizeFileName(name)
@@ -142,7 +153,8 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         return File(tempDir, finalName)
     }
 
-    private fun openLocalFile(path: String) {
+    private fun openLocalFile(path: String, generation: Int) {
+        if (generation != prepareGeneration || isFinishing || isDestroyed) return
         val resolvedName = fileName?.takeIf { it.isNotBlank() } ?: File(path).name
         val lowerPath = path.lowercase(Locale.US)
         val targetActivity = when {
@@ -168,6 +180,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             putExtra("path", path)
             putExtra(QuataDocumentReader.EXTRA_FILE_NAME, resolvedName)
             putExtra(QuataDocumentReader.EXTRA_MIME_TYPE, mimeType)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         QuataDocumentReaderTheme.copyThemeExtra(intent, viewerIntent)
         startActivity(viewerIntent)

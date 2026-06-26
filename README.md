@@ -1,12 +1,12 @@
 # Q&uuml;ata Android
 
-Version: **0.9.9**
+Version: **0.9.10**
 Fecha de version: **2026-06-26**
 Estado: **candidata para prueba privada de Play Store**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.9` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, integra visor interno de documentos, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra detalles de estabilidad de multimedia, barras del sistema, cache de chats y layout. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.9.10` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, integra visor interno de documentos, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra detalles de estabilidad de multimedia, barras del sistema, cache de chats y layout. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
@@ -332,8 +332,8 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 18
-versionName = 0.9.9
+versionCode = 19
+versionName = 0.9.10
 APP_VERSION_DATE = 2026-06-26
 ```
 

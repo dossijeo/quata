@@ -13,5 +13,6 @@ sealed class ProfileUiEvent {
     data class EmergencyContactToggled(val contactId: String) : ProfileUiEvent()
     data object Refresh : ProfileUiEvent()
     data object Save : ProfileUiEvent()
+    data object SaveEmergencySettings : ProfileUiEvent()
     data object ClearMessages : ProfileUiEvent()
 }

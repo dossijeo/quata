@@ -164,9 +164,16 @@ fun ProfileScreen(
 
     LaunchedEffect(state.successMessage) {
         val message = state.successMessage ?: return@LaunchedEffect
+        val shouldNotifyProfileSaved = state.successMessageTriggersProfileSaved
+        val shouldCloseEmergencyDialog = state.emergencySettingsSaved
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        if (shouldCloseEmergencyDialog) {
+            isEmergencyDialogOpen = false
+        }
         viewModel.onEvent(ProfileUiEvent.ClearMessages)
-        onProfileSaved()
+        if (shouldNotifyProfileSaved) {
+            onProfileSaved()
+        }
     }
 
     LaunchedEffect(state.errorMessage) {
@@ -437,11 +444,12 @@ fun ProfileScreen(
             candidates = state.emergencyCandidates,
             selectedIds = profile.emergencyContactIds,
             message = profile.emergencyMessage,
+            isSaving = state.isSaving,
             onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
             onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
             onDismiss = { isEmergencyDialogOpen = false },
             onSave = {
-                isEmergencyDialogOpen = false
+                viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
             }
         )
     }
@@ -608,6 +616,7 @@ fun EmergencyContactsDialog(
     candidates: List<EmergencyContactCandidate>,
     selectedIds: List<String>,
     message: String,
+    isSaving: Boolean,
     onMessageChange: (String) -> Unit,
     onToggleContact: (EmergencyContactCandidate) -> Unit,
     onDismiss: () -> Unit,
@@ -667,6 +676,7 @@ fun EmergencyContactsDialog(
                             Spacer(Modifier.width(12.dp))
                             Button(
                                 onClick = onSave,
+                                enabled = !isSaving,
                                 colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -674,7 +684,9 @@ fun EmergencyContactsDialog(
                                     .width(196.dp)
                             ) {
                                 Text(
-                                    stringResource(R.string.emergency_save_contacts_short),
+                                    stringResource(
+                                        if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short
+                                    ),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 13.sp,
                                     maxLines = 1,
@@ -844,6 +856,7 @@ fun EmergencyContactsDialog(
                     }
                     Button(
                         onClick = onSave,
+                        enabled = !isSaving,
                         colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
                         shape = RoundedCornerShape(18.dp),
                         modifier = Modifier
@@ -852,7 +865,10 @@ fun EmergencyContactsDialog(
                             .fillMaxWidth()
                             .height(bottomActionHeight)
                     ) {
-                        Text(stringResource(R.string.emergency_save_contacts), fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
             }

@@ -42,10 +42,14 @@ class QuataTextDocumentActivity : AppCompatActivity() {
             root,
             chrome.title,
             chrome.back,
+            chrome.print,
             chrome.download,
             title,
             path
         )
+        chrome.print.setOnClickListener {
+            DocumentReaderChrome.printPlainText(this, title, text)
+        }
     }
 
     private fun topBar(title: String): HeaderViews {
@@ -85,18 +89,26 @@ class QuataTextDocumentActivity : AppCompatActivity() {
             setColorFilter(ContextCompat.getColor(this@QuataTextDocumentActivity, R.color.navigation_text_color_selected))
             layoutParams = LinearLayout.LayoutParams(44.dp(), 44.dp())
         }
+        val print = ImageButton(this).apply {
+            background = null
+            scaleType = ImageView.ScaleType.CENTER
+            setColorFilter(ContextCompat.getColor(this@QuataTextDocumentActivity, R.color.navigation_text_color_selected))
+            layoutParams = LinearLayout.LayoutParams(44.dp(), 44.dp())
+        }
         container.apply {
             addView(back)
             addView(titleView)
+            addView(print)
             addView(download)
         }
-        return HeaderViews(container, titleView, back, download)
+        return HeaderViews(container, titleView, back, print, download)
     }
 
     private data class HeaderViews(
         val container: LinearLayout,
         val title: TextView,
         val back: ImageButton,
+        val print: ImageButton,
         val download: ImageButton
     )
 

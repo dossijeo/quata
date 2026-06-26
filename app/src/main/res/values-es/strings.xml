@@ -284,6 +284,7 @@
     <string name="composer_word_count">%1$d / 500 palabras</string>
     <string name="composer_pick_image">Elegir foto</string>
     <string name="composer_take_photo">Hacer foto</string>
+    <string name="composer_edit_image">Editar imagen</string>
     <string name="composer_no_location">Sin lugar o ubicaci&#243;n. Puedes escribirlo manualmente.</string>
     <string name="composer_location">Lugar o ubicaci&#243;n</string>
     <string name="composer_edit_location">Editar</string>
@@ -299,6 +300,7 @@
     <string name="composer_image_preview_body">La vista previa aparecerá cuando selecciones una foto.</string>
     <string name="composer_pick_video">Elegir vídeo</string>
     <string name="composer_record_video">Grabar vídeo</string>
+    <string name="composer_image_pick_error">No se pudo abrir la imagen seleccionada. Prueba con otra foto.</string>
     <string name="composer_video_capture_error">No se pudo abrir el v&#237;deo grabado. Int&#233;ntalo de nuevo.</string>
     <string name="composer_no_file">Sin archivo seleccionado.</string>
     <string name="composer_description_placeholder">Descripción opcional…</string>
@@ -319,6 +321,7 @@
     <string name="video_editor_back">Volver</string>
     <string name="video_editor_mute">Silenciar</string>
     <string name="video_editor_unmute">Sonido</string>
+    <string name="image_editor_reset">Original</string>
     <string name="image_editor_rotate">Rotar</string>
     <string name="video_editor_crop">Recortar</string>
     <string name="video_editor_crop_done">Hecho</string>

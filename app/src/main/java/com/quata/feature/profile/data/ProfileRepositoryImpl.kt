@@ -46,9 +46,11 @@ class ProfileRepositoryImpl(
             ProfileEditModel(
                 profile = userProfile,
                 config = buildProfileConfig(
-                    emergencyCandidates = candidates
-                        .filterNot { it.id == session.userId }
-                        .map { it.toEmergencyCandidate() }
+                    emergencyCandidates = buildEmergencyCandidates(
+                        currentProfileId = session.userId,
+                        selectedContactIds = contactIds,
+                        directoryProfiles = candidates
+                    )
                 )
             )
         }
@@ -68,9 +70,11 @@ class ProfileRepositoryImpl(
         val storedEmergencyMessage = emergencyMessageStore.get(session.userId)
         val profile = remote.getProfile(session.userId)?.toProfile(session.displayName, contactIds, storedEmergencyMessage)
             ?: error("Perfil no encontrado")
-        val candidates = remote.getEmergencyCandidates()
-            .filterNot { it.id == session.userId }
-            .map { it.toEmergencyCandidate() }
+        val candidates = buildEmergencyCandidates(
+            currentProfileId = session.userId,
+            selectedContactIds = contactIds,
+            directoryProfiles = remote.getEmergencyCandidates()
+        )
         ProfileEditModel(
             profile = profile,
             config = buildProfileConfig(emergencyCandidates = candidates)
@@ -95,6 +99,11 @@ class ProfileRepositoryImpl(
 
         val session = sessionManager.currentSession()
         val profileId = session?.userId ?: MockData.currentUser.id
+        emergencyMessageStore.save(
+            profileId = profileId,
+            message = update.emergencyMessage,
+            isDefault = update.emergencyMessageIsDefault
+        )
         MockData.updateProfile(
             profileId = profileId,
             displayName = update.displayName,
@@ -112,6 +121,50 @@ class ProfileRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(context, R.string.profile_save_error)
 
+    override suspend fun saveEmergencySettings(
+        contactIds: List<String>,
+        message: String,
+        messageIsDefault: Boolean
+    ): Result<Unit> = runCatching {
+        val normalizedContactIds = contactIds.distinct().take(5)
+        val session = sessionManager.currentSession()
+        val profileId = session?.userId ?: MockData.currentUser.id
+
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            session ?: error("No hay sesion activa")
+            remote.saveEmergencyContacts(session.userId, normalizedContactIds)
+            emergencyMessageStore.save(
+                profileId = session.userId,
+                message = message,
+                isDefault = messageIsDefault
+            )
+            return@runCatching Unit
+        }
+
+        emergencyMessageStore.save(
+            profileId = profileId,
+            message = message,
+            isDefault = messageIsDefault
+        )
+
+        MockData.profileById(profileId)?.let { profile ->
+            MockData.updateProfile(
+                profileId = profileId,
+                displayName = profile.displayName,
+                neighborhood = profile.neighborhood,
+                countryCode = profile.countryCode,
+                phone = profile.phone,
+                avatarUrl = profile.avatarUrl,
+                secretQuestion = profile.secretQuestion,
+                secretAnswer = "",
+                emergencyContactIds = normalizedContactIds,
+                emergencyMessage = message,
+                emergencyMessageIsDefault = messageIsDefault
+            )
+        }
+        Unit
+    }.mapFailureToUserFacing(context, R.string.profile_save_error)
+
     override fun defaultEmergencyMessage(displayName: String): String =
         context.getString(
             R.string.sos_default_message,
@@ -120,6 +173,9 @@ class ProfileRepositoryImpl(
 
     override fun changesSavedMessage(): String =
         context.getString(R.string.profile_changes_saved)
+
+    override fun emergencyContactsSavedMessage(): String =
+        context.getString(R.string.profile_emergency_contacts_updated)
 
     private fun getMockProfileEditModel(): Result<ProfileEditModel> = runCatching {
         ProfileEditModel(
@@ -146,6 +202,9 @@ class ProfileRepositoryImpl(
             ?: MockData.profileById(MockData.currentUser.id)
             ?: MockData.mockAuthProfiles.first()
         val displayName = source.displayName
+        val profileId = source.id
+        val storedEmergencyMessage = emergencyMessageStore.get(profileId)
+        val emergencyMessageIsDefault = storedEmergencyMessage?.isDefault ?: source.emergencyMessageIsDefault
         return UserProfile(
             displayName = displayName,
             neighborhood = source.neighborhood,
@@ -154,8 +213,12 @@ class ProfileRepositoryImpl(
             avatarUri = source.avatarUrl,
             selectedSecretQuestion = source.secretQuestion,
             emergencyContactIds = source.emergencyContactIds,
-            emergencyMessage = source.emergencyMessage ?: defaultEmergencyMessage(displayName),
-            emergencyMessageIsDefault = source.emergencyMessageIsDefault
+            emergencyMessage = storedEmergencyMessage
+                ?.takeUnless { it.isDefault }
+                ?.message
+                ?: source.emergencyMessage
+                ?: defaultEmergencyMessage(displayName),
+            emergencyMessageIsDefault = emergencyMessageIsDefault
         )
     }
 
@@ -195,6 +258,49 @@ class ProfileRepositoryImpl(
             neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
             phone = phone_local?.takeIf { it.isNotBlank() } ?: phone.orEmpty()
         )
+
+    private suspend fun buildEmergencyCandidates(
+        currentProfileId: String,
+        selectedContactIds: List<String>,
+        directoryProfiles: List<CommunityProfile>
+    ): List<EmergencyContactCandidate> {
+        val orderedProfiles = LinkedHashMap<String, CommunityProfile>()
+        directoryProfiles
+            .filterNot { it.id == currentProfileId }
+            .forEach { profile -> orderedProfiles[profile.id] = profile }
+
+        val missingSelectedIds = selectedContactIds
+            .distinct()
+            .filterNot { it == currentProfileId }
+            .filterNot { selectedId -> orderedProfiles.containsKey(selectedId) }
+
+        if (missingSelectedIds.isNotEmpty()) {
+            runCatching { remote.getProfiles(missingSelectedIds) }
+                .getOrDefault(emptyList())
+                .filterNot { it.id == currentProfileId }
+                .forEach { profile -> orderedProfiles[profile.id] = profile }
+        }
+
+        val candidatesById = LinkedHashMap<String, EmergencyContactCandidate>()
+        orderedProfiles.values
+            .map { it.toEmergencyCandidate() }
+            .forEach { candidate -> candidatesById[candidate.id] = candidate }
+
+        selectedContactIds
+            .distinct()
+            .filterNot { it == currentProfileId }
+            .filterNot { selectedId -> candidatesById.containsKey(selectedId) }
+            .forEach { missingId ->
+                candidatesById[missingId] = EmergencyContactCandidate(
+                    id = missingId,
+                    displayName = context.getString(R.string.user_fallback_name),
+                    email = "",
+                    neighborhood = ""
+                )
+            }
+
+        return candidatesById.values.toList()
+    }
 
     private fun ProfileUpdate.toRemotePatch(): Map<String, String?> =
         buildMap {

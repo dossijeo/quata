@@ -1,6 +1,8 @@
 package com.quata.bettermessages
 
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
@@ -16,6 +18,8 @@ class BetterMessagesClient(
 
     private val cookieJar = BetterMessagesCookieJar(cookieStore)
     private val webBootMillis = System.currentTimeMillis()
+    private val sessionMutex = Mutex()
+    private var preparedProfileId: String? = null
 
     val httpClient: OkHttpClient = okHttpClient ?: OkHttpClient.Builder()
         .cookieJar(cookieJar)
@@ -37,9 +41,16 @@ class BetterMessagesClient(
         json = json
     )
 
-    suspend fun prepareSession(profileId: String): BmSyncSessionData {
+    suspend fun prepareSession(profileId: String): BmSyncSessionData = sessionMutex.withLock {
+        if (preparedProfileId != profileId) {
+            cookieStore.clear()
+            rest.setRestNonce(null)
+            preparedProfileId = null
+        }
         bridge.setProfileContext(profileId)
-        return bridge.syncSession(profileId)
+        bridge.syncSession(profileId).also {
+            preparedProfileId = profileId
+        }
     }
 
     suspend fun lookupWordPressUserId(profileId: String): Int? {
@@ -77,6 +88,7 @@ class BetterMessagesClient(
     fun clearCookies() {
         cookieStore.clear()
         rest.setRestNonce(null)
+        preparedProfileId = null
     }
 
     private fun String.absoluteUrl(): String {

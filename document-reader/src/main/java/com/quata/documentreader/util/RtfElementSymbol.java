@@ -7,9 +7,5 @@ public class RtfElementSymbol extends RtfElement {
 
     @Override
     public void dump(int level) {
-        System.out.println("<div style='color:blue'>");
-        indent(level);
-        System.out.println("SYMBOL " + symbol + " (" + parameter + ")");
-        System.out.println("</div>");
     }
 }

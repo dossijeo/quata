@@ -17,6 +17,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     private val loadedDetailPostIds = mutableSetOf<String>()
     private val loadingDetailPostIds = mutableSetOf<String>()
     private var feedJob: Job? = null
+    private var refreshJob: Job? = null
 
     init { observeFeed() }
 
@@ -41,7 +42,11 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                 result
                     .onSuccess { posts ->
                         loadedDetailPostIds += posts.map { it.id }
-                        _uiState.value = FeedUiState(isLoading = false, posts = posts)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            posts = posts,
+                            error = null
+                        )
                     }
                     .onFailure { error ->
                         _uiState.value = _uiState.value.copy(
@@ -53,14 +58,30 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         }
     }
 
-    private fun refresh() = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        repository.getFeed()
-            .onSuccess { posts ->
-                loadedDetailPostIds += posts.map { it.id }
-                _uiState.value = FeedUiState(isLoading = false, posts = posts)
-            }
-            .onFailure { _uiState.value = FeedUiState(isLoading = false, error = it.message ?: "Error cargando feed") }
+    private fun refresh() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            val hasPosts = _uiState.value.posts.isNotEmpty()
+            _uiState.value = _uiState.value.copy(
+                isLoading = !hasPosts,
+                isRefreshing = hasPosts,
+                error = null
+            )
+            repository.refreshFeed()
+                .onSuccess { posts ->
+                    loadedDetailPostIds.clear()
+                    loadingDetailPostIds.clear()
+                    loadedDetailPostIds += posts.map { it.id }
+                    _uiState.value = FeedUiState(isLoading = false, posts = posts)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = error.message ?: "Error cargando feed"
+                    )
+                }
+        }
     }
 
     private fun loadDisplayedPostDetails(postId: String, nextPostId: String?) {

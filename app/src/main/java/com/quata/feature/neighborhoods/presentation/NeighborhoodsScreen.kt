@@ -646,7 +646,7 @@ private fun ProfileAttachmentsSection(
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                attachments.take(6).forEach { attachment ->
+                attachments.forEach { attachment ->
                     ProfileAttachmentRow(attachment, onOpen = { onOpenAttachment(attachment) })
                 }
             }
@@ -911,18 +911,19 @@ private fun ProfilePostPreview(
     val likes = (post.likesCount + likeDelta).coerceAtLeast(0)
     val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
     val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
+    val mediaSeed = post.imageUrl ?: post.videoUrl ?: seedText
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(430.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.Black)
+            .background(textCanvasBrush(mediaSeed))
     ) {
         when {
             post.imageUrl != null -> AsyncImage(
                 model = post.imageUrl,
                 contentDescription = post.imageTitle(),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth().height(430.dp)
             )
             post.videoUrl != null && isVideoLoaded -> ProfileVideoPlayer(post.videoUrl)
@@ -930,7 +931,6 @@ private fun ProfilePostPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(430.dp)
-                    .background(Brush.verticalGradient(listOf(Color(0xFF111827), Color(0xFF334155))))
                     .clickable { isVideoLoaded = true },
                 contentAlignment = Alignment.Center
             ) {
@@ -1043,7 +1043,9 @@ private fun ProfileVideoPlayer(videoUrl: String) {
             PlayerView(viewContext).apply {
                 this.player = player
                 useController = true
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT

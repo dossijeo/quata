@@ -33,12 +33,24 @@
                 android:layout_centerVertical="true"
                 android:layout_marginLeft="8dp"
                 android:textColor="@color/title_info_color"
-                android:layout_toLeftOf="@+id/img_share"
+                android:layout_toLeftOf="@+id/img_print"
                 android:layout_toRightOf="@+id/img_back"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textSize="18sp"
                 android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/img_print"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_toLeftOf="@+id/img_share"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="8dp"
+                android:layout_marginRight="4dp"
+                android:padding="10dp"
+                android:src="@drawable/ic_baseline_print"
+                app:tint="@color/navigation_text_color_selected" />
 
             <ImageView
                 android:id="@+id/img_share"

@@ -5,6 +5,7 @@
         <activity
             android:name=".activity.PDF_Reader_Activity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
         <activity
             android:name=".activity.PrintPdfActivity"
@@ -14,24 +15,29 @@
             android:name=".activity.ViewFiles_Activity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
         <activity
             android:name=".activity.CSVViewer_Activity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
         <activity
             android:name=".activity.ViewRtf_Activity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
         <activity
             android:name=".activity.QuataTextDocumentActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
         <activity
             android:name=".activity.All_Document_Reader_Activity"
             android:configChanges="keyboardHidden|orientation"
             android:exported="false"
             android:label="@string/quata_document_reader_title"
+            android:launchMode="singleTop"
             android:theme="@style/NewAppTheme" />
     </application>
 

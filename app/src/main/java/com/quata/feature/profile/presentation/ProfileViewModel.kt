@@ -50,7 +50,15 @@ class ProfileViewModel(
             is ProfileUiEvent.EmergencyContactToggled -> toggleEmergencyContact(event.contactId)
             ProfileUiEvent.Refresh -> observeProfile(showLoading = false)
             ProfileUiEvent.Save -> saveProfile()
-            ProfileUiEvent.ClearMessages -> _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+            ProfileUiEvent.SaveEmergencySettings -> saveEmergencySettings()
+            ProfileUiEvent.ClearMessages -> _uiState.update {
+                it.copy(
+                    errorMessage = null,
+                    successMessage = null,
+                    successMessageTriggersProfileSaved = false,
+                    emergencySettingsSaved = false
+                )
+            }
         }
     }
 
@@ -104,7 +112,7 @@ class ProfileViewModel(
                     newPassword = state.newPassword,
                     secretQuestion = profile.selectedSecretQuestion,
                     secretAnswer = state.newSecretAnswer,
-                    emergencyContactIds = profile.emergencyContactIds,
+                    emergencyContactIds = profile.emergencyContactIds.distinct().take(5),
                     emergencyMessage = profile.emergencyMessage,
                     emergencyMessageIsDefault = profile.emergencyMessageIsDefault
                 )
@@ -116,7 +124,39 @@ class ProfileViewModel(
                             isSaving = false,
                             newPassword = "",
                             newSecretAnswer = "",
-                            successMessage = repository.changesSavedMessage()
+                            successMessage = repository.changesSavedMessage(),
+                            successMessageTriggersProfileSaved = true,
+                            emergencySettingsSaved = false
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = error.message ?: "No se pudieron guardar los cambios"
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun saveEmergencySettings() {
+        val profile = _uiState.value.profile ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, errorMessage = null, successMessage = null) }
+            repository.saveEmergencySettings(
+                contactIds = profile.emergencyContactIds.distinct().take(5),
+                message = profile.emergencyMessage,
+                messageIsDefault = profile.emergencyMessageIsDefault
+            )
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            successMessage = repository.emergencyContactsSavedMessage(),
+                            successMessageTriggersProfileSaved = false,
+                            emergencySettingsSaved = true
                         )
                     }
                 }
@@ -141,7 +181,7 @@ class ProfileViewModel(
 
     private fun toggleEmergencyContact(contactId: String) {
         updateProfile {
-            val selected = emergencyContactIds.toMutableList()
+            val selected = emergencyContactIds.distinct().take(5).toMutableList()
             if (selected.contains(contactId)) {
                 selected.remove(contactId)
             } else if (selected.size < 5) {

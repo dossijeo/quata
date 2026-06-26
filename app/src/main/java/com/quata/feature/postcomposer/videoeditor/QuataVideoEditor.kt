@@ -1129,7 +1129,6 @@ private fun VideoTimeline(
     val safeDuration = durationMs.coerceAtLeast(1L)
     val startFraction = (trimStartMs.toFloat() / safeDuration).coerceIn(0f, 1f)
     val endFraction = (trimEndMs.toFloat() / safeDuration).coerceIn(startFraction, 1f)
-    val currentFraction = (currentPositionMs.toFloat() / safeDuration).coerceIn(0f, 1f)
     val handleWidth = 30.dp
     val handleHitWidth = 64.dp
     val handleHitPadding = (handleHitWidth - handleWidth) / 2f
@@ -1157,6 +1156,16 @@ private fun VideoTimeline(
         modifier = interactiveModifier
     ) {
         val timelineWidthPx = with(LocalDensity.current) { maxWidth.toPx().coerceAtLeast(1f) }
+        val handleWidthPx = with(LocalDensity.current) { handleWidth.toPx() }
+        fun playheadX(widthPx: Float): Float {
+            val startX = startFraction * widthPx + handleWidthPx
+            val endX = (endFraction * widthPx - handleWidthPx).coerceAtLeast(startX)
+            val selectedDuration = (trimEndMs - trimStartMs).coerceAtLeast(1L)
+            val selectedFraction = ((currentPositionMs - trimStartMs).toFloat() / selectedDuration)
+                .coerceIn(0f, 1f)
+            return startX + (endX - startX) * selectedFraction
+        }
+
         fun Modifier.handleDrag(marker: TimelineMarker): Modifier =
             if (isExporting) {
                 this
@@ -1238,7 +1247,7 @@ private fun VideoTimeline(
 
         Box(
             modifier = Modifier
-                .offset(x = maxWidth * currentFraction - 1.dp)
+                .offset(x = with(LocalDensity.current) { playheadX(timelineWidthPx).toDp() } - 1.dp)
                 .width(2.dp)
                 .fillMaxHeight()
                 .background(template.colors.textPrimary.copy(alpha = 0.88f))

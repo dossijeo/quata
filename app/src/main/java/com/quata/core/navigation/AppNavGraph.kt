@@ -1437,11 +1437,12 @@ private fun AuthenticatedGlobalSosButton(
             candidates = state.emergencyCandidates,
             selectedIds = profile.emergencyContactIds,
             message = profile.emergencyMessage,
+            isSaving = state.isSaving,
             onMessageChange = { profileViewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
             onToggleContact = { profileViewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
             onDismiss = { isConfigOpen = false },
             onSave = {
-                profileViewModel.onEvent(ProfileUiEvent.Save)
+                profileViewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
                 isConfigOpen = false
                 if (profile.emergencyContactIds.isNotEmpty()) {
                     requestLocation(profile)

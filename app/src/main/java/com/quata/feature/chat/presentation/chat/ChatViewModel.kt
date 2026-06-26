@@ -62,7 +62,7 @@ class ChatViewModel(
                     )
                 }
                 .collect { messages ->
-                    backendMessages = messages
+                    backendMessages = messages.filter { it.conversationId == conversationId }
                     localEchoMessages = localEchoMessages.filterNot { local ->
                         messages.any { remote -> remote.matchesLocalEcho(local) }
                     }
@@ -215,8 +215,11 @@ class ChatViewModel(
             }
             .onFailure { error ->
                 optimisticMessage?.let { failedMessage ->
+                    val alreadyConfirmed = backendMessages.any { remote -> remote.matchesLocalEcho(failedMessage) }
                     localEchoMessages = localEchoMessages.filterNot { it.id == failedMessage.id }
-                    restoreDraftIfComposerIsEmpty(draft)
+                    if (!alreadyConfirmed) {
+                        restoreDraftIfComposerIsEmpty(draft)
+                    }
                     publishMessages(isLoading = false)
                 }
                 if (editingMessage != null) {
@@ -233,6 +236,7 @@ class ChatViewModel(
             optimisticEditedMessages[message.id] ?: message
         }
         val visibleMessages = (editedBackendMessages + localEchoMessages)
+            .filter { it.conversationId == conversationId }
             .distinctBy { it.id }
             .withIndex()
             .sortedWith(
@@ -302,7 +306,7 @@ class ChatViewModel(
     }
 
     private fun Message.matchesLocalEcho(local: Message): Boolean {
-        if (!local.isLocalEcho || local.isPending || !isMine) return false
+        if (!local.isLocalEcho || !isMine) return false
         val remoteText = text.normalizedEchoText()
         val localText = local.text.normalizedEchoText()
         val sameLink = local.text.echoUrls()

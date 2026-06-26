@@ -11,6 +11,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintJob;
 import android.print.PrintManager;
+import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
 import android.widget.Toast;
@@ -27,9 +28,18 @@ import com.quata.documentreader.util.RtfParseException;
 import com.quata.documentreader.util.RtfReader;
 import com.quata.documentreader.util.Utility;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 public class ViewRtf_Activity extends AppCompatActivity {
+
+    private static final String TAG = "ViewRtfActivity";
 
     ActivityViewRtfBinding binding;
     private String fileName;
@@ -41,6 +51,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
     PrintJob printJob;
     WebView webview;
     private boolean back = false;
+    private LoadTextFromRtfFile loadTask;
 
 
     @Override
@@ -52,16 +63,6 @@ public class ViewRtf_Activity extends AppCompatActivity {
         View view = binding.getRoot();
         setContentView(view);
 
-
-
-        binding.imgPrint.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                printAndShare();
-            }
-        });
-
-
         if (getIntent() != null) {
             this.filePath = getIntent().getStringExtra("path");
             this.fileName = getIntent().getStringExtra("name");
@@ -70,14 +71,25 @@ public class ViewRtf_Activity extends AppCompatActivity {
             binding.headerTitleText.setMaxLines(1);
 
         }
-        DocumentReaderChrome.configureHeader(this, binding.activityRoot, binding.headerTitleText, binding.imgBack, binding.imgShare, this.fileName, this.filePath);
+        DocumentReaderChrome.configureHeader(
+                this,
+                binding.activityRoot,
+                binding.headerTitleText,
+                binding.imgBack,
+                binding.imgPrint,
+                binding.imgShare,
+                this.fileName,
+                this.filePath
+        );
+        binding.imgPrint.setOnClickListener(v -> printAndShare());
         WebView webView = (WebView) findViewById(R.id.webView);
         this.webview = webView;
         webView.setWebViewClient(new WebViewClient());
         this.webview.getSettings().setBuiltInZoomControls(true);
         this.webview.getSettings().setDisplayZoomControls(false);
         this.webview.getSettings().setAllowFileAccess(true);
-        new loadTextFromRtfFile().execute();
+        loadTask = new LoadTextFromRtfFile();
+        loadTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
        // Utility.Toast(this, "Please wait...");
     }
 
@@ -96,41 +108,133 @@ public class ViewRtf_Activity extends AppCompatActivity {
     }
 
 
-    class loadTextFromRtfFile extends AsyncTask<Void, Void, Void> {
-        String html;
+    class LoadTextFromRtfFile extends AsyncTask<Void, Void, File> {
+        private boolean usedCache = false;
+        private long parseMs = 0L;
+        private long writeMs = 0L;
+        private String errorMessage = null;
 
-        loadTextFromRtfFile() {
+        LoadTextFromRtfFile() {
         }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            back = false;
+            binding.progressBar.setVisibility(View.VISIBLE);
         }
 
 
         @RequiresApi(api = Build.VERSION_CODES.N)
-        protected Void doInBackground(Void... voidArr) {
-            back = false;
+        protected File doInBackground(Void... voidArr) {
             File file = new File(ViewRtf_Activity.this.filePath);
+            if (!file.exists()) {
+                errorMessage = "RTF source file does not exist";
+                return null;
+            }
+
+            File htmlFile = getCachedHtmlFile(file);
+            if (htmlFile.exists() && htmlFile.length() > 0L) {
+                usedCache = true;
+                return htmlFile;
+            }
+
             RtfReader rtfReader = new RtfReader();
             RtfHtmlDataType rtfHtmlDataType = new RtfHtmlDataType();
             try {
+                long parseStart = System.currentTimeMillis();
                 rtfReader.parse(file);
-                this.html = rtfHtmlDataType.format(rtfReader.root, true);
-                System.out.println();
-                return null;
+                String html = rtfHtmlDataType.format(rtfReader.root, true);
+                parseMs = System.currentTimeMillis() - parseStart;
+                if (isCancelled()) {
+                    return null;
+                }
+
+                long writeStart = System.currentTimeMillis();
+                writeHtmlFile(htmlFile, html);
+                writeMs = System.currentTimeMillis() - writeStart;
+                return htmlFile;
             } catch (RtfParseException e) {
+                errorMessage = e.getMessage();
                 Utility.logCatMsg("RtfParseException " + e.getMessage());
                 e.printStackTrace();
+                return null;
+            } catch (IOException e) {
+                errorMessage = e.getMessage();
+                Log.w(TAG, "Unable to cache rendered RTF", e);
                 return null;
             }
         }
 
         @Override
-        protected void onPostExecute(Void voidR) {
-            super.onPostExecute(voidR);
+        protected void onPostExecute(File htmlFile) {
+            super.onPostExecute(htmlFile);
+            loadTask = null;
             back = true;
-            ViewRtf_Activity.this.webview.loadDataWithBaseURL("", this.html, "text/html", "UTF-8", "");
+            if (isFinishing() || ViewRtf_Activity.this.webview == null) {
+                return;
+            }
+            if (htmlFile != null) {
+                Log.d(TAG, "RTF ready cache=" + usedCache + " parseMs=" + parseMs + " writeMs=" + writeMs + " bytes=" + htmlFile.length());
+                ViewRtf_Activity.this.webview.loadUrl(Uri.fromFile(htmlFile).toString());
+            } else {
+                binding.progressBar.setVisibility(View.GONE);
+                Log.w(TAG, "RTF render failed: " + errorMessage);
+                ViewRtf_Activity.this.webview.loadDataWithBaseURL("", "", "text/html", "UTF-8", "");
+            }
+        }
+
+        @Override
+        protected void onCancelled(File htmlFile) {
+            super.onCancelled(htmlFile);
+            loadTask = null;
+            back = true;
+        }
+    }
+
+    private File getCachedHtmlFile(File sourceFile) {
+        File cacheDir = new File(getCacheDir(), "document_reader_rtf");
+        if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+            return new File(getCacheDir(), buildRtfCacheName(sourceFile));
+        }
+        return new File(cacheDir, buildRtfCacheName(sourceFile));
+    }
+
+    private String buildRtfCacheName(File sourceFile) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            try (FileInputStream inputStream = new FileInputStream(sourceFile)) {
+                int read;
+                while ((read = inputStream.read(buffer)) != -1) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+            return toHex(digest.digest()) + ".html";
+        } catch (Exception e) {
+            String identity = sourceFile.getAbsolutePath() + ":" + sourceFile.length() + ":" + sourceFile.lastModified();
+            return Math.abs(identity.hashCode()) + ".html";
+        }
+    }
+
+    private String toHex(byte[] hash) {
+        StringBuilder hex = new StringBuilder(hash.length * 2);
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (byte value : hash) {
+            int unsigned = value & 0xff;
+            hex.append(digits[unsigned >>> 4]);
+            hex.append(digits[unsigned & 0x0f]);
+        }
+        return hex.toString();
+    }
+
+    private void writeHtmlFile(File htmlFile, String html) throws IOException {
+        File parent = htmlFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Unable to create RTF cache directory");
+        }
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(htmlFile), StandardCharsets.UTF_8))) {
+            writer.write(html);
         }
     }
 
@@ -182,5 +286,16 @@ public class ViewRtf_Activity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        if (loadTask != null) {
+            loadTask.cancel(true);
+            loadTask = null;
+        }
+        if (webview != null) {
+            webview.stopLoading();
+        }
+        super.onDestroy();
+    }
 
 }

@@ -60,7 +60,17 @@ public class CSVViewer_Activity extends BaseActivity {
             Integer.parseInt(getIntent().getStringExtra("fileType"));
             new LoadCVSDataFromPath(stringExtra).execute();
         }
-        DocumentReaderChrome.configureHeader(this, binding.activityRoot, binding.headerTitleText, binding.imgBack, binding.imgOption, this.fileName, this.filePath);
+        DocumentReaderChrome.configureHeader(
+                this,
+                binding.activityRoot,
+                binding.headerTitleText,
+                binding.imgBack,
+                binding.imgPrint,
+                binding.imgOption,
+                this.fileName,
+                this.filePath
+        );
+        binding.imgPrint.setOnClickListener(v -> DocumentReaderChrome.printCsvRows(this, this.fileName, this.csv_data));
         this.mTableFilter = new Filter(this.mTableView);
         if (this.mPaginationEnabled) {
             this.mPagination = new Pagination(this.mTableView);

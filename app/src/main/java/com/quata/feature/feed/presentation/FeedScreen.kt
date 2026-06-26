@@ -91,6 +91,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,10 +104,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -120,6 +126,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -204,6 +211,10 @@ fun FeedScreen(
         onDispose { onLandscapeCommentsOverlayActiveChange(false) }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.onEvent(FeedUiEvent.Refresh)
+    }
+
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) {
             viewModel.onEvent(FeedUiEvent.Refresh)
@@ -226,6 +237,56 @@ fun FeedScreen(
             val postRanks = remember(state.posts) { calculatePostRankingMap(state.posts) }
             val videoPositions = remember { mutableMapOf<String, Long>() }
             var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+            val density = LocalDensity.current
+            var pullRefreshDistancePx by remember { mutableFloatStateOf(0f) }
+            val pullRefreshTriggerPx = with(density) { FeedPullRefreshTriggerDistance.toPx() }
+            val pullRefreshMaxPx = with(density) { FeedPullRefreshMaxDistance.toPx() }
+            val canPullRefreshState = rememberUpdatedState(
+                pagerState.currentPage == 0 &&
+                    !state.isRefreshing &&
+                    commentsPost == null &&
+                    !isLiveOpen
+            )
+            val isRefreshingState = rememberUpdatedState(state.isRefreshing)
+            val requestRefreshState = rememberUpdatedState {
+                viewModel.onEvent(FeedUiEvent.Refresh)
+            }
+            val pullRefreshConnection = remember(pullRefreshTriggerPx, pullRefreshMaxPx) {
+                object : NestedScrollConnection {
+                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                        val deltaY = available.y
+                        if (deltaY > 0f && canPullRefreshState.value) {
+                            val resistance = 1f - (pullRefreshDistancePx / pullRefreshMaxPx).coerceIn(0f, 0.72f)
+                            pullRefreshDistancePx = (pullRefreshDistancePx + deltaY * resistance).coerceAtMost(pullRefreshMaxPx)
+                            return Offset(0f, deltaY)
+                        }
+                        if (deltaY < 0f && pullRefreshDistancePx > 0f) {
+                            val consumed = minOf(pullRefreshDistancePx, -deltaY)
+                            pullRefreshDistancePx -= consumed
+                            return Offset(0f, -consumed)
+                        }
+                        return Offset.Zero
+                    }
+
+                    override suspend fun onPreFling(available: Velocity): Velocity {
+                        if (pullRefreshDistancePx >= pullRefreshTriggerPx && !isRefreshingState.value) {
+                            pullRefreshDistancePx = pullRefreshTriggerPx
+                            requestRefreshState.value()
+                        } else if (!isRefreshingState.value) {
+                            pullRefreshDistancePx = 0f
+                        }
+                        return Velocity.Zero
+                    }
+                }
+            }
+
+            LaunchedEffect(state.isRefreshing, pagerState.currentPage, pullRefreshTriggerPx) {
+                if (state.isRefreshing && pagerState.currentPage == 0 && pullRefreshDistancePx < pullRefreshTriggerPx) {
+                    pullRefreshDistancePx = pullRefreshTriggerPx
+                } else if (!state.isRefreshing) {
+                    pullRefreshDistancePx = 0f
+                }
+            }
 
             LaunchedEffect(focusedPostId) {
                 if (focusedPostId != null && focusedPostId != handledFocusedPostId) {
@@ -256,6 +317,7 @@ fun FeedScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .nestedScroll(pullRefreshConnection)
                     .background(Color.Black)
             ) {
                 VerticalPager(
@@ -310,6 +372,12 @@ fun FeedScreen(
                         )
                     }
                 }
+                FeedPullRefreshIndicator(
+                    pullDistancePx = pullRefreshDistancePx,
+                    triggerDistancePx = pullRefreshTriggerPx,
+                    isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
             }
 
             commentsPost?.let { post ->
@@ -381,6 +449,61 @@ private fun FeedMessageScreen(
                 CompactIconButton(onClick = onRefresh) {
                     CompactIcon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedPullRefreshIndicator(
+    pullDistancePx: Float,
+    triggerDistancePx: Float,
+    isRefreshing: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (isRefreshing) {
+        1f
+    } else {
+        (pullDistancePx / triggerDistancePx).coerceIn(0f, 1f)
+    }
+    if (progress <= 0f && !isRefreshing) return
+
+    val template = quataTheme()
+    val density = LocalDensity.current
+    val indicatorOffset = with(density) {
+        (-FeedPullRefreshIndicatorSize.toPx() + FeedPullRefreshIndicatorTravel.toPx() * progress).toDp()
+    }
+    val indicatorScale = 0.74f + 0.26f * progress
+
+    Surface(
+        modifier = modifier
+            .offset(y = indicatorOffset)
+            .graphicsLayer {
+                alpha = if (isRefreshing) 1f else (0.28f + progress * 0.72f)
+                rotationZ = if (isRefreshing) 0f else progress * 180f
+                scaleX = indicatorScale
+                scaleY = indicatorScale
+            }
+            .size(FeedPullRefreshIndicatorSize),
+        shape = CircleShape,
+        color = template.colors.surfaceRaised.copy(alpha = 0.96f),
+        contentColor = template.colors.textPrimary,
+        shadowElevation = 6.dp
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (isRefreshing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = QuataOrange,
+                    strokeWidth = 2.5.dp
+                )
+            } else {
+                CompactIcon(
+                    Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.common_refresh),
+                    tint = if (progress >= 1f) QuataOrange else template.colors.textPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
@@ -671,25 +794,38 @@ private fun ReelMedia(
 ) {
     when {
         post.videoUrl != null -> {
-            ReelVideo(
-                videoUrl = post.videoUrl,
-                isActive = isActive,
-                isMuted = isMuted,
-                networkReconnectToken = networkReconnectToken,
-                isNetworkAvailable = isNetworkAvailable,
-                initialPositionMs = initialVideoPositionMs,
-                onPositionChanged = onVideoPositionChanged,
-                onMuteChange = onMuteChange
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(textCanvasBrush(post.videoUrl ?: post.id))
+            ) {
+                ReelVideo(
+                    videoUrl = post.videoUrl,
+                    isActive = isActive,
+                    isMuted = isMuted,
+                    networkReconnectToken = networkReconnectToken,
+                    isNetworkAvailable = isNetworkAvailable,
+                    initialPositionMs = initialVideoPositionMs,
+                    onPositionChanged = onVideoPositionChanged,
+                    onMuteChange = onMuteChange
+                )
+            }
         }
         post.imageUrl != null -> {
             val imageModel = rememberCachedRemoteImageRequest(post.imageUrl)
-            AsyncImage(
-                model = imageModel,
-                contentDescription = post.imageTitle(),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(textCanvasBrush(post.imageUrl ?: post.id)),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = post.imageTitle(),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         post.text.parsePostShortcodeContent().cleanText.isNotBlank() -> TextOnlyReel(post = post)
@@ -746,7 +882,7 @@ private fun ReelVideo(
 ) {
     val context = LocalContext.current
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val playerBackground = Color.Black.toArgb()
+    val playerBackground = Color.Transparent.toArgb()
     val latestIsActive by rememberUpdatedState(isActive)
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
     var positionMs by remember(videoUrl) { mutableLongStateOf(initialPositionMs) }
@@ -935,7 +1071,7 @@ private fun ReelVideo(
         Modifier
             .fillMaxSize()
             .clipToBounds()
-            .background(Color.Black)
+            .background(Color.Transparent)
     ) {
         AndroidView(
             modifier = Modifier
@@ -946,7 +1082,7 @@ private fun ReelVideo(
                     .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
                     this.player = player
                     useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setBackgroundColor(playerBackground)
                     setShutterBackgroundColor(playerBackground)
                     layoutParams = ViewGroup.LayoutParams(
@@ -957,7 +1093,7 @@ private fun ReelVideo(
             },
             update = {
                 it.useController = false
-                it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 it.setBackgroundColor(playerBackground)
                 it.setShutterBackgroundColor(playerBackground)
                 if (it.player !== player) {
@@ -2064,6 +2200,11 @@ private data class PostRankingInfo(
 private data class PostPublishedAtInfo(
     val publishedAt: LocalDateTime
 )
+
+private val FeedPullRefreshTriggerDistance = 96.dp
+private val FeedPullRefreshMaxDistance = 148.dp
+private val FeedPullRefreshIndicatorSize = 44.dp
+private val FeedPullRefreshIndicatorTravel = 72.dp
 
 private fun calculatePostRankingMap(posts: List<Post>): Map<String, PostRankingInfo> =
     posts

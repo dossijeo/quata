@@ -11,6 +11,7 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityPost
+import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import com.quata.wordpress.QuataWordPressClient
@@ -65,8 +66,9 @@ class FeedRepositoryImpl(
         }
 
     override suspend fun getFeed(): Result<List<Post>> =
-        runCatching { loadPostShells() }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
-    override suspend fun refreshFeed(): Result<List<Post>> = getFeed()
+        runCatching { loadPostShells(SupabaseCacheMode.CACHE_FIRST) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+    override suspend fun refreshFeed(): Result<List<Post>> =
+        runCatching { loadPostShells(SupabaseCacheMode.NETWORK_ONLY) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
 
     override suspend fun refreshAuthor(userId: String): Result<User?> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -80,7 +82,7 @@ class FeedRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.posts.firstOrNull { it.id == postId }
         } else {
-            loadPost(postId)
+            loadPost(postId, SupabaseCacheMode.NETWORK_ONLY)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
 
@@ -90,7 +92,7 @@ class FeedRepositoryImpl(
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             remote.toggleLike(postId, session.userId)
-            loadPost(postId)
+            loadPost(postId, SupabaseCacheMode.NETWORK_ONLY)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -98,7 +100,7 @@ class FeedRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.reportPost(postId)
         } else {
-            loadPost(postId)?.copy(isReportedByCurrentUser = true)
+            loadPost(postId, SupabaseCacheMode.NETWORK_ONLY)?.copy(isReportedByCurrentUser = true)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -108,7 +110,7 @@ class FeedRepositoryImpl(
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             remote.addComment(postId, session.userId, comment.toRemoteBody())
-            loadPost(postId)
+            loadPost(postId, SupabaseCacheMode.NETWORK_ONLY)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -135,15 +137,15 @@ class FeedRepositoryImpl(
         runCatching { wordpressClient.deletePostVideoAjax(mediaUrl) }
     }
 
-    private suspend fun loadPostShells(): List<Post> {
+    private suspend fun loadPostShells(cacheMode: SupabaseCacheMode): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
 
-        val posts = remote.getPosts()
+        val posts = remote.getPosts(cacheMode)
         val postIds = posts.map { it.id }
-        val comments = if (postIds.isEmpty()) emptyList() else remote.getComments(postIds)
-        val likes = if (postIds.isEmpty()) emptyList() else remote.getLikes(postIds)
+        val comments = if (postIds.isEmpty()) emptyList() else remote.getComments(postIds, cacheMode)
+        val likes = if (postIds.isEmpty()) emptyList() else remote.getLikes(postIds, cacheMode)
         val profileIds = FeedSnapshot(posts, comments, likes).profileIds()
-        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
+        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds, cacheMode).associateBy { it.id }
         return buildPosts(posts, comments, likes, profilesById.values.toList())
     }
 
@@ -178,17 +180,20 @@ class FeedRepositoryImpl(
         }
     }
 
-    private suspend fun loadPost(postId: String): Post? {
+    private suspend fun loadPost(
+        postId: String,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): Post? {
         val currentUserId = sessionManager.currentSession()?.userId
-        val post = remote.getPost(postId) ?: return null
-        val comments = remote.getComments(listOf(postId))
-        val likes = remote.getLikes(listOf(postId))
+        val post = remote.getPost(postId, cacheMode) ?: return null
+        val comments = remote.getComments(listOf(postId), cacheMode)
+        val likes = remote.getLikes(listOf(postId), cacheMode)
         val profileIds = (
             listOfNotNull(post.profile_id ?: post.author_id) +
                 comments.mapNotNull { it.profile_id } +
                 likes.mapNotNull { it.profile_id }
             ).distinct()
-        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds).associateBy { it.id }
+        val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds, cacheMode).associateBy { it.id }
         val authorId = post.profile_id ?: post.author_id.orEmpty()
         val author = profilesById[authorId]?.toDomainUser()
             ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")

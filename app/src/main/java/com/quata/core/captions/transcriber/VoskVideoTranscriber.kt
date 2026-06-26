@@ -5,12 +5,15 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.util.Log
 import com.quata.R
 import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.core.WordTiming
+import com.quata.core.localization.QuataLanguageManager
 import java.io.File
+import java.io.InputStream
 import java.nio.ByteBuffer
-import java.util.Locale
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,10 +28,10 @@ import org.vosk.Recognizer
 
 class VoskVideoTranscriber(
     private val context: Context,
-    private val locale: Locale = Locale.getDefault()
+    private val modelLanguage: VoskModelLanguage = VoskModelLanguage.from(QuataLanguageManager.currentLanguage)
 ) {
     suspend fun transcribe(videoUri: Uri): CaptionDocument = withContext(Dispatchers.IO) {
-        val modelDir = VoskModelResolver(context, locale).resolve()
+        val modelDir = VoskModelResolver(context, modelLanguage).resolve()
             ?: throw CaptionTranscriptionException(context.getString(R.string.caption_transcription_model_missing))
         val words = mutableListOf<WordTiming>()
         val model = Model(modelDir.absolutePath)
@@ -177,10 +180,9 @@ open class CaptionTranscriptionException(message: String) : Exception(message)
 
 private class VoskModelResolver(
     private val context: Context,
-    private val locale: Locale
+    private val language: VoskModelLanguage
 ) {
     fun resolve(): File? {
-        val language = VoskModelLanguage.from(locale)
         val languageCode = language.languageCode
         val bundledTarget = File(context.filesDir, "vosk/$languageCode")
         findModelDirectory(bundledTarget)?.let { return it }
@@ -211,12 +213,74 @@ private class VoskModelResolver(
     private fun unpackBundledModelIfPresent(language: VoskModelLanguage, targetRoot: File) {
         if (findModelDirectory(targetRoot) != null) return
         targetRoot.mkdirs()
-        val canonicalTarget = targetRoot.canonicalFile
-        val resourceId = context.resources.getIdentifier(language.resourceName, "raw", context.packageName)
-        if (resourceId == 0) {
-            throw VoskModelNotInstalledException(language)
+        openRawModelResource(language)?.use { input ->
+            unzipModel(input, targetRoot)
+            return
         }
-        ZipInputStream(context.resources.openRawResource(resourceId)).use { zip ->
+        if (unpackRawModelFromInstalledSplit(language, targetRoot)) return
+        throw CaptionTranscriptionException(context.getString(R.string.caption_transcription_model_missing))
+    }
+
+    private fun openRawModelResource(language: VoskModelLanguage): InputStream? {
+        VoskModelSplitSupport.refresh(context)
+        val packages = listOf(
+            "${context.packageName}.${language.moduleName}",
+            language.resourcePackageName,
+            context.packageName
+        ).distinct()
+        val resourceSets = listOfNotNull(
+            context.resources,
+            context.applicationContext.resources,
+            runCatching {
+                val appInfo = context.packageManager.getApplicationInfo(context.packageName, 0)
+                context.packageManager.getResourcesForApplication(appInfo)
+            }.getOrNull()
+        )
+        resourceSets.forEach { resources ->
+            packages.forEach { packageName ->
+                val resourceId = resources.getIdentifier(language.resourceName, "raw", packageName)
+                if (resourceId != 0) {
+                    runCatching { resources.openRawResource(resourceId) }
+                        .onFailure { error ->
+                            Log.w(VoskTranscriberLogTag, "Could not open ${language.resourceName} from $packageName", error)
+                        }
+                        .getOrNull()
+                        ?.let { return it }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun unpackRawModelFromInstalledSplit(language: VoskModelLanguage, targetRoot: File): Boolean {
+        val rawEntryName = "res/raw/${language.resourceName}.zip"
+        VoskModelSplitSupport.installedSplitSourceDirs(context, language).forEach { splitApk ->
+            var unpacked = false
+            runCatching {
+                ZipFile(splitApk).use { zip ->
+                    val entry = zip.getEntry(rawEntryName)
+                        ?: zip.entries().asSequence().firstOrNull { candidate ->
+                            candidate.name.endsWith("/${language.resourceName}.zip") ||
+                                candidate.name == rawEntryName
+                        }
+                    if (entry != null) {
+                        zip.getInputStream(entry).use { input ->
+                            unzipModel(input, targetRoot)
+                        }
+                        unpacked = true
+                    }
+                }
+            }.onFailure { error ->
+                Log.w(VoskTranscriberLogTag, "Could not unpack ${language.resourceName} from ${splitApk.name}", error)
+            }
+            if (unpacked) return true
+        }
+        return false
+    }
+
+    private fun unzipModel(input: InputStream, targetRoot: File) {
+        val canonicalTarget = targetRoot.canonicalFile
+        ZipInputStream(input.buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 val outputFile = File(canonicalTarget, entry.name).canonicalFile
@@ -247,3 +311,4 @@ private class VoskModelResolver(
 }
 
 private const val DecoderTimeoutUs = 10_000L
+private const val VoskTranscriberLogTag = "VoskTranscriber"

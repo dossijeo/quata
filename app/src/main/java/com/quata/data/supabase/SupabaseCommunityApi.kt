@@ -69,13 +69,18 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
-    suspend fun getProfiles(ids: Collection<String>? = null, limit: Int = 500): List<CommunityProfile> = client.getList(
+    suspend fun getProfiles(
+        ids: Collection<String>? = null,
+        limit: Int = 500,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<CommunityProfile> = client.getList(
         "community_profiles",
         mapOf(
             "select" to PROFILE_PUBLIC_SELECT,
             "id" to ids?.takeIf { it.isNotEmpty() }?.toInFilter(),
             "limit" to limit.toString()
-        )
+        ),
+        cacheMode = cacheMode
     )
 
     fun observeProfiles(ids: Collection<String>? = null, limit: Int = 500): Flow<List<CommunityProfile>> = client.observeList(
@@ -125,7 +130,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         offset: Int = 0,
         wallId: String? = null,
         profileId: String? = null,
-        postId: String? = null
+        postId: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<CommunityPost> = client.getList(
         "community_posts",
         mapOf(
@@ -136,7 +142,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             "order" to "created_at.desc",
             "limit" to limit.toString(),
             "offset" to offset.toString()
-        )
+        ),
+        cacheMode = cacheMode
     )
 
     fun observeFeedPosts(
@@ -181,9 +188,16 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
-    suspend fun getComments(postIds: Collection<String>): List<CommunityComment> {
+    suspend fun getComments(
+        postIds: Collection<String>,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<CommunityComment> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList("community_comments", mapOf("select" to COMMENT_SELECT, "post_id" to postIds.toInFilter(), "order" to "created_at.asc"))
+        return client.getList(
+            "community_comments",
+            mapOf("select" to COMMENT_SELECT, "post_id" to postIds.toInFilter(), "order" to "created_at.asc"),
+            cacheMode = cacheMode
+        )
     }
 
     fun observeComments(postIds: Collection<String>): Flow<List<CommunityComment>> {
@@ -196,9 +210,16 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun deleteComment(commentId: String) = client.delete("community_comments", mapOf("id" to "eq.$commentId"))
 
-    suspend fun getLikes(postIds: Collection<String>): List<CommunityPostLike> {
+    suspend fun getLikes(
+        postIds: Collection<String>,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<CommunityPostLike> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList("community_post_likes", mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()))
+        return client.getList(
+            "community_post_likes",
+            mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()),
+            cacheMode = cacheMode
+        )
     }
 
     fun observeLikes(postIds: Collection<String>): Flow<List<CommunityPostLike>> {

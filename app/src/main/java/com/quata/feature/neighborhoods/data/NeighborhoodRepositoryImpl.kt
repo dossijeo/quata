@@ -3,6 +3,7 @@ package com.quata.feature.neighborhoods.data
 import android.content.Context
 import com.quata.R
 import com.quata.bettermessages.BetterMessagesRepository
+import com.quata.bettermessages.BmFile
 import com.quata.bettermessages.BmThreadAttachmentFile
 import com.quata.bettermessages.BmThreadResponse
 import com.quata.bettermessages.BmUser
@@ -19,10 +20,12 @@ import com.quata.data.supabase.CommunityPost
 import com.quata.data.supabase.CommunityPostLike
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityProfileFollow
+import com.quata.data.supabase.CommunityWallStats
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
 import com.quata.feature.chat.data.BetterMessagesConversationCacheStore
 import com.quata.feature.chat.data.betterMessagesThreadIdOrNull
+import com.quata.feature.chat.data.toEpochMillisFromBetterMessagesOrNull
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.toDomain
@@ -45,6 +48,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import java.text.Normalizer
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -75,19 +79,29 @@ class NeighborhoodRepositoryImpl(
                 profileRemote.observeDirectoryProfiles(),
                 supabaseApi.observeActiveWallsStats()
             ) { profiles, walls ->
-                val users = profiles.map { it.toNeighborhoodUserReal() }
-                walls.map { wall ->
-                    val wallName = wall.name ?: wall.slug ?: "Comunidad"
-                    val wallUsers = users
-                        .filter { user -> user.neighborhood.equals(wall.name, ignoreCase = true) || user.neighborhood.equals(wall.normalized_name, ignoreCase = true) }
-                        .sortedBy { it.displayName.lowercase() }
+                val usersByNeighborhood = profiles
+                    .map { it.toNeighborhoodUserReal() }
+                    .filter { it.neighborhood.isNotBlank() }
+                    .groupBy { it.neighborhood.normalizeName() }
+                val wallsByNeighborhood = walls
+                    .flatMap { wall -> wall.communityKeys().map { key -> key to wall } }
+                    .toMap()
+
+                usersByNeighborhood.mapNotNull { (neighborhoodKey, neighborhoodUsers) ->
+                    val neighborhoodName = neighborhoodUsers
+                        .firstNotNullOfOrNull { user -> user.neighborhood.trim().takeIf { it.isNotBlank() } }
+                        ?: return@mapNotNull null
+                    val wall = wallsByNeighborhood[neighborhoodKey]
+                    val wallId = wall?.id
                     NeighborhoodCommunity(
-                        name = wallName,
-                        users = wallUsers,
-                        conversationId = wallConversationId(wall.id),
+                        name = neighborhoodName,
+                        users = neighborhoodUsers
+                            .distinctBy { it.id }
+                            .sortedBy { it.displayName.lowercase() },
+                        conversationId = wallId?.let(::wallConversationId),
                         lastMessagePreview = null,
-                        lastMessageAtMillis = wall.chat_last_at?.toEpochMillisOrNull(),
-                        messageCount = wall.chat_count ?: 0
+                        lastMessageAtMillis = wall?.chat_last_at?.toEpochMillisOrNull(),
+                        messageCount = wall?.chat_count ?: 0
                     )
                 }.sortedWith(
                     compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
@@ -127,11 +141,7 @@ class NeighborhoodRepositoryImpl(
         chatRepository.cachedCommunityConversationId(cleanNeighborhood)?.let { return@runCatching it }
 
         val wall = supabaseApi.getActiveWallsStats()
-            .firstOrNull { wall ->
-                wall.name.equals(cleanNeighborhood, ignoreCase = true) ||
-                    wall.slug.equals(cleanNeighborhood, ignoreCase = true) ||
-                    wall.normalized_name.equals(cleanNeighborhood, ignoreCase = true)
-            }
+            .firstOrNull { wall -> wall.matchesNeighborhood(cleanNeighborhood) }
         val communityId = wall?.id ?: cleanNeighborhood.normalizeName()
         val communityTitle = wall?.name?.takeIf { it.isNotBlank() } ?: cleanNeighborhood
         val memberIds = profileRemote.getDirectoryProfiles()
@@ -144,7 +154,7 @@ class NeighborhoodRepositoryImpl(
         chatRepository.openCommunityConversation(
             communityId = communityId,
             title = communityTitle,
-            participantIds = memberIds + session.userId
+            participantIds = (memberIds + session.userId).distinct()
         ).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -421,25 +431,56 @@ class NeighborhoodRepositoryImpl(
             .flatMap { threadId ->
                 val cachedThread = conversationCacheStore.cachedThreadResponse(currentUserId, threadId)
                 val senderNamesByMessageId = cachedThread?.senderNamesByMessageId().orEmpty()
-                runCatching {
-                    betterMessagesRepository.loadThreadAttachments(
-                        profileId = currentUserId,
-                        threadId = threadId,
-                        page = 1,
-                        perPage = 20
-                    )
-                }.getOrNull()
-                    ?.files
+                val cachedMessageAttachments = cachedThread
+                    ?.messages
                     .orEmpty()
+                    .flatMap { message ->
+                        message.meta.files.mapNotNull { file ->
+                            file.toProfileAttachment(
+                                threadId = threadId,
+                                messageId = message.messageId,
+                                senderName = senderNamesByMessageId[message.messageId] ?: targetDisplayName,
+                                sentAtMillis = message.created_at.toEpochMillisFromBetterMessagesOrNull()
+                            )
+                        }
+                    }
+                val threadAttachments = loadThreadAttachmentPages(currentUserId, threadId)
                     .mapNotNull { file ->
                         file.toProfileAttachment(
                             threadId = threadId,
                             senderName = file.messageId?.let(senderNamesByMessageId::get) ?: targetDisplayName
                         )
                     }
+                cachedMessageAttachments + threadAttachments
             }
-            .distinctBy { attachment -> attachment.id }
+            .distinctBy { attachment -> attachment.deduplicationKey() }
             .sortedByDescending { attachment -> attachment.sentAtMillis ?: 0L }
+    }
+
+    private fun ProfileAttachment.deduplicationKey(): String =
+        "${uri.substringBefore('?').lowercase()}|${name.lowercase()}"
+
+    private suspend fun loadThreadAttachmentPages(
+        profileId: String,
+        threadId: Int
+    ): List<BmThreadAttachmentFile> {
+        val files = mutableListOf<BmThreadAttachmentFile>()
+        var page = 1
+        var hasMore: Boolean
+        do {
+            val response = runCatching {
+                betterMessagesRepository.loadThreadAttachments(
+                    profileId = profileId,
+                    threadId = threadId,
+                    page = page,
+                    perPage = 50
+                )
+            }.getOrNull() ?: break
+            files += response.files
+            hasMore = response.hasMore && response.files.isNotEmpty()
+            page += 1
+        } while (hasMore && page <= 10)
+        return files
     }
 
     private suspend fun participantKeysForProfile(
@@ -491,10 +532,55 @@ class NeighborhoodRepositoryImpl(
             id = "bm:$threadId:$id",
             name = name?.takeIf { it.isNotBlank() } ?: attachmentUri.substringAfterLast('/').ifBlank { "archivo" },
             uri = attachmentUri,
-            mimeType = mimeType,
+            mimeType = mimeType ?: inferAttachmentMimeType(name, attachmentUri, ext),
             sentAtMillis = date?.toBetterMessagesAttachmentMillisOrNull(),
             senderName = senderName
         )
+    }
+
+    private fun BmFile.toProfileAttachment(
+        threadId: Int,
+        messageId: Int,
+        senderName: String,
+        sentAtMillis: Long?
+    ): ProfileAttachment? {
+        val attachmentUri = url?.takeIf { it.isNotBlank() }
+            ?: thumb?.asStringOrNull()
+            ?: return null
+        return ProfileAttachment(
+            id = "bm:$threadId:$messageId:$id",
+            name = name?.takeIf { it.isNotBlank() } ?: attachmentUri.substringAfterLast('/').ifBlank { "archivo" },
+            uri = attachmentUri,
+            mimeType = mimeType ?: inferAttachmentMimeType(name, attachmentUri, ext),
+            sentAtMillis = sentAtMillis,
+            senderName = senderName
+        )
+    }
+
+    private fun inferAttachmentMimeType(name: String?, uri: String, ext: String?): String? {
+        val extension = ext
+            ?.takeIf { it.isNotBlank() }
+            ?: name?.substringAfterLast('.', missingDelimiterValue = "")?.takeIf { it.isNotBlank() }
+            ?: uri.substringBefore('?').substringAfterLast('.', missingDelimiterValue = "").takeIf { it.isNotBlank() }
+        return when (extension?.lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "gif" -> "image/gif"
+            "webp" -> "image/webp"
+            "mp4", "m4v" -> "video/mp4"
+            "mov" -> "video/quicktime"
+            "pdf" -> "application/pdf"
+            "doc" -> "application/msword"
+            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "xls" -> "application/vnd.ms-excel"
+            "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "ppt" -> "application/vnd.ms-powerpoint"
+            "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "rtf" -> "application/rtf"
+            "csv" -> "text/csv"
+            "txt" -> "text/plain"
+            else -> null
+        }
     }
 
     private fun JsonElement.asStringOrNull(): String? =
@@ -576,7 +662,9 @@ class NeighborhoodRepositoryImpl(
                 ?: nombre?.takeIf { it.isNotBlank() }
                 ?: phone_local.orEmpty(),
             email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
-            neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
+            neighborhood = neighborhood?.takeIf { it.isNotBlank() }
+                ?: barrio?.takeIf { it.isNotBlank() }
+                ?: barrio_normalized.orEmpty(),
             avatarUrl = avatar_url ?: avatar,
             isFollowing = isFollowing,
             followersCount = followersCount,
@@ -585,10 +673,21 @@ class NeighborhoodRepositoryImpl(
         )
 
     private fun CommunityProfile.belongsToNeighborhood(neighborhoodName: String): Boolean {
-        val cleanName = neighborhoodName.trim()
-        return neighborhood.equals(cleanName, ignoreCase = true) ||
-            barrio.equals(cleanName, ignoreCase = true)
+        val cleanName = neighborhoodName.normalizeName()
+        return listOf(neighborhood, barrio, barrio_normalized)
+            .filterNotNull()
+            .any { it.normalizeName() == cleanName }
     }
+
+    private fun CommunityWallStats.matchesNeighborhood(neighborhoodName: String): Boolean =
+        neighborhoodName.normalizeName() in communityKeys()
+
+    private fun CommunityWallStats.communityKeys(): Set<String> =
+        listOf(name, slug, normalized_name)
+            .mapNotNull { it?.takeIf(String::isNotBlank) }
+            .map { it.normalizeName() }
+            .filter { it.isNotBlank() }
+            .toSet()
 
     private fun CommunityProfile.displayName(): String =
         display_name?.takeIf { it.isNotBlank() }
@@ -610,7 +709,13 @@ class NeighborhoodRepositoryImpl(
                 null
             }
 
-    private fun String.normalizeName(): String = trim().lowercase()
+    private fun String.normalizeName(): String {
+        val withoutMarks = Normalizer.normalize(trim().lowercase(), Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+        return withoutMarks
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+    }
 
     private data class ProfilePostSnapshot(
         val profile: CommunityProfile,

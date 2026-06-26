@@ -52,6 +52,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
     private String tempFilePath;
     private Toast toast;
     private boolean writeLog = true;
+    private boolean isClosing;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,7 +71,16 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
             this.isFromAppActivity = getIntent().getBooleanExtra("fromAppActivity", false);
             binding.headerTitleText.setMaxLines(1);
         }
-        DocumentReaderChrome.configureHeader(this, binding.activityRoot, binding.headerTitleText, binding.imgBack, binding.imgShare, this.fileName, this.filePath);
+        DocumentReaderChrome.configureHeader(
+                this,
+                binding.activityRoot,
+                binding.headerTitleText,
+                binding.imgBack,
+                binding.imgPrint,
+                binding.imgShare,
+                this.fileName,
+                this.filePath
+        );
         createView();
         configurePresentationControls();
         this.control.openFile(this.filePath);
@@ -411,26 +421,34 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
 
     @Override
     public void onBackPressed() {
-        Object actionValue = this.control.getActionValue(EventConstant.PG_SLIDESHOW, null);
+        MainControl mainControl = this.control;
+        Object actionValue = mainControl == null ? null : mainControl.getActionValue(EventConstant.PG_SLIDESHOW, null);
         if (actionValue == null || !(Boolean) actionValue) {
-            if (this.control.getReader() != null) {
-                this.control.getReader().abortReader();
-            }
-            MainControl mainControl = this.control;
-            if (mainControl == null || !mainControl.isAutoTest()) {
-                if (this.isFromAppActivity) {
-                    finish();
-                   // startActivity(new Intent(this, Main_Home_Activity.class));
-                }
-                super.onBackPressed();
-                overridePendingTransition(R.anim.slide_from_left, R.anim.slide_to_right);
-                return;
-            }
+            closeViewer();
+            if (mainControl == null || !mainControl.isAutoTest()) return;
             System.exit(0);
             return;
         }
         fullScreen(false);
-        this.control.actionEvent(EventConstant.PG_SLIDESHOW_END, null);
+        if (mainControl != null) {
+            mainControl.actionEvent(EventConstant.PG_SLIDESHOW_END, null);
+        }
+    }
+
+    private void closeViewer() {
+        if (this.isClosing) {
+            return;
+        }
+        this.isClosing = true;
+        binding.imgBack.setEnabled(false);
+        binding.imgPrint.setEnabled(false);
+        binding.imgShare.setEnabled(false);
+        MainControl mainControl = this.control;
+        if (mainControl != null && mainControl.getReader() != null) {
+            mainControl.getReader().abortReader();
+        }
+        finish();
+        overridePendingTransition(R.anim.slide_from_left, R.anim.slide_to_right);
     }
 
 

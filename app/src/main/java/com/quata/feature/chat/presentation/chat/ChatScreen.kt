@@ -1410,9 +1410,20 @@ private fun ChatAvatar(
     compact: Boolean = false
 ) {
     val template = quataTheme()
-    val privateUser = conversation?.participantIds
-        ?.firstOrNull { it != currentUser?.id }
-        ?.let { usersById[it] }
+    val privateUserIndex = conversation?.participantIds
+        ?.indexOfFirst { it != currentUser?.id }
+        ?: -1
+    val privateUserId = conversation?.participantIds?.getOrNull(privateUserIndex)
+    val privateUser = privateUserId?.let { usersById[it] }
+    val privateUserName = privateUser?.displayName
+        ?: conversation?.participantNames?.getOrNull(privateUserIndex)
+        ?: conversation?.title.orEmpty().ifBlank { "C" }
+    val privateAvatarUrl = privateUser?.avatarUrl
+        ?: conversation?.participantAvatarUrls?.getOrNull(privateUserIndex)
+        ?: conversation?.avatarUrl
+    val resolvedPrivateUser = privateUser ?: usersById.findUserByDisplayIdentity(privateUserName, privateAvatarUrl)
+    val resolvedPrivateUserId = resolvedPrivateUser?.id ?: privateUserId?.takeUnless { it.startsWith("wp:") }
+    val canOpenPrivateProfile = !resolvedPrivateUserId.isNullOrBlank()
     val containerSize = if (compact) 44.dp else 52.dp
     val avatarSize = if (compact) 38.dp else 46.dp
     Box(modifier = Modifier.size(containerSize), contentAlignment = Alignment.Center) {
@@ -1431,22 +1442,42 @@ private fun ChatAvatar(
                     CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
                 }
             }
-        } else if (privateUser != null) {
+        } else if (canOpenPrivateProfile && resolvedPrivateUserId != null) {
             ClickableProfileAvatar(
-                name = privateUser.displayName,
-                avatarUrl = privateUser.avatarUrl,
-                isLoading = openingProfileUserId == privateUser.id,
-                onClick = { onOpenUserProfile(privateUser.id) },
+                name = resolvedPrivateUser?.displayName ?: privateUserName,
+                avatarUrl = resolvedPrivateUser?.avatarUrl ?: privateAvatarUrl,
+                isLoading = openingProfileUserId == resolvedPrivateUserId,
+                onClick = { onOpenUserProfile(resolvedPrivateUserId) },
                 modifier = Modifier.size(avatarSize)
             )
         } else {
-            AvatarLetter(conversation?.title.orEmpty().ifBlank { "C" }, modifier = Modifier.size(avatarSize))
+            AvatarImage(privateUserName, privateAvatarUrl, modifier = Modifier.size(avatarSize))
         }
         if (conversation?.isMuted == true) {
             MutedConversationBadge(Modifier.align(Alignment.TopEnd))
         }
     }
 }
+
+private fun Map<String, User>.findUserByDisplayIdentity(name: String, avatarUrl: String?): User? {
+    avatarUrl?.takeIf { it.isNotBlank() }?.let { expectedAvatar ->
+        values.firstOrNull { user -> user.avatarUrl?.equals(expectedAvatar, ignoreCase = true) == true }?.let { return it }
+    }
+    val expectedName = name.normalizedParticipantName().takeIf { it.isNotBlank() } ?: return null
+    values.firstOrNull { it.displayName.normalizedParticipantName() == expectedName }?.let { return it }
+    if (expectedName.length < 5) return null
+    val fuzzyMatches = values.filter { user ->
+        val candidateName = user.displayName.normalizedParticipantName()
+        candidateName.length >= 5 &&
+            (expectedName.startsWith(candidateName) || candidateName.startsWith(expectedName))
+    }
+    return fuzzyMatches.singleOrNull()
+}
+
+private fun String.normalizedParticipantName(): String =
+    trim()
+        .lowercase()
+        .replace(Regex("\\s+"), " ")
 
 @Composable
 private fun MutedConversationBadge(modifier: Modifier = Modifier) {

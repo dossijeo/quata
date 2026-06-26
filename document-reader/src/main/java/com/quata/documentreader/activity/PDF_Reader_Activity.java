@@ -1,14 +1,10 @@
 package com.quata.documentreader.activity;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.pdf.PdfRenderer;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
-import android.print.PrintAttributes;
-import android.print.PrintDocumentAdapter;
-import android.print.PrintManager;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,7 +21,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.QuataDocumentReaderTheme;
 import com.quata.documentreader.R;
-import com.quata.documentreader.adapters_All.Adapter_Print_PdfDocument;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,14 +44,13 @@ public class PDF_Reader_Activity extends AppCompatActivity {
                 findViewById(R.id.activityRoot),
                 findViewById(R.id.header_title_text),
                 findViewById(R.id.img_back),
+                findViewById(R.id.img_print),
                 findViewById(R.id.img_download),
                 fileName,
                 path
         );
-        TextView btnPrint = findViewById(R.id.btnPrint);
         RecyclerView pages = findViewById(R.id.pdfPagesRecyclerView);
 
-        btnPrint.setOnClickListener(v -> printFile(path));
         pages.setLayoutManager(new LinearLayoutManager(this));
         pages.setHasFixedSize(false);
 
@@ -91,20 +85,6 @@ public class PDF_Reader_Activity extends AppCompatActivity {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         int horizontalPaddingPx = (int) (24 * metrics.density);
         return Math.max(1, metrics.widthPixels - horizontalPaddingPx);
-    }
-
-    private void printFile(String pdffilepath) {
-        PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-        try {
-            PrintDocumentAdapter printAdapter = new Adapter_Print_PdfDocument(this, pdffilepath);
-            printManager.print(
-                    getString(R.string.quata_document_reader_print_job),
-                    printAdapter,
-                    new PrintAttributes.Builder().build()
-            );
-        } catch (Exception exception) {
-            Toast.makeText(this, R.string.quata_document_reader_unsupported, Toast.LENGTH_LONG).show();
-        }
     }
 
     private static final class PdfPageAdapter extends RecyclerView.Adapter<PdfPageViewHolder> {

@@ -11,7 +11,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.stream.Collectors;
 
 
 public class RtfReader {
@@ -77,12 +76,13 @@ public class RtfReader {
 
     protected void parseControlWord() {
         getChar();
-        String word = "";
+        StringBuilder wordBuilder = new StringBuilder(16);
 
         while (isLetter()) {
-            word += tchar;
+            wordBuilder.append(tchar);
             getChar();
         }
+        String word = wordBuilder.toString();
 
         // Read parameter (if any) consisting of digits.
         // Paramater may be negative.
@@ -97,7 +97,7 @@ public class RtfReader {
             if (parameter == -1) {
                 parameter = 0;
             }
-            parameter = parameter * 10 + Integer.parseInt(tchar + "");
+            parameter = parameter * 10 + (tchar - '0');
             getChar();
         }
 
@@ -181,7 +181,7 @@ public class RtfReader {
 
     protected void parseText() throws RtfParseException {
         // Parse plain text up to backslash or brace, unless escaped.
-        String text = "";
+        StringBuilder text = new StringBuilder(64);
         boolean terminate = false;
 
         do {
@@ -209,13 +209,13 @@ public class RtfReader {
             }
 
             if (!terminate) {
-                text += tchar;
+                text.append(tchar);
                 getChar();
             }
         } while (!terminate && pos < len);
 
         RtfText rtfText = new RtfText();
-        rtfText.text = text;
+        rtfText.text = text.toString();
 
         // If group does not exist, then this is not a valid RTF file. Throw an
         // exception.
@@ -240,9 +240,18 @@ public class RtfReader {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void parse(InputStream rtfStream) throws RtfParseException {
-        String rtfSource = new BufferedReader(new InputStreamReader(rtfStream)).lines()
-                .collect(Collectors.joining("\n"));
-        parse(rtfSource);
+        StringBuilder rtfSource = new StringBuilder();
+        char[] buffer = new char[8192];
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(rtfStream));
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                rtfSource.append(buffer, 0, read);
+            }
+            parse(rtfSource.toString());
+        } catch (IOException e) {
+            throw new RtfParseException(e.getMessage());
+        }
     }
 
 

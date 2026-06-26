@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.MediaItem
@@ -66,11 +68,13 @@ import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.media.QuataMediaCache
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.documentreader.QuataDocumentReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 data class AttachmentPreview(
     val name: String,
@@ -207,6 +211,7 @@ private fun AttachmentViewerTopBar(title: String, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(62.dp)
+            .zIndex(2f)
             .background(template.colors.topChrome)
             .padding(horizontal = 8.dp)
     ) {
@@ -232,6 +237,7 @@ private fun ZoomableImage(attachment: AttachmentPreview) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
@@ -297,11 +303,13 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
     LaunchedEffect(uri) {
         bitmap = withContext(Dispatchers.IO) {
             runCatching {
+                QuataMediaCache.cachedVideoThumbnail(context, uri)?.let { return@runCatching it }
                 val parsedUri = Uri.parse(uri)
-                if (!parsedUri.isLocalAttachmentUri()) return@runCatching null
                 withQuataMediaMetadataRetriever { retriever ->
-                    retriever.setDataSource(context, parsedUri)
+                    retriever.setAttachmentVideoSource(context, parsedUri)
                     retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?.scaledForAttachmentThumbnail()
+                        ?.let { frame -> QuataMediaCache.cacheVideoThumbnail(context, uri, frame) }
                 }
             }.getOrNull()
         }
@@ -309,5 +317,19 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
     return bitmap
 }
 
-private fun Uri.isLocalAttachmentUri(): Boolean =
-    scheme == null || scheme == "content" || scheme == "file" || scheme == "android.resource"
+private fun MediaMetadataRetriever.setAttachmentVideoSource(context: Context, uri: Uri) {
+    when (uri.scheme?.lowercase()) {
+        null, "", "content", "file", "android.resource" -> setDataSource(context, uri)
+        "http", "https" -> setDataSource(uri.toString(), emptyMap())
+        else -> setDataSource(context, uri)
+    }
+}
+
+private fun Bitmap.scaledForAttachmentThumbnail(maxDimension: Int = 512): Bitmap {
+    val largest = maxOf(width, height)
+    if (largest <= maxDimension || largest <= 0) return this
+    val scale = maxDimension.toFloat() / largest.toFloat()
+    val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+}

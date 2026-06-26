@@ -15,5 +15,7 @@ data class ProfileUiState(
     val newPassword: String = "",
     val newSecretAnswer: String = "",
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val successMessageTriggersProfileSaved: Boolean = false,
+    val emergencySettingsSaved: Boolean = false
 )

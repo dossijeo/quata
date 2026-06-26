@@ -33,7 +33,7 @@
                 android:layout_centerVertical="true"
                 android:layout_marginLeft="8dp"
                 android:textColor="@color/title_info_color"
-                android:layout_toLeftOf="@+id/img_share"
+                android:layout_toLeftOf="@+id/img_print"
                 android:layout_toRightOf="@+id/img_back"
                 android:ellipsize="end"
                 android:maxLines="1"
@@ -88,4 +88,3 @@
 
 
 </RelativeLayout>
-

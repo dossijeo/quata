@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.location.Geocoder
 import android.location.Location
@@ -149,6 +150,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -195,6 +197,7 @@ fun CreatePostScreen(
     var pendingImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var preparedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var editedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var editedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -218,6 +221,17 @@ fun CreatePostScreen(
         context.deleteQuataEditedImageTemp(uri)
     }
 
+    fun deletePreparedImageTemp(uri: Uri?) {
+        uri ?: return
+        context.deleteQuataPreparedImageTemp(uri)
+    }
+
+    fun clearPreparedImageTemp() {
+        val uri = preparedImageTempUri
+        preparedImageTempUri = null
+        deletePreparedImageTemp(uri)
+    }
+
     fun clearPreparedVideoTemp() {
         val uri = preparedVideoTempUri
         preparedVideoTempUri = null
@@ -237,6 +251,7 @@ fun CreatePostScreen(
     }
 
     fun keepEditedTempsForMockPost() {
+        preparedImageTempUri = null
         editedImageTempUri = null
         editedVideoTempUri = null
     }
@@ -278,18 +293,39 @@ fun CreatePostScreen(
         }
     }
 
-    fun openImageEditorWithOriginal(uri: Uri?) {
+    fun selectImageForComposer(uri: Uri?) {
         uri ?: return
-        viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(""))
-        isLocationEditorOpen = false
-        highlightLocationEditor = false
-        val exifLocation = context.exifLocationFromUri(uri)
-        if (exifLocation != null) {
-            resolveLocation(exifLocation)
-        } else {
-            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        scope.launch {
+            val preparedUri = withContext(Dispatchers.IO) {
+                context.prepareComposerImageSource(uri)
+            }
+            if (preparedUri == null) {
+                Toast.makeText(context, context.getString(R.string.composer_image_pick_error), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val previousPreparedUri = preparedImageTempUri
+            val previousEditedUri = editedImageTempUri
+            preparedImageTempUri = preparedUri
+            editedImageTempUri = null
+            viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(""))
+            viewModel.onEvent(CreatePostUiEvent.ImageSelected(preparedUri.toString()))
+            isLocationEditorOpen = false
+            highlightLocationEditor = false
+            if (previousPreparedUri != preparedUri) {
+                deletePreparedImageTemp(previousPreparedUri)
+            }
+            if (previousEditedUri != preparedUri) {
+                deleteEditedImageTemp(previousEditedUri)
+            }
+            val exifLocation = context.exifLocationFromUri(preparedUri)
+            if (exifLocation != null) {
+                resolveLocation(exifLocation)
+            } else {
+                locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+            imageEditorUri = preparedUri
         }
-        imageEditorUri = uri
     }
 
     fun openVideoEditorWithPreparedSource(uri: Uri?) {
@@ -310,11 +346,11 @@ fun CreatePostScreen(
     }
 
     val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        openImageEditorWithOriginal(uri)
+        selectImageForComposer(uri)
     }
     val cameraImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         if (saved) {
-            openImageEditorWithOriginal(pendingImageUri)
+            selectImageForComposer(pendingImageUri)
         }
     }
     val galleryVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -364,6 +400,7 @@ fun CreatePostScreen(
     LaunchedEffect(resetToken) {
         if (resetToken != lastHandledResetToken) {
             clearEditedImageTemp()
+            clearPreparedImageTemp()
             clearEditedVideoTemp()
             clearPreparedVideoTemp()
             step = ComposerStep.TypePicker
@@ -390,6 +427,7 @@ fun CreatePostScreen(
                 keepEditedTempsForMockPost()
             } else {
                 clearEditedImageTemp()
+                clearPreparedImageTemp()
                 clearEditedVideoTemp()
                 clearPreparedVideoTemp()
             }
@@ -456,6 +494,7 @@ fun CreatePostScreen(
                         isLandscapeLayout = isLandscapeLayout,
                         onText = {
                             clearEditedImageTemp()
+                            clearPreparedImageTemp()
                             clearEditedVideoTemp()
                             clearPreparedVideoTemp()
                             textValue = TextFieldValue("")
@@ -466,6 +505,7 @@ fun CreatePostScreen(
                         },
                         onImage = {
                             clearEditedImageTemp()
+                            clearPreparedImageTemp()
                             clearEditedVideoTemp()
                             clearPreparedVideoTemp()
                             textValue = TextFieldValue("")
@@ -476,6 +516,7 @@ fun CreatePostScreen(
                         },
                         onVideo = {
                             clearEditedImageTemp()
+                            clearPreparedImageTemp()
                             clearEditedVideoTemp()
                             clearPreparedVideoTemp()
                             textValue = TextFieldValue("")
@@ -574,11 +615,16 @@ fun CreatePostScreen(
                 onDismiss = { imageEditorUri = null },
                 onEdited = { editedUri ->
                     val previousEditedUri = editedImageTempUri
+                    val previousPreparedUri = preparedImageTempUri
                     editedImageTempUri = editedUri
+                    preparedImageTempUri = null
                     viewModel.onEvent(CreatePostUiEvent.ImageSelected(editedUri.toString()))
                     imageEditorUri = null
                     if (previousEditedUri != editedUri) {
                         deleteEditedImageTemp(previousEditedUri)
+                    }
+                    if (previousPreparedUri != editedUri) {
+                        deletePreparedImageTemp(previousPreparedUri)
                     }
                 }
             )
@@ -688,6 +734,7 @@ private fun TypeCard(
     modifier: Modifier = Modifier,
     iconAboveText: Boolean = false
 ) {
+    val context = LocalContext.current
     val template = quataTheme()
     Surface(
         color = template.colors.surface,
@@ -861,6 +908,7 @@ private fun ImagePostForm(
     onLocationPositioned: (Int) -> Unit,
     onSubmit: () -> Unit
 ) {
+    val context = LocalContext.current
     val template = quataTheme()
 
     @Composable
@@ -879,7 +927,7 @@ private fun ImagePostForm(
             }
             if (state.imageUri != null) {
                 Spacer(Modifier.height(12.dp))
-                ComposerActionButton(stringResource(R.string.video_editor_crop), Icons.Filled.Edit, onEditImage)
+                ComposerActionButton(stringResource(R.string.composer_edit_image), Icons.Filled.Edit, onEditImage)
             }
             Spacer(Modifier.height(12.dp))
             Column(
@@ -956,16 +1004,22 @@ private fun ImagePostForm(
     fun ImagePreviewPanel() {
         PreviewPanel(stringResource(R.string.composer_preview)) {
             if (state.imageUri != null) {
+                val imageBackgroundSeed by produceState(state.imageUri.orEmpty(), state.imageUri) {
+                    value = withContext(Dispatchers.IO) {
+                        state.imageUri?.let { context.mediaHashSeed(Uri.parse(it)) }
+                    } ?: state.imageUri.orEmpty()
+                }
                 ComposerFeedPreviewFrame(
                     isVideo = false,
                     description = "",
                     locationLabel = state.locationLabel,
-                    compact = isLandscapeLayout
+                    compact = isLandscapeLayout,
+                    backgroundSeed = imageBackgroundSeed
                 ) {
                     AsyncImage(
                         model = state.imageUri,
                         contentDescription = stringResource(R.string.composer_selected_image),
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -1066,7 +1120,8 @@ private fun VideoPostForm(
                     description = state.text,
                     locationLabel = null,
                     compact = isLandscapeLayout,
-                    mediaAspectRatio = previewAspectRatio
+                    mediaAspectRatio = previewAspectRatio,
+                    backgroundSeed = state.videoUri
                 ) {
                     ComposerPreviewVideoPlayer(videoUri = state.videoUri)
                 }
@@ -1109,6 +1164,7 @@ private fun ComposerFeedPreviewFrame(
     locationLabel: String?,
     compact: Boolean = false,
     mediaAspectRatio: Float = 9f / 16f,
+    backgroundSeed: String? = null,
     media: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
 ) {
     Box(
@@ -1122,7 +1178,7 @@ private fun ComposerFeedPreviewFrame(
                 .fillMaxWidth()
                 .aspectRatio(mediaAspectRatio.coerceIn(0.35f, 2.4f))
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color.Black)
+                .background(textCanvasBrush(backgroundSeed ?: description.ifBlank { locationLabel.orEmpty() }))
                 .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
         ) {
             media()
@@ -1153,8 +1209,7 @@ private fun ComposerFeedPreviewFrame(
 @Composable
 private fun ComposerPreviewVideoPlayer(videoUri: String) {
     val context = LocalContext.current
-    val template = quataTheme()
-    val playerBackground = template.colors.surfaceAlt.toArgb()
+    val playerBackground = Color.Transparent.toArgb()
     var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
     var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
@@ -1222,7 +1277,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(template.colors.surfaceAlt)
+            .background(Color.Transparent)
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -1230,7 +1285,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
                 PlayerView(viewContext).apply {
                     this.player = player
                     useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setBackgroundColor(playerBackground)
                     setShutterBackgroundColor(playerBackground)
                     layoutParams = ViewGroup.LayoutParams(
@@ -1241,7 +1296,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             },
             update = { view ->
                 view.useController = false
-                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 view.setBackgroundColor(playerBackground)
                 view.setShutterBackgroundColor(playerBackground)
                 if (view.player !== player) {
@@ -1253,7 +1308,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             Image(
                 bitmap = frame.asImageBitmap(),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1568,6 +1623,25 @@ private fun Context.hasNonEmptyComposerVideo(uri: Uri): Boolean =
         val contentLength = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
         contentLength != 0L
     }.getOrDefault(false)
+
+private fun Context.prepareComposerImageSource(sourceUri: Uri): Uri? {
+    val outputFile = createComposerPreparedImageFile()
+    return runCatching {
+        contentResolver.openInputStream(sourceUri)?.use { input ->
+            outputFile.outputStream().use { output -> input.copyTo(output) }
+        } ?: error("Could not open image source")
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(outputFile.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            error("Prepared image is not decodable")
+        }
+        Uri.fromFile(outputFile)
+    }.onFailure {
+        Log.w(ComposerImageLogTag, "Could not prepare image source source=$sourceUri", it)
+        outputFile.delete()
+    }.getOrNull()
+}
 
 private fun Context.prepareComposerVideoSource(sourceUri: Uri): Uri? {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canUseComposerVideoSourceDirectly(sourceUri)) {
@@ -1926,6 +2000,20 @@ private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: In
 private fun Int.normalizedComposerVideoRotation(): Int =
     ((this % 360) + 360) % 360
 
+private fun Context.mediaHashSeed(uri: Uri): String? =
+    runCatching {
+        val digest = MessageDigest.getInstance("SHA-256")
+        contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        } ?: return@runCatching null
+        digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }.getOrNull()
+
 private fun Bitmap.scaleComposerVideoPoster(maxDimension: Int): Bitmap {
     val largestDimension = maxOf(width, height)
     if (largestDimension <= maxDimension) return this
@@ -2281,6 +2369,23 @@ private fun Context.createComposerPreparedVideoFile(): File {
     return File(cacheDir, "$QuataPreparedVideoFilePrefix$timestamp.mp4")
 }
 
+private fun Context.createComposerPreparedImageFile(): File {
+    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
+    return File(cacheDir, "$QuataPreparedImageFilePrefix$timestamp")
+}
+
+private fun Context.deleteQuataPreparedImageTemp(uri: Uri) {
+    if (uri.scheme != "file") return
+    val path = uri.path ?: return
+    runCatching {
+        val cache = cacheDir.canonicalFile
+        val file = File(path).canonicalFile
+        if (file.parentFile == cache && file.name.startsWith(QuataPreparedImageFilePrefix)) {
+            file.delete()
+        }
+    }
+}
+
 private fun Context.deleteQuataPreparedVideoTemp(uri: Uri) {
     if (uri.scheme != "file") return
     val path = uri.path ?: return
@@ -2317,8 +2422,10 @@ private fun Context.deleteQuataEditedImageTemp(uri: Uri) {
     }
 }
 
+private const val QuataPreparedImageFilePrefix = "quata-prepared-image-"
 private const val QuataPreparedVideoFilePrefix = "quata-prepared-video-"
 private const val QuataEditedVideoFilePrefix = "quata-edited-video-"
+private const val ComposerImageLogTag = "QuataComposerImage"
 private const val ComposerVideoLogTag = "QuataComposerVideo"
 private const val ComposerPreviewPosterMaxDimension = 720
 private const val ComposerVideoRemuxDefaultBufferSize = 1024 * 1024

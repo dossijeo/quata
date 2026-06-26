@@ -23,10 +23,10 @@ class BetterMessagesRepository(
     }
 
     suspend fun prepareBridgeContext(profileId: String): BmInboxSessionData {
-        setProfileContext(profileId)
+        val session = client.prepareSession(profileId)
         val unread = getUnreadCount(profileId)
         return BmInboxSessionData(
-            currentWpUserId = unread.userId,
+            currentWpUserId = session.userId ?: unread.userId,
             unreadTotal = unread.unreadTotal
         )
     }
