@@ -1,6 +1,7 @@
 package com.quata.feature.profile.data
 
 import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.data.supabase.SupabaseCacheMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -22,8 +23,11 @@ class ProfileRemoteDataSource(
 
     fun observeEmergencyCandidates() = api.observeProfiles(limit = EmergencyCandidateLimit)
 
-    suspend fun getEmergencyContactIds(profileId: String): List<String> =
-        api.getEmergencyContacts(profileId)
+    suspend fun getEmergencyContactIds(
+        profileId: String,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<String> =
+        api.getEmergencyContacts(profileId, cacheMode = cacheMode)
             .mapNotNull { it.contact_profile_id }
             .distinct()
             .take(5)

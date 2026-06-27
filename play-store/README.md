@@ -17,8 +17,8 @@ Este directorio agrupa materiales, borradores y capturas para preparar la public
 
 - App: Qüata
 - Package name: `com.quata`
-- Version del README principal: `0.9.10`
-- Fecha de revision: `2026-06-26`
+- Version del README principal: `0.9.11`
+- Fecha de revision: `2026-06-27`
 - Tipo: red social/comunidad con feed multimedia, chats, barrios/comunidades, perfiles, SOS, traduccion y subtitulos.
 - Idiomas de interfaz: espanol, ingles y frances.
 - AAB release generado: `app/build/outputs/bundle/release/app-release.aab`

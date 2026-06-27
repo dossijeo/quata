@@ -9,6 +9,7 @@ import com.quata.core.media.ImageUploadOptions
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityProfile
+import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -18,8 +19,11 @@ import com.quata.feature.profile.domain.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 
 class ProfileRepositoryImpl(
     private val remote: ProfileRemoteDataSource,
@@ -28,6 +32,7 @@ class ProfileRepositoryImpl(
     private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : ProfileRepository {
     private val emergencyMessageStore = EmergencyMessageStore(context)
+    private val emergencyContactsStore = EmergencyContactsStore(context)
 
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> {
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -36,8 +41,19 @@ class ProfileRepositoryImpl(
         val session = sessionManager.currentSession()
             ?: return flowOf(Result.failure(IllegalStateException("No hay sesion activa")))
         val storedEmergencyMessage = emergencyMessageStore.get(session.userId)
+        val contactIdsFlow = flow {
+            emit(emergencyContactsStore.get(session.userId))
+            val networkContactIds = remote.getEmergencyContactIds(
+                profileId = session.userId,
+                cacheMode = SupabaseCacheMode.NETWORK_ONLY
+            )
+            emergencyContactsStore.save(session.userId, networkContactIds)
+            emit(networkContactIds)
+        }
+            .catch { emit(emergencyContactsStore.get(session.userId)) }
+            .distinctUntilChanged()
         return combine(
-            remote.observeEmergencyContactIds(session.userId),
+            contactIdsFlow,
             remote.observeProfile(session.userId),
             remote.observeEmergencyCandidates()
         ) { contactIds, profile, candidates ->
@@ -66,7 +82,7 @@ class ProfileRepositoryImpl(
         }
 
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-        val contactIds = remote.getEmergencyContactIds(session.userId)
+        val contactIds = getEmergencyContactIdsOfflineFirst(session.userId)
         val storedEmergencyMessage = emergencyMessageStore.get(session.userId)
         val profile = remote.getProfile(session.userId)?.toProfile(session.displayName, contactIds, storedEmergencyMessage)
             ?: error("Perfil no encontrado")
@@ -88,6 +104,7 @@ class ProfileRepositoryImpl(
             val remoteUpdate = update.copy(avatarUri = avatarUrl)
             remote.saveProfile(session.userId, remoteUpdate.toRemotePatch())
             remote.saveEmergencyContacts(session.userId, update.emergencyContactIds)
+            emergencyContactsStore.save(session.userId, update.emergencyContactIds)
             emergencyMessageStore.save(
                 profileId = session.userId,
                 message = update.emergencyMessage,
@@ -133,6 +150,7 @@ class ProfileRepositoryImpl(
         if (!AppConfig.USE_MOCK_BACKEND) {
             session ?: error("No hay sesion activa")
             remote.saveEmergencyContacts(session.userId, normalizedContactIds)
+            emergencyContactsStore.save(session.userId, normalizedContactIds)
             emergencyMessageStore.save(
                 profileId = session.userId,
                 message = message,
@@ -176,6 +194,26 @@ class ProfileRepositoryImpl(
 
     override fun emergencyContactsSavedMessage(): String =
         context.getString(R.string.profile_emergency_contacts_updated)
+
+    private suspend fun getEmergencyContactIdsOfflineFirst(profileId: String): List<String> {
+        val cachedContactIds = emergencyContactsStore.get(profileId)
+        val networkContactIds = runCatching {
+            withTimeoutOrNull(EmergencyContactsNetworkTimeoutMillis) {
+                remote.getEmergencyContactIds(profileId, cacheMode = SupabaseCacheMode.NETWORK_ONLY)
+            }
+        }.getOrNull()
+        if (networkContactIds != null) {
+            emergencyContactsStore.save(profileId, networkContactIds)
+            return networkContactIds
+        }
+        return cachedContactIds.ifEmpty {
+            runCatching {
+                remote.getEmergencyContactIds(profileId, cacheMode = SupabaseCacheMode.CACHE_FIRST)
+            }.onSuccess { contactIds ->
+                emergencyContactsStore.save(profileId, contactIds)
+            }.getOrDefault(emptyList())
+        }
+    }
 
     private fun getMockProfileEditModel(): Result<ProfileEditModel> = runCatching {
         ProfileEditModel(
@@ -346,3 +384,5 @@ class ProfileRepositoryImpl(
     private fun String?.cleanValue(): String? =
         this?.trim()?.takeIf { it.isNotBlank() }
 }
+
+private const val EmergencyContactsNetworkTimeoutMillis = 3_500L

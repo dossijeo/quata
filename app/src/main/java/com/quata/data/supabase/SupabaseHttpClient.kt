@@ -144,9 +144,21 @@ class SupabaseHttpClient(
         return decoded
     }
 
-    suspend fun delete(table: String, filters: Map<String, String>) {
-        execute("DELETE", restUrl(table, filters), null, prefer = "return=minimal")
-        invalidateTableAfterMutation(table)
+    suspend fun delete(
+        table: String,
+        filters: Map<String, String>,
+        returnRepresentation: Boolean = false,
+        invalidate: Boolean = true
+    ) {
+        execute(
+            "DELETE",
+            restUrl(table, filters),
+            null,
+            prefer = if (returnRepresentation) "return=representation" else "return=minimal"
+        )
+        if (invalidate) {
+            invalidateTableAfterMutation(table)
+        }
     }
 
     internal suspend inline fun <reified Req, reified Res> rpc(functionName: String, body: Req): Res {
@@ -327,5 +339,8 @@ class SupabaseHttpClient(
         .addHeader("Content-Profile", config.schema)
         .addHeader("Accept-Profile", config.schema)
 
-    private fun enc(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
+    private fun enc(value: String): String =
+        URLEncoder.encode(value, Charsets.UTF_8.name())
+            .replace("%2C", ",")
+            .replace("%2c", ",")
 }

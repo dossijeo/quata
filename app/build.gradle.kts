@@ -38,8 +38,8 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.9.10"
+        versionCode = 20
+        versionName = "0.9.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -50,7 +50,7 @@ android {
         // Backend dual. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-26\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-06-27\"")
     }
 
     buildFeatures {

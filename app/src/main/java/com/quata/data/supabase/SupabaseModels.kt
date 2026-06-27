@@ -271,7 +271,7 @@ data class CommunityEmergencyContact(
 data class CommunityEmergencyContactCreate(
     val profile_id: String,
     val contact_profile_id: String,
-    val position: Int = 1
+    val position: Int
 )
 
 @Serializable

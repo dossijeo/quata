@@ -151,6 +151,7 @@ class ProfileViewModel(
                 messageIsDefault = profile.emergencyMessageIsDefault
             )
                 .onSuccess {
+                    hasLocalEdits = false
                     _uiState.update {
                         it.copy(
                             isSaving = false,

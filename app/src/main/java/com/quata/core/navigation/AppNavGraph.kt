@@ -139,6 +139,7 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
 import com.quata.feature.notifications.presentation.NotificationsScreen
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
+import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
 import com.quata.feature.profile.presentation.EmergencyContactsDialog
 import com.quata.feature.profile.presentation.ProfileUiEvent
@@ -1335,6 +1336,12 @@ private fun AuthenticatedGlobalSosButton(
     val scope = rememberCoroutineScope()
     val state by profileViewModel.uiState.collectAsState()
     var isConfigOpen by rememberSaveable { mutableStateOf(false) }
+    var configProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var configContactIds by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var configMessage by rememberSaveable { mutableStateOf("") }
+    var configMessageIsDefault by rememberSaveable { mutableStateOf(true) }
+    var configCandidates by remember { mutableStateOf<List<EmergencyContactCandidate>>(emptyList()) }
+    var isSavingSosConfig by rememberSaveable { mutableStateOf(false) }
     var pendingProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isSendingSos by rememberSaveable { mutableStateOf(false) }
     val sosPulseScale = if (isSendingSos) {
@@ -1407,17 +1414,86 @@ private fun AuthenticatedGlobalSosButton(
         }
     }
 
-    fun startSos(profile: UserProfile) {
-        if (profile.emergencyContactIds.isEmpty()) {
-            isConfigOpen = true
-            return
-        }
+    fun openSosConfig(profile: UserProfile, candidates: List<EmergencyContactCandidate>) {
+        configProfile = profile
+        configContactIds = profile.emergencyContactIds.distinct().take(5)
+        configMessage = profile.emergencyMessage
+        configMessageIsDefault = profile.emergencyMessageIsDefault
+        configCandidates = candidates
+        isSavingSosConfig = false
+        isConfigOpen = true
+    }
+
+    fun continueSos(profile: UserProfile) {
+        if (profile.emergencyContactIds.isEmpty()) return
         pendingProfile = profile
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !context.hasNotificationPermission()) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             requestLocation(profile)
         }
+    }
+
+    fun startSos(fallbackProfile: UserProfile) {
+        if (isSendingSos) return
+        isSendingSos = true
+        scope.launch {
+            val latestModel = container.profileRepository.getProfileEditModel().getOrNull()
+            val latestProfile = latestModel?.profile ?: fallbackProfile
+            val candidates = latestModel?.config?.emergencyCandidates ?: state.emergencyCandidates
+            isSendingSos = false
+            if (latestProfile.emergencyContactIds.isEmpty()) {
+                openSosConfig(latestProfile, candidates)
+                return@launch
+            }
+            continueSos(latestProfile)
+        }
+    }
+
+    fun saveSosConfigAndMaybeSend(profile: UserProfile) {
+        if (isSavingSosConfig) return
+        val selectedIds = configContactIds.distinct().take(5)
+        val message = configMessage
+        val messageIsDefault = configMessageIsDefault
+        isSavingSosConfig = true
+        scope.launch {
+            container.profileRepository.saveEmergencySettings(
+                contactIds = selectedIds,
+                message = message,
+                messageIsDefault = messageIsDefault
+            ).onSuccess {
+                isSavingSosConfig = false
+                isConfigOpen = false
+                profileViewModel.onEvent(ProfileUiEvent.Refresh)
+                val savedProfile = profile.copy(
+                    emergencyContactIds = selectedIds,
+                    emergencyMessage = message,
+                    emergencyMessageIsDefault = messageIsDefault
+                )
+                if (selectedIds.isNotEmpty()) {
+                    continueSos(savedProfile)
+                } else {
+                    Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure { error ->
+                isSavingSosConfig = false
+                Toast.makeText(
+                    context,
+                    error.message ?: context.getString(R.string.profile_save_error),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    fun toggleSosConfigContact(contactId: String) {
+        val selected = configContactIds.distinct().take(5).toMutableList()
+        if (selected.contains(contactId)) {
+            selected.remove(contactId)
+        } else if (selected.size < 5) {
+            selected.add(contactId)
+        }
+        configContactIds = selected
     }
 
     GlobalSosButtonSurface(
@@ -1431,25 +1507,24 @@ private fun AuthenticatedGlobalSosButton(
         }
     )
 
-    val profile = state.profile
+    val profile = configProfile
     if (isConfigOpen && profile != null) {
         EmergencyContactsDialog(
-            candidates = state.emergencyCandidates,
-            selectedIds = profile.emergencyContactIds,
-            message = profile.emergencyMessage,
-            isSaving = state.isSaving,
-            onMessageChange = { profileViewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
-            onToggleContact = { profileViewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
-            onDismiss = { isConfigOpen = false },
-            onSave = {
-                profileViewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
-                isConfigOpen = false
-                if (profile.emergencyContactIds.isNotEmpty()) {
-                    requestLocation(profile)
-                } else {
-                    Toast.makeText(context, context.getString(R.string.profile_emergency_contacts_updated), Toast.LENGTH_SHORT).show()
+            candidates = configCandidates,
+            selectedIds = configContactIds,
+            message = configMessage,
+            isSaving = isSavingSosConfig,
+            onMessageChange = {
+                configMessage = it
+                configMessageIsDefault = false
+            },
+            onToggleContact = { toggleSosConfigContact(it.id) },
+            onDismiss = {
+                if (!isSavingSosConfig) {
+                    isConfigOpen = false
                 }
-            }
+            },
+            onSave = { saveSosConfigAndMaybeSend(profile) }
         )
     }
 }

@@ -435,24 +435,32 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         }
     }
 
-    suspend fun getEmergencyContacts(profileId: String): List<CommunityEmergencyContact> = client.getList(
+    suspend fun getEmergencyContacts(
+        profileId: String,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<CommunityEmergencyContact> = client.getList(
         "community_emergency_contacts",
         mapOf(
             "select" to EMERGENCY_CONTACT_SELECT,
             "profile_id" to "eq.$profileId",
             "order" to "position.asc,created_at.asc",
             "limit" to "5"
-        )
+        ),
+        cacheMode = cacheMode
     )
 
-    fun observeEmergencyContacts(profileId: String): Flow<List<CommunityEmergencyContact>> = client.observeList(
+    fun observeEmergencyContacts(
+        profileId: String,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): Flow<List<CommunityEmergencyContact>> = client.observeList(
         "community_emergency_contacts",
         mapOf(
             "select" to EMERGENCY_CONTACT_SELECT,
             "profile_id" to "eq.$profileId",
             "order" to "position.asc,created_at.asc",
             "limit" to "5"
-        )
+        ),
+        cacheMode = cacheMode
     )
 
     suspend fun addEmergencyContact(profileId: String, contactProfileId: String, position: Int): CommunityEmergencyContact? =
@@ -463,7 +471,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
 
     suspend fun replaceEmergencyContacts(profileId: String, contactProfileIds: List<String>): List<CommunityEmergencyContact> {
-        client.delete("community_emergency_contacts", mapOf("profile_id" to "eq.$profileId"))
+        client.delete(
+            "community_emergency_contacts",
+            mapOf("profile_id" to "eq.$profileId"),
+            returnRepresentation = true,
+            invalidate = false
+        )
         val rows = contactProfileIds
             .distinct()
             .take(5)
@@ -474,10 +487,14 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
                     position = index + 1
                 )
             }
+        if (rows.isEmpty()) {
+            client.invalidateTables("community_emergency_contacts")
+            return emptyList()
+        }
         return client.postList<CommunityEmergencyContact, CommunityEmergencyContactCreate>(
             "community_emergency_contacts",
             rows,
-            select = "*"
+            select = EMERGENCY_CONTACT_SELECT
         )
     }
 
