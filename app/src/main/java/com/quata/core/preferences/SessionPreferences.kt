@@ -12,6 +12,10 @@ class SessionPreferences(context: Context) {
             .putString(KEY_USER_ID, session.userId)
             .putString(KEY_EMAIL, session.email)
             .putString(KEY_DISPLAY_NAME, session.displayName)
+            .putString(KEY_AUTH_USER_ID, session.authUserId)
+            .putString(KEY_ACCESS_TOKEN, session.accessToken)
+            .putString(KEY_REFRESH_TOKEN, session.refreshToken)
+            .putLong(KEY_EXPIRES_AT, session.expiresAt ?: 0L)
             .apply()
     }
 
@@ -20,7 +24,20 @@ class SessionPreferences(context: Context) {
         val userId = prefs.getString(KEY_USER_ID, null) ?: return null
         val email = prefs.getString(KEY_EMAIL, "") ?: ""
         val displayName = prefs.getString(KEY_DISPLAY_NAME, "Usuario") ?: "Usuario"
-        return AuthSession(token, userId, email, displayName)
+        val authUserId = prefs.getString(KEY_AUTH_USER_ID, null)
+        val accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)
+        val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
+        val expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L).takeIf { it > 0L }
+        return AuthSession(
+            token = token,
+            userId = userId,
+            email = email,
+            displayName = displayName,
+            authUserId = authUserId,
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            expiresAt = expiresAt
+        )
     }
 
     fun clear() {
@@ -32,5 +49,9 @@ class SessionPreferences(context: Context) {
         private const val KEY_USER_ID = "user_id"
         private const val KEY_EMAIL = "email"
         private const val KEY_DISPLAY_NAME = "display_name"
+        private const val KEY_AUTH_USER_ID = "auth_user_id"
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_EXPIRES_AT = "expires_at"
     }
 }

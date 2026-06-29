@@ -1,30 +1,44 @@
 # Q&uuml;ata Android
 
-Version: **0.9.11**
-Fecha de version: **2026-06-27**
-Estado: **candidata para prueba privada de Play Store**
+Version: **0.10.0**
+Fecha de version: **2026-06-29**
+Estado: **beta privada avanzada con chat Supabase, Realtime y Firebase**
 
-Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Better Messages, notificaciones, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
+Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.9.11` es la candidata para la prueba privada de Play Store. Consolida la app como una beta avanzada offline-first: mantiene el flujo de publicacion multimedia con editores nativos de video e imagen, incorpora traductor Fang cacheado para chats y comentarios, integra visor interno de documentos, reduce llamadas de red en perfiles/chat/feed, mejora el polling y las notificaciones de Better Messages, actualiza la identidad visual de Q&uuml;ata, endurece el soporte edge-to-edge y landscape en Android 9 y Android moderno, y cierra detalles de estabilidad de multimedia, barras del sistema, cache de chats y layout. El nucleo funcional ya esta muy completo y probado en emulador y dispositivo fisico, pero todavia queda margen de endurecimiento de release, QA amplio, analitica, monitorizacion y cierre de detalles previos a una `1.0`.
+La version `0.10.0` cierra la migracion grande de mensajeria: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Chat migrado a Supabase: esquema propio de conversaciones, participantes, mensajes, adjuntos, favoritos, administradores, SOS y comunidades, con RPCs transaccionales y sin dependencias Better Messages en Android.
+- Supabase Realtime sustituye el polling del chat: la app se suscribe a cambios de conversaciones/mensajes y reconecta al recuperar red o renovar sesion.
+- Sesion Supabase con refresh preventivo global al arrancar y volver a primer plano; al caducar el token se renueva con `refresh_token` antes de romper Realtime o llamadas protegidas.
+- Cache offline-first nueva para chat con esquema de nombres renovado, invalidando automaticamente caches antiguas de Better Messages en dispositivos actualizados.
+- Apertura cache-first de lista de conversaciones y de hilos: si hay datos locales, se muestran inmediatamente y luego se refrescan desde Supabase.
+- Chats privados, grupales, SOS y chats de comunidad funcionan sobre Supabase. Los chats comunitarios se abren por comunidad y anaden al usuario al hilo existente en vez de crear grupos duplicados.
+- Acciones completas de chat en Supabase: responder, editar, favorito, borrar mensaje, silenciar conversacion, permitir invitaciones, anadir participantes, abandonar, borrar/restaurar conversacion y quitar moderador.
+- Adjuntos compartidos entre usuarios consultados directamente en Supabase, sin hacer scan completo de todas las conversaciones.
+- Push nativo con Firebase Cloud Messaging y Edge Function `quata-push-dispatch`; respeta `muted_at`, deshabilita tokens `UNREGISTERED` y evita notificacion nativa cuando la app esta en primer plano.
+- Grabadora de audio integrada en chat: AAC/M4A en API 26-28 y Opus/Ogg en API 29+, con reproductor tipo nota de voz basado en Media3/ExoPlayer.
+- Camara integrada comun para foto, video o modo dual, usada en chat y publicar. Evita comportamientos inconsistentes de grabadoras externas en API antiguas.
+- Captura y grabacion validadas en API 26, 27, 28 y 37, portrait y landscape, incluyendo orientacion, thumbnails, preview, reproduccion, exportacion y barra de navegacion de 3 botones.
+- SOS usa `FusedLocationProviderClient.getLastLocation()` para enviar ayuda inmediata. Si la ubicacion falta o tiene mas de un minuto, solicita una ubicacion precisa en segundo plano y envia una actualizacion diferida al mismo hilo.
+- Mensajes SOS persistidos como shortcodes localizables (`[SOS:kind=alert|update;...]`), de modo que cada receptor ve la tarjeta en el idioma de su dispositivo.
+- Publicaciones de texto con selector manual de patron de degradado, texto adaptativo, elipsis y accion **Leer mas** con modal a pantalla completa.
+- Preview de publicaciones de texto alineada visualmente con el feed real, con rail de acciones, rank/LIVE, ancho seguro y escala compacta.
+- Feed actualizado: numero de post-rank dentro del circulo sombreado, `LIVE` con formato de accion, titulo/ubicacion flotante con degradado superior, mute global y pausa de videos al pasar a segundo plano.
+- Publicacion de imagen usa `getLastLocation()` instantaneo si no hay EXIF util y no bloquea si la ubicacion llega vacia, porque el lugar es editable a mano.
 - Modo offline-first para lecturas Supabase: las consultas GET usan una cache SQLite local por clave exacta de consulta, emiten el valor cacheado al instante y refrescan desde red en segundo plano.
 - Visor interno de documentos para `doc`, `docx`, `pdf`, `ppt`, `pptx`, `rtf`, `txt`, `xls`, `xlsx` y `csv`, integrado visualmente en Q&uuml;ata con cabecera propia, boton de descarga, tema claro/oscuro y localizacion.
 - PDF del visor interno basado en APIs de plataforma, sin librerias nativas Pdfium, para cumplir con dispositivos Android de 16 KB page size.
 - PowerPoint en el visor interno con controles de diapositiva anterior/siguiente y contador de pagina; Excel permite scroll y zoom tactil por gesto.
 - Barras del sistema sincronizadas con el tema: en modo oscuro el reloj y los iconos de estado usan color claro, y la cabecera superior ya no calcula desplazamientos extra por camara cuando la app vive dentro del area segura.
 - Q&uuml;ata y Chats ajustan sus listas al area util para eliminar la franja inferior sobrante sobre la navegacion.
-- Envio de mensajes propios reconciliado con la cache de conversaciones: tras confirmacion del servidor, la lista de Chats actualiza preview, fecha y orden sin esperar a un `checkNew` posterior.
+- Envio de mensajes propios reconciliado con la cache de conversaciones: tras confirmacion de Supabase, la lista de Chats actualiza preview, fecha y orden inmediatamente.
 - Uso de `MediaMetadataRetriever` centralizado con cierre explicito seguro y miniaturas de video remotas sin extractor nativo para reducir crashes de finalizador en dispositivos Android 13 de gama baja.
 - Apertura de chats cache-first desde perfiles y desde **Q&uuml;ata**: si la conversacion ya esta en la lista/cache local se navega directamente, sin buscar ni crear remoto.
-- Polling de Better Messages simplificado: `checkNew` es la unica vigilancia periodica; `/thread/{id}` solo se consulta cuando `checkNew` indica cambios y esos cambios son delta real frente a la cache local.
-- Primer arranque sin cache de mensajes: el barrido inicial de Better Messages se carga como leido y sin disparar notificaciones ni sonidos.
-- Cadencia de `checkNew` corregida: el modo relajado consulta cada 15 segundos y el minimo cada 30 segundos cuando la app esta viva, evitando esperas de un minuto tras el bootstrap.
-- Notificaciones nativas corregidas para app minimizada o pantalla apagada: una conversacion activa en memoria solo silencia la notificacion si la app esta realmente visible; en segundo plano se notifica con Android y se evita el sonido interno del chat.
-- Sin barrido completo de hilos al arrancar o reconectar: el polling solo usa `checkNew` y refresca hilos concretos cuando hay cambios reales.
-- Estado global de conectividad derivado de Android: si el dispositivo pierde red aparece una banda **Sin conexion** bajo la barra superior de toda la app; al recuperar red se reactiva el polling.
+- Notificaciones nativas corregidas para app minimizada o pantalla apagada: una conversacion activa en memoria solo silencia la notificacion si la app esta realmente visible; en segundo plano se notifica con Android y Firebase.
+- Estado global de conectividad derivado de Android: si el dispositivo pierde red aparece una banda **Sin conexion** bajo la barra superior de toda la app; al recuperar red se reactivan llamadas Supabase y canales Realtime.
 - Cache local de recursos: imagenes con Coil en memoria/disco y videos con Media3 `SimpleCache` LRU de 256 MB, con poda de ficheros antiguos.
 - La cache de imagenes aplica a imagenes del feed, adjuntos, avatares publicos y foto propia en Cuenta; los avatares reintentan al recuperar red.
 - Feed mas ligero: carga comentarios y likes en la primera consulta para evitar peticiones de detalle por post, mantiene el reproductor actual y vecinos para swipe fluido, y solo recrea el player activo si se recupera la red tras quedar roto.
@@ -51,8 +65,8 @@ La version `0.9.11` es la candidata para la prueba privada de Play Store. Consol
 - Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute, subtitulos y exportacion.
 - Editor nativo de imagen integrado en publicar, con crop/zoom vertical `9:16`, limite de salida y preservacion de metadatos utiles de localizacion.
 - Preview de publicacion de imagen/video en formato `9:16`, con aspecto cosmetico equivalente al feed y reproduccion local para validar el resultado antes de publicar.
-- Ranking de publicaciones por likes y fecha, con badge `#rank`.
-- Publicaciones de texto con fondo degradado determinista a partir del contenido.
+- Ranking de publicaciones por likes y fecha, con badge `#rank` legible dentro del circulo sombreado.
+- Publicaciones de texto con fondo degradado seleccionable, tipografia adaptativa, elipsis y lectura completa mediante **Leer mas**.
 - Shortcodes embebidos en el texto del post para canal, ubicacion, titulo de media, Alka y estado de video.
 - Badge de ubicacion o titulo sobre publicaciones de imagen/video.
 - Comentarios, likes, reportes y compartido.
@@ -69,35 +83,34 @@ La version `0.9.11` es la candidata para la prueba privada de Play Store. Consol
 - Barra inferior de navegacion con iconos ampliados para mejorar la pulsacion y convivencia con la navegacion Android de 3 botones.
 - Cuenta con preferencias locales por usuario, incluido `Q&uuml;ata TouchFlow`.
 - Pantallas de Cuenta, login, registro y recuperacion ajustadas para funcionar como pantallas completas sin scroll en resoluciones bajas.
-- SOS con contactos configurables y rate limit.
+- SOS con contactos configurables, rate limit, ubicacion aproximada inmediata y actualizacion precisa diferida.
+- Chat privado, grupal, comunitario y SOS sobre Supabase Realtime.
+- Adjuntos de chat: archivo, imagen/video de galeria, camara dual integrada y audio comprimido integrado.
 
-## Chat y Better Messages
+## Chat Supabase, Realtime y Firebase
 
-El chat usa Better Messages en WordPress como backend principal, con una capa Android propia para cache, polling y estado de UI.
+El chat usa Supabase como backend principal. Better Messages fue retirado del cliente Android; la compatibilidad legacy anonima se mantiene en las zonas que leen feed/contenido publico, pero la mensajeria moderna usa identidades Supabase, RPCs, Realtime y cache local propia.
 
-- Polling centralizado para conversaciones y mensajes basado en `checkNew`.
-- Modos de polling: agresivo en chats, medio en la app, relajado en segundo plano y minimo con la app cerrada; ahora regulan la frecuencia real de `checkNew`.
-- Si la app arranca sin cache de mensajes, el primer `checkNew(lastUpdate=0)` procesa todos los hilos devueltos, los persiste, los marca como leidos y no dispara notificaciones.
-- Sin barrido periodico de hilos: la app no repasa conversaciones sin cambios por temporizador.
-- `checkNew` descubre hilos con actividad y la app filtra contra la cache local para distinguir cambios reales de ruido repetido del servidor.
-- Cuando hay delta real en un hilo, se consulta `/thread/{id}` una vez para reconciliar mensajes, ultimo mensaje, unread y metadatos.
-- Al abrir la app o recuperar conexion no se fuerzan decenas de `/thread/{id}`: la app reanuda `checkNew` y solo refresca los hilos que el servidor marca con actividad.
-- Estado de conectividad del dispositivo expuesto a la UI; la app muestra una banda global **Sin conexion** bajo la barra superior cuando Android informa perdida de red.
-- Notificaciones nativas Android cuando la app esta en segundo plano, cerrada, minimizada o con pantalla apagada; el chat activo solo se considera visible si la app esta en `RESUMED`.
-- El hilo activo solo se envia a Better Messages como `visibleThreads` en primer plano real, evitando marcar como leidos mensajes recibidos mientras el usuario no mira la conversacion.
-- El sonido interno de mensaje recibido solo se reproduce en primer plano; en background se delega en la notificacion nativa Android.
-- Cache local de lista de conversaciones, hilos, mensajes favoritos y perfiles.
-- Los mensajes enviados por el usuario actual se inyectan en la cache/lista de conversaciones cuando el backend confirma el envio, de modo que la conversacion sube de posicion y actualiza fecha y previsualizacion al instante.
-- Retencion de cache: 24 horas, con reconstruccion solo en primer plano cuando expira.
-- Las conversaciones cacheadas pueden abrirse sin red; si falta cache, la busqueda remota queda como fallback.
-- Los perfiles usan la cache de conversaciones para localizar hilos abiertos con un usuario y consultar los adjuntos compartidos via Better Messages.
-- Apertura cache-first de chats privados desde perfiles y listas de usuarios.
-- Apertura cache-first de chats comunitarios desde **Q&uuml;ata** cuando la conversacion ya existe en cache/lista.
-- Skeleton loading en chats si no hay cache y aun no termino la primera carga real.
-- Mensajes favoritos cacheados: primera entrada consulta `getFavorited`, despues usa almacenamiento local y se actualiza al marcar/desmarcar favoritos.
-- Al abrir un mensaje favorito, se navega al mensaje exacto sin auto-scroll al final.
-- Los fondos procedurales de chat usan paletas dependientes de la plantilla de color y guardan cache separada por modo para regenerarse al cambiar entre claro y oscuro.
-- Efectos de sonido del chat con ciclo de vida seguro para evitar `MediaPlayer finalized without being released`.
+- Tablas Supabase para conversaciones, participantes, mensajes, adjuntos, favoritos, eventos de lectura, push tokens y logs de entrega.
+- RPCs para crear o abrir chats privados, grupales, SOS y comunitarios, enviar mensajes, adjuntar archivos, responder, editar, marcar favorito, borrar mensajes, silenciar, permitir invitaciones, anadir participantes, abandonar, borrar/restaurar conversaciones y gestionar administradores.
+- Realtime para recibir cambios de mensajes y conversaciones sin polling en primer plano ni segundo plano.
+- Reconexiones Realtime coordinadas con estado de red, foreground y renovacion de token Supabase.
+- Cache local offline-first de conversaciones, hilos, mensajes, favoritos, perfiles, adjuntos y fondo procedural; si existe cache, la pantalla abre sin skeleton persistente.
+- Esquema de cache nuevo para invalidar automaticamente la cache antigua asociada a Better Messages.
+- Mensajes favoritos: refresco al abrir la vista de estrella y navegacion al mensaje concreto.
+- Chats comunitarios: se abren por comunidad; si el hilo ya existe, el usuario se une al chat existente en vez de crear otro grupo con todos los miembros.
+- Busqueda de adjuntos compartidos con un usuario mediante consulta directa a Supabase.
+- Barra inferior redisenada: emoji, texto, adjunto, camara y microfono.
+- Panel horizontal de adjuntos con archivo y foto/video de galeria.
+- Overlay grande para adjuntos pendientes, con preview de imagen, reproductor de video, primera pagina de documentos o icono generico.
+- Camara dual integrada para foto/video en chat.
+- Grabadora de audio integrada con permiso de microfono, formato comprimido y reproductor tipo nota de voz.
+- Swipe a la derecha sobre un mensaje para iniciar respuesta.
+- Tarjetas especiales para mensajes SOS con ubicacion, precision, velocidad, antiguedad y apertura en Google Maps.
+- Los mensajes SOS se guardan como shortcodes y se localizan al renderizar, no como texto fijo en el idioma del emisor.
+- Notificaciones internas en foreground y push nativo Firebase solo cuando la app esta cerrada o en segundo plano.
+- `muted_at` se respeta antes de enviar push Firebase.
+- Sonidos del chat con ciclo de vida seguro para evitar `MediaPlayer finalized without being released`.
 
 ## Traductor Fang
 
@@ -181,6 +194,8 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - En modo cache-first, si existe respuesta local, la app la emite inmediatamente y refresca la misma consulta desde red en segundo plano.
 - Las mutaciones (`POST`, `PATCH`, `DELETE`, RPC y uploads) siguen siendo network-only y no se cachean.
 - Tras una mutacion se invalidan las tablas afectadas para que las vistas observables se actualicen con datos frescos.
+- El chat mantiene cache offline-first separada para inbox, hilos, favoritos, perfiles y adjuntos; al abrir una conversacion se muestra cache local antes de refrescar desde Supabase.
+- Los fondos procedurales de chat se pregeneran y cachean por conversacion/modo de color.
 - Imagenes y avatares usan Coil con cache de memoria/disco y claves estables por URL; si estaban en cache pueden mostrarse sin red y reintentan al recuperar conectividad.
 - Los videos del feed usan Media3 `SimpleCache` con LRU de 256 MB y poda de ficheros antiguos; al borrar una publicacion propia se purga tambien su entrada local de video.
 - Las traducciones se cachean en SQLite por texto/idiomas/tokens y se sirven cache-first sin refresco de fondo.
@@ -188,6 +203,7 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 ## Publicacion y media
 
 - Publicacion de texto, imagen y video.
+- Publicacion de texto con selector manual de patron de degradado, texto adaptativo, elipsis y modal **Leer mas**.
 - Cache local de recursos multimedia: imagenes en memoria/disco mediante Coil y videos mediante Media3 `CacheDataSource`.
 - Limites de cache: 128 MB para imagenes, 256 MB para videos y limpieza de ficheros con mas de 14 dias.
 - Los videos seleccionados para publicar pasan por un editor nativo en Compose antes de incorporarse a la publicacion.
@@ -205,9 +221,12 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - Las plantillas de captions disponibles son `Karaoke`, `PopWord`, `Hormozi` y `Typewriter`, con preview PNG transparente sobre la previsualizacion y burn-in durante la exportacion.
 - Si se aplican captions, la exportacion fuerza salida de calidad objetivo para preservar nitidez de texto.
 - El editor de imagen genera una copia vertical `9:16` con limite de resolucion, crop/zoom interactivo y conservacion de datos de localizacion de la imagen original cuando estan disponibles.
+- El capturador integrado usa CameraX para foto/video y se comparte entre publicar y chat. En publicar puede abrirse en modo foto o video; en chat se usa modo dual.
 - En publicar, los previews de imagen y video se expanden a `9:16` con avatar, acciones y metadatos cosmeticos del feed para validar el aspecto final antes de subir.
+- La preview de publicaciones de texto usa el mismo frame visual del feed, con rail de acciones, rank/LIVE, ancho seguro y escala compacta.
 - El boton publicar actua como barra de progreso durante la subida y, si el usuario intenta salir, pregunta si desea cancelar la operacion.
 - En publicaciones de imagen, el lugar/ubicacion detectado por EXIF o reverse geocoding es editable como texto libre. Si no hay GPS, no se detecta nada o el lugar es incorrecto, el usuario puede escribirlo antes de publicar.
+- Si no hay EXIF util y existe permiso de ubicacion, publicar imagen usa `getLastLocation()` para obtener una ubicacion instantanea sin bloquear el flujo.
 - Si se intenta publicar una imagen sin lugar/ubicacion, la pantalla hace scroll automatico al bloque de ubicacion, abre el campo de texto y resalta el boton; al abrirse el editor, el boton cambia de **Editar** a **Guardar**.
 - El feed guarda posicion por URL, conserva el player actual y vecinos para evitar flashes al hacer swipe, y solo recrea el player si se recupera red tras un estado roto.
 - El feed usa la cache local de video para no volver a descargar recursos ya reproducidos y purga de esa cache el video de una publicacion propia cuando se elimina.
@@ -218,18 +237,22 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - Optimizacion global de imagenes antes de subir: redimensionado, conversion JPEG y compresion.
 - Optimizacion de video cuando el archivo o la conexion lo aconsejan.
 - La misma capa de optimizacion se reutiliza en publicar, foto de perfil y adjuntos de chat.
-- Soporte para adjuntos de imagen/video en chat.
+- Soporte para adjuntos de archivo, imagen, video y audio en chat.
 
 ## Permisos e integracion Android
 
 La app gestiona una secuencia de permisos y ajustes necesarios al terminar el splash:
 
 - Permiso de notificaciones.
+- Permiso de camara para capturador integrado de foto/video.
+- Permiso de microfono para video con audio y grabadora de audio de chat.
+- Permiso de ubicacion para publicaciones de imagen y SOS.
 - Exclusion de optimizacion de bateria cuando hace falta recibir avisos en segundo plano.
 - Ajuste de enlaces compatibles para abrir `egquata.com` directamente en Q&uuml;ata.
 - Deep links de posts y chats mediante fragmentos como `https://egquata.com/#post-...`.
 - Reutilizacion de instancia abierta para evitar multiples actividades al abrir enlaces.
 - Barra inferior ajustada para iconos mas grandes y mejor encaje con la barra de navegacion Android en modo de 3 botones.
+- Firebase Cloud Messaging registra tokens por usuario/dispositivo y entrega push cuando la app no esta visible.
 
 ## Arquitectura
 
@@ -239,36 +262,39 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - MVVM con `ViewModel`, `UiState` y `UiEvent`.
 - Repositorios por dominio.
 - Navegacion con Navigation Compose.
-- Capa de datos real para Supabase, WordPress y Better Messages.
+- Capa de datos real para Supabase y WordPress.
 - Modo mock disponible mediante propiedad Gradle.
-- Cache local bajo almacenamiento privado: SQLite para respuestas Supabase, JSON para Better Messages/perfiles, Coil para imagenes y Media3 para videos.
+- Cache local bajo almacenamiento privado: SQLite para respuestas Supabase, cache propia de chat/perfiles, Coil para imagenes y Media3 para videos.
 - Cache SQLite especifica para traducciones Fang.
 - Detector local de idioma mediante modelo FastText incluido en assets.
 - Cliente HTTP para el Space `NLLB-Fang-Q&uuml;ata` con warmup y traduccion.
-- JobService para polling suave en segundo plano.
+- Supabase Realtime para eventos de chat y Firebase Cloud Messaging para push nativo.
 - Coil para imagenes.
 - Media3 para reproduccion, previsualizacion y procesado multimedia, incluido Transformer para exportar videos editados.
+- CameraX para capturador integrado de foto/video.
+- Fused Location Provider para ubicacion rapida en publicaciones y SOS.
 - kotlinx.serialization para modelos y cache.
 
 ## Estructura relevante
 
 ```text
 app/src/main/java/com/quata/
-  bettermessages/        Cliente REST/bridge de Better Messages
   core/
     config/              Configuracion global
     designsystem/theme/  Plantillas dark-mode/light-mode, tokens de color y tamanos de texto
+    location/            Proveedor Fused Location para publicaciones y SOS
     media/               Optimizacion de imagen/video y QuataMediaCache
     captions/            Transcripcion, layout, plantillas y burn-in de subtitulos
     language/            Detector local de idioma FastText para es/fr/en/fan
+    text/                Shortcodes de posts y SOS, localizacion de tarjetas especiales
     translation/          Cliente API, cache SQLite y overlay del modo traductor Fang
     navigation/          NavGraph, deep links y chrome global
     localization/        Seleccion de idioma por locale del sistema
-    notifications/       Notificaciones nativas y background polling
+    notifications/       Notificaciones internas, Firebase Messaging y tokens push
     preferences/         Preferencias locales, incluido el modo de color
     session/             Sesion y estado de autenticacion
-    ui/                  Componentes compartidos, TouchFlow, splash
-  data/supabase/         API y modelos Supabase
+    ui/                  Componentes compartidos, TouchFlow, splash, camara y audio
+  data/supabase/         API, modelos, RPC, cache GET y Realtime Supabase
   feature/
     auth/                Login, registro y recuperacion
     chat/                Conversaciones, mensajes, favoritos, SOS
@@ -279,6 +305,9 @@ app/src/main/java/com/quata/
       videoeditor/       Editor nativo de video en Compose + Media3 Transformer/MediaMuxer
       imageeditor/       Editor nativo de imagen con crop/zoom vertical 9:16
     profile/             Cuenta, avatar, preferencias y SOS
+supabase/
+  migrations/            Esquema/RPC de chat, auth bridge, Realtime y push
+  functions/             Edge Functions `quata-auth-bridge` y `quata-push-dispatch`
 ```
 
 ## Configuracion
@@ -292,11 +321,13 @@ app/src/main/java/com/quata/core/config/AppConfig.kt
 Puntos importantes:
 
 - `QUATA_WORDPRESS_BASE_URL`
-- `BETTER_MESSAGES_BASE_URL`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - nombres de tablas Supabase
+- `SUPABASE_TABLE_PUSH_TOKENS`
 - `USE_MOCK_BACKEND`
+
+Firebase se configura mediante `app/google-services.json`. Las Edge Functions de Supabase requieren secretos de entorno para Firebase Admin y se despliegan desde `supabase/functions/`.
 
 El backend mock se puede activar al compilar:
 
@@ -332,9 +363,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 20
-versionName = 0.9.11
-APP_VERSION_DATE = 2026-06-27
+versionCode = 21
+versionName = 0.10.0
+APP_VERSION_DATE = 2026-06-29
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
@@ -345,5 +376,6 @@ La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible 
 - Revision de consumo de bateria y red con cuentas grandes.
 - Validacion final de permisos y enlaces admitidos en Android moderno.
 - Monitorizacion de errores en produccion.
+- Segunda fase de hardening RLS en Supabase para `communities`, `community_admin_alerts` y `translations_multi_backup`, disenando politicas antes de activar RLS.
 - Politicas finales de privacidad, datos y soporte.
 - Ajustes de accesibilidad y pruebas con tamanos de fuente del sistema.

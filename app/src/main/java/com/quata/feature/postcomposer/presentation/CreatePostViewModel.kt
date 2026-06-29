@@ -25,6 +25,11 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                 error = null,
                 successMessage = null
             )
+            is CreatePostUiEvent.TextPatternSelected -> _uiState.value = _uiState.value.copy(
+                textPatternId = event.patternId,
+                error = null,
+                successMessage = null
+            )
             is CreatePostUiEvent.ImageSelected -> _uiState.value = _uiState.value.copy(
                 imageUri = event.uri,
                 error = null,
@@ -63,6 +68,7 @@ class CreatePostViewModel(private val repository: PostComposerRepository) : View
                     PostComposerDraft(
                         type = type,
                         text = state.text,
+                        textPatternId = state.textPatternId,
                         imageUri = state.imageUri,
                         videoUri = state.videoUri,
                         locationLabel = state.locationLabel?.trim()?.takeIf { it.isNotBlank() },

@@ -51,7 +51,10 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
             }
         }
         conversationsJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = _uiState.value.conversations.isEmpty(),
+                error = null
+            )
             repository.getConversations()
                 .onSuccess { conversations ->
                     _uiState.value = _uiState.value.copy(

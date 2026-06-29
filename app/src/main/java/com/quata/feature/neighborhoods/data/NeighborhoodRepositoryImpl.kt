@@ -2,16 +2,11 @@ package com.quata.feature.neighborhoods.data
 
 import android.content.Context
 import com.quata.R
-import com.quata.bettermessages.BetterMessagesRepository
-import com.quata.bettermessages.BmFile
-import com.quata.bettermessages.BmThreadAttachmentFile
-import com.quata.bettermessages.BmThreadResponse
-import com.quata.bettermessages.BmUser
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
-import com.quata.core.model.Conversation
 import com.quata.core.model.AuthSession
+import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
@@ -22,10 +17,6 @@ import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityProfileFollow
 import com.quata.data.supabase.CommunityWallStats
 import com.quata.data.supabase.SupabaseCommunityApi
-import com.quata.feature.chat.data.BetterMessagesAbandonedConversationStore
-import com.quata.feature.chat.data.BetterMessagesConversationCacheStore
-import com.quata.feature.chat.data.betterMessagesThreadIdOrNull
-import com.quata.feature.chat.data.toEpochMillisFromBetterMessagesOrNull
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.toDomain
@@ -45,25 +36,22 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 import java.text.Normalizer
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 
 class NeighborhoodRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
-    private val betterMessagesRepository: BetterMessagesRepository,
     private val chatRepository: ChatRepository,
     private val profileRemote: ProfileRemoteDataSource,
     private val sessionManager: SessionManager
 ) : NeighborhoodRepository {
     private val profileCacheStore = CommunityProfileCacheStore(appContext)
-    private val conversationCacheStore = BetterMessagesConversationCacheStore(appContext)
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> {
         return if (AppConfig.USE_MOCK_BACKEND) {
@@ -144,17 +132,10 @@ class NeighborhoodRepositoryImpl(
             .firstOrNull { wall -> wall.matchesNeighborhood(cleanNeighborhood) }
         val communityId = wall?.id ?: cleanNeighborhood.normalizeName()
         val communityTitle = wall?.name?.takeIf { it.isNotBlank() } ?: cleanNeighborhood
-        val memberIds = profileRemote.getDirectoryProfiles()
-            .filter { profile -> profile.belongsToNeighborhood(cleanNeighborhood) }
-            .map { it.id }
-            .distinct()
-        if (memberIds.filterNot { it == session.userId }.isEmpty()) {
-            error(appContext.getString(R.string.error_group_chat_no_members))
-        }
         chatRepository.openCommunityConversation(
             communityId = communityId,
             title = communityTitle,
-            participantIds = (memberIds + session.userId).distinct()
+            participantIds = listOf(session.userId)
         ).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -189,16 +170,7 @@ class NeighborhoodRepositoryImpl(
             return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
         chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
-        supabaseApi.createOrGetPrivateChat(session.userId, userId)
-        val betterUrl = betterMessagesRepository.openOrGetPrivateUrl(session.userId, userId)
-        val threadId = betterUrl.threadId?.takeIf { it > 0 }
-            ?: betterMessagesRepository.getOrCreatePrivateThread(session.userId, userId)
-                .threads
-                .firstOrNull { it.threadId > 0 }
-                ?.threadId
-            ?: error("Better Messages no devolvio thread_id")
-        BetterMessagesAbandonedConversationStore(appContext).clearAbandoned(session.userId, threadId)
-        "bm:$threadId"
+        chatRepository.openGroupConversation(listOf(userId), title = null).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
@@ -376,7 +348,7 @@ class NeighborhoodRepositoryImpl(
             )
         }
         val attachments = currentUserId
-            ?.let { loadSharedBetterMessagesAttachments(it, userId, profile.displayName()) }
+            ?.let { loadSharedSupabaseAttachments(it, userId, profile.displayName()) }
             .orEmpty()
         return CommunityUserProfile(
             user = profile.toNeighborhoodUserReal(
@@ -406,53 +378,20 @@ class NeighborhoodRepositoryImpl(
         )
     }
 
-    private suspend fun loadSharedBetterMessagesAttachments(
+    private suspend fun loadSharedSupabaseAttachments(
         currentUserId: String,
         targetUserId: String,
         targetDisplayName: String
     ): List<ProfileAttachment> {
-        val conversations = conversationCacheStore.cachedConversations(currentUserId)
-            .filter { conversation -> conversation.isVisible && !conversation.isEmergency }
-        if (conversations.isEmpty()) return emptyList()
-
-        val currentParticipantKeys = participantKeysForProfile(currentUserId, conversations)
-        val targetParticipantKeys = participantKeysForProfile(targetUserId, conversations)
-        val threadIds = conversations
-            .filter { conversation ->
-                conversation.hasAnyParticipant(currentParticipantKeys) &&
-                    conversation.hasAnyParticipant(targetParticipantKeys) &&
-                    conversation.isNotBlockedFor(currentParticipantKeys) &&
-                    conversation.isNotBlockedFor(targetParticipantKeys)
-            }
-            .mapNotNull { conversation -> conversation.id.betterMessagesThreadIdOrNull() }
-            .distinct()
-
-        return threadIds
-            .flatMap { threadId ->
-                val cachedThread = conversationCacheStore.cachedThreadResponse(currentUserId, threadId)
-                val senderNamesByMessageId = cachedThread?.senderNamesByMessageId().orEmpty()
-                val cachedMessageAttachments = cachedThread
-                    ?.messages
-                    .orEmpty()
-                    .flatMap { message ->
-                        message.meta.files.mapNotNull { file ->
-                            file.toProfileAttachment(
-                                threadId = threadId,
-                                messageId = message.messageId,
-                                senderName = senderNamesByMessageId[message.messageId] ?: targetDisplayName,
-                                sentAtMillis = message.created_at.toEpochMillisFromBetterMessagesOrNull()
-                            )
-                        }
-                    }
-                val threadAttachments = loadThreadAttachmentPages(currentUserId, threadId)
-                    .mapNotNull { file ->
-                        file.toProfileAttachment(
-                            threadId = threadId,
-                            senderName = file.messageId?.let(senderNamesByMessageId::get) ?: targetDisplayName
-                        )
-                    }
-                cachedMessageAttachments + threadAttachments
-            }
+        val payload = supabaseApi.listSharedChatAttachments(
+            profileId = currentUserId,
+            peerProfileId = targetUserId,
+            limit = 120
+        )
+        return payload.objOrNull
+            ?.array("files")
+            .orEmpty()
+            .mapNotNull { it.objOrNull?.toProfileAttachment(targetDisplayName) }
             .distinctBy { attachment -> attachment.deduplicationKey() }
             .sortedByDescending { attachment -> attachment.sentAtMillis ?: 0L }
     }
@@ -460,100 +399,22 @@ class NeighborhoodRepositoryImpl(
     private fun ProfileAttachment.deduplicationKey(): String =
         "${uri.substringBefore('?').lowercase()}|${name.lowercase()}"
 
-    private suspend fun loadThreadAttachmentPages(
-        profileId: String,
-        threadId: Int
-    ): List<BmThreadAttachmentFile> {
-        val files = mutableListOf<BmThreadAttachmentFile>()
-        var page = 1
-        var hasMore: Boolean
-        do {
-            val response = runCatching {
-                betterMessagesRepository.loadThreadAttachments(
-                    profileId = profileId,
-                    threadId = threadId,
-                    page = page,
-                    perPage = 50
-                )
-            }.getOrNull() ?: break
-            files += response.files
-            hasMore = response.hasMore && response.files.isNotEmpty()
-            page += 1
-        } while (hasMore && page <= 10)
-        return files
-    }
-
-    private suspend fun participantKeysForProfile(
-        profileId: String,
-        conversations: List<Conversation>
-    ): Set<String> {
-        val keys = mutableSetOf(profileId)
-        val needsWpKey = conversations.any { conversation ->
-            profileId !in conversation.participantIds &&
-                (conversation.participantIds.any { it.startsWith("wp:") } ||
-                    conversation.blockedUserIds.any { it.startsWith("wp:") })
-        }
-        if (needsWpKey) {
-            runCatching { betterMessagesRepository.lookupWordPressUserId(profileId) }
-                .getOrNull()
-                ?.takeIf { it > 0 }
-                ?.let { keys += "wp:$it" }
-        }
-        return keys
-    }
-
-    private fun Conversation.hasAnyParticipant(keys: Set<String>): Boolean =
-        participantIds.any { it in keys }
-
-    private fun Conversation.isNotBlockedFor(keys: Set<String>): Boolean =
-        blockedUserIds.none { it in keys }
-
-    private fun BmThreadResponse.senderNamesByMessageId(): Map<Int, String> {
-        val usersByWpId = users.associateByWpId()
-        return messages.associate { message ->
-            message.messageId to (usersByWpId[message.senderId]?.name ?: "Usuario")
-        }
-    }
-
-    private fun List<BmUser>.associateByWpId(): Map<Int, BmUser> =
-        mapNotNull { user ->
-            val id = user.userId ?: user.id.toIntOrNull()
-            id?.let { it to user }
-        }.toMap()
-
-    private fun BmThreadAttachmentFile.toProfileAttachment(
-        threadId: Int,
-        senderName: String
-    ): ProfileAttachment? {
-        val attachmentUri = url?.takeIf { it.isNotBlank() }
-            ?: thumb?.asStringOrNull()
+    private fun JsonObject.toProfileAttachment(defaultSenderName: String): ProfileAttachment? {
+        val uri = string("url")
+            ?: string("file_url")
+            ?: obj("thumb")?.string("url")
+            ?: string("thumb")
             ?: return null
+        val name = string("name")
+            ?: string("file_name")
+            ?: uri.substringBefore('?').substringAfterLast('/').ifBlank { "archivo" }
         return ProfileAttachment(
-            id = "bm:$threadId:$id",
-            name = name?.takeIf { it.isNotBlank() } ?: attachmentUri.substringAfterLast('/').ifBlank { "archivo" },
-            uri = attachmentUri,
-            mimeType = mimeType ?: inferAttachmentMimeType(name, attachmentUri, ext),
-            sentAtMillis = date?.toBetterMessagesAttachmentMillisOrNull(),
-            senderName = senderName
-        )
-    }
-
-    private fun BmFile.toProfileAttachment(
-        threadId: Int,
-        messageId: Int,
-        senderName: String,
-        sentAtMillis: Long?
-    ): ProfileAttachment? {
-        val attachmentUri = url?.takeIf { it.isNotBlank() }
-            ?: thumb?.asStringOrNull()
-            ?: return null
-        return ProfileAttachment(
-            id = "bm:$threadId:$messageId:$id",
-            name = name?.takeIf { it.isNotBlank() } ?: attachmentUri.substringAfterLast('/').ifBlank { "archivo" },
-            uri = attachmentUri,
-            mimeType = mimeType ?: inferAttachmentMimeType(name, attachmentUri, ext),
-            sentAtMillis = sentAtMillis,
-            senderName = senderName
+            id = "sb:${long("id") ?: string("id") ?: uri.hashCode()}",
+            name = name,
+            uri = uri,
+            mimeType = string("mime_type") ?: inferAttachmentMimeType(name, uri, string("ext")),
+            sentAtMillis = long("created_at_millis") ?: string("created_at")?.toEpochMillisOrNull(),
+            senderName = string("sender_name")?.takeIf { it.isNotBlank() } ?: defaultSenderName
         )
     }
 
@@ -583,10 +444,19 @@ class NeighborhoodRepositoryImpl(
         }
     }
 
-    private fun JsonElement.asStringOrNull(): String? =
-        (this as? JsonPrimitive)
-            ?.contentOrNull
-            ?.takeIf { it.isNotBlank() }
+    private val JsonElement.objOrNull: JsonObject?
+        get() = this as? JsonObject
+
+    private fun JsonObject.obj(key: String): JsonObject? = get(key) as? JsonObject
+
+    private fun JsonObject.array(key: String): List<JsonElement> =
+        (get(key) as? JsonArray)?.toList().orEmpty()
+
+    private fun JsonObject.string(key: String): String? =
+        (get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+    private fun JsonObject.long(key: String): Long? =
+        (get(key) as? JsonPrimitive)?.longOrNull
 
     private fun buildCommunities(
         users: List<NeighborhoodUser>,
@@ -698,17 +568,6 @@ class NeighborhoodRepositoryImpl(
     private fun String.toEpochMillisOrNull(): Long? =
         runCatching { java.time.Instant.parse(this).toEpochMilli() }.getOrNull()
 
-    private fun String.toBetterMessagesAttachmentMillisOrNull(): Long? =
-        runCatching { java.time.Instant.parse(this).toEpochMilli() }.getOrNull()
-            ?: try {
-                LocalDateTime.parse(this, BETTER_MESSAGES_ATTACHMENT_DATE_FORMAT)
-                    .atZone(ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
-            } catch (_: DateTimeParseException) {
-                null
-            }
-
     private fun String.normalizeName(): String {
         val withoutMarks = Normalizer.normalize(trim().lowercase(), Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
@@ -740,10 +599,5 @@ class NeighborhoodRepositoryImpl(
             followers.mapNotNull { it.follower_profile_id } +
                 following.mapNotNull { it.followed_profile_id }
             ).distinct()
-    }
-
-    private companion object {
-        val BETTER_MESSAGES_ATTACHMENT_DATE_FORMAT: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     }
 }

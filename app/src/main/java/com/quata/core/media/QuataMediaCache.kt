@@ -105,7 +105,7 @@ object QuataMediaCache {
     private fun videoThumbnailFile(context: Context, videoUri: String): File {
         val directory = File(context.filesDir, VIDEO_THUMBNAIL_CACHE_DIR).apply { mkdirs() }
         pruneStaleFiles(directory)
-        return File(directory, "${sha256(videoUri.trim())}.jpg")
+        return File(directory, "${sha256("v2:${videoUri.trim()}")}.jpg")
     }
 
     private fun pruneThumbnailCache(context: Context) {

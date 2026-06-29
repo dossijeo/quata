@@ -1,13 +1,10 @@
 package com.quata.core.network
 
 import android.content.Context
-import com.quata.bettermessages.BetterMessagesClient
-import com.quata.bettermessages.BetterMessagesRepository
-import com.quata.bettermessages.BetterMessagesCookieJar
-import com.quata.bettermessages.SharedPreferencesCookieStore
 import com.quata.core.config.AppConfig
 import com.quata.core.network.supabase.SupabaseApi
 import com.quata.core.network.wordpress.WordpressApi
+import com.quata.core.session.SessionManager
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseConfig
 import com.quata.data.supabase.SupabaseHttpClient
@@ -24,25 +21,19 @@ import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
-class NetworkModule(context: Context) {
+class NetworkModule(
+    context: Context,
+    private val sessionManager: SessionManager
+) {
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
     }
 
-    val betterMessagesCookieStore = SharedPreferencesCookieStore(context)
-    private val betterMessagesCookieJar = BetterMessagesCookieJar(betterMessagesCookieStore)
-
     private val wordpressClient = OkHttpClient.Builder()
-        .cookieJar(betterMessagesCookieJar)
         .dns(Ipv4FirstDns)
         .addInterceptor(logging)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
-        .build()
-
-    private val betterMessagesHttpClient = wordpressClient.newBuilder()
-        .readTimeout(40, TimeUnit.SECONDS)
-        .writeTimeout(40, TimeUnit.SECONDS)
         .build()
 
     private val supabaseClient = OkHttpClient.Builder()
@@ -50,6 +41,11 @@ class NetworkModule(context: Context) {
         .addInterceptor(logging)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    private val supabaseRealtimeSocketClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.SECONDS)
         .build()
 
     private val supabaseHelperConfig = SupabaseConfig(
@@ -61,27 +57,20 @@ class NetworkModule(context: Context) {
     val supabaseHttpClient = SupabaseHttpClient(
         config = supabaseHelperConfig,
         okHttp = supabaseClient,
-        cacheStore = supabaseResponseCacheStore
+        cacheStore = supabaseResponseCacheStore,
+        sessionManager = sessionManager
     )
 
     val supabaseCommunityApi = SupabaseCommunityApi(supabaseHttpClient)
 
     val supabaseRealtimeClient = SupabaseRealtimeClient(
         config = supabaseHelperConfig,
-        okHttp = supabaseClient
+        okHttp = supabaseRealtimeSocketClient
     )
-
-    val betterMessagesClient = BetterMessagesClient(
-        baseUrl = AppConfig.BETTER_MESSAGES_BASE_URL,
-        cookieStore = betterMessagesCookieStore,
-        okHttpClient = betterMessagesHttpClient
-    )
-
-    val betterMessagesRepository = BetterMessagesRepository(betterMessagesClient)
 
     val quataWordPressClient = QuataWordPressClient(
         baseUrl = AppConfig.QUATA_WORDPRESS_BASE_URL,
-        httpClient = betterMessagesHttpClient
+        httpClient = wordpressClient
     )
 
     val wordpressApi: WordpressApi = Retrofit.Builder()
@@ -99,9 +88,13 @@ class NetworkModule(context: Context) {
         .create(SupabaseApi::class.java)
 
     private fun supabaseAuthInterceptor(): Interceptor = Interceptor { chain ->
+        val bearer = sessionManager.currentSession()
+            ?.bearerToken
+            ?.takeIf { it.isNotBlank() }
+            ?: AppConfig.SUPABASE_ANON_KEY
         val request = chain.request().newBuilder()
             .header("apikey", AppConfig.SUPABASE_ANON_KEY)
-            .header("Authorization", "Bearer ${AppConfig.SUPABASE_ANON_KEY}")
+            .header("Authorization", "Bearer $bearer")
             .build()
         chain.proceed(request)
     }

@@ -1,9 +1,7 @@
 package com.quata.core.common
 
 import android.content.Context
-import com.quata.bettermessages.BetterMessagesHttpException
 import com.quata.R
-import com.quata.bettermessages.BetterMessagesBridgeException
 import com.quata.data.supabase.SupabaseApiException
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -23,14 +21,7 @@ fun Throwable.toUserFacingException(context: Context, fallbackMessageRes: Int = 
 fun Throwable.toUserFacingMessage(context: Context, fallbackMessageRes: Int = R.string.error_generic): String {
     return when (this) {
         is UserFacingException -> message ?: context.getString(fallbackMessageRes)
-        is SupabaseApiException -> when (statusCode) {
-            400 -> context.getString(R.string.error_backend_bad_request)
-            401, 403 -> context.getString(R.string.error_backend_unauthorized)
-            in 500..599 -> context.getString(R.string.error_backend_unavailable)
-            else -> context.getString(R.string.error_backend_generic)
-        }
-        is BetterMessagesHttpException -> toBetterMessagesUserMessage(context)
-        is BetterMessagesBridgeException -> context.getString(R.string.error_chat_session)
+        is SupabaseApiException -> toSupabaseUserMessage(context)
         is SocketTimeoutException -> context.getString(R.string.error_network_timeout)
         is UnknownHostException -> context.getString(R.string.error_network)
         is IOException -> context.getString(R.string.error_network)
@@ -38,8 +29,8 @@ fun Throwable.toUserFacingMessage(context: Context, fallbackMessageRes: Int = R.
     }
 }
 
-private fun BetterMessagesHttpException.toBetterMessagesUserMessage(context: Context): String {
-    val serverMessage = serverMessageOrNull()
+private fun SupabaseApiException.toSupabaseUserMessage(context: Context): String {
+    val serverMessage = responseBody?.extractJsonMessage()
     val isFileTypeRejection =
         serverMessage?.contains("tipo de archivo", ignoreCase = true) == true ||
             serverMessage?.contains("file type", ignoreCase = true) == true
@@ -59,9 +50,6 @@ private fun BetterMessagesHttpException.toBetterMessagesUserMessage(context: Con
         else -> context.getString(R.string.error_backend_generic)
     }
 }
-
-fun BetterMessagesHttpException.serverMessageOrNull(): String? =
-    responseBody.extractJsonMessage()
 
 private fun String.extractJsonMessage(): String? =
     runCatching {

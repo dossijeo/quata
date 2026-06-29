@@ -22,6 +22,7 @@ sealed class ChatUiEvent {
     data object CloseForwardDialog : ChatUiEvent()
     data object SendForward : ChatUiEvent()
     data class PromoteModerator(val userId: String) : ChatUiEvent()
+    data class DemoteModerator(val userId: String) : ChatUiEvent()
     data class RemoveParticipant(val userId: String) : ChatUiEvent()
     data class BlockParticipant(val userId: String) : ChatUiEvent()
     data object LeaveConversation : ChatUiEvent()

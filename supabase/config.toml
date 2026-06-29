@@ -1,0 +1,5 @@
+[functions.quata-auth-bridge]
+verify_jwt = false
+
+[functions.quata-push-dispatch]
+verify_jwt = false

@@ -18,6 +18,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -108,7 +110,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -120,10 +121,13 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
@@ -166,6 +170,7 @@ import com.quata.core.translation.LocalQuataTranslatorModeController
 import com.quata.core.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.quataTranslatableText
 import com.quata.core.ui.textCanvasBrush
+import com.quata.core.ui.textCanvasTypography
 import com.quata.feature.feed.domain.FeedRepository
 import java.time.Instant
 import java.time.LocalDate
@@ -186,8 +191,10 @@ fun FeedScreen(
     currentUserId: String? = null,
     openingProfileUserId: String? = null,
     focusedPostId: String? = null,
+    feedResetToken: Int = 0,
     networkReconnectToken: Long = 0L,
     isNetworkAvailable: Boolean = true,
+    isAppForeground: Boolean = true,
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
@@ -200,6 +207,7 @@ fun FeedScreen(
     var isLiveOpen by remember { mutableStateOf(false) }
     var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
+    var isFeedMuted by rememberSaveable { mutableStateOf(false) }
     val canParticipate = currentUserId != null
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
 
@@ -209,10 +217,6 @@ fun FeedScreen(
 
     DisposableEffect(Unit) {
         onDispose { onLandscapeCommentsOverlayActiveChange(false) }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.onEvent(FeedUiEvent.Refresh)
     }
 
     LaunchedEffect(networkReconnectToken) {
@@ -305,6 +309,12 @@ fun FeedScreen(
                 }
             }
 
+            LaunchedEffect(feedResetToken, state.posts.size) {
+                if (feedResetToken != 0 && focusedPostId == null && state.posts.isNotEmpty()) {
+                    pagerState.scrollToPage(0)
+                }
+            }
+
             val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
             val nextPostId = state.posts.getOrNull(pagerState.currentPage + 1)?.id
             LaunchedEffect(visiblePostId, nextPostId) {
@@ -332,6 +342,8 @@ fun FeedScreen(
                             post = post,
                             postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
                             isCurrentPage = pagerState.currentPage == page,
+                            isAppForeground = isAppForeground,
+                            isFeedMuted = isFeedMuted,
                             currentUserId = currentUserId,
                             isAuthorProfileLoading = openingProfileUserId == post.author.id,
                             networkReconnectToken = networkReconnectToken,
@@ -343,6 +355,7 @@ fun FeedScreen(
                             onOpenComments = { commentsPost = post },
                             onOpenUserProfile = { onOpenUserProfile(post.author.id) },
                             onOpenLive = { isLiveOpen = true },
+                            onFeedMutedChange = { isFeedMuted = it },
                             onLike = {
                                 if (canParticipate) {
                                     viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
@@ -687,6 +700,8 @@ private fun ReelPost(
     post: Post,
     postRankInfo: PostRankingInfo,
     isCurrentPage: Boolean,
+    isAppForeground: Boolean,
+    isFeedMuted: Boolean,
     currentUserId: String?,
     isAuthorProfileLoading: Boolean,
     networkReconnectToken: Long,
@@ -696,6 +711,7 @@ private fun ReelPost(
     onOpenComments: () -> Unit,
     onOpenUserProfile: () -> Unit,
     onOpenLive: () -> Unit,
+    onFeedMutedChange: (Boolean) -> Unit,
     onLike: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
@@ -706,9 +722,9 @@ private fun ReelPost(
     val postMeta = remember(post.text) { post.text.extractPostMeta() }
     val displayText = shortcodeContent.cleanText
     val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
-    var isVideoMuted by rememberSaveable(post.id) { mutableStateOf(true) }
     var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
+    val isVideoActive = isCurrentPage && isAppForeground
 
     Box(
         modifier = Modifier
@@ -718,43 +734,49 @@ private fun ReelPost(
     ) {
         ReelMedia(
             post = post,
-            isActive = isCurrentPage,
-            isMuted = isVideoMuted,
+            isActive = isVideoActive,
+            isMuted = isFeedMuted,
             networkReconnectToken = networkReconnectToken,
             isNetworkAvailable = isNetworkAvailable,
             initialVideoPositionMs = initialVideoPositionMs,
             onVideoPositionChanged = onVideoPositionChanged,
-            onMuteChange = { isVideoMuted = it }
+            onMuteChange = onFeedMutedChange
         )
         ReelScrims()
         ReelTopChips(
-            post = post,
-            postRankInfo = postRankInfo,
             documentText = shortcodeContent.documentText,
             mediaBadgeText = when {
                 post.videoUrl != null -> postMeta.mediaTitle.ifBlank { postMeta.imageLocation }
                 post.imageUrl != null -> postMeta.imageLocation
                 else -> ""
             },
-            isVideo = isVideo,
-            isMuted = isVideoMuted,
-            showMuteButton = !isLandscapeLayout,
-            onToggleMute = { isVideoMuted = !isVideoMuted },
-            onOpenLive = onOpenLive
+            isVideo = isVideo
         )
         ReelActions(
             likes = post.likesCount,
             isLiked = post.isLikedByCurrentUser,
             isReported = post.isReportedByCurrentUser,
             comments = post.comments.size,
+            postRank = postRankInfo.position,
+            showRankLiveActions = !isLandscapeLayout,
             onLike = onLike,
             onOpenComments = onOpenComments,
+            onOpenLive = onOpenLive,
             onShare = onShare,
             onReport = onReport,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 18.dp, bottom = 22.dp)
         )
+        if (isLandscapeLayout) {
+            ReelRankLiveActions(
+                postRank = postRankInfo.position,
+                onOpenLive = onOpenLive,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 22.dp, bottom = 132.dp)
+            )
+        }
         if (post.author.id == currentUserId) {
             ReelActionButton(
                 icon = Icons.Filled.Delete,
@@ -792,6 +814,7 @@ private fun ReelMedia(
     onVideoPositionChanged: (Long) -> Unit,
     onMuteChange: (Boolean) -> Unit
 ) {
+    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     when {
         post.videoUrl != null -> {
             Box(
@@ -822,7 +845,7 @@ private fun ReelMedia(
                 AsyncImage(
                     model = imageModel,
                     contentDescription = post.imageTitle(),
-                    contentScale = ContentScale.Fit,
+                    contentScale = if (isLandscapeLayout) ContentScale.Fit else ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -850,22 +873,91 @@ private fun ReelMedia(
 
 @Composable
 private fun TextOnlyReel(post: Post) {
-    val displayText = remember(post.text) { post.text.parsePostShortcodeContent().cleanText }
-    val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
+    val meta = remember(post.text) { post.text.extractPostMeta() }
+    val displayText = meta.cleanBody
+    val seedText = remember(displayText) { displayText.cleanTextCanvasSeedBody() }
+    val patternId = meta.textPattern.takeIf { it.isNotBlank() }
+    val typography = remember(displayText) { textCanvasTypography(displayText) }
+    var hasOverflow by remember(post.id, displayText) { mutableStateOf(false) }
+    var isReaderOpen by rememberSaveable(post.id) { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(textCanvasBrush(seedText))
-            .padding(horizontal = 30.dp),
+            .background(textCanvasBrush(seedText, patternId))
+            .padding(horizontal = TextOnlyReelActionRailSafePadding),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = displayText,
-            color = Color.White,
-            fontSize = 34.sp,
-            lineHeight = 42.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = displayText,
+                color = Color.White,
+                fontSize = typography.fontSize,
+                lineHeight = typography.lineHeight,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                maxLines = typography.maxLines,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { hasOverflow = it.hasVisualOverflow }
+            )
+            if (hasOverflow) {
+                Spacer(Modifier.height(18.dp))
+                Surface(
+                    color = Color.Black.copy(alpha = 0.36f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.clickable { isReaderOpen = true }
+                ) {
+                    Text(
+                        text = stringResource(R.string.feed_read_more),
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
+                    )
+                }
+            }
+        }
+    }
+    if (isReaderOpen) {
+        Dialog(
+            onDismissRequest = { isReaderOpen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(textCanvasBrush(seedText, patternId))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 56.dp, bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = displayText,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        lineHeight = 31.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                CompactIconButton(
+                    onClick = { isReaderOpen = false },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    CompactIcon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.common_close),
+                        tint = Color.White
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -882,7 +974,6 @@ private fun ReelVideo(
 ) {
     val context = LocalContext.current
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val playerBackground = Color.Transparent.toArgb()
     val latestIsActive by rememberUpdatedState(isActive)
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
     var positionMs by remember(videoUrl) { mutableLongStateOf(initialPositionMs) }
@@ -917,8 +1008,8 @@ private fun ReelVideo(
                 }
                 repeatMode = Player.REPEAT_MODE_ONE
                 playWhenReady = false
-                volume = 0f
-                setFeedAudioEnabled(false)
+                volume = if (isMuted) 0f else 1f
+                setFeedAudioEnabled(!isMuted)
                 prepare()
             }
     }
@@ -1083,8 +1174,6 @@ private fun ReelVideo(
                     this.player = player
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setBackgroundColor(playerBackground)
-                    setShutterBackgroundColor(playerBackground)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -1094,8 +1183,6 @@ private fun ReelVideo(
             update = {
                 it.useController = false
                 it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                it.setBackgroundColor(playerBackground)
-                it.setShutterBackgroundColor(playerBackground)
                 if (it.player !== player) {
                     it.player = player
                 }
@@ -1285,8 +1372,9 @@ private fun ReelScrims() {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.36f),
-                    0.25f to Color.Transparent,
+                    0f to Color.Black.copy(alpha = 0.64f),
+                    0.14f to Color.Black.copy(alpha = 0.42f),
+                    0.34f to Color.Transparent,
                     0.58f to Color.Transparent,
                     1f to Color.Black.copy(alpha = 0.68f)
                 )
@@ -1296,49 +1384,33 @@ private fun ReelScrims() {
 
 @Composable
 private fun ReelTopChips(
-    post: Post,
-    postRankInfo: PostRankingInfo,
     documentText: String?,
     mediaBadgeText: String,
-    isVideo: Boolean,
-    isMuted: Boolean,
-    showMuteButton: Boolean,
-    onToggleMute: () -> Unit,
-    onOpenLive: () -> Unit
+    isVideo: Boolean
 ) {
     Column(
         modifier = Modifier
             .statusBarsPadding()
-            .padding(start = 20.dp, top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(start = 22.dp, end = 22.dp, top = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         val cleanMediaBadgeText = mediaBadgeText.trim()
         if (cleanMediaBadgeText.isNotBlank()) {
-            ReelChip(
+            Text(
                 text = if (isVideo) {
                     "\uD83D\uDCDD $cleanMediaBadgeText"
                 } else {
                     stringResource(R.string.feed_location_chip, cleanMediaBadgeText)
-                }
+                },
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
         documentText?.let { text ->
             ReelChip(text = "\uD83D\uDCC4 $text")
-        }
-        ReelChip(
-            text = stringResource(
-                R.string.feed_rank_chip,
-                postRankInfo.position,
-                postRankInfo.likes
-            ),
-            highlighted = true
-        )
-        ReelChip(text = stringResource(R.string.common_live), highlighted = true, onClick = onOpenLive)
-        if (isVideo && showMuteButton) {
-            ReelRoundChip(
-                isMuted = isMuted,
-                onClick = onToggleMute
-            )
         }
     }
 }
@@ -1404,8 +1476,11 @@ private fun ReelActions(
     isLiked: Boolean,
     isReported: Boolean,
     comments: Int,
+    postRank: Int,
+    showRankLiveActions: Boolean,
     onLike: () -> Unit,
     onOpenComments: () -> Unit,
+    onOpenLive: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
     modifier: Modifier = Modifier
@@ -1415,6 +1490,12 @@ private fun ReelActions(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (showRankLiveActions) {
+            ReelRankLiveActions(
+                postRank = postRank,
+                onOpenLive = onOpenLive
+            )
+        }
         ReelActionButton(
             icon = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
             contentDescription = stringResource(R.string.feed_like),
@@ -1439,6 +1520,76 @@ private fun ReelActions(
             tint = if (isReported) QuataOrange else Color.White,
             onClick = onReport
         )
+    }
+}
+
+@Composable
+private fun ReelRankLiveActions(
+    postRank: Int,
+    onOpenLive: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        ReelTextActionButton(
+            text = "\uD83D\uDD25",
+            contentDescription = stringResource(R.string.feed_rank),
+            count = postRank.toString(),
+            onClick = onOpenLive
+        )
+        ReelTextActionButton(
+            text = stringResource(R.string.common_live),
+            contentDescription = stringResource(R.string.common_live),
+            onClick = onOpenLive
+        )
+    }
+}
+
+@Composable
+private fun ReelTextActionButton(
+    text: String,
+    contentDescription: String,
+    count: String? = null,
+    tint: Color = Color.White,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.42f))
+                .semantics { this.contentDescription = contentDescription }
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    color = tint,
+                    fontSize = if (text.length <= 2) 19.sp else 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    lineHeight = if (text.length <= 2) 20.sp else 12.sp,
+                    modifier = Modifier.padding(horizontal = 5.dp)
+                )
+                if (count != null) {
+                    Text(
+                        text = count,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 10.sp
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -2205,6 +2356,7 @@ private val FeedPullRefreshTriggerDistance = 96.dp
 private val FeedPullRefreshMaxDistance = 148.dp
 private val FeedPullRefreshIndicatorSize = 44.dp
 private val FeedPullRefreshIndicatorTravel = 72.dp
+private val TextOnlyReelActionRailSafePadding = 92.dp
 
 private fun calculatePostRankingMap(posts: List<Post>): Map<String, PostRankingInfo> =
     posts

@@ -3,8 +3,14 @@ package com.quata.core.ui.components
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.view.LayoutInflater
+import android.view.TextureView
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -28,7 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.Text
@@ -64,12 +70,14 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.quata.R
 import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.media.withQuataMediaMetadataRetriever
+import com.quata.documentreader.QuataDocumentPreviewRenderer
 import com.quata.documentreader.QuataDocumentReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -83,7 +91,9 @@ data class AttachmentPreview(
 ) {
     val isImage: Boolean get() = mimeType?.startsWith("image/") == true
     val isVideo: Boolean get() = mimeType?.startsWith("video/") == true
+    val isAudio: Boolean get() = mimeType?.startsWith("audio/") == true
     val isMedia: Boolean get() = isImage || isVideo
+    val isDocument: Boolean get() = QuataDocumentReader.canOpen(Uri.parse(uri), name, mimeType)
 }
 
 @Composable
@@ -118,7 +128,61 @@ fun AttachmentThumbnail(
                 }
             }
 
-            else -> CompactIcon(Icons.Filled.InsertDriveFile, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(30.dp))
+            attachment.isDocument -> DocumentAttachmentPreview(
+                attachment = attachment,
+                iconTint = QuataOrange,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            else -> CompactIcon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(30.dp))
+        }
+    }
+}
+
+@Composable
+fun DocumentAttachmentPreview(
+    attachment: AttachmentPreview,
+    modifier: Modifier = Modifier,
+    iconTint: Color = QuataOrange
+) {
+    val context = LocalContext.current
+    var bitmap by remember(attachment.uri, attachment.name, attachment.mimeType) { mutableStateOf<Bitmap?>(null) }
+    val uri = remember(attachment.uri) { Uri.parse(attachment.uri) }
+
+    LaunchedEffect(uri, attachment.name, attachment.mimeType) {
+        bitmap = withContext(Dispatchers.IO) {
+            QuataDocumentPreviewRenderer.renderFirstPage(
+                context = context,
+                uri = uri,
+                fileName = attachment.name,
+                mimeType = attachment.mimeType
+            )
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(QuataSurfaceAlt),
+        contentAlignment = Alignment.Center
+    ) {
+        val previewBitmap = bitmap
+        if (previewBitmap != null) {
+            Image(
+                bitmap = previewBitmap.asImageBitmap(),
+                contentDescription = attachment.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            CompactIcon(
+                Icons.AutoMirrored.Filled.InsertDriveFile,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(42.dp)
+            )
         }
     }
 }
@@ -267,34 +331,78 @@ private fun ZoomableImage(attachment: AttachmentPreview) {
 @Composable
 private fun FullscreenVideoPlayer(videoUri: String) {
     val context = LocalContext.current
-    val player = remember(videoUri) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUri))
-            repeatMode = Player.REPEAT_MODE_OFF
-            prepare()
-            playWhenReady = true
+    var videoMetadata by remember(videoUri) { mutableStateOf(AttachmentVideoPlaybackMetadata()) }
+    LaunchedEffect(videoUri) {
+        videoMetadata = withContext(Dispatchers.IO) {
+            readAttachmentVideoPlaybackMetadata(context, Uri.parse(videoUri))
         }
+    }
+    val player = remember(videoUri) {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(QuataMediaCache.videoMediaSourceFactory(context))
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(videoUri))
+                repeatMode = Player.REPEAT_MODE_OFF
+                prepare()
+                playWhenReady = true
+            }
     }
     DisposableEffect(player) {
         onDispose { player.release() }
     }
     AndroidView(
         factory = { viewContext ->
-            PlayerView(viewContext).apply {
+            (LayoutInflater.from(viewContext)
+                .inflate(R.layout.quata_attachment_player_texture, null, false) as PlayerView).apply {
                 this.player = player
                 useController = true
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
                 )
             }
+        },
+        update = { playerView ->
+            playerView.useController = true
+            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            if (playerView.player !== player) {
+                playerView.player = player
+            }
+            playerView.findChildTextureView()
+                ?.applyAttachmentVideoPlaybackTransform(videoMetadata)
         },
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     )
 }
+
+private data class AttachmentVideoPlaybackMetadata(
+    val rotation: Int = 0,
+    val width: Int = 0,
+    val height: Int = 0
+)
+
+private fun readAttachmentVideoPlaybackMetadata(context: Context, uri: Uri): AttachmentVideoPlaybackMetadata =
+    runCatching {
+        withQuataMediaMetadataRetriever { retriever ->
+            retriever.setAttachmentVideoSource(context, uri)
+            AttachmentVideoPlaybackMetadata(
+                rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                    ?.toIntOrNull()
+                    ?.normalizedAttachmentVideoRotation()
+                    ?: 0,
+                width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                    ?.toIntOrNull()
+                    ?: 0,
+                height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                    ?.toIntOrNull()
+                    ?: 0
+            )
+        }
+    }.getOrDefault(AttachmentVideoPlaybackMetadata())
 
 @Composable
 private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
@@ -307,7 +415,18 @@ private fun rememberVideoFrameBitmap(uri: String): Bitmap? {
                 val parsedUri = Uri.parse(uri)
                 withQuataMediaMetadataRetriever { retriever ->
                     retriever.setAttachmentVideoSource(context, parsedUri)
+                    val rawWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                        ?.toIntOrNull()
+                        ?: 0
+                    val rawHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                        ?.toIntOrNull()
+                        ?: 0
+                    val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                        ?.toIntOrNull()
+                        ?.normalizedAttachmentVideoRotation()
+                        ?: 0
                     retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?.orientAttachmentVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
                         ?.scaledForAttachmentThumbnail()
                         ?.let { frame -> QuataMediaCache.cacheVideoThumbnail(context, uri, frame) }
                 }
@@ -322,6 +441,102 @@ private fun MediaMetadataRetriever.setAttachmentVideoSource(context: Context, ur
         null, "", "content", "file", "android.resource" -> setDataSource(context, uri)
         "http", "https" -> setDataSource(uri.toString(), emptyMap())
         else -> setDataSource(context, uri)
+    }
+}
+
+private fun Int.normalizedAttachmentVideoRotation(): Int {
+    val normalized = ((this % 360) + 360) % 360
+    return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
+}
+
+private fun Bitmap.orientAttachmentVideoFrameIfNeeded(
+    rawWidth: Int,
+    rawHeight: Int,
+    rotationDegrees: Int
+): Bitmap {
+    val rotation = rotationDegrees.normalizedAttachmentVideoRotation()
+    if (rotation == 0) return this
+    if (rawWidth <= 0 || rawHeight <= 0 || width <= 0 || height <= 0) return this
+    if (rotation == 90 || rotation == 270) {
+        val expectedPortrait = rawHeight < rawWidth
+        val bitmapPortrait = height > width
+        if (expectedPortrait == bitmapPortrait) return this
+    }
+    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    if (rotated !== this) recycle()
+    return rotated
+}
+
+private fun View.findChildTextureView(): TextureView? {
+    if (this is TextureView) return this
+    if (this !is ViewGroup) return null
+    for (index in 0 until childCount) {
+        getChildAt(index).findChildTextureView()?.let { return it }
+    }
+    return null
+}
+
+private fun TextureView.applyAttachmentVideoPlaybackTransform(metadata: AttachmentVideoPlaybackMetadata) {
+    fun applyTransform() {
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+        if (viewWidth <= 0f || viewHeight <= 0f) return
+        val rotation = metadata.rotation.normalizedAttachmentVideoRotation()
+        if (rotation == 90 || rotation == 270) {
+            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
+            val rawWidth = metadata.width.toFloat().takeIf { it > 0f } ?: viewHeight
+            val rawHeight = metadata.height.toFloat().takeIf { it > 0f } ?: viewWidth
+            if (rawWidth <= 0f || rawHeight <= 0f) {
+                setTransform(
+                    Matrix().apply {
+                        postRotate(rotation.toFloat(), viewRect.centerX(), viewRect.centerY())
+                    }
+                )
+                invalidate()
+                return
+            }
+            val rotatedAspectRatio = rawHeight / rawWidth
+            val targetWidth: Float
+            val targetHeight: Float
+            if (viewWidth / viewHeight > rotatedAspectRatio) {
+                targetHeight = viewHeight
+                targetWidth = targetHeight * rotatedAspectRatio
+            } else {
+                targetWidth = viewWidth
+                targetHeight = targetWidth / rotatedAspectRatio
+            }
+            val bufferRect = RectF(0f, 0f, rawHeight, rawWidth)
+            val centerX = viewRect.centerX()
+            val centerY = viewRect.centerY()
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+            val screenScaleX = targetWidth / viewWidth
+            val screenScaleY = targetHeight / rawHeight
+            val matrix = Matrix().apply {
+                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
+                postRotate(rotation.toFloat(), centerX, centerY)
+                postScale(screenScaleX, screenScaleY, centerX, centerY)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
+        if (rotation == 180) {
+            setTransform(
+                Matrix().apply {
+                    postRotate(180f, viewWidth / 2f, viewHeight / 2f)
+                }
+            )
+            invalidate()
+            return
+        }
+        setTransform(Matrix())
+        invalidate()
+    }
+    if (width > 0 && height > 0) {
+        applyTransform()
+    } else {
+        post { applyTransform() }
     }
 }
 

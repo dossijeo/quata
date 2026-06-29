@@ -164,9 +164,20 @@
     <string name="conversation_attach_file">Choisir fichier</string>
     <string name="conversation_attach_gallery">Photo/video galerie</string>
     <string name="conversation_attach_camera">Ouvrir camera</string>
+    <string name="conversation_attach_audio">Enregistrer audio</string>
     <string name="conversation_attach_take_photo">Prendre photo</string>
     <string name="conversation_attach_record_video">Filmer video</string>
+    <string name="conversation_audio_permission">Permission micro requise pour enregistrer l\'audio</string>
+    <string name="conversation_audio_record_title">Note vocale</string>
+    <string name="conversation_audio_record_start_hint">Touchez pour demarrer</string>
+    <string name="conversation_audio_record_stop_hint">Touchez pour arreter et joindre</string>
+    <string name="conversation_audio_record_error">Impossible d\'enregistrer l\'audio</string>
     <string name="conversation_camera_permission">Permission camera requise pour cette option</string>
+    <string name="conversation_video_record_start">Filmer</string>
+    <string name="conversation_video_record_stop">Arreter</string>
+    <string name="conversation_video_record_cancel">Annuler</string>
+    <string name="conversation_video_record_error">Impossible d enregistrer la video</string>
+    <string name="conversation_video_camera_error">Impossible d ouvrir la camera</string>
     <string name="time_one_minute_ago">il y a 1 min</string>
     <string name="time_minutes_ago">il y a %1$d min</string>
     <string name="time_hours_ago">il y a %1$d h</string>
@@ -177,6 +188,7 @@
     <string name="time_one_year_ago">il y a 1 an</string>
     <string name="feed_empty">Pas encore de publications</string>
     <string name="feed_share_post">Partager publication</string>
+    <string name="feed_read_more">Lire plus</string>
     <string name="feed_report_success">Publication signalee correctement</string>
     <string name="feed_live_title">LIVE &#183; Classement en direct</string>
     <string name="feed_live_subtitle">Tous les posts tries par likes en temps reel.</string>
@@ -188,6 +200,7 @@
     <string name="feed_post_type_text">Publication texte</string>
     <string name="feed_location_chip">&#128205; %1$s</string>
     <string name="feed_rank_chip">&#128293; #%1$d &#183; %2$d</string>
+    <string name="feed_rank">Rank</string>
     <string name="feed_like">J\'aime</string>
     <string name="feed_comments">Commentaires</string>
     <string name="feed_share">Partager</string>
@@ -259,6 +272,27 @@
     <string name="sos_location_unavailable">&#128205; Position indisponible</string>
     <string name="sos_location">&#128205; Position : %1$s</string>
     <string name="sos_default_message">&#128680; SOS REEL : %1$s a besoin d\'aide urgente. Tu es un de ses contacts SOS sur QUATA.</string>
+    <string name="sos_location_update">Mise a jour de position SOS</string>
+    <string name="sos_location_age">Age de la position : %1$s</string>
+    <string name="sos_location_speed">Vitesse : %1$s</string>
+    <string name="sos_location_approx">Position approximative : %1$s</string>
+    <string name="sos_location_updated_body">Une position plus precise a ete obtenue.</string>
+    <string name="sos_location_accuracy">Precision : %1$s</string>
+    <string name="sos_age_less_than_minute">moins d\'1 minute</string>
+    <string name="sos_distance_meters">%1$s m</string>
+    <string name="sos_speed_kmh">%1$s km/h</string>
+    <plurals name="sos_age_minutes">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="sos_age_hours">
+        <item quantity="one">%1$d h</item>
+        <item quantity="other">%1$d h</item>
+    </plurals>
+    <plurals name="sos_age_days">
+        <item quantity="one">%1$d j</item>
+        <item quantity="other">%1$d j</item>
+    </plurals>
     <string name="user_fallback_name">Utilisateur</string>
     <string name="composer_title">Creer publication</string>
     <string name="composer_text_type">Poster texte</string>

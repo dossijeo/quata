@@ -3,22 +3,33 @@ package com.quata
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.quata.core.di.AppContainer
 import com.quata.core.media.QuataMediaCache
-import com.quata.core.notifications.BetterMessagesBackgroundPollScheduler
-import com.quata.feature.chat.domain.ChatPollingMode
+import com.quata.core.model.AuthSession
 import com.google.android.play.core.splitcompat.SplitCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 
 class QuataApp : Application(), ImageLoaderFactory {
     lateinit var container: AppContainer
         private set
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var startedActivities = 0
     private var resumedActivities = 0
+    @Volatile
+    var isAppForeground: Boolean = false
+        private set
+    private var supabaseSessionRefreshJob: Job? = null
 
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(base)
@@ -28,36 +39,34 @@ class QuataApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        BetterMessagesBackgroundPollScheduler(this).schedule()
+        observeSupabaseAuthState()
+        refreshSupabaseSessionIfNeeded()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
                 startedActivities += 1
-                container.chatRepository.setPollingMode(ChatPollingMode.MEDIUM)
             }
 
             override fun onActivityStopped(activity: Activity) {
                 startedActivities = (startedActivities - 1).coerceAtLeast(0)
                 if (startedActivities == 0) {
+                    isAppForeground = false
                     container.chatRepository.setAppForeground(false)
-                    val mode = if (container.sessionManager.isLoggedIn()) {
-                        ChatPollingMode.RELAXED
-                    } else {
-                        ChatPollingMode.MINIMAL
-                    }
-                    container.chatRepository.setPollingMode(mode)
                 }
             }
 
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
             override fun onActivityResumed(activity: Activity) {
                 resumedActivities += 1
+                isAppForeground = true
                 container.chatRepository.setAppForeground(true)
-                container.chatRepository.setPollingMode(ChatPollingMode.MEDIUM)
+                refreshSupabaseSessionIfNeeded()
+                container.pushTokenManager.syncCurrentToken()
             }
 
             override fun onActivityPaused(activity: Activity) {
                 resumedActivities = (resumedActivities - 1).coerceAtLeast(0)
                 if (resumedActivities == 0) {
+                    isAppForeground = false
                     container.chatRepository.setAppForeground(false)
                 }
             }
@@ -65,6 +74,53 @@ class QuataApp : Application(), ImageLoaderFactory {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
+    }
+
+    private fun refreshSupabaseSessionIfNeeded() {
+        appScope.launch {
+            refreshSupabaseSession()
+            scheduleNextSupabaseSessionRefresh()
+        }
+    }
+
+    private suspend fun refreshSupabaseSession(): AuthSession? =
+        runCatching { container.supabaseCommunityApi.ensureFreshSession() }
+            .onFailure { Log.w(TAG, "Could not refresh Supabase session", it) }
+            .getOrNull()
+
+    private fun observeSupabaseAuthState() {
+        appScope.launch {
+            container.sessionManager.authState.collect {
+                scheduleNextSupabaseSessionRefresh()
+            }
+        }
+    }
+
+    private fun scheduleNextSupabaseSessionRefresh(allowImmediate: Boolean = true) {
+        supabaseSessionRefreshJob?.cancel()
+        supabaseSessionRefreshJob = null
+        val session = container.sessionManager.currentSession()
+            ?.takeIf { it.isSupabaseAuthenticated() }
+            ?: return
+        val expiresAt = session.expiresAt
+        val delayMillis = if (expiresAt == null) {
+            DEFAULT_SUPABASE_REFRESH_DELAY_MILLIS
+        } else {
+            val nowEpochSeconds = System.currentTimeMillis() / 1000L
+            val refreshAtSeconds = expiresAt - SUPABASE_REFRESH_LEEWAY_SECONDS
+            val rawDelayMillis = (refreshAtSeconds - nowEpochSeconds).coerceAtLeast(0L) * 1000L
+            if (rawDelayMillis == 0L && !allowImmediate) {
+                SUPABASE_REFRESH_RETRY_MILLIS
+            } else {
+                rawDelayMillis
+            }
+        }
+        supabaseSessionRefreshJob = appScope.launch {
+            delay(delayMillis)
+            refreshSupabaseSession()
+            supabaseSessionRefreshJob = null
+            scheduleNextSupabaseSessionRefresh(allowImmediate = false)
+        }
     }
 
     override fun newImageLoader(): ImageLoader {
@@ -103,7 +159,11 @@ class QuataApp : Application(), ImageLoaderFactory {
     }
 
     private companion object {
+        const val TAG = "QuataApp"
         const val IMAGE_CACHE_DIR = "quata_image_cache"
         const val MAX_IMAGE_CACHE_BYTES = 128L * 1024L * 1024L
+        const val SUPABASE_REFRESH_LEEWAY_SECONDS = 300L
+        const val DEFAULT_SUPABASE_REFRESH_DELAY_MILLIS = 30L * 60L * 1000L
+        const val SUPABASE_REFRESH_RETRY_MILLIS = 60_000L
     }
 }

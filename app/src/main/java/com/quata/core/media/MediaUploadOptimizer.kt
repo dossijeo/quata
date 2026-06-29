@@ -11,6 +11,7 @@ import android.media.MediaMetadataRetriever
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import androidx.annotation.OptIn
 import androidx.exifinterface.media.ExifInterface
@@ -284,6 +285,9 @@ class MediaUploadOptimizer(private val appContext: Context) {
     ): UploadVideoPayload? {
         if (options.skipOptimize) return null
         if (!source.mimeType.startsWith("video/", ignoreCase = true)) return null
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O && source.videoRotation() != 0) {
+            return null
+        }
         val sourceSize = source.sizeBytes ?: 0L
         val sourceBitrate = source.videoBitrate()
         val shouldOptimize = options.force ||
@@ -344,6 +348,7 @@ class MediaUploadOptimizer(private val appContext: Context) {
             )
             .build()
         val transformer = Transformer.Builder(appContext)
+            .setPortraitEncodingEnabled(true)
             .setEncoderFactory(encoderFactory)
             .setVideoMimeType(MimeTypes.VIDEO_H264)
             .setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -373,6 +378,17 @@ class MediaUploadOptimizer(private val appContext: Context) {
             }
         }.getOrNull()
 
+    private fun MediaSource.videoRotation(): Int =
+        runCatching {
+            withQuataMediaMetadataRetriever { retriever ->
+                retriever.setDataSource(appContext, uri)
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                    ?.toIntOrNull()
+                    ?.normalizedVideoRotation()
+                    ?: 0
+            }
+        }.getOrDefault(0)
+
     private fun MediaSource.videoBitrate(): Long? =
         runCatching {
             withQuataMediaMetadataRetriever { retriever ->
@@ -383,6 +399,11 @@ class MediaUploadOptimizer(private val appContext: Context) {
 
     private fun Long?.exceedsTargetVideoBitrate(targetBitrate: Int): Boolean =
         this != null && this > targetBitrate + VIDEO_BITRATE_AUDIO_ALLOWANCE
+
+    private fun Int.normalizedVideoRotation(): Int {
+        val normalized = ((this % 360) + 360) % 360
+        return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
+    }
 
     private fun isSlowConnectionMode(): Boolean {
         val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager

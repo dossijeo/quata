@@ -164,9 +164,22 @@
     <string name="conversation_attach_file">Elegir archivo</string>
     <string name="conversation_attach_gallery">Foto/vídeo de galería</string>
     <string name="conversation_attach_camera">Abrir cámara</string>
+    <string name="conversation_attach_audio">Grabar audio</string>
     <string name="conversation_attach_take_photo">Tomar foto</string>
     <string name="conversation_attach_record_video">Grabar vídeo</string>
+    <string name="conversation_audio_permission">Necesitamos permiso de micrófono para grabar audio</string>
+    <string name="conversation_audio_record_title">Nota de voz</string>
+    <string name="conversation_audio_record_start_hint">Toca para empezar a grabar</string>
+    <string name="conversation_audio_record_stop_hint">Toca para detener y adjuntar</string>
+    <string name="conversation_audio_record_error">No se pudo guardar el audio</string>
+    <string name="quata_camera_mode_photo">Foto</string>
+    <string name="quata_camera_mode_video">Vídeo</string>
     <string name="conversation_camera_permission">Necesitamos permiso de cámara para usar esta opción</string>
+    <string name="conversation_video_record_start">Grabar</string>
+    <string name="conversation_video_record_stop">Detener</string>
+    <string name="conversation_video_record_cancel">Cancelar</string>
+    <string name="conversation_video_record_error">No se pudo guardar el vídeo</string>
+    <string name="conversation_video_camera_error">No se pudo abrir la cámara</string>
     <string name="time_one_minute_ago">hace 1 min</string>
     <string name="time_minutes_ago">hace %1$d min</string>
     <string name="time_hours_ago">hace %1$d h</string>
@@ -177,6 +190,7 @@
     <string name="time_one_year_ago">hace 1 año</string>
     <string name="feed_empty">No hay publicaciones todavía</string>
     <string name="feed_share_post">Compartir publicación</string>
+    <string name="feed_read_more">Leer mas</string>
     <string name="feed_report_success">Publicación reportada correctamente</string>
     <string name="feed_live_title">LIVE · Ranking en directo</string>
     <string name="feed_live_subtitle">Todos los posts ordenados por likes en tiempo real.</string>
@@ -188,6 +202,7 @@
     <string name="feed_post_type_text">Publicación de texto</string>
     <string name="feed_location_chip">📍 %1$s</string>
     <string name="feed_rank_chip">🔥 #%1$d · %2$d</string>
+    <string name="feed_rank">Rank</string>
     <string name="feed_like">Me gusta</string>
     <string name="feed_comments">Comentarios</string>
     <string name="feed_share">Compartir</string>
@@ -259,6 +274,27 @@
     <string name="sos_location_unavailable">📍 Ubicación no disponible</string>
     <string name="sos_location">📍 Ubicación: %1$s</string>
     <string name="sos_default_message">🚨 SOS REAL: %1$s necesita ayuda urgente. Eres uno de sus contactos de emergencia en QUATA.</string>
+    <string name="sos_location_update">Actualizacion de ubicacion SOS</string>
+    <string name="sos_location_age">Antiguedad de ubicacion: %1$s</string>
+    <string name="sos_location_speed">Velocidad: %1$s</string>
+    <string name="sos_location_approx">Ubicacion aproximada: %1$s</string>
+    <string name="sos_location_updated_body">Se ha obtenido una ubicacion mas precisa.</string>
+    <string name="sos_location_accuracy">Precision: %1$s</string>
+    <string name="sos_age_less_than_minute">menos de 1 minuto</string>
+    <string name="sos_distance_meters">%1$s m</string>
+    <string name="sos_speed_kmh">%1$s km/h</string>
+    <plurals name="sos_age_minutes">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="sos_age_hours">
+        <item quantity="one">%1$d h</item>
+        <item quantity="other">%1$d h</item>
+    </plurals>
+    <plurals name="sos_age_days">
+        <item quantity="one">%1$d d</item>
+        <item quantity="other">%1$d d</item>
+    </plurals>
     <string name="user_fallback_name">Usuario</string>
     <string name="composer_title">Crear publicación</string>
     <string name="composer_text_type">Postear texto</string>
@@ -277,6 +313,8 @@
     <string name="composer_change_type">Cambiar tipo</string>
     <string name="composer_content">Contenido</string>
     <string name="composer_preview">Vista previa</string>
+    <string name="composer_text_background">Patron de fondo</string>
+    <string name="composer_text_background_auto">Automatico</string>
     <string name="composer_image">Imagen</string>
     <string name="composer_video">Vídeo</string>
     <string name="composer_description">Descripción</string>

@@ -135,6 +135,7 @@ fun QuataImageEditorDialog(
                 isCropPanelOpen = isCropPanelOpen,
                 isSaving = isSaving,
                 canSave = bitmap != null,
+                showTitle = !isLandscapeLayout,
                 onBack = onDismiss,
                 onReset = {
                     originalBitmap?.let { original ->
@@ -304,6 +305,7 @@ private fun ImageEditorTopBar(
     isCropPanelOpen: Boolean,
     isSaving: Boolean,
     canSave: Boolean,
+    showTitle: Boolean,
     onBack: () -> Unit,
     onReset: () -> Unit,
     onRotate: () -> Unit,
@@ -327,15 +329,19 @@ private fun ImageEditorTopBar(
             )
         }
         Spacer(Modifier.width(6.dp))
-        Text(
-            text = stringResource(R.string.video_editor_title),
-            color = template.colors.textPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        if (showTitle) {
+            Text(
+                text = stringResource(R.string.video_editor_title),
+                color = template.colors.textPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            Spacer(Modifier.width(8.dp))
+        }
         if (!isSaving) {
             ImageToolButton(
                 label = stringResource(R.string.image_editor_reset),

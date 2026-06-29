@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "698089833276",
+    "project_id": "quata-app",
+    "storage_bucket": "quata-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:698089833276:android:32e9fd27dd575c70845439",
+        "android_client_info": {
+          "package_name": "com.quata"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmet3YLtppD6qiVK6VvMsTT9qB6ISxfa0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

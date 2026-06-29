@@ -1044,8 +1044,6 @@ private fun ProfileVideoPlayer(videoUrl: String) {
                 this.player = player
                 useController = true
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT

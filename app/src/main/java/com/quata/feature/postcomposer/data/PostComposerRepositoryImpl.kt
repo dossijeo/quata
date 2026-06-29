@@ -126,14 +126,13 @@ class PostComposerRepositoryImpl(
             PostComposerType.Text -> if (draft.text.isBlank()) error("La publicacion de texto no puede estar vacia")
             PostComposerType.Image -> {
                 if (draft.imageUri.isNullOrBlank()) error("Selecciona una imagen")
-                if (draft.locationLabel.isNullOrBlank()) error("Falta la ubicacion de la imagen")
             }
             PostComposerType.Video -> if (draft.videoUri.isNullOrBlank()) error("Selecciona o graba un video")
         }
     }
 
     private fun PostComposerDraft.toRemoteText(): String = when (type) {
-        PostComposerType.Text -> text
+        PostComposerType.Text -> buildPostBodyWithMeta(cleanBody = text, textPattern = textPatternId, channel = "feed")
         PostComposerType.Image -> buildPostBodyWithMeta(imageLocation = locationLabel, channel = "feed")
         PostComposerType.Video -> buildPostBodyWithMeta(mediaTitle = text, channel = "feed")
     }

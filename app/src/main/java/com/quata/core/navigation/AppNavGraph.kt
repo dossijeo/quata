@@ -8,7 +8,6 @@ import android.graphics.Color as AndroidColor
 import android.graphics.Point
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
-import android.location.LocationManager
 import android.media.RingtoneManager
 import android.net.ConnectivityManager
 import android.net.Network
@@ -17,6 +16,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -109,7 +109,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.di.AppContainer
+import com.quata.core.location.hasQuataLocationPermission
+import com.quata.core.location.quataLastLocation
+import com.quata.core.location.quataPreciseLocationWithRetries
 import com.quata.core.session.AuthState
+import com.quata.core.text.SosShortcodeKind
+import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataNavigationRail
@@ -126,7 +131,6 @@ import com.quata.core.translation.QuataTranslatorOverlayBackdrop
 import com.quata.core.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.QuataTranslatorModeController
 import com.quata.core.translation.captureTranslatorBackground
-import com.quata.feature.chat.domain.ChatPollingMode
 import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
@@ -273,6 +277,7 @@ fun AppNavGraph(
     val useNavigationRail = showAppChrome && isLandscapeLayout
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
     var createPostCancelUploadToken by rememberSaveable { mutableStateOf(0) }
+    var feedResetToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
@@ -314,6 +319,7 @@ fun AppNavGraph(
                 restoreState = false
             }
         } else if (route == AppDestinations.Feed.route) {
+            feedResetToken += 1
             navigateToFeed()
         } else {
             navController.navigate(route) {
@@ -340,22 +346,19 @@ fun AppNavGraph(
     var isAppForeground by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
-    DisposableEffect(lifecycleOwner, container.chatRepository, showAppChrome, currentRoute) {
+    DisposableEffect(lifecycleOwner, container.chatRepository) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     isAppForeground = true
                     container.chatRepository.setAppForeground(true)
-                    container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = true))
                 }
                 Lifecycle.Event.ON_PAUSE -> {
                     isAppForeground = false
                     container.chatRepository.setAppForeground(false)
-                    container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isForeground = false))
                 }
                 Lifecycle.Event.ON_DESTROY -> {
                     container.chatRepository.setAppForeground(false)
-                    container.chatRepository.setPollingMode(ChatPollingMode.MINIMAL)
                 }
                 else -> Unit
             }
@@ -365,9 +368,8 @@ fun AppNavGraph(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    LaunchedEffect(showAppChrome, currentRoute, isAppForeground) {
+    LaunchedEffect(isAppForeground) {
         container.chatRepository.setAppForeground(isAppForeground)
-        container.chatRepository.setPollingMode(chatPollingModeFor(showAppChrome, currentRoute, isAppForeground))
     }
 
     LaunchedEffect(currentRoute) {
@@ -501,8 +503,10 @@ fun AppNavGraph(
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         openingProfileUserId = globalProfileState.openingProfileUserId,
                         focusedPostId = feedFocusedPostId,
+                        feedResetToken = feedResetToken,
                         networkReconnectToken = feedNetworkReconnectToken,
                         isNetworkAvailable = isDeviceNetworkAvailable,
+                        isAppForeground = isAppForeground,
                         onFocusedPostHandled = { feedFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
                         onLandscapeCommentsOverlayActiveChange = { isFeedCommentsOverlayVisible = it }
@@ -1126,18 +1130,6 @@ private fun AuthRequiredDialog(
     )
 }
 
-private fun chatPollingModeFor(
-    showAppChrome: Boolean,
-    currentRoute: String?,
-    isForeground: Boolean
-): ChatPollingMode = when {
-    !showAppChrome -> ChatPollingMode.MINIMAL
-    !isForeground -> ChatPollingMode.RELAXED
-    currentRoute == AppDestinations.Chat.route -> ChatPollingMode.AGGRESSIVE
-    currentRoute == AppDestinations.Feed.route -> ChatPollingMode.RELAXED
-    else -> ChatPollingMode.MEDIUM
-}
-
 @Composable
 private fun rememberDeviceNetworkAvailable(): Boolean {
     val context = LocalContext.current.applicationContext
@@ -1360,24 +1352,50 @@ private fun AuthenticatedGlobalSosButton(
         1f
     }
 
-    fun buildSosMessage(profile: UserProfile, location: Location?): String {
-        val locationText = if (location == null) {
-            context.getString(R.string.sos_location_unavailable)
-        } else {
-            context.getString(R.string.sos_location, "https://maps.google.com/?q=${location.latitude},${location.longitude}")
-        }
-        return "${profile.emergencyMessage}\n$locationText"
-    }
+    fun buildSosMessage(profile: UserProfile, location: Location?, isLocationUpdate: Boolean = false): String =
+        buildSosShortcode(
+            kind = if (isLocationUpdate) SosShortcodeKind.LocationUpdate else SosShortcodeKind.Alert,
+            senderName = profile.displayName,
+            customMessage = profile.emergencyMessage.takeUnless { profile.emergencyMessageIsDefault },
+            latitude = location?.latitude,
+            longitude = location?.longitude,
+            ageMillis = location?.sosAgeMillis(),
+            accuracyMeters = location?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble(),
+            speedKmh = location?.takeIf { it.hasSpeed() }?.speed?.times(3.6f)?.toDouble()
+        )
 
     fun sendSos(profile: UserProfile, location: Location?) {
         if (isSendingSos) return
         isSendingSos = true
         scope.launch {
+            val shouldRefreshPreciseLocation = location == null || location.isOlderThanSosFreshness()
+            Log.d(
+                SosLocationLogTag,
+                "Sending immediate SOS hasLocation=${location != null} refreshPrecise=$shouldRefreshPreciseLocation"
+            )
             container.chatRepository.sendSosMessage(
                 contactIds = profile.emergencyContactIds,
-                text = buildSosMessage(profile, location)
-            ).onSuccess {
+                text = buildSosMessage(profile, location),
+                lat = location?.latitude,
+                lng = location?.longitude,
+                accuracy = location?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble()
+            ).onSuccess { conversationId ->
                 Toast.makeText(context, context.getString(R.string.sos_sent), Toast.LENGTH_SHORT).show()
+                if (shouldRefreshPreciseLocation) {
+                    launch {
+                        Log.d(SosLocationLogTag, "Requesting precise SOS location update")
+                        val freshLocation = context.quataPreciseLocationWithRetries()
+                        if (freshLocation != null) {
+                            Log.d(SosLocationLogTag, "Sending precise SOS location update")
+                            container.chatRepository.sendMessage(
+                                conversationId = conversationId,
+                                text = buildSosMessage(profile, freshLocation, isLocationUpdate = true)
+                            )
+                        } else {
+                            Log.d(SosLocationLogTag, "Precise SOS location update unavailable")
+                        }
+                    }
+                }
             }.onFailure { error ->
                 val message = if (error is SosRateLimitException) {
                     context.getString(R.string.sos_recently_sent, error.remainingMillis.formatSosRemaining())
@@ -1393,8 +1411,10 @@ private fun AuthenticatedGlobalSosButton(
     lateinit var locationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
     fun requestLocation(profile: UserProfile) {
         pendingProfile = profile
-        if (context.hasLocationPermission()) {
-            sendSos(profile, context.lastKnownLocation())
+        if (context.hasQuataLocationPermission()) {
+            scope.launch {
+                sendSos(profile, context.quataLastLocation())
+            }
         } else {
             locationPermissionLauncher.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -1409,7 +1429,9 @@ private fun AuthenticatedGlobalSosButton(
         val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         pendingProfile?.let { profile ->
-            sendSos(profile, if (granted) context.lastKnownLocation() else null)
+            scope.launch {
+                sendSos(profile, if (granted) context.quataLastLocation() else null)
+            }
             pendingProfile = null
         }
     }
@@ -1565,17 +1587,11 @@ private fun Context.hasNotificationPermission(): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-private fun Context.hasLocationPermission(): Boolean =
-    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+private fun Location.isOlderThanSosFreshness(nowMillis: Long = System.currentTimeMillis()): Boolean =
+    sosAgeMillis(nowMillis) > 60_000L
 
-@Suppress("MissingPermission")
-private fun Context.lastKnownLocation(): Location? {
-    val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getProviders(true)
-        .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
-        .maxByOrNull { it.time }
-}
+private fun Location.sosAgeMillis(nowMillis: Long = System.currentTimeMillis()): Long =
+    (nowMillis - time).coerceAtLeast(0L)
 
 private fun Context.playDefaultNotificationSound() {
     runCatching {
@@ -1590,3 +1606,5 @@ private fun Long.formatSosRemaining(): String {
     val seconds = totalSeconds % 60L
     return "%d:%02d".format(minutes, seconds)
 }
+
+private const val SosLocationLogTag = "QuataSosLocation"

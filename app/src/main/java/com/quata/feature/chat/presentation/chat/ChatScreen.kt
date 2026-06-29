@@ -18,6 +18,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,33 +47,38 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Forward
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forward
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.InsertEmoticon
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -90,11 +98,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -103,6 +113,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -114,6 +125,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -121,7 +133,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
@@ -130,15 +147,20 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
-import androidx.core.content.FileProvider
+import com.quata.core.text.localizedSosMessage
 import androidx.core.content.ContextCompat
+import com.quata.core.media.normalizeImageOrientationInPlace
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
+import com.quata.core.ui.components.DocumentAttachmentPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.CommunityEmojiPanel
+import com.quata.core.ui.components.QuataAudioRecorderDialog
+import com.quata.core.ui.components.QuataCameraDialog
+import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -156,6 +178,7 @@ import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 
@@ -184,6 +207,7 @@ fun ChatScreen(
     val clipboard = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    val cameraScope = rememberCoroutineScope()
     val metrics = context.resources.displayMetrics
     val messagesListState = rememberLazyListState()
     val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
@@ -199,10 +223,9 @@ fun ChatScreen(
     var messageFieldValue by rememberSaveable(conversationId, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(state.messageText))
     }
-    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingCameraName by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingCameraMimeType by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingCameraKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var isCameraVisible by remember { mutableStateOf(false) }
+    var cameraAudioEnabled by remember { mutableStateOf(false) }
+    var isAudioRecorderVisible by rememberSaveable { mutableStateOf(false) }
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
     var suppressAutoScrollForFocusedOpen by rememberSaveable(conversationId) {
@@ -217,7 +240,7 @@ fun ChatScreen(
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
-    val backgroundSeed = state.conversation?.chatDisplayTitle()?.ifBlank { conversationId }
+    val backgroundSeed = conversationId.takeUnless { isFavoritesConversation }
 
     LaunchedEffect(state.messageText) {
         if (state.messageText != messageFieldValue.text) {
@@ -240,62 +263,41 @@ fun ChatScreen(
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
     }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        if (saved) {
-            pendingCameraUri?.let { uri ->
-                viewModel.onEvent(
-                    ChatUiEvent.AttachmentSelected(
-                        uri = uri,
-                        name = pendingCameraName ?: "photo.jpg",
-                        mimeType = pendingCameraMimeType ?: "image/jpeg"
-                    )
-                )
-            }
-        }
-    }
-    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { saved ->
-        if (saved) {
-            pendingCameraUri?.let { uri ->
-                viewModel.onEvent(
-                    ChatUiEvent.AttachmentSelected(
-                        uri = uri,
-                        name = pendingCameraName ?: "video.mp4",
-                        mimeType = pendingCameraMimeType ?: "video/mp4"
-                    )
-                )
-            }
-        }
-    }
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            pendingCameraUri?.let { uri ->
-                when (pendingCameraKind) {
-                    "video" -> videoLauncher.launch(Uri.parse(uri))
-                    else -> cameraLauncher.launch(Uri.parse(uri))
-                }
-            }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        val hasCamera = grants[Manifest.permission.CAMERA] == true ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (hasCamera) {
+            cameraAudioEnabled = grants[Manifest.permission.RECORD_AUDIO] == true ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            isCameraVisible = true
         } else {
             Toast.makeText(context, context.getString(R.string.conversation_camera_permission), Toast.LENGTH_SHORT).show()
         }
     }
-    fun launchCameraAttachment(kind: String) {
-        val extension = if (kind == "video") "mp4" else "jpg"
-        val mimeType = if (kind == "video") "video/mp4" else "image/jpeg"
-        val fileName = "quata_${currentAttachmentTimestamp()}.$extension"
-        val file = java.io.File(context.cacheDir, fileName)
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        pendingCameraUri = uri.toString()
-        pendingCameraName = fileName
-        pendingCameraMimeType = mimeType
-        pendingCameraKind = kind
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            if (kind == "video") {
-                videoLauncher.launch(uri)
-            } else {
-                cameraLauncher.launch(uri)
-            }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted || ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            isAudioRecorderVisible = true
         } else {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            Toast.makeText(context, context.getString(R.string.conversation_audio_permission), Toast.LENGTH_SHORT).show()
+        }
+    }
+    fun launchCameraAttachment() {
+        val requiredPermissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        val missingPermissions = requiredPermissions.filter { permission ->
+            ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missingPermissions.isEmpty()) {
+            cameraAudioEnabled = true
+            isCameraVisible = true
+        } else {
+            cameraPermissionLauncher.launch(missingPermissions.toTypedArray())
+        }
+    }
+    fun launchAudioRecorder() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            isAudioRecorderVisible = true
+        } else {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
     val template = quataTheme()
@@ -324,6 +326,57 @@ fun ChatScreen(
         )
     }
 
+    if (isCameraVisible) {
+        QuataCameraDialog(
+            mode = QuataCameraMode.Dual,
+            audioEnabled = cameraAudioEnabled,
+            onDismiss = {
+                isCameraVisible = false
+            },
+            onPhotoCaptured = { uri, name, mimeType ->
+                isCameraVisible = false
+                cameraScope.launch {
+                    val normalizedUri = withContext(Dispatchers.IO) {
+                        context.normalizeImageOrientationInPlace(uri).toString()
+                    }
+                    viewModel.onEvent(
+                        ChatUiEvent.AttachmentSelected(
+                            uri = normalizedUri,
+                            name = name,
+                            mimeType = mimeType
+                        )
+                    )
+                }
+            },
+            onVideoCaptured = { uri, name, mimeType ->
+                isCameraVisible = false
+                viewModel.onEvent(
+                    ChatUiEvent.AttachmentSelected(
+                        uri = uri.toString(),
+                        name = name,
+                        mimeType = mimeType
+                    )
+                )
+            }
+        )
+    }
+
+    if (isAudioRecorderVisible) {
+        QuataAudioRecorderDialog(
+            onDismiss = { isAudioRecorderVisible = false },
+            onAudioRecorded = { uri, name, mimeType ->
+                isAudioRecorderVisible = false
+                viewModel.onEvent(
+                    ChatUiEvent.AttachmentSelected(
+                        uri = uri.toString(),
+                        name = name,
+                        mimeType = mimeType
+                    )
+                )
+            }
+        )
+    }
+
     QuataScreen(padding) {
         Box(
             modifier = Modifier
@@ -341,6 +394,17 @@ fun ChatScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(template.colors.scrim)
+                )
+            }
+            if (attachmentMenuExpanded) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { attachmentMenuExpanded = false }
+                        )
                 )
             }
             Column(
@@ -419,61 +483,90 @@ fun ChatScreen(
                             ConversationActionProgressBar()
                         }
                     }
-                    LazyColumn(
-                    state = messagesListState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(top = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    if (state.isLoading && state.messages.isEmpty()) {
-                        items(6) { index ->
-                            ChatMessageSkeleton(
-                                isMine = index % 2 == 0,
-                                pulseDelayMillis = index * 90
-                            )
+                    Box(modifier = Modifier.weight(1f)) {
+                        LazyColumn(
+                            state = messagesListState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(top = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (state.isLoading && state.messages.isEmpty()) {
+                                items(6) { index ->
+                                    ChatMessageSkeleton(
+                                        isMine = index % 2 == 0,
+                                        pulseDelayMillis = index * 90
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = state.messages,
+                                    key = { message -> message.id }
+                                ) { message ->
+                                    MessageBubble(
+                                        message = message,
+                                        sender = usersById[message.senderId],
+                                        showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
+                                        isSelected = message.id == state.selectedMessageId ||
+                                            (message.id == highlightedMessageId && highlightVisible),
+                                        isSenderProfileLoading = openingProfileUserId == message.senderId,
+                                        onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
+                                        onOpenAttachment = { attachment ->
+                                            if (attachment.isMedia) {
+                                                selectedAttachment = attachment
+                                            } else {
+                                                context.openAttachmentWithDocumentReaderOrChooser(
+                                                    attachment = attachment,
+                                                    isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
+                                                )
+                                            }
+                                        },
+                                        onSwipeReply = {
+                                            if (!isFavoritesConversation && !message.isLocalEcho) {
+                                                viewModel.onEvent(ChatUiEvent.MessageSelected(message.id))
+                                                viewModel.onEvent(ChatUiEvent.StartReply)
+                                            }
+                                        },
+                                        onClick = {
+                                            if (message.isLocalEcho) {
+                                                Unit
+                                            } else if (isFavoritesConversation) {
+                                                onOpenMessageConversation(message.conversationId, message.id)
+                                            } else {
+                                                viewModel.onEvent(
+                                                    ChatUiEvent.MessageSelected(
+                                                        if (message.id == state.selectedMessageId) null else message.id
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                         }
-                    } else {
-                        items(
-                            items = state.messages,
-                            key = { message -> message.id }
-                        ) { message ->
-                            MessageBubble(
-                                message = message,
-                                sender = usersById[message.senderId],
-                                showSenderAvatar = state.conversation?.isGroup == true && !message.isMine,
-                                isSelected = message.id == state.selectedMessageId ||
-                                    (message.id == highlightedMessageId && highlightVisible),
-                                isSenderProfileLoading = openingProfileUserId == message.senderId,
-                                onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
-                                onOpenAttachment = { attachment ->
+                        state.pendingAttachmentPreview()?.let { attachment ->
+                            PendingChatAttachmentOverlay(
+                                attachment = attachment,
+                                template = template,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .padding(16.dp)
+                                    .zIndex(1f),
+                                onClear = { viewModel.onEvent(ChatUiEvent.ClearAttachment) },
+                                onOpen = {
                                     if (attachment.isMedia) {
                                         selectedAttachment = attachment
-                                    } else {
+                                    } else if (!attachment.isAudio) {
                                         context.openAttachmentWithDocumentReaderOrChooser(
                                             attachment = attachment,
                                             isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    if (message.isLocalEcho) {
-                                        Unit
-                                    } else if (isFavoritesConversation) {
-                                        onOpenMessageConversation(message.conversationId, message.id)
-                                    } else {
-                                        viewModel.onEvent(
-                                            ChatUiEvent.MessageSelected(
-                                                if (message.id == state.selectedMessageId) null else message.id
-                                            )
                                         )
                                     }
                                 }
                             )
                         }
                     }
-                }
                     if (!isFavoritesConversation) state.editingMessage?.let {
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_editing_message),
@@ -484,12 +577,6 @@ fun ChatScreen(
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_replying_to, reply.senderName),
                             onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) }
-                        )
-                    }
-                    state.attachmentUri?.let {
-                        ComposerModeBanner(
-                            text = state.attachmentName ?: stringResource(R.string.conversation_attachment),
-                            onClear = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }
                         )
                     }
                     if (!isFavoritesConversation && isEmojiPickerVisible && !isLandscapeLayout) {
@@ -506,96 +593,118 @@ fun ChatScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                    if (!isFavoritesConversation) Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .requiredHeightIn(min = 82.dp)
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box {
-                        CompactIconButton(onClick = { attachmentMenuExpanded = true }) {
-                            CompactIcon(Icons.Filled.AttachFile, contentDescription = stringResource(R.string.conversation_attachment))
-                        }
-                        DropdownMenu(expanded = attachmentMenuExpanded, onDismissRequest = { attachmentMenuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_attach_file)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.InsertDriveFile, contentDescription = null) },
-                                onClick = {
-                                    attachmentMenuExpanded = false
-                                    filePicker.launch("*/*")
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_attach_gallery)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
-                                onClick = {
-                                    attachmentMenuExpanded = false
-                                    mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_attach_take_photo)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
-                                onClick = {
-                                    attachmentMenuExpanded = false
-                                    launchCameraAttachment("photo")
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.conversation_attach_record_video)) },
-                                leadingIcon = { CompactIcon(Icons.Filled.Videocam, contentDescription = null) },
-                                onClick = {
-                                    attachmentMenuExpanded = false
-                                    launchCameraAttachment("video")
-                                }
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = messageFieldValue,
-                        onValueChange = {
-                            messageFieldValue = it
-                            viewModel.onEvent(ChatUiEvent.MessageChanged(it.text))
-                        },
-                        label = { Text(stringResource(R.string.conversation_message)) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .requiredHeightIn(min = 68.dp)
-                            .onFocusChanged { focusState ->
-                                if (focusState.isFocused && isEmojiPickerVisible) {
-                                    isEmojiPickerVisible = false
-                                }
+                    if (!isFavoritesConversation && attachmentMenuExpanded) {
+                        ChatAttachmentQuickPanel(
+                            onPickFile = {
+                                attachmentMenuExpanded = false
+                                filePicker.launch("*/*")
                             },
-                        singleLine = true,
-                        leadingIcon = {
+                            onPickGallery = {
+                                attachmentMenuExpanded = false
+                                mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
+                    if (!isFavoritesConversation) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .requiredHeightIn(min = 78.dp)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = messageFieldValue,
+                                onValueChange = {
+                                    messageFieldValue = it
+                                    viewModel.onEvent(ChatUiEvent.MessageChanged(it.text))
+                                },
+                                placeholder = { Text(stringResource(R.string.conversation_message)) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .requiredHeightIn(min = 62.dp)
+                                    .onFocusChanged { focusState ->
+                                        if (focusState.isFocused) {
+                                            attachmentMenuExpanded = false
+                                            if (isEmojiPickerVisible) {
+                                                isEmojiPickerVisible = false
+                                            }
+                                        }
+                                    },
+                                singleLine = true,
+                                leadingIcon = {
+                                    CompactIconButton(
+                                        onClick = {
+                                            attachmentMenuExpanded = false
+                                            setEmojiPickerVisible(!isEmojiPickerVisible)
+                                        },
+                                        modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                                    ) {
+                                        CompactIcon(
+                                            imageVector = Icons.Filled.InsertEmoticon,
+                                            contentDescription = stringResource(R.string.comments_show_emojis),
+                                            tint = Color(0xFFFFC55C)
+                                        )
+                                    }
+                                },
+                                trailingIcon = {
+                                    CompactIconButton(
+                                        onClick = {
+                                            isEmojiPickerVisible = false
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus(force = true)
+                                            attachmentMenuExpanded = !attachmentMenuExpanded
+                                        }
+                                    ) {
+                                        CompactIcon(
+                                            Icons.Filled.AttachFile,
+                                            contentDescription = stringResource(R.string.conversation_attachment)
+                                        )
+                                    }
+                                },
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
                             CompactIconButton(
-                                onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
-                                modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+                                onClick = {
+                                    isEmojiPickerVisible = false
+                                    attachmentMenuExpanded = false
+                                    launchCameraAttachment()
+                                },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                CompactIcon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.conversation_attach_camera))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            val canSend = messageFieldValue.text.isNotBlank() || state.attachmentUri != null
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(QuataOrange)
+                                    .clickable {
+                                        if (canSend) {
+                                            context.playChatSound(R.raw.sent)
+                                            isEmojiPickerVisible = false
+                                            attachmentMenuExpanded = false
+                                            viewModel.onEvent(ChatUiEvent.Send)
+                                        } else {
+                                            isEmojiPickerVisible = false
+                                            attachmentMenuExpanded = false
+                                            launchAudioRecorder()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
                                 CompactIcon(
-                                    imageVector = Icons.Filled.InsertEmoticon,
-                                    contentDescription = stringResource(R.string.comments_show_emojis),
-                                    tint = Color(0xFFFFC55C)
+                                    imageVector = if (canSend) Icons.AutoMirrored.Filled.Send else Icons.Filled.Mic,
+                                    contentDescription = stringResource(if (canSend) R.string.common_send else R.string.conversation_attach_audio),
+                                    tint = Color.White
                                 )
                             }
-                        },
-                        trailingIcon = {
-                            CompactIconButton(
-                                enabled = messageFieldValue.text.isNotBlank() || state.attachmentUri != null,
-                                onClick = {
-                                    context.playChatSound(R.raw.sent)
-                                    isEmojiPickerVisible = false
-                                    viewModel.onEvent(ChatUiEvent.Send)
-                                }
-                            ) {
-                                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send))
-                            }
-                        },
-                        shape = RoundedCornerShape(18.dp)
-                    )
+                        }
                     }
-                }
             }
             if (!isFavoritesConversation && isEmojiPickerVisible && isLandscapeLayout) {
                 CommunityEmojiPanel(
@@ -606,7 +715,7 @@ fun ChatScreen(
                     },
                     gridMaxHeight = emojiGridMaxHeight,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(Alignment.End)
                         .padding(end = 16.dp, bottom = 94.dp, start = 24.dp)
                         .fillMaxWidth(0.58f)
                         .trackCommunityEmojiPanelBounds(emojiDismissState)
@@ -697,7 +806,15 @@ fun ChatScreen(
                     ConfirmAction.DeleteMessage -> viewModel.onEvent(ChatUiEvent.DeleteSelectedMessage)
                     is ConfirmAction.BlockParticipant -> viewModel.onEvent(ChatUiEvent.BlockParticipant(currentAction.userId))
                     is ConfirmAction.RemoveParticipant -> viewModel.onEvent(ChatUiEvent.RemoveParticipant(currentAction.userId))
-                    is ConfirmAction.ToggleModerator -> viewModel.onEvent(ChatUiEvent.PromoteModerator(currentAction.userId))
+                    is ConfirmAction.ToggleModerator -> {
+                        viewModel.onEvent(
+                            if (currentAction.isModerator) {
+                                ChatUiEvent.DemoteModerator(currentAction.userId)
+                            } else {
+                                ChatUiEvent.PromoteModerator(currentAction.userId)
+                            }
+                        )
+                    }
                 }
                 confirmAction = null
             }
@@ -710,6 +827,7 @@ fun ChatScreen(
             onDismiss = { selectedAttachment = null }
         )
     }
+}
 }
 
 @Composable
@@ -769,6 +887,149 @@ private fun ComposerModeBanner(
             Text("X")
         }
     }
+}
+
+@Composable
+private fun ChatAttachmentQuickPanel(
+    onPickFile: () -> Unit,
+    onPickGallery: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Surface(
+        color = template.colors.surface.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 4.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ChatAttachmentQuickAction(
+                icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                label = stringResource(R.string.conversation_attach_file),
+                onClick = onPickFile,
+                modifier = Modifier.weight(1f)
+            )
+            ChatAttachmentQuickAction(
+                icon = Icons.Filled.PhotoLibrary,
+                label = stringResource(R.string.conversation_attach_gallery),
+                onClick = onPickGallery,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatAttachmentQuickAction(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(template.colors.accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CompactIcon(icon, contentDescription = null, tint = template.colors.accent)
+        }
+        Text(
+            text = label,
+            color = template.colors.textPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun PendingChatAttachmentOverlay(
+    attachment: AttachmentPreview,
+    template: QuataThemeTemplate,
+    onClear: () -> Unit,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = template.colors.surface.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(22.dp),
+        shadowElevation = 8.dp,
+        modifier = modifier
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = onOpen)
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                when {
+                    attachment.isAudio -> AudioAttachmentPlayer(
+                        attachment = attachment,
+                        textColor = template.colors.textPrimary
+                    )
+                    attachment.isMedia -> AttachmentThumbnail(
+                        attachment = attachment,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 180.dp, max = 360.dp)
+                    )
+                    else -> DocumentAttachmentPreview(
+                        attachment = attachment,
+                        iconTint = template.colors.accent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 180.dp, max = 360.dp)
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    attachment.name,
+                    color = template.colors.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CompactIconButton(
+                onClick = onClear,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.12f))
+            ) {
+                CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_cancel))
+            }
+        }
+    }
+}
+
+private fun ChatUiState.pendingAttachmentPreview(): AttachmentPreview? {
+    val uri = attachmentUri ?: return null
+    return AttachmentPreview(
+        name = attachmentName?.takeIf { it.isNotBlank() } ?: uri.substringAfterLast('/'),
+        uri = uri,
+        mimeType = attachmentMimeType
+    )
 }
 
 @Composable
@@ -895,7 +1156,7 @@ private fun ChatHeader(
                         CompactIcon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = template.colors.textPrimary)
                     }
                     CompactIconButton(onClick = onForwardSelected) {
-                        CompactIcon(Icons.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = template.colors.textPrimary)
+                        CompactIcon(Icons.AutoMirrored.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = template.colors.textPrimary)
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
                         CompactIconButton(onClick = onEditSelected) {
@@ -904,7 +1165,7 @@ private fun ChatHeader(
                     }
                     CompactIconButton(onClick = onToggleFavoriteSelected) {
                         CompactIcon(
-                            if (selectedMessage.isFavorite) Icons.Filled.StarBorder else Icons.Filled.Star,
+                            if (selectedMessage.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                             contentDescription = stringResource(R.string.conversation_favorite_message)
                         )
                     }
@@ -968,7 +1229,7 @@ private fun ChatHeader(
                                 text = { Text(if (conversation?.isMuted == true) stringResource(R.string.conversation_reactivate_notifications) else stringResource(R.string.conversation_mute)) },
                                 leadingIcon = {
                                     CompactIcon(
-                                        if (conversation?.isMuted == true) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                                        if (conversation?.isMuted == true) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                                         contentDescription = null
                                     )
                                 },
@@ -987,6 +1248,7 @@ private fun ChatHeader(
                                 },
                                 enabled = isModerator,
                                 onClick = {
+                                    menuExpanded = false
                                     onToggleMemberInvites(conversation?.canMembersInvite != true)
                                 }
                             )
@@ -1442,12 +1704,13 @@ private fun ChatAvatar(
                     CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
                 }
             }
-        } else if (canOpenPrivateProfile && resolvedPrivateUserId != null) {
+        } else if (canOpenPrivateProfile) {
+            val profileId = resolvedPrivateUserId.orEmpty()
             ClickableProfileAvatar(
                 name = resolvedPrivateUser?.displayName ?: privateUserName,
                 avatarUrl = resolvedPrivateUser?.avatarUrl ?: privateAvatarUrl,
-                isLoading = openingProfileUserId == resolvedPrivateUserId,
-                onClick = { onOpenUserProfile(resolvedPrivateUserId) },
+                isLoading = openingProfileUserId == profileId,
+                onClick = { onOpenUserProfile(profileId) },
                 modifier = Modifier.size(avatarSize)
             )
         } else {
@@ -1577,11 +1840,15 @@ private fun MessageBubble(
     isSenderProfileLoading: Boolean,
     onOpenSenderProfile: () -> Unit,
     onOpenAttachment: (AttachmentPreview) -> Unit,
+    onSwipeReply: () -> Unit,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
     val template = quataTheme()
     val mapsUrl = message.text.extractMapsUrl()
+    val sosLocationMessage = remember(context, message.text) {
+        context.localizedSosMessage(message.text) ?: message.text.parseSosLocationMessage()
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start,
@@ -1619,8 +1886,26 @@ private fun MessageBubble(
                     },
                     shape = RoundedCornerShape(20.dp)
                 )
+                .pointerInput(message.id) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalDrag = 0f },
+                        onDragCancel = { totalDrag = 0f },
+                        onHorizontalDrag = { _, dragAmount ->
+                            if (dragAmount > 0f) {
+                                totalDrag += dragAmount
+                            }
+                        },
+                        onDragEnd = {
+                            if (totalDrag > CHAT_REPLY_SWIPE_THRESHOLD_PX) {
+                                onSwipeReply()
+                            }
+                            totalDrag = 0f
+                        }
+                    )
+                }
                 .then(
-                    if (!message.isDeleted && message.text.isNotBlank()) {
+                    if (!message.isDeleted && message.text.isNotBlank() && sosLocationMessage == null) {
                         Modifier.quataTranslatableText(
                             id = "chat-message:${message.id}",
                             text = message.text,
@@ -1711,15 +1996,29 @@ private fun MessageBubble(
                 Text(stringResource(R.string.conversation_deleted_message), color = textColor.copy(alpha = 0.72f))
             } else {
                 if (message.text.isNotBlank()) {
-                    LinkifiedMessageText(
-                        text = message.text,
-                        color = textColor,
-                        linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
-                    )
+                    if (sosLocationMessage != null) {
+                        SosLocationMessageContent(
+                            message = sosLocationMessage,
+                            textColor = textColor,
+                            accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
+                            onOpenMaps = { url -> context.openMaps(url) }
+                        )
+                    } else {
+                        LinkifiedMessageText(
+                            text = message.text,
+                            color = textColor,
+                            linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
+                        )
+                    }
                 }
                 message.attachmentPreview()?.let { attachment ->
                     Spacer(Modifier.padding(4.dp))
-                    if (attachment.isMedia) {
+                    if (attachment.isAudio) {
+                        AudioAttachmentPlayer(
+                            attachment = attachment,
+                            textColor = textColor
+                        )
+                    } else if (attachment.isMedia) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1747,7 +2046,7 @@ private fun MessageBubble(
                     }
                 }
             }
-            if (mapsUrl != null) {
+            if (mapsUrl != null && sosLocationMessage == null) {
                 Spacer(Modifier.padding(4.dp))
                 Text(
                     text = stringResource(R.string.conversation_open_maps),
@@ -1755,6 +2054,291 @@ private fun MessageBubble(
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { context.openMaps(mapsUrl) }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SosLocationMessageContent(
+    message: com.quata.core.text.LocalizedSosMessage,
+    textColor: Color,
+    accentColor: Color,
+    onOpenMaps: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = message.title,
+            color = textColor,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp
+        )
+        message.body?.let { body ->
+            Text(text = body, color = textColor, fontSize = 14.sp)
+        }
+        message.locationLabel?.let { label ->
+            Text(
+                text = label,
+                color = textColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
+        if (message.mapsUrl != null && message.isUpdate) {
+            SosLocationMapPreview(accentColor = accentColor)
+        }
+        if (message.age != null || message.accuracy != null || message.speed != null) {
+            Surface(
+                color = Color.White.copy(alpha = 0.30f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    message.age?.let {
+                        Text(
+                            text = stringResource(R.string.sos_location_age, it),
+                            color = textColor,
+                            fontSize = 13.sp
+                        )
+                    }
+                    message.accuracy?.let {
+                        Text(
+                            text = stringResource(R.string.sos_location_accuracy, it),
+                            color = textColor,
+                            fontSize = 13.sp
+                        )
+                    }
+                    message.speed?.let {
+                        Text(
+                            text = stringResource(R.string.sos_location_speed, it),
+                            color = textColor,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        } else if (message.isUnavailable) {
+            Surface(
+                color = Color.White.copy(alpha = 0.24f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.sos_location_unavailable),
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                )
+            }
+        }
+        message.mapsUrl?.let { url ->
+            Text(
+                text = stringResource(R.string.conversation_open_maps),
+                color = accentColor,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.clickable { onOpenMaps(url) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SosLocationMapPreview(accentColor: Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFFE8F0EA),
+                        Color(0xFFF6EFE5),
+                        Color(0xFFDDECF7)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        repeat(4) { index ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .offset(y = ((index - 1) * 18).dp)
+                    .background(Color.White.copy(alpha = 0.72f))
+            )
+        }
+        repeat(3) { index ->
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(92.dp)
+                    .offset(x = ((index - 1) * 42).dp)
+                    .background(Color.White.copy(alpha = 0.62f))
+            )
+        }
+        CompactIcon(
+            imageVector = Icons.Filled.LocationOn,
+            contentDescription = null,
+            tint = accentColor,
+            modifier = Modifier.size(42.dp)
+        )
+    }
+}
+
+@Composable
+private fun AudioAttachmentPlayer(
+    attachment: AttachmentPreview,
+    textColor: Color
+) {
+    val context = LocalContext.current
+    val player = remember(attachment.uri) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
+            repeatMode = Player.REPEAT_MODE_OFF
+            prepare()
+        }
+    }
+    var isPlaying by remember(attachment.uri) { mutableStateOf(false) }
+    var durationMillis by remember(attachment.uri) { mutableStateOf(0L) }
+    var positionMillis by remember(attachment.uri) { mutableStateOf(0L) }
+    var hasError by remember(attachment.uri) { mutableStateOf(false) }
+    val progress = if (durationMillis > 0) {
+        (positionMillis.toFloat() / durationMillis.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val playerDuration = player.duration.takeIf { it > 0L }
+                if (playerDuration != null) {
+                    durationMillis = playerDuration
+                }
+                if (playbackState == Player.STATE_ENDED) {
+                    isPlaying = false
+                    positionMillis = 0L
+                    player.seekTo(0L)
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
+                isPlaying = isPlayingNow
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                hasError = true
+                isPlaying = false
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            isPlaying = false
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+
+    LaunchedEffect(player, isPlaying, hasError) {
+        while (!hasError && (isPlaying || player.playbackState == Player.STATE_READY)) {
+            positionMillis = player.currentPosition.coerceAtLeast(0L)
+            player.duration.takeIf { it > 0L }?.let { durationMillis = it }
+            delay(250L)
+        }
+    }
+
+    Surface(
+        color = Color.Black.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(QuataOrange),
+                contentAlignment = Alignment.Center
+            ) {
+                CompactIconButton(
+                    enabled = !hasError,
+                    onClick = {
+                        if (isPlaying) {
+                            player.pause()
+                            isPlaying = false
+                        } else {
+                            if (player.playbackState == Player.STATE_ENDED) {
+                                player.seekTo(0L)
+                            }
+                            player.play()
+                        }
+                    }
+                ) {
+                    CompactIcon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.video_editor_play_pause),
+                        tint = Color.White
+                    )
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(26.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(24) { index ->
+                        val barHeight = (8 + ((index * 7) % 18)).dp
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(barHeight)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(textColor.copy(alpha = if (index / 24f <= progress) 0.82f else 0.28f))
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    color = textColor.copy(alpha = 0.78f),
+                    trackColor = textColor.copy(alpha = 0.18f)
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CompactIcon(
+                        Icons.Filled.Mic,
+                        contentDescription = null,
+                        tint = textColor.copy(alpha = 0.68f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text = if (hasError) {
+                            attachment.name
+                        } else {
+                            formatChatAudioMillis(if (isPlaying) positionMillis else durationMillis)
+                        },
+                        color = textColor.copy(alpha = 0.68f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -1775,22 +2359,82 @@ private fun LinkifiedMessageText(
     if (annotatedText.getStringAnnotations(UrlAnnotationTag, 0, annotatedText.length).isEmpty()) {
         Text(text, color = color)
     } else {
-        ClickableText(
+        var layoutResult by remember(annotatedText) { mutableStateOf<TextLayoutResult?>(null) }
+        BasicText(
             text = annotatedText,
             style = TextStyle(color = color, fontSize = 14.sp),
-            onClick = { offset ->
-                annotatedText
-                    .getStringAnnotations(UrlAnnotationTag, offset, offset)
-                    .firstOrNull()
-                    ?.item
-                    ?.let { context.openBrowserUrl(it) }
-            }
+            modifier = Modifier.pointerInput(annotatedText) {
+                detectTapGestures { tapOffset ->
+                    val textOffset = layoutResult?.getOffsetForPosition(tapOffset) ?: return@detectTapGestures
+                    annotatedText
+                        .getStringAnnotations(UrlAnnotationTag, textOffset, textOffset)
+                        .firstOrNull()
+                        ?.item
+                        ?.let { context.openBrowserUrl(it) }
+                }
+            },
+            onTextLayout = { layoutResult = it }
         )
     }
 }
 
 private fun String.extractMapsUrl(): String? =
     Regex("""https://maps\.google\.com/\?q=[^\s]+""").find(this)?.value
+
+private fun String.parseSosLocationMessage(): com.quata.core.text.LocalizedSosMessage? {
+    val normalized = lowercase(java.util.Locale.ROOT)
+    val isSos = normalized.contains("sos real") ||
+        normalized.contains("real sos") ||
+        normalized.contains("sos location update") ||
+        normalized.contains("actualizacion de ubicacion sos") ||
+        normalized.contains("ubicacion sos actualizada") ||
+        normalized.contains("mise a jour de position sos")
+    if (!isSos) return null
+
+    val lines = lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .toList()
+    if (lines.isEmpty()) return null
+
+    val mapsUrl = extractMapsUrl()
+    val isUpdate = normalized.contains("location update") ||
+        normalized.contains("actualizacion") ||
+        normalized.contains("actualizada") ||
+        normalized.contains("mise a jour")
+    val locationLine = mapsUrl?.let { url -> lines.firstOrNull { it.contains(url) } }
+    val body = if (isUpdate) {
+        lines.drop(1).firstOrNull { line ->
+            line != locationLine &&
+                !line.startsWithAnySosLabel("location age", "antiguedad", "age de la position", "speed", "velocidad", "vitesse", "accuracy", "precision")
+        }
+    } else {
+        null
+    }
+
+    return com.quata.core.text.LocalizedSosMessage(
+        title = lines.first(),
+        body = body,
+        locationLabel = locationLine,
+        mapsUrl = mapsUrl,
+        age = lines.extractSosValue("location age", "antiguedad", "age de la position"),
+        accuracy = lines.extractSosValue("accuracy", "precision"),
+        speed = lines.extractSosValue("speed", "velocidad", "vitesse"),
+        isUpdate = isUpdate,
+        isUnavailable = mapsUrl == null && normalized.contains("no disponible") || normalized.contains("unavailable") || normalized.contains("indisponible")
+    )
+}
+
+private fun List<String>.extractSosValue(vararg labels: String): String? =
+    firstOrNull { line -> line.startsWithAnySosLabel(*labels) }
+        ?.substringAfter(':', missingDelimiterValue = "")
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+
+private fun String.startsWithAnySosLabel(vararg labels: String): Boolean {
+    val normalized = lowercase(java.util.Locale.ROOT)
+    return labels.any { label -> normalized.startsWith(label) }
+}
 
 private const val UrlAnnotationTag = "url"
 
@@ -1839,9 +2483,12 @@ private fun Message.attachmentPreview(): AttachmentPreview? {
     )
 }
 
-private fun currentAttachmentTimestamp(): String =
-    java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
-        .format(java.util.Date())
+private fun formatChatAudioMillis(millis: Long): String {
+    val totalSeconds = (millis / 1000L).coerceAtLeast(0L)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
+}
 
 private fun Message.chatTimestampLabel(): String {
     val millis = sentAtMillis ?: return sentAt
@@ -1902,3 +2549,5 @@ private fun android.content.Context.playChatSound(rawResId: Int) {
     runCatching { player.start() }
         .onFailure { player.release() }
 }
+
+private const val CHAT_REPLY_SWIPE_THRESHOLD_PX = 92f

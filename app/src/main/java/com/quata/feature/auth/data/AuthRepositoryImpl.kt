@@ -3,7 +3,6 @@ package com.quata.feature.auth.data
 import android.content.Context
 import android.provider.Settings
 import com.quata.R
-import com.quata.bettermessages.BetterMessagesRepository
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
@@ -23,7 +22,6 @@ class AuthRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
     private val wordpressClient: QuataWordPressClient,
-    private val betterMessagesRepository: BetterMessagesRepository,
     private val sessionManager: SessionManager,
     private val googleAuthHelper: GoogleAuthHelper
 ) : AuthRepository {
@@ -34,11 +32,8 @@ class AuthRepositoryImpl(
             if (!MockData.validatePassword(profile, password)) error("Contrasena incorrecta")
             profile.toSession(token = "mock-phone-token")
         } else {
-            val login = supabaseApi.loginByPhoneLocal(phone, password)
-                ?: error("Telefono no registrado")
-            if (!login.passwordMatches) error("Contrasena incorrecta")
-            warmUpBackendSession(login.profile.id)
-            login.profile.toSession(token = "supabase-profile:${login.profile.id}")
+            val auth = supabaseApi.loginWithAuthBridge(countryCode, phone, password)
+            auth.toSession()
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
         .onSuccess { sessionManager.setSession(it) }
@@ -116,8 +111,9 @@ class AuthRepositoryImpl(
                 countryCode = countryCode,
                 url = "android://register"
             )
-            warmUpBackendSession(profile.id)
-            profile.toSession(token = "supabase-profile:${profile.id}")
+            supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession(
+                fallbackProfile = profile
+            )
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
         .onSuccess { sessionManager.setSession(it) }
@@ -192,10 +188,28 @@ class AuthRepositoryImpl(
                 ?: "Usuario"
         )
 
-    private suspend fun warmUpBackendSession(profileId: String) {
-        runCatching { supabaseApi.getNotifications(profileId) }
-        runCatching { supabaseApi.getPrivateChats(profileId) }
-        betterMessagesRepository.bootstrap(profileId)
+    private fun com.quata.data.supabase.SupabaseAuthBridgeResponse.toSession(
+        fallbackProfile: CommunityProfile? = null
+    ): AuthSession {
+        val profileId = profile.id
+        val countryCode = profile.country_code ?: fallbackProfile?.country_code ?: fallbackProfile?.code ?: ""
+        val phoneLocal = profile.phone_local ?: fallbackProfile?.phone_local ?: fallbackProfile?.phone ?: fallbackProfile?.telefono ?: ""
+        val displayName = profile.display_name
+            ?.takeIf { it.isNotBlank() }
+            ?: fallbackProfile?.display_name?.takeIf { it.isNotBlank() }
+            ?: fallbackProfile?.nombre?.takeIf { it.isNotBlank() }
+            ?: phoneLocal.takeIf { it.isNotBlank() }
+            ?: "Usuario"
+        return AuthSession(
+            token = session.access_token,
+            userId = profileId,
+            authUserId = profile.auth_user_id ?: user.id,
+            accessToken = session.access_token,
+            refreshToken = session.refresh_token,
+            expiresAt = session.expires_at ?: session.expires_in?.let { System.currentTimeMillis() / 1000L + it },
+            email = user.email ?: phoneEmail(countryCode, phoneLocal),
+            displayName = displayName
+        )
     }
 
     private fun Context.androidDeviceId(): String =

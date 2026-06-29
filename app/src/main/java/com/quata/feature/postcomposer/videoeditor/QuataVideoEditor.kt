@@ -6,6 +6,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.graphics.RectF
+import android.opengl.GLES20
+import android.opengl.EGL14
+import android.opengl.EGLConfig
+import android.opengl.EGLContext
+import android.opengl.EGLDisplay
+import android.opengl.EGLSurface
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -114,6 +121,10 @@ import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.DebugViewProvider
 import androidx.media3.common.FrameInfo
+import androidx.media3.effect.GlEffect
+import androidx.media3.effect.GlShaderProgram
+import androidx.media3.common.GlObjectsProvider
+import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.OnInputFrameProcessedListener
@@ -121,8 +132,12 @@ import androidx.media3.common.Player
 import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.VideoFrameProcessingException
 import androidx.media3.common.VideoFrameProcessor
+import androidx.media3.common.util.GlProgram
 import androidx.media3.common.util.TimestampIterator
+import androidx.media3.common.util.GlUtil
+import androidx.media3.common.util.Size as GlSize
 import androidx.media3.effect.Brightness
+import androidx.media3.effect.BaseGlShaderProgram
 import androidx.media3.effect.Crop
 import androidx.media3.effect.DefaultVideoFrameProcessor
 import androidx.media3.effect.FrameDropEffect
@@ -226,6 +241,7 @@ fun QuataVideoEditorDialog(
     var pendingCaptionModelLanguage by remember(editorSourceUri) { mutableStateOf<VoskModelLanguage?>(null) }
     var isCaptionModelDownloading by remember(editorSourceUri) { mutableStateOf(false) }
     var captionModelDownloadProgress by remember(editorSourceUri) { mutableStateOf<Float?>(null) }
+    var isPreviewPlayerEnabled by remember(editorSourceUri) { mutableStateOf(true) }
     val voskModelDeliveryManager = remember(appContext) { VoskModelDeliveryManager(appContext) }
     val captionPreviewFrame = remember(appContext, captionStyle) {
         captionStyle?.let { style ->
@@ -233,7 +249,8 @@ fun QuataVideoEditorDialog(
         }
     }
 
-    val player = remember(editorSourceUri) {
+    val player = remember(editorSourceUri, isPreviewPlayerEnabled) {
+        if (!isPreviewPlayerEnabled) return@remember null
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(editorSourceUri))
             repeatMode = Player.REPEAT_MODE_OFF
@@ -267,16 +284,17 @@ fun QuataVideoEditorDialog(
     }
 
     LaunchedEffect(isMuted, player) {
-        player.volume = if (isMuted) 0f else 1f
+        player?.volume = if (isMuted) 0f else 1f
     }
 
     LaunchedEffect(player, trimStartMs, trimEndMs) {
+        val activePlayer = player ?: return@LaunchedEffect
         while (true) {
-            val position = player.currentPosition.coerceAtLeast(0L)
+            val position = activePlayer.currentPosition.coerceAtLeast(0L)
             currentPositionMs = position
             if (trimEndMs > trimStartMs && position >= trimEndMs) {
-                player.pause()
-                player.seekTo(trimStartMs)
+                activePlayer.pause()
+                activePlayer.seekTo(trimStartMs)
                 currentPositionMs = trimStartMs
             }
             delay(120L)
@@ -284,6 +302,9 @@ fun QuataVideoEditorDialog(
     }
 
     DisposableEffect(player) {
+        if (player == null) {
+            onDispose { }
+        } else {
         fun updatePlayerDuration() {
             val knownDuration = player.duration
             if (knownDuration > 0L && knownDuration != C.TIME_UNSET) {
@@ -308,6 +329,7 @@ fun QuataVideoEditorDialog(
         onDispose {
             player.removeListener(listener)
             player.release()
+        }
         }
     }
 
@@ -335,22 +357,23 @@ fun QuataVideoEditorDialog(
     }
 
     fun playOrPause() {
-        if (player.isPlaying) {
-            player.pause()
+        val activePlayer = player ?: return
+        if (activePlayer.isPlaying) {
+            activePlayer.pause()
         } else {
-            val position = player.currentPosition
+            val position = activePlayer.currentPosition
             if (position < trimStartMs || position >= trimEndMs) {
-                player.seekTo(trimStartMs)
+                activePlayer.seekTo(trimStartMs)
             }
-            player.play()
+            activePlayer.play()
         }
     }
 
     fun seekPreviewTo(targetMs: Long) {
         if (durationMs <= 0L) return
         val boundedTarget = targetMs.coerceIn(0L, durationMs)
-        player.pause()
-        player.seekTo(boundedTarget)
+        player?.pause()
+        player?.seekTo(boundedTarget)
         currentPositionMs = boundedTarget
     }
 
@@ -381,23 +404,19 @@ fun QuataVideoEditorDialog(
     }
 
     fun suspendPreviewForExport() {
-        currentPositionMs = player.currentPosition.coerceAtLeast(0L)
+        currentPositionMs = player?.currentPosition?.coerceAtLeast(0L) ?: currentPositionMs
         isPlaying = false
         runCatching {
-            player.pause()
-            player.stop()
-            player.clearMediaItems()
+            player?.pause()
+            player?.stop()
+            player?.clearMediaItems()
         }
+        isPreviewPlayerEnabled = false
     }
 
     fun restorePreviewAfterExportInterruption() {
-        runCatching {
-            player.setMediaItem(MediaItem.fromUri(editorSourceUri))
-            player.repeatMode = Player.REPEAT_MODE_OFF
-            player.prepare()
-            player.seekTo(currentPositionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)))
-            player.volume = if (isMuted) 0f else 1f
-        }
+        isPlaying = false
+        isPreviewPlayerEnabled = true
     }
 
     fun requestBack() {
@@ -438,6 +457,9 @@ fun QuataVideoEditorDialog(
         val targetOutputHeight = exportProfile.height
         exportJob = scope.launch {
             try {
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                    delay(250L)
+                }
                 val captionTrack = selectedCaptionStyle?.let { style ->
                     exportProgress = 0.03f
                     val captionDocument = VoskVideoTranscriber(appContext)
@@ -474,6 +496,9 @@ fun QuataVideoEditorDialog(
                     } else {
                         progress
                     }
+                }
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                    delay(1_200L)
                 }
                 isCancelExportDialogOpen = false
                 isExporting = false
@@ -560,6 +585,7 @@ fun QuataVideoEditorDialog(
                 isCaptionPanelOpen = isCaptionPanelOpen,
                 hasCaptions = captionStyle != null,
                 isExporting = isExporting,
+                showTitle = !isLandscapeLayout,
                 onBack = ::requestBack,
                 onToggleMute = { isMuted = !isMuted },
                 onToggleCrop = {
@@ -660,15 +686,15 @@ fun QuataVideoEditorDialog(
                 }
             } else {
                 VideoPreviewPane(
-                        player = player,
-                        aspectRatio = videoAspect,
-                        previewFrame = previewFrame,
-                        isPlaying = isPlaying,
-                        cropRect = cropRect,
-                        videoRotationDegrees = metadata.rotation,
-                        captionPreviewFrame = captionPreviewFrame,
-                        isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                        onCropDrag = { dx, dy ->
+                    player = player,
+                    aspectRatio = videoAspect,
+                    previewFrame = previewFrame,
+                    isPlaying = isPlaying,
+                    cropRect = cropRect,
+                    videoRotationDegrees = metadata.rotation,
+                    captionPreviewFrame = captionPreviewFrame,
+                    isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                    onCropDrag = { dx, dy ->
                         val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
                         cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                     },
@@ -806,6 +832,7 @@ private fun VideoEditorTopBar(
     isCaptionPanelOpen: Boolean,
     hasCaptions: Boolean,
     isExporting: Boolean,
+    showTitle: Boolean,
     onBack: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleCrop: () -> Unit,
@@ -829,15 +856,19 @@ private fun VideoEditorTopBar(
             )
         }
         Spacer(Modifier.width(6.dp))
-        Text(
-            text = stringResource(R.string.video_editor_title),
-            color = template.colors.textPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        if (showTitle) {
+            Text(
+                text = stringResource(R.string.video_editor_title),
+                color = template.colors.textPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            Spacer(Modifier.width(8.dp))
+        }
         if (!isExporting) {
             VideoToolButton(
                 label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
@@ -909,7 +940,7 @@ private fun VideoToolButton(
 
 @Composable
 private fun VideoPreviewPane(
-    player: ExoPlayer,
+    player: ExoPlayer?,
     aspectRatio: Float,
     previewFrame: Bitmap?,
     isPlaying: Boolean,
@@ -993,7 +1024,7 @@ private fun VideoPreviewPane(
                     .align(Alignment.Center)
                     .clipToBounds()
             ) {
-                if (isPlaying && !isCropVisible && !useBitmapPlayback) {
+                if (playbackPlayer != null && isPlaying && !isCropVisible && !useBitmapPlayback) {
                     AndroidView(
                         factory = { androidContext ->
                             TextureView(androidContext).apply {
@@ -1008,7 +1039,7 @@ private fun VideoPreviewPane(
                                 playbackPlayer.setVideoTextureView(textureView)
                                 textureView.tag = playbackPlayer
                             }
-                            textureView.applyVideoEditorCropTransform(appliedCrop)
+                            textureView.applyVideoEditorPlaybackTransform(appliedCrop, videoRotationDegrees)
                         },
                         onRelease = { textureView ->
                             (textureView.tag as? ExoPlayer)?.clearVideoTextureView(textureView)
@@ -1954,6 +1985,11 @@ private suspend fun Context.exportEditedVideo(
     onProgress: (Float) -> Unit
 ): Uri {
     if (request.canUseOriginalVideoInstantly()) {
+        Log.d(
+            VideoEditorLogTag,
+            "Using original video without Transformer size=${request.sourceWidth}x${request.sourceHeight} " +
+                "rotation=${request.sourceRotation} api=${Build.VERSION.SDK_INT}"
+        )
         onProgress(1f)
         return request.sourceUri
     }
@@ -2110,7 +2146,7 @@ private suspend fun Context.exportDownsampledIntermediate(
             transformer = Transformer.Builder(this@exportDownsampledIntermediate)
                 .setPortraitEncodingEnabled(true)
                 .setEncoderFactory(encoderFactory)
-                .configureFrameDroppingIfNeeded(request)
+                .configureVideoEditorFrameProcessing(request)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .addListener(object : Transformer.Listener {
@@ -2229,8 +2265,36 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             val cropEffects = request.cropRect?.let { listOf<Effect>(it.toMedia3Crop()) }.orEmpty()
             val frameRateEffects = request.frameRateEffects()
             val needsBackground = request.needsBlurredBackground()
+            val useLegacySingleInputBackground = request.canUseLegacySingleInputBackground()
             val compositionEffects = CaptionMedia3BurnIn.effectsFor(request.captionTrack)
-            val composition = if (needsBackground) {
+            val composition = if (useLegacySingleInputBackground) {
+                val foregroundEffects = buildList {
+                    addAll(frameRateEffects)
+                    add(
+                        LegacyBlurredFitEffect(
+                            outputWidth = request.outputWidth,
+                            outputHeight = request.outputHeight,
+                            rotationDegrees = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O) {
+                                request.sourceRotation
+                            } else {
+                                0
+                            },
+                            displayInputWidth = request.sourceWidth,
+                            displayInputHeight = request.sourceHeight,
+                            foregroundCropRect = request.cropRect ?: NormalizedCropRect.Full,
+                            backgroundCropRect = request.backgroundCropRect ?: NormalizedCropRect.Full
+                        )
+                    )
+                }
+                val foregroundItem = EditedMediaItem.Builder(mediaItem)
+                    .setRemoveAudio(request.removeAudio)
+                    .applyOutputFrameRateIfNeeded(request)
+                    .setEffects(Effects(emptyList(), foregroundEffects))
+                    .build()
+                Composition.Builder(
+                    listOf(EditedMediaItemSequence.Builder(foregroundItem).build())
+                ).build()
+            } else if (needsBackground) {
                 val backgroundCropEffects = request.backgroundCropRect
                     ?.let { listOf<Effect>(it.toMedia3Crop()) }
                     .orEmpty()
@@ -2304,7 +2368,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             transformer = Transformer.Builder(this@exportEditedVideoWithTransformer)
                 .setPortraitEncodingEnabled(true)
                 .setEncoderFactory(encoderFactory)
-                .configureFrameDroppingIfNeeded(request)
+                .configureVideoEditorFrameProcessing(request)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .addListener(object : Transformer.Listener {
@@ -2495,12 +2559,30 @@ private fun MediaFormat.videoEditorLongOrNull(key: String): Long? =
 
 private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
     captionTrack == null &&
-        sourceRotation.normalizedVideoRotation() == 0 &&
+        cropRect == null &&
+        (
+            (
+                backgroundCropRect == null &&
+                    sourceRotation.normalizedVideoRotation() == 0 &&
+                    hasNineSixteenSourceAspect() &&
+                    isWithinDirectStreamSizeLimit() &&
+                    isWithinDirectStreamBitrateLimit()
+            ) ||
+                canUseLegacyUntransformedStreamCopy()
+        )
+
+private fun VideoEditorExportRequest.canUseLegacyUntransformedStreamCopy(): Boolean =
+    Build.VERSION.SDK_INT <= Build.VERSION_CODES.O &&
+        captionTrack == null &&
         cropRect == null &&
         backgroundCropRect == null &&
-        hasNineSixteenSourceAspect() &&
-        isWithinDirectStreamSizeLimit() &&
-        isWithinDirectStreamBitrateLimit()
+        isWithinLegacyDirectStreamSizeLimit()
+
+private fun VideoEditorExportRequest.isWithinLegacyDirectStreamSizeLimit(): Boolean {
+    if (sourceWidth <= 0 || sourceHeight <= 0) return false
+    return minOf(sourceWidth, sourceHeight) <= LegacyDirectStreamShortSideLimit &&
+        maxOf(sourceWidth, sourceHeight) <= LegacyDirectStreamLongSideLimit
+}
 
 private fun VideoEditorExportRequest.canUseOriginalVideoInstantly(): Boolean =
     canUseDirectStreamCopy() &&
@@ -2525,10 +2607,18 @@ private fun VideoEditorExportRequest.isWithinDirectStreamBitrateLimit(): Boolean
 private fun VideoEditorExportRequest.needsBlurredBackground(): Boolean =
     backgroundCropRect != null
 
+private fun VideoEditorExportRequest.canUseLegacySingleInputBackground(): Boolean =
+    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+        needsBlurredBackground() &&
+        captionTrack == null
+
 private val VideoEditorExportRequest.trimDurationMs: Long
     get() = (trimEndMs - trimStartMs).coerceAtLeast(MinimumTrimMs)
 
 private fun VideoEditorExportRequest.shouldDownsampleBeforeTransformer(): Boolean {
+    if (canUseLegacySingleInputBackground()) {
+        return false
+    }
     val needsVideoComposition = needsBlurredBackground() || cropRect != null || captionTrack != null || shouldDownsampleFrameRate()
     if (!needsVideoComposition || sourceWidth <= 0 || sourceHeight <= 0 || outputWidth <= 0 || outputHeight <= 0) {
         return false
@@ -2597,18 +2687,29 @@ private fun EditedMediaItem.Builder.applyOutputFrameRateIfNeeded(
         }
     }
 
-private fun Transformer.Builder.configureFrameDroppingIfNeeded(
+private fun Transformer.Builder.configureVideoEditorFrameProcessing(
     request: VideoEditorExportRequest
 ): Transformer.Builder =
-    if (request.shouldDownsampleFrameRate()) {
-        setVideoFrameProcessorFactory(AutomaticFrameRegistrationVideoFrameProcessorFactory())
+    setVideoFrameProcessorFactory(request.videoEditorFrameProcessorFactory())
+
+private fun VideoEditorExportRequest.videoEditorFrameProcessorFactory(): VideoFrameProcessor.Factory {
+    val baseFactory = DefaultVideoFrameProcessor.Factory.Builder()
+        .apply {
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                setGlObjectsProvider(LegacySafeGlObjectsProvider())
+            }
+        }
+        .build()
+    return if (shouldDownsampleFrameRate()) {
+        AutomaticFrameRegistrationVideoFrameProcessorFactory(baseFactory)
     } else {
-        this
+        baseFactory
     }
+}
 
-private class AutomaticFrameRegistrationVideoFrameProcessorFactory : VideoFrameProcessor.Factory {
-    private val delegateFactory = DefaultVideoFrameProcessor.Factory.Builder().build()
-
+private class AutomaticFrameRegistrationVideoFrameProcessorFactory(
+    private val delegateFactory: VideoFrameProcessor.Factory
+) : VideoFrameProcessor.Factory {
     override fun create(
         context: Context,
         debugViewProvider: DebugViewProvider,
@@ -2682,6 +2783,321 @@ private class AutomaticFrameRegistrationVideoFrameProcessor(
 
     override fun release() {
         delegate.release()
+    }
+}
+
+private class LegacyBlurredFitEffect(
+    private val outputWidth: Int,
+    private val outputHeight: Int,
+    private val rotationDegrees: Int,
+    private val displayInputWidth: Int,
+    private val displayInputHeight: Int,
+    private val foregroundCropRect: NormalizedCropRect = NormalizedCropRect.Full,
+    private val backgroundCropRect: NormalizedCropRect = NormalizedCropRect.Full
+) : GlEffect {
+    override fun toGlShaderProgram(context: Context, useHdr: Boolean): GlShaderProgram =
+        LegacyBlurredFitShaderProgram(
+            outputWidth = outputWidth,
+            outputHeight = outputHeight,
+            rotationDegrees = rotationDegrees,
+            displayInputWidth = displayInputWidth,
+            displayInputHeight = displayInputHeight,
+            foregroundCropRect = foregroundCropRect,
+            backgroundCropRect = backgroundCropRect,
+            useHdr = useHdr
+        )
+}
+
+private class LegacyBlurredFitShaderProgram(
+    private val outputWidth: Int,
+    private val outputHeight: Int,
+    rotationDegrees: Int,
+    private val displayInputWidth: Int,
+    private val displayInputHeight: Int,
+    private val foregroundCropRect: NormalizedCropRect,
+    private val backgroundCropRect: NormalizedCropRect,
+    useHdr: Boolean
+) : BaseGlShaderProgram(useHdr, /* texturePoolCapacity= */ 1) {
+    private val normalizedRotation = rotationDegrees.normalizedVideoRotation()
+    private val glProgram: GlProgram = try {
+        GlProgram(LegacyBlurredFitVertexShader, LegacyBlurredFitFragmentShader)
+    } catch (e: GlUtil.GlException) {
+        throw VideoFrameProcessingException.from(e)
+    }
+
+    override fun configure(inputWidth: Int, inputHeight: Int): GlSize {
+        val swapsAxes = normalizedRotation == 90 || normalizedRotation == 270
+        val fallbackDisplayInputWidth = if (swapsAxes) inputHeight else inputWidth
+        val fallbackDisplayInputHeight = if (swapsAxes) inputWidth else inputHeight
+        val orientedInputWidth = displayInputWidth.takeIf { it > 0 } ?: fallbackDisplayInputWidth
+        val orientedInputHeight = displayInputHeight.takeIf { it > 0 } ?: fallbackDisplayInputHeight
+        glProgram.setFloatsUniform(
+            "uOrientedInputSize",
+            floatArrayOf(orientedInputWidth.toFloat(), orientedInputHeight.toFloat())
+        )
+        glProgram.setFloatsUniform(
+            "uOutputSize",
+            floatArrayOf(outputWidth.toFloat(), outputHeight.toFloat())
+        )
+        glProgram.setFloatsUniform("uForegroundCrop", foregroundCropRect.toShaderCropArray())
+        glProgram.setFloatsUniform("uBackgroundCrop", backgroundCropRect.toShaderCropArray())
+        glProgram.setIntUniform("uRotationDegrees", normalizedRotation)
+        glProgram.setBufferAttribute(
+            "aFramePosition",
+            GlUtil.getNormalizedCoordinateBounds(),
+            GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE
+        )
+        return GlSize(outputWidth, outputHeight)
+    }
+
+    override fun drawFrame(inputTexId: Int, presentationTimeUs: Long) {
+        try {
+            glProgram.use()
+            glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0)
+            glProgram.bindAttributesAndUniforms()
+            GLES20.glDrawArrays(
+                GLES20.GL_TRIANGLE_STRIP,
+                /* first= */ 0,
+                /* count= */ 4
+            )
+            GlUtil.checkGlError()
+        } catch (e: GlUtil.GlException) {
+            throw VideoFrameProcessingException(e, presentationTimeUs)
+        }
+    }
+
+    override fun release() {
+        // Legacy emulator EGL can crash inside glDeleteFramebuffers after Transformer completes.
+        // This export-only shader lets the GL context own the tiny temporary texture pool instead.
+        runCatching { glProgram.delete() }
+    }
+}
+
+private fun NormalizedCropRect.toShaderCropArray(): FloatArray =
+    floatArrayOf(left, top, width.coerceAtLeast(0.001f), height.coerceAtLeast(0.001f))
+
+private const val LegacyBlurredFitVertexShader = """
+attribute vec4 aFramePosition;
+varying vec2 vOutputUv;
+
+void main() {
+    gl_Position = aFramePosition;
+    vOutputUv = (aFramePosition.xy + 1.0) * 0.5;
+}
+"""
+
+private const val LegacyBlurredFitFragmentShader = """
+precision mediump float;
+
+uniform sampler2D uTexSampler;
+uniform vec2 uOrientedInputSize;
+uniform vec2 uOutputSize;
+uniform vec4 uForegroundCrop;
+uniform vec4 uBackgroundCrop;
+uniform int uRotationDegrees;
+varying vec2 vOutputUv;
+
+float cropAspect(vec4 crop) {
+    return (uOrientedInputSize.x * max(crop.z, 0.001)) /
+        (uOrientedInputSize.y * max(crop.w, 0.001));
+}
+
+vec2 cropCoord(vec2 localUv, vec4 crop) {
+    return vec2(crop.x + localUv.x * crop.z, crop.y + localUv.y * crop.w);
+}
+
+vec2 fitLocalCoord(vec2 uv, vec4 crop) {
+    float inputAspect = cropAspect(crop);
+    float outputAspect = uOutputSize.x / uOutputSize.y;
+    if (inputAspect > outputAspect) {
+        float displayedHeight = outputAspect / inputAspect;
+        return vec2(uv.x, (uv.y - ((1.0 - displayedHeight) * 0.5)) / displayedHeight);
+    }
+    float displayedWidth = inputAspect / outputAspect;
+    return vec2((uv.x - ((1.0 - displayedWidth) * 0.5)) / displayedWidth, uv.y);
+}
+
+vec2 fillLocalCoord(vec2 uv, vec4 crop) {
+    float inputAspect = cropAspect(crop);
+    float outputAspect = uOutputSize.x / uOutputSize.y;
+    if (inputAspect > outputAspect) {
+        float visibleWidth = outputAspect / inputAspect;
+        return vec2(((1.0 - visibleWidth) * 0.5) + (uv.x * visibleWidth), uv.y);
+    }
+    float visibleHeight = inputAspect / outputAspect;
+    return vec2(uv.x, ((1.0 - visibleHeight) * 0.5) + (uv.y * visibleHeight));
+}
+
+vec2 orientCoord(vec2 uv) {
+    vec2 clampedUv = clamp(uv, 0.0, 1.0);
+    if (uRotationDegrees == 90) {
+        return vec2(1.0 - clampedUv.y, clampedUv.x);
+    }
+    if (uRotationDegrees == 180) {
+        return vec2(1.0 - clampedUv.x, 1.0 - clampedUv.y);
+    }
+    if (uRotationDegrees == 270) {
+        return vec2(clampedUv.y, 1.0 - clampedUv.x);
+    }
+    return clampedUv;
+}
+
+vec4 sampleClamped(vec2 uv) {
+    return texture2D(uTexSampler, orientCoord(uv));
+}
+
+vec2 clampCropCoord(vec2 uv, vec4 crop) {
+    return vec2(
+        clamp(uv.x, crop.x, crop.x + crop.z),
+        clamp(uv.y, crop.y, crop.y + crop.w)
+    );
+}
+
+vec4 sampleCropClamped(vec2 uv, vec4 crop) {
+    return sampleClamped(clampCropCoord(uv, crop));
+}
+
+vec4 blurredBackground(vec2 uv, vec4 crop) {
+    vec2 texel = 1.0 / uOrientedInputSize;
+    vec4 color = vec4(0.0);
+    color += sampleCropClamped(uv + texel * vec2(-72.0, -72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-36.0, -72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(  0.0, -72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 36.0, -72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 72.0, -72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-72.0, -36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-36.0, -36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(  0.0, -36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 36.0, -36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 72.0, -36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-72.0,   0.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-36.0,   0.0), crop);
+    color += sampleCropClamped(uv, crop);
+    color += sampleCropClamped(uv + texel * vec2( 36.0,   0.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 72.0,   0.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-72.0,  36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-36.0,  36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(  0.0,  36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 36.0,  36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 72.0,  36.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-72.0,  72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(-36.0,  72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2(  0.0,  72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 36.0,  72.0), crop);
+    color += sampleCropClamped(uv + texel * vec2( 72.0,  72.0), crop);
+    color /= 25.0;
+    color.rgb *= 0.72;
+    color.a = 1.0;
+    return color;
+}
+
+void main() {
+    vec2 backgroundUv = cropCoord(fillLocalCoord(vOutputUv, uBackgroundCrop), uBackgroundCrop);
+    vec4 background = blurredBackground(backgroundUv, uBackgroundCrop);
+    vec2 foregroundLocalUv = fitLocalCoord(vOutputUv, uForegroundCrop);
+    bool insideForeground =
+        foregroundLocalUv.x >= 0.0 &&
+        foregroundLocalUv.x <= 1.0 &&
+        foregroundLocalUv.y >= 0.0 &&
+        foregroundLocalUv.y <= 1.0;
+    vec2 foregroundUv = cropCoord(foregroundLocalUv, uForegroundCrop);
+    gl_FragColor = insideForeground ? sampleClamped(foregroundUv) : background;
+}
+"""
+
+private class LegacySafeGlObjectsProvider : GlObjectsProvider {
+    private val createdEglContexts = mutableListOf<EGLContext>()
+
+    override fun createEglContext(
+        eglDisplay: EGLDisplay,
+        openGlVersion: Int,
+        configAttributes: IntArray
+    ): EGLContext {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && openGlVersion > 2) {
+            throw GlUtil.GlException("OpenGL ES 3 is disabled for legacy video export")
+        }
+        val eglConfig = chooseEglConfig(eglDisplay, configAttributes)
+        val contextAttributes = intArrayOf(
+            EGL14.EGL_CONTEXT_CLIENT_VERSION,
+            openGlVersion,
+            EGL14.EGL_NONE
+        )
+        val eglContext = EGL14.eglCreateContext(
+            eglDisplay,
+            eglConfig,
+            EGL14.EGL_NO_CONTEXT,
+            contextAttributes,
+            0
+        )
+        val eglError = EGL14.eglGetError()
+        if (eglContext == null || eglContext == EGL14.EGL_NO_CONTEXT || eglError != EGL14.EGL_SUCCESS) {
+            throw GlUtil.GlException(
+                "eglCreateContext failed without terminating display, error code: 0x${eglError.toString(16)}"
+            )
+        }
+        createdEglContexts += eglContext
+        return eglContext
+    }
+
+    override fun createEglSurface(
+        eglDisplay: EGLDisplay,
+        surface: Any,
+        colorTransfer: Int,
+        isEncoderInputSurface: Boolean
+    ): EGLSurface =
+        GlUtil.createEglSurface(eglDisplay, surface, colorTransfer, isEncoderInputSurface)
+
+    override fun createFocusedPlaceholderEglSurface(
+        eglContext: EGLContext,
+        eglDisplay: EGLDisplay
+    ): EGLSurface =
+        GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay)
+
+    override fun createBuffersForTexture(texId: Int, width: Int, height: Int): GlTextureInfo {
+        val fboId = GlUtil.createFboForTexture(texId)
+        return GlTextureInfo(texId, fboId, C.INDEX_UNSET, width, height)
+    }
+
+    override fun release(eglDisplay: EGLDisplay) {
+        if (eglDisplay == EGL14.EGL_NO_DISPLAY) return
+        runCatching {
+            EGL14.eglMakeCurrent(
+                eglDisplay,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_CONTEXT
+            )
+        }
+        createdEglContexts.forEach { eglContext ->
+            if (eglContext != EGL14.EGL_NO_CONTEXT) {
+                runCatching { EGL14.eglDestroyContext(eglDisplay, eglContext) }
+            }
+        }
+        createdEglContexts.clear()
+        runCatching { EGL14.eglReleaseThread() }
+    }
+
+    private fun chooseEglConfig(eglDisplay: EGLDisplay, attributes: IntArray): EGLConfig {
+        val configs = arrayOfNulls<EGLConfig>(1)
+        val numConfigs = IntArray(1)
+        val success = EGL14.eglChooseConfig(
+            eglDisplay,
+            attributes,
+            0,
+            configs,
+            0,
+            configs.size,
+            numConfigs,
+            0
+        )
+        val eglError = EGL14.eglGetError()
+        val eglConfig = configs.firstOrNull()
+        if (!success || numConfigs[0] <= 0 || eglConfig == null || eglError != EGL14.EGL_SUCCESS) {
+            throw GlUtil.GlException(
+                "eglChooseConfig failed without terminating display, error code: 0x${eglError.toString(16)}"
+            )
+        }
+        return eglConfig
     }
 }
 
@@ -2759,11 +3175,37 @@ private fun NormalizedCropRect.requiresLegacyBitmapPlayback(rotationDegrees: Int
     return rotation == 90 || rotation == 270
 }
 
-private fun TextureView.applyVideoEditorCropTransform(crop: NormalizedCropRect) {
+private fun TextureView.applyVideoEditorPlaybackTransform(
+    crop: NormalizedCropRect,
+    rotationDegrees: Int
+) {
     fun applyTransform() {
         val viewWidth = width.toFloat()
         val viewHeight = height.toFloat()
         if (viewWidth <= 0f || viewHeight <= 0f) return
+        val rotation = rotationDegrees.normalizedVideoRotation()
+        if (crop.isFullFrame && (rotation == 90 || rotation == 270)) {
+            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
+            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
+            val centerX = viewRect.centerX()
+            val centerY = viewRect.centerY()
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+            val matrix = Matrix().apply {
+                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
+                postRotate(rotation.toFloat(), centerX, centerY)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
+        if (crop.isFullFrame && rotation == 180) {
+            val matrix = Matrix().apply {
+                postRotate(180f, viewWidth / 2f, viewHeight / 2f)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
         val safeWidth = crop.width.coerceAtLeast(0.01f)
         val safeHeight = crop.height.coerceAtLeast(0.01f)
         val scaleX = 1f / safeWidth
@@ -3000,4 +3442,6 @@ private const val DirectStreamCopyDefaultBufferSize = 1 * 1024 * 1024
 private const val DirectStreamProgressIntervalMs = 250L
 private const val DirectOriginalTrimToleranceMs = 80L
 private const val DirectStreamAudioBitrateAllowance = 160_000L
+private const val LegacyDirectStreamShortSideLimit = 720
+private const val LegacyDirectStreamLongSideLimit = 1280
 private const val VideoEditorLogTag = "QuataVideoEditor"

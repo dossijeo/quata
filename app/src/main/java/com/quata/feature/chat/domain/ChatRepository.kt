@@ -10,14 +10,12 @@ interface ChatRepository {
     val activeConversationId: StateFlow<String?>
     val isAppForeground: StateFlow<Boolean>
     val pendingDeletedConversation: StateFlow<Conversation?>
-    val isPollingOnline: StateFlow<Boolean>
+    val isRealtimeOnline: StateFlow<Boolean>
     fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
     fun setAppForeground(isForeground: Boolean)
-    fun setPollingMode(mode: ChatPollingMode)
     fun clearChatNotifications()
-    suspend fun pollForBackgroundNotifications(): Result<Unit>
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
@@ -30,7 +28,13 @@ interface ChatRepository {
         attachmentMimeType: String? = null
     ): Result<Unit>
     suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit>
-    suspend fun sendSosMessage(contactIds: List<String>, text: String): Result<String>
+    suspend fun sendSosMessage(
+        contactIds: List<String>,
+        text: String,
+        lat: Double? = null,
+        lng: Double? = null,
+        accuracy: Double? = null
+    ): Result<String>
     suspend fun cachedPrivateConversationId(userId: String): String?
     suspend fun cachedCommunityConversationId(communityName: String): String?
     suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String>
@@ -40,6 +44,7 @@ interface ChatRepository {
     suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit>
     suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit>
     suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit>
+    suspend fun demoteModerator(conversationId: String, userId: String): Result<Unit>
     suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit>
     suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit>
     suspend fun leaveConversation(conversationId: String): Result<Unit>
@@ -51,11 +56,4 @@ interface ChatRepository {
     suspend fun deleteMessage(messageId: String): Result<Unit>
     suspend fun toggleFavoriteMessage(messageId: String): Result<Unit>
     suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit>
-}
-
-enum class ChatPollingMode {
-    AGGRESSIVE,
-    MEDIUM,
-    RELAXED,
-    MINIMAL
 }

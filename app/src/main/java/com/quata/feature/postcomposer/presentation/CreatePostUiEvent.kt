@@ -2,6 +2,7 @@ package com.quata.feature.postcomposer.presentation
 
 sealed class CreatePostUiEvent {
     data class TextChanged(val value: String) : CreatePostUiEvent()
+    data class TextPatternSelected(val patternId: String) : CreatePostUiEvent()
     data class ImageSelected(val uri: String?) : CreatePostUiEvent()
     data class VideoSelected(val uri: String?) : CreatePostUiEvent()
     data class LocationResolved(

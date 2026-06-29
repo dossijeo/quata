@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +62,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.text.localizedSosPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
@@ -84,16 +86,18 @@ fun ConversationsScreen(
     viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
     var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val visibleConversations = remember(state.conversations, state.messagesByConversation, state.usersById, query) {
+    val visibleConversations = remember(context, state.conversations, state.messagesByConversation, state.usersById, query) {
         val cleanQuery = query.trim()
         if (cleanQuery.isBlank()) {
             state.conversations
         } else {
             state.conversations.filter { conversation ->
                 val messages = state.messagesByConversation[conversation.id].orEmpty()
-                val preview = messages.lastOrNull()?.text ?: conversation.lastMessagePreview
+                val rawPreview = messages.lastOrNull()?.text ?: conversation.lastMessagePreview
+                val preview = context.localizedSosPreview(rawPreview) ?: rawPreview
                 val participantNames = conversation.participantIds
                     .mapNotNull { state.usersById[it]?.displayName }
                     .joinToString(" ")
@@ -294,7 +298,9 @@ private fun ConversationCard(
     onOpenUserProfile: (String) -> Unit,
     onOpenConversation: (String) -> Unit
 ) {
-    val preview = messages.lastOrNull()?.text ?: item.lastMessagePreview
+    val context = LocalContext.current
+    val rawPreview = messages.lastOrNull()?.text ?: item.lastMessagePreview
+    val preview = context.localizedSosPreview(rawPreview) ?: rawPreview
     QuataCard(modifier = Modifier.clickable { onOpenConversation(item.id) }) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),

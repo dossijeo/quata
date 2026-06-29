@@ -35,15 +35,13 @@ import com.quata.feature.profile.domain.ProfileRepository
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
-    val networkModule = NetworkModule(appContext)
-    val supabaseCommunityApi = networkModule.supabaseCommunityApi
-    val supabaseRealtimeClient = networkModule.supabaseRealtimeClient
-    val betterMessagesClient = networkModule.betterMessagesClient
-    val betterMessagesRepository = networkModule.betterMessagesRepository
-    val quataWordPressClient = networkModule.quataWordPressClient
-
     val sessionPreferences = SessionPreferences(appContext)
     val sessionManager = SessionManager(sessionPreferences)
+    val networkModule = NetworkModule(appContext, sessionManager)
+    val supabaseCommunityApi = networkModule.supabaseCommunityApi
+    val supabaseRealtimeClient = networkModule.supabaseRealtimeClient
+    val quataWordPressClient = networkModule.quataWordPressClient
+
     val touchFlowPreferences = TouchFlowPreferences(appContext)
     val themePreferences = ThemePreferences(appContext)
 
@@ -52,13 +50,16 @@ class AppContainer(context: Context) {
     val imageCompressor = ImageCompressor()
     val mediaUploadOptimizer = MediaUploadOptimizer(appContext)
     val notificationChannels = NotificationChannels(appContext).also { it.ensureChannels() }
-    val pushTokenManager = PushTokenManager(networkModule.supabaseApi)
+    val pushTokenManager = PushTokenManager(
+        appContext = appContext,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        sessionManager = sessionManager
+    )
 
     val authRepository: AuthRepository = AuthRepositoryImpl(
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         wordpressClient = networkModule.quataWordPressClient,
-        betterMessagesRepository = networkModule.betterMessagesRepository,
         sessionManager = sessionManager,
         googleAuthHelper = GoogleAuthHelper()
     )
@@ -82,8 +83,7 @@ class AppContainer(context: Context) {
     val chatRepository: ChatRepository = ChatRepositoryImpl(
         appContext = appContext,
         remote = ChatRemoteDataSource(networkModule.supabaseCommunityApi),
-        betterMessagesRepository = networkModule.betterMessagesRepository,
-        wordpressClient = networkModule.quataWordPressClient,
+        supabaseRealtimeClient = networkModule.supabaseRealtimeClient,
         sessionManager = sessionManager,
         mediaUploadOptimizer = mediaUploadOptimizer
     )
@@ -105,7 +105,6 @@ class AppContainer(context: Context) {
     val neighborhoodRepository: NeighborhoodRepository = NeighborhoodRepositoryImpl(
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
-        betterMessagesRepository = networkModule.betterMessagesRepository,
         chatRepository = chatRepository,
         profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager

@@ -9,6 +9,7 @@ enum class PostComposerType {
 data class PostComposerDraft(
     val type: PostComposerType,
     val text: String = "",
+    val textPatternId: String? = null,
     val imageUri: String? = null,
     val videoUri: String? = null,
     val locationLabel: String? = null,

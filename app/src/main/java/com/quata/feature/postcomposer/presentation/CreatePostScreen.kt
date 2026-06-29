@@ -1,15 +1,14 @@
 package com.quata.feature.postcomposer.presentation
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.RectF
 import android.location.Geocoder
 import android.location.Location
-import android.location.LocationManager
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -18,8 +17,10 @@ import android.media.MediaMuxer
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
-import android.provider.MediaStore
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.TextureView
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -43,18 +44,20 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
@@ -100,11 +103,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -114,8 +118,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
@@ -128,8 +133,13 @@ import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.location.hasQuataLocationPermission
+import com.quata.core.location.quataLastLocation
+import com.quata.core.media.copyImageToFileNormalizingOrientation
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.CommunityEmojiPanel
+import com.quata.core.ui.components.QuataCameraDialog
+import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -139,6 +149,8 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.ui.textCanvasBrush
+import com.quata.core.ui.textCanvasPatterns
+import com.quata.core.ui.textCanvasTypography
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
@@ -194,8 +206,6 @@ fun CreatePostScreen(
     var imageLocationOffsetPx by remember { mutableStateOf(0) }
     var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
     var lastHandledCancelUploadToken by rememberSaveable { mutableStateOf(cancelUploadToken) }
-    var pendingImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pendingVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var preparedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var editedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -203,6 +213,8 @@ fun CreatePostScreen(
     var editedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var preparedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
+    var cameraDialogMode by remember { mutableStateOf<QuataCameraMode?>(null) }
+    var cameraDialogAudioEnabled by remember { mutableStateOf(false) }
     var isCancelUploadDialogOpen by remember { mutableStateOf(false) }
     val latestIsLoading by rememberUpdatedState(state.isLoading)
 
@@ -257,15 +269,6 @@ fun CreatePostScreen(
     }
 
     fun submitIfAuthenticated(type: PostComposerType) {
-        if (type == PostComposerType.Image && state.imageUri != null && state.locationLabel.isNullOrBlank()) {
-            isLocationEditorOpen = true
-            highlightLocationEditor = true
-            scope.launch {
-                val target = (composerScrollState.value + imageLocationOffsetPx - 120).coerceAtLeast(0)
-                composerScrollState.animateScrollTo(target)
-            }
-            return
-        }
         if (canPublish) {
             viewModel.submit(type)
         } else {
@@ -289,7 +292,9 @@ fun CreatePostScreen(
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true || result[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            context.lastKnownLocation()?.let { resolveLocation(it) }
+            scope.launch {
+                context.quataLastLocation()?.let { resolveLocation(it) }
+            }
         }
     }
 
@@ -321,6 +326,10 @@ fun CreatePostScreen(
             val exifLocation = context.exifLocationFromUri(preparedUri)
             if (exifLocation != null) {
                 resolveLocation(exifLocation)
+            } else if (context.hasQuataLocationPermission()) {
+                scope.launch {
+                    context.quataLastLocation()?.let { resolveLocation(it) }
+                }
             } else {
                 locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
@@ -348,41 +357,16 @@ fun CreatePostScreen(
     val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         selectImageForComposer(uri)
     }
-    val cameraImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        if (saved) {
-            selectImageForComposer(pendingImageUri)
-        }
-    }
     val galleryVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         openVideoEditorWithPreparedSource(uri)
     }
-    val cameraVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { saved ->
-        val capturedUri = pendingVideoUri
-        pendingVideoUri = null
-        if (capturedUri != null) {
-            if (saved || context.hasNonEmptyComposerVideo(capturedUri)) {
-                openVideoEditorWithPreparedSource(capturedUri)
-            }
-        }
-    }
     fun launchPhotoCapture() {
-        val uri = context.createMediaUri("quata_photo_", "image/jpeg", MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        if (uri == null) {
-            Toast.makeText(context, context.getString(R.string.composer_camera_permission), Toast.LENGTH_SHORT).show()
-            return
-        }
-        pendingImageUri = uri
-        cameraImageLauncher.launch(uri)
+        cameraDialogMode = QuataCameraMode.Photo
     }
 
     fun launchVideoCapture() {
-        val uri = context.createVideoCaptureUri()
-        if (uri == null) {
-            Toast.makeText(context, context.getString(R.string.composer_camera_permission), Toast.LENGTH_SHORT).show()
-            return
-        }
-        pendingVideoUri = uri
-        cameraVideoLauncher.launch(uri)
+        cameraDialogAudioEnabled = context.hasAudioRecordPermission()
+        cameraDialogMode = QuataCameraMode.Video
     }
 
     val capturePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -537,6 +521,9 @@ fun CreatePostScreen(
                         },
                         onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
                         onDismissEmojiPanel = { isEmojiPanelOpen = false },
+                        onTextPatternSelected = { patternId ->
+                            viewModel.onEvent(CreatePostUiEvent.TextPatternSelected(patternId))
+                        },
                         onEmoji = { emoji ->
                             val updated = textValue.insertAtSelection(emoji)
                             textValue = updated
@@ -555,7 +542,7 @@ fun CreatePostScreen(
                             if (context.hasCapturePermissions(CaptureTarget.Photo)) {
                                 launchPhotoCapture()
                             } else {
-                                capturePermissionLauncher.launch(capturePermissions(CaptureTarget.Photo))
+                                capturePermissionLauncher.launch(context.capturePermissions(CaptureTarget.Photo))
                             }
                         },
                         onEditImage = {
@@ -586,7 +573,7 @@ fun CreatePostScreen(
                             if (context.hasCapturePermissions(CaptureTarget.Video)) {
                                 launchVideoCapture()
                             } else {
-                                capturePermissionLauncher.launch(capturePermissions(CaptureTarget.Video))
+                                capturePermissionLauncher.launch(context.capturePermissions(CaptureTarget.Video))
                             }
                         },
                         onEditVideo = {
@@ -651,6 +638,27 @@ fun CreatePostScreen(
                     if (previousPreparedUri != editedUri) {
                         deletePreparedVideoTemp(previousPreparedUri)
                     }
+                }
+            )
+        }
+
+        cameraDialogMode?.let { activeCameraMode ->
+            QuataCameraDialog(
+                mode = activeCameraMode,
+                audioEnabled = cameraDialogAudioEnabled,
+                onDismiss = {
+                    cameraDialogMode = null
+                    pendingCaptureTarget = null
+                },
+                onPhotoCaptured = { uri, _, _ ->
+                    cameraDialogMode = null
+                    pendingCaptureTarget = null
+                    selectImageForComposer(uri)
+                },
+                onVideoCaptured = { uri, _, _ ->
+                    cameraDialogMode = null
+                    pendingCaptureTarget = null
+                    openVideoEditorWithPreparedSource(uri)
                 }
             )
         }
@@ -805,6 +813,7 @@ private fun TextPostForm(
     onTextChange: (TextFieldValue) -> Unit,
     onToggleEmojiPanel: () -> Unit,
     onDismissEmojiPanel: () -> Unit,
+    onTextPatternSelected: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
@@ -861,8 +870,19 @@ private fun TextPostForm(
 
     @Composable
     fun TextPreviewPanel() {
-        PreviewPanel(stringResource(R.string.composer_preview)) {
-            TextReelPreview(state.text, compact = isLandscapeLayout)
+        Column {
+            TextPatternSelector(
+                selectedPatternId = state.textPatternId,
+                onPatternSelected = onTextPatternSelected
+            )
+            Spacer(Modifier.height(10.dp))
+            PreviewPanel(stringResource(R.string.composer_preview)) {
+                TextReelPreview(
+                    text = state.text,
+                    patternId = state.textPatternId,
+                    compact = isLandscapeLayout
+                )
+            }
         }
     }
 
@@ -892,6 +912,139 @@ private fun TextPostForm(
             PublishButton(state.isLoading, onSubmit)
         }
     }
+}
+
+@Composable
+private fun TextPatternSelector(
+    selectedPatternId: String,
+    onPatternSelected: (String) -> Unit
+) {
+    val template = quataTheme()
+    var isDialogOpen by rememberSaveable { mutableStateOf(false) }
+    val selectedPattern = remember(selectedPatternId) {
+        textCanvasPatterns.firstOrNull { it.id == selectedPatternId } ?: textCanvasPatterns.first()
+    }
+
+    Surface(
+        color = template.colors.surface.copy(alpha = 0.94f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { isDialogOpen = true }
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextPatternSwatch(
+                patternId = selectedPattern.id,
+                modifier = Modifier.size(54.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.composer_text_background),
+                    color = template.colors.textPrimary,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = selectedPattern.label,
+                    color = template.colors.textSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+
+    if (isDialogOpen) {
+        Dialog(onDismissRequest = { isDialogOpen = false }) {
+            Surface(
+                color = template.colors.surface,
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        stringResource(R.string.composer_text_background),
+                        color = template.colors.textPrimary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp
+                    )
+                    textCanvasPatterns.chunked(2).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            row.forEach { pattern ->
+                                TextPatternChoice(
+                                    label = pattern.label,
+                                    patternId = pattern.id,
+                                    isSelected = selectedPattern.id == pattern.id,
+                                    onClick = {
+                                        onPatternSelected(pattern.id)
+                                        isDialogOpen = false
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (row.size == 1) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TextPatternChoice(
+    label: String,
+    patternId: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val template = quataTheme()
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .border(
+                2.dp,
+                if (isSelected) template.colors.accent else template.colors.divider,
+                RoundedCornerShape(14.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TextPatternSwatch(
+            patternId = patternId,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+        )
+        Text(
+            label,
+            color = template.colors.textPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun TextPatternSwatch(
+    patternId: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(textCanvasBrush(seedText = null, patternId = patternId))
+    )
 }
 
 @Composable
@@ -1019,7 +1172,7 @@ private fun ImagePostForm(
                     AsyncImage(
                         model = state.imageUri,
                         contentDescription = stringResource(R.string.composer_selected_image),
-                        contentScale = ContentScale.Fit,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -1191,10 +1344,18 @@ private fun ComposerFeedPreviewFrame(
                     .padding(start = 14.dp, top = 14.dp)
             )
             ComposerPreviewActions(
+                showRankLiveActions = !compact,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 14.dp, bottom = 18.dp)
             )
+            if (compact) {
+                ComposerPreviewRankLiveActions(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 14.dp, bottom = if (isVideo) 132.dp else 88.dp)
+                )
+            }
             ComposerPreviewAuthor(
                 description = description,
                 locationLabel = locationLabel,
@@ -1209,21 +1370,28 @@ private fun ComposerFeedPreviewFrame(
 @Composable
 private fun ComposerPreviewVideoPlayer(videoUri: String) {
     val context = LocalContext.current
-    val playerBackground = Color.Transparent.toArgb()
     var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
     var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
     var hasRenderedFirstFrame by remember(videoUri) { mutableStateOf(false) }
+    var isPlayerRequested by rememberSaveable(videoUri) { mutableStateOf(false) }
+    var shouldAutoPlay by rememberSaveable(videoUri) { mutableStateOf(false) }
     val posterFrame by produceState<Bitmap?>(initialValue = null, videoUri) {
         value = withContext(Dispatchers.IO) {
             context.loadComposerVideoPosterFrame(Uri.parse(videoUri))
         }
     }
-    val player = remember(videoUri) {
+    val playbackRotation by produceState(initialValue = 0, videoUri) {
+        value = withContext(Dispatchers.IO) {
+            context.readComposerVideoRotation(Uri.parse(videoUri)) ?: 0
+        }
+    }
+    val player = remember(videoUri, isPlayerRequested) {
+        if (!isPlayerRequested) return@remember null
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(videoUri))
             repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = false
+            playWhenReady = shouldAutoPlay
             volume = 1f
             prepare()
             seekTo(0L)
@@ -1231,15 +1399,30 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
     }
 
     LaunchedEffect(player) {
+        val activePlayer = player ?: return@LaunchedEffect
         while (true) {
-            positionMs = player.currentPosition.coerceAtLeast(0L)
-            durationMs = player.duration.takeIf { it > 0 } ?: 0L
-            isPlaying = player.isPlaying
+            positionMs = activePlayer.currentPosition.coerceAtLeast(0L)
+            durationMs = activePlayer.duration.takeIf { it > 0 } ?: durationMs
+            isPlaying = activePlayer.isPlaying
             delay(250L)
         }
     }
 
+    LaunchedEffect(player, shouldAutoPlay) {
+        val activePlayer = player ?: return@LaunchedEffect
+        if (shouldAutoPlay) {
+            activePlayer.play()
+            isPlaying = true
+        } else {
+            activePlayer.pause()
+            isPlaying = false
+        }
+    }
+
     DisposableEffect(player) {
+        if (player == null) {
+            onDispose { }
+        } else {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
                 hasRenderedFirstFrame = true
@@ -1259,17 +1442,27 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             player.removeListener(listener)
             player.release()
         }
+        }
     }
 
     fun togglePlayback() {
-        if (player.isPlaying) {
-            player.pause()
+        val activePlayer = player
+        if (activePlayer == null) {
+            shouldAutoPlay = true
+            isPlayerRequested = true
+            isPlaying = true
+            return
+        }
+        if (activePlayer.isPlaying) {
+            shouldAutoPlay = false
+            activePlayer.pause()
             isPlaying = false
         } else {
-            if (player.playbackState == Player.STATE_ENDED) {
-                player.seekTo(0L)
+            if (activePlayer.playbackState == Player.STATE_ENDED) {
+                activePlayer.seekTo(0L)
             }
-            player.play()
+            shouldAutoPlay = true
+            activePlayer.play()
             isPlaying = true
         }
     }
@@ -1279,36 +1472,40 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             .fillMaxSize()
             .background(Color.Transparent)
     ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    this.player = player
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setBackgroundColor(playerBackground)
-                    setShutterBackgroundColor(playerBackground)
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+        player?.let { activePlayer ->
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { viewContext ->
+                    (LayoutInflater.from(viewContext)
+                        .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
+                        this.player = activePlayer
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                },
+                update = { playerView ->
+                    playerView.useController = false
+                    playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    if (playerView.player !== activePlayer) {
+                        playerView.player = activePlayer
+                    }
+                    playerView.findChildTextureView()
+                        ?.applyComposerVideoPlaybackTransform(playbackRotation)
+                },
+                onRelease = { playerView ->
+                    playerView.player = null
                 }
-            },
-            update = { view ->
-                view.useController = false
-                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                view.setBackgroundColor(playerBackground)
-                view.setShutterBackgroundColor(playerBackground)
-                if (view.player !== player) {
-                    view.player = player
-                }
-            }
-        )
+            )
+        }
         posterFrame?.takeUnless { hasRenderedFirstFrame }?.let { frame ->
             Image(
                 bitmap = frame.asImageBitmap(),
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1323,13 +1520,18 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             durationMs = durationMs,
             onPlayPause = { togglePlayback() },
             onReplay = {
-                player.seekTo(0L)
                 positionMs = 0L
-                player.play()
+                shouldAutoPlay = true
+                if (player == null) {
+                    isPlayerRequested = true
+                } else {
+                    player.seekTo(0L)
+                    player.play()
+                }
                 isPlaying = true
             },
             onSeek = { targetMs ->
-                player.seekTo(targetMs)
+                player?.seekTo(targetMs)
                 positionMs = targetMs
             },
             modifier = Modifier
@@ -1399,8 +1601,9 @@ private fun ComposerPreviewScrims() {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.34f),
-                    0.28f to Color.Transparent,
+                    0f to Color.Black.copy(alpha = 0.64f),
+                    0.14f to Color.Black.copy(alpha = 0.42f),
+                    0.34f to Color.Transparent,
                     0.58f to Color.Transparent,
                     1f to Color.Black.copy(alpha = 0.7f)
                 )
@@ -1414,32 +1617,19 @@ private fun ComposerPreviewTopChips(
     locationLabel: String?,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         locationLabel?.takeIf { it.isNotBlank() }?.let { label ->
-            ComposerPreviewChip(text = stringResource(R.string.feed_location_chip, label))
-        }
-        ComposerPreviewChip(text = stringResource(R.string.feed_rank_chip, 3, 0), highlighted = true)
-        ComposerPreviewChip(text = stringResource(R.string.common_live), highlighted = true)
-        if (isVideo) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.16f))
-                    .border(1.dp, template.colors.live, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIcon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeOff,
-                    contentDescription = stringResource(R.string.feed_mute),
-                    tint = template.colors.live,
-                    modifier = Modifier.size(21.dp)
-                )
-            }
+            Text(
+                text = if (isVideo) "\uD83D\uDCDD $label" else stringResource(R.string.feed_location_chip, label),
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1468,16 +1658,81 @@ private fun ComposerPreviewChip(
 }
 
 @Composable
-private fun ComposerPreviewActions(modifier: Modifier = Modifier) {
+private fun ComposerPreviewActions(
+    showRankLiveActions: Boolean,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (showRankLiveActions) {
+            ComposerPreviewRankLiveActions()
+        }
         ComposerPreviewActionButton(Icons.Filled.FavoriteBorder, stringResource(R.string.feed_like), "0")
         ComposerPreviewActionButton(Icons.Filled.ChatBubble, stringResource(R.string.feed_comments), "0")
         ComposerPreviewActionButton(Icons.Filled.Share, stringResource(R.string.feed_share))
         ComposerPreviewActionButton(Icons.Filled.Flag, stringResource(R.string.feed_report))
+    }
+}
+
+@Composable
+private fun ComposerPreviewRankLiveActions(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ComposerPreviewTextActionButton(
+            text = "\uD83D\uDD25",
+            contentDescription = stringResource(R.string.feed_rank),
+            count = "3"
+        )
+        ComposerPreviewTextActionButton(
+            text = stringResource(R.string.common_live),
+            contentDescription = stringResource(R.string.common_live)
+        )
+    }
+}
+
+@Composable
+private fun ComposerPreviewTextActionButton(
+    text: String,
+    contentDescription: String,
+    count: String? = null
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.42f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    color = Color.White,
+                    fontSize = if (text.length <= 2) 18.sp else 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    lineHeight = if (text.length <= 2) 19.sp else 11.sp,
+                    modifier = Modifier.padding(horizontal = 5.dp)
+                )
+                count?.let {
+                    Text(
+                        text = it,
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 9.sp
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1618,25 +1873,17 @@ private fun Context.loadComposerVideoAspectRatio(uri: Uri): Float? =
         }
     }.getOrNull()
 
-private fun Context.hasNonEmptyComposerVideo(uri: Uri): Boolean =
-    runCatching {
-        val contentLength = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-        contentLength != 0L
-    }.getOrDefault(false)
-
 private fun Context.prepareComposerImageSource(sourceUri: Uri): Uri? {
     val outputFile = createComposerPreparedImageFile()
     return runCatching {
-        contentResolver.openInputStream(sourceUri)?.use { input ->
-            outputFile.outputStream().use { output -> input.copyTo(output) }
-        } ?: error("Could not open image source")
+        val preparedUri = copyImageToFileNormalizingOrientation(sourceUri, outputFile)
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(outputFile.absolutePath, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             error("Prepared image is not decodable")
         }
-        Uri.fromFile(outputFile)
+        preparedUri
     }.onFailure {
         Log.w(ComposerImageLogTag, "Could not prepare image source source=$sourceUri", it)
         outputFile.delete()
@@ -2000,6 +2247,53 @@ private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: In
 private fun Int.normalizedComposerVideoRotation(): Int =
     ((this % 360) + 360) % 360
 
+private fun View.findChildTextureView(): TextureView? {
+    if (this is TextureView) return this
+    if (this !is ViewGroup) return null
+    for (index in 0 until childCount) {
+        getChildAt(index).findChildTextureView()?.let { return it }
+    }
+    return null
+}
+
+private fun TextureView.applyComposerVideoPlaybackTransform(rotationDegrees: Int) {
+    fun applyTransform() {
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+        if (viewWidth <= 0f || viewHeight <= 0f) return
+        val rotation = rotationDegrees.normalizedComposerVideoRotation()
+        if (rotation == 90 || rotation == 270) {
+            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
+            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
+            val centerX = viewRect.centerX()
+            val centerY = viewRect.centerY()
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+            val matrix = Matrix().apply {
+                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
+                postRotate(rotation.toFloat(), centerX, centerY)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
+        if (rotation == 180) {
+            val matrix = Matrix().apply {
+                postRotate(180f, viewWidth / 2f, viewHeight / 2f)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
+        setTransform(Matrix())
+        invalidate()
+    }
+    if (width > 0 && height > 0) {
+        applyTransform()
+    } else {
+        post { applyTransform() }
+    }
+}
+
 private fun Context.mediaHashSeed(uri: Uri): String? =
     runCatching {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -2120,34 +2414,125 @@ private fun LocationEditButton(
 }
 
 @Composable
-private fun TextReelPreview(text: String, compact: Boolean = false) {
-    val seedText = remember(text) { text.cleanTextCanvasSeedBody() }
+private fun TextReelPreview(text: String, patternId: String? = null, compact: Boolean = false) {
+    val seedText = if (patternId == null) {
+        remember(text) { text.cleanTextCanvasSeedBody() }
+    } else {
+        null
+    }
+    ComposerFeedPreviewFrame(
+        isVideo = false,
+        description = "",
+        locationLabel = null,
+        compact = compact,
+        backgroundSeed = seedText ?: text
+    ) {
+        ComposerTextFeedCanvas(
+            text = text,
+            seedText = seedText,
+            patternId = patternId,
+            compact = compact
+        )
+    }
+}
+
+@Composable
+private fun ComposerTextFeedCanvas(
+    text: String,
+    seedText: String?,
+    patternId: String?,
+    compact: Boolean
+) {
+    val displayText = text.ifBlank { stringResource(R.string.composer_text_preview_empty) }
+    val typography = remember(displayText) { textCanvasTypography(displayText, compact = true) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var hasOverflow by remember(text, compact) { mutableStateOf(false) }
+    var isReaderOpen by rememberSaveable(text) { mutableStateOf(false) }
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(if (compact) 280.dp else 360.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(textCanvasBrush(seedText))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
-            .padding(if (compact) 20.dp else 28.dp),
+            .fillMaxSize()
+            .background(textCanvasBrush(seedText, patternId))
+            .padding(horizontal = ComposerTextPreviewActionRailSafePadding),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text.ifBlank { stringResource(R.string.composer_text_preview_empty) },
-            color = Color.White,
-            fontSize = if (compact) {
-                if (text.isBlank()) 18.sp else 28.sp
-            } else {
-                if (text.isBlank()) 20.sp else 34.sp
-            },
-            lineHeight = if (compact) {
-                if (text.isBlank()) 24.sp else 34.sp
-            } else {
-                if (text.isBlank()) 28.sp else 42.sp
-            },
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = displayText,
+                color = Color.White,
+                fontSize = typography.fontSize,
+                lineHeight = typography.lineHeight,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                maxLines = typography.maxLines,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { hasOverflow = it.hasVisualOverflow }
+            )
+            if (text.isNotBlank() && hasOverflow) {
+                Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
+                Surface(
+                    color = Color.Black.copy(alpha = 0.36f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.clickable {
+                        keyboardController?.hide()
+                        focusManager.clearFocus(force = true)
+                        isReaderOpen = true
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.feed_read_more),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = if (compact) 12.sp else 14.sp,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (isReaderOpen) {
+        Dialog(
+            onDismissRequest = { isReaderOpen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(textCanvasBrush(seedText, patternId))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 56.dp, bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = displayText,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        lineHeight = 31.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                CompactIconButton(
+                    onClick = { isReaderOpen = false },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    CompactIcon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.common_close),
+                        tint = Color.White
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -2254,29 +2639,22 @@ private fun Context.exifLocationFromUri(uri: Uri): Location? {
     }.getOrNull()
 }
 
-@Suppress("MissingPermission")
-private fun Context.lastKnownLocation(): Location? {
-    val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getProviders(true)
-        .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
-        .maxByOrNull { it.time }
-}
-
 private fun Context.hasCapturePermissions(target: CaptureTarget?): Boolean =
-    hasCameraPermission() && (target != CaptureTarget.Photo || hasMediaWritePermission())
+    hasCameraPermission() &&
+        (target != CaptureTarget.Video || hasAudioRecordPermission())
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-private fun Context.hasMediaWritePermission(): Boolean =
-    Build.VERSION.SDK_INT > Build.VERSION_CODES.P ||
-        ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+private fun Context.hasAudioRecordPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-private fun capturePermissions(target: CaptureTarget?): Array<String> =
-    if (target == CaptureTarget.Photo && Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-        arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    } else {
-        arrayOf(Manifest.permission.CAMERA)
+private fun Context.capturePermissions(target: CaptureTarget?): Array<String> =
+    when {
+        target == CaptureTarget.Video ->
+            arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        else ->
+            arrayOf(Manifest.permission.CAMERA)
     }
 
 private suspend fun Context.resolvePlaceName(location: Location): String? = withContext(Dispatchers.IO) {
@@ -2349,21 +2727,6 @@ private fun String.looksLikeStreetAddress(): Boolean {
     ).any { marker -> normalized.contains(marker) }
 }
 
-private fun Context.createMediaUri(prefix: String, mimeType: String, collection: Uri): Uri? {
-    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-    val values = ContentValues().apply {
-        put(MediaStore.MediaColumns.DISPLAY_NAME, "$prefix$timestamp")
-        put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-    }
-    return runCatching { contentResolver.insert(collection, values) }.getOrNull()
-}
-
-private fun Context.createVideoCaptureUri(): Uri? = runCatching {
-    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-    val file = File(cacheDir, "quata_video_capture_$timestamp.mp4")
-    FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-}.getOrNull()
-
 private fun Context.createComposerPreparedVideoFile(): File {
     val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
     return File(cacheDir, "$QuataPreparedVideoFilePrefix$timestamp.mp4")
@@ -2428,6 +2791,7 @@ private const val QuataEditedVideoFilePrefix = "quata-edited-video-"
 private const val ComposerImageLogTag = "QuataComposerImage"
 private const val ComposerVideoLogTag = "QuataComposerVideo"
 private const val ComposerPreviewPosterMaxDimension = 720
+private val ComposerTextPreviewActionRailSafePadding = 78.dp
 private const val ComposerVideoRemuxDefaultBufferSize = 1024 * 1024
 private const val ComposerVideoRemuxFallbackFrameRate = 30
 private const val ComposerVideoRemuxMaxTrustedSampleDeltaUs = 1_000_000L

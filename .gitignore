@@ -12,3 +12,5 @@ keystores/
 captures/
 .externalNativeBuild/
 .cxx/
+scripts/backups/
+quata-app-firebase-adminsdk-*.json

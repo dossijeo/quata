@@ -14,8 +14,37 @@ import com.quata.MainActivity
 import com.quata.R
 import com.quata.core.model.Conversation
 import com.quata.core.navigation.quataChatUrl
+import com.quata.core.text.localizedSosPreview
 
 class NotificationFactory(private val context: Context) {
+    fun showChatPush(conversationId: String, title: String, body: String) {
+        if (!hasNotificationPermission()) return
+        val notificationId = chatNotificationId(conversationId)
+        val localizedBody = context.localizedSosPreview(body) ?: body
+        val intent = Intent(context, MainActivity::class.java).apply {
+            data = Uri.parse(quataChatUrl(conversationId))
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_SOCIAL)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title.ifBlank { context.getString(R.string.common_chat) })
+            .setContentText(localizedBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(localizedBody))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+        rememberPostedNotificationId(notificationId)
+    }
+
     fun showChatMessage(conversation: Conversation) {
         if (conversation.isMuted || conversation.unreadCount <= 0) return
         if (!hasNotificationPermission()) return
@@ -24,7 +53,7 @@ class NotificationFactory(private val context: Context) {
         val contentTitle = conversation.notificationTitle().ifBlank {
             context.getString(R.string.common_chat)
         }
-        val contentText = conversation.lastMessagePreview
+        val contentText = (context.localizedSosPreview(conversation.lastMessagePreview) ?: conversation.lastMessagePreview)
             .takeIf { it.isNotBlank() }
             ?: "Nuevo mensaje"
         val intent = Intent(context, MainActivity::class.java).apply {

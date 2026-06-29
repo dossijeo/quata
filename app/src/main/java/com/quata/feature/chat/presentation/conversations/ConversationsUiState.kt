@@ -5,7 +5,7 @@ import com.quata.core.model.Message
 import com.quata.core.model.User
 
 data class ConversationsUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val currentUser: User? = null,
     val conversations: List<Conversation> = emptyList(),
     val messagesByConversation: Map<String, List<Message>> = emptyMap(),

@@ -39,9 +39,12 @@ internal object ProceduralChatBackground {
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, bounds)
-        if (bounds.outWidth != width || bounds.outHeight != height) return null
-
-        return BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
+        return if (bitmap.width == width && bitmap.height == height) {
+            bitmap.asImageBitmap()
+        } else {
+            Bitmap.createScaledBitmap(bitmap, width, height, true).asImageBitmap()
+        }
     }
 
     fun generateIfNeeded(

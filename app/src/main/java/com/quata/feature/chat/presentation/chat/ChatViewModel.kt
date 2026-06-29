@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.model.Message
 import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.feature.chat.domain.ChatRepository
@@ -19,6 +20,7 @@ class ChatViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    private val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
     private var backendMessages: List<Message> = emptyList()
     private var localEchoMessages: List<Message> = emptyList()
     private var optimisticEditedMessages: Map<String, Message> = emptyMap()
@@ -62,7 +64,11 @@ class ChatViewModel(
                     )
                 }
                 .collect { messages ->
-                    backendMessages = messages.filter { it.conversationId == conversationId }
+                    backendMessages = if (isFavoritesConversation) {
+                        messages
+                    } else {
+                        messages.filter { it.conversationId == conversationId }
+                    }
                     localEchoMessages = localEchoMessages.filterNot { local ->
                         messages.any { remote -> remote.matchesLocalEcho(local) }
                     }
@@ -123,6 +129,7 @@ class ChatViewModel(
             )
             ChatUiEvent.SendForward -> sendForward()
             is ChatUiEvent.PromoteModerator -> promoteModerator(event.userId)
+            is ChatUiEvent.DemoteModerator -> demoteModerator(event.userId)
             is ChatUiEvent.RemoveParticipant -> removeParticipant(event.userId)
             is ChatUiEvent.BlockParticipant -> blockParticipant(event.userId)
             ChatUiEvent.LeaveConversation -> leaveConversation()
@@ -236,7 +243,7 @@ class ChatViewModel(
             optimisticEditedMessages[message.id] ?: message
         }
         val visibleMessages = (editedBackendMessages + localEchoMessages)
-            .filter { it.conversationId == conversationId }
+            .filter { isFavoritesConversation || it.conversationId == conversationId }
             .distinctBy { it.id }
             .withIndex()
             .sortedWith(
@@ -424,6 +431,13 @@ class ChatViewModel(
         repository.promoteModerator(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo ascender") }
+    }
+
+    private fun demoteModerator(userId: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
+        repository.demoteModerator(conversationId, userId)
+            .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo quitar moderador") }
     }
 
     private fun removeParticipant(userId: String) = viewModelScope.launch {

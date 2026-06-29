@@ -1,7 +1,6 @@
 package com.quata.feature.neighborhoods.data
 
 import android.content.Context
-import com.quata.bettermessages.BetterMessagesJson
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
@@ -20,7 +19,10 @@ import java.io.File
 
 internal class CommunityProfileCacheStore(
     context: Context,
-    private val json: Json = BetterMessagesJson.default
+    private val json: Json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 ) {
     private val appContext = context.applicationContext
     private val mutex = Mutex()

@@ -26,6 +26,14 @@ object VideoExportSystemProfile {
         targetBitrate = 800_000,
         intermediateBitrate = 1_200_000
     )
+    private val sd432Aligned = VideoExportProfile(
+        width = 432,
+        height = 768,
+        maxFrameRate = 30,
+        label = "432p",
+        targetBitrate = 700_000,
+        intermediateBitrate = 1_000_000
+    )
     private val hd720 = VideoExportProfile(
         width = 720,
         height = 1280,
@@ -44,6 +52,7 @@ object VideoExportSystemProfile {
     }
 
     private fun detectProfile(): VideoExportProfile {
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O_MR1) return sd432Aligned
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return sd480
         return if (supportsH264PerformancePoint()) hd720 else sd480
     }

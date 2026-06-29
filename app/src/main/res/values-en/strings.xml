@@ -164,9 +164,22 @@
     <string name="conversation_attach_file">Choose file</string>
     <string name="conversation_attach_gallery">Photo/video from gallery</string>
     <string name="conversation_attach_camera">Open camera</string>
+    <string name="conversation_attach_audio">Record audio</string>
     <string name="conversation_attach_take_photo">Take photo</string>
     <string name="conversation_attach_record_video">Record video</string>
+    <string name="conversation_audio_permission">We need microphone permission to record audio</string>
+    <string name="conversation_audio_record_title">Voice note</string>
+    <string name="conversation_audio_record_start_hint">Tap to start recording</string>
+    <string name="conversation_audio_record_stop_hint">Tap to stop and attach</string>
+    <string name="conversation_audio_record_error">Audio could not be saved</string>
+    <string name="quata_camera_mode_photo">Photo</string>
+    <string name="quata_camera_mode_video">Video</string>
     <string name="conversation_camera_permission">We need camera permission to use this option</string>
+    <string name="conversation_video_record_start">Record</string>
+    <string name="conversation_video_record_stop">Stop</string>
+    <string name="conversation_video_record_cancel">Cancel</string>
+    <string name="conversation_video_record_error">Video could not be saved</string>
+    <string name="conversation_video_camera_error">Camera could not be opened</string>
     <string name="time_one_minute_ago">1 min ago</string>
     <string name="time_minutes_ago">%1$d min ago</string>
     <string name="time_hours_ago">%1$d h ago</string>
@@ -177,6 +190,7 @@
     <string name="time_one_year_ago">1 year ago</string>
     <string name="feed_empty">There are no posts yet</string>
     <string name="feed_share_post">Share post</string>
+    <string name="feed_read_more">Read more</string>
     <string name="feed_report_success">Post reported successfully</string>
     <string name="feed_live_title">LIVE · Live ranking</string>
     <string name="feed_live_subtitle">All posts sorted by likes in real time.</string>
@@ -188,6 +202,7 @@
     <string name="feed_post_type_text">Text post</string>
     <string name="feed_location_chip">📍 %1$s</string>
     <string name="feed_rank_chip">🔥 #%1$d · %2$d</string>
+    <string name="feed_rank">Rank</string>
     <string name="feed_like">Like</string>
     <string name="feed_comments">Comments</string>
     <string name="feed_share">Share</string>
@@ -259,6 +274,27 @@
     <string name="sos_location_unavailable">📍 Location unavailable</string>
     <string name="sos_location">📍 Location: %1$s</string>
     <string name="sos_default_message">🚨 REAL SOS: %1$s needs urgent help. You are one of their emergency contacts in QUATA.</string>
+    <string name="sos_location_update">SOS location update</string>
+    <string name="sos_location_age">Location age: %1$s</string>
+    <string name="sos_location_speed">Speed: %1$s</string>
+    <string name="sos_location_approx">Location (approximate): %1$s</string>
+    <string name="sos_location_updated_body">A more precise location has been obtained.</string>
+    <string name="sos_location_accuracy">Accuracy: %1$s</string>
+    <string name="sos_age_less_than_minute">less than 1 minute</string>
+    <string name="sos_distance_meters">%1$s m</string>
+    <string name="sos_speed_kmh">%1$s km/h</string>
+    <plurals name="sos_age_minutes">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="sos_age_hours">
+        <item quantity="one">%1$d h</item>
+        <item quantity="other">%1$d h</item>
+    </plurals>
+    <plurals name="sos_age_days">
+        <item quantity="one">%1$d d</item>
+        <item quantity="other">%1$d d</item>
+    </plurals>
     <string name="user_fallback_name">User</string>
     <string name="composer_title">Create post</string>
     <string name="composer_text_type">Post text</string>

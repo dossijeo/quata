@@ -312,6 +312,51 @@ data class LoginResult(
 )
 
 @Serializable
+data class SupabaseAuthBridgeRequest(
+    val country_code: String,
+    val phone: String,
+    val password: String
+)
+
+@Serializable
+data class SupabaseAuthBridgeResponse(
+    val profile: SupabaseAuthBridgeProfile,
+    val session: SupabaseAuthSession,
+    val user: SupabaseAuthUser
+)
+
+@Serializable
+data class SupabaseAuthBridgeProfile(
+    val id: String,
+    val auth_user_id: String? = null,
+    val display_name: String? = null,
+    val phone_local: String? = null,
+    val country_code: String? = null,
+    val avatar_url: String? = null,
+    val neighborhood: String? = null
+)
+
+@Serializable
+data class SupabaseAuthSession(
+    val access_token: String,
+    val refresh_token: String,
+    val expires_at: Long? = null,
+    val expires_in: Long? = null,
+    val token_type: String? = null
+)
+
+@Serializable
+data class SupabaseAuthUser(
+    val id: String,
+    val email: String? = null
+)
+
+@Serializable
+data class SupabaseRefreshTokenRequest(
+    val refresh_token: String
+)
+
+@Serializable
 data class RpcCreateOrGetPrivateChatRequest(val user1: String, val user2: String)
 @Serializable
 data class RpcPrivateChatDecisionRequest(val chat_uuid: String)
@@ -319,6 +364,145 @@ data class RpcPrivateChatDecisionRequest(val chat_uuid: String)
 data class RpcSendSosRequest(
     val p_profile_id: String,
     val p_message: String,
+    val p_lat: Double? = null,
+    val p_lng: Double? = null,
+    val p_accuracy: Double? = null
+)
+
+@Serializable
+data class QuataChatInboxRequest(val p_actor_profile_id: String, val p_limit: Int = 100)
+
+@Serializable
+data class QuataRegisterPushTokenRequest(
+    val p_profile_id: String,
+    val p_token: String,
+    val p_platform: String = "android"
+)
+
+@Serializable
+data class QuataChatThreadRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_known_message_ids: List<Long> = emptyList(),
+    val p_limit: Int = 250
+)
+
+@Serializable
+data class QuataChatPrivateThreadRequest(val p_actor_profile_id: String, val p_peer_profile_id: String)
+
+@Serializable
+data class QuataChatStartThreadRequest(
+    val p_actor_profile_id: String,
+    val p_recipient_profile_ids: List<String> = emptyList(),
+    val p_subject: String? = null,
+    val p_type: String = "group",
+    val p_message: String = "",
+    val p_unique_key: String? = null,
+    val p_community_id: String? = null
+)
+
+@Serializable
+data class QuataChatOpenCommunityThreadRequest(
+    val p_actor_profile_id: String,
+    val p_community_id: String,
+    val p_title: String
+)
+
+@Serializable
+data class QuataChatRegisterAttachmentRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_file_url: String,
+    val p_storage_bucket: String = "chat-attachments",
+    val p_storage_path: String? = null,
+    val p_mime_type: String = "application/octet-stream",
+    val p_name: String? = null,
+    val p_size_bytes: Long? = null,
+    val p_ext: String? = null,
+    val p_thumb: JsonElement? = null
+)
+
+@Serializable
+data class QuataChatSendMessageRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_message: String = "",
+    val p_file_ids: List<Long> = emptyList(),
+    val p_reply_to_message_id: Long? = null
+)
+
+@Serializable
+data class QuataChatListAttachmentsRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_page: Int = 1,
+    val p_per_page: Int = 50,
+    val p_type: String? = null
+)
+
+@Serializable
+data class QuataChatSharedAttachmentsRequest(
+    val p_actor_profile_id: String,
+    val p_peer_profile_id: String? = null,
+    val p_thread_id: Long? = null,
+    val p_community_id: String? = null,
+    val p_limit: Int = 100,
+    val p_offset: Int = 0,
+    val p_kind: String? = null
+)
+
+@Serializable
+data class QuataChatFavoriteRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_message_id: Long,
+    val p_favorite: Boolean
+)
+
+@Serializable
+data class QuataChatFavoritesRequest(val p_actor_profile_id: String, val p_limit: Int = 250)
+
+@Serializable
+data class QuataChatEditMessageRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_id: Long, val p_message: String)
+
+@Serializable
+data class QuataChatDeleteMessagesRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_ids: List<Long>)
+
+@Serializable
+data class QuataChatForwardMessageRequest(
+    val p_actor_profile_id: String,
+    val p_message_id: Long,
+    val p_thread_ids: List<Long>
+)
+
+@Serializable
+data class QuataChatThreadActionRequest(val p_actor_profile_id: String, val p_thread_id: Long)
+
+@Serializable
+data class QuataChatMutedRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_muted: Boolean)
+
+@Serializable
+data class QuataChatInvitesRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_enabled: Boolean)
+
+@Serializable
+data class QuataChatParticipantsRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_participant_profile_ids: List<String>
+)
+
+@Serializable
+data class QuataChatParticipantRequest(
+    val p_actor_profile_id: String,
+    val p_thread_id: Long,
+    val p_profile_id: String
+)
+
+@Serializable
+data class QuataChatSosRequest(
+    val p_actor_profile_id: String,
+    val p_contact_profile_ids: List<String> = emptyList(),
+    val p_message: String = "",
     val p_lat: Double? = null,
     val p_lng: Double? = null,
     val p_accuracy: Double? = null

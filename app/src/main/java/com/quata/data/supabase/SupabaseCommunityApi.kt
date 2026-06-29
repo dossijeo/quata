@@ -1,5 +1,6 @@
 package com.quata.data.supabase
 
+import com.quata.core.model.AuthSession
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -8,6 +9,9 @@ import java.security.MessageDigest
 import java.time.Instant
 
 class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
+
+    suspend fun ensureFreshSession(force: Boolean = false): AuthSession? =
+        client.ensureFreshSession(force)
 
     suspend fun getActiveWallsStats(limit: Int = 250): List<CommunityWallStats> = client.getList(
         "community_walls_stats",
@@ -105,6 +109,16 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         if (matches && updateLastLogin) touchLastLogin(profile.id)
         return LoginResult(profile, matches)
     }
+
+    suspend fun loginWithAuthBridge(countryCode: String, phone: String, password: String): SupabaseAuthBridgeResponse =
+        client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeResponse>(
+            "quata-auth-bridge",
+            SupabaseAuthBridgeRequest(
+                country_code = digitsOnly(countryCode),
+                phone = digitsOnly(phone),
+                password = password
+            )
+        )
 
     suspend fun touchLastLogin(profileId: String, atIso: String = Instant.now().toString()): CommunityProfile? =
         client.patch<CommunityProfile, Map<String, String>>(
@@ -308,6 +322,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             select = NOTIFICATION_SELECT
         )
 
+    suspend fun registerPushToken(profileId: String, token: String, platform: String = "android"): JsonElement =
+        client.rpc<QuataRegisterPushTokenRequest, JsonElement>(
+            "quata_register_push_token",
+            QuataRegisterPushTokenRequest(profileId, token, platform)
+        )
+
     suspend fun createOrGetPrivateChat(user1: String, user2: String): String {
         val chatId = client.rpc<RpcCreateOrGetPrivateChatRequest, String>("create_or_get_private_chat", RpcCreateOrGetPrivateChatRequest(user1, user2))
         client.invalidateTables("community_private_chats")
@@ -503,6 +523,152 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun sendSos(profileId: String, message: String, lat: Double? = null, lng: Double? = null, accuracy: Double? = null): JsonElement =
         client.rpc<RpcSendSosRequest, JsonElement>("quata_send_sos", RpcSendSosRequest(profileId, message, lat, lng, accuracy))
 
+    suspend fun getChatInbox(profileId: String, limit: Int = 100): JsonElement =
+        client.rpc<QuataChatInboxRequest, JsonElement>("quata_chat_get_inbox", QuataChatInboxRequest(profileId, limit))
+
+    suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250): JsonElement =
+        client.rpc<QuataChatThreadRequest, JsonElement>("quata_chat_get_thread", QuataChatThreadRequest(profileId, threadId, p_limit = limit))
+
+    suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String): JsonElement =
+        client.rpc<QuataChatPrivateThreadRequest, JsonElement>(
+            "quata_chat_get_or_create_private_thread",
+            QuataChatPrivateThreadRequest(profileId, peerProfileId)
+        )
+
+    suspend fun startChatThread(
+        profileId: String,
+        participantIds: List<String>,
+        subject: String?,
+        type: String,
+        message: String = "",
+        uniqueKey: String? = null,
+        communityId: String? = null
+    ): JsonElement = client.rpc<QuataChatStartThreadRequest, JsonElement>(
+        "quata_chat_start_thread",
+        QuataChatStartThreadRequest(
+            p_actor_profile_id = profileId,
+            p_recipient_profile_ids = participantIds,
+            p_subject = subject,
+            p_type = type,
+            p_message = message,
+            p_unique_key = uniqueKey,
+            p_community_id = communityId
+        )
+    )
+
+    suspend fun openCommunityChatThread(profileId: String, communityId: String, title: String): JsonElement =
+        client.rpc<QuataChatOpenCommunityThreadRequest, JsonElement>(
+            "quata_chat_open_community_thread",
+            QuataChatOpenCommunityThreadRequest(profileId, communityId, title)
+        )
+
+    suspend fun registerChatAttachment(
+        profileId: String,
+        threadId: Long,
+        fileUrl: String,
+        storagePath: String?,
+        mimeType: String,
+        name: String?,
+        sizeBytes: Long? = null,
+        extension: String? = null
+    ): JsonElement = client.rpc<QuataChatRegisterAttachmentRequest, JsonElement>(
+        "quata_chat_register_attachment",
+        QuataChatRegisterAttachmentRequest(
+            p_actor_profile_id = profileId,
+            p_thread_id = threadId,
+            p_file_url = fileUrl,
+            p_storage_path = storagePath,
+            p_mime_type = mimeType,
+            p_name = name,
+            p_size_bytes = sizeBytes,
+            p_ext = extension
+        )
+    )
+
+    suspend fun sendChatMessage(
+        profileId: String,
+        threadId: Long,
+        message: String,
+        fileIds: List<Long> = emptyList(),
+        replyToMessageId: Long? = null
+    ): JsonElement = client.rpc<QuataChatSendMessageRequest, JsonElement>(
+        "quata_chat_send_message",
+        QuataChatSendMessageRequest(profileId, threadId, message, fileIds, replyToMessageId)
+    )
+
+    suspend fun listChatAttachments(profileId: String, threadId: Long, page: Int = 1, perPage: Int = 50, type: String? = null): JsonElement =
+        client.rpc<QuataChatListAttachmentsRequest, JsonElement>(
+            "quata_chat_list_attachments",
+            QuataChatListAttachmentsRequest(profileId, threadId, page, perPage, type)
+        )
+
+    suspend fun listSharedChatAttachments(
+        profileId: String,
+        peerProfileId: String? = null,
+        threadId: Long? = null,
+        communityId: String? = null,
+        limit: Int = 100,
+        offset: Int = 0,
+        kind: String? = null
+    ): JsonElement = client.rpc<QuataChatSharedAttachmentsRequest, JsonElement>(
+        "quata_chat_list_shared_attachments",
+        QuataChatSharedAttachmentsRequest(profileId, peerProfileId, threadId, communityId, limit, offset, kind)
+    )
+
+    suspend fun setChatFavorite(profileId: String, threadId: Long, messageId: Long, favorite: Boolean): JsonElement =
+        client.rpc<QuataChatFavoriteRequest, JsonElement>("quata_chat_set_favorite", QuataChatFavoriteRequest(profileId, threadId, messageId, favorite))
+
+    suspend fun getChatFavorites(profileId: String, limit: Int = 250): JsonElement =
+        client.rpc<QuataChatFavoritesRequest, JsonElement>("quata_chat_get_favorites", QuataChatFavoritesRequest(profileId, limit))
+
+    suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String): JsonElement =
+        client.rpc<QuataChatEditMessageRequest, JsonElement>("quata_chat_edit_message", QuataChatEditMessageRequest(profileId, threadId, messageId, message))
+
+    suspend fun deleteChatMessages(profileId: String, threadId: Long, messageIds: List<Long>): JsonElement =
+        client.rpc<QuataChatDeleteMessagesRequest, JsonElement>("quata_chat_delete_messages", QuataChatDeleteMessagesRequest(profileId, threadId, messageIds))
+
+    suspend fun forwardChatMessage(profileId: String, messageId: Long, threadIds: List<Long>): JsonElement =
+        client.rpc<QuataChatForwardMessageRequest, JsonElement>("quata_chat_forward_message", QuataChatForwardMessageRequest(profileId, messageId, threadIds))
+
+    suspend fun markChatThreadRead(profileId: String, threadId: Long): JsonElement =
+        client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_mark_thread_read", QuataChatThreadActionRequest(profileId, threadId))
+
+    suspend fun setChatMuted(profileId: String, threadId: Long, muted: Boolean): JsonElement =
+        client.rpc<QuataChatMutedRequest, JsonElement>("quata_chat_set_muted", QuataChatMutedRequest(profileId, threadId, muted))
+
+    suspend fun setChatMemberInvitesEnabled(profileId: String, threadId: Long, enabled: Boolean): JsonElement =
+        client.rpc<QuataChatInvitesRequest, JsonElement>("quata_chat_set_member_invites_enabled", QuataChatInvitesRequest(profileId, threadId, enabled))
+
+    suspend fun addChatParticipants(profileId: String, threadId: Long, participantIds: List<String>): JsonElement =
+        client.rpc<QuataChatParticipantsRequest, JsonElement>(
+            "quata_chat_add_participants",
+            QuataChatParticipantsRequest(profileId, threadId, participantIds)
+        )
+
+    suspend fun promoteChatModerator(profileId: String, threadId: Long, participantId: String): JsonElement =
+        client.rpc<QuataChatParticipantRequest, JsonElement>("quata_chat_promote_moderator", QuataChatParticipantRequest(profileId, threadId, participantId))
+
+    suspend fun demoteChatModerator(profileId: String, threadId: Long, participantId: String): JsonElement =
+        client.rpc<QuataChatParticipantRequest, JsonElement>("quata_chat_demote_moderator", QuataChatParticipantRequest(profileId, threadId, participantId))
+
+    suspend fun removeChatParticipant(profileId: String, threadId: Long, participantId: String): JsonElement =
+        client.rpc<QuataChatParticipantRequest, JsonElement>("quata_chat_remove_participant", QuataChatParticipantRequest(profileId, threadId, participantId))
+
+    suspend fun blockChatParticipant(profileId: String, threadId: Long, participantId: String): JsonElement =
+        client.rpc<QuataChatParticipantRequest, JsonElement>("quata_chat_block_participant", QuataChatParticipantRequest(profileId, threadId, participantId))
+
+    suspend fun leaveChatThread(profileId: String, threadId: Long): JsonElement =
+        client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_leave_thread", QuataChatThreadActionRequest(profileId, threadId))
+
+    suspend fun deleteChatThread(profileId: String, threadId: Long): JsonElement =
+        client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_delete_thread", QuataChatThreadActionRequest(profileId, threadId))
+
+    suspend fun restoreChatThread(profileId: String, threadId: Long): JsonElement =
+        client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_restore_thread", QuataChatThreadActionRequest(profileId, threadId))
+
+    suspend fun sendChatSos(profileId: String, contactIds: List<String>, message: String, lat: Double? = null, lng: Double? = null, accuracy: Double? = null): JsonElement =
+        client.rpc<QuataChatSosRequest, JsonElement>("quata_chat_send_sos", QuataChatSosRequest(profileId, contactIds, message, lat, lng, accuracy))
+
     suspend fun uploadPostImage(profileId: String, bytes: ByteArray, extension: String = "jpg", mimeType: String = "image/jpeg"): StorageUploadResult {
         val path = "$profileId/img-${System.currentTimeMillis()}-${randomToken()}.$extension"
         return client.uploadObject(path, bytes, mimeType, upsert = true)
@@ -516,6 +682,18 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun uploadCommunityChatImage(profileId: String, bytes: ByteArray, extension: String = "jpg", mimeType: String = "image/jpeg"): StorageUploadResult {
         val path = "$profileId/chat-community/${System.currentTimeMillis()}-${randomToken()}.$extension"
         return client.uploadObject(path, bytes, mimeType, upsert = true)
+    }
+
+    suspend fun uploadChatAttachment(profileId: String, bytes: ByteArray, extension: String, mimeType: String, fileName: String? = null): StorageUploadResult {
+        val cleanExtension = extension.trimStart('.').ifBlank { "bin" }
+        val safeName = fileName
+            ?.substringBeforeLast('.', missingDelimiterValue = fileName)
+            ?.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            ?.take(80)
+            ?.takeIf { it.isNotBlank() }
+            ?: "file"
+        val path = "$profileId/chat/${System.currentTimeMillis()}-${randomToken()}-$safeName.$cleanExtension"
+        return client.uploadObject(path, bytes, mimeType, upsert = true, bucket = "chat-attachments")
     }
 
     private fun digitsOnly(value: String): String = value.filter(Char::isDigit)
