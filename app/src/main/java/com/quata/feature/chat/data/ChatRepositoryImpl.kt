@@ -16,6 +16,8 @@ import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.RealtimeRawEvent
 import com.quata.data.supabase.RealtimeStatus
 import com.quata.data.supabase.SupabaseRealtimeClient
+import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,6 +135,31 @@ class ChatRepositoryImpl(
         }
     }
 
+    override fun cleanupEmptyConversation(conversationId: String) {
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) return
+        val threadId = conversationId.supabaseThreadIdOrNull() ?: return
+        val session = sessionManager.currentSession() ?: return
+        val conversation = _conversations.value.firstOrNull { it.id == conversationId }
+        if (conversation?.isGroup == true || conversation?.isEmergency == true) return
+        if (messageStates[conversationId]?.value.orEmpty().isNotEmpty()) return
+
+        scope.launch {
+            runCatching {
+                if (AppConfig.USE_MOCK_BACKEND) {
+                    removeConversation(session.userId, conversationId)
+                    return@runCatching
+                }
+                val result = remote.cleanupEmptyPrivateThread(session.userId, threadId)
+                if (result.obj.boolean("deleted") == true) {
+                    messageStates.remove(conversationId)
+                    removeConversation(session.userId, conversationId)
+                }
+            }.onFailure { error ->
+                Log.w("ChatRepository", "No se pudo limpiar chat privado vacio $conversationId", error)
+            }
+        }
+    }
+
     override fun setAppForeground(isForeground: Boolean) {
         if (appForegroundState.value == isForeground) return
         appForegroundState.value = isForeground
@@ -209,27 +236,94 @@ class ChatRepositoryImpl(
         return state
     }
 
+    override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val cleanQuery = query.trim()
+            val currentId = session.userId
+            val existingPrivatePeers = _conversations.value
+                .filter { !it.isGroup && !it.isEmergency }
+                .flatMap { conversation -> conversation.participantIds.filterNot { it == currentId } }
+                .toSet()
+            val candidates = MockData.registeredUsers
+                .filterNot { it.id == currentId }
+                .filter { user ->
+                    cleanQuery.isBlank() ||
+                        listOf(user.displayName, user.neighborhood, user.email).any { it.contains(cleanQuery, ignoreCase = true) }
+                }
+                .drop(offset.coerceAtLeast(0))
+                .take(limit.coerceIn(1, 50))
+                .map { user ->
+                    val isContact = user.id in existingPrivatePeers
+                    ChatConversationCandidate(
+                        profileId = user.id,
+                        displayName = user.displayName,
+                        neighborhood = user.neighborhood,
+                        phone = "",
+                        avatarUrl = user.avatarUrl,
+                        sectionKey = if (isContact) "contacts" else "other",
+                        neighborhoodGroup = user.neighborhood,
+                        existingConversationId = _conversations.value.firstOrNull { !it.isGroup && user.id in it.participantIds }?.id
+                    )
+                }
+            return@runCatching ChatConversationCandidatePage(
+                candidates = candidates,
+                hasMore = candidates.size >= limit,
+                nextOffset = offset + candidates.size,
+                actorNeighborhood = currentUser()?.neighborhood.orEmpty()
+            )
+        }
+
+        val payload = remote.searchChatConversationCandidates(
+            profileId = session.userId,
+            query = query.trim(),
+            limit = limit,
+            offset = offset
+        )
+        val root = payload.obj
+        val candidates = root.array("items").mapNotNull { it.objOrNull?.toConversationCandidate() }
+        candidates.forEach { candidate ->
+            profilesById[candidate.profileId] = CommunityProfile(
+                id = candidate.profileId,
+                display_name = candidate.displayName,
+                neighborhood = candidate.neighborhood,
+                phone_local = null,
+                avatar_url = candidate.avatarUrl
+            )
+        }
+        ChatConversationCandidatePage(
+            candidates = candidates,
+            hasMore = root.boolean("has_more") == true,
+            nextOffset = root.int("next_offset") ?: (offset + candidates.size),
+            actorNeighborhood = root.string("actor_neighborhood").orEmpty()
+        )
+    }
+
+    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> =
+        openGroupConversation(listOf(peerProfileId), title = null)
+
     override suspend fun sendMessage(
         conversationId: String,
         text: String,
         attachmentUri: String?,
         attachmentName: String?,
-        attachmentMimeType: String?
+        attachmentMimeType: String?,
+        clientMessageId: String?
     ): Result<Unit> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = conversationId.requireThreadId()
         val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
             listOf(uploadAttachment(session.userId, threadId, uri, attachmentName, attachmentMimeType))
         }.orEmpty()
-        remote.sendChatMessage(session.userId, threadId, text, fileIds)
+        remote.sendChatMessage(session.userId, threadId, text, fileIds, clientMessageId = clientMessageId)
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
     }
 
-    override suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit> = runCatching {
+    override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, clientMessageId: String?): Result<Unit> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = conversationId.requireThreadId()
-        remote.sendChatMessage(session.userId, threadId, text, replyToMessageId = replyTo.id.toLongOrNull())
+        remote.sendChatMessage(session.userId, threadId, text, replyToMessageId = replyTo.id.toLongOrNull(), clientMessageId = clientMessageId)
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
     }
@@ -913,6 +1007,21 @@ class ChatRepositoryImpl(
             neighborhood = string("neighborhood"),
             phone_local = string("phone_local"),
             country_code = string("country_code")
+        )
+    }
+
+    private fun JsonObject.toConversationCandidate(): ChatConversationCandidate? {
+        val profileId = string("profile_id") ?: string("id") ?: return null
+        val existingThreadId = long("existing_thread_id")
+        return ChatConversationCandidate(
+            profileId = profileId,
+            displayName = string("display_name") ?: string("name") ?: "Usuario",
+            neighborhood = string("neighborhood").orEmpty(),
+            phone = "",
+            avatarUrl = string("avatar_url"),
+            sectionKey = string("section_key") ?: "other",
+            neighborhoodGroup = string("neighborhood_group").orEmpty(),
+            existingConversationId = existingThreadId?.let(::supabaseChatConversationId)
         )
     }
 

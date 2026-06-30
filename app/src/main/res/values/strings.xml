@@ -30,9 +30,6 @@
     <string name="common_saving">Saving…</string>
     <string name="common_search">Search</string>
     <string name="common_live">LIVE</string>
-    <string name="background_access_title">Enable background notifications</string>
-    <string name="background_access_data_body">To receive chat alerts while Quata is minimized, allow background data and unrestricted data usage for the app.</string>
-    <string name="background_access_battery_body">To receive chat alerts while Quata is minimized, let Android run the app without battery restrictions.</string>
     <string name="background_access_open_settings">Open settings</string>
     <string name="background_access_not_now">Not now</string>
     <string name="app_links_title">Open Q&#252;ata links in the app</string>
@@ -110,6 +107,15 @@
     <string name="conversations_subtitle">Recent conversations</string>
     <string name="conversations_search_placeholder">Search conversation...</string>
     <string name="conversations_loading">Loading chats...</string>
+    <string name="conversations_new_chat">New chat</string>
+    <string name="conversations_new_chat_title">New chat</string>
+    <string name="conversations_new_chat_search_placeholder">Search by name, district, or phone...</string>
+    <string name="conversations_new_chat_contacts">Your contacts</string>
+    <string name="conversations_new_chat_following">People you follow</string>
+    <string name="conversations_new_chat_followers">People following you</string>
+    <string name="conversations_new_chat_other_neighborhoods">Other districts</string>
+    <string name="conversations_new_chat_unknown_neighborhood">No district</string>
+    <string name="conversations_new_chat_no_results">No users found for this search.</string>
     <string name="conversation_message">Message</string>
     <string name="conversation_member_count">%1$d members</string>
     <string name="conversation_reactivate_notifications">Reactivate notifications</string>

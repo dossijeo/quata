@@ -14,7 +14,17 @@ object QuataDocumentReader {
     private const val DUPLICATE_OPEN_WINDOW_MS = 1_200L
 
     private val officeExtensions = setOf("doc", "docx", "xls", "xlsx", "ppt", "pptx")
-    private val textExtensions = setOf("txt", "csv", "rtf")
+    private val richTextExtensions = setOf("rtf")
+    private val plainTextExtensions = setOf(
+        "txt", "text", "csv", "log",
+        "md", "markdown",
+        "json", "xml", "html", "htm", "xhtml", "css",
+        "js", "mjs", "cjs", "ts", "tsx", "jsx",
+        "kt", "kts", "java", "gradle", "properties",
+        "ini", "conf", "cfg", "yaml", "yml",
+        "sql", "sh", "bat", "ps1", "svg"
+    )
+    private val textExtensions = richTextExtensions + plainTextExtensions
     private val supportedExtensions = officeExtensions + textExtensions + "pdf"
     private val supportedMimes = setOf(
         "application/pdf",
@@ -29,7 +39,20 @@ object QuataDocumentReader {
         "text/rtf",
         "text/csv",
         "application/csv",
-        "text/plain"
+        "text/plain",
+        "text/html",
+        "text/xml",
+        "text/css",
+        "text/javascript",
+        "text/markdown",
+        "text/yaml",
+        "application/json",
+        "application/xml",
+        "application/xhtml+xml",
+        "application/javascript",
+        "application/x-javascript",
+        "application/x-yaml",
+        "image/svg+xml"
     )
     private var lastOpenKey: String? = null
     private var lastOpenAtMillis: Long = 0L
@@ -39,7 +62,7 @@ object QuataDocumentReader {
             ?.lowercase(Locale.US)
             ?.let { return it in supportedExtensions }
         val normalizedMime = mimeType?.lowercase(Locale.US)?.substringBefore(";")
-        return normalizedMime in supportedMimes
+        return normalizedMime in supportedMimes || isPlainTextMime(normalizedMime)
     }
 
     fun open(
@@ -80,9 +103,10 @@ object QuataDocumentReader {
 
     internal fun isTextLike(fileName: String?, mimeType: String?): Boolean {
         val normalizedMime = mimeType?.lowercase(Locale.US)?.substringBefore(";")
-        return fileName?.substringAfterLast('.', missingDelimiterValue = "")
-            ?.lowercase(Locale.US) == "txt" ||
-            normalizedMime == "text/plain"
+        val extension = fileName?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.lowercase(Locale.US)
+            ?.takeIf { it.isNotBlank() }
+        return extension?.let { it in plainTextExtensions } == true || isPlainTextMime(normalizedMime)
     }
 
     internal fun extensionForMimeType(mimeType: String?): String? =
@@ -96,8 +120,34 @@ object QuataDocumentReader {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> "pptx"
             "application/rtf", "text/rtf" -> "rtf"
             "text/csv", "application/csv" -> "csv"
+            "text/html" -> "html"
+            "text/xml", "application/xml" -> "xml"
+            "application/xhtml+xml" -> "xhtml"
+            "text/css" -> "css"
+            "application/json" -> "json"
+            "text/markdown" -> "md"
+            "text/yaml", "application/x-yaml" -> "yaml"
+            "text/javascript", "application/javascript", "application/x-javascript" -> "js"
+            "image/svg+xml" -> "svg"
             "text/plain" -> "txt"
             else -> null
+        }
+
+    private fun isPlainTextMime(normalizedMime: String?): Boolean =
+        when {
+            normalizedMime == null -> false
+            normalizedMime == "text/rtf" -> false
+            normalizedMime.startsWith("text/") -> true
+            normalizedMime in setOf(
+                "application/json",
+                "application/xml",
+                "application/xhtml+xml",
+                "application/javascript",
+                "application/x-javascript",
+                "application/x-yaml",
+                "image/svg+xml"
+            ) -> true
+            else -> false
         }
 
     private fun extensionFrom(fileName: String?, uri: Uri): String? {

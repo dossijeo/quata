@@ -122,6 +122,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -1263,20 +1266,17 @@ private fun VideoPostForm(
     fun VideoPreviewPanel() {
         PreviewPanel(stringResource(R.string.composer_preview)) {
             if (state.videoUri != null) {
-                val previewAspectRatio by produceState(9f / 16f, state.videoUri) {
-                    value = withContext(Dispatchers.IO) {
-                        context.loadComposerVideoAspectRatio(Uri.parse(state.videoUri))
-                    } ?: 9f / 16f
-                }
                 ComposerFeedPreviewFrame(
                     isVideo = true,
                     description = state.text,
                     locationLabel = null,
                     compact = isLandscapeLayout,
-                    mediaAspectRatio = previewAspectRatio,
                     backgroundSeed = state.videoUri
                 ) {
-                    ComposerPreviewVideoPlayer(videoUri = state.videoUri)
+                    ComposerPreviewVideoPlayer(
+                        videoUri = state.videoUri,
+                        useContainLayout = isLandscapeLayout
+                    )
                 }
             } else {
                 EmptyPreview(
@@ -1368,8 +1368,12 @@ private fun ComposerFeedPreviewFrame(
 }
 
 @Composable
-private fun ComposerPreviewVideoPlayer(videoUri: String) {
+private fun ComposerPreviewVideoPlayer(
+    videoUri: String,
+    useContainLayout: Boolean
+) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
     var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
     var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
@@ -1445,6 +1449,19 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
         }
     }
 
+    DisposableEffect(player, lifecycleOwner) {
+        val activePlayer = player ?: return@DisposableEffect onDispose {}
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                shouldAutoPlay = false
+                activePlayer.pause()
+                isPlaying = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     fun togglePlayback() {
         val activePlayer = player
         if (activePlayer == null) {
@@ -1472,6 +1489,16 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             .fillMaxSize()
             .background(Color.Transparent)
     ) {
+        val videoResizeMode = if (useContainLayout) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT
+        } else {
+            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        }
+        val posterContentScale = if (useContainLayout) {
+            ContentScale.Fit
+        } else {
+            ContentScale.Crop
+        }
         player?.let { activePlayer ->
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -1480,7 +1507,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
                         .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
                         this.player = activePlayer
                         useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        resizeMode = videoResizeMode
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -1489,7 +1516,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
                 },
                 update = { playerView ->
                     playerView.useController = false
-                    playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    playerView.resizeMode = videoResizeMode
                     if (playerView.player !== activePlayer) {
                         playerView.player = activePlayer
                     }
@@ -1505,7 +1532,7 @@ private fun ComposerPreviewVideoPlayer(videoUri: String) {
             Image(
                 bitmap = frame.asImageBitmap(),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = posterContentScale,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1849,27 +1876,6 @@ private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? =
                 option = MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
                 maxDimension = ComposerPreviewPosterMaxDimension
             )
-        }
-    }.getOrNull()
-
-private fun Context.loadComposerVideoAspectRatio(uri: Uri): Float? =
-    runCatching {
-        withComposerMetadataRetriever { retriever ->
-            retriever.setComposerVideoSource(this, uri)
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return@withComposerMetadataRetriever null
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return@withComposerMetadataRetriever null
-            if (width <= 0 || height <= 0) return@withComposerMetadataRetriever null
-            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-                ?.toIntOrNull()
-                ?.normalizedComposerVideoRotation()
-                ?: 0
-            val displayWidth = if (rotation == 90 || rotation == 270) height else width
-            val displayHeight = if (rotation == 90 || rotation == 270) width else height
-            if (displayWidth > 0 && displayHeight > 0) {
-                displayWidth.toFloat() / displayHeight.toFloat()
-            } else {
-                null
-            }
         }
     }.getOrNull()
 

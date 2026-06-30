@@ -69,9 +69,7 @@ import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PersonRemove
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -92,7 +90,6 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -135,10 +132,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
@@ -150,6 +143,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.core.text.localizedSosMessage
 import androidx.core.content.ContextCompat
 import com.quata.core.media.normalizeImageOrientationInPlace
+import com.quata.core.ui.components.AudioAttachmentPlayer
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
@@ -241,6 +235,12 @@ fun ChatScreen(
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
     val backgroundSeed = conversationId.takeUnless { isFavoritesConversation }
+
+    DisposableEffect(conversationId) {
+        onDispose {
+            viewModel.cleanupEmptyConversationIfNeeded()
+        }
+    }
 
     LaunchedEffect(state.messageText) {
         if (state.messageText != messageFieldValue.text) {
@@ -2191,160 +2191,6 @@ private fun SosLocationMapPreview(accentColor: Color) {
 }
 
 @Composable
-private fun AudioAttachmentPlayer(
-    attachment: AttachmentPreview,
-    textColor: Color
-) {
-    val context = LocalContext.current
-    val player = remember(attachment.uri) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
-            repeatMode = Player.REPEAT_MODE_OFF
-            prepare()
-        }
-    }
-    var isPlaying by remember(attachment.uri) { mutableStateOf(false) }
-    var durationMillis by remember(attachment.uri) { mutableStateOf(0L) }
-    var positionMillis by remember(attachment.uri) { mutableStateOf(0L) }
-    var hasError by remember(attachment.uri) { mutableStateOf(false) }
-    val progress = if (durationMillis > 0) {
-        (positionMillis.toFloat() / durationMillis.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                val playerDuration = player.duration.takeIf { it > 0L }
-                if (playerDuration != null) {
-                    durationMillis = playerDuration
-                }
-                if (playbackState == Player.STATE_ENDED) {
-                    isPlaying = false
-                    positionMillis = 0L
-                    player.seekTo(0L)
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
-                isPlaying = isPlayingNow
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                hasError = true
-                isPlaying = false
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            isPlaying = false
-            player.removeListener(listener)
-            player.release()
-        }
-    }
-
-    LaunchedEffect(player, isPlaying, hasError) {
-        while (!hasError && (isPlaying || player.playbackState == Player.STATE_READY)) {
-            positionMillis = player.currentPosition.coerceAtLeast(0L)
-            player.duration.takeIf { it > 0L }?.let { durationMillis = it }
-            delay(250L)
-        }
-    }
-
-    Surface(
-        color = Color.Black.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(QuataOrange),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIconButton(
-                    enabled = !hasError,
-                    onClick = {
-                        if (isPlaying) {
-                            player.pause()
-                            isPlaying = false
-                        } else {
-                            if (player.playbackState == Player.STATE_ENDED) {
-                                player.seekTo(0L)
-                            }
-                            player.play()
-                        }
-                    }
-                ) {
-                    CompactIcon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.video_editor_play_pause),
-                        tint = Color.White
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(26.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(24) { index ->
-                        val barHeight = (8 + ((index * 7) % 18)).dp
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(barHeight)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(textColor.copy(alpha = if (index / 24f <= progress) 0.82f else 0.28f))
-                        )
-                    }
-                }
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(999.dp)),
-                    color = textColor.copy(alpha = 0.78f),
-                    trackColor = textColor.copy(alpha = 0.18f)
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CompactIcon(
-                        Icons.Filled.Mic,
-                        contentDescription = null,
-                        tint = textColor.copy(alpha = 0.68f),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = if (hasError) {
-                            attachment.name
-                        } else {
-                            formatChatAudioMillis(if (isPlaying) positionMillis else durationMillis)
-                        },
-                        color = textColor.copy(alpha = 0.68f),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun LinkifiedMessageText(
     text: String,
     color: Color,
@@ -2481,13 +2327,6 @@ private fun Message.attachmentPreview(): AttachmentPreview? {
         uri = uri,
         mimeType = attachmentMimeType
     )
-}
-
-private fun formatChatAudioMillis(millis: Long): String {
-    val totalSeconds = (millis / 1000L).coerceAtLeast(0L)
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%02d:%02d".format(minutes, seconds)
 }
 
 private fun Message.chatTimestampLabel(): String {

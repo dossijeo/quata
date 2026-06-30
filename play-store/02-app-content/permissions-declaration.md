@@ -9,7 +9,6 @@
 - `android.permission.ACCESS_FINE_LOCATION`
 - `android.permission.POST_NOTIFICATIONS`
 - `android.permission.RECEIVE_BOOT_COMPLETED`
-- `android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
 
 Feature:
 
@@ -22,7 +21,6 @@ Feature:
 - Ubicación aproximada/precisa: función SOS y posible preservación de metadatos de ubicación en contenido multimedia.
 - Notificaciones: avisos de chats, actividad social o eventos relevantes.
 - Boot completed: reactivar tareas o recepción de notificaciones tras reinicio si aplica.
-- Ignorar optimizaciones de batería: mantener fiabilidad en funciones sensibles como notificaciones o SOS. Usar con cautela y solo si la app lo solicita de forma contextual.
 
 ## Permisos sensibles no detectados
 
@@ -34,6 +32,5 @@ Feature:
 
 ## Pendiente de validar
 
-- Si la app realmente necesita `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` para publicación pública.
 - Si el uso de ubicación debe explicarse con pantalla previa antes del diálogo del sistema.
 - Si alguna función de video/audio requiere declarar micrófono en builds futuros.

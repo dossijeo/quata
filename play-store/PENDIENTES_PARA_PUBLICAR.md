@@ -87,5 +87,4 @@ Ultima revision: 2026-06-21.
 - Paises iniciales de lanzamiento.
 - SLA de soporte y moderacion.
 - Politica detallada de ubicacion en SOS.
-- Si se mantiene `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
 - Si se implementa eliminacion de cuenta dentro de la app antes del primer envio.

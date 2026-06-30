@@ -1164,6 +1164,11 @@ private fun ReelVideo(
             .clipToBounds()
             .background(Color.Transparent)
     ) {
+        val videoResizeMode = if (isLandscapeLayout) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT
+        } else {
+            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        }
         AndroidView(
             modifier = Modifier
                 .fillMaxSize()
@@ -1173,7 +1178,7 @@ private fun ReelVideo(
                     .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
                     this.player = player
                     useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    resizeMode = videoResizeMode
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -1182,7 +1187,7 @@ private fun ReelVideo(
             },
             update = {
                 it.useController = false
-                it.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                it.resizeMode = videoResizeMode
                 if (it.player !== player) {
                     it.player = player
                 }

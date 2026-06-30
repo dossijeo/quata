@@ -391,6 +391,14 @@ data class QuataChatThreadRequest(
 data class QuataChatPrivateThreadRequest(val p_actor_profile_id: String, val p_peer_profile_id: String)
 
 @Serializable
+data class QuataChatConversationCandidatesRequest(
+    val p_actor_profile_id: String,
+    val p_query: String = "",
+    val p_limit: Int = 30,
+    val p_offset: Int = 0
+)
+
+@Serializable
 data class QuataChatStartThreadRequest(
     val p_actor_profile_id: String,
     val p_recipient_profile_ids: List<String> = emptyList(),
@@ -428,7 +436,8 @@ data class QuataChatSendMessageRequest(
     val p_thread_id: Long,
     val p_message: String = "",
     val p_file_ids: List<Long> = emptyList(),
-    val p_reply_to_message_id: Long? = null
+    val p_reply_to_message_id: Long? = null,
+    val p_client_message_id: String? = null
 )
 
 @Serializable

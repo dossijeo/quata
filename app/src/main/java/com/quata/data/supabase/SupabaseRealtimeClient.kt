@@ -73,11 +73,15 @@ class SupabaseRealtimeClient(
                     "Realtime message event=${parsed.event.orEmpty()} topic=${parsed.topic.orEmpty()} status=${parsed.payload.statusOrNull().orEmpty()} table=${parsed.table.orEmpty()}"
                 )
                 when {
-                    parsed.event == "phx_reply" && parsed.payload.statusOrNull() == "ok" -> {
+                    parsed.event == "phx_reply" &&
+                        parsed.topic.orEmpty().startsWith("realtime:") &&
+                        parsed.payload.statusOrNull() == "ok" -> {
                         Log.d(TAG, "Realtime subscribed")
                         onStatus(RealtimeStatus.Subscribed)
                     }
-                    parsed.event == "phx_reply" && parsed.payload.statusOrNull() == "error" -> {
+                    parsed.event == "phx_reply" &&
+                        parsed.topic.orEmpty().startsWith("realtime:") &&
+                        parsed.payload.statusOrNull() == "error" -> {
                         Log.w(TAG, "Realtime join failed")
                         onStatus(RealtimeStatus.Error)
                     }

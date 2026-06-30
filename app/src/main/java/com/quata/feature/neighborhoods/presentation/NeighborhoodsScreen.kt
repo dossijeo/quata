@@ -79,6 +79,9 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
@@ -87,6 +90,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.withoutPostShortcodes
+import com.quata.core.ui.components.AudioAttachmentPlayer
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
@@ -468,6 +472,7 @@ fun CommunityProfileScreen(
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     val context = LocalContext.current
     val template = quataTheme()
+    val avatarUrl = profile.user.avatarUrl?.trim()?.takeIf { it.isNotBlank() }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(showPosts) {
@@ -515,7 +520,20 @@ fun CommunityProfileScreen(
                     }
                     Spacer(Modifier.height(18.dp))
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        ProfileAvatar(profile.user, Modifier.size(92.dp), isLoading = isRefreshingProfile)
+                        ProfileAvatar(
+                            profile.user,
+                            Modifier
+                                .size(92.dp)
+                                .clickable(enabled = avatarUrl != null) {
+                                    val imageUri = avatarUrl ?: return@clickable
+                                    selectedAttachment = AttachmentPreview(
+                                        name = profile.user.displayName,
+                                        uri = imageUri,
+                                        mimeType = "image/jpeg"
+                                    )
+                                },
+                            isLoading = isRefreshingProfile
+                        )
                     }
                     Spacer(Modifier.height(24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -657,20 +675,30 @@ private fun ProfileAttachmentsSection(
 @Composable
 private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Unit) {
     val template = quataTheme()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val preview = attachment.toAttachmentPreview()
+    if (preview.isAudio) {
+        AudioAttachmentPlayer(
+            attachment = preview,
+            textColor = template.colors.textPrimary
+        )
+        return
+    }
+    val cardModifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
+        .background(template.colors.surface, RoundedCornerShape(16.dp))
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-            .background(template.colors.surface, RoundedCornerShape(16.dp))
-            .clickable(onClick = onOpen)
+            .then(cardModifier.clickable(onClick = onOpen))
             .padding(10.dp)
     ) {
-        AttachmentThumbnail(attachment.toAttachmentPreview(), modifier = Modifier.size(58.dp))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(attachment.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(attachment.senderName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AttachmentThumbnail(preview, modifier = Modifier.size(58.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(attachment.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(attachment.senderName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
+            }
         }
     }
 }
@@ -1024,6 +1052,7 @@ private fun MiniFeedAction(
 @Composable
 private fun ProfileVideoPlayer(videoUrl: String) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val player = remember(videoUrl) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(videoUrl))
@@ -1034,6 +1063,16 @@ private fun ProfileVideoPlayer(videoUrl: String) {
     }
     DisposableEffect(player) {
         onDispose { player.release() }
+    }
+    DisposableEffect(player, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                player.playWhenReady = false
+                player.pause()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     AndroidView(
         modifier = Modifier

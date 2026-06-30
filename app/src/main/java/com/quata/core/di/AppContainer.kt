@@ -59,7 +59,6 @@ class AppContainer(context: Context) {
     val authRepository: AuthRepository = AuthRepositoryImpl(
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
-        wordpressClient = networkModule.quataWordPressClient,
         sessionManager = sessionManager,
         googleAuthHelper = GoogleAuthHelper()
     )

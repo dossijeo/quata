@@ -1,7 +1,6 @@
 package com.quata.feature.auth.data
 
 import android.content.Context
-import android.provider.Settings
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.common.mapFailureToUserFacing
@@ -15,13 +14,11 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
-import com.quata.wordpress.QuataWordPressClient
 import java.security.MessageDigest
 
 class AuthRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
-    private val wordpressClient: QuataWordPressClient,
     private val sessionManager: SessionManager,
     private val googleAuthHelper: GoogleAuthHelper
 ) : AuthRepository {
@@ -63,21 +60,13 @@ class AuthRepositoryImpl(
             val phoneLocal = request.phone.onlyDigits()
             val countryCode = request.countryCode.onlyDigits()
             val phoneE164 = "+$countryCode$phoneLocal"
-            val deviceId = appContext.androidDeviceId()
 
-            val guard = wordpressClient.checkRegistrationGuard(
-                deviceId = deviceId,
-                displayName = request.displayName,
-                barrio = request.neighborhood,
-                phone = phoneE164,
-                phoneLocal = phoneLocal,
-                countryCode = countryCode,
-                url = "android://register"
-            )
-            if (guard.data?.blocked == true) {
-                error(guard.data.message ?: "Registro bloqueado temporalmente")
-            }
-            if (supabaseApi.getProfileByPhoneLocal(phoneLocal) != null) {
+            val existingProfile = supabaseApi.getProfileByPhoneIdentity(countryCode, phoneLocal)
+            if (existingProfile != null) {
+                if (existingProfile.matchesPassword(request.password)) {
+                    return@runCatching supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password)
+                        .toSession(fallbackProfile = existingProfile)
+                }
                 error("Ya existe una cuenta con ese telefono")
             }
 
@@ -101,16 +90,6 @@ class AuthRepositoryImpl(
                 )
             ) ?: error("No se pudo crear el perfil")
 
-            wordpressClient.recordRegistrationGuard(
-                deviceId = deviceId,
-                profileId = profile.id,
-                displayName = request.displayName,
-                barrio = request.neighborhood,
-                phone = phoneE164,
-                phoneLocal = phoneLocal,
-                countryCode = countryCode,
-                url = "android://register"
-            )
             supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession(
                 fallbackProfile = profile
             )
@@ -212,10 +191,8 @@ class AuthRepositoryImpl(
         )
     }
 
-    private fun Context.androidDeviceId(): String =
-        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-            ?.takeIf { it.isNotBlank() }
-            ?: "android-device"
+    private fun CommunityProfile.matchesPassword(password: String): Boolean =
+        pass_hash.equals(sha256(password), ignoreCase = true) || pass_plain == password
 
     private fun phoneEmail(countryCode: String, phone: String): String =
         "${countryCode.onlyDigits()}${phone.onlyDigits()}@phone.quata.app"

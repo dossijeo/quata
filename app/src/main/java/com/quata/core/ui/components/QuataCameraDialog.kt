@@ -88,6 +88,7 @@ import androidx.core.content.PermissionChecker
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quata.R
@@ -436,6 +437,17 @@ private fun ConfigureQuataCameraSystemBars() {
     val context = LocalContext.current
     val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
     val activity = context.findQuataCameraActivity() as? ComponentActivity
+    val originalSystemBars = remember(activity) {
+        activity?.window?.let { window ->
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            QuataCameraOriginalSystemBars(
+                statusBarColor = window.statusBarColor,
+                navigationBarColor = window.navigationBarColor,
+                lightStatusBars = controller.isAppearanceLightStatusBars,
+                lightNavigationBars = controller.isAppearanceLightNavigationBars
+            )
+        }
+    }
     SideEffect {
         activity?.enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
@@ -445,15 +457,31 @@ private fun ConfigureQuataCameraSystemBars() {
             WindowCompat.setDecorFitsSystemWindows(window, false)
         }
     }
-    DisposableEffect(activity) {
+    DisposableEffect(activity, originalSystemBars) {
         if (activity == null) {
             return@DisposableEffect onDispose {}
         }
         onDispose {
-            activity.enableEdgeToEdge()
+            val window = activity.window
+            if (originalSystemBars != null) {
+                window.statusBarColor = originalSystemBars.statusBarColor
+                window.navigationBarColor = originalSystemBars.navigationBarColor
+                val controller = WindowInsetsControllerCompat(window, window.decorView)
+                controller.isAppearanceLightStatusBars = originalSystemBars.lightStatusBars
+                controller.isAppearanceLightNavigationBars = originalSystemBars.lightNavigationBars
+            } else {
+                activity.enableEdgeToEdge()
+            }
         }
     }
 }
+
+private data class QuataCameraOriginalSystemBars(
+    val statusBarColor: Int,
+    val navigationBarColor: Int,
+    val lightStatusBars: Boolean,
+    val lightNavigationBars: Boolean
+)
 
 @Composable
 private fun rememberQuataCameraNavigationBarsPadding(): QuataCameraNavigationBarsPadding {

@@ -7,11 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.verify.domain.DomainVerificationManager
 import android.content.pm.verify.domain.DomainVerificationUserState
-import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -127,9 +125,7 @@ private fun StartupSettingsPrompts(enabled: Boolean) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var activeStep by rememberSaveable { mutableStateOf<StartupPermissionStep?>(null) }
-    var activeBackgroundIssue by rememberSaveable { mutableStateOf<BackgroundAccessIssue?>(null) }
     var notificationStepHandled by rememberSaveable { mutableStateOf(false) }
-    var backgroundStepHandled by rememberSaveable { mutableStateOf(false) }
     var appLinksStepHandled by rememberSaveable { mutableStateOf(false) }
     var waitingForExternalSettings by rememberSaveable { mutableStateOf(false) }
     var refreshTick by rememberSaveable { mutableStateOf(0) }
@@ -150,12 +146,6 @@ private fun StartupSettingsPrompts(enabled: Boolean) {
         if (!enabled || waitingForExternalSettings || activeStep != null) return
         if (!notificationStepHandled && context.needsNotificationPermission()) {
             activeStep = StartupPermissionStep.Notifications
-            return
-        }
-        val backgroundIssue = context.backgroundAccessIssue()
-        if (!backgroundStepHandled && backgroundIssue != null) {
-            activeBackgroundIssue = backgroundIssue
-            activeStep = StartupPermissionStep.BackgroundAccess
             return
         }
         if (!appLinksStepHandled && context.needsAppLinksUserApproval()) {
@@ -190,24 +180,6 @@ private fun StartupSettingsPrompts(enabled: Boolean) {
         }
     }
 
-    val currentIssue = activeBackgroundIssue.takeIf { activeStep == StartupPermissionStep.BackgroundAccess }
-    if (currentIssue != null) {
-        BackgroundAccessPrompt(
-            issue = currentIssue,
-            onDismiss = {
-                backgroundStepHandled = true
-                advanceStartupPermissionFlow()
-            },
-            onOpenSettings = {
-                backgroundStepHandled = true
-                waitingForExternalSettings = true
-                advanceStartupPermissionFlow()
-                context.openBackgroundAccessSettings(currentIssue)
-            }
-        )
-        return
-    }
-
     if (activeStep == StartupPermissionStep.AppLinks) {
         AppLinksPrompt(
             onDismiss = {
@@ -228,42 +200,7 @@ private fun StartupSettingsPrompts(enabled: Boolean) {
 
 private enum class StartupPermissionStep {
     Notifications,
-    BackgroundAccess,
     AppLinks
-}
-
-@Composable
-private fun BackgroundAccessPrompt(
-    issue: BackgroundAccessIssue,
-    onDismiss: () -> Unit,
-    onOpenSettings: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.background_access_title)) },
-        text = {
-            Text(
-                stringResource(
-                    when (issue) {
-                        BackgroundAccessIssue.DataSaver -> R.string.background_access_data_body
-                        BackgroundAccessIssue.BatteryOptimization -> R.string.background_access_battery_body
-                    }
-                )
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onOpenSettings
-            ) {
-                Text(stringResource(R.string.background_access_open_settings))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.background_access_not_now))
-            }
-        }
-    )
 }
 
 @Composable
@@ -286,27 +223,6 @@ private fun AppLinksPrompt(
             }
         }
     )
-}
-
-private enum class BackgroundAccessIssue {
-    DataSaver,
-    BatteryOptimization
-}
-
-private fun Context.backgroundAccessIssue(): BackgroundAccessIssue? {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        val connectivityManager = getSystemService(ConnectivityManager::class.java)
-        if (connectivityManager?.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED) {
-            return BackgroundAccessIssue.DataSaver
-        }
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        val powerManager = getSystemService(PowerManager::class.java)
-        if (powerManager?.isIgnoringBatteryOptimizations(appPackageName()) == false) {
-            return BackgroundAccessIssue.BatteryOptimization
-        }
-    }
-    return null
 }
 
 private fun Context.needsNotificationPermission(): Boolean =
@@ -338,39 +254,6 @@ private fun Context.needsAppLinksUserApproval(): Boolean {
         }
     }
     return hasUnapprovedHost || (!hasSelectedHost && hasVerifiedHost && !hasSeenAppLinksPrompt())
-}
-
-@SuppressLint("BatteryLife")
-private fun Context.openBackgroundAccessSettings(issue: BackgroundAccessIssue) {
-    val packageUri = Uri.parse("package:${appPackageName()}")
-    val appDetailsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-    val primaryIntent = when (issue) {
-        BackgroundAccessIssue.DataSaver ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                Intent(Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS, packageUri)
-            } else {
-                appDetailsIntent
-            }
-        BackgroundAccessIssue.BatteryOptimization ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
-            } else {
-                appDetailsIntent
-            }
-    }
-    runCatching { startActivity(primaryIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        .recoverCatching {
-            val fallback = when (issue) {
-                BackgroundAccessIssue.BatteryOptimization ->
-                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                BackgroundAccessIssue.DataSaver ->
-                    appDetailsIntent
-            }
-            startActivity(fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-        .recoverCatching {
-            startActivity(appDetailsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
 }
 
 private fun Context.openAppLinksSettings() {

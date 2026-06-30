@@ -24,6 +24,7 @@ class ChatViewModel(
     private var backendMessages: List<Message> = emptyList()
     private var localEchoMessages: List<Message> = emptyList()
     private var optimisticEditedMessages: Map<String, Message> = emptyMap()
+    private var retryDraft: OutgoingDraft? = null
 
     init {
         repository.setActiveConversation(conversationId)
@@ -144,6 +145,12 @@ class ChatViewModel(
         }
     }
 
+    fun cleanupEmptyConversationIfNeeded() {
+        if (!isFavoritesConversation && backendMessages.isEmpty() && localEchoMessages.isEmpty()) {
+            repository.cleanupEmptyConversation(conversationId)
+        }
+    }
+
     private fun send() = viewModelScope.launch {
         val text = _uiState.value.messageText
         val attachmentUri = _uiState.value.attachmentUri
@@ -159,13 +166,17 @@ class ChatViewModel(
 
         val editingMessage = _uiState.value.editingMessage
         val replyToMessage = _uiState.value.replyToMessage
-        val draft = OutgoingDraft(
-            text = text,
-            attachmentUri = attachmentUri,
-            attachmentName = attachmentName,
-            attachmentMimeType = attachmentMimeType,
-            replyToMessage = replyToMessage
-        )
+        val draft = retryDraft
+            ?.takeIf { it.matches(text, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
+            ?: OutgoingDraft(
+                text = text,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType,
+                replyToMessage = replyToMessage,
+                clientMessageId = UUID.randomUUID().toString()
+            )
+        retryDraft = null
         val optimisticMessage = if (editingMessage == null) createOptimisticMessage(draft) else null
         val optimisticEditedMessage = editingMessage?.copy(
             text = text,
@@ -196,13 +207,14 @@ class ChatViewModel(
 
         val result = when {
             editingMessage != null -> repository.editMessage(editingMessage.id, text)
-            replyToMessage != null -> repository.sendReply(conversationId, text, replyToMessage)
+            replyToMessage != null -> repository.sendReply(conversationId, text, replyToMessage, draft.clientMessageId)
             else -> repository.sendMessage(
                 conversationId = conversationId,
                 text = text,
                 attachmentUri = attachmentUri,
                 attachmentName = attachmentName,
-                attachmentMimeType = attachmentMimeType
+                attachmentMimeType = attachmentMimeType,
+                clientMessageId = draft.clientMessageId
             )
         }
         result
@@ -261,7 +273,7 @@ class ChatViewModel(
         val currentUser = _uiState.value.currentUser
         val now = System.currentTimeMillis()
         return Message(
-            id = "local:${UUID.randomUUID()}",
+            id = "local:${draft.clientMessageId}",
             conversationId = conversationId,
             senderId = currentUser?.id.orEmpty(),
             senderName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Tu",
@@ -293,6 +305,7 @@ class ChatViewModel(
     private fun restoreDraftIfComposerIsEmpty(draft: OutgoingDraft) {
         val state = _uiState.value
         if (state.messageText.isNotBlank() || state.attachmentUri != null) return
+        retryDraft = draft
         _uiState.value = state.copy(
             messageText = draft.text,
             attachmentUri = draft.attachmentUri,
@@ -520,6 +533,7 @@ class ChatViewModel(
     }
 
     override fun onCleared() {
+        cleanupEmptyConversationIfNeeded()
         repository.setActiveConversation(null)
         super.onCleared()
     }
@@ -530,5 +544,19 @@ private data class OutgoingDraft(
     val attachmentUri: String?,
     val attachmentName: String?,
     val attachmentMimeType: String?,
-    val replyToMessage: Message?
-)
+    val replyToMessage: Message?,
+    val clientMessageId: String
+) {
+    fun matches(
+        text: String,
+        attachmentUri: String?,
+        attachmentName: String?,
+        attachmentMimeType: String?,
+        replyToMessage: Message?
+    ): Boolean =
+        this.text == text &&
+            this.attachmentUri == attachmentUri &&
+            this.attachmentName == attachmentName &&
+            this.attachmentMimeType == attachmentMimeType &&
+            this.replyToMessage?.id == replyToMessage?.id
+}

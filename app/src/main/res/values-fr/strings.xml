@@ -30,9 +30,6 @@
     <string name="common_saving">Enregistrement&#8230;</string>
     <string name="common_search">Chercher</string>
     <string name="common_live">LIVE</string>
-    <string name="background_access_title">Activer les notifications en arriere-plan</string>
-    <string name="background_access_data_body">Pour recevoir les alertes de chat avec Quata minimisee, autorise les donnees en arriere-plan et les donnees sans restriction pour l\'appli.</string>
-    <string name="background_access_battery_body">Pour recevoir les alertes de chat avec Quata minimisee, laisse Android executer l\'appli sans restriction de batterie.</string>
     <string name="background_access_open_settings">Ouvrir les reglages</string>
     <string name="background_access_not_now">Pas maintenant</string>
     <string name="app_links_title">Ouvrir les liens Q&#252;ata dans l\'appli</string>
@@ -110,6 +107,15 @@
     <string name="conversations_subtitle">Conversations recentes</string>
     <string name="conversations_search_placeholder">Chercher une conversation...</string>
     <string name="conversations_loading">Chargement chats...</string>
+    <string name="conversations_new_chat">Nouveau chat</string>
+    <string name="conversations_new_chat_title">Nouveau chat</string>
+    <string name="conversations_new_chat_search_placeholder">Chercher par nom, quartier ou telephone...</string>
+    <string name="conversations_new_chat_contacts">Tes contacts</string>
+    <string name="conversations_new_chat_following">Les personnes que tu suis</string>
+    <string name="conversations_new_chat_followers">Les personnes qui te suivent</string>
+    <string name="conversations_new_chat_other_neighborhoods">Autres quartiers</string>
+    <string name="conversations_new_chat_unknown_neighborhood">Sans quartier</string>
+    <string name="conversations_new_chat_no_results">Aucun utilisateur pour cette recherche.</string>
     <string name="conversation_message">Message</string>
     <string name="conversation_member_count">%1$d membres</string>
     <string name="conversation_reactivate_notifications">Reactiver les notifications</string>

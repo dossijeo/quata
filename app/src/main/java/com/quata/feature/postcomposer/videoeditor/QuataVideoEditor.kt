@@ -138,6 +138,9 @@ import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.Size as GlSize
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.BaseGlShaderProgram
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.effect.Crop
 import androidx.media3.effect.DefaultVideoFrameProcessor
 import androidx.media3.effect.FrameDropEffect
@@ -217,6 +220,7 @@ fun QuataVideoEditorDialog(
     }
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val view = LocalView.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
     val metadata = rememberVideoEditorMetadata(editorSourceUri)
@@ -330,6 +334,23 @@ fun QuataVideoEditorDialog(
             player.removeListener(listener)
             player.release()
         }
+        }
+    }
+
+    DisposableEffect(player, lifecycleOwner) {
+        if (player == null) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                    player.pause()
+                    isPlaying = false
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
     }
 

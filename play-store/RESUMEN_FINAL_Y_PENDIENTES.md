@@ -71,7 +71,6 @@ Formato:
   - Cambio de idioma del sistema.
   - Descarga bajo demanda si falta el paquete del idioma.
 - Verificar que la eliminacion de cuenta funciona o que el proceso por email esta documentado y atendido.
-- Revisar si `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` es imprescindible para el primer envio.
 - Sustituir la ubicacion de emulador "Mountain View, California" en capturas si se prefiere una demo mas alineada con Guinea Ecuatorial.
 - Revisar licencias de los medios demo usados en capturas si se publican tal cual.
 

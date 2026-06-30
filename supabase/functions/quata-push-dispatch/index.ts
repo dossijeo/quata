@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+﻿import { createClient } from "npm:@supabase/supabase-js@2";
 
 type ServiceAccount = {
   project_id: string;
@@ -16,6 +16,10 @@ type ChatMessage = {
   sender_profile_id: string;
   body: string | null;
   deleted_at: string | null;
+};
+
+type ChatAttachment = {
+  mime_type: string | null;
 };
 
 type ChatThread = {
@@ -104,12 +108,18 @@ async function dispatchChatPush(messageId: number) {
   if (!message || (message as ChatMessage).deleted_at) return { result: true, skipped: "message_not_found" };
   const chatMessage = message as ChatMessage;
 
-  const [{ data: thread, error: threadError }, { data: sender, error: senderError }] = await Promise.all([
+  const [
+    { data: thread, error: threadError },
+    { data: sender, error: senderError },
+    { data: attachments, error: attachmentsError },
+  ] = await Promise.all([
     admin.from("chat_threads").select("id,type,subject,title").eq("id", chatMessage.thread_id).maybeSingle(),
     admin.from("community_profiles").select("id,display_name,nombre").eq("id", chatMessage.sender_profile_id).maybeSingle(),
+    admin.from("chat_attachments").select("mime_type").eq("message_id", chatMessage.id),
   ]);
   if (threadError) throw threadError;
   if (senderError) throw senderError;
+  if (attachmentsError) throw attachmentsError;
   if (!thread || !sender) return { result: true, skipped: "missing_thread_or_sender" };
 
   const { data: participants, error: participantsError } = await admin
@@ -140,7 +150,7 @@ async function dispatchChatPush(messageId: number) {
   const serviceAccount = firebaseServiceAccount();
   const accessToken = await firebaseAccessToken(serviceAccount);
   const title = notificationTitle(thread as ChatThread, sender as CommunityProfile);
-  const body = notificationBody(chatMessage);
+  const body = notificationBody(chatMessage, (attachments ?? []) as ChatAttachment[]);
   let sent = 0;
   let skipped = 0;
 
@@ -267,12 +277,17 @@ function notificationTitle(thread: ChatThread, sender: CommunityProfile): string
   return thread.title?.trim() || thread.subject?.trim() || displayName(sender) || "Chat";
 }
 
-function notificationBody(message: ChatMessage): string {
-  return message.body?.trim() || "Nuevo adjunto";
+function notificationBody(message: ChatMessage, attachments: ChatAttachment[]): string {
+  const text = message.body?.trim();
+  if (text) return text;
+  if (attachments.some((attachment) => attachment.mime_type?.toLowerCase().startsWith("audio/"))) {
+    return "Has recibido una nota de voz";
+  }
+  return "Nuevo adjunto";
 }
 
 function displayName(profile: CommunityProfile): string {
-  return profile.display_name?.trim() || profile.nombre?.trim() || "Qüata";
+  return profile.display_name?.trim() || profile.nombre?.trim() || "Q\u00fcata";
 }
 
 function firebaseServiceAccount(): ServiceAccount {

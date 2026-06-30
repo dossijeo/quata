@@ -136,6 +136,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const email = profileEmail(profile, payload);
   const displayName = displayNameFor(profile);
+  const authPassword = await supabaseAuthPassword(profile.id, password, serviceRoleKey);
   const userMetadata = {
     profile_id: profile.id,
     display_name: displayName,
@@ -147,7 +148,7 @@ async function handleRequest(req: Request): Promise<Response> {
   const authUserId = await ensureAuthUser(admin, {
     profile,
     email,
-    password,
+    password: authPassword,
     userMetadata,
   });
 
@@ -158,7 +159,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
     email,
-    password,
+    password: authPassword,
   });
 
   if (signInError || !signInData.session) {
@@ -287,6 +288,11 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function supabaseAuthPassword(profileId: string, legacyPassword: string, serviceRoleKey: string): Promise<string> {
+  const hash = await sha256(`${profileId}:${legacyPassword}:${serviceRoleKey}`);
+  return `Qa-${hash}`;
 }
 
 function profileEmail(profile: CommunityProfile, payload: BridgeRequest): string {

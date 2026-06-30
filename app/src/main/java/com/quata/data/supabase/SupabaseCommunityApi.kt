@@ -102,6 +102,20 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         cacheMode = SupabaseCacheMode.NETWORK_ONLY
     )
 
+    suspend fun getProfileByPhoneIdentity(countryCode: String, phoneLocal: String): CommunityProfile? {
+        val normalizedCountryCode = digitsOnly(countryCode)
+        val normalizedPhoneLocal = digitsOnly(phoneLocal)
+        val phoneE164 = "+$normalizedCountryCode$normalizedPhoneLocal"
+        return client.getSingleOrNull(
+            "community_profiles",
+            mapOf(
+                "select" to PROFILE_AUTH_SELECT,
+                "or" to "(phone_e164.eq.$phoneE164,and(country_code.eq.$normalizedCountryCode,phone_local.eq.$normalizedPhoneLocal),and(code.eq.$normalizedCountryCode,telefono.eq.$normalizedPhoneLocal))"
+            ),
+            cacheMode = SupabaseCacheMode.NETWORK_ONLY
+        )
+    }
+
     suspend fun loginByPhoneLocal(phoneLocal: String, passwordPlain: String, updateLastLogin: Boolean = true): LoginResult? {
         val profile = getProfileByPhoneLocal(phoneLocal) ?: return null
         val sha = sha256(passwordPlain)
@@ -535,6 +549,16 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             QuataChatPrivateThreadRequest(profileId, peerProfileId)
         )
 
+    suspend fun searchChatConversationCandidates(
+        profileId: String,
+        query: String = "",
+        limit: Int = 30,
+        offset: Int = 0
+    ): JsonElement = client.rpc<QuataChatConversationCandidatesRequest, JsonElement>(
+        "quata_chat_search_conversation_candidates",
+        QuataChatConversationCandidatesRequest(profileId, query, limit, offset)
+    )
+
     suspend fun startChatThread(
         profileId: String,
         participantIds: List<String>,
@@ -590,10 +614,11 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         threadId: Long,
         message: String,
         fileIds: List<Long> = emptyList(),
-        replyToMessageId: Long? = null
+        replyToMessageId: Long? = null,
+        clientMessageId: String? = null
     ): JsonElement = client.rpc<QuataChatSendMessageRequest, JsonElement>(
         "quata_chat_send_message",
-        QuataChatSendMessageRequest(profileId, threadId, message, fileIds, replyToMessageId)
+        QuataChatSendMessageRequest(profileId, threadId, message, fileIds, replyToMessageId, clientMessageId)
     )
 
     suspend fun listChatAttachments(profileId: String, threadId: Long, page: Int = 1, perPage: Int = 50, type: String? = null): JsonElement =
@@ -662,6 +687,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     suspend fun deleteChatThread(profileId: String, threadId: Long): JsonElement =
         client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_delete_thread", QuataChatThreadActionRequest(profileId, threadId))
+
+    suspend fun cleanupEmptyPrivateThread(profileId: String, threadId: Long): JsonElement =
+        client.rpc<QuataChatThreadActionRequest, JsonElement>(
+            "quata_chat_cleanup_empty_private_thread",
+            QuataChatThreadActionRequest(profileId, threadId)
+        )
 
     suspend fun restoreChatThread(profileId: String, threadId: Long): JsonElement =
         client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_restore_thread", QuataChatThreadActionRequest(profileId, threadId))

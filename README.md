@@ -1,15 +1,26 @@
 # Q&uuml;ata Android
 
-Version: **0.10.0**
-Fecha de version: **2026-06-29**
+Version: **0.10.1**
+Fecha de version: **2026-06-30**
 Estado: **beta privada avanzada con chat Supabase, Realtime y Firebase**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.10.0` cierra la migracion grande de mensajeria: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
+La version `0.10.1` afina la migracion grande de mensajeria: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Nuevo boton flotante **Nuevo chat** en la lista de conversaciones, con selector de usuarios categorizado por contactos, seguidos, seguidores, barrio propio y otros barrios.
+- Busqueda de nuevos chats paginada desde Supabase por nombre, barrio o telefono, sin exponer el numero de telefono en la interfaz.
+- Las conversaciones privadas abiertas pero vacias se limpian automaticamente al salir si no se envio ningun mensaje.
+- Envio de mensajes con `client_message_id` para evitar duplicados cuando una peticion se reintenta o Realtime confirma tarde.
+- Boton de deshacer borrado de conversacion reubicado a la izquierda para convivir con el nuevo boton de chat sin saltos visuales.
+- Auth bridge de Supabase reforzado para usuarios legacy existentes, generando credenciales Supabase de forma transparente durante el login.
+- Push Firebase ajustado para notas de voz, conversaciones silenciadas y entregas solo cuando la app no esta visible.
+- Se eliminan los avisos y permisos de exclusion de ahorro de bateria/datos en segundo plano: el segundo plano queda cubierto por FCM.
+- Feed y preview de publicacion de video usan recorte en portrait y contain en landscape, igualando el comportamiento de las imagenes.
+- Los adjuntos de audio compartidos desde perfiles usan el reproductor embebido de notas de voz en lugar de abrir un reproductor externo.
+- El visor de documentos genera preview para PDF, documentos ofimaticos y formatos de texto plano habituales como XML, HTML, CSS, CSV, Markdown y logs.
 - Chat migrado a Supabase: esquema propio de conversaciones, participantes, mensajes, adjuntos, favoritos, administradores, SOS y comunidades, con RPCs transaccionales y sin dependencias Better Messages en Android.
 - Supabase Realtime sustituye el polling del chat: la app se suscribe a cambios de conversaciones/mensajes y reconecta al recuperar red o renovar sesion.
 - Sesion Supabase con refresh preventivo global al arrancar y volver a primer plano; al caducar el token se renueva con `refresh_token` antes de romper Realtime o llamadas protegidas.
@@ -247,7 +258,6 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Permiso de camara para capturador integrado de foto/video.
 - Permiso de microfono para video con audio y grabadora de audio de chat.
 - Permiso de ubicacion para publicaciones de imagen y SOS.
-- Exclusion de optimizacion de bateria cuando hace falta recibir avisos en segundo plano.
 - Ajuste de enlaces compatibles para abrir `egquata.com` directamente en Q&uuml;ata.
 - Deep links de posts y chats mediante fragmentos como `https://egquata.com/#post-...`.
 - Reutilizacion de instancia abierta para evitar multiples actividades al abrir enlaces.
@@ -363,9 +373,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 21
-versionName = 0.10.0
-APP_VERSION_DATE = 2026-06-29
+versionCode = 22
+versionName = 0.10.1
+APP_VERSION_DATE = 2026-06-30
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

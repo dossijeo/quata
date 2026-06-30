@@ -7,7 +7,7 @@ Edge Function para que la app legacy pueda obtener una sesion real de Supabase A
 1. Recibe telefono/perfil y password legacy.
 2. Busca el perfil en `public.community_profiles`.
 3. Valida `pass_hash` o `pass_plain`.
-4. Crea o actualiza el usuario en Supabase Auth.
+4. Crea o actualiza el usuario en Supabase Auth con una password interna fuerte derivada en servidor.
 5. Rellena `community_profiles.auth_user_id`.
 6. Devuelve `session.access_token` y `session.refresh_token`.
 
@@ -100,3 +100,5 @@ Para Realtime, enviar el mismo `access_token` antes de suscribirse o al renovar 
 ## Nota De Seguridad
 
 Esto mantiene compatibilidad legacy, pero mueve la validacion de password al servidor. Cuando se elimine `pass_plain`, bastara con dejar `pass_hash`.
+
+Las passwords legacy se validan tal como existen en `community_profiles`, aunque sean cortas. Para Supabase Auth no se reutiliza literalmente esa password: la funcion deriva una credencial interna larga para cumplir la politica de Auth y devolver una sesion `authenticated` transparente para la app.

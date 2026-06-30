@@ -87,6 +87,8 @@ import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.session.SessionManager
+import com.quata.core.ui.components.AttachmentPreview
+import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataScreen
@@ -127,6 +129,7 @@ fun ProfileScreen(
     var isPhotoMenuOpen by rememberSaveable { mutableStateOf(false) }
     var accountPage by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedAvatarPreview by remember { mutableStateOf<AttachmentPreview?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         viewModel.onEvent(ProfileUiEvent.AvatarChanged(uri?.toString()))
     }
@@ -265,7 +268,15 @@ fun ProfileScreen(
                                     .size(76.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .background(QuataOrange.copy(alpha = 0.2f))
-                                    .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(20.dp)),
+                                    .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                                    .clickable(enabled = profileAvatarUri != null) {
+                                        val avatarUri = profileAvatarUri ?: return@clickable
+                                        selectedAvatarPreview = AttachmentPreview(
+                                            name = profile.displayName.ifBlank { context.getString(R.string.profile_photo) },
+                                            uri = avatarUri,
+                                            mimeType = "image/jpeg"
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (profileAvatarUri != null) {
@@ -451,6 +462,12 @@ fun ProfileScreen(
             onSave = {
                 viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
             }
+        )
+    }
+    selectedAvatarPreview?.let { avatar ->
+        AttachmentViewerDialog(
+            attachment = avatar,
+            onDismiss = { selectedAvatarPreview = null }
         )
     }
 }

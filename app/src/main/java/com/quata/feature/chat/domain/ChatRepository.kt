@@ -6,6 +6,24 @@ import com.quata.core.model.User
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+data class ChatConversationCandidate(
+    val profileId: String,
+    val displayName: String,
+    val neighborhood: String,
+    val phone: String,
+    val avatarUrl: String?,
+    val sectionKey: String,
+    val neighborhoodGroup: String,
+    val existingConversationId: String?
+)
+
+data class ChatConversationCandidatePage(
+    val candidates: List<ChatConversationCandidate>,
+    val hasMore: Boolean,
+    val nextOffset: Int,
+    val actorNeighborhood: String
+)
+
 interface ChatRepository {
     val activeConversationId: StateFlow<String?>
     val isAppForeground: StateFlow<Boolean>
@@ -15,19 +33,23 @@ interface ChatRepository {
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
     fun setAppForeground(isForeground: Boolean)
+    fun cleanupEmptyConversation(conversationId: String)
     fun clearChatNotifications()
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
     fun observeParticipantCandidates(): Flow<List<User>>
+    suspend fun searchConversationCandidates(query: String, limit: Int = 30, offset: Int = 0): Result<ChatConversationCandidatePage>
+    suspend fun openPrivateConversation(peerProfileId: String): Result<String>
     suspend fun sendMessage(
         conversationId: String,
         text: String,
         attachmentUri: String? = null,
         attachmentName: String? = null,
-        attachmentMimeType: String? = null
+        attachmentMimeType: String? = null,
+        clientMessageId: String? = null
     ): Result<Unit>
-    suspend fun sendReply(conversationId: String, text: String, replyTo: Message): Result<Unit>
+    suspend fun sendReply(conversationId: String, text: String, replyTo: Message, clientMessageId: String? = null): Result<Unit>
     suspend fun sendSosMessage(
         contactIds: List<String>,
         text: String,

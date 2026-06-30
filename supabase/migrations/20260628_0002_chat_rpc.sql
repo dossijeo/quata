@@ -91,6 +91,7 @@ as $$
         'reply_to_message_id', m.reply_to_message_id,
         'forwarded_from_message_id', m.forwarded_from_message_id,
         'forwarded_from_profile_id', m.forwarded_from_profile_id,
+        'client_message_id', m.client_message_id,
         'metadata', m.metadata,
         'attachments', coalesce(
             (
@@ -702,7 +703,8 @@ create or replace function public.quata_chat_send_message(
     p_thread_id bigint,
     p_message text default '',
     p_file_ids bigint[] default '{}',
-    p_reply_to_message_id bigint default null
+    p_reply_to_message_id bigint default null,
+    p_client_message_id text default null
 )
 returns jsonb
 language plpgsql
@@ -712,12 +714,36 @@ as $$
 declare
     v_actor uuid;
     v_message_id bigint;
+    v_existing_message_id bigint;
     v_file_count integer;
+    v_client_message_id text := nullif(left(trim(coalesce(p_client_message_id, '')), 128), '');
 begin
     v_actor := public.quata_chat_actor_profile_id(p_actor_profile_id);
 
     if not public.quata_chat_is_thread_participant(p_thread_id, v_actor) then
         raise exception 'profile is not a participant of this thread' using errcode = '42501';
+    end if;
+
+    if v_client_message_id is not null then
+        select m.id
+        into v_existing_message_id
+        from public.chat_messages m
+        where m.thread_id = p_thread_id
+          and m.sender_profile_id = v_actor
+          and m.client_message_id = v_client_message_id
+        order by m.id desc
+        limit 1;
+
+        if v_existing_message_id is not null then
+            return jsonb_build_object(
+                'result', true,
+                'duplicate', true,
+                'message_id', v_existing_message_id,
+                'thread_id', p_thread_id,
+                'message', public.quata_chat_message_json(v_existing_message_id, v_actor),
+                'update', public.quata_chat_get_thread(v_actor, p_thread_id)
+            );
+        end if;
     end if;
 
     select count(*)
@@ -752,9 +778,28 @@ begin
         raise exception 'message blocked by recipient' using errcode = '42501';
     end if;
 
-    insert into public.chat_messages(thread_id, sender_profile_id, body, reply_to_message_id)
-    values (p_thread_id, v_actor, coalesce(p_message, ''), p_reply_to_message_id)
-    returning id into v_message_id;
+    begin
+        insert into public.chat_messages(thread_id, sender_profile_id, body, reply_to_message_id, client_message_id)
+        values (p_thread_id, v_actor, coalesce(p_message, ''), p_reply_to_message_id, v_client_message_id)
+        returning id into v_message_id;
+    exception when unique_violation then
+        if v_client_message_id is null then
+            raise;
+        end if;
+
+        select m.id
+        into v_message_id
+        from public.chat_messages m
+        where m.thread_id = p_thread_id
+          and m.sender_profile_id = v_actor
+          and m.client_message_id = v_client_message_id
+        order by m.id desc
+        limit 1;
+
+        if v_message_id is null then
+            raise;
+        end if;
+    end;
 
     update public.chat_attachments
     set message_id = v_message_id,
@@ -793,6 +838,7 @@ as $$
         p_thread_id,
         coalesce(p_message, ''),
         coalesce(p_file_ids, array[]::bigint[]),
+        null,
         null
     )
 $$;
@@ -1618,7 +1664,7 @@ grant execute on function public.quata_chat_check_new(uuid, bigint, bigint[], bi
 grant execute on function public.quata_chat_get_or_create_private_thread(uuid, uuid) to anon, authenticated;
 grant execute on function public.quata_chat_start_thread(uuid, uuid[], text, text, text, text, uuid) to anon, authenticated;
 grant execute on function public.quata_chat_register_attachment(uuid, bigint, text, text, text, text, text, bigint, text, jsonb) to anon, authenticated;
-grant execute on function public.quata_chat_send_message(uuid, bigint, text, bigint[], bigint) to anon, authenticated;
+grant execute on function public.quata_chat_send_message(uuid, bigint, text, bigint[], bigint, text) to anon, authenticated;
 grant execute on function public.quata_chat_send_files(uuid, bigint, bigint[], text) to anon, authenticated;
 grant execute on function public.quata_chat_list_attachments(uuid, bigint, integer, integer, text) to anon, authenticated;
 grant execute on function public.quata_chat_set_favorite(uuid, bigint, bigint, boolean) to anon, authenticated;

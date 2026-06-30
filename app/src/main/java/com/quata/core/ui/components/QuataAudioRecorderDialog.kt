@@ -290,25 +290,14 @@ private data class QuataAudioRecordingFormat(
 )
 
 private fun selectQuataAudioRecordingFormat(): QuataAudioRecordingFormat =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        QuataAudioRecordingFormat(
-            extension = "opus",
-            mimeType = "audio/ogg",
-            outputFormat = MediaRecorder.OutputFormat.OGG,
-            audioEncoder = MediaRecorder.AudioEncoder.OPUS,
-            sampleRate = 48_000,
-            bitRate = 24_000
-        )
-    } else {
-        QuataAudioRecordingFormat(
-            extension = "m4a",
-            mimeType = "audio/mp4",
-            outputFormat = MediaRecorder.OutputFormat.MPEG_4,
-            audioEncoder = MediaRecorder.AudioEncoder.AAC,
-            sampleRate = 44_100,
-            bitRate = 64_000
-        )
-    }
+    QuataAudioRecordingFormat(
+        extension = "m4a",
+        mimeType = "audio/mp4",
+        outputFormat = MediaRecorder.OutputFormat.MPEG_4,
+        audioEncoder = MediaRecorder.AudioEncoder.AAC,
+        sampleRate = 44_100,
+        bitRate = 64_000
+    )
 
 private fun newQuataMediaRecorder(context: Context): MediaRecorder =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

@@ -32,13 +32,21 @@ class ChatRemoteDataSource(
     suspend fun getChatInbox(profileId: String, limit: Int = 100) = supabaseApi.getChatInbox(profileId, limit)
     suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250) = supabaseApi.getChatThread(profileId, threadId, limit)
     suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String) = supabaseApi.getOrCreatePrivateThread(profileId, peerProfileId)
+    suspend fun searchChatConversationCandidates(profileId: String, query: String = "", limit: Int = 30, offset: Int = 0) =
+        supabaseApi.searchChatConversationCandidates(profileId, query, limit, offset)
     suspend fun startChatThread(profileId: String, participantIds: List<String>, subject: String?, type: String, message: String = "", uniqueKey: String? = null, communityId: String? = null) =
         supabaseApi.startChatThread(profileId, participantIds, subject, type, message, uniqueKey, communityId)
     suspend fun openCommunityChatThread(profileId: String, communityId: String, title: String) = supabaseApi.openCommunityChatThread(profileId, communityId, title)
     suspend fun registerChatAttachment(profileId: String, threadId: Long, fileUrl: String, storagePath: String?, mimeType: String, name: String?, sizeBytes: Long? = null, extension: String? = null) =
         supabaseApi.registerChatAttachment(profileId, threadId, fileUrl, storagePath, mimeType, name, sizeBytes, extension)
-    suspend fun sendChatMessage(profileId: String, threadId: Long, message: String, fileIds: List<Long> = emptyList(), replyToMessageId: Long? = null) =
-        supabaseApi.sendChatMessage(profileId, threadId, message, fileIds, replyToMessageId)
+    suspend fun sendChatMessage(
+        profileId: String,
+        threadId: Long,
+        message: String,
+        fileIds: List<Long> = emptyList(),
+        replyToMessageId: Long? = null,
+        clientMessageId: String? = null
+    ) = supabaseApi.sendChatMessage(profileId, threadId, message, fileIds, replyToMessageId, clientMessageId)
     suspend fun setChatFavorite(profileId: String, threadId: Long, messageId: Long, favorite: Boolean) = supabaseApi.setChatFavorite(profileId, threadId, messageId, favorite)
     suspend fun getChatFavorites(profileId: String, limit: Int = 250) = supabaseApi.getChatFavorites(profileId, limit)
     suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String) = supabaseApi.editChatMessage(profileId, threadId, messageId, message)
@@ -54,6 +62,7 @@ class ChatRemoteDataSource(
     suspend fun blockChatParticipant(profileId: String, threadId: Long, participantId: String) = supabaseApi.blockChatParticipant(profileId, threadId, participantId)
     suspend fun leaveChatThread(profileId: String, threadId: Long) = supabaseApi.leaveChatThread(profileId, threadId)
     suspend fun deleteChatThread(profileId: String, threadId: Long) = supabaseApi.deleteChatThread(profileId, threadId)
+    suspend fun cleanupEmptyPrivateThread(profileId: String, threadId: Long) = supabaseApi.cleanupEmptyPrivateThread(profileId, threadId)
     suspend fun restoreChatThread(profileId: String, threadId: Long) = supabaseApi.restoreChatThread(profileId, threadId)
     suspend fun sendChatSos(profileId: String, contactIds: List<String>, message: String, lat: Double? = null, lng: Double? = null, accuracy: Double? = null) =
         supabaseApi.sendChatSos(profileId, contactIds, message, lat, lng, accuracy)
