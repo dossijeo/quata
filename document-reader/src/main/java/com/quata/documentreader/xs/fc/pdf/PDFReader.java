@@ -9,6 +9,7 @@ package com.quata.documentreader.xs.fc.pdf;
 import com.quata.documentreader.xs.constant.EventConstant;
 import com.quata.documentreader.xs.system.AbstractReader;
 import com.quata.documentreader.xs.system.IControl;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 /**
  * reader PDF document 
@@ -103,7 +104,7 @@ public class PDFReader extends AbstractReader
                 public void onClick(DialogInterface dialog, int which)
                 {
                     //lib.dispose();
-                    control.getActivity().onBackPressed();
+                    DocumentReaderBackNavigation.navigateBack(control.getActivity());
                     //control.getMainFrame().destroyEngine();
                 }
             });
@@ -115,7 +116,7 @@ public class PDFReader extends AbstractReader
                 if (keyCode == KeyEvent.KEYCODE_BACK)
                 {
                     dialog.dismiss();
-                    control.getActivity().onBackPressed();
+                    DocumentReaderBackNavigation.navigateBack(control.getActivity());
                     //control.getMainFrame().destroyEngine();
                     return true;
                 }

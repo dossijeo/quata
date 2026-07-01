@@ -16,10 +16,15 @@ type ChatMessage = {
   sender_profile_id: string;
   body: string | null;
   deleted_at: string | null;
+  created_at: string;
 };
 
 type ChatAttachment = {
   mime_type: string | null;
+  file_name: string | null;
+  storage_path: string | null;
+  file_url: string | null;
+  ext: string | null;
 };
 
 type ChatThread = {
@@ -39,6 +44,9 @@ type PushToken = {
   id: string;
   user_id: string;
   token: string;
+  created_at: string | null;
+  updated_at: string | null;
+  last_seen_at: string | null;
 };
 
 type FcmErrorBody = {
@@ -56,6 +64,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const CHAT_ATTACHMENT_SELECT = "mime_type,file_name,storage_path,file_url,ext";
+const VOICE_NOTE_EXTENSIONS = new Set([
+  "aac",
+  "amr",
+  "caf",
+  "flac",
+  "m4a",
+  "mp3",
+  "oga",
+  "ogg",
+  "opus",
+  "wav",
+]);
 
 Deno.serve(async (req) => {
   try {
@@ -101,7 +123,7 @@ async function dispatchChatPush(messageId: number) {
 
   const { data: message, error: messageError } = await admin
     .from("chat_messages")
-    .select("id,thread_id,sender_profile_id,body,deleted_at")
+    .select("id,thread_id,sender_profile_id,body,deleted_at,created_at")
     .eq("id", messageId)
     .maybeSingle();
   if (messageError) throw messageError;
@@ -115,12 +137,16 @@ async function dispatchChatPush(messageId: number) {
   ] = await Promise.all([
     admin.from("chat_threads").select("id,type,subject,title").eq("id", chatMessage.thread_id).maybeSingle(),
     admin.from("community_profiles").select("id,display_name,nombre").eq("id", chatMessage.sender_profile_id).maybeSingle(),
-    admin.from("chat_attachments").select("mime_type").eq("message_id", chatMessage.id),
+    admin.from("chat_attachments").select(CHAT_ATTACHMENT_SELECT).eq("message_id", chatMessage.id),
   ]);
   if (threadError) throw threadError;
   if (senderError) throw senderError;
   if (attachmentsError) throw attachmentsError;
   if (!thread || !sender) return { result: true, skipped: "missing_thread_or_sender" };
+  let messageAttachments = (attachments ?? []) as ChatAttachment[];
+  if (!chatMessage.body?.trim() && messageAttachments.length === 0) {
+    messageAttachments = await waitForMessageAttachments(admin, chatMessage);
+  }
 
   const { data: participants, error: participantsError } = await admin
     .from("chat_participants")
@@ -139,18 +165,19 @@ async function dispatchChatPush(messageId: number) {
 
   const { data: tokens, error: tokensError } = await admin
     .from("push_tokens")
-    .select("id,user_id,token")
+    .select("id,user_id,token,created_at,updated_at,last_seen_at")
     .in("user_id", recipientIds)
     .is("disabled_at", null);
   if (tokensError) throw tokensError;
 
-  const pushTokens = ((tokens ?? []) as PushToken[]).filter((row) => row.token);
+  const pushTokens = latestPushTokensByUser(((tokens ?? []) as PushToken[]).filter((row) => row.token));
   if (pushTokens.length === 0) return { result: true, recipients: recipientIds.length, sent: 0 };
 
   const serviceAccount = firebaseServiceAccount();
   const accessToken = await firebaseAccessToken(serviceAccount);
   const title = notificationTitle(thread as ChatThread, sender as CommunityProfile);
-  const body = notificationBody(chatMessage, (attachments ?? []) as ChatAttachment[]);
+  const body = notificationBody(chatMessage, messageAttachments);
+  const bodyKey = notificationBodyKey(chatMessage, messageAttachments);
   let sent = 0;
   let skipped = 0;
 
@@ -163,6 +190,7 @@ async function dispatchChatPush(messageId: number) {
     const response = await sendFcmMessage(serviceAccount.project_id, accessToken, pushToken.token, {
       title,
       body,
+      bodyKey,
       threadId: String(chatMessage.thread_id),
       conversationId: `sb:${chatMessage.thread_id}`,
       messageId: String(chatMessage.id),
@@ -180,6 +208,71 @@ async function dispatchChatPush(messageId: number) {
   }
 
   return { result: true, recipients: recipientIds.length, tokens: pushTokens.length, sent, skipped };
+}
+
+function latestPushTokensByUser(tokens: PushToken[]): PushToken[] {
+  const latest = new Map<string, PushToken>();
+  for (const token of tokens) {
+    const current = latest.get(token.user_id);
+    if (!current || pushTokenSortTime(token) > pushTokenSortTime(current)) {
+      latest.set(token.user_id, token);
+    }
+  }
+  return Array.from(latest.values());
+}
+
+function pushTokenSortTime(token: PushToken): number {
+  for (const value of [token.last_seen_at, token.updated_at, token.created_at]) {
+    const time = Date.parse(value ?? "");
+    if (Number.isFinite(time)) return time;
+  }
+  return 0;
+}
+
+async function waitForMessageAttachments(
+  admin: ReturnType<typeof createClient>,
+  message: ChatMessage,
+): Promise<ChatAttachment[]> {
+  let latest: ChatAttachment[] = [];
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await delay(attempt === 0 ? 300 : 500);
+    const { data, error } = await admin
+      .from("chat_attachments")
+      .select(CHAT_ATTACHMENT_SELECT)
+      .eq("message_id", message.id);
+    if (error) throw error;
+    latest = (data ?? []) as ChatAttachment[];
+    if (latest.length > 0) return latest;
+
+    const nearby = await findNearbyPendingAttachments(admin, message);
+    if (nearby.length > 0) return nearby;
+  }
+  return latest;
+}
+
+async function findNearbyPendingAttachments(
+  admin: ReturnType<typeof createClient>,
+  message: ChatMessage,
+): Promise<ChatAttachment[]> {
+  const createdAt = new Date(message.created_at).getTime();
+  if (!Number.isFinite(createdAt)) return [];
+  const lowerBound = new Date(createdAt - 2 * 60 * 1000).toISOString();
+  const upperBound = new Date(createdAt + 2 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("chat_attachments")
+    .select(CHAT_ATTACHMENT_SELECT)
+    .eq("thread_id", message.thread_id)
+    .eq("uploaded_by_profile_id", message.sender_profile_id)
+    .gte("created_at", lowerBound)
+    .lte("created_at", upperBound)
+    .order("created_at", { ascending: false })
+    .limit(3);
+  if (error) throw error;
+  return (data ?? []) as ChatAttachment[];
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function disablePushToken(
@@ -247,7 +340,7 @@ async function sendFcmMessage(
   projectId: string,
   accessToken: string,
   token: string,
-  payload: { title: string; body: string; threadId: string; conversationId: string; messageId: string },
+  payload: { title: string; body: string; bodyKey?: string | null; threadId: string; conversationId: string; messageId: string },
 ) {
   return fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: "POST",
@@ -263,6 +356,7 @@ async function sendFcmMessage(
           type: "chat_message",
           title: payload.title,
           body: payload.body,
+          body_key: payload.bodyKey ?? "",
           thread_id: payload.threadId,
           conversation_id: payload.conversationId,
           message_id: payload.messageId,
@@ -280,10 +374,48 @@ function notificationTitle(thread: ChatThread, sender: CommunityProfile): string
 function notificationBody(message: ChatMessage, attachments: ChatAttachment[]): string {
   const text = message.body?.trim();
   if (text) return text;
-  if (attachments.some((attachment) => attachment.mime_type?.toLowerCase().startsWith("audio/"))) {
-    return "Has recibido una nota de voz";
+  const key = notificationBodyKey(message, attachments) ?? "chat_message";
+  return `[QUATA_NOTIFICATION:${key}]`;
+}
+
+function notificationBodyKey(message: ChatMessage, attachments: ChatAttachment[]): string | null {
+  const text = message.body?.trim();
+  if (text) return null;
+  if (attachments.some(isVoiceNoteAttachment)) {
+    return "chat_voice_note";
   }
-  return "Nuevo adjunto";
+  if (attachments.length > 0) return "chat_attachment";
+  return "chat_message";
+}
+
+function isVoiceNoteAttachment(attachment: ChatAttachment): boolean {
+  const mimeType = attachment.mime_type?.trim().toLowerCase() ?? "";
+  if (mimeType.startsWith("audio/")) return true;
+  const extension = attachmentExtension(attachment);
+  return Boolean(extension && VOICE_NOTE_EXTENSIONS.has(extension));
+}
+
+function attachmentExtension(attachment: ChatAttachment): string | null {
+  const declaredExtension = normalizeExtension(attachment.ext);
+  if (declaredExtension) return declaredExtension;
+
+  for (const rawValue of [attachment.file_name, attachment.storage_path, attachment.file_url]) {
+    const value = rawValue?.trim();
+    if (!value) continue;
+    const cleanValue = value.split(/[?#]/)[0] ?? value;
+    const dotIndex = cleanValue.lastIndexOf(".");
+    if (dotIndex < 0) continue;
+    const extension = normalizeExtension(cleanValue.slice(dotIndex + 1));
+    if (extension) return extension;
+  }
+
+  return null;
+}
+
+function normalizeExtension(value: string | null | undefined): string | null {
+  const normalized = value?.trim().replace(/^\.+/, "").toLowerCase();
+  if (!normalized || normalized.length > 12 || !/^[a-z0-9]+$/.test(normalized)) return null;
+  return normalized;
 }
 
 function displayName(profile: CommunityProfile): string {

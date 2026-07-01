@@ -95,6 +95,8 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
+import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 
@@ -129,12 +131,13 @@ fun ProfileScreen(
     var isPhotoMenuOpen by rememberSaveable { mutableStateOf(false) }
     var accountPage by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingAvatarEditorUri by remember { mutableStateOf<Uri?>(null) }
     var selectedAvatarPreview by remember { mutableStateOf<AttachmentPreview?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        viewModel.onEvent(ProfileUiEvent.AvatarChanged(uri?.toString()))
+        pendingAvatarEditorUri = uri
     }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        if (saved) viewModel.onEvent(ProfileUiEvent.AvatarChanged(pendingCameraUri?.toString()))
+        if (saved) pendingAvatarEditorUri = pendingCameraUri
     }
 
     fun launchProfilePhotoCapture() {
@@ -468,6 +471,17 @@ fun ProfileScreen(
         AttachmentViewerDialog(
             attachment = avatar,
             onDismiss = { selectedAvatarPreview = null }
+        )
+    }
+    pendingAvatarEditorUri?.let { avatarUri ->
+        QuataImageEditorDialog(
+            imageUri = avatarUri,
+            mode = QuataImageEditorMode.Avatar,
+            onDismiss = { pendingAvatarEditorUri = null },
+            onEdited = { editedUri ->
+                pendingAvatarEditorUri = null
+                viewModel.onEvent(ProfileUiEvent.AvatarChanged(editedUri.toString()))
+            }
         )
     }
 }

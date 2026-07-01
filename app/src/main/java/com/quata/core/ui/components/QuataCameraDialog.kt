@@ -8,7 +8,6 @@ import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color as AndroidColor
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
@@ -16,8 +15,6 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -88,11 +85,11 @@ import androidx.core.content.PermissionChecker
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.designsystem.theme.quataTheme
 import kotlinx.coroutines.delay
 import java.io.File
 import java.text.SimpleDateFormat
@@ -250,6 +247,7 @@ fun QuataCameraDialog(
         )
     ) {
         ConfigureQuataCameraSystemBars()
+        KeepQuataCameraScreenAwake()
         val navigationBarsPadding = rememberQuataCameraNavigationBarsPadding()
         val controlsContainerHeight = controlsHeight + navigationBarsPadding.bottom
         Box(
@@ -433,55 +431,38 @@ fun QuataCameraDialog(
 }
 
 @Composable
-private fun ConfigureQuataCameraSystemBars() {
-    val context = LocalContext.current
-    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-    val activity = context.findQuataCameraActivity() as? ComponentActivity
-    val originalSystemBars = remember(activity) {
-        activity?.window?.let { window ->
-            val controller = WindowInsetsControllerCompat(window, window.decorView)
-            QuataCameraOriginalSystemBars(
-                statusBarColor = window.statusBarColor,
-                navigationBarColor = window.navigationBarColor,
-                lightStatusBars = controller.isAppearanceLightStatusBars,
-                lightNavigationBars = controller.isAppearanceLightNavigationBars
-            )
-        }
-    }
-    SideEffect {
-        activity?.enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
-            navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK)
-        )
-        dialogWindow?.let { window ->
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-        }
-    }
-    DisposableEffect(activity, originalSystemBars) {
-        if (activity == null) {
-            return@DisposableEffect onDispose {}
-        }
+private fun KeepQuataCameraScreenAwake() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val previousKeepScreenOn = view.keepScreenOn
+        view.keepScreenOn = true
         onDispose {
-            val window = activity.window
-            if (originalSystemBars != null) {
-                window.statusBarColor = originalSystemBars.statusBarColor
-                window.navigationBarColor = originalSystemBars.navigationBarColor
-                val controller = WindowInsetsControllerCompat(window, window.decorView)
-                controller.isAppearanceLightStatusBars = originalSystemBars.lightStatusBars
-                controller.isAppearanceLightNavigationBars = originalSystemBars.lightNavigationBars
-            } else {
-                activity.enableEdgeToEdge()
-            }
+            view.keepScreenOn = previousKeepScreenOn
         }
     }
 }
 
-private data class QuataCameraOriginalSystemBars(
-    val statusBarColor: Int,
-    val navigationBarColor: Int,
-    val lightStatusBars: Boolean,
-    val lightNavigationBars: Boolean
-)
+@Composable
+private fun ConfigureQuataCameraSystemBars() {
+    val context = LocalContext.current
+    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+    val activity = context.findQuataCameraActivity() as? ComponentActivity
+    val template = quataTheme()
+    SideEffect {
+        activity?.applyQuataDarkSystemBars()
+        dialogWindow?.let { window ->
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+        }
+    }
+    DisposableEffect(activity, template.id) {
+        if (activity == null) {
+            return@DisposableEffect onDispose {}
+        }
+        onDispose {
+            activity.applyQuataSystemBars(template)
+        }
+    }
+}
 
 @Composable
 private fun rememberQuataCameraNavigationBarsPadding(): QuataCameraNavigationBarsPadding {

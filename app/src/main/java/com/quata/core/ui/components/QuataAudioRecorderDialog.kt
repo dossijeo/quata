@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,6 +123,7 @@ fun QuataAudioRecorderDialog(
         onDismissRequest = ::cancel,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        KeepQuataAudioRecorderScreenAwake()
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(28.dp),
@@ -180,6 +182,18 @@ fun QuataAudioRecorderDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun KeepQuataAudioRecorderScreenAwake() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val previousKeepScreenOn = view.keepScreenOn
+        view.keepScreenOn = true
+        onDispose {
+            view.keepScreenOn = previousKeepScreenOn
         }
     }
 }

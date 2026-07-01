@@ -21,6 +21,7 @@ class CustomBackgroundShadow(
     private var mRectF: RectF? = null
     private var mPaint: Paint? = null
     private var paint: Paint? = null
+    @Deprecated("Deprecated in Drawable")
     override fun getOpacity(): Int {
         return PixelFormat.TRANSLUCENT
     }

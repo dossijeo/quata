@@ -5,8 +5,15 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.RectF
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.TextureView
 import android.view.View
@@ -19,6 +26,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,12 +71,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -162,9 +173,14 @@ fun AttachmentThumbnail(
 fun AudioAttachmentPlayer(
     attachment: AttachmentPreview,
     textColor: Color,
+    autoPlay: Boolean = false,
+    pauseRequested: Boolean = false,
+    onPlaybackStarted: () -> Unit = {},
+    onPlaybackEnded: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val audioRouter = remember(context) { VoiceNoteAudioRouter(context.applicationContext) }
     val player = remember(attachment.uri) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
@@ -176,10 +192,25 @@ fun AudioAttachmentPlayer(
     var durationMillis by remember(attachment.uri) { mutableStateOf(0L) }
     var positionMillis by remember(attachment.uri) { mutableStateOf(0L) }
     var hasError by remember(attachment.uri) { mutableStateOf(false) }
+    var hasAutoPlayedCurrentAttachment by remember(attachment.uri) { mutableStateOf(false) }
+    var scrubberSize by remember { mutableStateOf(IntSize.Zero) }
     val progress = if (durationMillis > 0) {
         (positionMillis.toFloat() / durationMillis.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
+    }
+    fun seekToFraction(fraction: Float) {
+        if (durationMillis <= 0L) return
+        val target = (durationMillis.toFloat() * fraction.coerceIn(0f, 1f))
+            .roundToInt()
+            .toLong()
+            .coerceIn(0L, durationMillis)
+        positionMillis = target
+        player.seekTo(target)
+    }
+    fun seekToX(x: Float) {
+        val width = scrubberSize.width.toFloat().coerceAtLeast(1f)
+        seekToFraction(x / width)
     }
 
     DisposableEffect(player) {
@@ -190,26 +221,65 @@ fun AudioAttachmentPlayer(
                     durationMillis = playerDuration
                 }
                 if (playbackState == Player.STATE_ENDED) {
+                    player.pause()
                     isPlaying = false
                     positionMillis = 0L
                     player.seekTo(0L)
+                    audioRouter.stop()
+                    onPlaybackEnded()
                 }
             }
 
             override fun onIsPlayingChanged(isPlayingNow: Boolean) {
                 isPlaying = isPlayingNow
+                if (isPlayingNow) {
+                    onPlaybackStarted()
+                } else {
+                    audioRouter.stop()
+                }
             }
 
             override fun onPlayerError(error: PlaybackException) {
                 hasError = true
                 isPlaying = false
+                audioRouter.stop()
             }
         }
         player.addListener(listener)
         onDispose {
             isPlaying = false
+            audioRouter.stop()
             player.removeListener(listener)
             player.release()
+        }
+    }
+
+    LaunchedEffect(autoPlay, hasAutoPlayedCurrentAttachment, hasError) {
+        if (autoPlay && !hasAutoPlayedCurrentAttachment && !hasError) {
+            hasAutoPlayedCurrentAttachment = true
+            player.seekTo(0L)
+            player.play()
+        }
+        if (!autoPlay && hasAutoPlayedCurrentAttachment && !isPlaying) {
+            hasAutoPlayedCurrentAttachment = false
+        }
+    }
+
+    DisposableEffect(isPlaying, audioRouter) {
+        if (isPlaying) {
+            audioRouter.start()
+        } else {
+            audioRouter.stop()
+        }
+        onDispose {
+            audioRouter.stop()
+        }
+    }
+
+    LaunchedEffect(pauseRequested) {
+        if (pauseRequested && isPlaying) {
+            player.pause()
+            isPlaying = false
         }
     }
 
@@ -278,16 +348,33 @@ fun AudioAttachmentPlayer(
                         )
                     }
                 }
-                LinearProgressIndicator(
-                    progress = { progress },
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(999.dp)),
-                    color = textColor.copy(alpha = 0.78f),
-                    trackColor = textColor.copy(alpha = 0.18f)
-                )
-                Spacer(Modifier.height(4.dp))
+                        .height(14.dp)
+                        .onSizeChanged { scrubberSize = it }
+                        .pointerInput(durationMillis, scrubberSize) {
+                            detectTapGestures { offset -> seekToX(offset.x) }
+                        }
+                        .pointerInput(durationMillis, scrubberSize) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { offset -> seekToX(offset.x) },
+                                onHorizontalDrag = { change, _ -> seekToX(change.position.x) }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(999.dp)),
+                        color = textColor.copy(alpha = 0.78f),
+                        trackColor = textColor.copy(alpha = 0.18f)
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CompactIcon(
                         Icons.Filled.Mic,
@@ -739,4 +826,88 @@ private fun formatAudioAttachmentMillis(millis: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%02d:%02d".format(minutes, seconds)
+}
+
+private class VoiceNoteAudioRouter(context: Context) : SensorEventListener {
+    private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val sensorManager = context.getSystemService(SensorManager::class.java)
+    private val proximitySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+    private var isListening = false
+    private var isRoutedToEarpiece = false
+    private var previousAudioMode: Int? = null
+    private var previousLegacySpeakerphoneOn: Boolean? = null
+
+    fun start() {
+        val sensor = proximitySensor ?: return
+        if (isListening) return
+        isListening = true
+        sensorManager?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
+    fun stop() {
+        if (isListening) {
+            sensorManager?.unregisterListener(this)
+            isListening = false
+        }
+        restoreSpeakerRoute()
+    }
+
+    override fun onSensorChanged(event: SensorEvent) {
+        val sensor = proximitySensor ?: return
+        val distance = event.values.firstOrNull() ?: return
+        val isNear = distance < sensor.maximumRange.coerceAtMost(PROXIMITY_NEAR_THRESHOLD_CM)
+        if (isNear) {
+            routeToEarpiece()
+        } else {
+            restoreSpeakerRoute()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private fun routeToEarpiece() {
+        val manager = audioManager ?: return
+        if (isRoutedToEarpiece) return
+        previousAudioMode = manager.mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val earpiece = manager.availableCommunicationDevices
+                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+            manager.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (earpiece != null) {
+                manager.setCommunicationDevice(earpiece)
+            }
+        } else {
+            previousLegacySpeakerphoneOn = manager.legacySpeakerphoneOn()
+            manager.mode = AudioManager.MODE_IN_COMMUNICATION
+            manager.setLegacySpeakerphoneOn(false)
+        }
+        isRoutedToEarpiece = true
+    }
+
+    private fun restoreSpeakerRoute() {
+        val manager = audioManager ?: return
+        if (!isRoutedToEarpiece) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            manager.clearCommunicationDevice()
+        } else {
+            previousLegacySpeakerphoneOn?.let { manager.setLegacySpeakerphoneOn(it) }
+        }
+        previousAudioMode?.let { manager.mode = it }
+        previousAudioMode = null
+        previousLegacySpeakerphoneOn = null
+        isRoutedToEarpiece = false
+    }
+
+    // Android 11 and older do not expose setCommunicationDevice(), so earpiece routing needs this fallback.
+    @Suppress("DEPRECATION")
+    private fun AudioManager.legacySpeakerphoneOn(): Boolean = isSpeakerphoneOn
+
+    @Suppress("DEPRECATION")
+    private fun AudioManager.setLegacySpeakerphoneOn(enabled: Boolean) {
+        isSpeakerphoneOn = enabled
+    }
+
+    private companion object {
+        const val PROXIMITY_NEAR_THRESHOLD_CM = 5f
+    }
 }

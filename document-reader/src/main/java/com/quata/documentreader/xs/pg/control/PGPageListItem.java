@@ -15,7 +15,6 @@ import com.quata.documentreader.xs.system.beans.pagelist.APageListView;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.os.AsyncTask;
 import android.widget.ProgressBar;
 
 /**
@@ -78,13 +77,8 @@ public class PGPageListItem extends APageListItem
         super.setPageItemRawData(pIndex, pageWidth, pageHeight);
         if (pageIndex >= pgModel.getRealSlideCount())
         {
-            AsyncTask<Void, Void, Void> asyncTask = new AsyncTask<Void, Void, Void>()
-            {
-                /**
-                 *
-                 */
-                protected Void doInBackground(Void...v)
-                {
+            showBusyIndicator();
+            Thread waitForSlideThread = new Thread(() -> {
                     while (pgModel != null && pageIndex >= pgModel.getRealSlideCount())
                     {
                         try
@@ -96,35 +90,7 @@ public class PGPageListItem extends APageListItem
                             break;
                         }
                     }
-                    return null;
-                }
-                
-                /**
-                 * 
-                 *
-                 */
-                protected void onPreExecute()
-                {
-                    if (mBusyIndicator == null)
-                    {
-                        mBusyIndicator = new ProgressBar(getContext());
-                        mBusyIndicator.setIndeterminate(true);
-                        mBusyIndicator.setBackgroundResource(android.R.drawable.progress_horizontal);
-                        addView(mBusyIndicator);
-                        mBusyIndicator.setVisibility(VISIBLE);
-                    }
-                    else
-                    {
-                        mBusyIndicator.setVisibility(VISIBLE);
-                    }
-                }
-                
-                /**
-                 * 
-                 *
-                 */
-                protected void onPostExecute(Void v)
-                {   
+                    post(() -> {
                     if (mBusyIndicator != null)
                     {
                         mBusyIndicator.setVisibility(INVISIBLE);
@@ -141,9 +107,9 @@ public class PGPageListItem extends APageListItem
                         }
                         isInit = false;
                     }
-                }
-            };
-            asyncTask.execute(new Void[1]);
+                    });
+            }, "QuataPgPageWait");
+            waitForSlideThread.start();
         }
         else
         {
@@ -168,6 +134,18 @@ public class PGPageListItem extends APageListItem
     {
         super.releaseResources();
         SlideDrawKit.instance().disposeOldSlideView(pgModel, pgModel.getSlide(pageIndex));
+    }
+
+    private void showBusyIndicator()
+    {
+        if (mBusyIndicator == null)
+        {
+            mBusyIndicator = new ProgressBar(getContext());
+            mBusyIndicator.setIndeterminate(true);
+            mBusyIndicator.setBackgroundResource(android.R.drawable.progress_horizontal);
+            addView(mBusyIndicator);
+        }
+        mBusyIndicator.setVisibility(VISIBLE);
     }
     
     /**

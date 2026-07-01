@@ -380,6 +380,7 @@
     <string name="video_editor_zoom">Zoom</string>
     <string name="video_editor_current_time">TEMPS ACTUEL : %1$s</string>
     <string name="video_editor_duration">DUREE : %1$s</string>
+    <string name="video_editor_max_duration_warning">Vidéos de 1:30 min max</string>
     <string name="video_editor_crop_original">Original</string>
     <string name="video_editor_crop_square">1:1</string>
     <string name="video_editor_crop_four_five">4:5</string>
@@ -442,6 +443,14 @@
     <string name="neighborhoods_time_one_year">Il y a 1 an</string>
     <string name="neighborhoods_time_years">Il y a %1$d ans</string>
     <string name="notification_permission_not_configured">Google Sign-In non configure</string>
+    <string name="notification_voice_note">Tu as recu une note vocale</string>
+    <string name="notification_attachment">Nouvelle piece jointe</string>
+    <string name="notification_new_message">Nouveau message</string>
+    <string name="notification_reply">Repondre</string>
+    <string name="notification_reply_hint">Message</string>
+    <string name="notification_reply_sent">Reponse envoyee</string>
+    <string name="notification_reply_failed_title">Reponse non envoyee</string>
+    <string name="notification_reply_failed_body">Touche pour ouvrir le chat et reessayer.</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
 </resources>

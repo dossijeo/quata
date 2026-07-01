@@ -3,6 +3,7 @@ package com.quata.core.notifications
 import android.content.Context
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
+import com.quata.core.config.AppConfig
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.SupabaseCommunityApi
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +21,7 @@ class PushTokenManager(
     private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun syncCurrentToken() {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession() ?: return
         scope.launch {
             val token = runCatching { FirebaseMessaging.getInstance().token.await() }
@@ -32,6 +34,7 @@ class PushTokenManager(
     }
 
     fun onNewToken(token: String) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         preferences.edit().putString(KEY_PENDING_TOKEN, token).apply()
         syncCurrentToken()
     }

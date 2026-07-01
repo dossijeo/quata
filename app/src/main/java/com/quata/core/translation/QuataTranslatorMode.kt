@@ -78,6 +78,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
@@ -1127,37 +1129,25 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 private fun View.visibleStatusBarHeightPx(context: Context): Int {
-    val insetTop = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        rootWindowInsets?.getInsets(android.view.WindowInsets.Type.statusBars())?.top ?: 0
-    } else {
-        @Suppress("DEPRECATION")
-        rootWindowInsets?.systemWindowInsetTop ?: 0
-    }
+    val insetTop = ViewCompat.getRootWindowInsets(this)
+        ?.getInsets(WindowInsetsCompat.Type.statusBars())
+        ?.top
+        ?: 0
     if (insetTop > 0) return insetTop
     val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
     return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0
 }
 
 private fun View.visibleNavigationBarInsetsPx(context: Context): TranslatorCropInsets {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        val insets = rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())
-        if (insets != null) {
-            return TranslatorCropInsets(
-                left = insets.left,
-                top = insets.top,
-                right = insets.right,
-                bottom = insets.bottom
-            )
-        }
-    } else {
-        @Suppress("DEPRECATION")
-        rootWindowInsets?.let { insets ->
-            return TranslatorCropInsets(
-                left = insets.systemWindowInsetLeft,
-                right = insets.systemWindowInsetRight,
-                bottom = insets.systemWindowInsetBottom
-            )
-        }
+    val insets = ViewCompat.getRootWindowInsets(this)
+        ?.getInsets(WindowInsetsCompat.Type.navigationBars())
+    if (insets != null) {
+        return TranslatorCropInsets(
+            left = insets.left,
+            top = insets.top,
+            right = insets.right,
+            bottom = insets.bottom
+        )
     }
 
     val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")

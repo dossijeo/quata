@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -25,6 +27,10 @@ class ChatViewModel(
     private var localEchoMessages: List<Message> = emptyList()
     private var optimisticEditedMessages: Map<String, Message> = emptyMap()
     private var retryDraft: OutgoingDraft? = null
+    private var participantCandidateSearchJob: Job? = null
+    private var participantCandidatePageJob: Job? = null
+    private var forwardCandidateSearchJob: Job? = null
+    private var forwardCandidatePageJob: Job? = null
 
     init {
         repository.setActiveConversation(conversationId)
@@ -51,8 +57,7 @@ class ChatViewModel(
                 }
                 .collect { conversations ->
                     _uiState.value = _uiState.value.copy(
-                        conversation = conversations.firstOrNull { it.id == conversationId },
-                        availableForwardConversations = conversations.filter { it.id != conversationId && it.isVisible }
+                        conversation = conversations.firstOrNull { it.id == conversationId }
                     )
                 }
         }
@@ -104,18 +109,14 @@ class ChatViewModel(
                 attachmentName = event.name,
                 attachmentMimeType = event.mimeType
             )
-            is ChatUiEvent.ParticipantSearchChanged -> _uiState.value = _uiState.value.copy(participantSearch = event.value)
+            is ChatUiEvent.ParticipantSearchChanged -> onParticipantCandidateQueryChanged(event.value)
             is ChatUiEvent.ParticipantSelectionToggled -> toggleParticipant(event.userId)
             is ChatUiEvent.MessageSelected -> _uiState.value = _uiState.value.copy(selectedMessageId = event.messageId)
-            is ChatUiEvent.ForwardConversationToggled -> toggleForwardConversation(event.conversationId)
+            is ChatUiEvent.ForwardProfileToggled -> toggleForwardProfile(event.profileId)
             is ChatUiEvent.ConversationMutedChanged -> setMuted(event.muted)
             is ChatUiEvent.MemberInvitesChanged -> setMemberInvitesEnabled(event.enabled)
-            ChatUiEvent.OpenAddParticipants -> _uiState.value = _uiState.value.copy(isAddParticipantsOpen = true)
-            ChatUiEvent.CloseAddParticipants -> _uiState.value = _uiState.value.copy(
-                isAddParticipantsOpen = false,
-                participantSearch = "",
-                selectedParticipantIds = emptyList()
-            )
+            ChatUiEvent.OpenAddParticipants -> openAddParticipantsPicker()
+            ChatUiEvent.CloseAddParticipants -> closeAddParticipantsPicker()
             ChatUiEvent.AddSelectedParticipants -> addParticipants()
             ChatUiEvent.StartReply -> startReply()
             ChatUiEvent.ClearReply -> _uiState.value = _uiState.value.copy(replyToMessage = null)
@@ -123,11 +124,8 @@ class ChatViewModel(
             ChatUiEvent.CancelEdit -> _uiState.value = _uiState.value.copy(editingMessage = null, messageText = "")
             ChatUiEvent.ToggleFavoriteSelected -> toggleFavoriteSelected()
             ChatUiEvent.DeleteSelectedMessage -> deleteSelectedMessage()
-            ChatUiEvent.OpenForwardDialog -> _uiState.value = _uiState.value.copy(isForwardDialogOpen = true)
-            ChatUiEvent.CloseForwardDialog -> _uiState.value = _uiState.value.copy(
-                isForwardDialogOpen = false,
-                selectedForwardConversationIds = emptyList()
-            )
+            ChatUiEvent.OpenForwardDialog -> openForwardPicker()
+            ChatUiEvent.CloseForwardDialog -> closeForwardPicker()
             ChatUiEvent.SendForward -> sendForward()
             is ChatUiEvent.PromoteModerator -> promoteModerator(event.userId)
             is ChatUiEvent.DemoteModerator -> demoteModerator(event.userId)
@@ -371,10 +369,7 @@ class ChatViewModel(
         val previousConversation = _uiState.value.conversation
         _uiState.value = _uiState.value.copy(
             conversation = previousConversation?.copy(isMuted = muted),
-            isConversationActionInProgress = true,
-            availableForwardConversations = _uiState.value.availableForwardConversations.map { conversation ->
-                if (conversation.id == conversationId) conversation.copy(isMuted = muted) else conversation
-            }
+            isConversationActionInProgress = true
         )
         repository.setConversationMuted(conversationId, muted)
             .onSuccess {
@@ -384,13 +379,6 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     conversation = previousConversation,
                     isConversationActionInProgress = false,
-                    availableForwardConversations = _uiState.value.availableForwardConversations.map { conversation ->
-                        if (conversation.id == conversationId && previousConversation != null) {
-                            conversation.copy(isMuted = previousConversation.isMuted)
-                        } else {
-                            conversation
-                        }
-                    },
                     error = it.message ?: "No se pudo actualizar"
                 )
             }
@@ -401,6 +389,212 @@ class ChatViewModel(
         repository.setMemberInvitesEnabled(conversationId, enabled)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo actualizar") }
+    }
+
+    fun onParticipantCandidateQueryChanged(query: String) {
+        _uiState.value = _uiState.value.copy(
+            participantSearch = query,
+            participantCandidateQuery = query,
+            participantConversationCandidates = emptyList(),
+            participantCandidateHasMore = true,
+            participantCandidateNextOffset = 0,
+            participantCandidateError = null
+        )
+        participantCandidateSearchJob?.cancel()
+        participantCandidateSearchJob = viewModelScope.launch {
+            delay(250L)
+            loadParticipantConversationCandidates(reset = true)
+        }
+    }
+
+    fun loadMoreParticipantCandidates() {
+        val state = _uiState.value
+        if (!state.isAddParticipantsOpen) return
+        if (state.isParticipantCandidateInitialLoading || state.isParticipantCandidatePageLoading || !state.participantCandidateHasMore) return
+        loadParticipantConversationCandidates(reset = false)
+    }
+
+    fun addConversationCandidateParticipant(profileId: String) {
+        if (_uiState.value.addingCandidateProfileId != null) return
+        if (profileId in _uiState.value.conversation?.participantIds.orEmpty()) return
+        _uiState.value = _uiState.value.copy(addingCandidateProfileId = profileId, participantCandidateError = null)
+        viewModelScope.launch {
+            repository.addParticipants(conversationId, listOf(profileId))
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        addingCandidateProfileId = null,
+                        participantConversationCandidates = _uiState.value.participantConversationCandidates.filterNot { it.profileId == profileId }
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        addingCandidateProfileId = null,
+                        participantCandidateError = error.message ?: "No se pudo anadir participante"
+                    )
+                }
+        }
+    }
+
+    private fun openAddParticipantsPicker() {
+        _uiState.value = _uiState.value.copy(
+            isAddParticipantsOpen = true,
+            participantSearch = "",
+            participantCandidateQuery = "",
+            participantConversationCandidates = emptyList(),
+            participantCandidateHasMore = true,
+            participantCandidateNextOffset = 0,
+            participantCandidateError = null,
+            addingCandidateProfileId = null
+        )
+        loadParticipantConversationCandidates(reset = true)
+    }
+
+    private fun closeAddParticipantsPicker() {
+        participantCandidateSearchJob?.cancel()
+        participantCandidatePageJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isAddParticipantsOpen = false,
+            participantSearch = "",
+            selectedParticipantIds = emptyList(),
+            participantCandidateQuery = "",
+            participantConversationCandidates = emptyList(),
+            participantCandidateHasMore = true,
+            participantCandidateNextOffset = 0,
+            participantCandidateError = null,
+            addingCandidateProfileId = null
+        )
+    }
+
+    fun onForwardCandidateQueryChanged(query: String) {
+        _uiState.value = _uiState.value.copy(
+            forwardCandidateQuery = query,
+            forwardConversationCandidates = emptyList(),
+            forwardCandidateHasMore = true,
+            forwardCandidateNextOffset = 0,
+            forwardCandidateError = null
+        )
+        forwardCandidateSearchJob?.cancel()
+        forwardCandidateSearchJob = viewModelScope.launch {
+            delay(260L)
+            loadForwardConversationCandidates(reset = true)
+        }
+    }
+
+    fun loadMoreForwardConversationCandidates() {
+        if (!_uiState.value.isForwardDialogOpen) return
+        if (_uiState.value.isForwardCandidateInitialLoading || _uiState.value.isForwardCandidatePageLoading || !_uiState.value.forwardCandidateHasMore) return
+        loadForwardConversationCandidates(reset = false)
+    }
+
+    private fun openForwardPicker() {
+        _uiState.value = _uiState.value.copy(
+            isForwardDialogOpen = true,
+            selectedForwardProfileIds = emptyList(),
+            forwardCandidateQuery = "",
+            forwardConversationCandidates = emptyList(),
+            forwardCandidateHasMore = true,
+            forwardCandidateNextOffset = 0,
+            forwardCandidateActorNeighborhood = "",
+            forwardCandidateError = null
+        )
+        loadForwardConversationCandidates(reset = true)
+    }
+
+    private fun closeForwardPicker() {
+        forwardCandidateSearchJob?.cancel()
+        forwardCandidatePageJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isForwardDialogOpen = false,
+            selectedForwardProfileIds = emptyList(),
+            forwardCandidateQuery = "",
+            forwardConversationCandidates = emptyList(),
+            forwardCandidateHasMore = true,
+            forwardCandidateNextOffset = 0,
+            forwardCandidateError = null
+        )
+    }
+
+    private fun loadForwardConversationCandidates(reset: Boolean) {
+        forwardCandidatePageJob?.cancel()
+        forwardCandidatePageJob = viewModelScope.launch {
+            val state = _uiState.value
+            val offset = if (reset) 0 else state.forwardCandidateNextOffset
+            _uiState.value = state.copy(
+                isForwardCandidateInitialLoading = reset,
+                isForwardCandidatePageLoading = !reset,
+                forwardCandidateError = null
+            )
+            repository.searchConversationCandidates(
+                query = state.forwardCandidateQuery,
+                limit = 30,
+                offset = offset
+            ).onSuccess { page ->
+                val currentItems = if (reset) emptyList() else _uiState.value.forwardConversationCandidates
+                val filteredPageItems = page.candidates
+                    .filterNot { it.existingConversationId == conversationId }
+                    .filterNot { it.profileId == _uiState.value.currentUser?.id }
+                val updatedItems = (currentItems + filteredPageItems).distinctBy { it.profileId }
+                _uiState.value = _uiState.value.copy(
+                    isForwardCandidateInitialLoading = false,
+                    isForwardCandidatePageLoading = false,
+                    forwardConversationCandidates = updatedItems,
+                    forwardCandidateHasMore = page.hasMore,
+                    forwardCandidateNextOffset = page.nextOffset,
+                    forwardCandidateActorNeighborhood = page.actorNeighborhood,
+                    forwardCandidateError = null
+                )
+                if (filteredPageItems.isEmpty() && page.hasMore && _uiState.value.isForwardDialogOpen) {
+                    loadForwardConversationCandidates(reset = false)
+                }
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isForwardCandidateInitialLoading = false,
+                    isForwardCandidatePageLoading = false,
+                    forwardCandidateError = error.message ?: "No se pudo cargar la lista"
+                )
+            }
+        }
+    }
+
+    private fun loadParticipantConversationCandidates(reset: Boolean) {
+        participantCandidatePageJob?.cancel()
+        participantCandidatePageJob = viewModelScope.launch {
+            val state = _uiState.value
+            val offset = if (reset) 0 else state.participantCandidateNextOffset
+            _uiState.value = state.copy(
+                isParticipantCandidateInitialLoading = reset,
+                isParticipantCandidatePageLoading = !reset,
+                participantCandidateError = null
+            )
+            repository.searchConversationCandidates(
+                query = state.participantCandidateQuery,
+                limit = 30,
+                offset = offset
+            ).onSuccess { page ->
+                val excludedIds = _uiState.value.conversation?.participantIds.orEmpty().toSet()
+                val currentItems = if (reset) emptyList() else _uiState.value.participantConversationCandidates
+                val filteredPageItems = page.candidates.filterNot { it.profileId in excludedIds }
+                val updatedItems = (currentItems + filteredPageItems).distinctBy { it.profileId }
+                _uiState.value = _uiState.value.copy(
+                    isParticipantCandidateInitialLoading = false,
+                    isParticipantCandidatePageLoading = false,
+                    participantConversationCandidates = updatedItems,
+                    participantCandidateHasMore = page.hasMore,
+                    participantCandidateNextOffset = page.nextOffset,
+                    participantCandidateActorNeighborhood = page.actorNeighborhood,
+                    participantCandidateError = null
+                )
+                if (filteredPageItems.isEmpty() && page.hasMore && _uiState.value.isAddParticipantsOpen) {
+                    loadParticipantConversationCandidates(reset = false)
+                }
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isParticipantCandidateInitialLoading = false,
+                    isParticipantCandidatePageLoading = false,
+                    participantCandidateError = error.message ?: "No se pudo cargar la lista"
+                )
+            }
+        }
     }
 
     private fun addParticipants() = viewModelScope.launch {
@@ -499,25 +693,59 @@ class ChatViewModel(
             .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo eliminar") }
     }
 
-    private fun toggleForwardConversation(conversationId: String) {
-        val current = _uiState.value.selectedForwardConversationIds
+    private fun toggleForwardProfile(profileId: String) {
+        val current = _uiState.value.selectedForwardProfileIds
         _uiState.value = _uiState.value.copy(
-            selectedForwardConversationIds = if (conversationId in current) current - conversationId else current + conversationId
+            selectedForwardProfileIds = if (profileId in current) current - profileId else current + profileId
         )
     }
 
     private fun sendForward() = viewModelScope.launch {
         val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return@launch
-        val conversationIds = _uiState.value.selectedForwardConversationIds
-        repository.forwardMessage(message, conversationIds)
-            .onSuccess {
+        val selectedProfileIds = _uiState.value.selectedForwardProfileIds
+        if (selectedProfileIds.isEmpty()) return@launch
+        val candidateConversations = _uiState.value.forwardConversationCandidates
+            .associate { it.profileId to it.existingConversationId }
+        _uiState.value = _uiState.value.copy(
+            isConversationActionInProgress = true,
+            isForwardDialogOpen = false,
+            selectedForwardProfileIds = emptyList()
+        )
+        runCatching {
+            selectedProfileIds.map { profileId ->
+                candidateConversations[profileId]?.takeIf { it.isNotBlank() }
+                    ?: repository.openPrivateConversation(profileId).getOrThrow()
+            }
+                .filterNot { it == conversationId }
+                .distinct()
+        }.fold(
+            onSuccess = { conversationIds ->
+                if (conversationIds.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        isConversationActionInProgress = false,
+                        selectedMessageId = null
+                    )
+                    return@launch
+                }
+                repository.forwardMessage(message, conversationIds).onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        selectedMessageId = null,
+                        isConversationActionInProgress = false
+                    )
+                }.onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isConversationActionInProgress = false,
+                        error = error.message ?: "No se pudo reenviar"
+                    )
+                }
+            },
+            onFailure = { error ->
                 _uiState.value = _uiState.value.copy(
-                    selectedMessageId = null,
-                    isForwardDialogOpen = false,
-                    selectedForwardConversationIds = emptyList()
+                    isConversationActionInProgress = false,
+                    error = error.message ?: "No se pudo reenviar"
                 )
             }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo reenviar") }
+        )
     }
 
     companion object {

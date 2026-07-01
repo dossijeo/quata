@@ -224,7 +224,7 @@ open class CustomButton : AppCompatButton {
     }
 
     private fun getColor(i: Int): Int {
-        return resources.getColor(i)
+        return ContextCompat.getColor(context, i)
     }
 
     protected fun setIcon(i: Int) {

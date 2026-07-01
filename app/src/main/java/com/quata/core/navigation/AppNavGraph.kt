@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
-import android.graphics.Point
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
 import android.media.RingtoneManager
@@ -21,6 +20,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -89,7 +89,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
@@ -108,6 +107,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.quata.core.common.toUserFacingMessage
 import com.quata.core.di.AppContainer
 import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
@@ -121,6 +121,7 @@ import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.applyQuataSystemBars
 import com.quata.core.ui.effects.fluidTouchEffect
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.translation.QuataTranslatableTextRegistry
@@ -917,23 +918,10 @@ fun AppNavGraph(
 
 @Composable
 private fun ConfigureAppSystemBars() {
-    val view = LocalView.current
     val context = LocalContext.current
     val template = quataTheme()
     SideEffect {
-        val window = context.findActivity()?.window ?: return@SideEffect
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        val useDarkSystemBarIcons = template.resolvedTheme == QuataResolvedTheme.Light
-        window.statusBarColor = AndroidColor.TRANSPARENT
-        window.navigationBarColor = template.colors.background.toArgb()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isStatusBarContrastEnforced = false
-            window.isNavigationBarContrastEnforced = false
-        }
-        controller.isAppearanceLightStatusBars = useDarkSystemBarIcons
-        controller.isAppearanceLightNavigationBars = useDarkSystemBarIcons
-        @Suppress("DEPRECATION")
-        view.systemUiVisibility = view.systemUiVisibility or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        (context.findActivity() as? ComponentActivity)?.applyQuataSystemBars(template)
     }
 }
 
@@ -944,7 +932,6 @@ private tailrec fun Context.findActivity(): Activity? =
         else -> null
     }
 
-@Suppress("DEPRECATION")
 @Composable
 private fun ConfigureTranslatorDialogWindow() {
     val view = LocalView.current
@@ -971,40 +958,25 @@ private fun ConfigureTranslatorDialogWindow() {
         val originalWidth = window.attributes.width
         val originalHeight = window.attributes.height
         val originalFlags = window.attributes.flags
-        val originalSystemUiVisibility = window.decorView.systemUiVisibility
         val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode
         } else {
             null
         }
         val fullscreenLayout = {
-            val displaySize = Point()
-            @Suppress("DEPRECATION")
-            window.windowManager.defaultDisplay.getRealSize(displaySize)
-            val targetWidth = displaySize.x.coerceAtLeast(1)
-            val targetHeight = displaySize.y.coerceAtLeast(1)
             val attributes = window.attributes
-            attributes.width = targetWidth
-            attributes.height = targetHeight
+            attributes.width = WindowManager.LayoutParams.MATCH_PARENT
+            attributes.height = WindowManager.LayoutParams.MATCH_PARENT
             attributes.gravity = Gravity.TOP or Gravity.START
             attributes.x = 0
             attributes.y = 0
-            attributes.flags = attributes.flags or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 attributes.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
             window.attributes = attributes
-            window.setLayout(targetWidth, targetHeight)
+            window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
             window.decorView.setPadding(0, 0, 0, 0)
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setWindowAnimations(0)
@@ -1033,8 +1005,6 @@ private fun ConfigureTranslatorDialogWindow() {
                 attributes.layoutInDisplayCutoutMode = originalCutoutMode
             }
             window.attributes = attributes
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = originalSystemUiVisibility
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 if (originalNavigationBarContrast != null) {
                     window.isNavigationBarContrastEnforced = originalNavigationBarContrast
@@ -1400,7 +1370,7 @@ private fun AuthenticatedGlobalSosButton(
                 val message = if (error is SosRateLimitException) {
                     context.getString(R.string.sos_recently_sent, error.remainingMillis.formatSosRemaining())
                 } else {
-                    error.message ?: context.getString(R.string.sos_send_error)
+                    error.toUserFacingMessage(context, R.string.sos_send_error)
                 }
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
@@ -1501,7 +1471,7 @@ private fun AuthenticatedGlobalSosButton(
                 isSavingSosConfig = false
                 Toast.makeText(
                     context,
-                    error.message ?: context.getString(R.string.profile_save_error),
+                    error.toUserFacingMessage(context, R.string.profile_save_error),
                     Toast.LENGTH_SHORT
                 ).show()
             }

@@ -1,13 +1,5 @@
 package com.quata.feature.chat.presentation.conversations
 
-import android.graphics.Color as AndroidColor
-import android.graphics.Point
-import android.graphics.drawable.ColorDrawable
-import android.os.Build
-import android.view.Gravity
-import android.view.View
-import android.view.Window
-import android.view.WindowManager
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -16,25 +8,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -42,6 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
@@ -51,21 +36,18 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -78,24 +60,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.compose.ui.window.DialogProperties
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataResolvedTheme
-import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
@@ -104,6 +78,7 @@ import com.quata.core.text.localizedSosPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.QuataFloatingPanel
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
@@ -224,7 +199,7 @@ fun ConversationsScreen(
     }
 
     if (state.isNewConversationPickerOpen) {
-        NewConversationDialog(
+        ConversationCandidatePickerDialog(
             state = state,
             onSearchChange = viewModel::onCandidateQueryChanged,
             onLoadMore = viewModel::loadMoreConversationCandidates,
@@ -389,20 +364,26 @@ private fun NewConversationFab(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NewConversationDialog(
+fun ConversationCandidatePickerDialog(
     state: ConversationsUiState,
     onSearchChange: (String) -> Unit,
     onLoadMore: () -> Unit,
     onOpenCandidate: (ChatConversationCandidate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String = stringResource(R.string.conversations_new_chat_title),
+    actionIcon: ImageVector = Icons.Filled.ChatBubble,
+    actionContentDescription: String = stringResource(R.string.common_chat),
+    excludedProfileIds: Set<String> = emptySet(),
+    selectedCandidateIds: Set<String> = emptySet(),
+    onToggleCandidate: ((ChatConversationCandidate) -> Unit)? = null,
+    onConfirmSelection: (() -> Unit)? = null,
+    confirmEnabled: Boolean = selectedCandidateIds.isNotEmpty(),
+    selectionSummary: String = "",
+    confirmIcon: ImageVector = Icons.AutoMirrored.Filled.Send,
+    confirmContentDescription: String = stringResource(R.string.common_send)
 ) {
     val template = quataTheme()
     val listState = rememberLazyListState()
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { it != SheetValue.PartiallyExpanded }
-    )
     val contactsTitle = stringResource(R.string.conversations_new_chat_contacts)
     val followingTitle = stringResource(R.string.conversations_new_chat_following)
     val followersTitle = stringResource(R.string.conversations_new_chat_followers)
@@ -411,6 +392,7 @@ private fun NewConversationDialog(
     val displayItems = remember(
         state.conversationCandidates,
         state.candidateActorNeighborhood,
+        excludedProfileIds,
         contactsTitle,
         followingTitle,
         followersTitle,
@@ -418,7 +400,7 @@ private fun NewConversationDialog(
         unknownNeighborhood
     ) {
         buildCandidateDisplayItems(
-            candidates = state.conversationCandidates,
+            candidates = state.conversationCandidates.filterNot { it.profileId in excludedProfileIds },
             actorNeighborhood = state.candidateActorNeighborhood,
             contactsTitle = contactsTitle,
             followingTitle = followingTitle,
@@ -437,102 +419,34 @@ private fun NewConversationDialog(
             }
     }
 
-    LaunchedEffect(Unit) {
-        if (!isLandscapeLayout) {
-            sheetState.expand()
-        }
-    }
-
-    if (isLandscapeLayout) {
-        Dialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true,
-                decorFitsSystemWindows = false
-            )
-        ) {
-            ConfigureNewConversationSheetSystemBars(template, fullscreen = true)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 72.dp, vertical = 24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                val panelInteractionSource = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .pointerInput(onDismiss) {
-                            detectTapGestures { onDismiss() }
-                        }
-                )
-                Surface(
-                    color = template.colors.surfaceRaised,
-                    contentColor = template.colors.textPrimary,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(0.76f)
-                        .fillMaxHeight(0.90f)
-                        .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
-                        .clickable(
-                            interactionSource = panelInteractionSource,
-                            indication = null,
-                            onClick = {}
-                        )
-                ) {
-                    NewConversationPanelContent(
-                        state = state,
-                        displayItems = displayItems,
-                        listState = listState,
-                        onSearchChange = onSearchChange,
-                        onOpenCandidate = onOpenCandidate,
-                        onDismiss = onDismiss,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 18.dp)
-                    )
-                }
-            }
-        }
-        return
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = template.colors.surfaceRaised,
-        contentColor = template.colors.textPrimary,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
-    ) {
-        ConfigureNewConversationSheetSystemBars(template)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.92f)
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(template.colors.background)
-            )
-            NewConversationPanelContent(
+    QuataFloatingPanel(
+        onDismiss = onDismiss,
+        template = template
+    ) { panelModifier, isLandscape ->
+        NewConversationPanelContent(
                 state = state,
                 displayItems = displayItems,
                 listState = listState,
+                title = title,
+                actionIcon = actionIcon,
+                actionContentDescription = actionContentDescription,
+                selectedCandidateIds = selectedCandidateIds,
+                onToggleCandidate = onToggleCandidate,
+                onConfirmSelection = onConfirmSelection,
+                confirmEnabled = confirmEnabled,
+                selectionSummary = selectionSummary,
+                confirmIcon = confirmIcon,
+                confirmContentDescription = confirmContentDescription,
                 onSearchChange = onSearchChange,
                 onOpenCandidate = onOpenCandidate,
                 onDismiss = onDismiss,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(start = 20.dp, top = 10.dp, end = 20.dp, bottom = 24.dp)
-            )
-        }
+                modifier = panelModifier.padding(
+                    start = 20.dp,
+                    top = if (isLandscape) 18.dp else 10.dp,
+                    end = 20.dp,
+                    bottom = if (isLandscape) 18.dp else 24.dp
+                )
+        )
     }
 }
 
@@ -541,6 +455,16 @@ private fun NewConversationPanelContent(
     state: ConversationsUiState,
     displayItems: List<CandidateDisplayItem>,
     listState: LazyListState,
+    title: String,
+    actionIcon: ImageVector,
+    actionContentDescription: String,
+    selectedCandidateIds: Set<String>,
+    onToggleCandidate: ((ChatConversationCandidate) -> Unit)?,
+    onConfirmSelection: (() -> Unit)?,
+    confirmEnabled: Boolean,
+    selectionSummary: String,
+    confirmIcon: ImageVector,
+    confirmContentDescription: String,
     onSearchChange: (String) -> Unit,
     onOpenCandidate: (ChatConversationCandidate) -> Unit,
     onDismiss: () -> Unit,
@@ -550,7 +474,7 @@ private fun NewConversationPanelContent(
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(R.string.conversations_new_chat_title),
+                title,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.weight(1f)
@@ -578,12 +502,22 @@ private fun NewConversationPanelContent(
         Spacer(Modifier.height(12.dp))
         when {
             state.isCandidateInitialLoading && state.conversationCandidates.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(color = template.colors.accent)
                 }
             }
             displayItems.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         stringResource(R.string.conversations_new_chat_no_results),
                         color = template.colors.textSecondary
@@ -603,6 +537,10 @@ private fun NewConversationPanelContent(
                             is CandidateDisplayItem.CandidateRow -> CandidateUserCard(
                                 candidate = item.candidate,
                                 isOpening = state.openingCandidateProfileId == item.candidate.profileId,
+                                actionIcon = actionIcon,
+                                actionContentDescription = actionContentDescription,
+                                isSelected = item.candidate.profileId in selectedCandidateIds,
+                                onToggleSelection = onToggleCandidate?.let { toggle -> { toggle(item.candidate) } },
                                 onOpen = { onOpenCandidate(item.candidate) }
                             )
                         }
@@ -619,6 +557,37 @@ private fun NewConversationPanelContent(
                             }
                         }
                     }
+                }
+            }
+        }
+        onConfirmSelection?.let { confirm ->
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
+                    .background(template.colors.surface.copy(alpha = 0.76f), RoundedCornerShape(18.dp))
+                    .padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    selectionSummary.ifBlank { stringResource(R.string.conversation_forward_none_selected) },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = template.colors.textPrimary.copy(alpha = if (selectedCandidateIds.isEmpty()) 0.54f else 0.94f),
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = confirm,
+                    enabled = confirmEnabled,
+                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .compactButtonMinSize(),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    CompactIcon(confirmIcon, contentDescription = confirmContentDescription, tint = template.colors.accentContent)
                 }
             }
         }
@@ -653,6 +622,10 @@ private fun CandidateNeighborhoodHeader(title: String) {
 private fun CandidateUserCard(
     candidate: ChatConversationCandidate,
     isOpening: Boolean,
+    actionIcon: ImageVector,
+    actionContentDescription: String,
+    isSelected: Boolean = false,
+    onToggleSelection: (() -> Unit)? = null,
     onOpen: () -> Unit
 ) {
     val template = quataTheme()
@@ -664,9 +637,18 @@ private fun CandidateUserCard(
             .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .clickable(enabled = onToggleSelection != null) { onToggleSelection?.invoke() }
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            onToggleSelection?.let { toggle ->
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { toggle() }
+                )
+                Spacer(Modifier.size(8.dp))
+            }
             AvatarImage(
                 name = candidate.displayName,
                 avatarUrl = candidate.avatarUrl,
@@ -687,20 +669,22 @@ private fun CandidateUserCard(
                 }
             }
             Spacer(Modifier.size(8.dp))
-            Button(
-                onClick = onOpen,
-                enabled = !isOpening,
-                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                shape = CircleShape,
-                modifier = Modifier
-                    .size(42.dp)
-                    .compactButtonMinSize(),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                if (isOpening) {
-                    CircularProgressIndicator(color = template.colors.accentContent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                } else {
-                    CompactIcon(Icons.Filled.ChatBubble, contentDescription = stringResource(R.string.common_chat), tint = template.colors.accentContent)
+            if (onToggleSelection == null) {
+                Button(
+                    onClick = onOpen,
+                    enabled = !isOpening,
+                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .compactButtonMinSize(),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    if (isOpening) {
+                        CircularProgressIndicator(color = template.colors.accentContent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else {
+                        CompactIcon(actionIcon, contentDescription = actionContentDescription, tint = template.colors.accentContent)
+                    }
                 }
             }
         }
@@ -752,111 +736,6 @@ private fun buildCandidateDisplayItems(
         items += CandidateDisplayItem.CandidateRow(candidate)
     }
     return items
-}
-
-@Suppress("DEPRECATION")
-@Composable
-private fun ConfigureNewConversationSheetSystemBars(
-    template: QuataThemeTemplate,
-    fullscreen: Boolean = false
-) {
-    val view = LocalView.current
-    DisposableEffect(view, template.id) {
-        val window = view.findDialogWindow()
-        if (window == null) {
-            return@DisposableEffect onDispose {}
-        }
-        val originalContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced
-        } else {
-            null
-        }
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        val originalLightNavigationBars = controller.isAppearanceLightNavigationBars
-        val originalAttributes = window.attributes
-        val originalGravity = originalAttributes.gravity
-        val originalX = originalAttributes.x
-        val originalY = originalAttributes.y
-        val originalWidth = originalAttributes.width
-        val originalHeight = originalAttributes.height
-        val originalFlags = originalAttributes.flags
-        val originalSystemUiVisibility = window.decorView.systemUiVisibility
-        val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            originalAttributes.layoutInDisplayCutoutMode
-        } else {
-            null
-        }
-        val fullscreenLayout = {
-            val displaySize = Point()
-            window.windowManager.defaultDisplay.getRealSize(displaySize)
-            val targetWidth = displaySize.x.coerceAtLeast(1)
-            val targetHeight = displaySize.y.coerceAtLeast(1)
-            val attributes = window.attributes
-            attributes.width = targetWidth
-            attributes.height = targetHeight
-            attributes.gravity = Gravity.TOP or Gravity.START
-            attributes.x = 0
-            attributes.y = 0
-            attributes.flags = attributes.flags or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                attributes.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            }
-            window.attributes = attributes
-            window.setLayout(targetWidth, targetHeight)
-            window.decorView.setPadding(0, 0, 0, 0)
-            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        }
-
-        if (fullscreen) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
-        controller.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
-        if (fullscreen) {
-            fullscreenLayout()
-            window.decorView.post { fullscreenLayout() }
-        }
-
-        onDispose {
-            if (fullscreen) {
-                val attributes = window.attributes
-                attributes.gravity = originalGravity
-                attributes.x = originalX
-                attributes.y = originalY
-                attributes.width = originalWidth
-                attributes.height = originalHeight
-                attributes.flags = originalFlags
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && originalCutoutMode != null) {
-                    attributes.layoutInDisplayCutoutMode = originalCutoutMode
-                }
-                window.attributes = attributes
-                window.decorView.systemUiVisibility = originalSystemUiVisibility
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && originalContrastEnforced != null) {
-                window.isNavigationBarContrastEnforced = originalContrastEnforced
-            }
-            controller.isAppearanceLightNavigationBars = originalLightNavigationBars
-        }
-    }
-}
-
-private tailrec fun View.findDialogWindow(): Window? {
-    val parentView = parent
-    return when (parentView) {
-        is DialogWindowProvider -> parentView.window
-        is View -> parentView.findDialogWindow()
-        else -> null
-    }
 }
 
 @Composable

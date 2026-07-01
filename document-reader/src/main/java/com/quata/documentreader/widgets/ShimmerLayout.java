@@ -14,11 +14,12 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Shader;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
+
+import androidx.core.content.ContextCompat;
 
 import   com.quata.documentreader.R;
 
@@ -297,10 +298,7 @@ public class ShimmerLayout extends FrameLayout {
     }
 
     private int getColor(int i) {
-        if (Build.VERSION.SDK_INT >= 23) {
-            return getContext().getColor(i);
-        }
-        return getResources().getColor(i);
+        return ContextCompat.getColor(getContext(), i);
     }
 
     private int reduceColorAlphaValueToZero(int i) {

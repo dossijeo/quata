@@ -27,12 +27,14 @@ import com.quata.documentreader.xs.wp.dialog.TXTEncodingDialog;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.text.ClipboardManager;
 import android.view.View;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 
 /**
@@ -230,7 +232,7 @@ public class WPControl extends AbstractControl
                 
             case EventConstant.FILE_COPY_ID:                        //copy
                 ClipboardManager clip = (ClipboardManager)getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                clip.setText(wpView.getHighlight().getSelectText());
+                clip.setPrimaryClip(ClipData.newPlainText("document text", wpView.getHighlight().getSelectText()));
                 break;
                 
             case EventConstant.SYS_AUTO_TEST_FINISH_ID: // 布局完成 
@@ -251,7 +253,7 @@ public class WPControl extends AbstractControl
                 
                 if (isAutoTest())
                 {
-                    getMainFrame().getActivity().onBackPressed();
+                    DocumentReaderBackNavigation.navigateBack(getMainFrame().getActivity());
                 }
                 break;
                 

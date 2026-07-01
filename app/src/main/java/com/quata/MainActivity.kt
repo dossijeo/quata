@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -153,7 +154,7 @@ private fun StartupSettingsPrompts(enabled: Boolean) {
         }
     }
 
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner, enabled) {
+    DisposableEffect(lifecycleOwner, enabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (waitingForExternalSettings) {
@@ -203,6 +204,10 @@ private enum class StartupPermissionStep {
     AppLinks
 }
 
+private fun Context.needsNotificationPermission(): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+
 @Composable
 private fun AppLinksPrompt(
     onDismiss: () -> Unit,
@@ -224,10 +229,6 @@ private fun AppLinksPrompt(
         }
     )
 }
-
-private fun Context.needsNotificationPermission(): Boolean =
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
 @SuppressLint("NewApi")
 private fun Context.needsAppLinksUserApproval(): Boolean {

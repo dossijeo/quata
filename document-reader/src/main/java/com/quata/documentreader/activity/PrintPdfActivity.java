@@ -9,6 +9,8 @@ import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
+import androidx.core.content.ContextCompat;
+
 import com.quata.documentreader.R;
 import com.quata.documentreader.databinding.ActivityPrintPdfBinding;
 import com.quata.documentreader.manageui.CustomFrameLayout;
@@ -95,7 +97,12 @@ public class PrintPdfActivity extends BaseActivity {
         binding.appToolbar.setToolbarTitle(getString(R.string.quata_document_reader_preview));
         binding.header.headerTitleText.setText(getString(R.string.quata_document_reader_preview));
         this.toolbarBuilder = new CustomFrameLayout.Builder(binding.appToolbar, this);
-        this.toolbarBuilder.setBackArrow(R.drawable.back_arrow, getResources().getColor(R.color.blue_start), getResources().getColor(R.color.blue_end), view -> this.onBackPressed());
+        this.toolbarBuilder.setBackArrow(
+                R.drawable.back_arrow,
+                ContextCompat.getColor(this, R.color.blue_start),
+                ContextCompat.getColor(this, R.color.blue_end),
+                view -> getOnBackPressedDispatcher().onBackPressed()
+        );
 
 
     }

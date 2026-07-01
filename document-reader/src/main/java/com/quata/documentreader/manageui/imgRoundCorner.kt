@@ -13,6 +13,7 @@ import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.util.AttributeSet
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.content.res.ResourcesCompat
 import com.quata.documentreader.R
 
 class imgRoundCorner : AppCompatImageView {
@@ -83,7 +84,7 @@ class imgRoundCorner : AppCompatImageView {
 
         private fun setMatrixScale(canvas: Canvas) {
             val clipBounds = canvas.clipBounds
-            val matrix = canvas.matrix
+            val matrix = canvas.currentMatrixCopy()
             if (ScaleType.CENTER == scaleType) {
                 rectF.set(clipBounds)
             } else if (ScaleType.CENTER_CROP == scaleType) {
@@ -120,7 +121,7 @@ class imgRoundCorner : AppCompatImageView {
 
         private fun drawCanvas(canvas: Canvas) {
             val fArr = FloatArray(9)
-            canvas.matrix.getValues(fArr)
+            canvas.currentMatrixCopy().getValues(fArr)
             val f = fArr[0]
             val f2 = fArr[4]
             val f3 = fArr[2]
@@ -145,7 +146,7 @@ class imgRoundCorner : AppCompatImageView {
 
         private fun drawCanvasFloat(canvas: Canvas) {
             val fArr = FloatArray(9)
-            canvas.matrix.getValues(fArr)
+            canvas.currentMatrixCopy().getValues(fArr)
             conversion = conversion * rectF.width() / (rectF.width() * fArr[0] - conversion * 2.0f)
             paint1.strokeWidth = conversion
             rectF1.set(rectF)
@@ -218,6 +219,7 @@ class imgRoundCorner : AppCompatImageView {
             }
         }
 
+        @Deprecated("Deprecated in Drawable")
         override fun getOpacity(): Int {
             val bitmap = bitmap
             return if (bitmap == null || bitmap.hasAlpha() || paint.alpha < 255) PixelFormat.TRANSLUCENT else PixelFormat.OPAQUE
@@ -233,6 +235,7 @@ class imgRoundCorner : AppCompatImageView {
             invalidateSelf()
         }
 
+        @Deprecated("Deprecated in Drawable")
         override fun setDither(z: Boolean) {
             paint.isDither = z
             invalidateSelf()
@@ -501,7 +504,7 @@ class imgRoundCorner : AppCompatImageView {
         val i = res
         if (i != 0) {
             try {
-                drawable = resources.getDrawable(i)
+                drawable = ResourcesCompat.getDrawable(resources, i, context.theme)
             } catch (e: NotFoundException) {
                 val sb = StringBuilder()
                 sb.append("Unable to find resource: ")
@@ -579,3 +582,8 @@ class imgRoundCorner : AppCompatImageView {
         )
     }
 }
+
+// The legacy rounded drawable must preserve its current canvas transform; Android has no modern getter.
+@Suppress("DEPRECATION")
+private fun Canvas.currentMatrixCopy(): Matrix =
+    Matrix().also { matrix -> getMatrix(matrix) }

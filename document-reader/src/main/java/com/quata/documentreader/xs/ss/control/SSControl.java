@@ -25,12 +25,14 @@ import com.quata.documentreader.xs.system.SysKit;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.text.ClipboardManager;
 import android.view.View;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 /**
  * excel 应用控制
@@ -179,7 +181,7 @@ public class SSControl extends AbstractControl
                 
             case EventConstant.FILE_COPY_ID:                        //copy
                 ClipboardManager clip = (ClipboardManager)getMainFrame().getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                clip.setText(spreadSheet.getActiveCellContent());
+                clip.setPrimaryClip(ClipData.newPlainText("document text", spreadSheet.getActiveCellContent()));
                 break;
                 
             case EventConstant.APP_HYPERLINK:                       //hyperlink
@@ -240,7 +242,7 @@ public class SSControl extends AbstractControl
             case EventConstant.SYS_AUTO_TEST_FINISH_ID: // 布局完成 
                 if (mainControl.isAutoTest())
                 {
-                    getMainFrame().getActivity().onBackPressed();
+                    DocumentReaderBackNavigation.navigateBack(getMainFrame().getActivity());
                 }
                 break;                
                 

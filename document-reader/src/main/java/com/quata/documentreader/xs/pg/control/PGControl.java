@@ -26,14 +26,16 @@ import   com.quata.documentreader.xs.system.IMainFrame;
 import   com.quata.documentreader.xs.system.SysKit;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.ProgressDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.text.ClipboardManager;
 import android.view.View;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 /**
  * 文件注释
@@ -229,7 +231,7 @@ public class PGControl extends AbstractControl
                 
             case EventConstant.FILE_COPY_ID:                      //copy
                 ClipboardManager clip = (ClipboardManager)getMainFrame().getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                clip.setText(pgView.getSelectedText());
+                clip.setPrimaryClip(ClipData.newPlainText("document text", pgView.getSelectedText()));
                 break;
                 
             case EventConstant.APP_HYPERLINK: //hyperlink
@@ -251,7 +253,7 @@ public class PGControl extends AbstractControl
             case EventConstant.SYS_AUTO_TEST_FINISH_ID: // 布局完成 
                 if (isAutoTest())
                 {
-                    getMainFrame().getActivity().onBackPressed();
+                    DocumentReaderBackNavigation.navigateBack(getMainFrame().getActivity());
                 }
                 break;
                 
@@ -366,10 +368,12 @@ public class PGControl extends AbstractControl
                     {
                         if (isShowingProgressDlg)
                         {
-                            progressDialog = ProgressDialog.show(getActivity(), 
-                                own.getMainFrame().getAppName(), own.getMainFrame().getLocalString("DIALOG_LOADING"), 
-                                false, false, null);
-                                progressDialog.show();
+                            progressDialog = new AlertDialog.Builder(getActivity())
+                                .setTitle(own.getMainFrame().getAppName())
+                                .setMessage(own.getMainFrame().getLocalString("DIALOG_LOADING"))
+                                .setCancelable(false)
+                                .create();
+                            progressDialog.show();
                         }
                     }
                 }, 200);
@@ -382,99 +386,6 @@ public class PGControl extends AbstractControl
                     dlgListener.showDialog(ICustomDialog.DIALOGTYPE_LOADING);
                 }
             }
-//            if (safeAsyncTask != null)
-//            {
-//                safeAsyncTask.cancel(true);
-//                safeAsyncTask = null;
-//            }
-//            final PGControl own = this;
-//            safeAsyncTask = new SafeAsyncTask<Void, Void, Integer>()
-//            {
-//                @ Override
-//                protected Integer doInBackground(Void...params)
-//                {
-//                    while (slideIndex >= pgView.getRealSlideCount())
-//                    {
-//                        try
-//                        {
-//                            Thread.sleep(100);
-//                        }
-//                        catch (InterruptedException e)
-//                        {
-//                            return -1;
-//                        }
-//
-//                    }
-//                    return 0;
-//                }
-//               
-//                
-//                @ Override
-//                protected void onCancelled()
-//                {
-//                    super.onCancelled();
-//                    if (progressDialog != null)
-//                    {
-//                        progressDialog.cancel();
-//                        progressDialog = null;
-//                    }
-//                }
-//
-//                @ Override
-//                protected void onPreExecute()
-//                {
-//                    super.onPreExecute();
-//                    if(getMainFrame().isShowProgressBar())
-//                    {
-//                        pgView.postDelayed(new Runnable()
-//                        {
-//                            public void run()
-//                            {
-//                                progressDialog = ProgressDialog.show(getActivity(), 
-//                                    own.getMainFrame().getAppName(), own.getMainFrame().getLocalString("DIALOG_LOADING"), 
-//                                    false, false, null);
-//                                    progressDialog.show();
-//                            }
-//                        }, 200);
-//                    }
-//                    else
-//                    {
-//                        ICustomDialog dlgListener = mainControl.getCustomDialog();
-//                        if(dlgListener != null)
-//                        {
-//                            dlgListener.showDialog(ICustomDialog.DIALOGTYPE_LOADING);
-//                        }
-//                    }
-//                }
-//
-//                @ Override
-//                protected void onPostExecute(Integer index)
-//                {
-//                    super.onPostExecute(index);
-//                    if(getMainFrame().isShowProgressBar())
-//                    {
-//                        if (progressDialog != null)
-//                        {
-//                            progressDialog.cancel();
-//                            progressDialog = null;
-//                        }
-//                    }
-//                    else
-//                    {
-//                        ICustomDialog dlgListener = mainControl.getCustomDialog();
-//                        if(dlgListener != null)
-//                        {
-//                            dlgListener.dismissDialog(ICustomDialog.DIALOGTYPE_LOADING);
-//                        }
-//                    }
-//                    
-//                    if (index == 0)
-//                    {
-//                        pgView.showSlide(slideIndex, false);
-//                    }
-//                }
-//            };
-//            safeAsyncTask.execute((Void)null);
         }
         //else
         {
@@ -732,5 +643,5 @@ public class PGControl extends AbstractControl
     //
     private boolean isShowingProgressDlg;
     //
-    private ProgressDialog progressDialog;
+    private Dialog progressDialog;
 }

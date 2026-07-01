@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.RectF
+import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.media.MediaCodec
@@ -162,6 +163,7 @@ import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
@@ -169,6 +171,7 @@ import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 private enum class ComposerStep {
@@ -2663,18 +2666,47 @@ private fun Context.capturePermissions(target: CaptureTarget?): Array<String> =
             arrayOf(Manifest.permission.CAMERA)
     }
 
-private suspend fun Context.resolvePlaceName(location: Location): String? = withContext(Dispatchers.IO) {
+private suspend fun Context.resolvePlaceName(location: Location): String? =
     runCatching {
         val geocoder = Geocoder(this@resolvePlaceName, Locale.getDefault())
-        @Suppress("DEPRECATION")
-        val address = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-            .orEmpty()
-            .firstOrNull()
-            ?: return@runCatching null
-
+        val address = geocoder.firstAddress(location) ?: return@runCatching null
         address.readableLocationLabel()
     }.getOrNull()
-}
+
+private suspend fun Geocoder.firstAddress(location: Location): Address? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        suspendCancellableCoroutine { continuation ->
+            getFromLocation(
+                location.latitude,
+                location.longitude,
+                1,
+                object : Geocoder.GeocodeListener {
+                    override fun onGeocode(addresses: MutableList<Address>) {
+                        if (continuation.isActive) {
+                            continuation.resume(addresses.firstOrNull())
+                        }
+                    }
+
+                    override fun onError(errorMessage: String?) {
+                        if (continuation.isActive) {
+                            continuation.resume(null)
+                        }
+                    }
+                }
+            )
+        }
+    } else {
+        withContext(Dispatchers.IO) {
+            firstAddressBlocking(location)
+        }
+    }
+
+// Android 12L and older only expose the blocking geocoder call.
+@Suppress("DEPRECATION")
+private fun Geocoder.firstAddressBlocking(location: Location): Address? =
+    getFromLocation(location.latitude, location.longitude, 1)
+        .orEmpty()
+        .firstOrNull()
 
 private fun android.location.Address.readableLocationLabel(): String? {
     val representativePlace = listOf(premises, featureName)

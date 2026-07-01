@@ -1,7 +1,6 @@
 package com.quata.core.text
 
-import android.os.Build
-import android.text.Html
+import androidx.core.text.HtmlCompat
 
 fun String.decodeHtmlEntities(): String {
     val value = this
@@ -14,10 +13,5 @@ fun String.stripHtmlTagsAndDecode(): String =
         .decodeHtmlEntities()
         .trim()
 
-@Suppress("DEPRECATION")
 private fun String.fromHtmlCompat(): CharSequence =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY)
-    } else {
-        Html.fromHtml(this)
-    }
+    HtmlCompat.fromHtml(this, HtmlCompat.FROM_HTML_MODE_LEGACY)

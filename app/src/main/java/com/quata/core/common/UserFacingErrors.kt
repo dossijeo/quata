@@ -25,7 +25,9 @@ fun Throwable.toUserFacingMessage(context: Context, fallbackMessageRes: Int = R.
         is SocketTimeoutException -> context.getString(R.string.error_network_timeout)
         is UnknownHostException -> context.getString(R.string.error_network)
         is IOException -> context.getString(R.string.error_network)
-        else -> message?.takeIf { it.isNotBlank() } ?: context.getString(fallbackMessageRes)
+        else -> message
+            ?.takeIf { it.isNotBlank() && !it.isTechnicalErrorMessage() }
+            ?: context.getString(fallbackMessageRes)
     }
 }
 
@@ -40,7 +42,7 @@ private fun SupabaseApiException.toSupabaseUserMessage(context: Context): String
     if (statusCode == 403 && serverMessage?.contains("moderador", ignoreCase = true) == true) {
         return context.getString(R.string.error_conversation_leave_moderator)
     }
-    if (!serverMessage.isNullOrBlank()) {
+    if (!serverMessage.isNullOrBlank() && !serverMessage.isTechnicalErrorMessage()) {
         return serverMessage
     }
     return when (statusCode) {
@@ -61,6 +63,50 @@ private fun String.extractJsonMessage(): String? =
             ?.getOrNull(1)
             ?.replace("\\/", "/")
             ?.replace("\\\"", "\"")
+
+private fun String.isTechnicalErrorMessage(): Boolean {
+    val normalized = lowercase()
+    val technicalMarkers = listOf(
+        "http ",
+        "http:",
+        "https:",
+        "supabase",
+        "postgres",
+        "postgrest",
+        "sql",
+        "jwt",
+        "json",
+        "okhttp",
+        "retrofit",
+        "socket",
+        "timeout",
+        "timed out",
+        "exception",
+        "stack",
+        "failed to",
+        "unexpected",
+        "permission denied",
+        "request entity",
+        "payload too large",
+        "server returned",
+        "status=",
+        "body=",
+        "constraint",
+        "violates",
+        "rpc",
+        "wordpress",
+        "cloudflare",
+        "nginx",
+        "java.",
+        "kotlin.",
+        "transformer",
+        "opengl",
+        "codec"
+    )
+    return technicalMarkers.any(normalized::contains) ||
+        Regex("""\b[45]\d{2}\b""").containsMatchIn(normalized) ||
+        normalized.any { it == '{' || it == '}' }
+}
 
 fun <T> Result<T>.mapFailureToUserFacing(
     context: Context,

@@ -232,6 +232,7 @@ async function ensureAuthUser(
 
   if (currentAuthUserId) {
     const { data, error } = await admin.auth.admin.updateUserById(currentAuthUserId, {
+      email,
       password,
       user_metadata: userMetadata,
       email_confirm: true,
@@ -242,6 +243,7 @@ async function ensureAuthUser(
   const existing = await findAuthUserByEmail(admin, email);
   if (existing?.id) {
     const { data, error } = await admin.auth.admin.updateUserById(existing.id, {
+      email,
       password,
       user_metadata: userMetadata,
       email_confirm: true,

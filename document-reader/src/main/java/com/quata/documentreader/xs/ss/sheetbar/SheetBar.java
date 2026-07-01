@@ -156,7 +156,7 @@ public class SheetBar extends HorizontalScrollView implements OnClickListener
         }
         
         //sheetbar scrolled
-        int screenWidth = control.getActivity().getWindowManager().getDefaultDisplay().getWidth();
+        int screenWidth = control.getActivity().getResources().getDisplayMetrics().widthPixels;
         int barWidth = sheetbarFrame.getWidth();
         if(barWidth > screenWidth)
         {

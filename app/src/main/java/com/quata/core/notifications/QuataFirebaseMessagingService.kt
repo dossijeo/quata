@@ -24,7 +24,8 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
         NotificationFactory(this).showChatPush(
             conversationId = conversationId,
             title = data["title"].orEmpty(),
-            body = data["body"].orEmpty().ifBlank { data["message"].orEmpty() }
+            body = data["body"].orEmpty().ifBlank { data["message"].orEmpty() },
+            bodyKey = data["body_key"].orEmpty()
         )
     }
 }

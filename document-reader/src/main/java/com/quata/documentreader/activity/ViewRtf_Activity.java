@@ -4,9 +4,9 @@ package com.quata.documentreader.activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintJob;
@@ -16,7 +16,7 @@ import android.view.View;
 import android.webkit.WebView;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresApi;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.quata.documentreader.DocumentReaderChrome;
@@ -36,6 +36,9 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class ViewRtf_Activity extends AppCompatActivity {
 
@@ -51,7 +54,9 @@ public class ViewRtf_Activity extends AppCompatActivity {
     PrintJob printJob;
     WebView webview;
     private boolean back = false;
-    private LoadTextFromRtfFile loadTask;
+    private final ExecutorService rtfExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Future<?> loadTask;
 
 
     @Override
@@ -62,6 +67,12 @@ public class ViewRtf_Activity extends AppCompatActivity {
         binding = ActivityViewRtfBinding.inflate(getLayoutInflater());
         View view = binding.getRoot();
         setContentView(view);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackPressed();
+            }
+        });
 
         if (getIntent() != null) {
             this.filePath = getIntent().getStringExtra("path");
@@ -88,14 +99,12 @@ public class ViewRtf_Activity extends AppCompatActivity {
         this.webview.getSettings().setBuiltInZoomControls(true);
         this.webview.getSettings().setDisplayZoomControls(false);
         this.webview.getSettings().setAllowFileAccess(true);
-        loadTask = new LoadTextFromRtfFile();
-        loadTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        loadRtfAsync();
        // Utility.Toast(this, "Please wait...");
     }
 
 
 
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     private void createWebPrintJob(WebView webView) {
         PrintManager printManager = (PrintManager) getSystemService(PRINT_SERVICE);
         this.printAdapter = webView.createPrintDocumentAdapter("New_RTF_File.pdf");
@@ -108,87 +117,97 @@ public class ViewRtf_Activity extends AppCompatActivity {
     }
 
 
-    class LoadTextFromRtfFile extends AsyncTask<Void, Void, File> {
-        private boolean usedCache = false;
-        private long parseMs = 0L;
-        private long writeMs = 0L;
-        private String errorMessage = null;
+    private void loadRtfAsync() {
+        back = false;
+        binding.progressBar.setVisibility(View.VISIBLE);
+        loadTask = rtfExecutor.submit(() -> {
+            RtfLoadResult result = loadRtfHtmlFile();
+            mainHandler.post(() -> renderRtfLoadResult(result));
+        });
+    }
 
-        LoadTextFromRtfFile() {
+    private RtfLoadResult loadRtfHtmlFile() {
+        File file = new File(ViewRtf_Activity.this.filePath);
+        if (!file.exists()) {
+            return RtfLoadResult.error("RTF source file does not exist");
         }
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            back = false;
-            binding.progressBar.setVisibility(View.VISIBLE);
+        File htmlFile = getCachedHtmlFile(file);
+        if (htmlFile.exists() && htmlFile.length() > 0L) {
+            return RtfLoadResult.success(htmlFile, true, 0L, 0L);
         }
 
-
-        @RequiresApi(api = Build.VERSION_CODES.N)
-        protected File doInBackground(Void... voidArr) {
-            File file = new File(ViewRtf_Activity.this.filePath);
-            if (!file.exists()) {
-                errorMessage = "RTF source file does not exist";
-                return null;
+        RtfReader rtfReader = new RtfReader();
+        RtfHtmlDataType rtfHtmlDataType = new RtfHtmlDataType();
+        try {
+            long parseStart = System.currentTimeMillis();
+            rtfReader.parse(file);
+            String html = rtfHtmlDataType.format(rtfReader.root, true);
+            long parseMs = System.currentTimeMillis() - parseStart;
+            if (Thread.currentThread().isInterrupted()) {
+                return RtfLoadResult.cancelled();
             }
 
-            File htmlFile = getCachedHtmlFile(file);
-            if (htmlFile.exists() && htmlFile.length() > 0L) {
-                usedCache = true;
-                return htmlFile;
-            }
+            long writeStart = System.currentTimeMillis();
+            writeHtmlFile(htmlFile, html);
+            long writeMs = System.currentTimeMillis() - writeStart;
+            return RtfLoadResult.success(htmlFile, false, parseMs, writeMs);
+        } catch (RtfParseException e) {
+            Utility.logCatMsg("RtfParseException " + e.getMessage());
+            Log.w(TAG, "Unable to parse RTF", e);
+            return RtfLoadResult.error(e.getMessage());
+        } catch (IOException e) {
+            Log.w(TAG, "Unable to cache rendered RTF", e);
+            return RtfLoadResult.error(e.getMessage());
+        }
+    }
 
-            RtfReader rtfReader = new RtfReader();
-            RtfHtmlDataType rtfHtmlDataType = new RtfHtmlDataType();
-            try {
-                long parseStart = System.currentTimeMillis();
-                rtfReader.parse(file);
-                String html = rtfHtmlDataType.format(rtfReader.root, true);
-                parseMs = System.currentTimeMillis() - parseStart;
-                if (isCancelled()) {
-                    return null;
-                }
+    private void renderRtfLoadResult(RtfLoadResult result) {
+        loadTask = null;
+        back = true;
+        if (isFinishing() || isDestroyed() || ViewRtf_Activity.this.webview == null) {
+            return;
+        }
+        if (result.cancelled) {
+            return;
+        }
+        if (result.htmlFile != null) {
+            Log.d(TAG, "RTF ready cache=" + result.usedCache + " parseMs=" + result.parseMs + " writeMs=" + result.writeMs + " bytes=" + result.htmlFile.length());
+            ViewRtf_Activity.this.webview.loadUrl(Uri.fromFile(result.htmlFile).toString());
+        } else {
+            binding.progressBar.setVisibility(View.GONE);
+            Log.w(TAG, "RTF render failed: " + result.errorMessage);
+            ViewRtf_Activity.this.webview.loadDataWithBaseURL("", "", "text/html", "UTF-8", "");
+        }
+    }
 
-                long writeStart = System.currentTimeMillis();
-                writeHtmlFile(htmlFile, html);
-                writeMs = System.currentTimeMillis() - writeStart;
-                return htmlFile;
-            } catch (RtfParseException e) {
-                errorMessage = e.getMessage();
-                Utility.logCatMsg("RtfParseException " + e.getMessage());
-                e.printStackTrace();
-                return null;
-            } catch (IOException e) {
-                errorMessage = e.getMessage();
-                Log.w(TAG, "Unable to cache rendered RTF", e);
-                return null;
-            }
+    private static class RtfLoadResult {
+        final File htmlFile;
+        final boolean usedCache;
+        final long parseMs;
+        final long writeMs;
+        final String errorMessage;
+        final boolean cancelled;
+
+        private RtfLoadResult(File htmlFile, boolean usedCache, long parseMs, long writeMs, String errorMessage, boolean cancelled) {
+            this.htmlFile = htmlFile;
+            this.usedCache = usedCache;
+            this.parseMs = parseMs;
+            this.writeMs = writeMs;
+            this.errorMessage = errorMessage;
+            this.cancelled = cancelled;
         }
 
-        @Override
-        protected void onPostExecute(File htmlFile) {
-            super.onPostExecute(htmlFile);
-            loadTask = null;
-            back = true;
-            if (isFinishing() || ViewRtf_Activity.this.webview == null) {
-                return;
-            }
-            if (htmlFile != null) {
-                Log.d(TAG, "RTF ready cache=" + usedCache + " parseMs=" + parseMs + " writeMs=" + writeMs + " bytes=" + htmlFile.length());
-                ViewRtf_Activity.this.webview.loadUrl(Uri.fromFile(htmlFile).toString());
-            } else {
-                binding.progressBar.setVisibility(View.GONE);
-                Log.w(TAG, "RTF render failed: " + errorMessage);
-                ViewRtf_Activity.this.webview.loadDataWithBaseURL("", "", "text/html", "UTF-8", "");
-            }
+        static RtfLoadResult success(File htmlFile, boolean usedCache, long parseMs, long writeMs) {
+            return new RtfLoadResult(htmlFile, usedCache, parseMs, writeMs, null, false);
         }
 
-        @Override
-        protected void onCancelled(File htmlFile) {
-            super.onCancelled(htmlFile);
-            loadTask = null;
-            back = true;
+        static RtfLoadResult error(String errorMessage) {
+            return new RtfLoadResult(null, false, 0L, 0L, errorMessage, false);
+        }
+
+        static RtfLoadResult cancelled() {
+            return new RtfLoadResult(null, false, 0L, 0L, null, true);
         }
     }
 
@@ -276,9 +295,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
 
     }
 
-
-    @Override
-    public void onBackPressed() {
+    private void handleBackPressed() {
         if(back){
             finish();
         }else {
@@ -292,6 +309,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
             loadTask.cancel(true);
             loadTask = null;
         }
+        rtfExecutor.shutdownNow();
         if (webview != null) {
             webview.stopLoading();
         }

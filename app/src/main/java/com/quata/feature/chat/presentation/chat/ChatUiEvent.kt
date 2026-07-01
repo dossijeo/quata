@@ -6,7 +6,7 @@ sealed class ChatUiEvent {
     data class ParticipantSearchChanged(val value: String) : ChatUiEvent()
     data class ParticipantSelectionToggled(val userId: String) : ChatUiEvent()
     data class MessageSelected(val messageId: String?) : ChatUiEvent()
-    data class ForwardConversationToggled(val conversationId: String) : ChatUiEvent()
+    data class ForwardProfileToggled(val profileId: String) : ChatUiEvent()
     data class ConversationMutedChanged(val muted: Boolean) : ChatUiEvent()
     data class MemberInvitesChanged(val enabled: Boolean) : ChatUiEvent()
     data object OpenAddParticipants : ChatUiEvent()

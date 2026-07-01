@@ -1,23 +1,15 @@
 package com.quata.feature.feed.presentation
 
-import android.graphics.Color as AndroidColor
-import android.graphics.Point
-import android.graphics.drawable.ColorDrawable
 import android.content.Intent
-import android.os.Build
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -76,17 +68,15 @@ import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.QuataFloatingPanel
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -134,10 +124,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -534,80 +521,80 @@ private fun LiveRankingDialog(
         posts.sortedWith(postRankingComparator())
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            color = template.colors.surfaceRaised,
-            contentColor = template.colors.textPrimary,
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(580.dp)
-                .border(1.dp, template.colors.divider, RoundedCornerShape(28.dp))
+    QuataFloatingPanel(
+        onDismiss = onDismiss,
+        template = template
+    ) { panelModifier, isLandscape ->
+        Column(
+            panelModifier.padding(
+                start = 18.dp,
+                top = if (isLandscape) 18.dp else 10.dp,
+                end = 18.dp,
+                bottom = if (isLandscape) 18.dp else 24.dp
+            )
         ) {
-            Column(Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.feed_live_title),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = stringResource(R.string.feed_live_subtitle),
+                        color = template.colors.textSecondary,
+                        fontSize = 14.sp
+                    )
+                }
+                CompactIconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
+                ) {
+                    CompactIcon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.common_close),
+                        tint = template.colors.textPrimary
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Surface(
+                color = template.colors.surfaceAlt,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.feed_live_title),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            text = stringResource(R.string.feed_live_posts_monitored, posts.size),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp
                         )
                         Text(
-                            text = stringResource(R.string.feed_live_subtitle),
-                            color = template.colors.textSecondary,
-                            fontSize = 14.sp
+                            text = stringResource(R.string.feed_live_updated),
+                            color = template.colors.textSecondary
                         )
                     }
-                    CompactIconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-                    ) {
-                        CompactIcon(
-                            Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.common_close),
-                            tint = template.colors.textPrimary
-                        )
-                    }
+                    ReelChip(text = stringResource(R.string.common_live), highlighted = true)
                 }
-                Spacer(Modifier.height(18.dp))
-                Surface(
-                    color = template.colors.surfaceAlt,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.feed_live_posts_monitored, posts.size),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                text = stringResource(R.string.feed_live_updated),
-                                color = template.colors.textSecondary
-                            )
-                        }
-                        ReelChip(text = stringResource(R.string.common_live), highlighted = true)
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(rankedPosts) { post ->
-                        LiveRankingRow(
-                            rank = postRanks[post.id]?.position ?: (rankedPosts.indexOf(post) + 1),
-                            post = post,
-                            template = template,
-                            onOpenPost = { onOpenPost(post) }
-                        )
-                    }
+            }
+            Spacer(Modifier.height(18.dp))
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(rankedPosts) { post ->
+                    LiveRankingRow(
+                        rank = postRanks[post.id]?.position ?: (rankedPosts.indexOf(post) + 1),
+                        post = post,
+                        template = template,
+                        onOpenPost = { onOpenPost(post) }
+                    )
                 }
             }
         }
@@ -1620,16 +1607,11 @@ private fun CommentsSheet(
     }
     var shouldScrollToCommentsEnd by remember { mutableStateOf(true) }
     val commentsListState = rememberLazyListState()
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { it != SheetValue.PartiallyExpanded }
-    )
     val template = quataTheme()
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
     val comments = post.comments
     val translatorModeController = LocalQuataTranslatorModeController.current
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     fun setEmojiPickerVisible(visible: Boolean) {
         isEmojiPickerVisible = visible
         if (visible) {
@@ -1639,7 +1621,6 @@ private fun CommentsSheet(
     }
 
     LaunchedEffect(post.id) {
-        sheetState.expand()
         shouldScrollToCommentsEnd = true
     }
 
@@ -1651,97 +1632,36 @@ private fun CommentsSheet(
         }
     }
 
-    if (isLandscapeLayout) {
-        Dialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true,
-                decorFitsSystemWindows = false
+    QuataFloatingPanel(
+        onDismiss = onDismiss,
+        template = template
+    ) { panelModifier, isLandscape ->
+        if (isLandscape) {
+            LandscapeCommentsPanel(
+                post = post,
+                comments = comments,
+                commentsListState = commentsListState,
+                draft = draft,
+                onDraftChange = { draft = it },
+                replyTarget = replyTarget,
+                onReplyTargetChange = { replyTarget = it },
+                isEmojiPickerVisible = isEmojiPickerVisible,
+                onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
+                emojiDismissState = emojiDismissState,
+                emojiGridMaxHeight = emojiGridMaxHeight,
+                canParticipate = canParticipate,
+                onAuthRequired = onAuthRequired,
+                onAddComment = onAddComment,
+                onCommentAdded = { shouldScrollToCommentsEnd = true },
+                onTranslatorClick = { view ->
+                    translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                },
+                onDismiss = onDismiss,
+                modifier = panelModifier
             )
-        ) {
-            ConfigureCommentsSheetSystemBars(template, fullscreen = true)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 72.dp, vertical = 24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                val panelInteractionSource = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .pointerInput(onDismiss) {
-                            detectTapGestures { onDismiss() }
-                        }
-                )
-                Surface(
-                    color = template.colors.surfaceRaised,
-                    contentColor = template.colors.textPrimary,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(0.76f)
-                        .fillMaxHeight(0.90f)
-                        .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
-                        .clickable(
-                            interactionSource = panelInteractionSource,
-                            indication = null,
-                            onClick = {}
-                        )
-                ) {
-                    LandscapeCommentsPanel(
-                        post = post,
-                        comments = comments,
-                        commentsListState = commentsListState,
-                        draft = draft,
-                        onDraftChange = { draft = it },
-                        replyTarget = replyTarget,
-                        onReplyTargetChange = { replyTarget = it },
-                        isEmojiPickerVisible = isEmojiPickerVisible,
-                        onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
-                        emojiDismissState = emojiDismissState,
-                        emojiGridMaxHeight = emojiGridMaxHeight,
-                        canParticipate = canParticipate,
-                        onAuthRequired = onAuthRequired,
-                        onAddComment = onAddComment,
-                        onCommentAdded = { shouldScrollToCommentsEnd = true },
-                        onTranslatorClick = { view ->
-                            translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
-                        },
-                        onDismiss = onDismiss,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-        return
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = template.colors.surfaceRaised,
-        contentColor = template.colors.textPrimary,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
-    ) {
-        ConfigureCommentsSheetSystemBars(template)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.92f)
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(template.colors.background)
-            )
+        } else {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
+                modifier = panelModifier
                 .dismissCommunityEmojiPanelOnOutsideTap(
                     isVisible = isEmojiPickerVisible,
                     state = emojiDismissState
@@ -2048,114 +1968,6 @@ private fun LandscapeCommentsPanel(
                     .trackCommunityEmojiPanelBounds(emojiDismissState)
             )
         }
-    }
-}
-
-@Suppress("DEPRECATION")
-@Composable
-private fun ConfigureCommentsSheetSystemBars(
-    template: QuataThemeTemplate,
-    fullscreen: Boolean = false
-) {
-    val view = LocalView.current
-    DisposableEffect(view, template.id) {
-        val window = view.findDialogWindow()
-        if (window == null) {
-            return@DisposableEffect onDispose {}
-        }
-        val originalContrastEnforced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced
-        } else {
-            null
-        }
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        val originalLightNavigationBars = controller.isAppearanceLightNavigationBars
-        val originalAttributes = window.attributes
-        val originalGravity = originalAttributes.gravity
-        val originalX = originalAttributes.x
-        val originalY = originalAttributes.y
-        val originalWidth = originalAttributes.width
-        val originalHeight = originalAttributes.height
-        val originalFlags = originalAttributes.flags
-        val originalSystemUiVisibility = window.decorView.systemUiVisibility
-        val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            originalAttributes.layoutInDisplayCutoutMode
-        } else {
-            null
-        }
-        val fullscreenLayout = {
-            val displaySize = Point()
-            @Suppress("DEPRECATION")
-            window.windowManager.defaultDisplay.getRealSize(displaySize)
-            val targetWidth = displaySize.x.coerceAtLeast(1)
-            val targetHeight = displaySize.y.coerceAtLeast(1)
-            val attributes = window.attributes
-            attributes.width = targetWidth
-            attributes.height = targetHeight
-            attributes.gravity = Gravity.TOP or Gravity.START
-            attributes.x = 0
-            attributes.y = 0
-            attributes.flags = attributes.flags or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                attributes.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            }
-            window.attributes = attributes
-            window.setLayout(targetWidth, targetHeight)
-            window.decorView.setPadding(0, 0, 0, 0)
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        }
-
-        if (fullscreen) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
-        controller.isAppearanceLightNavigationBars = template.resolvedTheme == QuataResolvedTheme.Light
-        if (fullscreen) {
-            fullscreenLayout()
-            window.decorView.post { fullscreenLayout() }
-        }
-
-        onDispose {
-            if (fullscreen) {
-                val attributes = window.attributes
-                attributes.gravity = originalGravity
-                attributes.x = originalX
-                attributes.y = originalY
-                attributes.width = originalWidth
-                attributes.height = originalHeight
-                attributes.flags = originalFlags
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && originalCutoutMode != null) {
-                    attributes.layoutInDisplayCutoutMode = originalCutoutMode
-                }
-                window.attributes = attributes
-                @Suppress("DEPRECATION")
-                window.decorView.systemUiVisibility = originalSystemUiVisibility
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && originalContrastEnforced != null) {
-                window.isNavigationBarContrastEnforced = originalContrastEnforced
-            }
-            controller.isAppearanceLightNavigationBars = originalLightNavigationBars
-        }
-    }
-}
-
-private tailrec fun View.findDialogWindow(): Window? {
-    val parentView = parent
-    return when (parentView) {
-        is DialogWindowProvider -> parentView.window
-        is View -> parentView.findDialogWindow()
-        else -> null
     }
 }
 

@@ -26,6 +26,7 @@ package com.quata.documentreader.widgets.tableview.layoutmanager;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
@@ -140,7 +141,7 @@ public class CellLayoutManager extends LinearLayoutManager {
 
         if (mNeedSetLeft & scrollingLeft) {
             // Works just like invoke later of swing utils.
-            Handler handler = new Handler();
+            Handler handler = new Handler(Looper.getMainLooper());
             handler.post(() -> fitWidthSize2(true));
         }
     }

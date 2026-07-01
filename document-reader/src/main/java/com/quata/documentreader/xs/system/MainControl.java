@@ -3,13 +3,12 @@ package com.quata.documentreader.xs.system;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.ProgressDialog;
 import android.content.DialogInterface;
-import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.view.View;
 import android.widget.Toast;
@@ -27,6 +26,7 @@ import com.quata.documentreader.xs.simpletext.model.IDocument;
 import com.quata.documentreader.xs.ss.control.SSControl;
 import com.quata.documentreader.xs.ss.model.baseModel.Workbook;
 import com.quata.documentreader.xs.wp.control.WPControl;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 public class MainControl extends AbstractControl {
     private IControl appControl;
@@ -39,7 +39,7 @@ public class MainControl extends AbstractControl {
     private boolean isDispose;
     private IOfficeToPicture officeToPicture;
     private DialogInterface.OnKeyListener onKeyListener;
-    private ProgressDialog progressDialog;
+    private Dialog progressDialog;
     private IReader reader;
     private ISlideShow slideShow;
     private Toast toast;
@@ -87,10 +87,10 @@ public class MainControl extends AbstractControl {
                 MainControl.this.reader.abortReader();
                 MainControl.this.reader.dispose();
             }
-            MainControl.this.getActivity().onBackPressed();
+            DocumentReaderBackNavigation.navigateBack(MainControl.this.getActivity());
             return true;
         };
-        this.handler = new Handler() {
+        this.handler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(final Message msg) {
                 if (!MainControl.this.isCancel) {
@@ -99,7 +99,7 @@ public class MainControl extends AbstractControl {
                         post(() -> {
                             try {
                                 if (MainControl.this.getMainFrame().isShowProgressBar()) {
-                                    MainControl.this.dismissProgressDialog();
+                                    MainControl.this.dismissLoadingDialog();
                                 } else if (MainControl.this.customDialog != null) {
                                     MainControl.this.customDialog.dismissDialog((byte) 2);
                                 }
@@ -110,21 +110,26 @@ public class MainControl extends AbstractControl {
                         });
                     } else if (i == 1) {
                         post(() -> {
-                            MainControl.this.dismissProgressDialog();
+                            MainControl.this.dismissLoadingDialog();
                             if (msg.obj instanceof Throwable) {
                                 MainControl.this.sysKit.getErrorKit().writerLog((Throwable) msg.obj, true);
                             }
                         });
                     } else if (i != 2) {
                         if (i == 3) {
-                            post(MainControl.this::dismissProgressDialog);
+                            post(MainControl.this::dismissLoadingDialog);
                         } else if (i == 4) {
                             MainControl.this.reader = (IReader) msg.obj;
                         }
                     } else if (MainControl.this.getMainFrame().isShowProgressBar()) {
                         post(() -> {
-                            MainControl.this.progressDialog = ProgressDialog.show(MainControl.this.getActivity(), MainControl.this.frame.getAppName(), MainControl.this.frame.getLocalString("DIALOG_LOADING"), false, false, null);
+                            MainControl.this.progressDialog = new AlertDialog.Builder(MainControl.this.getActivity())
+                                .setTitle(MainControl.this.frame.getAppName())
+                                .setMessage(MainControl.this.frame.getLocalString("DIALOG_LOADING"))
+                                .setCancelable(false)
+                                .create();
                             MainControl.this.progressDialog.setOnKeyListener(MainControl.this.onKeyListener);
+                            MainControl.this.progressDialog.show();
                         });
                     } else if (MainControl.this.customDialog != null) {
                         MainControl.this.customDialog.showDialog((byte) 2);
@@ -134,8 +139,8 @@ public class MainControl extends AbstractControl {
         };
     }
 
-    public void dismissProgressDialog() {
-        ProgressDialog progressDialog = this.progressDialog;
+    public void dismissLoadingDialog() {
+        Dialog progressDialog = this.progressDialog;
         if (progressDialog != null) {
             progressDialog.dismiss();
             this.progressDialog = null;
@@ -173,16 +178,9 @@ public class MainControl extends AbstractControl {
             }
             PictureKit.instance().setDrawPictrue(true);
             this.handler.post(() -> {
-                if (Build.VERSION.SDK_INT >= 11) {
-                    try {
-                        View view2 = MainControl.this.getView();
-                        Object invoke = view2.getClass().getMethod("isHardwareAccelerated", null).invoke(view2, null);
-                        if (invoke != null && (invoke instanceof Boolean) && (Boolean) invoke) {
-                            view2.getClass().getMethod("setLayerType", Integer.TYPE, Paint.class).invoke(view2, view2.getClass().getField("LAYER_TYPE_SOFTWARE").getInt(null), null);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                View view2 = MainControl.this.getView();
+                if (view2 != null && view2.isHardwareAccelerated()) {
+                    view2.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
                 }
                 MainControl.this.actionEvent(26, false);
                 MainControl.this.actionEvent(19, null);
@@ -427,7 +425,7 @@ public class MainControl extends AbstractControl {
             iOfficeToPicture.dispose();
             this.officeToPicture = null;
         }
-        ProgressDialog progressDialog = this.progressDialog;
+        Dialog progressDialog = this.progressDialog;
         if (progressDialog != null) {
             progressDialog.dismiss();
             this.progressDialog = null;

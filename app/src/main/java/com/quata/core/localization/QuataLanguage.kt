@@ -2,7 +2,6 @@ package com.quata.core.localization
 
 import android.content.Context
 import android.content.res.Configuration
-import android.os.Build
 import android.os.LocaleList
 import java.util.Locale
 
@@ -28,20 +27,10 @@ object QuataLanguageManager {
         Locale.setDefault(appLocale)
 
         val config = Configuration(base.resources.configuration)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            config.setLocales(LocaleList(appLocale))
-        } else {
-            @Suppress("DEPRECATION")
-            config.locale = appLocale
-        }
+        config.setLocales(LocaleList(appLocale))
         return base.createConfigurationContext(config)
     }
 
     private fun Configuration.primaryLocale(): Locale =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            locales[0]
-        } else {
-            @Suppress("DEPRECATION")
-            locale
-        }
+        locales[0]
 }

@@ -11,6 +11,7 @@ import   com.quata.documentreader.xs.common.ICustomDialog;
 import   com.quata.documentreader.xs.constant.EventConstant;
 import   com.quata.documentreader.xs.fc.OldFileFormatException;
 import   com.quata.documentreader.xs.fc.poifs.filesystem.OfficeXmlFileException;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -133,7 +134,7 @@ public class ErrorUtil
         }
         catch (OutOfMemoryError e)
         {
-            sysKit.getControl().getMainFrame().getActivity().onBackPressed();
+            DocumentReaderBackNavigation.navigateBack(sysKit.getControl().getMainFrame().getActivity());
         }
         catch (Exception eee)
         {
@@ -250,7 +251,7 @@ public class ErrorUtil
                                     message = null;
 
 
-                                    activity.onBackPressed();
+                                    DocumentReaderBackNavigation.navigateBack(activity);
                                     //control.getMainFrame().destroyEngine();
                                 });
                                 message = builder.create();
@@ -265,10 +266,6 @@ public class ErrorUtil
                                 }
                             }
                         }
-                        /*else if (SysKit.instance().isDebug())
-                        {
-                            control.getActivity().onBackPressed();
-                        }*/
                     }
                     catch (Exception eee)
                     {

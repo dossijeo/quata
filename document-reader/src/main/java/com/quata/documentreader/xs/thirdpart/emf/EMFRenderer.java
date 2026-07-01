@@ -300,7 +300,6 @@ public class EMFRenderer
         Rect rect = canvas.getClipBounds();
         
         //AffineTransform at = g2.getTransform();
-        Matrix matrix = canvas.getMatrix();
 //        mM = mC.getMatrix();
 //        Rect r = mC.getClipBounds();
         int cl[] = {-1, rect.top, rect.left, -2, rect.top, rect.right, -2, rect.bottom, rect.right, -2, rect.bottom, rect.left};
@@ -324,7 +323,7 @@ public class EMFRenderer
 
         // used by SetWorldTransform to reset transformation
 //        initialTransform = g2.getTransform();
-        initialMatrix = canvas.getMatrix();
+        initialMatrix = copyCanvasMatrix(canvas);
 
         // set the initial value, defaults for EMF
         path = null;
@@ -374,7 +373,7 @@ public class EMFRenderer
         penPaint.setFilterBitmap(true);
         penPaint.setDither(true);
         
-        canvas.setMatrix(matrix);
+        canvas.setMatrix(initialMatrix);
 //        canvas.clipRect(rect);
         setClip(initialClip);
     }
@@ -476,7 +475,7 @@ public class EMFRenderer
         //dc.stroke = g2.getStroke();
 //        dc.transform = g2.getTransform();
 //        dc.pathTransform = pathTransform;
-        dc.matrix = mCanvas.getMatrix();
+        dc.matrix = copyCanvasMatrix(mCanvas);
 //        dc.clip = g2.getClip();
         dc.clip = mCurrClip;
         dc.path = path;
@@ -984,7 +983,14 @@ public class EMFRenderer
 //    }
     public Matrix getMatrix()
     {
-        return mCanvas.getMatrix();
+        return copyCanvasMatrix(mCanvas);
+    }
+
+    private static Matrix copyCanvasMatrix(Canvas canvas)
+    {
+        Matrix matrix = new Matrix();
+        canvas.getMatrix(matrix);
+        return matrix;
     }
 
     public void transform(AffineTransform transform)

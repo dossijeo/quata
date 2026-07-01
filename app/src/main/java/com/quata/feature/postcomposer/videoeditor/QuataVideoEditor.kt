@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -66,6 +67,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
@@ -74,6 +76,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -111,6 +114,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -169,6 +173,7 @@ import com.quata.core.captions.transcriber.VoskModelDeliveryManager
 import com.quata.core.captions.transcriber.VoskModelLanguage
 import com.quata.core.captions.transcriber.VoskModelNotInstalledException
 import com.quata.core.captions.transcriber.VoskVideoTranscriber
+import com.quata.core.common.toUserFacingMessage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.VideoExportProfile
@@ -544,7 +549,7 @@ fun QuataVideoEditorDialog(
                 exportJob = null
                 restorePreviewAfterExportInterruption()
                 Log.e(VideoEditorLogTag, "export failed", throwable)
-                exportError = throwable.message ?: appContext.getString(R.string.video_editor_export_failed)
+                exportError = throwable.toUserFacingMessage(appContext, R.string.video_editor_export_failed)
             }
         }
     }
@@ -568,7 +573,7 @@ fun QuataVideoEditorDialog(
                 if (throwable is CancellationException) throw throwable
                 isCaptionModelDownloading = false
                 captionModelDownloadProgress = null
-                exportError = throwable.message ?: appContext.getString(R.string.caption_model_download_failed)
+                exportError = throwable.toUserFacingMessage(appContext, R.string.caption_model_download_failed)
             }
         }
     }
@@ -588,6 +593,7 @@ fun QuataVideoEditorDialog(
     } else {
         currentPositionMs.coerceIn(0L, durationMs.coerceAtLeast(0L))
     }
+    val showMaxDurationWarning = durationMs > MaximumTrimDurationMs
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -653,6 +659,12 @@ fun QuataVideoEditorDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (showMaxDurationWarning) {
+                            VideoMaxDurationWarningBanner(
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         VideoTimeline(
                             frames = frames,
                             durationMs = durationMs,
@@ -724,6 +736,14 @@ fun QuataVideoEditorDialog(
                         .fillMaxSize()
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 )
+
+                if (showMaxDurationWarning) {
+                    VideoMaxDurationWarningBanner(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 48.dp, top = 2.dp, end = 48.dp, bottom = 6.dp)
+                    )
+                }
 
                 VideoTimeline(
                     frames = frames,
@@ -1335,6 +1355,39 @@ private fun VideoTimeline(
                     .handleDrag(TimelineMarker.End)
             )
         }
+
+    }
+}
+
+@Composable
+private fun VideoMaxDurationWarningBanner(modifier: Modifier = Modifier) {
+    val template = quataTheme()
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(template.colors.surface.copy(alpha = 0.92f))
+            .border(1.dp, QuataOrange, shape)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Info,
+            contentDescription = null,
+            tint = QuataOrange,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = stringResource(R.string.video_editor_max_duration_warning),
+            color = template.colors.textSecondary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -3442,7 +3495,7 @@ private const val TimelineFrameLoadDelayMs = 350L
 private const val PreviewPosterMaxDimension = 480
 private const val PreviewPlaybackFrameIntervalMs = 120L
 private const val MinimumTrimMs = 500L
-private const val MaximumTrimDurationMs = 15 * 60 * 1000L
+private const val MaximumTrimDurationMs = 90 * 1000L
 private const val TransformerCompletionFallbackProgress = 95
 private const val TransformerStableOutputCompletionMs = 3_500L
 private const val TransformerStableOutputMinBytes = 128 * 1024L

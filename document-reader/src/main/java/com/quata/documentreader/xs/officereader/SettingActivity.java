@@ -70,13 +70,6 @@ public class SettingActivity extends Activity {
     }
 
     /**
-     *
-     */
-    public void onBackPressed() {
-        super.onBackPressed();
-    }
-
-    /**
      * List 单击事件
      */
     private void initListener() {

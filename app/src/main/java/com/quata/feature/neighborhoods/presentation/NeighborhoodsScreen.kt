@@ -28,11 +28,11 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Favorite
@@ -584,7 +584,7 @@ fun CommunityProfileScreen(
                                     color = QuataOrange
                                 )
                             } else {
-                                CompactIcon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                                CompactIcon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(18.dp))
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.common_chat), fontSize = 18.sp)
@@ -783,7 +783,7 @@ private fun NeighborhoodUserRow(
                         color = template.colors.accent
                     )
                 } else {
-                    CompactIcon(Icons.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    CompactIcon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.common_chat), fontSize = 14.sp, maxLines = 1)

@@ -1,7 +1,7 @@
 package com.quata.documentreader.activity;
 
-import android.app.ProgressDialog;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
 import android.view.View;
 
@@ -25,6 +25,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class CSVViewer_Activity extends BaseActivity {
 
@@ -40,6 +43,9 @@ public class CSVViewer_Activity extends BaseActivity {
     private TableView mTableView;
     private String filePath;
     private String fileName;
+    private final ExecutorService csvExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Future<?> csvLoadFuture;
     List<RowHeader> rowHeaderList = new ArrayList<>();
 
     @Override
@@ -58,7 +64,7 @@ public class CSVViewer_Activity extends BaseActivity {
             this.fileName = stringExtra2;
             this.fromConverterApp = getIntent().getBooleanExtra("fromConverterApp", false);
             Integer.parseInt(getIntent().getStringExtra("fileType"));
-            new LoadCVSDataFromPath(stringExtra).execute();
+            loadCsvDataAsync(stringExtra);
         }
         DocumentReaderChrome.configureHeader(
                 this,
@@ -77,6 +83,24 @@ public class CSVViewer_Activity extends BaseActivity {
         }
     }
 
+    private void loadCsvDataAsync(String path) {
+        binding.progressBar.setVisibility(View.VISIBLE);
+        this.mTableView.setVisibility(View.INVISIBLE);
+        csvLoadFuture = csvExecutor.submit(() -> {
+            loadCVSDate(path);
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                binding.progressBar.setVisibility(View.GONE);
+                CSVViewer_Activity.this.mTableView.setVisibility(View.VISIBLE);
+                TablePreviewwAdp tablePreviewwAdp = new TablePreviewwAdp();
+                CSVViewer_Activity.this.mTableView.setAdapter(tablePreviewwAdp);
+                CSVViewer_Activity.this.mTableView.setTableViewListener(new TableEventListener(CSVViewer_Activity.this.mTableView));
+                tablePreviewwAdp.setAllItems(CSVViewer_Activity.this.columnHeaderList, CSVViewer_Activity.this.rowHeaderList, CSVViewer_Activity.this.cellDataList);
+            });
+        });
+    }
 
     public void loadCVSDate(String str) {
         try {
@@ -138,55 +162,14 @@ public class CSVViewer_Activity extends BaseActivity {
         this.mPagination.setItemsPerPage(i);
     }
 
-
-
-    class LoadCVSDataFromPath extends AsyncTask<Void, Void, Void> {
-        String file_path;
-        ProgressDialog progressDialog;
-
-        public LoadCVSDataFromPath(String str) {
-            this.file_path = str;
+    @Override
+    protected void onDestroy() {
+        if (csvLoadFuture != null) {
+            csvLoadFuture.cancel(true);
+            csvLoadFuture = null;
         }
-
-        @Override
-        protected void onPreExecute() {
-            ProgressDialog progressDialog2 = new ProgressDialog(CSVViewer_Activity.this);
-            this.progressDialog = progressDialog2;
-            progressDialog2.setMessage(CSVViewer_Activity.this.getResources().getString(R.string.loadingFiles));
-            this.progressDialog.setProgressStyle(1);
-            this.progressDialog.setMax(100);
-            this.progressDialog.setProgress(0);
-            this.progressDialog.setCancelable(false);
-            this.progressDialog.setButton(-1, CSVViewer_Activity.this.getResources().getString(R.string.cancel), (dialogInterface, i) -> {
-                dialogInterface.dismiss();
-                LoadCVSDataFromPath.this.cancel(true);
-            });
-            this.progressDialog.show();
-            super.onPreExecute();
-        }
-
-        @Override
-        protected Void doInBackground(Void... voidArr) {
-            CSVViewer_Activity.this.loadCVSDate(this.file_path);
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void voidR) {
-            super.onPostExecute(voidR);
-            ProgressDialog progressDialog2 = this.progressDialog;
-            if (progressDialog2 != null && progressDialog2.isShowing()) {
-                this.progressDialog.dismiss();
-            }
-            TablePreviewwAdp tablePreviewwAdp = new TablePreviewwAdp();
-            CSVViewer_Activity.this.mTableView.setAdapter(tablePreviewwAdp);
-            CSVViewer_Activity.this.mTableView.setTableViewListener(new TableEventListener(CSVViewer_Activity.this.mTableView));
-            tablePreviewwAdp.setAllItems(CSVViewer_Activity.this.columnHeaderList, CSVViewer_Activity.this.rowHeaderList, CSVViewer_Activity.this.cellDataList);
-        }
+        csvExecutor.shutdownNow();
+        super.onDestroy();
     }
-
-
-
-
 
 }

@@ -8,6 +8,7 @@ import android.webkit.URLUtil
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.IntentCompat
 import com.quata.documentreader.DocumentReaderChrome
 import com.quata.documentreader.QuataDocumentReader
 import com.quata.documentreader.QuataDocumentReaderTheme
@@ -82,8 +83,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
 
     private fun sourceUriFrom(intent: Intent): Uri? {
         if (intent.action == Intent.ACTION_SEND) {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.let { return it }
+            IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let { return it }
         }
         return intent.data
     }

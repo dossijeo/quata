@@ -17,7 +17,9 @@ import com.quata.documentreader.xs.system.IDialogAction;
 import com.quata.documentreader.xs.system.beans.ADialog;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.res.Configuration;
+import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.WebView;
 import android.widget.AdapterView;
@@ -67,6 +69,7 @@ public class TXTEncodingDialog extends ADialog
     {
         super(control, context, action, model, dialogID, 
             action.getControl().getMainFrame().getLocalString("DIALOG_ENCODING_TITLE"));
+        setOnKeyListener(this::handleDialogKey);
         init(context);
     }
        
@@ -162,15 +165,17 @@ public class TXTEncodingDialog extends ADialog
         dismiss();
     }
     
-    /**
-     * 
-     */
-    public void onBackPressed()
+    private boolean handleDialogKey(DialogInterface dialog, int keyCode, KeyEvent event)
     {
+        if (keyCode != KeyEvent.KEYCODE_BACK || event.getAction() != KeyEvent.ACTION_UP)
+        {
+            return false;
+        }
         Vector<Object> vector = new Vector<Object>();
         vector.add(BACK_PRESSED);
         action.doAction(dialogID, vector);
-        super.onBackPressed();
+        dismiss();
+        return true;
     }
     
     /**

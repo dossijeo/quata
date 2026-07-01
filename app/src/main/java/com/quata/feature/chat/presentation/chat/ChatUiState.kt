@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.feature.chat.domain.ChatConversationCandidate
 
 data class ChatUiState(
     val messageText: String = "",
@@ -19,9 +20,25 @@ data class ChatUiState(
     val replyToMessage: Message? = null,
     val editingMessage: Message? = null,
     val isForwardDialogOpen: Boolean = false,
-    val selectedForwardConversationIds: List<String> = emptyList(),
-    val availableForwardConversations: List<Conversation> = emptyList(),
+    val selectedForwardProfileIds: List<String> = emptyList(),
+    val forwardCandidateQuery: String = "",
+    val forwardConversationCandidates: List<ChatConversationCandidate> = emptyList(),
+    val isForwardCandidateInitialLoading: Boolean = false,
+    val isForwardCandidatePageLoading: Boolean = false,
+    val forwardCandidateHasMore: Boolean = true,
+    val forwardCandidateNextOffset: Int = 0,
+    val forwardCandidateActorNeighborhood: String = "",
+    val forwardCandidateError: String? = null,
     val isAddParticipantsOpen: Boolean = false,
+    val participantCandidateQuery: String = "",
+    val participantConversationCandidates: List<ChatConversationCandidate> = emptyList(),
+    val isParticipantCandidateInitialLoading: Boolean = false,
+    val isParticipantCandidatePageLoading: Boolean = false,
+    val participantCandidateHasMore: Boolean = true,
+    val participantCandidateNextOffset: Int = 0,
+    val participantCandidateActorNeighborhood: String = "",
+    val addingCandidateProfileId: String? = null,
+    val participantCandidateError: String? = null,
     val isLoading: Boolean = false,
     val isConversationActionInProgress: Boolean = false,
     val shouldCloseConversation: Boolean = false,

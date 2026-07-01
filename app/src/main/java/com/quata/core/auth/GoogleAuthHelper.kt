@@ -1,6 +1,8 @@
 package com.quata.core.auth
 
 import android.content.Context
+import com.quata.R
+import com.quata.core.common.UserFacingException
 import com.quata.core.config.AppConfig
 import com.quata.core.model.AuthSession
 
@@ -21,7 +23,7 @@ class GoogleAuthHelper {
                 )
             )
         } else {
-            Result.failure(IllegalStateException("Google Sign-In real pendiente: configura Credential Manager y GOOGLE_WEB_CLIENT_ID."))
+            Result.failure(UserFacingException(context.getString(R.string.notification_permission_not_configured)))
         }
     }
 }

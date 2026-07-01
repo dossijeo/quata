@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.databinding.ActivityViewFilesBinding;
@@ -61,6 +62,12 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
         binding = ActivityViewFilesBinding.inflate(getLayoutInflater());
         View view = binding.getRoot();
         setContentView(view);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackPressed();
+            }
+        });
 
 
         this.control = new MainControl(this);
@@ -419,8 +426,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
     }
 
 
-    @Override
-    public void onBackPressed() {
+    private void handleBackPressed() {
         MainControl mainControl = this.control;
         Object actionValue = mainControl == null ? null : mainControl.getActionValue(EventConstant.PG_SLIDESHOW, null);
         if (actionValue == null || !(Boolean) actionValue) {
@@ -505,7 +511,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
 
     public boolean doActionEvent(int i, Object obj) {
         if (i == 0) {
-            onBackPressed();
+            getOnBackPressedDispatcher().onBackPressed();
         } else if (i != 15) {
             if (i == 20) {
                 updateToolsbarStatus();
@@ -592,7 +598,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
     }
 
     public void destroyEngine() {
-        super.onBackPressed();
+        getOnBackPressedDispatcher().onBackPressed();
     }
 
     @Override

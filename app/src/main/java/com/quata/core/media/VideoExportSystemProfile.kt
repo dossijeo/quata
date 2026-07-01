@@ -68,7 +68,7 @@ object VideoExportSystemProfile {
                 .filter { codec -> codec.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AVC, ignoreCase = true) } }
                 .mapNotNull { codec -> runCatching { codec.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC) }.getOrNull() }
                 .any { capabilities ->
-                    val videoCapabilities = capabilities.videoCapabilities
+                    val videoCapabilities = capabilities.videoCapabilities ?: return@any false
                     val performancePoints = videoCapabilities.supportedPerformancePoints
                     if (performancePoints == null) {
                         videoCapabilities.areSizeAndRateSupported(1280, 720, 30.0)

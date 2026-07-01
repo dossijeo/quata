@@ -4,7 +4,11 @@ plugins {
 
 android {
     namespace = "com.quata.vosk.model.es"
-    compileSdk = 35
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         minSdk = 26

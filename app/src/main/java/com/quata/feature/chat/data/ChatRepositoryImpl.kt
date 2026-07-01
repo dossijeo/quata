@@ -2,6 +2,8 @@ package com.quata.feature.chat.data
 
 import android.content.Context
 import android.util.Log
+import com.quata.R
+import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.media.MediaUploadOptimizer
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -85,14 +88,24 @@ class ChatRepositoryImpl(
     override val isRealtimeOnline: StateFlow<Boolean> = _isRealtimeOnline.asStateFlow()
 
     init {
-        scope.launch {
-            val session = sessionManager.currentSession() ?: return@launch
-            restoreCache(session.userId)
-            refreshAndConnectRealtime(session.userId)
+        if (AppConfig.USE_MOCK_BACKEND) {
+            _conversations.value = MockData.conversations
+            _isRealtimeOnline.value = true
+        } else {
+            scope.launch {
+                val session = sessionManager.currentSession() ?: return@launch
+                restoreCache(session.userId)
+                refreshAndConnectRealtime(session.userId)
+            }
         }
     }
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            deviceNetworkAvailable.value = isAvailable
+            _isRealtimeOnline.value = isAvailable
+            return
+        }
         if (deviceNetworkAvailable.value == isAvailable) return
         deviceNetworkAvailable.value = isAvailable
         if (!isAvailable) {
@@ -116,16 +129,29 @@ class ChatRepositoryImpl(
         }
     }
 
-    override fun currentUser(): User? = sessionManager.currentSession()?.let { session ->
-        User(
+    override fun currentUser(): User? =
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.currentUser
+        } else {
+            sessionManager.currentSession()?.let { session ->
+                User(
             id = session.userId,
             email = session.email,
             displayName = session.displayName
-        )
-    }
+                )
+            }
+        }
 
     override fun setActiveConversation(conversationId: String?) {
         _activeConversationId.value = conversationId
+        if (AppConfig.USE_MOCK_BACKEND) {
+            if (conversationId != null) {
+                MockData.markConversationRead(conversationId)
+                messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
+                _conversations.value = MockData.conversations
+            }
+            return
+        }
         if (conversationId != null) {
             notificationFactory.clearChatMessage(conversationId)
             scope.launch {
@@ -177,7 +203,10 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun getConversations(): Result<List<Conversation>> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND) return@runCatching MockData.conversations
+        if (AppConfig.USE_MOCK_BACKEND) {
+            _conversations.value = MockData.conversations
+            return@runCatching MockData.conversations
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         _conversations.value.takeIf { it.isNotEmpty() }?.let { conversations ->
             if (deviceNetworkAvailable.value) scope.launch { refreshAndConnectRealtime(session.userId) }
@@ -192,9 +221,12 @@ class ChatRepositoryImpl(
             }
         }
         _conversations.value
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override fun observeConversations(): Flow<List<Conversation>> =
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.conversationsFlow.onStart { _conversations.value = MockData.conversations }
+        } else {
         _conversations.onStart {
             sessionManager.currentSession()?.let { session ->
                 val restored = restoreCache(session.userId)
@@ -207,8 +239,19 @@ class ChatRepositoryImpl(
                 }
             }
         }
+        }
 
     override fun observeMessages(conversationId: String): Flow<List<Message>> =
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.messagesFlow.map { messages ->
+                if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                    messages.filter { it.isFavorite && !it.isDeleted }
+                        .sortedByDescending { it.sentAtMillis ?: 0L }
+                } else {
+                    messages.filter { it.conversationId == conversationId }
+                }
+            }
+        } else {
         messagesState(conversationId).onStart {
             val restored = restoreMessagesFromCache(conversationId)
             if (deviceNetworkAvailable.value) {
@@ -219,8 +262,13 @@ class ChatRepositoryImpl(
                 }
             }
         }
+        }
 
     override fun observeParticipantCandidates(): Flow<List<User>> {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return MockData.socialFlow.map { MockData.registeredUsers }
+                .onStart { emit(MockData.registeredUsers) }
+        }
         val state = MutableStateFlow<List<User>>(profilesById.values.map { it.toUser() })
         scope.launch {
             runCatching {
@@ -237,43 +285,46 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> = runCatching {
-        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             val cleanQuery = query.trim()
-            val currentId = session.userId
-            val existingPrivatePeers = _conversations.value
+            val currentId = MockData.currentUser.id
+            val existingConversations = MockData.conversations
+            val existingPrivatePeers = existingConversations
                 .filter { !it.isGroup && !it.isEmergency }
                 .flatMap { conversation -> conversation.participantIds.filterNot { it == currentId } }
                 .toSet()
-            val candidates = MockData.registeredUsers
+            val candidates = MockData.mockAuthProfiles
                 .filterNot { it.id == currentId }
-                .filter { user ->
+                .filter { profile ->
                     cleanQuery.isBlank() ||
-                        listOf(user.displayName, user.neighborhood, user.email).any { it.contains(cleanQuery, ignoreCase = true) }
+                        listOf(profile.displayName, profile.neighborhood, profile.email, profile.phone, profile.countryCode)
+                            .any { it.contains(cleanQuery, ignoreCase = true) }
                 }
                 .drop(offset.coerceAtLeast(0))
                 .take(limit.coerceIn(1, 50))
-                .map { user ->
-                    val isContact = user.id in existingPrivatePeers
+                .map { profile ->
+                    val user = profile.toUser()
+                    val isContact = profile.id in existingPrivatePeers
                     ChatConversationCandidate(
-                        profileId = user.id,
+                        profileId = profile.id,
                         displayName = user.displayName,
                         neighborhood = user.neighborhood,
                         phone = "",
                         avatarUrl = user.avatarUrl,
                         sectionKey = if (isContact) "contacts" else "other",
                         neighborhoodGroup = user.neighborhood,
-                        existingConversationId = _conversations.value.firstOrNull { !it.isGroup && user.id in it.participantIds }?.id
+                        existingConversationId = existingConversations.firstOrNull { !it.isGroup && profile.id in it.participantIds }?.id
                     )
                 }
             return@runCatching ChatConversationCandidatePage(
                 candidates = candidates,
                 hasMore = candidates.size >= limit,
                 nextOffset = offset + candidates.size,
-                actorNeighborhood = currentUser()?.neighborhood.orEmpty()
+                actorNeighborhood = MockData.currentUser.neighborhood
             )
         }
 
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val payload = remote.searchChatConversationCandidates(
             profileId = session.userId,
             query = query.trim(),
@@ -297,7 +348,7 @@ class ChatRepositoryImpl(
             nextOffset = root.int("next_offset") ?: (offset + candidates.size),
             actorNeighborhood = root.string("actor_neighborhood").orEmpty()
         )
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override suspend fun openPrivateConversation(peerProfileId: String): Result<String> =
         openGroupConversation(listOf(peerProfileId), title = null)
@@ -310,6 +361,21 @@ class ChatRepositoryImpl(
         attachmentMimeType: String?,
         clientMessageId: String?
     ): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            MockData.addMessage(
+                conversationId = conversationId,
+                text = text.ifBlank { attachmentName.orEmpty() },
+                senderId = user.id,
+                senderName = user.displayName,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType
+            )
+            _conversations.value = MockData.conversations
+            messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = conversationId.requireThreadId()
         val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
@@ -318,15 +384,22 @@ class ChatRepositoryImpl(
         remote.sendChatMessage(session.userId, threadId, text, fileIds, clientMessageId = clientMessageId)
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, clientMessageId: String?): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            MockData.addMessage(conversationId, text, user.id, user.displayName, replyTo = replyTo)
+            _conversations.value = MockData.conversations
+            messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = conversationId.requireThreadId()
         remote.sendChatMessage(session.userId, threadId, text, replyToMessageId = replyTo.id.toLongOrNull(), clientMessageId = clientMessageId)
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendSosMessage(
         contactIds: List<String>,
@@ -335,6 +408,13 @@ class ChatRepositoryImpl(
         lng: Double?,
         accuracy: Double?
     ): Result<String> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            val conversationId = MockData.addSosConversation(contactIds, text, user.id, user.displayName)
+            _conversations.value = MockData.conversations
+            messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
+            return@runCatching conversationId
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val payload = remote.sendChatSos(session.userId, contactIds, text, lat, lng, accuracy)
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: error("No se pudo abrir SOS")
@@ -342,9 +422,13 @@ class ChatRepositoryImpl(
         mergeChatPayload(payload)
         refreshThread(conversationId, force = true)
         conversationId
-    }
+    }.mapFailureToUserFacing(appContext, R.string.sos_send_error)
 
     override suspend fun cachedPrivateConversationId(userId: String): String? {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            return runCatching { MockData.findOrCreatePrivateConversation(userId, user.id, user.displayName) }.getOrNull()
+        }
         val session = sessionManager.currentSession() ?: return null
         val existing = _conversations.value.firstOrNull { conversation ->
             !conversation.isGroup && userId in conversation.participantIds
@@ -359,12 +443,23 @@ class ChatRepositoryImpl(
 
     override suspend fun cachedCommunityConversationId(communityName: String): String? {
         val key = communityName.normalizeName()
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return MockData.conversations.firstOrNull { conversation ->
+                conversation.communityName?.normalizeName() == key || conversation.title.normalizeName() == key
+            }?.id
+        }
         return _conversations.value.firstOrNull { conversation ->
             conversation.communityName?.normalizeName() == key || conversation.title.normalizeName() == key
         }?.id
     }
 
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            val conversationId = MockData.findOrCreateNeighborhoodConversation(title, user.id, user.displayName)
+            _conversations.value = MockData.conversations
+            return@runCatching conversationId
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val payload = remote.openCommunityChatThread(session.userId, communityId, title)
         mergeChatPayload(payload)
@@ -373,9 +468,20 @@ class ChatRepositoryImpl(
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
         conversationId
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            val cleanParticipants = participantIds.distinct().filterNot { it == user.id }
+            val conversationId = if (cleanParticipants.size == 1 && title.isNullOrBlank()) {
+                MockData.findOrCreatePrivateConversation(cleanParticipants.first(), user.id, user.displayName)
+            } else {
+                MockData.findOrCreateGroupConversation(cleanParticipants, user.id, user.displayName, title)
+            }
+            _conversations.value = MockData.conversations
+            return@runCatching conversationId
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val cleanParticipants = participantIds.distinct().filterNot { it == session.userId }
         val payload = if (cleanParticipants.size == 1 && title.isNullOrBlank()) {
@@ -395,9 +501,15 @@ class ChatRepositoryImpl(
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
         conversationId
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.markConversationRead(conversationId)
+            _conversations.value = MockData.conversations
+            messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: return@runCatching
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching
         val unreadCount = _conversations.value.firstOrNull { it.id == conversationId }?.unreadCount ?: 0
@@ -408,94 +520,166 @@ class ChatRepositoryImpl(
         remote.markChatThreadRead(session.userId, conversationId.requireThreadId())
         updateConversation(conversationId) { it.copy(unreadCount = 0) }
         notificationFactory.clearChatMessage(conversationId)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.setConversationMuted(conversationId, muted)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.setChatMuted(session.userId, conversationId.requireThreadId(), muted)
         updateConversation(conversationId) { it.copy(isMuted = muted) }
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.setMemberInvitesEnabled(conversationId, enabled)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.setChatMemberInvitesEnabled(session.userId, conversationId.requireThreadId(), enabled)
         updateConversation(conversationId) { it.copy(canMembersInvite = enabled) }
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            MockData.addParticipants(conversationId, participantIds, user.id, user.displayName)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.addChatParticipants(session.userId, conversationId.requireThreadId(), participantIds)
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.promoteModerator(conversationId, userId)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.promoteChatModerator(session.userId, conversationId.requireThreadId(), userId)
         refreshThread(conversationId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun demoteModerator(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.promoteModerator(conversationId, userId)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.demoteChatModerator(session.userId, conversationId.requireThreadId(), userId)
         refreshThread(conversationId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.removeParticipant(conversationId, userId)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.removeChatParticipant(session.userId, conversationId.requireThreadId(), userId)
         refreshThread(conversationId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.blockParticipant(conversationId, userId)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.blockChatParticipant(session.userId, conversationId.requireThreadId(), userId)
         updateConversation(conversationId) { it.copy(blockedUserIds = (it.blockedUserIds + userId).distinct()) }
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.leaveConversation(conversationId, MockData.currentUser.id)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         remote.leaveChatThread(session.userId, conversationId.requireThreadId())
         removeConversation(session.userId, conversationId)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun hideConversation(conversationId: String): Result<Unit> = deleteConversation(conversationId)
 
     override suspend fun deleteConversation(conversationId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val conversation = MockData.conversations.firstOrNull { it.id == conversationId }
+            if (conversation != null) _pendingDeletedConversation.value = conversation
+            MockData.hideConversation(conversationId)
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val conversation = _conversations.value.firstOrNull { it.id == conversationId }
         remote.deleteChatThread(session.userId, conversationId.requireThreadId())
         if (conversation != null) _pendingDeletedConversation.value = conversation
         removeConversation(session.userId, conversationId)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun restorePendingDeletedConversation(): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val conversation = _pendingDeletedConversation.value ?: return@runCatching
+            MockData.restoreConversation(conversation.id)
+            _pendingDeletedConversation.value = null
+            _conversations.value = MockData.conversations
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val conversation = _pendingDeletedConversation.value ?: return@runCatching
         remote.restoreChatThread(session.userId, conversation.id.requireThreadId())
         _pendingDeletedConversation.value = null
         refreshAll(session.userId, force = true)
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun finalizePendingDeletedConversation(): Result<Unit> = runCatching {
         _pendingDeletedConversation.value = null
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.editMessage(messageId, text)
+            refreshMockMessageStates()
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = messageThreadId(messageId)
         remote.editChatMessage(session.userId, threadId, messageId.toLongOrNull() ?: error("Mensaje no valido"), text)
         refreshLoadedThreads()
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.deleteMessage(messageId)
+            refreshMockMessageStates()
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = messageThreadId(messageId)
         remote.deleteChatMessages(session.userId, threadId, listOf(messageId.toLongOrNull() ?: error("Mensaje no valido")))
         refreshLoadedThreads()
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.toggleFavoriteMessage(messageId)
+            refreshMockMessageStates()
+            favoriteMessages.value = MockData.messages.filter { it.isFavorite && !it.isDeleted }
+                .sortedByDescending { it.sentAtMillis ?: 0L }
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val message = loadedMessages().firstOrNull { it.id == messageId } ?: error("Mensaje no cargado")
         val nextFavorite = !message.isFavorite
@@ -513,15 +697,36 @@ class ChatRepositoryImpl(
             runCatching { cacheStore.replaceFavoriteMessages(session.userId, favoriteSnapshot) }
             throw error
         }
-    }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val user = MockData.currentUser
+            MockData.forwardMessage(message, conversationIds, user.id, user.displayName)
+            _conversations.value = MockData.conversations
+            refreshMockMessageStates()
+            return@runCatching
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val targets = conversationIds.mapNotNull { it.supabaseThreadIdOrNull() }
         if (targets.isEmpty()) return@runCatching
         remote.forwardChatMessage(session.userId, message.id.toLongOrNull() ?: error("Mensaje no valido"), targets)
-        refreshAll(session.userId, force = true)
-        refreshLoadedThreads()
+        scope.launch {
+            refreshAll(session.userId, force = true)
+            refreshLoadedThreads()
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    private fun refreshMockMessageStates() {
+        _conversations.value = MockData.conversations
+        messageStates.forEach { (conversationId, state) ->
+            state.value = if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                MockData.messages.filter { it.isFavorite && !it.isDeleted }
+                    .sortedByDescending { it.sentAtMillis ?: 0L }
+            } else {
+                MockData.messages.filter { it.conversationId == conversationId }
+            }
+        }
     }
 
     private suspend fun restoreCache(profileId: String): Boolean {
@@ -533,6 +738,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun refreshAll(profileId: String, force: Boolean = false) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         refreshMutex.withLock {
             if (!deviceNetworkAvailable.value) return@withLock
             val now = System.currentTimeMillis()
@@ -566,6 +772,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun restoreMessagesFromCache(conversationId: String): Boolean {
+        if (AppConfig.USE_MOCK_BACKEND) return false
         val session = sessionManager.currentSession() ?: return false
         val state = messagesState(conversationId)
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
@@ -586,6 +793,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun refreshMessages(conversationId: String) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession() ?: return
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
             refreshFavorites(session.userId, force = true)
@@ -595,6 +803,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun refreshThread(conversationId: String, force: Boolean = false) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession() ?: return
         val threadId = conversationId.supabaseThreadIdOrNull() ?: return
         val now = System.currentTimeMillis()
@@ -622,6 +831,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun refreshFavorites(profileId: String, force: Boolean = false) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val now = System.currentTimeMillis()
         if (!force && now - lastFavoritesRefreshAtMillis < FAVORITES_REFRESH_MIN_INTERVAL_MILLIS) return
         lastFavoritesRefreshAtMillis = now
@@ -649,6 +859,7 @@ class ChatRepositoryImpl(
     }
 
     private fun connectRealtime(session: AuthSession) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         if (!deviceNetworkAvailable.value || !session.isSupabaseAuthenticated()) return
         val accessToken = session.bearerToken
         if (realtimeProfileId == session.userId &&
@@ -704,6 +915,7 @@ class ChatRepositoryImpl(
     }
 
     private fun scheduleReconnect() {
+        if (AppConfig.USE_MOCK_BACKEND) return
         if (!deviceNetworkAvailable.value) return
         if (reconnectJob?.isActive == true) return
         reconnectJob = scope.launch {
@@ -715,6 +927,7 @@ class ChatRepositoryImpl(
     }
 
     private fun scheduleRealtimeTokenRefresh(session: AuthSession) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val expiresAt = session.expiresAt ?: return
         if (realtimeTokenRefreshJob?.isActive == true) return
         val nowEpochSeconds = System.currentTimeMillis() / 1000L
@@ -746,6 +959,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun refreshAndConnectRealtime(profileId: String) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         if (!deviceNetworkAvailable.value) return
         remote.ensureFreshSession()
         refreshAll(profileId)
@@ -754,6 +968,7 @@ class ChatRepositoryImpl(
     }
 
     private fun handleRealtimeEvent(event: RealtimeRawEvent) {
+        if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession() ?: return
         scope.launch {
             val active = _activeConversationId.value
@@ -827,13 +1042,8 @@ class ChatRepositoryImpl(
     }
 
     private fun emitNotifications(previous: Map<String, Conversation>, updated: List<Conversation>) {
-        if (appForegroundState.value) return
-        updated.forEach { conversation ->
-            val oldUnread = previous[conversation.id]?.unreadCount ?: 0
-            if (conversation.unreadCount > oldUnread) {
-                notificationFactory.showChatMessage(conversation)
-            }
-        }
+        // Native background notifications are handled by Firebase push. Realtime updates
+        // only refresh local state here, otherwise they can overwrite the localized FCM payload.
     }
 
     private fun messagesState(conversationId: String): MutableStateFlow<List<Message>> =

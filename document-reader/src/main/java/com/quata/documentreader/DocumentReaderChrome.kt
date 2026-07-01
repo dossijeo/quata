@@ -17,6 +17,7 @@ import android.webkit.WebViewClient
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.annotation.ColorRes
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -33,13 +34,7 @@ object DocumentReaderChrome {
     @JvmStatic
     fun apply(activity: Activity, root: View?) {
         val isDarkMode = isDarkMode(activity)
-        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
-        activity.window.statusBarColor = Color.TRANSPARENT
-        activity.window.navigationBarColor = Color.TRANSPARENT
-        WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
-            isAppearanceLightStatusBars = !isDarkMode
-            isAppearanceLightNavigationBars = !isDarkMode
-        }
+        activity.applyDocumentReaderEdgeToEdge(isDarkMode)
 
         root ?: return
         val originalLeft = root.paddingLeft
@@ -73,8 +68,10 @@ object DocumentReaderChrome {
     ) {
         apply(activity, root)
         titleView?.text = fileName.orEmpty()
-        @Suppress("DEPRECATION")
-        backButton?.setOnClickListener { activity.onBackPressed() }
+        backButton?.setOnClickListener {
+            (activity as? ComponentActivity)?.onBackPressedDispatcher?.onBackPressed()
+                ?: activity.finish()
+        }
         downloadButton?.apply {
             setImageResource(R.drawable.ic_download_24)
             contentDescription = activity.getString(R.string.quata_document_reader_download)
@@ -216,6 +213,14 @@ object DocumentReaderChrome {
 
     private fun isDarkMode(activity: Activity): Boolean =
         activity.intent.getBooleanExtra(QuataDocumentReader.EXTRA_IS_DARK_MODE, false)
+
+    private fun Activity.applyDocumentReaderEdgeToEdge(isDarkMode: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !isDarkMode
+            isAppearanceLightNavigationBars = !isDarkMode
+        }
+    }
 
     private fun saveWithMediaStore(context: Context, source: File, displayName: String): Uri {
         val resolver = context.contentResolver

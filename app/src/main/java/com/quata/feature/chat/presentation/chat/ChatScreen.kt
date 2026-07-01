@@ -168,6 +168,8 @@ import com.quata.core.translation.LocalQuataTranslatorModeController
 import com.quata.core.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.quataTranslatableText
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerDialog
+import com.quata.feature.chat.presentation.conversations.ConversationsUiState
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.Dispatchers
@@ -201,7 +203,7 @@ fun ChatScreen(
     val clipboard = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    val cameraScope = rememberCoroutineScope()
+    val screenScope = rememberCoroutineScope()
     val metrics = context.resources.displayMetrics
     val messagesListState = rememberLazyListState()
     val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
@@ -220,6 +222,8 @@ fun ChatScreen(
     var isCameraVisible by remember { mutableStateOf(false) }
     var cameraAudioEnabled by remember { mutableStateOf(false) }
     var isAudioRecorderVisible by rememberSaveable { mutableStateOf(false) }
+    var autoPlayVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
+    var activeVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
     var suppressAutoScrollForFocusedOpen by rememberSaveable(conversationId) {
@@ -235,6 +239,33 @@ fun ChatScreen(
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
     val backgroundSeed = conversationId.takeUnless { isFavoritesConversation }
+
+    fun queueNextConsecutiveVoiceNote(finishedMessage: Message) {
+        val currentIndex = state.messages.indexOfFirst { it.id == finishedMessage.id }
+        val nextIndex = currentIndex + 1
+        val nextMessage = state.messages.getOrNull(nextIndex)
+        val nextAttachment = nextMessage?.attachmentPreview()
+        if (
+            currentIndex >= 0 &&
+            nextMessage != null &&
+            !nextMessage.isDeleted &&
+            nextMessage.senderId == finishedMessage.senderId &&
+            nextAttachment?.isAudio == true
+        ) {
+            activeVoiceMessageId = nextMessage.id
+            autoPlayVoiceMessageId = nextMessage.id
+            screenScope.launch {
+                messagesListState.animateScrollToItem(nextIndex)
+            }
+        } else {
+            if (activeVoiceMessageId == finishedMessage.id) {
+                activeVoiceMessageId = null
+            }
+            if (autoPlayVoiceMessageId == finishedMessage.id) {
+                autoPlayVoiceMessageId = null
+            }
+        }
+    }
 
     DisposableEffect(conversationId) {
         onDispose {
@@ -335,7 +366,7 @@ fun ChatScreen(
             },
             onPhotoCaptured = { uri, name, mimeType ->
                 isCameraVisible = false
-                cameraScope.launch {
+                screenScope.launch {
                     val normalizedUri = withContext(Dispatchers.IO) {
                         context.normalizeImageOrientationInPlace(uri).toString()
                     }
@@ -416,24 +447,10 @@ fun ChatScreen(
                     )
                     .imePadding()
             ) {
-                if (state.isForwardDialogOpen) {
-                    ForwardMessageScreen(
-                        conversations = state.availableForwardConversations,
-                        selectedIds = state.selectedForwardConversationIds,
-                        onToggle = { viewModel.onEvent(ChatUiEvent.ForwardConversationToggled(it)) },
-                        onBack = { viewModel.onEvent(ChatUiEvent.CloseForwardDialog) },
-                        onSend = {
-                            if (state.selectedForwardConversationIds.isNotEmpty()) {
-                                viewModel.onEvent(ChatUiEvent.SendForward)
-                                Toast.makeText(context, context.getString(R.string.conversation_forward_sent), Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
+                if (isFavoritesConversation) {
+                    FavoriteMessagesHeader(onBack = onBack)
                 } else {
-                    if (isFavoritesConversation) {
-                        FavoriteMessagesHeader(onBack = onBack)
-                    } else {
-                        ChatHeader(
+                    ChatHeader(
                             conversation = state.conversation,
                             currentUser = state.currentUser,
                             usersById = usersById,
@@ -478,11 +495,11 @@ fun ChatScreen(
                             isTranslatorAvailable = state.messages.isNotEmpty(),
                             compact = compactHeader,
                             appHeaderActions = appHeaderActions
-                        )
-                        if (state.isConversationActionInProgress) {
-                            ConversationActionProgressBar()
-                        }
+                    )
+                    if (state.isConversationActionInProgress) {
+                        ConversationActionProgressBar()
                     }
+                }
                     Box(modifier = Modifier.weight(1f)) {
                         LazyColumn(
                             state = messagesListState,
@@ -511,6 +528,8 @@ fun ChatScreen(
                                         isSelected = message.id == state.selectedMessageId ||
                                             (message.id == highlightedMessageId && highlightVisible),
                                         isSenderProfileLoading = openingProfileUserId == message.senderId,
+                                        autoPlayVoiceNote = autoPlayVoiceMessageId == message.id,
+                                        pauseVoiceNote = activeVoiceMessageId != null && activeVoiceMessageId != message.id,
                                         onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
                                         onOpenAttachment = { attachment ->
                                             if (attachment.isMedia) {
@@ -528,6 +547,13 @@ fun ChatScreen(
                                                 viewModel.onEvent(ChatUiEvent.StartReply)
                                             }
                                         },
+                                        onVoiceNoteStarted = {
+                                            activeVoiceMessageId = message.id
+                                            if (autoPlayVoiceMessageId != message.id) {
+                                                autoPlayVoiceMessageId = null
+                                            }
+                                        },
+                                        onVoiceNoteEnded = { queueNextConsecutiveVoiceNote(message) },
                                         onClick = {
                                             if (message.isLocalEcho) {
                                                 Unit
@@ -705,7 +731,7 @@ fun ChatScreen(
                             }
                         }
                     }
-            }
+                }
             if (!isFavoritesConversation && isEmojiPickerVisible && isLandscapeLayout) {
                 CommunityEmojiPanel(
                     onEmojiClick = { emoji ->
@@ -715,7 +741,7 @@ fun ChatScreen(
                     },
                     gridMaxHeight = emojiGridMaxHeight,
                     modifier = Modifier
-                        .align(Alignment.End)
+                        .align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = 94.dp, start = 24.dp)
                         .fillMaxWidth(0.58f)
                         .trackCommunityEmojiPanelBounds(emojiDismissState)
@@ -778,16 +804,64 @@ fun ChatScreen(
     }
 
     if (state.isAddParticipantsOpen) {
-        AddParticipantsDialog(
-            conversation = state.conversation,
-            currentUser = state.currentUser,
-            candidates = state.participantCandidates,
-            search = state.participantSearch,
-            selectedIds = state.selectedParticipantIds,
-            onSearchChange = { viewModel.onEvent(ChatUiEvent.ParticipantSearchChanged(it)) },
-            onToggleUser = { viewModel.onEvent(ChatUiEvent.ParticipantSelectionToggled(it)) },
+        ConversationCandidatePickerDialog(
+            state = ConversationsUiState(
+                currentUser = state.currentUser,
+                conversationCandidates = state.participantConversationCandidates,
+                candidateQuery = state.participantCandidateQuery,
+                isCandidateInitialLoading = state.isParticipantCandidateInitialLoading,
+                isCandidatePageLoading = state.isParticipantCandidatePageLoading,
+                candidateHasMore = state.participantCandidateHasMore,
+                candidateNextOffset = state.participantCandidateNextOffset,
+                candidateActorNeighborhood = state.participantCandidateActorNeighborhood,
+                openingCandidateProfileId = state.addingCandidateProfileId,
+                candidateError = state.participantCandidateError
+            ),
+            onSearchChange = viewModel::onParticipantCandidateQueryChanged,
+            onLoadMore = viewModel::loadMoreParticipantCandidates,
+            onOpenCandidate = { candidate -> viewModel.addConversationCandidateParticipant(candidate.profileId) },
             onDismiss = { viewModel.onEvent(ChatUiEvent.CloseAddParticipants) },
-            onAdd = { viewModel.onEvent(ChatUiEvent.AddSelectedParticipants) }
+            title = stringResource(R.string.conversation_add_participants_title),
+            actionIcon = Icons.Filled.PersonAdd,
+            actionContentDescription = stringResource(R.string.conversation_add_participants),
+            excludedProfileIds = state.conversation?.participantIds.orEmpty().toSet()
+        )
+    }
+
+    if (state.isForwardDialogOpen) {
+        val selectedForwardIds = state.selectedForwardProfileIds.toSet()
+        val selectedForwardNames = state.forwardConversationCandidates
+            .filter { it.profileId in selectedForwardIds }
+            .joinToString(", ") { it.displayName }
+        ConversationCandidatePickerDialog(
+            state = ConversationsUiState(
+                currentUser = state.currentUser,
+                conversationCandidates = state.forwardConversationCandidates,
+                candidateQuery = state.forwardCandidateQuery,
+                isCandidateInitialLoading = state.isForwardCandidateInitialLoading,
+                isCandidatePageLoading = state.isForwardCandidatePageLoading,
+                candidateHasMore = state.forwardCandidateHasMore,
+                candidateNextOffset = state.forwardCandidateNextOffset,
+                candidateActorNeighborhood = state.forwardCandidateActorNeighborhood,
+                candidateError = state.forwardCandidateError
+            ),
+            onSearchChange = viewModel::onForwardCandidateQueryChanged,
+            onLoadMore = viewModel::loadMoreForwardConversationCandidates,
+            onOpenCandidate = { candidate -> viewModel.onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) },
+            onDismiss = { viewModel.onEvent(ChatUiEvent.CloseForwardDialog) },
+            title = stringResource(R.string.conversation_forward_to),
+            selectedCandidateIds = selectedForwardIds,
+            onToggleCandidate = { candidate -> viewModel.onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) },
+            onConfirmSelection = {
+                if (state.selectedForwardProfileIds.isNotEmpty()) {
+                    viewModel.onEvent(ChatUiEvent.SendForward)
+                    Toast.makeText(context, context.getString(R.string.conversation_forward_sent), Toast.LENGTH_SHORT).show()
+                }
+            },
+            confirmEnabled = state.selectedForwardProfileIds.isNotEmpty() && !state.isConversationActionInProgress,
+            selectionSummary = selectedForwardNames,
+            confirmIcon = Icons.AutoMirrored.Filled.Send,
+            confirmContentDescription = stringResource(R.string.common_send)
         )
     }
 
@@ -827,7 +901,6 @@ fun ChatScreen(
             onDismiss = { selectedAttachment = null }
         )
     }
-}
 }
 
 @Composable
@@ -1373,200 +1446,6 @@ private fun ChatHeader(
 }
 
 @Composable
-private fun AddParticipantsDialog(
-    conversation: Conversation?,
-    currentUser: User?,
-    candidates: List<User>,
-    search: String,
-    selectedIds: List<String>,
-    onSearchChange: (String) -> Unit,
-    onToggleUser: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onAdd: () -> Unit
-) {
-    val existingIds = conversation?.participantIds.orEmpty().toSet()
-    val blockedIds = conversation?.blockedUserIds.orEmpty().toSet()
-    val existingNames = conversation?.participantNames.orEmpty().map { it.participantLookupKey() }.toSet()
-    val visibleCandidates = candidates
-        .filter { user ->
-            user.id != currentUser?.id &&
-                user.id !in existingIds &&
-                user.id !in blockedIds &&
-                user.displayName.participantLookupKey() !in existingNames
-        }
-        .filter { user ->
-            val query = search.trim()
-            query.isBlank() ||
-                user.displayName.contains(query, ignoreCase = true) ||
-                user.neighborhood.contains(query, ignoreCase = true) ||
-                user.email.contains(query, ignoreCase = true)
-        }
-
-    val template = quataTheme()
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            color = template.colors.surfaceRaised,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                Text(stringResource(R.string.conversation_add_participants_title), fontWeight = FontWeight.ExtraBold)
-                Text(
-                    stringResource(R.string.conversation_add_participants_subtitle),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.padding(8.dp))
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = onSearchChange,
-                    placeholder = { Text(stringResource(R.string.conversation_search_users)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(Modifier.padding(8.dp))
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 320.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(visibleCandidates, key = { it.id }) { user ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(template.colors.surface.copy(alpha = 0.54f), RoundedCornerShape(16.dp))
-                                .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-                                .clickable { onToggleUser(user.id) }
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AvatarImage(user.displayName, user.avatarUrl, modifier = Modifier.size(42.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(user.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                            }
-                            Checkbox(
-                                checked = user.id in selectedIds,
-                                onCheckedChange = { onToggleUser(user.id) }
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.padding(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.surfaceAlt, contentColor = template.colors.textPrimary),
-                        modifier = Modifier.compactButtonMinSize(),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.common_cancel))
-                    }
-                    Button(
-                        onClick = onAdd,
-                        enabled = selectedIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                        modifier = Modifier.compactButtonMinSize(),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.conversation_add_participants_action))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ForwardMessageScreen(
-    conversations: List<Conversation>,
-    selectedIds: List<String>,
-    onToggle: (String) -> Unit,
-    onBack: () -> Unit,
-    onSend: () -> Unit
-) {
-    val template = quataTheme()
-    val selectedNames = conversations
-        .filter { it.id in selectedIds }
-        .joinToString(", ") { it.chatDisplayTitle() }
-    Column(Modifier.fillMaxSize()) {
-        Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CompactIconButton(onClick = onBack) {
-                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
-                Text(
-                    stringResource(R.string.conversation_forward_to),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp
-                )
-            }
-        }
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 14.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(conversations, key = { it.id }) { conversation ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-                        .background(template.colors.surface.copy(alpha = 0.72f), RoundedCornerShape(16.dp))
-                        .clickable { onToggle(conversation.id) }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = conversation.id in selectedIds,
-                        onCheckedChange = { onToggle(conversation.id) }
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(conversation.chatDisplayTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            conversation.lastMessagePreview,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                selectedNames.ifBlank { stringResource(R.string.conversation_forward_none_selected) },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = template.colors.textPrimary.copy(alpha = if (selectedNames.isBlank()) 0.52f else 0.92f),
-                modifier = Modifier.weight(1f)
-            )
-            CompactIconButton(
-                enabled = selectedIds.isNotEmpty(),
-                onClick = onSend,
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(template.colors.accent.copy(alpha = if (selectedIds.isNotEmpty()) 1f else 0.35f), CircleShape)
-            ) {
-                CompactIcon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.common_send), tint = template.colors.accentContent)
-            }
-        }
-    }
-}
-
-@Composable
 private fun ConfirmDialog(
     action: ConfirmAction,
     onDismiss: () -> Unit,
@@ -1838,9 +1717,13 @@ private fun MessageBubble(
     showSenderAvatar: Boolean,
     isSelected: Boolean,
     isSenderProfileLoading: Boolean,
+    autoPlayVoiceNote: Boolean,
+    pauseVoiceNote: Boolean,
     onOpenSenderProfile: () -> Unit,
     onOpenAttachment: (AttachmentPreview) -> Unit,
     onSwipeReply: () -> Unit,
+    onVoiceNoteStarted: () -> Unit,
+    onVoiceNoteEnded: () -> Unit,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -2016,7 +1899,11 @@ private fun MessageBubble(
                     if (attachment.isAudio) {
                         AudioAttachmentPlayer(
                             attachment = attachment,
-                            textColor = textColor
+                            textColor = textColor,
+                            autoPlay = autoPlayVoiceNote,
+                            pauseRequested = pauseVoiceNote,
+                            onPlaybackStarted = onVoiceNoteStarted,
+                            onPlaybackEnded = onVoiceNoteEnded
                         )
                     } else if (attachment.isMedia) {
                         Column(

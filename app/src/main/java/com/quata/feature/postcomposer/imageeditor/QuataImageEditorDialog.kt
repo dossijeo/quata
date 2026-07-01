@@ -86,22 +86,35 @@ import kotlin.math.roundToInt
 
 const val QuataEditedImageFilePrefix = "quata-edited-image-"
 
+enum class QuataImageEditorMode {
+    Post,
+    Avatar
+}
+
 @Composable
 fun QuataImageEditorDialog(
     imageUri: Uri,
     onDismiss: () -> Unit,
-    onEdited: (Uri) -> Unit
+    onEdited: (Uri) -> Unit,
+    mode: QuataImageEditorMode = QuataImageEditorMode.Post
 ) {
     val context = LocalContext.current
     val template = quataTheme()
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
+    val outputSpec = remember(mode) {
+        when (mode) {
+            QuataImageEditorMode.Post -> ImageEditorPostOutputSpec
+            QuataImageEditorMode.Avatar -> ImageEditorAvatarOutputSpec
+        }
+    }
+    val isCropLocked = mode == QuataImageEditorMode.Avatar
     val scope = rememberCoroutineScope()
     var originalBitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var bitmap by remember(imageUri) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUri) { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
-    var isCropPanelOpen by remember(imageUri) { mutableStateOf(false) }
-    var isCropApplied by remember(imageUri) { mutableStateOf(false) }
+    var isCropPanelOpen by remember(imageUri, mode) { mutableStateOf(isCropLocked) }
+    var isCropApplied by remember(imageUri, mode) { mutableStateOf(isCropLocked) }
     var imageGradientSeed by remember(imageUri) { mutableStateOf(imageUri.toString()) }
     var zoom by remember(imageUri) { mutableFloatStateOf(1f) }
     var pan by remember(imageUri) { mutableStateOf(Offset.Zero) }
@@ -142,30 +155,33 @@ fun QuataImageEditorDialog(
                         bitmap = original
                         zoom = 1f
                         pan = Offset.Zero
-                        isCropPanelOpen = false
-                        isCropApplied = false
+                        isCropPanelOpen = isCropLocked
+                        isCropApplied = isCropLocked
                     }
                 },
                 onRotate = {
                     bitmap = bitmap?.rotateClockwise()
                     zoom = 1f
                     pan = Offset.Zero
-                    isCropApplied = false
+                    isCropApplied = isCropLocked
+                    isCropPanelOpen = isCropLocked
                 },
                 onToggleCrop = {
-                    if (isCropPanelOpen) {
-                        isCropApplied = true
-                        isCropPanelOpen = false
-                    } else {
-                        isCropPanelOpen = true
+                    if (!isCropLocked) {
+                        if (isCropPanelOpen) {
+                            isCropApplied = true
+                            isCropPanelOpen = false
+                        } else {
+                            isCropPanelOpen = true
+                        }
                     }
                 },
                 onSave = {
                     val source = bitmap ?: return@ImageEditorTopBar
-                    val cropToNineSixteen = isCropPanelOpen || isCropApplied
+                    val cropToOutputAspect = isCropLocked || isCropPanelOpen || isCropApplied
                     isSaving = true
-                    isCropPanelOpen = false
-                    isCropApplied = cropToNineSixteen
+                    isCropPanelOpen = isCropLocked
+                    isCropApplied = cropToOutputAspect
                     scope.launch {
                         val edited = withContext(Dispatchers.IO) {
                             context.exportEditedImage(
@@ -173,13 +189,15 @@ fun QuataImageEditorDialog(
                                 source = source,
                                 zoom = zoom,
                                 pan = pan,
-                                cropToNineSixteen = cropToNineSixteen
+                                cropToOutputAspect = cropToOutputAspect,
+                                outputSpec = outputSpec
                             )
                         }
                         isSaving = false
                         onEdited(edited)
                     }
-                }
+                },
+                showCropToggle = !isCropLocked
             )
 
             if (isLandscapeLayout && isCropPanelOpen) {
@@ -199,6 +217,7 @@ fun QuataImageEditorDialog(
                         gradientSeed = imageGradientSeed,
                         isCropPanelOpen = isCropPanelOpen,
                         isCropApplied = isCropApplied,
+                        outputSpec = outputSpec,
                         onPanChange = { pan = it },
                         modifier = Modifier
                             .weight(1f)
@@ -225,6 +244,7 @@ fun QuataImageEditorDialog(
                     gradientSeed = imageGradientSeed,
                     isCropPanelOpen = isCropPanelOpen,
                     isCropApplied = isCropApplied,
+                    outputSpec = outputSpec,
                     onPanChange = { pan = it },
                     modifier = Modifier
                         .weight(1f)
@@ -260,6 +280,7 @@ private fun ImageEditorPreviewArea(
     gradientSeed: String,
     isCropPanelOpen: Boolean,
     isCropApplied: Boolean,
+    outputSpec: ImageEditorOutputSpec,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -282,6 +303,7 @@ private fun ImageEditorPreviewArea(
                 gradientSeed = gradientSeed,
                 isCropVisible = isCropPanelOpen,
                 isCropApplied = isCropApplied,
+                outputSpec = outputSpec,
                 onPanChange = onPanChange,
                 modifier = Modifier.fillMaxSize()
             )
@@ -310,7 +332,8 @@ private fun ImageEditorTopBar(
     onReset: () -> Unit,
     onRotate: () -> Unit,
     onToggleCrop: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    showCropToggle: Boolean = true
 ) {
     val template = quataTheme()
     Row(
@@ -357,16 +380,18 @@ private fun ImageEditorTopBar(
             ) {
                 CompactIcon(Icons.Filled.Rotate90DegreesCw, contentDescription = null)
             }
-            ImageToolButton(
-                label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
-                enabled = canSave,
-                selected = isCropPanelOpen,
-                onClick = onToggleCrop
-            ) {
-                CompactIcon(
-                    if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop,
-                    contentDescription = null
-                )
+            if (showCropToggle) {
+                ImageToolButton(
+                    label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
+                    enabled = canSave,
+                    selected = isCropPanelOpen,
+                    onClick = onToggleCrop
+                ) {
+                    CompactIcon(
+                        if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop,
+                        contentDescription = null
+                    )
+                }
             }
             ImageToolButton(
                 label = stringResource(R.string.video_editor_export),
@@ -427,6 +452,7 @@ private fun ImagePreviewPane(
     gradientSeed: String,
     isCropVisible: Boolean,
     isCropApplied: Boolean,
+    outputSpec: ImageEditorOutputSpec,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -434,7 +460,7 @@ private fun ImagePreviewPane(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        val widthFromHeight = maxHeight * ImageEditorOutputAspectRatio
+        val widthFromHeight = maxHeight * outputSpec.aspectRatio
         val previewWidth: Dp
         val previewHeight: Dp
         if (widthFromHeight <= maxWidth) {
@@ -442,7 +468,7 @@ private fun ImagePreviewPane(
             previewHeight = maxHeight
         } else {
             previewWidth = maxWidth
-            previewHeight = maxWidth / ImageEditorOutputAspectRatio
+            previewHeight = maxWidth / outputSpec.aspectRatio
         }
         Box(
             modifier = Modifier
@@ -453,6 +479,7 @@ private fun ImagePreviewPane(
                     bitmap = bitmap,
                     zoom = zoom,
                     pan = pan,
+                    outputSpec = outputSpec,
                     onPanChange = onPanChange,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -468,6 +495,7 @@ private fun ImagePreviewPane(
                             bitmap = bitmap,
                             zoom = zoom,
                             pan = pan,
+                            outputSpec = outputSpec,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
@@ -520,10 +548,11 @@ private fun ImageCroppedPreviewCanvas(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
+    outputSpec: ImageEditorOutputSpec,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
-        val src = bitmap.cropRectForNineSixteen(zoom = zoom, pan = pan)
+        val src = bitmap.cropRectForAspect(zoom = zoom, pan = pan, targetAspect = outputSpec.aspectRatio)
         val dst = Rect(0, 0, size.width.roundToInt(), size.height.roundToInt())
         drawContext.canvas.nativeCanvas.drawBitmap(bitmap, src, dst, PreviewPaint)
     }
@@ -550,6 +579,7 @@ private fun ImageCropAdjustmentPane(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
+    outputSpec: ImageEditorOutputSpec,
     onPanChange: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -565,6 +595,7 @@ private fun ImageCropAdjustmentPane(
                 bitmap = bitmap,
                 zoom = zoom,
                 pan = pan,
+                outputSpec = outputSpec,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -572,6 +603,7 @@ private fun ImageCropAdjustmentPane(
             bitmap = bitmap,
             zoom = zoom,
             pan = pan,
+            outputSpec = outputSpec,
             onPanChange = onPanChange,
             contentInset = ImageCropAnchorInset,
             modifier = Modifier.matchParentSize()
@@ -584,12 +616,14 @@ private fun ImageCropContentCanvas(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
+    outputSpec: ImageEditorOutputSpec,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
-        val geometry = bitmap.cropGeometryForNineSixteen(
+        val geometry = bitmap.cropGeometryForAspect(
             zoom = zoom,
             pan = pan,
+            targetAspect = outputSpec.aspectRatio,
             canvasWidth = size.width,
             canvasHeight = size.height
         )
@@ -608,6 +642,7 @@ private fun ImageCropOverlayCanvas(
     bitmap: Bitmap,
     zoom: Float,
     pan: Offset,
+    outputSpec: ImageEditorOutputSpec,
     onPanChange: (Offset) -> Unit,
     contentInset: Dp,
     modifier: Modifier = Modifier
@@ -619,9 +654,10 @@ private fun ImageCropOverlayCanvas(
             detectDragGestures { change, dragAmount ->
                 change.consume()
                 val insetPx = contentInset.toPx()
-                val geometry = bitmap.cropGeometryForNineSixteen(
+                val geometry = bitmap.cropGeometryForAspect(
                     zoom = zoom,
                     pan = currentPan,
+                    targetAspect = outputSpec.aspectRatio,
                     canvasWidth = (size.width.toFloat() - insetPx * 2f).coerceAtLeast(1f),
                     canvasHeight = (size.height.toFloat() - insetPx * 2f).coerceAtLeast(1f)
                 )
@@ -640,9 +676,10 @@ private fun ImageCropOverlayCanvas(
         }
     ) {
         val insetPx = contentInset.toPx()
-        val geometry = bitmap.cropGeometryForNineSixteen(
+        val geometry = bitmap.cropGeometryForAspect(
             zoom = zoom,
             pan = pan,
+            targetAspect = outputSpec.aspectRatio,
             canvasWidth = (size.width - insetPx * 2f).coerceAtLeast(1f),
             canvasHeight = (size.height - insetPx * 2f).coerceAtLeast(1f)
         )
@@ -669,13 +706,21 @@ private data class ImageCropGeometry(
     val maxShiftY: Float
 )
 
-private fun Bitmap.cropGeometryForNineSixteen(
+private data class ImageEditorOutputSpec(
+    val width: Int,
+    val height: Int
+) {
+    val aspectRatio: Float = width.toFloat() / height.toFloat()
+}
+
+private fun Bitmap.cropGeometryForAspect(
     zoom: Float,
     pan: Offset,
+    targetAspect: Float,
     canvasWidth: Float,
     canvasHeight: Float
 ): ImageCropGeometry {
-    val crop = cropRectFForNineSixteen(zoom, pan)
+    val crop = cropRectFForAspect(zoom, pan, targetAspect)
     val scale = minOf(canvasWidth / width.toFloat(), canvasHeight / height.toFloat())
     val imageWidth = width * scale
     val imageHeight = height * scale
@@ -729,20 +774,21 @@ private fun Context.exportEditedImage(
     source: Bitmap,
     zoom: Float,
     pan: Offset,
-    cropToNineSixteen: Boolean
+    cropToOutputAspect: Boolean,
+    outputSpec: ImageEditorOutputSpec
 ): Uri {
     val outputFile = File(cacheDir, "$QuataEditedImageFilePrefix${System.currentTimeMillis()}.jpg")
-    if (!cropToNineSixteen) {
+    if (!cropToOutputAspect) {
         outputFile.outputStream().use { source.compress(Bitmap.CompressFormat.JPEG, ImageEditorJpegQuality, it) }
         copyImageGpsMetadata(sourceUri, outputFile)
         return Uri.fromFile(outputFile)
     }
 
-    val output = Bitmap.createBitmap(ImageEditorOutputWidth, ImageEditorOutputHeight, Bitmap.Config.ARGB_8888)
+    val output = Bitmap.createBitmap(outputSpec.width, outputSpec.height, Bitmap.Config.ARGB_8888)
     try {
         val canvas = android.graphics.Canvas(output)
-        val src = source.cropRectForNineSixteen(zoom = zoom, pan = pan)
-        val dst = Rect(0, 0, ImageEditorOutputWidth, ImageEditorOutputHeight)
+        val src = source.cropRectForAspect(zoom = zoom, pan = pan, targetAspect = outputSpec.aspectRatio)
+        val dst = Rect(0, 0, outputSpec.width, outputSpec.height)
         canvas.drawBitmap(source, src, dst, ExportPaint)
         outputFile.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, ImageEditorJpegQuality, it) }
         copyImageGpsMetadata(sourceUri, outputFile)
@@ -815,8 +861,8 @@ private fun Context.copyImageGpsMetadata(sourceUri: Uri, outputFile: File) {
     }
 }
 
-private fun Bitmap.cropRectForNineSixteen(zoom: Float, pan: Offset): Rect {
-    val crop = cropRectFForNineSixteen(zoom, pan)
+private fun Bitmap.cropRectForAspect(zoom: Float, pan: Offset, targetAspect: Float): Rect {
+    val crop = cropRectFForAspect(zoom, pan, targetAspect)
     return Rect(
         crop.left.roundToInt(),
         crop.top.roundToInt(),
@@ -825,9 +871,8 @@ private fun Bitmap.cropRectForNineSixteen(zoom: Float, pan: Offset): Rect {
     )
 }
 
-private fun Bitmap.cropRectFForNineSixteen(zoom: Float, pan: Offset): RectF {
+private fun Bitmap.cropRectFForAspect(zoom: Float, pan: Offset, targetAspect: Float): RectF {
     val safeZoom = zoom.coerceIn(1f, 3f)
-    val targetAspect = ImageEditorOutputAspectRatio
     val bitmapAspect = width.toFloat() / height.toFloat()
     val baseCropWidth: Float
     val baseCropHeight: Float
@@ -871,9 +916,8 @@ private val ImageGpsTags = listOf(
     ExifInterface.TAG_GPS_TIMESTAMP
 )
 
-private const val ImageEditorOutputWidth = 1080
-private const val ImageEditorOutputHeight = 1920
-private const val ImageEditorOutputAspectRatio = 9f / 16f
+private val ImageEditorPostOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1920)
+private val ImageEditorAvatarOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1080)
 private const val ImageEditorDecodeMaxSize = 2160
 private const val ImageEditorJpegQuality = 92
 private val ImageEditorBottomAir = 56.dp

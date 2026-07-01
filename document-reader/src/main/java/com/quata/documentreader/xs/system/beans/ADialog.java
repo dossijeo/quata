@@ -110,14 +110,6 @@ public class ADialog extends Dialog implements OnClickListener
     /**
      * 
      */
-    public void onBackPressed()
-    {
-        super.onBackPressed();
-    }
-    
-    /**
-     * 
-     */
     public void dismiss()
     {
         super.dismiss();

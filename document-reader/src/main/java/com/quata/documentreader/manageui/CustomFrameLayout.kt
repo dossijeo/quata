@@ -2,7 +2,6 @@ package com.quata.documentreader.manageui
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -12,6 +11,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import com.quata.documentreader.R
 import com.quata.documentreader.util.ImageBitmaps
 import com.quata.documentreader.util.ViewUtils
@@ -82,9 +82,9 @@ class CustomFrameLayout : FrameLayout {
         }
 
         private fun m17543c(i: Int, i2: Int): Drawable? {
-            val b = AppCompatResources.getDrawable(context, i)
+            val b = AppCompatResources.getDrawable(context, i)?.mutate()
             if (i2 != -1) {
-                b!!.setColorFilter(i2, PorterDuff.Mode.SRC_IN)
+                b?.let { DrawableCompat.setTint(it, i2) }
             }
             return b
         }

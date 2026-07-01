@@ -18,6 +18,7 @@ import com.quata.documentreader.xs.system.IControl;
 import com.quata.documentreader.xs.system.IDialogAction;
 import com.quata.documentreader.xs.thirdpart.mozilla.intl.chardet.CharsetDetector;
 import com.quata.documentreader.xs.wp.dialog.TXTEncodingDialog;
+import com.quata.documentreader.DocumentReaderBackNavigation;
 
 import android.os.Handler;
 
@@ -107,7 +108,7 @@ public class TXTKit
                     {
                         if (TXTEncodingDialog.BACK_PRESSED.equals(model.get(0)))
                         {
-                            control.getMainFrame().getActivity().onBackPressed();
+                            DocumentReaderBackNavigation.navigateBack(control.getMainFrame().getActivity());
                         }
                         else
                         {

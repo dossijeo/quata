@@ -1,26 +1,35 @@
 # Q&uuml;ata Android
 
-Version: **0.10.1**
-Fecha de version: **2026-06-30**
+Version: **0.10.2**
+Fecha de version: **2026-07-01**
 Estado: **beta privada avanzada con chat Supabase, Realtime y Firebase**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.10.1` afina la migracion grande de mensajeria: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
+La version `0.10.2` cierra la ronda de estabilizacion previa a 1.0: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase y respuesta directa desde notificaciones, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
 - Nuevo boton flotante **Nuevo chat** en la lista de conversaciones, con selector de usuarios categorizado por contactos, seguidos, seguidores, barrio propio y otros barrios.
 - Busqueda de nuevos chats paginada desde Supabase por nombre, barrio o telefono, sin exponer el numero de telefono en la interfaz.
+- El panel comun de seleccion de usuarios se reutiliza para nuevo chat, anadir participantes y reenviar mensajes, con formato de panel inferior en portrait y modal amplia centrada en landscape.
+- El reenvio de mensajes cierra el panel al instante y reutiliza conversaciones existentes cuando ya hay hilo abierto con el destinatario.
 - Las conversaciones privadas abiertas pero vacias se limpian automaticamente al salir si no se envio ningun mensaje.
 - Envio de mensajes con `client_message_id` para evitar duplicados cuando una peticion se reintenta o Realtime confirma tarde.
 - Boton de deshacer borrado de conversacion reubicado a la izquierda para convivir con el nuevo boton de chat sin saltos visuales.
 - Auth bridge de Supabase reforzado para usuarios legacy existentes, generando credenciales Supabase de forma transparente durante el login.
 - Push Firebase ajustado para notas de voz, conversaciones silenciadas y entregas solo cuando la app no esta visible.
+- Las notificaciones de chat admiten respuesta directa desde Android: la respuesta se envia por Supabase, reintenta cortes breves de red y cierra correctamente la notificacion retenida por `RemoteInput`.
 - Se eliminan los avisos y permisos de exclusion de ahorro de bateria/datos en segundo plano: el segundo plano queda cubierto por FCM.
 - Feed y preview de publicacion de video usan recorte en portrait y contain en landscape, igualando el comportamiento de las imagenes.
+- El feed pausa videos al mandar la app a segundo plano y mantiene el estado global de sonido/mute entre publicaciones.
 - Los adjuntos de audio compartidos desde perfiles usan el reproductor embebido de notas de voz en lugar de abrir un reproductor externo.
+- Las notas de voz permiten arrastrar la posicion de reproduccion, dejan de reproducirse en bucle y reproducen consecutivamente solo notas inmediatas del mismo interlocutor.
 - El visor de documentos genera preview para PDF, documentos ofimaticos y formatos de texto plano habituales como XML, HTML, CSS, CSV, Markdown y logs.
+- El motor de documentos se modernizo para evitar APIs obsoletas y reforzar navegacion atras, layouts y cierre seguro de tareas internas.
+- El editor de video limita publicaciones a 90 segundos y muestra aviso claro si el clip supera `1:30`.
+- Los errores tecnicos de red, timeout o subida se mapean a mensajes genericos localizados para no exponer detalles internos al usuario.
+- La foto de perfil usa el editor de imagen con recorte fijo `1:1`, y los avatares propios o de perfiles pueden abrirse en el visor integrado.
 - Chat migrado a Supabase: esquema propio de conversaciones, participantes, mensajes, adjuntos, favoritos, administradores, SOS y comunidades, con RPCs transaccionales y sin dependencias Better Messages en Android.
 - Supabase Realtime sustituye el polling del chat: la app se suscribe a cambios de conversaciones/mensajes y reconecta al recuperar red o renovar sesion.
 - Sesion Supabase con refresh preventivo global al arrancar y volver a primer plano; al caducar el token se renueva con `refresh_token` antes de romper Realtime o llamadas protegidas.
@@ -120,6 +129,7 @@ El chat usa Supabase como backend principal. Better Messages fue retirado del cl
 - Tarjetas especiales para mensajes SOS con ubicacion, precision, velocidad, antiguedad y apertura en Google Maps.
 - Los mensajes SOS se guardan como shortcodes y se localizan al renderizar, no como texto fijo en el idioma del emisor.
 - Notificaciones internas en foreground y push nativo Firebase solo cuando la app esta cerrada o en segundo plano.
+- Las push de chat usan shortcodes/localizacion en cliente para mensajes, adjuntos y notas de voz; la accion **Responder** tambien se localiza con el idioma de la app.
 - `muted_at` se respeta antes de enviar push Firebase.
 - Sonidos del chat con ciclo de vida seguro para evitar `MediaPlayer finalized without being released`.
 
@@ -353,7 +363,7 @@ Requisitos:
 
 - Android Studio reciente.
 - JDK 17, incluido el JBR de Android Studio.
-- Android SDK con `compileSdk 35`.
+- Android SDK con `compileSdk 36`.
 
 Comando habitual:
 
@@ -373,18 +383,18 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 22
-versionName = 0.10.1
-APP_VERSION_DATE = 2026-06-30
+versionCode = 23
+versionName = 0.10.2
+APP_VERSION_DATE = 2026-07-01
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
 
 ## Pendiente antes de 1.0
 
-- QA de larga duracion en dispositivos reales.
+- QA funcional en emuladores API 26, 27, 28 y 37 ya avanzada para chat, camara, feed, publicacion, documentos y notificaciones; queda QA de larga duracion en dispositivos reales.
 - Revision de consumo de bateria y red con cuentas grandes.
-- Validacion final de permisos y enlaces admitidos en Android moderno.
+- Validacion final de permisos, enlaces admitidos y comportamiento de notificaciones en dispositivos fisicos Android moderno.
 - Monitorizacion de errores en produccion.
 - Segunda fase de hardening RLS en Supabase para `communities`, `community_admin_alerts` y `translations_multi_backup`, disenando politicas antes de activar RLS.
 - Politicas finales de privacidad, datos y soporte.

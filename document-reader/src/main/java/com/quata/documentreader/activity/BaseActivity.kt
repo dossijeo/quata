@@ -13,12 +13,14 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.quata.documentreader.R
 import com.quata.documentreader.QuataDocumentReaderTheme
 import com.quata.documentreader.manageui.CustomFrameLayout
 import com.quata.documentreader.util.Utility
-import com.quata.documentreader.util.ViewUtils
 
 open class BaseActivity : AppCompatActivity() {
     public var PERMISSIONS_LIST = arrayOf(
@@ -80,13 +82,17 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     protected fun hideSystemUI() {
-        val decorView = window.decorView
-        decorView.systemUiVisibility = 3846
-        decorView.setOnSystemUiVisibilityChangeListener { i: Int ->
-            showAndHide(
-                i and 4 == 0
-            )
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
         }
+        showAndHide(false)
+        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
+            showAndHide(insets.isVisible(WindowInsetsCompat.Type.systemBars()))
+            insets
+        }
+        ViewCompat.requestApplyInsets(window.decorView)
     }
 
     private fun showAndHide(z: Boolean) {
@@ -142,12 +148,10 @@ open class BaseActivity : AppCompatActivity() {
 
     open fun setTransparentForWindow(z: Boolean, z2: Boolean) {
         val window = window
-        if (Build.VERSION.SDK_INT >= 23) {
-            window.decorView.systemUiVisibility = ViewUtils.setWidth(z, z2)
-            window.navigationBarColor = ContextCompat.getColor(this, R.color.black)
-        } else if (Build.VERSION.SDK_INT == 21 || Build.VERSION.SDK_INT == 22) {
-            window.statusBarColor = ContextCompat.getColor(this, R.color.black)
-            window.navigationBarColor = ContextCompat.getColor(this, R.color.black)
+        WindowCompat.setDecorFitsSystemWindows(window, !z2)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = z
+            isAppearanceLightNavigationBars = z
         }
     }
 

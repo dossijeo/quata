@@ -270,11 +270,12 @@ class ProfileRepositoryImpl(
             ?: fallbackName
         val defaultMessage = defaultEmergencyMessage(displayName)
         val emergencyMessageIsDefault = storedEmergencyMessage?.isDefault ?: true
+        val phoneParts = profilePhoneParts()
         return UserProfile(
             displayName = displayName,
             neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
-            countryCode = country_code?.takeIf { it.isNotBlank() } ?: code?.takeIf { it.isNotBlank() } ?: "240",
-            phone = phone_local?.takeIf { it.isNotBlank() } ?: phone.orEmpty(),
+            countryCode = phoneParts.first,
+            phone = phoneParts.second,
             avatarUri = avatar_url.cleanValue() ?: avatar.cleanValue(),
             selectedSecretQuestion = secret_question.orEmpty(),
             emergencyContactIds = emergencyContactIds,
@@ -284,6 +285,39 @@ class ProfileRepositoryImpl(
                 ?: defaultMessage,
             emergencyMessageIsDefault = emergencyMessageIsDefault
         )
+    }
+
+    private fun CommunityProfile.profilePhoneParts(): Pair<String, String> {
+        val explicitCountryCode = (country_code?.takeIf { it.isNotBlank() }
+            ?: code?.takeIf { it.isNotBlank() })
+            ?.filter(Char::isDigit)
+        val e164Digits = phone_e164
+            ?.takeIf { it.isNotBlank() }
+            ?.filter(Char::isDigit)
+        val localDigits = phone_local
+            ?.takeIf { it.isNotBlank() }
+            ?.filter(Char::isDigit)
+            ?: telefono?.takeIf { it.isNotBlank() }?.filter(Char::isDigit)
+        if (!explicitCountryCode.isNullOrBlank() && !localDigits.isNullOrBlank()) {
+            return explicitCountryCode to localDigits
+        }
+        if (!e164Digits.isNullOrBlank() && !localDigits.isNullOrBlank() && e164Digits.endsWith(localDigits)) {
+            val country = e164Digits.removeSuffix(localDigits)
+            if (country.isNotBlank()) return country to localDigits
+        }
+        val fullPhoneDigits = phone?.takeIf { it.isNotBlank() }?.filter(Char::isDigit)
+        if (!fullPhoneDigits.isNullOrBlank() && !localDigits.isNullOrBlank() && fullPhoneDigits.endsWith(localDigits)) {
+            val country = fullPhoneDigits.removeSuffix(localDigits)
+            if (country.isNotBlank()) return country to localDigits
+        }
+        return (
+            explicitCountryCode
+                ?: "240"
+            ) to (
+            localDigits
+                ?: fullPhoneDigits
+                ?: ""
+            )
     }
 
     private fun CommunityProfile.toEmergencyCandidate(): EmergencyContactCandidate =
