@@ -26,11 +26,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MapsHomeWork
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -62,7 +62,7 @@ data class BottomDestination(
 val bottomDestinations = listOf(
     BottomDestination(AppDestinations.Neighborhoods.route, R.string.nav_neighborhoods, Icons.Filled.MapsHomeWork),
     BottomDestination(AppDestinations.Conversations.route, R.string.nav_chats, Icons.Filled.Forum),
-    BottomDestination(AppDestinations.CreatePost.route, R.string.nav_publish, Icons.Filled.AddCircle),
+    BottomDestination(AppDestinations.Official.route, R.string.nav_official, Icons.Filled.VerifiedUser),
     BottomDestination(AppDestinations.Feed.route, R.string.nav_feed, Icons.Filled.DynamicFeed),
     BottomDestination(AppDestinations.Profile.route, R.string.nav_account, Icons.Filled.AccountCircle)
 )

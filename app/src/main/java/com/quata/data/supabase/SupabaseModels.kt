@@ -31,7 +31,9 @@ data class CommunityProfile(
     val pass_plain: String? = null,
     val avatar: String? = null,
     val followers_count: Int? = null,
-    val following_count: Int? = null
+    val following_count: Int? = null,
+    val is_admin: Boolean? = null,
+    val is_official: Boolean? = null
 )
 
 @Serializable
@@ -522,4 +524,73 @@ data class StorageUploadResult(
     @SerialName("Key") val key: String? = null,
     val publicUrl: String? = null,
     val raw: JsonElement? = null
+)
+
+@Serializable
+data class OfficialPost(
+    val id: String,
+    val profile_id: String? = null,
+    val title: String? = null,
+    val summary: String? = null,
+    val post_type: String? = null,
+    val content_html: String? = null,
+    val read_more_label: String? = null,
+    val media_url: String? = null,
+    val media_type: String? = null,
+    val link_url: String? = null,
+    val is_live: Boolean? = null,
+    val is_published: Boolean? = null,
+    val published_at: String? = null,
+    val created_at: String? = null,
+    val updated_at: String? = null,
+    val deleted_at: String? = null
+)
+
+@Serializable
+data class OfficialPostCreate(
+    val profile_id: String,
+    val title: String? = null,
+    val summary: String? = null,
+    val post_type: String = "announcement",
+    val content_html: String,
+    val read_more_label: String? = null,
+    val media_url: String? = null,
+    val media_type: String? = null,
+    val link_url: String? = null,
+    val is_live: Boolean = false
+)
+
+@Serializable
+data class OfficialPostUpdate(
+    val deleted_at: String? = null
+)
+
+@Serializable
+data class OfficialPostLike(
+    val id: String,
+    val official_post_id: String? = null,
+    val profile_id: String? = null,
+    val created_at: String? = null
+)
+
+@Serializable
+data class OfficialPostLikeCreate(
+    val official_post_id: String,
+    val profile_id: String
+)
+
+@Serializable
+data class OfficialPostComment(
+    val id: String,
+    val official_post_id: String? = null,
+    val profile_id: String? = null,
+    val body: String? = null,
+    val created_at: String? = null
+)
+
+@Serializable
+data class OfficialPostCommentCreate(
+    val official_post_id: String,
+    val profile_id: String,
+    val body: String
 )

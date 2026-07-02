@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -153,15 +155,11 @@ fun AttachmentThumbnail(
             )
 
             attachment.isVideo -> {
-                val frame = rememberVideoFrameBitmap(attachment.uri)
-                if (frame != null) {
-                    Image(
-                        bitmap = frame.asImageBitmap(),
-                        contentDescription = attachment.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+                VideoAttachmentThumbnail(
+                    uri = attachment.uri,
+                    name = attachment.name,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             attachment.isAudio -> CompactIcon(
@@ -178,6 +176,45 @@ fun AttachmentThumbnail(
             )
 
             else -> CompactIcon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(30.dp))
+        }
+    }
+}
+
+@Composable
+fun VideoAttachmentThumbnail(
+    uri: String,
+    name: String,
+    modifier: Modifier = Modifier,
+    showPlayButton: Boolean = false
+) {
+    val frame = rememberVideoFrameBitmap(uri)
+    Box(
+        modifier = modifier.background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        if (frame != null) {
+            Image(
+                bitmap = frame.asImageBitmap(),
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+        if (showPlayButton) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.38f),
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.size(62.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    CompactIcon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(38.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -514,6 +551,7 @@ fun AttachmentViewerDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFF05070C))
+                    .navigationBarsPadding()
             ) {
                 AttachmentViewerTopBar(
                     title = attachment.name,
@@ -610,7 +648,7 @@ private fun ZoomableImage(attachment: AttachmentPreview) {
                     offset = if (nextScale == 1f) Offset.Zero else offset + pan
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         AsyncImage(
             model = attachment.uri,
@@ -623,7 +661,7 @@ private fun ZoomableImage(attachment: AttachmentPreview) {
                     translationX = offset.x
                     translationY = offset.y
                 },
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Crop
         )
     }
 }
@@ -633,6 +671,7 @@ private fun FullscreenVideoPlayer(videoUri: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var videoMetadata by remember(videoUri) { mutableStateOf(AttachmentVideoPlaybackMetadata()) }
+    var isLoading by remember(videoUri) { mutableStateOf(true) }
     LaunchedEffect(videoUri) {
         videoMetadata = withContext(Dispatchers.IO) {
             readAttachmentVideoPlaybackMetadata(context, Uri.parse(videoUri))
@@ -650,7 +689,24 @@ private fun FullscreenVideoPlayer(videoUri: String) {
             }
     }
     DisposableEffect(player) {
-        onDispose { player.release() }
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isLoading = playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
+            }
+
+            override fun onRenderedFirstFrame() {
+                isLoading = false
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                isLoading = false
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
     }
     DisposableEffect(player, lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -662,32 +718,53 @@ private fun FullscreenVideoPlayer(videoUri: String) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    AndroidView(
-        factory = { viewContext ->
-            (LayoutInflater.from(viewContext)
-                .inflate(R.layout.quata_attachment_player_texture, null, false) as PlayerView).apply {
-                this.player = player
-                useController = true
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            }
-        },
-        update = { playerView ->
-            playerView.useController = true
-            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            if (playerView.player !== player) {
-                playerView.player = player
-            }
-            playerView.findChildTextureView()
-                ?.applyAttachmentVideoPlaybackTransform(videoMetadata)
-        },
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-    )
+    ) {
+        AndroidView(
+            factory = { viewContext ->
+                (LayoutInflater.from(viewContext)
+                    .inflate(R.layout.quata_attachment_player_texture, null, false) as PlayerView).apply {
+                    this.player = player
+                    useController = true
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+            },
+            update = { playerView ->
+                playerView.useController = true
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                if (playerView.player !== player) {
+                    playerView.player = player
+                }
+                playerView.findChildTextureView()
+                    ?.applyAttachmentVideoPlaybackTransform(videoMetadata)
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        if (isLoading) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.36f),
+                shape = CircleShape,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(58.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        color = QuataOrange,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 private data class AttachmentVideoPlaybackMetadata(

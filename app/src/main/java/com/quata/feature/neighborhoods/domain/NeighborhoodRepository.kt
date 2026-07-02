@@ -8,6 +8,8 @@ interface NeighborhoodRepository {
     suspend fun toggleFollowUser(userId: String): Result<FollowUserResult>
     suspend fun reportPost(postId: String): Result<Unit>
     suspend fun openPrivateChat(userId: String): Result<String>
+    suspend fun isCurrentUserAdmin(): Boolean
+    suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser>
     suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long? = null): CommunityUserProfile?
     suspend fun cacheUserProfile(profile: CommunityUserProfile)
     fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>>

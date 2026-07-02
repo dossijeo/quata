@@ -1241,7 +1241,9 @@ class ChatRepositoryImpl(
             email = "${country_code.orEmpty()}${phone_local.orEmpty()}@phone.quata.app",
             displayName = displayName(),
             neighborhood = neighborhood ?: barrio.orEmpty(),
-            avatarUrl = avatar_url ?: avatar
+            avatarUrl = avatar_url ?: avatar,
+            isAdmin = is_admin == true,
+            isOfficial = is_official == true
         )
 
     private fun CommunityProfile.displayName(): String =

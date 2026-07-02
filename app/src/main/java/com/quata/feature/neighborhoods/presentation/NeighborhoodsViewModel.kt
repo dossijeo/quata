@@ -124,6 +124,7 @@ class NeighborhoodsViewModel(
     fun openUserProfile(userId: String) {
         profileJob?.cancel()
         viewModelScope.launch {
+            val currentUserIsAdmin = repository.isCurrentUserAdmin()
             val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
             val cachedProfile = freshCachedProfile ?: repository.getCachedUserProfile(userId)
             if (cachedProfile != null) {
@@ -131,12 +132,14 @@ class NeighborhoodsViewModel(
                     selectedProfile = cachedProfile,
                     openingProfileUserId = null,
                     refreshingProfileUserId = if (freshCachedProfile == null) userId else null,
+                    currentUserIsAdmin = currentUserIsAdmin,
                     error = null
                 )
             } else {
                 _uiState.value = _uiState.value.copy(
                     openingProfileUserId = userId,
                     refreshingProfileUserId = null,
+                    currentUserIsAdmin = currentUserIsAdmin,
                     error = null
                 )
             }
@@ -190,6 +193,45 @@ class NeighborhoodsViewModel(
             if (profileUserId != null) {
                 refreshSelectedProfile(profileUserId)
             }
+        }
+    }
+
+    fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) {
+        if (_uiState.value.roleUpdatingUserId != null) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(roleUpdatingUserId = userId, error = null)
+            repository.setUserRoles(userId, isAdmin, isOfficial)
+                .onSuccess { updatedUser ->
+                    val current = _uiState.value
+                    val selectedProfile = current.selectedProfile?.let { profile ->
+                        if (profile.user.id == userId) {
+                            profile.copy(user = profile.user.copy(isAdmin = updatedUser.isAdmin, isOfficial = updatedUser.isOfficial))
+                        } else {
+                            profile.copy(
+                                followers = profile.followers.map { if (it.id == userId) it.copy(isAdmin = updatedUser.isAdmin, isOfficial = updatedUser.isOfficial) else it },
+                                following = profile.following.map { if (it.id == userId) it.copy(isAdmin = updatedUser.isAdmin, isOfficial = updatedUser.isOfficial) else it }
+                            )
+                        }
+                    }
+                    selectedProfile?.let { repository.cacheUserProfile(it) }
+                    _uiState.value = current.copy(
+                        roleUpdatingUserId = null,
+                        selectedProfile = selectedProfile ?: current.selectedProfile,
+                        communities = current.communities.map { community ->
+                            community.copy(
+                                users = community.users.map { user ->
+                                    if (user.id == userId) user.copy(isAdmin = updatedUser.isAdmin, isOfficial = updatedUser.isOfficial) else user
+                                }
+                            )
+                        }
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        roleUpdatingUserId = null,
+                        error = error.message ?: "No se pudieron actualizar los permisos"
+                    )
+                }
         }
     }
 

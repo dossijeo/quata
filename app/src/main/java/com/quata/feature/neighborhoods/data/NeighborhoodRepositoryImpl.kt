@@ -173,6 +173,26 @@ class NeighborhoodRepositoryImpl(
         chatRepository.openGroupConversation(listOf(userId), title = null).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
+    override suspend fun isCurrentUserAdmin(): Boolean {
+        val session = sessionManager.currentSession() ?: return false
+        if (AppConfig.USE_MOCK_BACKEND) return session.displayName.equals("Gabriel", ignoreCase = true)
+        return profileRemote.getProfile(session.userId)?.is_admin == true
+    }
+
+    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
+        runCatching {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            if (AppConfig.USE_MOCK_BACKEND) {
+                val user = MockData.registeredUsers.firstOrNull { it.id == userId } ?: error("Usuario no encontrado")
+                return@runCatching user.toNeighborhoodUser().copy(isAdmin = isAdmin, isOfficial = isOfficial)
+            }
+            val currentProfile = profileRemote.getProfile(session.userId)
+            check(currentProfile?.is_admin == true) { "No tienes permisos de administrador" }
+            val updated = supabaseApi.updateProfileRoles(userId, isAdmin, isOfficial)
+                ?: error("No se pudo actualizar el usuario")
+            updated.toNeighborhoodUserReal()
+        }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
         profileCacheStore.read(userId, maxAgeMillis)
 
@@ -504,6 +524,8 @@ class NeighborhoodRepositoryImpl(
             email = email,
             neighborhood = neighborhood,
             avatarUrl = avatarUrl,
+            isAdmin = isAdmin,
+            isOfficial = isOfficial,
             isFollowing = MockData.isFollowing(id),
             followersCount = MockData.followersCount(id),
             followingCount = MockData.followingCount(id),
@@ -536,6 +558,8 @@ class NeighborhoodRepositoryImpl(
                 ?: barrio?.takeIf { it.isNotBlank() }
                 ?: barrio_normalized.orEmpty(),
             avatarUrl = avatar_url ?: avatar,
+            isAdmin = is_admin == true,
+            isOfficial = is_official == true,
             isFollowing = isFollowing,
             followersCount = followersCount,
             followingCount = followingCount,

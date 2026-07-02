@@ -14,11 +14,15 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -74,21 +78,28 @@ fun AvatarLetter(name: String, modifier: Modifier = Modifier.size(44.dp)) {
 fun AvatarImage(
     name: String,
     avatarUrl: String?,
+    isOfficial: Boolean = false,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
     val template = quataTheme()
     val imageModel = rememberCachedRemoteImageRequest(avatarUrl)
-    if (avatarUrl.isNullOrBlank()) {
-        AvatarLetter(name, modifier)
-    } else {
-        AsyncImage(
-            model = imageModel,
-            contentDescription = name,
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .clip(CircleShape)
-                .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
-        )
+    Box(modifier = modifier) {
+        if (avatarUrl.isNullOrBlank()) {
+            AvatarLetter(name, Modifier.fillMaxSize())
+        } else {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
+            )
+        }
+        if (isOfficial) {
+            OfficialAccountBadge(Modifier.align(Alignment.BottomEnd))
+        }
     }
 }
 
@@ -97,6 +108,7 @@ fun UserAvatar(user: User, modifier: Modifier = Modifier.size(44.dp)) {
     AvatarImage(
         name = user.displayName,
         avatarUrl = user.avatarUrl,
+        isOfficial = user.isOfficial,
         modifier = modifier
     )
 }
@@ -105,6 +117,7 @@ fun UserAvatar(user: User, modifier: Modifier = Modifier.size(44.dp)) {
 fun ClickableProfileAvatar(
     name: String,
     avatarUrl: String?,
+    isOfficial: Boolean = false,
     isLoading: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier.size(44.dp)
@@ -112,6 +125,7 @@ fun ClickableProfileAvatar(
     ProfileAvatarWithLoadingHalo(
         name = name,
         avatarUrl = avatarUrl,
+        isOfficial = isOfficial,
         isLoading = isLoading,
         modifier = modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -125,6 +139,7 @@ fun ClickableProfileAvatar(
 fun ProfileAvatarWithLoadingHalo(
     name: String,
     avatarUrl: String?,
+    isOfficial: Boolean = false,
     isLoading: Boolean,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
@@ -148,7 +163,7 @@ fun ProfileAvatarWithLoadingHalo(
         if (isLoading) {
             Canvas(
                 modifier = Modifier
-                    .matchParentSize()
+                    .fillMaxSize()
                     .graphicsLayer(
                         scaleX = 1.16f,
                         scaleY = 1.16f,
@@ -185,7 +200,27 @@ fun ProfileAvatarWithLoadingHalo(
         AvatarImage(
             name = name,
             avatarUrl = avatarUrl,
-            modifier = Modifier.matchParentSize()
+            isOfficial = isOfficial,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun OfficialAccountBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(18.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF2F80ED))
+            .border(1.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Check,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(12.dp)
         )
     }
 }

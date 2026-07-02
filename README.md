@@ -1,15 +1,31 @@
 # Q&uuml;ata Android
 
-Version: **0.10.3**
-Fecha de version: **2026-07-02**
-Estado: **beta privada avanzada con chat Supabase, Realtime y Firebase**
+Version: **0.10.4**
+Fecha de version: **2026-07-03**
+Estado: **beta privada avanzada con chat Supabase, muro oficial, Realtime y Firebase**
 
-Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
+Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.10.3` cierra la ronda de estabilizacion previa a 1.0: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase y respuesta directa desde notificaciones, camara/foto/video integrados con cambio entre camara trasera y selfie, grabadora de audio comprimido, notas de voz con auricular por proximidad, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
+La version `0.10.4` anade el primer ciclo completo de **cuentas oficiales**: roles de administrador/oficial en Supabase, nuevo tab **Oficial**, muro oficial anonimo, editor de publicaciones oficiales con texto enriquecido, multimedia y vista previa, perfiles verificados con insignia azul y controles de moderacion para administradores. Tambien consolida paneles comunes de comentarios/LIVE, visor multimedia compartido, deep links oficiales, borrado por administradores en feed normal y oficial, y limpieza de residuos de QA del proyecto.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Nuevo tab **Oficial** en la barra inferior, sustituyendo al acceso central de publicar y abriendo un muro independiente de publicaciones de cuentas oficiales.
+- El feed normal conserva la creacion de publicaciones mediante boton flotante `+`, reubicado en el rail de acciones para mantener el flujo de publicacion.
+- Cuentas oficiales con insignia azul de verificacion en avatares y perfiles, visible tambien en cards y listados.
+- Administradores iniciales configurados en Supabase para Juan y Gabriel, con switches en perfiles para marcar usuarios como administradores o cuentas oficiales.
+- Los administradores pueden eliminar cualquier publicacion del feed normal o del muro oficial; Supabase incluye politicas RLS especificas para esta excepcion.
+- Muro oficial legible en modo anonimo, con acciones protegidas por login cuando requieren escritura.
+- Publicaciones oficiales con tipos `Comunicado`, `Noticia`, `Evento` y `Urgente`, resumen corto, texto completo y etiqueta personalizable de **Leer mas**.
+- Editor de publicaciones oficiales a pantalla completa, inspirado en el editor normal de publicaciones, con seleccion de imagen/video, recorte/edicion multimedia, preview y boton de publicar con progreso.
+- Editor enriquecido integrado para el cuerpo largo de publicaciones oficiales: bloques, listas, checks, citas, estilos inline, enlaces, highlight y soporte claro/oscuro.
+- Renderizador de texto enriquecido para leer publicaciones oficiales largas en panel de **Leer mas**, adaptado al tema y al scroll de pantalla.
+- Muro oficial con tarjetas tipo reel en portrait y layout de dos columnas en landscape, manteniendo comentarios, likes, compartir, LIVE/ranking y borrado.
+- Los comentarios y el panel LIVE usan componentes comunes compartidos por feed normal y muro oficial, incluido responder comentarios y traductor Fang.
+- Imagenes y videos oficiales se abren con el visor multimedia compartido de adjuntos, evitando clones y respetando barras del sistema.
+- Los videos oficiales se muestran como thumbnail con boton play dentro de la tarjeta y se reproducen a pantalla completa al abrirlos.
+- Deep links para publicaciones oficiales mediante `#official-post-...`, con navegacion directa al tab Oficial y post enfocado.
+- Publicaciones oficiales de prueba y seeds Supabase para demo interna con imagen/video y contenido institucional.
 - Nuevo boton flotante **Nuevo chat** en la lista de conversaciones, con selector de usuarios categorizado por contactos, seguidos, seguidores, barrio propio y otros barrios.
 - La camara integrada permite cambiar entre camara trasera y selfie en foto, video y modo dual.
 - La foto de perfil usa la camara integrada y abre el editor `1:1` a pantalla completa.
@@ -86,6 +102,7 @@ La version `0.10.3` cierra la ronda de estabilizacion previa a 1.0: Better Messa
 ## Funcionalidad principal
 
 - Feed visual tipo reel con publicaciones de texto, imagen y video.
+- Muro oficial independiente para publicaciones de cuentas verificadas, con lectura anonima, acciones sociales y tarjetas adaptadas a claro/oscuro.
 - Editor nativo de video integrado en publicar, con previsualizacion, recorte temporal, recorte de encuadre, mute, subtitulos y exportacion.
 - Editor nativo de imagen integrado en publicar, con crop/zoom vertical `9:16`, limite de salida y preservacion de metadatos utiles de localizacion.
 - Preview de publicacion de imagen/video en formato `9:16`, con aspecto cosmetico equivalente al feed y reproduccion local para validar el resultado antes de publicar.
@@ -110,6 +127,25 @@ La version `0.10.3` cierra la ronda de estabilizacion previa a 1.0: Better Messa
 - SOS con contactos configurables, rate limit, ubicacion aproximada inmediata y actualizacion precisa diferida.
 - Chat privado, grupal, comunitario y SOS sobre Supabase Realtime.
 - Adjuntos de chat: archivo, imagen/video de galeria, camara dual integrada y audio comprimido integrado.
+
+## Muro oficial y cuentas oficiales
+
+El muro oficial introduce una capa institucional separada del feed social. Esta pensada para cuentas verificadas de organismos, barrios, administraciones o entidades que necesitan publicar avisos mas estructurados.
+
+- Tabla `official_posts` en Supabase, con likes, comentarios, soft delete, tipos de publicacion, media opcional, resumen y cuerpo enriquecido.
+- Campos `is_admin` e `is_official` en `community_profiles`, con indices y guards SQL para que solo administradores puedan cambiar roles.
+- Lectura publica del muro oficial para clientes anonimos; creacion, likes, comentarios y borrado requieren sesion Supabase.
+- Publicacion oficial limitada a perfiles marcados como `is_official`.
+- Administradores con permisos de moderacion para actualizar o borrar publicaciones oficiales aunque no sean autores.
+- Politica adicional para que administradores puedan borrar publicaciones del feed normal creadas por otros usuarios.
+- Editor oficial con campos de titulo, descripcion corta, texto del enlace **Leer mas**, descripcion larga enriquecida, tipo de publicacion y media.
+- La descripcion larga se edita en pantalla completa con el editor rich text comun y se renderiza despues con el lector enriquecido.
+- Preview oficial dentro del editor con la misma estructura visual del muro final.
+- Imagenes y videos oficiales se optimizan/suben mediante la misma capa de media usada por publicar y adjuntos.
+- Cards oficiales con perfil verificado, tipo de aviso, ranking, LIVE, likes, comentarios, compartir, borrar y enlace de lectura completa.
+- Comentarios oficiales reutilizan el componente comun de comentarios del feed normal, con respuesta a comentarios y traductor Fang.
+- Panel LIVE comun reutilizado para rankings de feed y muro oficial.
+- Deep links oficiales compartibles con `https://egquata.com/#official-post-...`.
 
 ## Chat Supabase, Realtime y Firebase
 
@@ -311,6 +347,7 @@ app/src/main/java/com/quata/
     captions/            Transcripcion, layout, plantillas y burn-in de subtitulos
     language/            Detector local de idioma FastText para es/fr/en/fan
     text/                Shortcodes de posts y SOS, localizacion de tarjetas especiales
+    ui/richtext/         Editor, runtime, serializacion HTML y renderizador de texto enriquecido
     translation/          Cliente API, cache SQLite y overlay del modo traductor Fang
     navigation/          NavGraph, deep links y chrome global
     localization/        Seleccion de idioma por locale del sistema
@@ -325,6 +362,7 @@ app/src/main/java/com/quata/
     feed/                Feed, comentarios y acciones sociales
     neighborhoods/       Q&uuml;ata, comunidades y perfiles publicos
     notifications/       Avisos dentro de la app
+    official/            Muro oficial, editor oficial, roles y publicaciones verificadas
     postcomposer/        Publicacion de contenido
       videoeditor/       Editor nativo de video en Compose + Media3 Transformer/MediaMuxer
       imageeditor/       Editor nativo de imagen con crop/zoom vertical 9:16
@@ -387,16 +425,16 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 24
-versionName = 0.10.3
-APP_VERSION_DATE = 2026-07-02
+versionCode = 25
+versionName = 0.10.4
+APP_VERSION_DATE = 2026-07-03
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
 
 ## Pendiente antes de 1.0
 
-- QA funcional en emuladores API 26, 27, 28 y 37 ya avanzada para chat, camara, feed, publicacion, documentos y notificaciones; queda QA de larga duracion en dispositivos reales.
+- QA funcional en emuladores API 26, 27, 28 y 37 ya avanzada para chat, camara, feed, muro oficial, publicacion, documentos y notificaciones; queda QA de larga duracion en dispositivos reales.
 - Revision de consumo de bateria y red con cuentas grandes.
 - Validacion final de permisos, enlaces admitidos y comportamiento de notificaciones en dispositivos fisicos Android moderno.
 - Monitorizacion de errores en produccion.

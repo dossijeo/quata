@@ -24,6 +24,8 @@ import com.quata.feature.feed.data.FeedRepositoryImpl
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.notifications.data.NotificationsRepositoryImpl
 import com.quata.feature.notifications.domain.NotificationsRepository
+import com.quata.feature.official.data.OfficialRepositoryImpl
+import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.neighborhoods.data.NeighborhoodRepositoryImpl
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.postcomposer.data.PostComposerRepositoryImpl
@@ -72,6 +74,14 @@ class AppContainer(context: Context) {
     )
 
     val postComposerRepository: PostComposerRepository = PostComposerRepositoryImpl(
+        appContext = appContext,
+        supabaseApi = networkModule.supabaseCommunityApi,
+        wordpressClient = networkModule.quataWordPressClient,
+        sessionManager = sessionManager,
+        mediaUploadOptimizer = mediaUploadOptimizer
+    )
+
+    val officialRepository: OfficialRepository = OfficialRepositoryImpl(
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         wordpressClient = networkModule.quataWordPressClient,

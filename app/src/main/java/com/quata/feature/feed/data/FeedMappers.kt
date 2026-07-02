@@ -4,7 +4,9 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
+import com.quata.core.text.parsePostCommentBody
 import com.quata.core.text.stripHtmlTagsAndDecode
+import com.quata.core.text.toRemoteCommentBody
 import com.quata.core.network.wordpress.WordpressPostDto
 import com.quata.data.supabase.CommunityComment
 import com.quata.data.supabase.CommunityPost
@@ -45,7 +47,7 @@ fun CommunityPost.toDomain(
 )
 
 fun CommunityComment.toDomain(authorName: String): PostComment =
-    body.orEmpty().decodeHtmlEntities().parseReplyShortcode().let { parsed ->
+    body.orEmpty().decodeHtmlEntities().parsePostCommentBody().let { parsed ->
         PostComment(
             id = id,
             authorName = authorName,
@@ -57,7 +59,7 @@ fun CommunityComment.toDomain(authorName: String): PostComment =
     }
 
 fun List<CommunityComment>.toDomainComments(authorNameFor: (CommunityComment) -> String): List<PostComment> {
-    val parsedById = associate { comment -> comment.id to comment.body.orEmpty().decodeHtmlEntities().parseReplyShortcode() }
+    val parsedById = associate { comment -> comment.id to comment.body.orEmpty().decodeHtmlEntities().parsePostCommentBody() }
     return map { comment ->
         val parsed = parsedById.getValue(comment.id)
         val target = parsed.commentId?.let { targetId -> firstOrNull { it.id == targetId } }
@@ -74,34 +76,7 @@ fun List<CommunityComment>.toDomainComments(authorNameFor: (CommunityComment) ->
     }
 }
 
-fun PostComment.toRemoteBody(): String {
-    val cleanMessage = message.trim()
-    val replyId = replyToCommentId?.takeIf { it.isNotBlank() && !it.startsWith("local_") }
-    val replyAuthor = replyToAuthorName?.takeIf { it.isNotBlank() }?.replace("]", "")?.replace("\n", " ")
-    return if (replyId != null && replyAuthor != null) {
-        "[reply:$replyId:$replyAuthor] $cleanMessage"
-    } else {
-        cleanMessage
-    }
-}
-
-private fun String.parseReplyShortcode(): ParsedCommentBody {
-    val match = ReplyShortcodeRegex.find(this)
-    if (match == null) return ParsedCommentBody(message = trim())
-    return ParsedCommentBody(
-        commentId = match.groupValues.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() },
-        authorName = match.groupValues.getOrNull(2)?.trim()?.takeIf { it.isNotBlank() },
-        message = removeRange(match.range).trim()
-    )
-}
-
-private data class ParsedCommentBody(
-    val message: String,
-    val commentId: String? = null,
-    val authorName: String? = null
-)
-
-private val ReplyShortcodeRegex = Regex("""^\s*\[reply:([^:\]]+):([^\]]+)]\s*""")
+fun PostComment.toRemoteBody(): String = toRemoteCommentBody()
 
 fun CommunityProfile.toDomainUser(): User =
     User(
@@ -112,5 +87,7 @@ fun CommunityProfile.toDomainUser(): User =
             ?: phone_local?.takeIf { it.isNotBlank() }
             ?: "Usuario",
         neighborhood = neighborhood?.takeIf { it.isNotBlank() } ?: barrio.orEmpty(),
-        avatarUrl = avatar_url ?: avatar
+        avatarUrl = avatar_url ?: avatar,
+        isAdmin = is_admin == true,
+        isOfficial = is_official == true
     )

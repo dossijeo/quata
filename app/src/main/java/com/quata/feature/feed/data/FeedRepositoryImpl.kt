@@ -70,6 +70,15 @@ class FeedRepositoryImpl(
     override suspend fun refreshFeed(): Result<List<Post>> =
         runCatching { loadPostShells(SupabaseCacheMode.NETWORK_ONLY) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
 
+    override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
+        val userId = sessionManager.currentSession()?.userId ?: return@runCatching null
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.userById(userId).copy(isAdmin = true)
+        } else {
+            profileRemote.getProfile(userId)?.toDomainUser()
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
+
     override suspend fun refreshAuthor(userId: String): Result<User?> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.userById(userId)
@@ -118,13 +127,15 @@ class FeedRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             val videoUrl = MockData.posts.firstOrNull { it.id == postId }?.videoUrl
-            val deleted = MockData.deletePost(postId, session.userId)
+            val deleted = MockData.deletePost(postId, session.userId, isAdmin = true)
             if (!deleted) error("No se pudo borrar la publicacion")
             QuataMediaCache.removeVideo(appContext, videoUrl)
         } else {
             val post = remote.getPost(postId)
+            val isOwnPost = post?.profile_id == session.userId || post?.author_id == session.userId
+            val currentUser = if (isOwnPost) null else profileRemote.getProfile(session.userId)?.toDomainUser()
             deleteWordPressVideo(post)
-            remote.deletePost(postId, session.userId)
+            remote.deletePost(postId, profileId = if (currentUser?.isAdmin == true) null else session.userId)
             QuataMediaCache.removeVideo(appContext, post?.video_url)
         }
         Unit

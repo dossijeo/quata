@@ -124,6 +124,7 @@ import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataSystemBars
 import com.quata.core.ui.effects.fluidTouchEffect
+import com.quata.core.ui.richtext.RichTextEditorQaScreen
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.translation.QuataTranslatableTextRegistry
 import com.quata.core.translation.QuataTranslatorBackground
@@ -144,6 +145,8 @@ import com.quata.feature.neighborhoods.presentation.CommunityProfileScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
 import com.quata.feature.notifications.presentation.NotificationsScreen
+import com.quata.feature.official.presentation.OfficialFeedScreen
+import com.quata.feature.official.presentation.OfficialPostEditorRoute
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
@@ -258,7 +261,7 @@ fun AppNavGraph(
     val bottomRoutes = setOf(
         AppDestinations.Neighborhoods.route,
         AppDestinations.Feed.route,
-        AppDestinations.CreatePost.route,
+        AppDestinations.Official.route,
         AppDestinations.Conversations.route,
         AppDestinations.Profile.route
     )
@@ -281,6 +284,7 @@ fun AppNavGraph(
     var createPostCancelUploadToken by rememberSaveable { mutableStateOf(0) }
     var feedResetToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
     fun requestAuthentication() {
@@ -382,18 +386,42 @@ fun AppNavGraph(
     }
 
     LaunchedEffect(incomingLink) {
+        if (incomingLink?.isQuataRichTextEditorQaLink() == true) {
+            navController.navigate(AppDestinations.RichTextEditorQa.route) {
+                launchSingleTop = true
+            }
+            onIncomingLinkHandled()
+            return@LaunchedEffect
+        }
+
         val conversationId = incomingLink?.quataConversationIdOrNull()
         if (conversationId != null) {
             globalProfileViewModel.closeUserProfile()
             feedFocusedPostId = null
+            officialFocusedPostId = null
             chatFocusedMessageId = null
             navigateToChat(conversationId)
             onIncomingLinkHandled()
             return@LaunchedEffect
         }
 
+        val officialPostId = incomingLink?.quataOfficialPostIdOrNull()
+        if (officialPostId != null) {
+            officialFocusedPostId = officialPostId
+            feedFocusedPostId = null
+            globalProfileViewModel.closeUserProfile()
+            chatFocusedMessageId = null
+            navController.navigate(AppDestinations.Official.route) {
+                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                launchSingleTop = true
+            }
+            onIncomingLinkHandled()
+            return@LaunchedEffect
+        }
+
         val postId = incomingLink?.quataPostIdOrNull() ?: return@LaunchedEffect
         feedFocusedPostId = postId
+        officialFocusedPostId = null
         globalProfileViewModel.closeUserProfile()
         chatFocusedMessageId = null
         navController.navigate(AppDestinations.Feed.route) {
@@ -511,7 +539,53 @@ fun AppNavGraph(
                         isAppForeground = isAppForeground,
                         onFocusedPostHandled = { feedFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
+                        onCreatePost = {
+                            if (isAuthenticated) navigateBottomRoute(AppDestinations.CreatePost.route) else requestAuthentication()
+                        },
                         onLandscapeCommentsOverlayActiveChange = { isFeedCommentsOverlayVisible = it }
+                    )
+                }
+
+                composable(AppDestinations.Official.route) {
+                    OfficialFeedScreen(
+                        padding = padding,
+                        repository = container.officialRepository,
+                        currentUserId = container.sessionManager.currentSession()?.userId,
+                        focusedPostId = officialFocusedPostId,
+                        onFocusedPostHandled = { officialFocusedPostId = null },
+                        onAuthRequired = { requestAuthentication() },
+                        onOpenUserProfile = { userId ->
+                            globalProfileViewModel.openUserProfile(userId)
+                        },
+                        onCreateOfficialPost = {
+                            navController.navigate(AppDestinations.OfficialPostEditor.route)
+                        }
+                    )
+                }
+
+                composable(AppDestinations.OfficialPostEditor.route) {
+                    OfficialPostEditorRoute(
+                        padding = padding,
+                        repository = container.officialRepository,
+                        onBack = { navController.popBackStack() },
+                        onPublished = {
+                            navController.navigate(AppDestinations.Official.route) {
+                                popUpTo(AppDestinations.Official.route) {
+                                    inclusive = false
+                                    saveState = false
+                                }
+                                launchSingleTop = true
+                                restoreState = false
+                            }
+                        },
+                        onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it }
+                    )
+                }
+
+                composable(AppDestinations.RichTextEditorQa.route) {
+                    RichTextEditorQaScreen(
+                        padding = padding,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 
@@ -739,6 +813,8 @@ fun AppNavGraph(
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
                 followingUserId = globalProfileState.followingUserId,
+                roleUpdatingUserId = globalProfileState.roleUpdatingUserId,
+                currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
                 onAuthRequired = { requestAuthentication() },
                 onReportPost = { postId ->
@@ -750,6 +826,9 @@ fun AppNavGraph(
                 },
                 onFollowUser = { userId ->
                     if (isAuthenticated) globalProfileViewModel.toggleFollowUser(userId) else requestAuthentication()
+                },
+                onSetUserRoles = { userId, isAdmin, isOfficial ->
+                    if (isAuthenticated) globalProfileViewModel.setUserRoles(userId, isAdmin, isOfficial) else requestAuthentication()
                 },
                 onOpenPrivateChat = { userId ->
                     if (!isAuthenticated) {

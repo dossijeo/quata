@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -455,12 +456,15 @@ fun CommunityProfileScreen(
     isOpeningChat: Boolean = false,
     isRefreshingProfile: Boolean = false,
     followingUserId: String? = null,
+    roleUpdatingUserId: String? = null,
+    currentUserIsAdmin: Boolean = false,
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onFollowUser: (String) -> Unit = { onFollow() },
+    onSetUserRoles: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
     onOpenPrivateChat: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null
@@ -590,6 +594,16 @@ fun CommunityProfileScreen(
                             Text(stringResource(R.string.common_chat), fontSize = 18.sp)
                         }
                     }
+                    if (currentUserIsAdmin && !isOwnProfile) {
+                        Spacer(Modifier.height(14.dp))
+                        ProfileRoleControls(
+                            user = profile.user,
+                            isUpdating = roleUpdatingUserId == profile.user.id,
+                            onSetRoles = { isAdmin, isOfficial ->
+                                onSetUserRoles(profile.user.id, isAdmin, isOfficial)
+                            }
+                        )
+                    }
                     chatError?.let { error ->
                         Spacer(Modifier.height(10.dp))
                         Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
@@ -645,6 +659,77 @@ fun CommunityProfileScreen(
         AttachmentViewerDialog(
             attachment = attachment,
             onDismiss = { selectedAttachment = null }
+        )
+    }
+}
+
+@Composable
+private fun ProfileRoleControls(
+    user: NeighborhoodUser,
+    isUpdating: Boolean,
+    onSetRoles: (Boolean, Boolean) -> Unit
+) {
+    val template = quataTheme()
+    Card(
+        colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.profile_admin_controls_title),
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (isUpdating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = QuataOrange
+                    )
+                }
+            }
+            ProfileRoleSwitchRow(
+                label = stringResource(R.string.profile_admin_role),
+                checked = user.isAdmin,
+                enabled = !isUpdating,
+                onCheckedChange = { checked -> onSetRoles(checked, user.isOfficial) }
+            )
+            ProfileRoleSwitchRow(
+                label = stringResource(R.string.profile_official_role),
+                checked = user.isOfficial,
+                enabled = !isUpdating,
+                onCheckedChange = { checked -> onSetRoles(user.isAdmin, checked) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileRoleSwitchRow(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+        Switch(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = onCheckedChange
         )
     }
 }
@@ -730,6 +815,7 @@ private fun NeighborhoodUserRow(
             ClickableProfileAvatar(
                 name = user.displayName,
                 avatarUrl = user.avatarUrl,
+                isOfficial = user.isOfficial,
                 isLoading = isProfileLoading,
                 onClick = onOpenProfile,
                 modifier = Modifier.size(48.dp)
@@ -844,6 +930,7 @@ private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier,
     ProfileAvatarWithLoadingHalo(
         name = user.displayName,
         avatarUrl = user.avatarUrl,
+        isOfficial = user.isOfficial,
         isLoading = isLoading,
         modifier = modifier
     )

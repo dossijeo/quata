@@ -1,7 +1,14 @@
 package com.quata.feature.feed.presentation
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Matrix
+import android.graphics.RectF
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.os.Build
 import android.view.LayoutInflater
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -55,6 +62,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -69,6 +77,9 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.QuataFloatingPanel
+import com.quata.core.ui.components.QuataCommentsPanel
+import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataLiveRankingPanel
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
@@ -86,6 +97,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -140,6 +152,7 @@ import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
+import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
@@ -166,8 +179,11 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -184,6 +200,7 @@ fun FeedScreen(
     isAppForeground: Boolean = true,
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
@@ -196,6 +213,7 @@ fun FeedScreen(
     var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
     var isFeedMuted by rememberSaveable { mutableStateOf(false) }
     val canParticipate = currentUserId != null
+    val canModerateAll = state.currentUser?.isAdmin == true
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
 
     LaunchedEffect(commentsPost, isLandscapeLayout) {
@@ -324,6 +342,7 @@ fun FeedScreen(
                 ) { page ->
                     val post = state.posts[page]
                     val videoPositionKey = post.videoUrl
+                    val canDeletePost = post.author.id == currentUserId || canModerateAll
                     key(post.id, post.videoUrl) {
                         ReelPost(
                             post = post,
@@ -335,6 +354,7 @@ fun FeedScreen(
                             isAuthorProfileLoading = openingProfileUserId == post.author.id,
                             networkReconnectToken = networkReconnectToken,
                             isNetworkAvailable = isNetworkAvailable,
+                            canDelete = canDeletePost,
                             initialVideoPositionMs = videoPositionKey?.let { videoPositions[it] } ?: 0L,
                             onVideoPositionChanged = { positionMs ->
                                 videoPositionKey?.let { videoPositions[it] = positionMs }
@@ -368,6 +388,9 @@ fun FeedScreen(
                                         onAuthRequired()
                                     }
                                 }
+                            },
+                            onCreatePost = {
+                                if (canParticipate) onCreatePost() else onAuthRequired()
                             }
                         )
                     }
@@ -382,8 +405,9 @@ fun FeedScreen(
 
             commentsPost?.let { post ->
                 val currentPost = state.posts.firstOrNull { it.id == post.id } ?: post
-                CommentsSheet(
-                    post = currentPost,
+                QuataCommentsPanel(
+                    postId = currentPost.id,
+                    comments = currentPost.comments,
                     canParticipate = canParticipate,
                     onAuthRequired = onAuthRequired,
                     onAddComment = { comment ->
@@ -516,163 +540,26 @@ private fun LiveRankingDialog(
     onDismiss: () -> Unit,
     onOpenPost: (Post) -> Unit
 ) {
-    val template = quataTheme()
     val rankedPosts = remember(posts) {
         posts.sortedWith(postRankingComparator())
     }
-
-    QuataFloatingPanel(
+    val postsById = remember(posts) { posts.associateBy { it.id } }
+    QuataLiveRankingPanel(
+        items = rankedPosts.mapIndexed { index, post ->
+            QuataLiveRankingItem(
+                id = post.id,
+                rank = postRanks[post.id]?.position ?: (index + 1),
+                title = post.author.displayName,
+                subtitle = postTypeLabel(post),
+                avatarName = post.author.displayName,
+                avatarUrl = post.author.avatarUrl,
+                isOfficial = post.author.isOfficial,
+                likesCount = post.likesCount
+            )
+        },
         onDismiss = onDismiss,
-        template = template
-    ) { panelModifier, isLandscape ->
-        Column(
-            panelModifier.padding(
-                start = 18.dp,
-                top = if (isLandscape) 18.dp else 10.dp,
-                end = 18.dp,
-                bottom = if (isLandscape) 18.dp else 24.dp
-            )
-        ) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.feed_live_title),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = stringResource(R.string.feed_live_subtitle),
-                        color = template.colors.textSecondary,
-                        fontSize = 14.sp
-                    )
-                }
-                CompactIconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-                ) {
-                    CompactIcon(
-                        Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.common_close),
-                        tint = template.colors.textPrimary
-                    )
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            Surface(
-                color = template.colors.surfaceAlt,
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.feed_live_posts_monitored, posts.size),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = stringResource(R.string.feed_live_updated),
-                            color = template.colors.textSecondary
-                        )
-                    }
-                    ReelChip(text = stringResource(R.string.common_live), highlighted = true)
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(rankedPosts) { post ->
-                    LiveRankingRow(
-                        rank = postRanks[post.id]?.position ?: (rankedPosts.indexOf(post) + 1),
-                        post = post,
-                        template = template,
-                        onOpenPost = { onOpenPost(post) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LiveRankingRow(
-    rank: Int,
-    post: Post,
-    template: QuataThemeTemplate,
-    onOpenPost: () -> Unit
-) {
-    val borderColor = when (rank) {
-        1 -> template.colors.live
-        2 -> template.colors.divider
-        3 -> QuataOrange.copy(alpha = 0.8f)
-        else -> template.colors.divider.copy(alpha = 0.7f)
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, borderColor, RoundedCornerShape(20.dp))
-            .background(template.colors.surface, RoundedCornerShape(20.dp))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "#$rank",
-            color = template.colors.live,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 18.sp,
-            modifier = Modifier.width(38.dp)
-        )
-        UserAvatar(post.author, modifier = Modifier.size(44.dp))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = post.author.displayName,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = postTypeLabel(post),
-                color = template.colors.textSecondary,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Column(
-            modifier = Modifier.width(86.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("♥", color = Color(0xFFFF5A8E), fontSize = 18.sp)
-                Spacer(Modifier.width(4.dp))
-                Text(post.likesCount.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            Surface(
-                color = template.colors.surfaceAlt,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .width(86.dp)
-                    .height(38.dp)
-                    .clickable(onClick = onOpenPost)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.feed_open_post), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
+        onOpenItem = { postId -> postsById[postId]?.let(onOpenPost) }
+    )
 }
 
 @Composable
@@ -693,6 +580,7 @@ private fun ReelPost(
     isAuthorProfileLoading: Boolean,
     networkReconnectToken: Long,
     isNetworkAvailable: Boolean,
+    canDelete: Boolean,
     initialVideoPositionMs: Long,
     onVideoPositionChanged: (Long) -> Unit,
     onOpenComments: () -> Unit,
@@ -702,7 +590,8 @@ private fun ReelPost(
     onLike: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
-    onReport: () -> Unit
+    onReport: () -> Unit,
+    onCreatePost: () -> Unit
 ) {
     val isVideo = post.videoUrl != null
     val shortcodeContent = remember(post.text) { post.text.parsePostShortcodeContent() }
@@ -746,11 +635,14 @@ private fun ReelPost(
             comments = post.comments.size,
             postRank = postRankInfo.position,
             showRankLiveActions = !isLandscapeLayout,
+            showDelete = canDelete,
             onLike = onLike,
             onOpenComments = onOpenComments,
             onOpenLive = onOpenLive,
             onShare = onShare,
             onReport = onReport,
+            onDelete = onDelete,
+            onCreatePost = onCreatePost,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 18.dp, bottom = 22.dp)
@@ -761,18 +653,7 @@ private fun ReelPost(
                 onOpenLive = onOpenLive,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 22.dp, bottom = 132.dp)
-            )
-        }
-        if (post.author.id == currentUserId) {
-            ReelActionButton(
-                icon = Icons.Filled.Delete,
-                contentDescription = stringResource(R.string.feed_delete_post),
-                tint = Color.White,
-                onClick = onDelete,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 18.dp, top = 18.dp)
+                    .padding(start = 22.dp, bottom = if (post.videoUrl != null) 176.dp else 132.dp)
             )
         }
         ReelAuthor(
@@ -973,6 +854,11 @@ private fun ReelVideo(
     var retryCount by remember(videoUrl) { mutableStateOf(0) }
     var retrySignal by remember(videoUrl) { mutableLongStateOf(0L) }
     var playerGeneration by remember(videoUrl) { mutableLongStateOf(0L) }
+    val playbackMetadata by produceState(initialValue = FeedVideoPlaybackMetadata(), videoUrl) {
+        value = withContext(Dispatchers.IO) {
+            readFeedVideoPlaybackMetadata(context, Uri.parse(videoUrl))
+        }
+    }
     val mediaSourceFactory = remember(context) { QuataMediaCache.videoMediaSourceFactory(context) }
     val player = remember(videoUrl, playerGeneration) {
         val loadControl = DefaultLoadControl.Builder()
@@ -1173,10 +1059,28 @@ private fun ReelVideo(
                 }
             },
             update = {
+                val applyLegacyRotationTransform =
+                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && playbackMetadata.rotation != 0
+                val effectiveResizeMode = if (
+                    applyLegacyRotationTransform &&
+                    (playbackMetadata.rotation == 90 || playbackMetadata.rotation == 270)
+                ) {
+                    AspectRatioFrameLayout.RESIZE_MODE_FILL
+                } else {
+                    videoResizeMode
+                }
                 it.useController = false
-                it.resizeMode = videoResizeMode
+                it.resizeMode = effectiveResizeMode
                 if (it.player !== player) {
                     it.player = player
+                }
+                it.findChildTextureView()?.let { textureView ->
+                    if (applyLegacyRotationTransform) {
+                        textureView.applyFeedVideoPlaybackTransform(playbackMetadata)
+                    } else {
+                        textureView.setTransform(Matrix())
+                        textureView.invalidate()
+                    }
                 }
             }
         )
@@ -1475,6 +1379,9 @@ private fun ReelActions(
     onOpenLive: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
+    showDelete: Boolean,
+    onDelete: () -> Unit,
+    onCreatePost: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1511,6 +1418,21 @@ private fun ReelActions(
             contentDescription = stringResource(R.string.feed_report),
             tint = if (isReported) QuataOrange else Color.White,
             onClick = onReport
+        )
+        if (showDelete) {
+            ReelActionButton(
+                icon = Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.feed_delete_post),
+                tint = Color.White,
+                onClick = onDelete
+            )
+        }
+        ReelActionButton(
+            icon = Icons.Filled.Add,
+            contentDescription = stringResource(R.string.nav_publish),
+            tint = Color.White,
+            backgroundColor = QuataOrange,
+            onClick = onCreatePost
         )
     }
 }
@@ -1583,581 +1505,6 @@ private fun ReelTextActionButton(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CommentsSheet(
-    post: Post,
-    canParticipate: Boolean,
-    onAuthRequired: () -> Unit,
-    onAddComment: (PostComment) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-    var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(""))
-    }
-    var replyTarget by remember { mutableStateOf<PostComment?>(null) }
-    var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
-    val emojiDismissState = rememberCommunityEmojiPanelDismissState {
-        isEmojiPickerVisible = false
-    }
-    var shouldScrollToCommentsEnd by remember { mutableStateOf(true) }
-    val commentsListState = rememberLazyListState()
-    val template = quataTheme()
-    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    val emojiGridMaxHeight = if (isImeVisible) 168.dp else 220.dp
-    val comments = post.comments
-    val translatorModeController = LocalQuataTranslatorModeController.current
-    fun setEmojiPickerVisible(visible: Boolean) {
-        isEmojiPickerVisible = visible
-        if (visible) {
-            keyboardController?.hide()
-            focusManager.clearFocus(force = true)
-        }
-    }
-
-    LaunchedEffect(post.id) {
-        shouldScrollToCommentsEnd = true
-    }
-
-    LaunchedEffect(comments.size, shouldScrollToCommentsEnd) {
-        if (shouldScrollToCommentsEnd && comments.isNotEmpty()) {
-            delay(260)
-            commentsListState.animateScrollToItem(comments.size)
-            shouldScrollToCommentsEnd = false
-        }
-    }
-
-    QuataFloatingPanel(
-        onDismiss = onDismiss,
-        template = template
-    ) { panelModifier, isLandscape ->
-        if (isLandscape) {
-            LandscapeCommentsPanel(
-                post = post,
-                comments = comments,
-                commentsListState = commentsListState,
-                draft = draft,
-                onDraftChange = { draft = it },
-                replyTarget = replyTarget,
-                onReplyTargetChange = { replyTarget = it },
-                isEmojiPickerVisible = isEmojiPickerVisible,
-                onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
-                emojiDismissState = emojiDismissState,
-                emojiGridMaxHeight = emojiGridMaxHeight,
-                canParticipate = canParticipate,
-                onAuthRequired = onAuthRequired,
-                onAddComment = onAddComment,
-                onCommentAdded = { shouldScrollToCommentsEnd = true },
-                onTranslatorClick = { view ->
-                    translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
-                },
-                onDismiss = onDismiss,
-                modifier = panelModifier
-            )
-        } else {
-            Column(
-                modifier = panelModifier
-                .dismissCommunityEmojiPanelOnOutsideTap(
-                    isVisible = isEmojiPickerVisible,
-                    state = emojiDismissState
-                )
-                .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
-            ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.comments_title),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
-                    color = template.colors.textSecondary
-                )
-                Spacer(Modifier.width(10.dp))
-                Text("\uD83D\uDCAC", fontSize = 16.sp)
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = comments.size.toString(),
-                    color = template.colors.textSecondary,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.weight(1f))
-                FangTranslatorIconButton(
-                    onClick = { view ->
-                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
-                    }
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            LazyColumn(
-                state = commentsListState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(min = 180.dp),
-                contentPadding = PaddingValues(bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                items(comments) { comment ->
-                    CommentRow(
-                        comment = comment,
-                        onReply = {
-                            replyTarget = comment
-                        }
-                    )
-                }
-                item(key = "comments-end") {
-                    Spacer(Modifier.height(24.dp))
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            if (isEmojiPickerVisible) {
-                CommunityEmojiPanel(
-                    onEmojiClick = { emoji ->
-                        draft = draft.insertAtSelection(emoji)
-                    },
-                    gridMaxHeight = emojiGridMaxHeight,
-                    modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
-                )
-                Spacer(Modifier.height(18.dp))
-            }
-            replyTarget?.let { target ->
-                ReplyTargetBanner(
-                    comment = target,
-                    onClear = { replyTarget = null }
-                )
-                Spacer(Modifier.height(14.dp))
-            }
-            Row(
-                modifier = Modifier.requiredHeightIn(min = 82.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    placeholder = { Text(stringResource(R.string.comments_placeholder)) },
-                    leadingIcon = {
-                        CompactIconButton(
-                            onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
-                            modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
-                        ) {
-                            CompactIcon(
-                                imageVector = Icons.Filled.InsertEmoticon,
-                                contentDescription = stringResource(R.string.comments_show_emojis),
-                                tint = Color(0xFFFFC55C)
-                            )
-                        }
-                    },
-                    trailingIcon = {
-                        CompactIconButton(
-                            enabled = draft.text.isNotBlank(),
-                            onClick = {
-                                if (canParticipate) {
-                                    onAddComment(
-                                        PostComment(
-                                            id = "local_${post.id}_${System.currentTimeMillis()}",
-                                            authorName = context.getString(R.string.comments_you),
-                                            message = draft.text.trim(),
-                                            timestamp = nowCommentTimestamp(),
-                                            replyToAuthorName = replyTarget?.authorName,
-                                            replyToMessage = replyTarget?.message,
-                                            replyToCommentId = replyTarget?.id
-                                        )
-                                    )
-                                    shouldScrollToCommentsEnd = true
-                                    draft = TextFieldValue("")
-                                    replyTarget = null
-                                    isEmojiPickerVisible = false
-                                } else {
-                                    onAuthRequired()
-                                }
-                            }
-                        ) {
-                            CompactIcon(
-                                Icons.AutoMirrored.Filled.Send,
-                                contentDescription = stringResource(R.string.comments_send)
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .requiredHeightIn(min = 68.dp)
-                        .onFocusChanged { focusState ->
-                            if (focusState.isFocused && isEmojiPickerVisible) {
-                                isEmojiPickerVisible = false
-                            }
-                        },
-                    singleLine = true
-                )
-            }
-        }
-    }
-}
-}
-
-@Composable
-private fun LandscapeCommentsPanel(
-    post: Post,
-    comments: List<PostComment>,
-    commentsListState: LazyListState,
-    draft: TextFieldValue,
-    onDraftChange: (TextFieldValue) -> Unit,
-    replyTarget: PostComment?,
-    onReplyTargetChange: (PostComment?) -> Unit,
-    isEmojiPickerVisible: Boolean,
-    onEmojiPickerVisibleChange: (Boolean) -> Unit,
-    emojiDismissState: CommunityEmojiPanelDismissState,
-    emojiGridMaxHeight: Dp,
-    canParticipate: Boolean,
-    onAuthRequired: () -> Unit,
-    onAddComment: (PostComment) -> Unit,
-    onCommentAdded: () -> Unit,
-    onTranslatorClick: (View) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val template = quataTheme()
-    Box(
-        modifier = modifier
-            .dismissCommunityEmojiPanelOnOutsideTap(
-                isVisible = isEmojiPickerVisible,
-                state = emojiDismissState
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 18.dp)
-        ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.comments_title),
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 15.sp,
-                color = template.colors.textSecondary
-            )
-            Spacer(Modifier.width(10.dp))
-            Text("\uD83D\uDCAC", fontSize = 16.sp)
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = comments.size.toString(),
-                color = template.colors.textSecondary,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.weight(1f))
-            FangTranslatorIconButton(onClick = onTranslatorClick)
-            Spacer(Modifier.width(8.dp))
-            CompactIconButton(onClick = onDismiss) {
-                CompactIcon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.common_close),
-                    tint = template.colors.textSecondary
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        LazyColumn(
-            state = commentsListState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .heightIn(min = 140.dp),
-            contentPadding = PaddingValues(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(comments) { comment ->
-                CommentRow(
-                    comment = comment,
-                    onReply = { onReplyTargetChange(comment) }
-                )
-            }
-            item(key = "comments-end") {
-                Spacer(Modifier.height(12.dp))
-            }
-        }
-        replyTarget?.let { target ->
-            Spacer(Modifier.height(10.dp))
-            ReplyTargetBanner(
-                comment = target,
-                onClear = { onReplyTargetChange(null) }
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.requiredHeightIn(min = 64.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = onDraftChange,
-                placeholder = { Text(stringResource(R.string.comments_placeholder)) },
-                leadingIcon = {
-                    CompactIconButton(
-                        onClick = { onEmojiPickerVisibleChange(!isEmojiPickerVisible) },
-                        modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
-                    ) {
-                        CompactIcon(
-                            imageVector = Icons.Filled.InsertEmoticon,
-                            contentDescription = stringResource(R.string.comments_show_emojis),
-                            tint = Color(0xFFFFC55C)
-                        )
-                    }
-                },
-                trailingIcon = {
-                    CompactIconButton(
-                        enabled = draft.text.isNotBlank(),
-                        onClick = {
-                            if (canParticipate) {
-                                onAddComment(
-                                    PostComment(
-                                        id = "local_${post.id}_${System.currentTimeMillis()}",
-                                        authorName = context.getString(R.string.comments_you),
-                                        message = draft.text.trim(),
-                                        timestamp = nowCommentTimestamp(),
-                                        replyToAuthorName = replyTarget?.authorName,
-                                        replyToMessage = replyTarget?.message,
-                                        replyToCommentId = replyTarget?.id
-                                    )
-                                )
-                                onCommentAdded()
-                                onDraftChange(TextFieldValue(""))
-                                onReplyTargetChange(null)
-                                onEmojiPickerVisibleChange(false)
-                            } else {
-                                onAuthRequired()
-                            }
-                        }
-                    ) {
-                        CompactIcon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.comments_send)
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .requiredHeightIn(min = 58.dp)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused && isEmojiPickerVisible) {
-                            onEmojiPickerVisibleChange(false)
-                        }
-                    },
-                singleLine = true
-            )
-        }
-        }
-        if (isEmojiPickerVisible) {
-            CommunityEmojiPanel(
-                onEmojiClick = { emoji ->
-                    onDraftChange(draft.insertAtSelection(emoji))
-                },
-                gridMaxHeight = emojiGridMaxHeight,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 84.dp, start = 24.dp)
-                    .fillMaxWidth(0.62f)
-                    .trackCommunityEmojiPanelBounds(emojiDismissState)
-            )
-        }
-    }
-}
-
-private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
-    val start = selection.start.coerceIn(0, text.length)
-    val end = selection.end.coerceIn(0, text.length)
-    val replaceStart = minOf(start, end)
-    val replaceEnd = maxOf(start, end)
-    val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
-    val cursor = replaceStart + value.length
-    return TextFieldValue(
-        text = updatedText,
-        selection = TextRange(cursor)
-    )
-}
-
-@Composable
-private fun ReplyTargetBanner(
-    comment: PostComment,
-    onClear: () -> Unit
-) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.accent.copy(alpha = 0.08f),
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.accent.copy(alpha = 0.34f), RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.comments_replying_to, comment.authorName),
-                    color = template.colors.textPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = comment.message,
-                    color = template.colors.textSecondary,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            CompactIconButton(
-                onClick = onClear,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surfaceAlt)
-            ) {
-                CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
-            }
-        }
-    }
-}
-
-@Composable
-private fun CommentRow(
-    comment: PostComment,
-    onReply: () -> Unit
-) {
-    val template = quataTheme()
-    val translatorReplyText = comment.replyToAuthorName?.let { author ->
-        stringResource(R.string.comments_reply_to, author)
-    }
-    val translatorDisplayText = remember(comment, translatorReplyText) {
-        comment.translatorDisplayText(translatorReplyText)
-    }
-    Surface(
-        color = template.colors.surface,
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .quataTranslatableText(
-                id = "feed-comment:${comment.id}",
-                text = comment.message,
-                displayText = translatorDisplayText
-            )
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(14.dp)
-        ) {
-            if (comment.replyToAuthorName != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(2.dp)
-                        .background(template.colors.accent)
-                )
-                Spacer(Modifier.width(14.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(
-                        text = comment.authorName,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        color = template.colors.textPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = formatCommentTimestamp(comment.timestamp),
-                        color = template.colors.textSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-                comment.replyToAuthorName?.let { author ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.comments_reply_to, author),
-                        color = template.colors.accent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = quoted,
-                            color = template.colors.textSecondary,
-                            fontSize = 13.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = comment.message,
-                    color = template.colors.textPrimary,
-                    fontSize = 16.sp,
-                    lineHeight = 21.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextButton(
-                    onClick = onReply,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text(
-                        text = stringResource(R.string.comments_reply_button),
-                        color = template.colors.accent,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun PostComment.translatorDisplayText(replyText: String?): String =
-    buildString {
-        append(authorName)
-        val timestampText = formatCommentTimestamp(timestamp)
-        if (timestampText.isNotBlank()) {
-            append(" · ")
-            append(timestampText)
-        }
-        replyText?.let { reply ->
-            append('\n')
-            append(reply)
-        }
-        replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
-            append('\n')
-            append(quoted)
-        }
-        if (message.isNotBlank()) {
-            append('\n')
-            append(message)
-        }
-    }
-
-private fun nowCommentTimestamp(): String =
-    LocalDateTime.now().format(DateTimeFormatter.ofPattern("d/M/yyyy, H:mm:ss"))
-
-private fun formatCommentTimestamp(value: String): String {
-    val normalized = value.trim()
-    if (normalized.isBlank()) return ""
-    val parsed = parseAbsoluteDateTime(normalized) ?: return normalized
-    return parsed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
 }
 
 private data class PostRankingInfo(
@@ -2253,6 +1600,7 @@ private fun ReelActionButton(
     contentDescription: String,
     count: String? = null,
     tint: Color = Color.White,
+    backgroundColor: Color = Color.Black.copy(alpha = 0.42f),
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -2261,7 +1609,7 @@ private fun ReelActionButton(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.42f))
+                .background(backgroundColor)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
@@ -2283,6 +1631,94 @@ private fun ReelActionButton(
                 }
             }
         }
+    }
+}
+
+private data class FeedVideoPlaybackMetadata(
+    val rotation: Int = 0,
+    val width: Int = 0,
+    val height: Int = 0
+)
+
+private fun readFeedVideoPlaybackMetadata(context: Context, uri: Uri): FeedVideoPlaybackMetadata =
+    runCatching {
+        withQuataMediaMetadataRetriever { retriever ->
+            retriever.setFeedVideoSource(context, uri)
+            FeedVideoPlaybackMetadata(
+                rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                    ?.toIntOrNull()
+                    ?.normalizedFeedVideoRotation()
+                    ?: 0,
+                width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                    ?.toIntOrNull()
+                    ?: 0,
+                height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                    ?.toIntOrNull()
+                    ?: 0
+            )
+        }
+    }.getOrDefault(FeedVideoPlaybackMetadata())
+
+private fun MediaMetadataRetriever.setFeedVideoSource(context: Context, uri: Uri) {
+    when (uri.scheme?.lowercase()) {
+        null, "", "content", "file", "android.resource" -> setDataSource(context, uri)
+        "http", "https" -> setDataSource(uri.toString(), emptyMap())
+        else -> setDataSource(context, uri)
+    }
+}
+
+private fun Int.normalizedFeedVideoRotation(): Int {
+    val normalized = ((this % 360) + 360) % 360
+    return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
+}
+
+private fun View.findChildTextureView(): TextureView? {
+    if (this is TextureView) return this
+    if (this !is ViewGroup) return null
+    for (index in 0 until childCount) {
+        getChildAt(index).findChildTextureView()?.let { return it }
+    }
+    return null
+}
+
+private fun TextureView.applyFeedVideoPlaybackTransform(metadata: FeedVideoPlaybackMetadata) {
+    fun applyTransform() {
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+        if (viewWidth <= 0f || viewHeight <= 0f) return
+        val rotation = metadata.rotation.normalizedFeedVideoRotation()
+        if (rotation == 90 || rotation == 270) {
+            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
+            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
+            val centerX = viewRect.centerX()
+            val centerY = viewRect.centerY()
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+            val matrix = Matrix().apply {
+                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
+                val scale = max(viewHeight / viewWidth, viewWidth / viewHeight)
+                postScale(scale, scale, centerX, centerY)
+                postRotate(rotation.toFloat(), centerX, centerY)
+            }
+            setTransform(matrix)
+            invalidate()
+            return
+        }
+        if (rotation == 180) {
+            setTransform(
+                Matrix().apply {
+                    postRotate(180f, viewWidth / 2f, viewHeight / 2f)
+                }
+            )
+            invalidate()
+            return
+        }
+        setTransform(Matrix())
+        invalidate()
+    }
+    if (width > 0 && height > 0) {
+        applyTransform()
+    } else {
+        post { applyTransform() }
     }
 }
 
@@ -2319,6 +1755,7 @@ private fun ReelAuthor(
             ClickableProfileAvatar(
                 name = post.author.displayName,
                 avatarUrl = post.author.avatarUrl,
+                isOfficial = post.author.isOfficial,
                 isLoading = isProfileLoading,
                 onClick = onOpenUserProfile,
                 modifier = Modifier

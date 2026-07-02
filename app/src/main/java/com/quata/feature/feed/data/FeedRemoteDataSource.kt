@@ -58,6 +58,6 @@ class FeedRemoteDataSource(
     suspend fun addComment(postId: String, profileId: String, body: String) =
         supabaseApi.addComment(postId, profileId, body)
 
-    suspend fun deletePost(postId: String, profileId: String) =
+    suspend fun deletePost(postId: String, profileId: String? = null) =
         supabaseApi.deletePost(postId, profileId)
 }

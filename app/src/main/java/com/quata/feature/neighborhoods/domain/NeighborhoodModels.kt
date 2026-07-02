@@ -8,6 +8,8 @@ data class NeighborhoodUser(
     val email: String,
     val neighborhood: String,
     val avatarUrl: String? = null,
+    val isAdmin: Boolean = false,
+    val isOfficial: Boolean = false,
     val isFollowing: Boolean = false,
     val followersCount: Int = 0,
     val followingCount: Int = 0,

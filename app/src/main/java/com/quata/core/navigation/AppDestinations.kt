@@ -11,6 +11,9 @@ sealed class AppDestinations(val route: String) {
     data object ForgotPassword : AppDestinations("forgot_password")
     data object Feed : AppDestinations("feed")
     data object Neighborhoods : AppDestinations("neighborhoods")
+    data object Official : AppDestinations("official")
+    data object OfficialPostEditor : AppDestinations("official/editor")
+    data object RichTextEditorQa : AppDestinations("debug/rich_text_editor_qa")
     data object CreatePost : AppDestinations("create_post")
     data object Conversations : AppDestinations("conversations")
     data object Chat : AppDestinations("chat/{conversationId}") {

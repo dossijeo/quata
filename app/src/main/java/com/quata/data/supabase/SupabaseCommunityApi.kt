@@ -153,6 +153,17 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             select = PROFILE_PUBLIC_SELECT
         ).firstOrNull()
 
+    suspend fun updateProfileRoles(profileId: String, isAdmin: Boolean, isOfficial: Boolean): CommunityProfile? =
+        client.patch<CommunityProfile, Map<String, Boolean>>(
+            "community_profiles",
+            mapOf("id" to "eq.$profileId"),
+            mapOf(
+                "is_admin" to isAdmin,
+                "is_official" to isOfficial
+            ),
+            select = PROFILE_PUBLIC_SELECT
+        ).firstOrNull()
+
     suspend fun getFeedPosts(
         limit: Int = 15,
         offset: Int = 0,
@@ -215,6 +226,148 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             "profile_id" to profileId?.let { "eq.$it" }
         )
     )
+
+    suspend fun getOfficialPosts(
+        limit: Int = 50,
+        offset: Int = 0,
+        postId: String? = null,
+        profileId: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<OfficialPost> = client.getList(
+        "official_posts",
+        mapOf(
+            "select" to OFFICIAL_POST_SELECT,
+            "id" to postId?.let { "eq.$it" },
+            "profile_id" to profileId?.let { "eq.$it" },
+            "is_published" to "eq.true",
+            "deleted_at" to "is.null",
+            "order" to "published_at.desc,created_at.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        ),
+        cacheMode = cacheMode
+    )
+
+    fun observeOfficialPosts(limit: Int = 50, offset: Int = 0): Flow<List<OfficialPost>> = client.observeList(
+        "official_posts",
+        mapOf(
+            "select" to OFFICIAL_POST_SELECT,
+            "is_published" to "eq.true",
+            "deleted_at" to "is.null",
+            "order" to "published_at.desc,created_at.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        )
+    )
+
+    suspend fun createOfficialPost(
+        profileId: String,
+        title: String,
+        summary: String?,
+        postType: String,
+        contentHtml: String,
+        readMoreLabel: String?,
+        mediaUrl: String?,
+        mediaType: String?,
+        linkUrl: String?,
+        isLive: Boolean
+    ): OfficialPost? =
+        client.post<OfficialPost, OfficialPostCreate>(
+            "official_posts",
+            OfficialPostCreate(
+                profile_id = profileId,
+                title = title,
+                summary = summary,
+                post_type = postType,
+                content_html = contentHtml,
+                read_more_label = readMoreLabel,
+                media_url = mediaUrl,
+                media_type = mediaType,
+                link_url = linkUrl,
+                is_live = isLive
+            ),
+            select = OFFICIAL_POST_SELECT
+        )
+
+    suspend fun deleteOfficialPost(postId: String) {
+        client.patch<OfficialPost, OfficialPostUpdate>(
+            "official_posts",
+            mapOf("id" to "eq.$postId"),
+            OfficialPostUpdate(deleted_at = Instant.now().toString()),
+            select = OFFICIAL_POST_SELECT
+        )
+    }
+
+    suspend fun getOfficialLikes(postIds: Collection<String>, cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST): List<OfficialPostLike> {
+        if (postIds.isEmpty()) return emptyList()
+        return client.getList(
+            "official_post_likes",
+            mapOf("select" to OFFICIAL_LIKE_SELECT, "official_post_id" to postIds.toInFilter()),
+            cacheMode = cacheMode
+        )
+    }
+
+    fun observeOfficialLikes(postIds: Collection<String>): Flow<List<OfficialPostLike>> {
+        if (postIds.isEmpty()) return flowOf(emptyList())
+        return client.observeList(
+            "official_post_likes",
+            mapOf("select" to OFFICIAL_LIKE_SELECT, "official_post_id" to postIds.toInFilter())
+        )
+    }
+
+    suspend fun getOfficialComments(postIds: Collection<String>, cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST): List<OfficialPostComment> {
+        if (postIds.isEmpty()) return emptyList()
+        return client.getList(
+            "official_post_comments",
+            mapOf(
+                "select" to OFFICIAL_COMMENT_SELECT,
+                "official_post_id" to postIds.toInFilter(),
+                "order" to "created_at.asc"
+            ),
+            cacheMode = cacheMode
+        )
+    }
+
+    fun observeOfficialComments(postIds: Collection<String>): Flow<List<OfficialPostComment>> {
+        if (postIds.isEmpty()) return flowOf(emptyList())
+        return client.observeList(
+            "official_post_comments",
+            mapOf(
+                "select" to OFFICIAL_COMMENT_SELECT,
+                "official_post_id" to postIds.toInFilter(),
+                "order" to "created_at.asc"
+            )
+        )
+    }
+
+    suspend fun toggleOfficialLike(postId: String, profileId: String): ToggleResult {
+        val existing = client.getSingleOrNull<OfficialPostLike>(
+            "official_post_likes",
+            mapOf(
+                "select" to "id",
+                "official_post_id" to "eq.$postId",
+                "profile_id" to "eq.$profileId"
+            )
+        )
+        return if (existing != null) {
+            client.delete("official_post_likes", mapOf("id" to "eq.${existing.id}"))
+            ToggleResult(active = false, id = existing.id)
+        } else {
+            val created = client.post<OfficialPostLike, OfficialPostLikeCreate>(
+                "official_post_likes",
+                OfficialPostLikeCreate(postId, profileId),
+                select = OFFICIAL_LIKE_SELECT
+            )
+            ToggleResult(active = true, id = created?.id)
+        }
+    }
+
+    suspend fun addOfficialComment(postId: String, profileId: String, body: String): OfficialPostComment? =
+        client.post<OfficialPostComment, OfficialPostCommentCreate>(
+            "official_post_comments",
+            OfficialPostCommentCreate(postId, profileId, body),
+            select = OFFICIAL_COMMENT_SELECT
+        )
 
     suspend fun getComments(
         postIds: Collection<String>,
@@ -743,8 +896,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         const val WALL_STATS_SELECT = "id,slug,name,normalized_name,city,description,sort_order,is_active,created_at,user_count,post_count,chat_count,chat_last_at"
         const val WALL_SELECT = "id,slug,name,city,description,sort_order,is_active,created_at,normalized_name"
         const val MEMBER_SELECT = "wall_id,profile_id,created_at"
-        const val PROFILE_PUBLIC_SELECT = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,followers_count,following_count"
-        const val PROFILE_AUTH_SELECT = "id,display_name,phone,pass_hash,created_at,last_login_at,country_code,phone_local,phone_e164,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,secret_question,secret_answer,pass_plain"
+        const val PROFILE_PUBLIC_SELECT = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
+        const val PROFILE_AUTH_SELECT = "id,display_name,phone,pass_hash,created_at,last_login_at,country_code,phone_local,phone_e164,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,secret_question,secret_answer,pass_plain,is_admin,is_official"
         const val PROFILE_TOUCH_SELECT = "id,last_login_at"
         const val POST_SELECT = "id,wall_id,profile_id,body,image_url,video_url,created_at,community_id,author_id,content"
         const val COMMENT_SELECT = "id,post_id,profile_id,body,created_at"
@@ -757,5 +910,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         const val WALL_FOLLOW_SELECT = "id,wall_id,profile_id,created_at"
         const val PROFILE_FOLLOW_SELECT = "id,follower_profile_id,followed_profile_id,created_at"
         const val EMERGENCY_CONTACT_SELECT = "contact_profile_id,position"
+        const val OFFICIAL_POST_SELECT = "id,profile_id,title,summary,post_type,content_html,read_more_label,media_url,media_type,link_url,is_live,is_published,published_at,created_at,updated_at,deleted_at"
+        const val OFFICIAL_LIKE_SELECT = "id,official_post_id,profile_id,created_at"
+        const val OFFICIAL_COMMENT_SELECT = "id,official_post_id,profile_id,body,created_at"
     }
 }

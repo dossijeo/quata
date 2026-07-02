@@ -19,7 +19,10 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     private var feedJob: Job? = null
     private var refreshJob: Job? = null
 
-    init { observeFeed() }
+    init {
+        observeFeed()
+        refreshCurrentUser()
+    }
 
     fun onEvent(event: FeedUiEvent) {
         when (event) {
@@ -45,6 +48,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             posts = posts,
+                            currentUser = _uiState.value.currentUser,
                             error = null
                         )
                     }
@@ -72,7 +76,12 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                     loadedDetailPostIds.clear()
                     loadingDetailPostIds.clear()
                     loadedDetailPostIds += posts.map { it.id }
-                    _uiState.value = FeedUiState(isLoading = false, posts = posts)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        posts = posts,
+                        error = null
+                    )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -89,6 +98,16 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         nextPostId
             ?.takeIf { it != postId }
             ?.let { loadPostDetails(it, reportErrors = false) }
+    }
+
+    private fun refreshCurrentUser() = viewModelScope.launch {
+        repository.refreshCurrentUser()
+            .onSuccess { user ->
+                _uiState.value = _uiState.value.copy(currentUser = user)
+            }
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+            }
     }
 
     private fun loadPostDetails(postId: String, reportErrors: Boolean) {
