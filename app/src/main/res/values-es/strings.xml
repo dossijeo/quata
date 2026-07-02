@@ -180,6 +180,7 @@
     <string name="conversation_audio_record_error">No se pudo guardar el audio</string>
     <string name="quata_camera_mode_photo">Foto</string>
     <string name="quata_camera_mode_video">Vídeo</string>
+    <string name="quata_camera_switch_camera">Cambiar camara</string>
     <string name="conversation_camera_permission">Necesitamos permiso de cámara para usar esta opción</string>
     <string name="conversation_video_record_start">Grabar</string>
     <string name="conversation_video_record_stop">Detener</string>
@@ -276,6 +277,7 @@
     <string name="sos_button">SOS 🚨</string>
     <string name="sos_sent">SOS enviado</string>
     <string name="sos_send_error">No se pudo enviar el SOS</string>
+    <string name="sos_blocked_by_proximity">SOS bloqueado mientras el movil esta pegado al oido.</string>
     <string name="sos_recently_sent">Ya has enviado un SOS. Podrás reenviarlo en %1$s min. si nadie responde.</string>
     <string name="sos_location_unavailable">📍 Ubicación no disponible</string>
     <string name="sos_location">📍 Ubicación: %1$s</string>

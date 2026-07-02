@@ -178,6 +178,9 @@
     <string name="conversation_audio_record_start_hint">Touchez pour demarrer</string>
     <string name="conversation_audio_record_stop_hint">Touchez pour arreter et joindre</string>
     <string name="conversation_audio_record_error">Impossible d\'enregistrer l\'audio</string>
+    <string name="quata_camera_mode_photo">Photo</string>
+    <string name="quata_camera_mode_video">Video</string>
+    <string name="quata_camera_switch_camera">Changer de camera</string>
     <string name="conversation_camera_permission">Permission camera requise pour cette option</string>
     <string name="conversation_video_record_start">Filmer</string>
     <string name="conversation_video_record_stop">Arreter</string>
@@ -274,6 +277,7 @@
     <string name="sos_button">SOS &#128680;</string>
     <string name="sos_sent">SOS envoye</string>
     <string name="sos_send_error">Impossible d\'envoyer le SOS</string>
+    <string name="sos_blocked_by_proximity">SOS bloque tant que le telephone est pres de ton oreille.</string>
     <string name="sos_recently_sent">Tu as deja envoye un SOS. Tu pourras le renvoyer dans %1$s min si personne ne repond.</string>
     <string name="sos_location_unavailable">&#128205; Position indisponible</string>
     <string name="sos_location">&#128205; Position : %1$s</string>

@@ -1,16 +1,20 @@
 # Q&uuml;ata Android
 
-Version: **0.10.2**
-Fecha de version: **2026-07-01**
+Version: **0.10.3**
+Fecha de version: **2026-07-02**
 Estado: **beta privada avanzada con chat Supabase, Realtime y Firebase**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.10.2` cierra la ronda de estabilizacion previa a 1.0: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase y respuesta directa desde notificaciones, camara/foto/video integrados, grabadora de audio comprimido, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
+La version `0.10.3` cierra la ronda de estabilizacion previa a 1.0: Better Messages queda eliminado del cliente Android y el chat pasa a apoyarse en tablas, RPC, cache local y canales Realtime de Supabase, manteniendo las identidades Supabase del resto de la app. Tambien incorpora push nativo con Firebase y respuesta directa desde notificaciones, camara/foto/video integrados con cambio entre camara trasera y selfie, grabadora de audio comprimido, notas de voz con auricular por proximidad, SOS con ubicacion inmediata y actualizacion precisa diferida, publicaciones de texto con fondos seleccionables, mejoras visuales del feed, nuevo flujo para iniciar conversaciones y una bateria amplia de validacion en API 26, 27, 28 y 37. El nucleo funcional esta muy completo para beta privada, con pendiente principal de hardening de seguridad RLS en una segunda fase.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
 - Nuevo boton flotante **Nuevo chat** en la lista de conversaciones, con selector de usuarios categorizado por contactos, seguidos, seguidores, barrio propio y otros barrios.
+- La camara integrada permite cambiar entre camara trasera y selfie en foto, video y modo dual.
+- La foto de perfil usa la camara integrada y abre el editor `1:1` a pantalla completa.
+- Las notas de voz cambian al auricular con el sensor de proximidad, duplican mono a estereo en altavoz y bloquean la rotacion mientras se reproducen.
+- La app apaga la pantalla cuando el movil esta pegado al oido y bloquea SOS si el sensor de proximidad indica distancia corta.
 - Busqueda de nuevos chats paginada desde Supabase por nombre, barrio o telefono, sin exponer el numero de telefono en la interfaz.
 - El panel comun de seleccion de usuarios se reutiliza para nuevo chat, anadir participantes y reenviar mensajes, con formato de panel inferior en portrait y modal amplia centrada en landscape.
 - El reenvio de mensajes cierra el panel al instante y reutiliza conversaciones existentes cuando ya hay hilo abierto con el destinatario.
@@ -383,9 +387,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 23
-versionName = 0.10.2
-APP_VERSION_DATE = 2026-07-01
+versionCode = 24
+versionName = 0.10.3
+APP_VERSION_DATE = 2026-07-02
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

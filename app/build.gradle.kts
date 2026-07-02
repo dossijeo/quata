@@ -42,8 +42,8 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.10.2"
+        versionCode = 24
+        versionName = "0.10.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -54,7 +54,7 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-01\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-02\"")
     }
 
     buildFeatures {

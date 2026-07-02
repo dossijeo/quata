@@ -45,6 +45,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -107,6 +109,11 @@ private enum class ActiveQuataCameraMode {
     Video
 }
 
+private enum class QuataCameraLens {
+    Back,
+    Front
+}
+
 @Composable
 fun QuataCameraDialog(
     mode: QuataCameraMode,
@@ -135,6 +142,8 @@ fun QuataCameraDialog(
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
+    var activeLens by remember { mutableStateOf(QuataCameraLens.Back) }
+    var availableLenses by remember { mutableStateOf(setOf<QuataCameraLens>()) }
     var recording by remember { mutableStateOf<Recording?>(null) }
     var activeFile by remember { mutableStateOf<File?>(null) }
     var discardRecording by remember { mutableStateOf(false) }
@@ -269,7 +278,7 @@ fun QuataCameraDialog(
                 modifier = Modifier.fillMaxSize()
             )
 
-            DisposableEffect(previewView, lifecycleOwner, activeMode) {
+            DisposableEffect(previewView, lifecycleOwner, activeMode, activeLens) {
                 val view = previewView
                 if (view == null) {
                     onDispose { }
@@ -288,7 +297,15 @@ fun QuataCameraDialog(
                                     .setTargetRotation(targetRotation)
                                     .build()
                                     .also { it.setSurfaceProvider(view.surfaceProvider) }
-                                val selector = cameraProvider.bestAvailableQuataCameraSelector()
+                                val detectedLenses = cameraProvider.availableQuataCameraLenses()
+                                availableLenses = detectedLenses
+                                val resolvedLens = activeLens.takeIf { it in detectedLenses }
+                                    ?: detectedLenses.firstOrNull()
+                                    ?: error("No camera available")
+                                if (resolvedLens != activeLens) {
+                                    activeLens = resolvedLens
+                                }
+                                val selector = resolvedLens.quataCameraSelector()
                                 cameraProvider.unbindAll()
                                 if (activeMode == ActiveQuataCameraMode.Photo) {
                                     val capture = ImageCapture.Builder()
@@ -424,6 +441,21 @@ fun QuataCameraDialog(
                                 y = if (isLandscape) (-40).dp else 0.dp
                             )
                     )
+
+                    if (availableLenses.size > 1) {
+                        QuataCameraSwitchButton(
+                            enabled = !isRecording && !isCapturingPhoto && !isPreparing,
+                            onClick = {
+                                activeLens = if (activeLens == QuataCameraLens.Back) {
+                                    QuataCameraLens.Front
+                                } else {
+                                    QuataCameraLens.Back
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                        )
+                    }
                 }
             }
         }
@@ -795,6 +827,35 @@ private fun QuataCameraControlButton(
     }
 }
 
+@Composable
+private fun QuataCameraSwitchButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val description = stringResource(R.string.quata_camera_switch_camera)
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .semantics {
+                contentDescription = description
+                role = Role.Button
+            }
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (enabled) 0.24f else 0.12f))
+            .border(1.dp, Color.White.copy(alpha = if (enabled) 0.5f else 0.24f), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        CompactIcon(
+            Icons.Filled.Cameraswitch,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = if (enabled) 1f else 0.45f),
+            modifier = Modifier.size(34.dp)
+        )
+    }
+}
+
 private fun Context.createQuataCameraPhotoFile(): File {
     val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
     return File(cacheDir, "quata_$timestamp.jpg").apply {
@@ -863,11 +924,19 @@ private fun File.normalizeCameraXJpegIfNeeded(targetRotation: Int) {
     }
 }
 
-private fun ProcessCameraProvider.bestAvailableQuataCameraSelector(): CameraSelector =
-    when {
-        runCatching { hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) }.getOrDefault(false) -> CameraSelector.DEFAULT_BACK_CAMERA
-        runCatching { hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) }.getOrDefault(false) -> CameraSelector.DEFAULT_FRONT_CAMERA
-        else -> error("No camera available")
+private fun ProcessCameraProvider.availableQuataCameraLenses(): Set<QuataCameraLens> = buildSet {
+    if (runCatching { hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) }.getOrDefault(false)) {
+        add(QuataCameraLens.Back)
+    }
+    if (runCatching { hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) }.getOrDefault(false)) {
+        add(QuataCameraLens.Front)
+    }
+}
+
+private fun QuataCameraLens.quataCameraSelector(): CameraSelector =
+    when (this) {
+        QuataCameraLens.Back -> CameraSelector.DEFAULT_BACK_CAMERA
+        QuataCameraLens.Front -> CameraSelector.DEFAULT_FRONT_CAMERA
     }
 
 private fun formatRecordingDuration(seconds: Long): String {

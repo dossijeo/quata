@@ -42,6 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quata.core.di.AppContainer
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
@@ -101,9 +102,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        QuataProximityState.start(this)
         if (::appContainer.isInitialized) {
             clearStaleChatNotifications()
         }
+    }
+
+    override fun onPause() {
+        QuataProximityState.stop()
+        super.onPause()
     }
 
     private fun clearStaleChatNotifications() {

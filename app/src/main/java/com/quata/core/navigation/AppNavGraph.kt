@@ -108,6 +108,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quata.core.common.toUserFacingMessage
+import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
 import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
@@ -643,6 +644,7 @@ fun AppNavGraph(
                             themeMode = themeMode,
                             onThemeModeChange = container.themePreferences::setThemeMode,
                             networkReconnectToken = feedNetworkReconnectToken,
+                            onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it },
                             onLogout = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(0)
@@ -1336,8 +1338,19 @@ private fun AuthenticatedGlobalSosButton(
 
     fun sendSos(profile: UserProfile, location: Location?) {
         if (isSendingSos) return
+        if (QuataProximityState.isNear()) {
+            Toast.makeText(context, context.getString(R.string.sos_blocked_by_proximity), Toast.LENGTH_SHORT).show()
+            pendingProfile = null
+            return
+        }
         isSendingSos = true
         scope.launch {
+            if (QuataProximityState.isNear()) {
+                Toast.makeText(context, context.getString(R.string.sos_blocked_by_proximity), Toast.LENGTH_SHORT).show()
+                isSendingSos = false
+                pendingProfile = null
+                return@launch
+            }
             val shouldRefreshPreciseLocation = location == null || location.isOlderThanSosFreshness()
             Log.d(
                 SosLocationLogTag,

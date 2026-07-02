@@ -1,12 +1,9 @@
 package com.quata.feature.profile.presentation
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -57,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -91,6 +89,8 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.PhoneInputSection
+import com.quata.core.ui.components.QuataCameraDialog
+import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
@@ -120,6 +120,7 @@ fun ProfileScreen(
     themeMode: QuataThemeMode,
     onThemeModeChange: (QuataThemeMode) -> Unit,
     networkReconnectToken: Long = 0L,
+    onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {},
     onLogout: () -> Unit,
     onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
@@ -130,24 +131,15 @@ fun ProfileScreen(
     var isEmergencyDialogOpen by rememberSaveable { mutableStateOf(false) }
     var isPhotoMenuOpen by rememberSaveable { mutableStateOf(false) }
     var accountPage by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
-    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var isProfileCameraOpen by rememberSaveable { mutableStateOf(false) }
     var pendingAvatarEditorUri by remember { mutableStateOf<Uri?>(null) }
     var selectedAvatarPreview by remember { mutableStateOf<AttachmentPreview?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         pendingAvatarEditorUri = uri
     }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        if (saved) pendingAvatarEditorUri = pendingCameraUri
-    }
 
     fun launchProfilePhotoCapture() {
-        val uri = context.createProfileImageUri()
-        if (uri == null) {
-            Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
-            return
-        }
-        pendingCameraUri = uri
-        cameraLauncher.launch(uri)
+        isProfileCameraOpen = true
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -162,6 +154,14 @@ fun ProfileScreen(
         if (networkReconnectToken != 0L) {
             viewModel.onEvent(ProfileUiEvent.Refresh)
         }
+    }
+
+    LaunchedEffect(pendingAvatarEditorUri) {
+        onFullscreenEditorVisibilityChange(pendingAvatarEditorUri != null)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { onFullscreenEditorVisibilityChange(false) }
     }
 
     BackHandler(enabled = accountPage == ProfileAccountPage.Details) {
@@ -188,31 +188,32 @@ fun ProfileScreen(
         viewModel.onEvent(ProfileUiEvent.ClearMessages)
     }
 
-    QuataScreen(padding) {
-        val profile = state.profile
-        val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-        val accountScrollState = rememberScrollState(accountPage.ordinal)
-        if (state.isLoading || profile == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.profile_loading), color = template.colors.textSecondary)
+    Box(Modifier.fillMaxSize()) {
+        QuataScreen(padding) {
+            val profile = state.profile
+            val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
+            val accountScrollState = rememberScrollState(accountPage.ordinal)
+            if (state.isLoading || profile == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.profile_loading), color = template.colors.textSecondary)
+                }
+                return@QuataScreen
             }
-            return@QuataScreen
-        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(accountScrollState)
-                .padding(
-                    start = if (isLandscapeLayout) 8.dp else 14.dp,
-                    top = if (isLandscapeLayout) 10.dp else 12.dp,
-                    end = 14.dp,
-                    bottom = 12.dp
-                ),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            when (accountPage) {
-                ProfileAccountPage.Overview -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(accountScrollState)
+                    .padding(
+                        start = if (isLandscapeLayout) 8.dp else 14.dp,
+                        top = if (isLandscapeLayout) 10.dp else 12.dp,
+                        end = 14.dp,
+                        bottom = 12.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                when (accountPage) {
+                    ProfileAccountPage.Overview -> {
                     ProfilePanel(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -388,9 +389,9 @@ fun ProfileScreen(
                     ) {
                         Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
                     }
-                }
+                    }
 
-                ProfileAccountPage.Details -> {
+                    ProfileAccountPage.Details -> {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -447,42 +448,53 @@ fun ProfileScreen(
                         isSaving = state.isSaving,
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
                     )
+                    }
                 }
             }
         }
-    }
 
-    val profile = state.profile
-    if (isEmergencyDialogOpen && profile != null) {
-        EmergencyContactsDialog(
-            candidates = state.emergencyCandidates,
-            selectedIds = profile.emergencyContactIds,
-            message = profile.emergencyMessage,
-            isSaving = state.isSaving,
-            onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
-            onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
-            onDismiss = { isEmergencyDialogOpen = false },
-            onSave = {
-                viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
-            }
-        )
-    }
-    selectedAvatarPreview?.let { avatar ->
-        AttachmentViewerDialog(
-            attachment = avatar,
-            onDismiss = { selectedAvatarPreview = null }
-        )
-    }
-    pendingAvatarEditorUri?.let { avatarUri ->
-        QuataImageEditorDialog(
-            imageUri = avatarUri,
-            mode = QuataImageEditorMode.Avatar,
-            onDismiss = { pendingAvatarEditorUri = null },
-            onEdited = { editedUri ->
-                pendingAvatarEditorUri = null
-                viewModel.onEvent(ProfileUiEvent.AvatarChanged(editedUri.toString()))
-            }
-        )
+        val profile = state.profile
+        if (isEmergencyDialogOpen && profile != null) {
+            EmergencyContactsDialog(
+                candidates = state.emergencyCandidates,
+                selectedIds = profile.emergencyContactIds,
+                message = profile.emergencyMessage,
+                isSaving = state.isSaving,
+                onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
+                onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
+                onDismiss = { isEmergencyDialogOpen = false },
+                onSave = {
+                    viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
+                }
+            )
+        }
+        selectedAvatarPreview?.let { avatar ->
+            AttachmentViewerDialog(
+                attachment = avatar,
+                onDismiss = { selectedAvatarPreview = null }
+            )
+        }
+        pendingAvatarEditorUri?.let { avatarUri ->
+            QuataImageEditorDialog(
+                imageUri = avatarUri,
+                mode = QuataImageEditorMode.Avatar,
+                onDismiss = { pendingAvatarEditorUri = null },
+                onEdited = { editedUri ->
+                    pendingAvatarEditorUri = null
+                    viewModel.onEvent(ProfileUiEvent.AvatarChanged(editedUri.toString()))
+                }
+            )
+        }
+        if (isProfileCameraOpen) {
+            QuataCameraDialog(
+                mode = QuataCameraMode.Photo,
+                onDismiss = { isProfileCameraOpen = false },
+                onPhotoCaptured = { uri, _, _ ->
+                    isProfileCameraOpen = false
+                    pendingAvatarEditorUri = uri
+                }
+            )
+        }
     }
 }
 
@@ -960,27 +972,11 @@ private fun EmergencyUserRow(
     }
 }
 
-private fun Context.createProfileImageUri(): Uri? {
-    val values = ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, "quata_profile_${System.currentTimeMillis()}.jpg")
-        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-    }
-    return runCatching { contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) }.getOrNull()
-}
-
 private fun Context.hasCapturePermissions(): Boolean =
-    hasCameraPermission() && hasMediaWritePermission()
+    hasCameraPermission()
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-private fun Context.hasMediaWritePermission(): Boolean =
-    Build.VERSION.SDK_INT > Build.VERSION_CODES.P ||
-        ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-
 private fun capturePermissions(): Array<String> =
-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-        arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    } else {
-        arrayOf(Manifest.permission.CAMERA)
-    }
+    arrayOf(Manifest.permission.CAMERA)

@@ -1,7 +1,12 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.quata.core.ui.components
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.RectF
@@ -87,10 +92,18 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.ChannelMixingAudioProcessor
+import androidx.media3.common.audio.ChannelMixingMatrix
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.quata.R
@@ -180,9 +193,15 @@ fun AudioAttachmentPlayer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val audioRouter = remember(context) { VoiceNoteAudioRouter(context.applicationContext) }
+    var routeToEarpiece by remember(attachment.uri) { mutableStateOf(false) }
+    val audioRouter = remember(context) {
+        VoiceNoteAudioRouter(context.applicationContext) { shouldUseEarpiece ->
+            routeToEarpiece = shouldUseEarpiece
+        }
+    }
     val player = remember(attachment.uri) {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context, VoiceNoteRenderersFactory(context)).build().apply {
+            setAudioAttributes(VoiceNoteSpeakerAudioAttributes, true)
             setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
             repeatMode = Player.REPEAT_MODE_OFF
             prepare()
@@ -274,6 +293,26 @@ fun AudioAttachmentPlayer(
         onDispose {
             audioRouter.stop()
         }
+    }
+
+    DisposableEffect(context, isPlaying) {
+        val activity = if (isPlaying) context.findActivity() else null
+        val previousOrientation = activity?.requestedOrientation
+        if (activity != null) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        }
+        onDispose {
+            if (activity != null && previousOrientation != null) {
+                activity.requestedOrientation = previousOrientation
+            }
+        }
+    }
+
+    LaunchedEffect(player, routeToEarpiece) {
+        player.setAudioAttributes(
+            if (routeToEarpiece) VoiceNoteEarpieceAudioAttributes else VoiceNoteSpeakerAudioAttributes,
+            !routeToEarpiece
+        )
     }
 
     LaunchedEffect(pauseRequested) {
@@ -828,7 +867,49 @@ private fun formatAudioAttachmentMillis(millis: Long): String {
     return "%02d:%02d".format(minutes, seconds)
 }
 
-private class VoiceNoteAudioRouter(context: Context) : SensorEventListener {
+private val VoiceNoteSpeakerAudioAttributes = AudioAttributes.Builder()
+    .setUsage(C.USAGE_MEDIA)
+    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+    .build()
+
+private val VoiceNoteEarpieceAudioAttributes = AudioAttributes.Builder()
+    .setUsage(C.USAGE_VOICE_COMMUNICATION)
+    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+    .build()
+
+private class VoiceNoteRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+    override fun buildAudioSink(
+        context: Context,
+        enableFloatOutput: Boolean,
+        enableAudioTrackPlaybackParams: Boolean
+    ): AudioSink {
+        return DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .setAudioProcessors(arrayOf<AudioProcessor>(voiceNoteChannelMixer()))
+            .build()
+    }
+
+    private fun voiceNoteChannelMixer(): ChannelMixingAudioProcessor {
+        return ChannelMixingAudioProcessor().apply {
+            putChannelMixingMatrix(ChannelMixingMatrix.create(1, 2))
+            for (channelCount in 2..8) {
+                putChannelMixingMatrix(ChannelMixingMatrix.create(channelCount, channelCount))
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+private class VoiceNoteAudioRouter(
+    context: Context,
+    private val onRouteChanged: (Boolean) -> Unit
+) : SensorEventListener {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val sensorManager = context.getSystemService(SensorManager::class.java)
     private val proximitySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
@@ -869,19 +950,27 @@ private class VoiceNoteAudioRouter(context: Context) : SensorEventListener {
         val manager = audioManager ?: return
         if (isRoutedToEarpiece) return
         previousAudioMode = manager.mode
+        var didRoute = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val earpiece = manager.availableCommunicationDevices
                 .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
-            manager.mode = AudioManager.MODE_IN_COMMUNICATION
             if (earpiece != null) {
-                manager.setCommunicationDevice(earpiece)
+                manager.mode = AudioManager.MODE_IN_COMMUNICATION
+                didRoute = manager.setCommunicationDevice(earpiece)
             }
         } else {
             previousLegacySpeakerphoneOn = manager.legacySpeakerphoneOn()
             manager.mode = AudioManager.MODE_IN_COMMUNICATION
             manager.setLegacySpeakerphoneOn(false)
+            didRoute = true
+        }
+        if (!didRoute) {
+            previousAudioMode = null
+            previousLegacySpeakerphoneOn = null
+            return
         }
         isRoutedToEarpiece = true
+        onRouteChanged(true)
     }
 
     private fun restoreSpeakerRoute() {
@@ -896,6 +985,7 @@ private class VoiceNoteAudioRouter(context: Context) : SensorEventListener {
         previousAudioMode = null
         previousLegacySpeakerphoneOn = null
         isRoutedToEarpiece = false
+        onRouteChanged(false)
     }
 
     // Android 11 and older do not expose setCommunicationDevice(), so earpiece routing needs this fallback.
