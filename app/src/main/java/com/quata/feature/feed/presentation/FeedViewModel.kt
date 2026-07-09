@@ -3,6 +3,8 @@ package com.quata.feature.feed.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.core.feed.QuataPagedFeedStore
+import com.quata.core.model.Post
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +18,14 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
     private val loadedDetailPostIds = mutableSetOf<String>()
     private val loadingDetailPostIds = mutableSetOf<String>()
+    private val feedStore = QuataPagedFeedStore(
+        pageSize = FeedPageSize,
+        idOf = Post::id,
+        cursorOf = Post::createdAt
+    )
     private var feedJob: Job? = null
     private var refreshJob: Job? = null
+    private var loadOlderJob: Job? = null
 
     init {
         observeFeed()
@@ -27,6 +35,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     fun onEvent(event: FeedUiEvent) {
         when (event) {
             FeedUiEvent.Refresh -> refresh()
+            FeedUiEvent.LoadOlderPage -> loadOlderPage()
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
@@ -38,17 +47,20 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     private fun observeFeed() {
         loadedDetailPostIds.clear()
         loadingDetailPostIds.clear()
+        feedStore.reset()
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         feedJob?.cancel()
         feedJob = viewModelScope.launch {
             repository.observeFeed().collect { result ->
                 result
                     .onSuccess { posts ->
+                        val mergedPosts = feedStore.setRealtime(posts)
                         loadedDetailPostIds += posts.map { it.id }
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            posts = posts,
+                            posts = mergedPosts,
                             currentUser = _uiState.value.currentUser,
+                            hasMoreOlderPosts = feedStore.hasMoreOlderItems,
                             error = null
                         )
                     }
@@ -73,13 +85,16 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
             )
             repository.refreshFeed()
                 .onSuccess { posts ->
+                    val mergedPosts = feedStore.replaceInitialPage(posts)
                     loadedDetailPostIds.clear()
                     loadingDetailPostIds.clear()
                     loadedDetailPostIds += posts.map { it.id }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        posts = posts,
+                        isLoadingOlder = false,
+                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                        posts = mergedPosts,
                         error = null
                     )
                 }
@@ -88,6 +103,38 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                         isLoading = false,
                         isRefreshing = false,
                         error = error.message ?: "Error cargando feed"
+                    )
+                }
+        }
+    }
+
+    private fun loadOlderPage() {
+        val state = _uiState.value
+        if (loadOlderJob?.isActive == true) return
+        if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
+        val beforeCreatedAt = feedStore.olderCursor()
+        if (beforeCreatedAt == null) {
+            _uiState.value = state.copy(hasMoreOlderPosts = false)
+            return
+        }
+
+        loadOlderJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
+            repository.loadOlderFeedPage(beforeCreatedAt = beforeCreatedAt, limit = FeedPageSize)
+                .onSuccess { posts ->
+                    val mergedPosts = feedStore.appendOlder(posts)
+                    loadedDetailPostIds += posts.map { it.id }
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlder = false,
+                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                        posts = mergedPosts,
+                        error = null
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlder = false,
+                        error = error.message ?: _uiState.value.error
                     )
                 }
         }
@@ -132,15 +179,13 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
         }
     }
 
-    private fun replacePost(updated: com.quata.core.model.Post) {
+    private fun replacePost(updated: Post) {
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
-                if (post.id == updated.id) updated else post
-            }
+            posts = feedStore.replace(updated)
         )
     }
 
-    private fun updatePostFromRepository(action: suspend () -> Result<com.quata.core.model.Post?>) = viewModelScope.launch {
+    private fun updatePostFromRepository(action: suspend () -> Result<Post?>) = viewModelScope.launch {
         action()
             .onSuccess { updated ->
                 if (updated != null) {
@@ -159,7 +204,7 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
                 loadedDetailPostIds -= postId
                 loadingDetailPostIds -= postId
                 _uiState.value = _uiState.value.copy(
-                    posts = _uiState.value.posts.filterNot { it.id == postId }
+                    posts = feedStore.remove(postId)
                 )
             }
             .onFailure { error ->
@@ -168,6 +213,8 @@ class FeedViewModel(private val repository: FeedRepository) : ViewModel() {
     }
 
     companion object {
+        private const val FeedPageSize = 50
+
         fun factory(repository: FeedRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = FeedViewModel(repository) as T

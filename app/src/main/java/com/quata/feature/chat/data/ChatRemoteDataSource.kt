@@ -53,6 +53,8 @@ class ChatRemoteDataSource(
     suspend fun deleteChatMessages(profileId: String, threadId: Long, messageIds: List<Long>) = supabaseApi.deleteChatMessages(profileId, threadId, messageIds)
     suspend fun forwardChatMessage(profileId: String, messageId: Long, threadIds: List<Long>) = supabaseApi.forwardChatMessage(profileId, messageId, threadIds)
     suspend fun markChatThreadRead(profileId: String, threadId: Long) = supabaseApi.markChatThreadRead(profileId, threadId)
+    suspend fun markChatMessagesState(profileId: String, messageIds: List<Long>, status: String, source: String = "client") =
+        supabaseApi.markChatMessagesState(profileId, messageIds, status, source)
     suspend fun setChatMuted(profileId: String, threadId: Long, muted: Boolean) = supabaseApi.setChatMuted(profileId, threadId, muted)
     suspend fun setChatMemberInvitesEnabled(profileId: String, threadId: Long, enabled: Boolean) = supabaseApi.setChatMemberInvitesEnabled(profileId, threadId, enabled)
     suspend fun addChatParticipants(profileId: String, threadId: Long, participantIds: List<String>) = supabaseApi.addChatParticipants(profileId, threadId, participantIds)

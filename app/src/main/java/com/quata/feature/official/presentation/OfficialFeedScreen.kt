@@ -1,7 +1,8 @@
 package com.quata.feature.official.presentation
 
-import android.content.Intent
 import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -97,11 +99,15 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.QuataCommentsPanel
-import com.quata.core.ui.components.QuataFloatingPanel
+import com.quata.core.ui.components.QuataFeedActionRail
+import com.quata.core.ui.components.QuataFeedOverflowActionButton
+import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanel
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.VideoAttachmentThumbnail
+import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -139,15 +145,42 @@ fun OfficialFeedScreen(
         viewModel.refreshCurrentUser()
     }
 
+    LaunchedEffect(state.message) {
+        if (state.message == OfficialFeedMessages.PostDeleted) {
+            Toast.makeText(context, context.getString(R.string.feed_delete_post_success), Toast.LENGTH_SHORT).show()
+            viewModel.onEvent(OfficialFeedUiEvent.ClearMessage)
+        }
+    }
+
     val canPublish = state.currentUser?.isOfficial == true
     val canModerateAll = state.currentUser?.isAdmin == true
     val postRanks = remember(state.posts) { calculateOfficialPostRankingMap(state.posts) }
     val pagerState = rememberPagerState(pageCount = { state.posts.size.coerceAtLeast(1) })
+    var retainedVisiblePostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var hasAppliedRetainedPost by remember { mutableStateOf(retainedVisiblePostId == null) }
+    val canPullRefresh =
+        pagerState.currentPage == 0 &&
+            !state.isRefreshing &&
+            commentsPost == null &&
+            readMorePost == null &&
+            !isLiveOpen
+    val pullRefreshState = rememberQuataFeedPullRefreshState(
+        enabled = canPullRefresh,
+        isRefreshing = state.isRefreshing,
+        onRefresh = { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }
+    )
     fun requestCreateOfficialPost() {
         if (currentUserId == null) {
             onAuthRequired()
         } else {
             onCreateOfficialPost?.invoke()
+        }
+    }
+
+    LaunchedEffect(focusedPostId) {
+        val targetId = focusedPostId ?: return@LaunchedEffect
+        if (targetId != handledFocusedPostId && state.posts.none { it.id == targetId }) {
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(targetId))
         }
     }
 
@@ -157,13 +190,58 @@ fun OfficialFeedScreen(
         val targetIndex = state.posts.indexOfFirst { it.id == targetId }
         if (targetIndex >= 0) {
             pagerState.scrollToPage(targetIndex)
+            retainedVisiblePostId = targetId
+            hasAppliedRetainedPost = true
             handledFocusedPostId = targetId
             onFocusedPostHandled()
         }
     }
 
-    QuataScreen(padding = padding) {
-        Box(modifier.fillMaxSize()) {
+    LaunchedEffect(retainedVisiblePostId, state.posts, focusedPostId) {
+        val targetId = retainedVisiblePostId
+        if (
+            !hasAppliedRetainedPost &&
+            focusedPostId == null &&
+            targetId != null &&
+            state.posts.isNotEmpty()
+        ) {
+            val targetIndex = state.posts.indexOfFirst { it.id == targetId }
+            if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
+                pagerState.scrollToPage(targetIndex)
+            }
+            hasAppliedRetainedPost = true
+        }
+    }
+
+    val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
+    LaunchedEffect(visiblePostId) {
+        if (hasAppliedRetainedPost && visiblePostId != null) {
+            retainedVisiblePostId = visiblePostId
+        }
+    }
+
+    LaunchedEffect(
+        pagerState.currentPage,
+        state.posts.size,
+        state.hasMoreOlderPosts,
+        state.isLoadingOlder
+    ) {
+        val shouldLoadOlder =
+            state.posts.isNotEmpty() &&
+                state.hasMoreOlderPosts &&
+                !state.isLoadingOlder &&
+                pagerState.currentPage >= state.posts.lastIndex - OfficialOlderPostsPrefetchDistance
+        if (shouldLoadOlder) {
+            viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage)
+        }
+    }
+
+    QuataScreen(padding = padding, applyLandscapeSafeDrawing = false) {
+        Box(
+            modifier
+                .fillMaxSize()
+                .nestedScroll(pullRefreshState.nestedScrollConnection)
+        ) {
             when {
                 state.isLoading && state.posts.isEmpty() -> {
                     OfficialLoadingPage(
@@ -207,13 +285,20 @@ fun OfficialFeedScreen(
                     }
                 }
             }
-            if (state.isRefreshing) {
+            QuataFeedPullRefreshIndicator(
+                state = pullRefreshState,
+                isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(4f)
+            )
+            if (state.isLoadingOlder) {
                 CircularProgressIndicator(
-                    color = QuataOrange,
+                    color = QuataOrange.copy(alpha = 0.72f),
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 8.dp)
-                        .size(26.dp)
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                        .size(22.dp)
                 )
             }
         }
@@ -370,8 +455,8 @@ private fun OfficialLoadingPage(
             OfficialCreateActionButton(
                 onClick = onCreate,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = if (isLandscape) 64.dp else 10.dp, end = 10.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 10.dp, bottom = 16.dp)
             )
         }
     }
@@ -397,8 +482,8 @@ private fun OfficialEmptyPage(
             OfficialCreateActionButton(
                 onClick = onCreate,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = if (isLandscape) 64.dp else 10.dp, end = 10.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 10.dp, bottom = 16.dp)
             )
         }
     }
@@ -416,14 +501,14 @@ private fun OfficialCreateActionButton(
         shadowElevation = 6.dp,
         border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.88f)),
         modifier = modifier
-            .size(54.dp)
+            .size(48.dp)
             .clickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
             CompactIcon(
                 Icons.Filled.Add,
                 contentDescription = stringResource(R.string.official_create),
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -480,9 +565,10 @@ internal fun OfficialPostCard(
                         .fillMaxSize()
                         .padding(start = 18.dp, top = 18.dp, end = 76.dp, bottom = 18.dp)
                 )
-                OfficialPostLandscapeActions(
+                OfficialPostActionRail(
                     post = post,
                     rank = rank,
+                    isLandscape = true,
                     canPublish = canPublish,
                     canModerate = canModerate,
                     onCreate = onCreate,
@@ -492,8 +578,26 @@ internal fun OfficialPostCard(
                     onShare = onShare,
                     onDelete = onDelete,
                     modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 10.dp, bottom = 16.dp)
+                )
+                OfficialTypePill(
+                    post.type,
+                    modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(end = 10.dp, top = 112.dp)
+                        .padding(top = 28.dp, end = 14.dp)
+                )
+                QuataFeedOverflowActionButton(
+                    postRank = rank,
+                    rankLabel = stringResource(R.string.feed_rank),
+                    liveLabel = stringResource(R.string.common_live),
+                    reportLabel = null,
+                    showReport = false,
+                    onOpenLive = onOpenLive,
+                    onReport = {},
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 28.dp, bottom = 28.dp)
                 )
             } else {
                 OfficialPostPortraitContent(
@@ -505,9 +609,10 @@ internal fun OfficialPostCard(
                         .fillMaxSize()
                         .padding(start = 16.dp, top = 20.dp, end = 76.dp, bottom = 18.dp)
                 )
-                OfficialPostActions(
+                OfficialPostActionRail(
                     post = post,
                     rank = rank,
+                    isLandscape = false,
                     canPublish = canPublish,
                     canModerate = canModerate,
                     onCreate = onCreate,
@@ -517,8 +622,14 @@ internal fun OfficialPostCard(
                     onShare = onShare,
                     onDelete = onDelete,
                     modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 10.dp, bottom = 16.dp)
+                )
+                OfficialTypePill(
+                    post.type,
+                    modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(end = 10.dp, top = 10.dp)
+                        .padding(top = 38.dp, end = 8.dp)
                 )
             }
         }
@@ -579,6 +690,7 @@ private fun OfficialPostLandscapeContent(
             OfficialPostTextOnlyBlock(
                 post = post,
                 onReadMore = onReadMore,
+                alignReadMoreEnd = true,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -617,6 +729,7 @@ private fun OfficialPostLandscapeContent(
 private fun OfficialPostTextOnlyBlock(
     post: OfficialPostItem,
     onReadMore: () -> Unit,
+    alignReadMoreEnd: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -640,7 +753,11 @@ private fun OfficialPostTextOnlyBlock(
                 )
             }
         }
-        OfficialReadMoreLink(post = post, onReadMore = onReadMore)
+        OfficialReadMoreLink(
+            post = post,
+            onReadMore = onReadMore,
+            alignEnd = alignReadMoreEnd
+        )
     }
 }
 
@@ -650,7 +767,7 @@ private fun OfficialAuthorHeader(
     onOpenAuthor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AvatarImage(
             name = post.author.displayName,
             avatarUrl = post.author.avatarUrl,
@@ -689,12 +806,16 @@ private fun OfficialAuthorHeader(
 }
 
 @Composable
-private fun OfficialTypePill(type: OfficialPostType) {
+private fun OfficialTypePill(
+    type: OfficialPostType,
+    modifier: Modifier = Modifier
+) {
     val template = quataTheme()
     Surface(
         color = Color(0xFF2BA84A).copy(alpha = if (template.resolvedTheme == QuataResolvedTheme.Dark) 0.18f else 0.10f),
         contentColor = Color(0xFF2BA84A),
-        shape = RoundedCornerShape(100.dp)
+        shape = RoundedCornerShape(100.dp),
+        modifier = modifier
     ) {
         Text(
             text = type.label(),
@@ -744,20 +865,26 @@ private fun OfficialPostTextBlock(
 private fun OfficialReadMoreLink(
     post: OfficialPostItem,
     onReadMore: () -> Unit,
+    alignEnd: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
     val hasReadableBody = post.contentPlain.isNotBlank() && post.contentPlain.trim() != post.summary.trim()
     if (!hasReadableBody && post.linkUrl.isNullOrBlank()) return
     Spacer(Modifier.height(12.dp))
-    Text(
-        post.readMoreLabel.ifBlank { stringResource(R.string.official_read_more) },
-        color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
-        fontWeight = FontWeight.ExtraBold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.clickable(onClick = onReadMore)
-    )
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start
+    ) {
+        Text(
+            localizedOfficialReadMoreLabel(post.readMoreLabel),
+            color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable(onClick = onReadMore)
+        )
+    }
 }
 
 @Composable
@@ -793,9 +920,10 @@ private fun OfficialPostMedia(
 }
 
 @Composable
-private fun OfficialPostActions(
+private fun OfficialPostActionRail(
     post: OfficialPostItem,
     rank: Int,
+    isLandscape: Boolean,
     canPublish: Boolean,
     canModerate: Boolean,
     onCreate: () -> Unit,
@@ -806,185 +934,30 @@ private fun OfficialPostActions(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    QuataFeedActionRail(
+        likes = post.likesCount,
+        isLiked = post.isLikedByCurrentUser,
+        comments = post.commentsCount,
+        postRank = rank,
+        isLandscape = isLandscape,
+        likeLabel = stringResource(R.string.feed_like),
+        commentsLabel = stringResource(R.string.feed_comments),
+        shareLabel = stringResource(R.string.feed_share),
+        rankLabel = stringResource(R.string.feed_rank),
+        liveLabel = stringResource(R.string.common_live),
+        publishLabel = stringResource(R.string.official_create),
+        deleteLabel = stringResource(R.string.feed_delete_post),
+        showReport = false,
+        showDelete = canModerate,
+        showPublish = canPublish,
+        onLike = onLike,
+        onOpenComments = onComment,
+        onShare = onShare,
+        onOpenLive = onOpenLive,
+        onDelete = onDelete,
+        onPublish = onCreate,
         modifier = modifier
-    ) {
-        if (canPublish) {
-            OfficialCreateActionButton(onClick = onCreate)
-        }
-        OfficialTypePill(post.type)
-        OfficialActionText("\uD83D\uDD25", rank.toString(), stringResource(R.string.feed_rank), onOpenLive)
-        OfficialActionText(stringResource(R.string.common_live), null, stringResource(R.string.common_live), onOpenLive)
-        OfficialActionIcon(
-            icon = if (post.isLikedByCurrentUser) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            count = post.likesCount.toString(),
-            onClick = onLike
-        )
-        OfficialActionIcon(Icons.Filled.ChatBubble, post.commentsCount.toString(), onComment)
-        OfficialActionIcon(Icons.Filled.Share, null, onShare)
-        if (canModerate) {
-            OfficialActionIcon(Icons.Filled.Delete, null, onDelete)
-        }
-    }
-}
-
-@Composable
-private fun OfficialPostLandscapeActions(
-    post: OfficialPostItem,
-    rank: Int,
-    canPublish: Boolean,
-    canModerate: Boolean,
-    onCreate: () -> Unit,
-    onOpenLive: () -> Unit,
-    onLike: () -> Unit,
-    onComment: () -> Unit,
-    onShare: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var isOverflowOpen by remember { mutableStateOf(false) }
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-        modifier = modifier
-    ) {
-        OfficialTypePill(post.type)
-        if (canModerate) {
-            OfficialLandscapeActionIcon(Icons.Filled.Delete, null, onDelete)
-        }
-        OfficialLandscapeActionIcon(Icons.Filled.ChatBubble, post.commentsCount.toString(), onComment)
-        OfficialLandscapeActionIcon(
-            icon = if (post.isLikedByCurrentUser) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            count = post.likesCount.toString(),
-            onClick = onLike
-        )
-        OfficialLandscapeActionIcon(Icons.Filled.Share, null, onShare)
-        Box {
-            OfficialLandscapeActionIcon(Icons.Filled.MoreVert, null) {
-                isOverflowOpen = true
-            }
-            DropdownMenu(
-                expanded = isOverflowOpen,
-                onDismissRequest = { isOverflowOpen = false }
-            ) {
-                if (canPublish) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.official_create)) },
-                        leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        onClick = {
-                            isOverflowOpen = false
-                            onCreate()
-                        }
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("${stringResource(R.string.feed_rank)} #$rank") },
-                    leadingIcon = {
-                        Text("\uD83D\uDD25", fontWeight = FontWeight.Black)
-                    },
-                    onClick = {
-                        isOverflowOpen = false
-                        onOpenLive()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.common_live)) },
-                    onClick = {
-                        isOverflowOpen = false
-                        onOpenLive()
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OfficialLandscapeActionIcon(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    count: String?,
-    onClick: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = CircleShape,
-        modifier = Modifier
-            .size(40.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (count == null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text(count, fontSize = 9.sp, fontWeight = FontWeight.Bold, lineHeight = 9.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OfficialActionIcon(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    count: String?,
-    onClick: () -> Unit
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = CircleShape,
-            modifier = Modifier
-                .size(48.dp)
-                .clickable(onClick = onClick)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null)
-            }
-        }
-        if (count != null) {
-            Text(count, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun OfficialActionText(
-    text: String,
-    count: String?,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = CircleShape,
-            modifier = Modifier
-                .size(48.dp)
-                .clickable(onClick = onClick)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text,
-                        fontWeight = FontWeight.Black,
-                        fontSize = if (text.length > 2) 12.sp else 18.sp,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center
-                    )
-                    if (count != null) {
-                        Text(count, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp)
-                    }
-                }
-            }
-        }
-    }
+    )
 }
 
 @Composable
@@ -1024,7 +997,7 @@ internal fun OfficialPostDetailPanel(
     onDismiss: () -> Unit
 ) {
     val template = quataTheme()
-    QuataFloatingPanel(onDismiss = onDismiss, template = template) { panelModifier, isLandscape ->
+    QuataStandardFloatingPanel(onDismiss = onDismiss, template = template) { panelModifier, isLandscape ->
         Column(
             modifier = panelModifier.padding(
                 start = 18.dp,
@@ -1035,7 +1008,7 @@ internal fun OfficialPostDetailPanel(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    post.readMoreLabel.ifBlank { stringResource(R.string.official_read_more) },
+                    localizedOfficialReadMoreLabel(post.readMoreLabel),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.weight(1f)
@@ -1049,14 +1022,6 @@ internal fun OfficialPostDetailPanel(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                item {
-                    Text(
-                        post.title,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 24.sp,
-                        lineHeight = 29.sp
-                    )
-                }
                 item {
                     QuataRichTextRenderer(
                         html = post.contentHtml,
@@ -1103,6 +1068,8 @@ private data class OfficialPostRankingInfo(
     val position: Int,
     val likes: Int
 )
+
+private const val OfficialOlderPostsPrefetchDistance = 8
 
 private fun calculateOfficialPostRankingMap(posts: List<OfficialPostItem>): Map<String, OfficialPostRankingInfo> =
     posts

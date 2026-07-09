@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import android.content.Context
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.MessageDeliveryState
 import com.quata.data.supabase.CommunityProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -184,7 +185,8 @@ internal class SupabaseChatCacheStore(
         attachmentName = attachmentName,
         attachmentMimeType = attachmentMimeType,
         isPending = isPending,
-        isLocalEcho = isLocalEcho
+        isLocalEcho = isLocalEcho,
+        deliveryState = deliveryState
     )
 
     private fun StoredMessage.toDomain(): Message = Message(
@@ -209,7 +211,8 @@ internal class SupabaseChatCacheStore(
         attachmentName = attachmentName,
         attachmentMimeType = attachmentMimeType,
         isPending = isPending,
-        isLocalEcho = isLocalEcho
+        isLocalEcho = isLocalEcho,
+        deliveryState = deliveryState
     )
 
     @Serializable
@@ -265,7 +268,8 @@ internal class SupabaseChatCacheStore(
         val attachmentName: String? = null,
         val attachmentMimeType: String? = null,
         val isPending: Boolean = false,
-        val isLocalEcho: Boolean = false
+        val isLocalEcho: Boolean = false,
+        val deliveryState: MessageDeliveryState = if (isPending) MessageDeliveryState.Pending else MessageDeliveryState.Sent
     )
 
     private companion object {

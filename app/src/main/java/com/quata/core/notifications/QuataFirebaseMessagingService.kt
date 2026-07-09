@@ -3,6 +3,9 @@ package com.quata.core.notifications
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.quata.QuataApp
+import com.quata.feature.chat.data.ChatMessageStateAckStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 class QuataFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
@@ -13,9 +16,18 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         val quataApp = application as? QuataApp
-        if (quataApp?.isAppForeground == true) return
         val data = message.data
         if (data["type"] != "chat_message") return
+        data["message_id"]?.toLongOrNull()?.let { messageId ->
+            runBlocking(Dispatchers.IO) {
+                quataApp?.container?.chatMessageStateAckManager?.markMessages(
+                    messageIds = listOf(messageId),
+                    status = ChatMessageStateAckStatus.Delivered,
+                    source = "fcm"
+                )
+            }
+        }
+        if (quataApp?.isAppForeground == true) return
         val threadId = data["thread_id"]?.takeIf { it.isNotBlank() }
         val conversationId = data["conversation_id"]?.takeIf { it.isNotBlank() }
             ?: threadId?.let { "sb:$it" }

@@ -1,6 +1,7 @@
 package com.quata.data.supabase
 
 import android.util.Log
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.model.AuthSession
 import com.quata.core.session.SessionManager
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +155,12 @@ class SupabaseHttpClient(
         val decoded = json.decodeFromString(ListSerializer(serializer<T>()), response)
         invalidateTableAfterMutation(table)
         return decoded
+    }
+
+    internal suspend inline fun <reified B> patchMinimal(table: String, filters: Map<String, String>, body: B) {
+        val payload = json.encodeToString(body)
+        execute("PATCH", restUrl(table, filters), payload, prefer = "return=minimal")
+        invalidateTableAfterMutation(table)
     }
 
     suspend fun delete(
@@ -465,6 +472,7 @@ class SupabaseHttpClient(
         .url(url)
         .addHeader("apikey", config.anonKey)
         .addHeader("Accept", "application/json")
+        .addHeader("x-quata-official-language", QuataLanguageManager.currentLanguage.tag)
         if (useContentProfile) {
             builder
                 .addHeader("Content-Profile", config.schema)

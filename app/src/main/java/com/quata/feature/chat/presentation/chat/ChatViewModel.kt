@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.core.model.MessageDeliveryState
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.model.Message
 import com.quata.core.text.stripHtmlTagsAndDecode
@@ -287,13 +288,18 @@ class ChatViewModel(
             attachmentName = draft.attachmentName,
             attachmentMimeType = draft.attachmentMimeType,
             isPending = true,
-            isLocalEcho = true
+            isLocalEcho = true,
+            deliveryState = MessageDeliveryState.Pending
         )
     }
 
     private fun markLocalEchoSent(message: Message) {
         localEchoMessages = localEchoMessages.map { local ->
-            if (local.id == message.id) local.copy(isPending = false) else local
+            if (local.id == message.id) {
+                local.copy(isPending = false, deliveryState = MessageDeliveryState.Sent)
+            } else {
+                local
+            }
         }.filterNot { local ->
             backendMessages.any { remote -> remote.matchesLocalEcho(local) }
         }

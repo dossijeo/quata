@@ -17,15 +17,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -75,8 +72,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -456,6 +451,7 @@ fun ProfileScreen(
         val profile = state.profile
         if (isEmergencyDialogOpen && profile != null) {
             EmergencyContactsDialog(
+                layoutPadding = padding,
                 candidates = state.emergencyCandidates,
                 selectedIds = profile.emergencyContactIds,
                 message = profile.emergencyMessage,
@@ -656,6 +652,7 @@ private fun <T> DropdownField(
 
 @Composable
 fun EmergencyContactsDialog(
+    layoutPadding: PaddingValues = PaddingValues(),
     candidates: List<EmergencyContactCandidate>,
     selectedIds: List<String>,
     message: String,
@@ -668,7 +665,7 @@ fun EmergencyContactsDialog(
     val template = quataTheme()
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val bottomActionHeight = 54.dp
-    val bottomActionOffset = 78.dp
+    val bottomActionOffset = if (isLandscapeLayout) 0.dp else 12.dp
     val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyTab.Contacts) }
@@ -685,25 +682,17 @@ fun EmergencyContactsDialog(
                 .thenBy { it.displayName.lowercase() }
         )
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            color = template.colors.background,
-            contentColor = template.colors.textPrimary,
-            modifier = Modifier.fillMaxSize()
+    BackHandler(enabled = true, onBack = onDismiss)
+    QuataScreen(padding = layoutPadding) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = if (isLandscapeLayout) 16.dp else 18.dp,
+                    end = if (isLandscapeLayout) 16.dp else 18.dp
+                )
+                .padding(top = if (isLandscapeLayout) 10.dp else 14.dp, bottom = if (isLandscapeLayout) 10.dp else 0.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .padding(
-                        start = if (isLandscapeLayout) 16.dp else 18.dp,
-                        end = if (isLandscapeLayout) 72.dp else 18.dp
-                    )
-                    .padding(top = if (isLandscapeLayout) 10.dp else 14.dp, bottom = if (isLandscapeLayout) 10.dp else 0.dp)
-            ) {
                 if (isLandscapeLayout) {
                     Column(Modifier.fillMaxSize()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -760,7 +749,7 @@ fun EmergencyContactsDialog(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(visibleUsers, key = { it.id }) { user ->
+                                    items(visibleUsers) { user ->
                                         EmergencyUserRow(
                                             user = user,
                                             selected = user.id in selectedIds,
@@ -866,7 +855,7 @@ fun EmergencyContactsDialog(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(visibleUsers, key = { it.id }) { user ->
+                                items(visibleUsers) { user ->
                                     EmergencyUserRow(
                                         user = user,
                                         selected = user.id in selectedIds,
@@ -914,7 +903,6 @@ fun EmergencyContactsDialog(
                         )
                     }
                 }
-            }
         }
     }
 }

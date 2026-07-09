@@ -1,15 +1,32 @@
 # Q&uuml;ata Android
 
-Version: **0.10.4**
-Fecha de version: **2026-07-03**
-Estado: **beta privada avanzada con chat Supabase, muro oficial, Realtime y Firebase**
+Version: **1.0.0**
+Fecha de version: **2026-07-09**
+Estado: **release 1.0.0 preparada para produccion inicial**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `0.10.4` anade el primer ciclo completo de **cuentas oficiales**: roles de administrador/oficial en Supabase, nuevo tab **Oficial**, muro oficial anonimo, editor de publicaciones oficiales con texto enriquecido, multimedia y vista previa, perfiles verificados con insignia azul y controles de moderacion para administradores. Tambien consolida paneles comunes de comentarios/LIVE, visor multimedia compartido, deep links oficiales, borrado por administradores en feed normal y oficial, y limpieza de residuos de QA del proyecto.
+La version `1.0.0` consolida el primer lanzamiento completo de Q&uuml;ata: chat Supabase con estados de entrega/lectura, muro oficial multidioma, feeds paginados offline-first, editor oficial rapido/avanzado con traduccion DeepL, layouts seguros en portrait/landscape, borrado moderado por administradores y una limpieza final de artefactos de QA.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Doble check de chat estilo WhatsApp: `Pendiente`, `Enviado`, `Entregado` y `Leido`, con checks junto a la hora y color corporativo cuando el destinatario lee el mensaje.
+- Nueva tabla Supabase `chat_message_states` para estados `DELIVERED` y `READ`, con eventos Realtime para que el emisor vea los cambios sin polling.
+- La recepcion FCM marca mensajes como `DELIVERED`; si falla la red, se guarda una cola local JSON y WorkManager reintenta el envio al recuperar conectividad.
+- La apertura de un chat marca como `READ` los mensajes visibles y guarda el estado en cache offline-first para pintar checks desde cache al reabrir la conversacion.
+- Feeds normal y oficial unificados en paginacion de 50 publicaciones, pull-to-refresh, cache offline-first y carga automatica de paginas antiguas al llegar al final.
+- Ambos feeds conservan la publicacion visible cuando solo cambia la orientacion del dispositivo.
+- Rail de acciones compartido para feed normal y muro oficial: ranking, LIVE, likes, comentarios, compartir, borrar y publicar con tamanos y comportamiento consistentes.
+- Reproductores de video unificados para feed, muro oficial, preview, editor y adjuntos, preservando rotacion y proporcion en API antiguas y modernas.
+- Panel flotante comun para comentarios, LIVE, nuevo chat, reenviar, anadir participantes y **Leer mas**, con modal amplia centrada en landscape.
+- Pantallas no-feed envueltas en layout seguro para evitar solapes con barra de estado o navegacion Android en landscape.
+- Configuracion de contactos de emergencia, crear publicaciones y editor rich text oficial adaptados al layout normal de la app.
+- Muro oficial con modo de publicacion **Rapido** y **Avanzado**. El modo rapido deriva titulo/resumen del texto enriquecido; el avanzado conserva campos completos.
+- Publicaciones oficiales multidioma: se guarda idioma, grupo de traduccion y fallback a idioma por defecto para clientes antiguos.
+- Traduccion automatica de publicaciones oficiales ES/EN/FR mediante DeepL, con deteccion local de idioma y modal de confirmacion antes de publicar.
+- Etiquetas **Leer mas**, **Mas informacion**, **Seguir leyendo** y **Detalles** guardadas como shortcodes localizables para que cada usuario las vea en su idioma.
+- El muro oficial refresca tras publicar y enfoca la nueva publicacion; al borrar una publicacion oficial muestra el mismo aviso localizado que el feed normal.
+- RLS de publicaciones oficiales ajustada para permitir soft delete por autor o administrador sin exponer publicaciones borradas al publico.
 - Nuevo tab **Oficial** en la barra inferior, sustituyendo al acceso central de publicar y abriendo un muro independiente de publicaciones de cuentas oficiales.
 - El feed normal conserva la creacion de publicaciones mediante boton flotante `+`, reubicado en el rail de acciones para mantener el flujo de publicacion.
 - Cuentas oficiales con insignia azul de verificacion en avatares y perfiles, visible tambien en cards y listados.
@@ -133,16 +150,21 @@ La version `0.10.4` anade el primer ciclo completo de **cuentas oficiales**: rol
 El muro oficial introduce una capa institucional separada del feed social. Esta pensada para cuentas verificadas de organismos, barrios, administraciones o entidades que necesitan publicar avisos mas estructurados.
 
 - Tabla `official_posts` en Supabase, con likes, comentarios, soft delete, tipos de publicacion, media opcional, resumen y cuerpo enriquecido.
+- Soporte multidioma en `official_posts`: `language`, `translation_group_id` y lectura con fallback para mostrar la version del idioma de interfaz o la version por defecto.
 - Campos `is_admin` e `is_official` en `community_profiles`, con indices y guards SQL para que solo administradores puedan cambiar roles.
 - Lectura publica del muro oficial para clientes anonimos; creacion, likes, comentarios y borrado requieren sesion Supabase.
 - Publicacion oficial limitada a perfiles marcados como `is_official`.
 - Administradores con permisos de moderacion para actualizar o borrar publicaciones oficiales aunque no sean autores.
 - Politica adicional para que administradores puedan borrar publicaciones del feed normal creadas por otros usuarios.
 - Editor oficial con campos de titulo, descripcion corta, texto del enlace **Leer mas**, descripcion larga enriquecida, tipo de publicacion y media.
+- Editor oficial con modo **Rapido** y **Avanzado**: el modo rapido reduce campos, exige descripcion enriquecida y deriva titulo/resumen automaticamente; el avanzado mantiene control completo.
+- El texto del enlace de lectura completa se guarda como shortcode localizable para evitar etiquetas fijas en un idioma.
+- La publicacion oficial puede autogenerar versiones ES/EN/FR mediante DeepL despues de detectar el idioma localmente.
 - La descripcion larga se edita en pantalla completa con el editor rich text comun y se renderiza despues con el lector enriquecido.
 - Preview oficial dentro del editor con la misma estructura visual del muro final.
 - Imagenes y videos oficiales se optimizan/suben mediante la misma capa de media usada por publicar y adjuntos.
 - Cards oficiales con perfil verificado, tipo de aviso, ranking, LIVE, likes, comentarios, compartir, borrar y enlace de lectura completa.
+- Las cards oficiales usan la misma paginacion, pull-to-refresh, cache offline-first y rail de acciones que el feed normal.
 - Comentarios oficiales reutilizan el componente comun de comentarios del feed normal, con respuesta a comentarios y traductor Fang.
 - Panel LIVE comun reutilizado para rankings de feed y muro oficial.
 - Deep links oficiales compartibles con `https://egquata.com/#official-post-...`.
@@ -152,8 +174,12 @@ El muro oficial introduce una capa institucional separada del feed social. Esta 
 El chat usa Supabase como backend principal. Better Messages fue retirado del cliente Android; la compatibilidad legacy anonima se mantiene en las zonas que leen feed/contenido publico, pero la mensajeria moderna usa identidades Supabase, RPCs, Realtime y cache local propia.
 
 - Tablas Supabase para conversaciones, participantes, mensajes, adjuntos, favoritos, eventos de lectura, push tokens y logs de entrega.
+- Tabla `chat_message_states` para registrar `DELIVERED` y `READ` por mensaje y usuario.
 - RPCs para crear o abrir chats privados, grupales, SOS y comunitarios, enviar mensajes, adjuntar archivos, responder, editar, marcar favorito, borrar mensajes, silenciar, permitir invitaciones, anadir participantes, abandonar, borrar/restaurar conversaciones y gestionar administradores.
 - Realtime para recibir cambios de mensajes y conversaciones sin polling en primer plano ni segundo plano.
+- Eventos Realtime para estados de mensaje: el emisor ve un check al enviar, doble check al entregarse y doble check naranja al leerse.
+- FCM marca `DELIVERED` en el receptor aunque el chat no este abierto; si falla la llamada, se encola en JSON local y WorkManager reintenta con red disponible.
+- Al abrir un chat o renderizar mensajes nuevos, el receptor marca `READ` y el estado se reconcilia con la cache offline-first.
 - Reconexiones Realtime coordinadas con estado de red, foreground y renovacion de token Supabase.
 - Cache local offline-first de conversaciones, hilos, mensajes, favoritos, perfiles, adjuntos y fondo procedural; si existe cache, la pantalla abre sin skeleton persistente.
 - Esquema de cache nuevo para invalidar automaticamente la cache antigua asociada a Better Messages.
@@ -218,6 +244,15 @@ El modelo remoto `NLLB-Fang-Q&uuml;ata` es un prototipo experimental afinado des
 
 Las traducciones usan cache SQLite local independiente de Supabase. La clave incluye texto normalizado, idioma origen, idioma destino y `max_new_tokens`; si existe respuesta local, se devuelve al instante y no se refresca desde red porque la salida del modelo se considera estable para esa clave.
 
+## Traduccion oficial ES/EN/FR
+
+Las publicaciones oficiales usan un helper separado basado en DeepL para traducir entre espanol, ingles y frances. El traductor Fang queda reservado para rutas hacia y desde Fang.
+
+- La deteccion de idioma se realiza localmente con el modelo FastText incluido en la app.
+- Antes de publicar una noticia oficial, la app pregunta si se quieren generar automaticamente las versiones que falten.
+- La API key se lee desde `local.properties`, propiedad Gradle o variable de entorno `QUATA_DEEPL_API_KEY`.
+- La respuesta traducida se mantiene en memoria durante la publicacion y se guarda como variantes enlazadas por `translation_group_id`.
+
 ## Tema claro/oscuro
 
 La app tiene un motor de plantillas de tema en `core/designsystem/theme`:
@@ -269,7 +304,7 @@ La seleccion de tema se observa una sola vez en el nivel superior de la app y se
 - Limites de cache: 128 MB para imagenes, 256 MB para videos y limpieza de ficheros con mas de 14 dias.
 - Los videos seleccionados para publicar pasan por un editor nativo en Compose antes de incorporarse a la publicacion.
 - El editor permite recortar duracion desde la timeline, mover la posicion de reproduccion, silenciar, aplicar recorte de encuadre con zoom y guardar el resultado.
-- La seleccion temporal de video tiene un limite maximo de 15 minutos: las asas de la timeline no pueden abrir un intervalo mayor y, si el usuario sigue arrastrando un extremo, el asa contraria se desplaza para mantener el lapso maximo sin bloquear el gesto.
+- La seleccion temporal de video para publicar tiene un limite maximo de `1:30`; si el archivo supera esa duracion, el editor muestra un aviso compacto encima de la timeline.
 - La previsualizacion del editor y la exportacion fuerzan el formato final `9:16`: el crop elegido (`Original`, `1:1`, `4:5`, `9:16` o `16:9`) se centra sobre un fondo desenfocado para que preview, reproduccion, guardado y preview de publicacion coincidan.
 - La exportacion se realiza con Media3 Transformer sobre el video original, no grabando la UI de preview, para conservar resolucion, sincronizacion y audio de forma estable.
 - Cuando no hay ediciones y la fuente ya es `9:16`, tiene resolucion compatible y bitrate dentro del objetivo, el guardado puede usar copia directa sin recodificar.
@@ -328,6 +363,7 @@ La app gestiona una secuencia de permisos y ajustes necesarios al terminar el sp
 - Cache SQLite especifica para traducciones Fang.
 - Detector local de idioma mediante modelo FastText incluido en assets.
 - Cliente HTTP para el Space `NLLB-Fang-Q&uuml;ata` con warmup y traduccion.
+- Cliente HTTP DeepL para traducciones oficiales ES/EN/FR.
 - Supabase Realtime para eventos de chat y Firebase Cloud Messaging para push nativo.
 - Coil para imagenes.
 - Media3 para reproduccion, previsualizacion y procesado multimedia, incluido Transformer para exportar videos editados.
@@ -425,19 +461,19 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 25
-versionName = 0.10.4
-APP_VERSION_DATE = 2026-07-03
+versionCode = 26
+versionName = 1.0.0
+APP_VERSION_DATE = 2026-07-09
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.
 
-## Pendiente antes de 1.0
+## Evolucion futura
 
-- QA funcional en emuladores API 26, 27, 28 y 37 ya avanzada para chat, camara, feed, muro oficial, publicacion, documentos y notificaciones; queda QA de larga duracion en dispositivos reales.
-- Revision de consumo de bateria y red con cuentas grandes.
-- Validacion final de permisos, enlaces admitidos y comportamiento de notificaciones en dispositivos fisicos Android moderno.
-- Monitorizacion de errores en produccion.
-- Segunda fase de hardening RLS en Supabase para `communities`, `community_admin_alerts` y `translations_multi_backup`, disenando politicas antes de activar RLS.
-- Politicas finales de privacidad, datos y soporte.
-- Ajustes de accesibilidad y pruebas con tamanos de fuente del sistema.
+- Monitorizacion de errores y rendimiento en produccion real, especialmente consumo de red/bateria con cuentas grandes y sesiones largas.
+- Segunda fase de hardening RLS en Supabase para tablas heredadas pendientes, disenando politicas antes de activar RLS completo.
+- Mejora incremental de accesibilidad: tamanos de fuente del sistema, contraste, TalkBack y objetivos tactiles en pantallas densas.
+- Herramientas de moderacion avanzadas para administradores: auditoria, motivos de borrado, restauracion y panel de revision.
+- Optimizacion de traducciones oficiales: cache de resultados, reintentos y control de coste por lote de publicacion.
+- Ampliacion del visor de documentos y de previews en perfiles conforme aparezcan formatos reales de usuarios.
+- QA recurrente en dispositivos fisicos de gama baja y Android moderno para validar camara, notificaciones, Realtime y edge-to-edge.

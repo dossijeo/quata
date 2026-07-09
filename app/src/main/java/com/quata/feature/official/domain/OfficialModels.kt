@@ -11,6 +11,8 @@ data class OfficialPostItem(
     val contentHtml: String,
     val contentPlain: String,
     val readMoreLabel: String = "",
+    val language: OfficialPostLanguage = OfficialPostLanguage.Spanish,
+    val translationGroupId: String? = null,
     val type: OfficialPostType = OfficialPostType.Announcement,
     val mediaUrl: String? = null,
     val mediaType: OfficialMediaType? = null,
@@ -45,11 +47,41 @@ enum class OfficialMediaType(val remoteValue: String) {
     }
 }
 
+enum class OfficialPostLanguage(val remoteValue: String) {
+    Spanish("es"),
+    English("en"),
+    French("fr");
+
+    companion object {
+        fun fromRemote(value: String?): OfficialPostLanguage =
+            entries.firstOrNull { it.remoteValue.equals(value, ignoreCase = true) } ?: Spanish
+
+        fun fromAppLanguage(value: String?): OfficialPostLanguage =
+            entries.firstOrNull { it.remoteValue.equals(value, ignoreCase = true) } ?: Spanish
+    }
+}
+
+enum class OfficialReadMoreOption(val shortcode: String) {
+    ReadMore("read_more"),
+    MoreInformation("more_information"),
+    ContinueReading("continue_reading"),
+    Details("details");
+
+    companion object {
+        fun fromStored(value: String?): OfficialReadMoreOption? {
+            val normalized = value?.trim()?.lowercase() ?: return null
+            return entries.firstOrNull { it.shortcode == normalized }
+        }
+    }
+}
+
 data class OfficialPostDraft(
     val title: String,
     val summary: String,
     val contentHtml: String,
     val readMoreLabel: String = "",
+    val language: OfficialPostLanguage = OfficialPostLanguage.Spanish,
+    val translationGroupId: String? = null,
     val type: OfficialPostType,
     val mediaUrl: String? = null,
     val mediaType: OfficialMediaType? = null,

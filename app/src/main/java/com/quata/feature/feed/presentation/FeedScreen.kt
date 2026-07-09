@@ -2,14 +2,9 @@ package com.quata.feature.feed.presentation
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Matrix
-import android.graphics.RectF
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.view.LayoutInflater
-import android.view.TextureView
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -76,11 +71,14 @@ import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
-import com.quata.core.ui.components.QuataFloatingPanel
 import com.quata.core.ui.components.QuataCommentsPanel
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanel
+import com.quata.core.ui.components.QuataFeedActionRail
+import com.quata.core.ui.components.QuataFeedOverflowActionButton
+import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import androidx.compose.material3.MaterialTheme
@@ -152,7 +150,6 @@ import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
-import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
@@ -162,7 +159,10 @@ import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.CommunityEmojiPanelDismissState
+import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
+import com.quata.core.ui.components.findQuataTextureView
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.readQuataVideoRotation
 import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.core.translation.FangTranslatorIconButton
@@ -179,7 +179,6 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -246,56 +245,19 @@ fun FeedScreen(
             val postRanks = remember(state.posts) { calculatePostRankingMap(state.posts) }
             val videoPositions = remember { mutableMapOf<String, Long>() }
             var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
-            val density = LocalDensity.current
-            var pullRefreshDistancePx by remember { mutableFloatStateOf(0f) }
-            val pullRefreshTriggerPx = with(density) { FeedPullRefreshTriggerDistance.toPx() }
-            val pullRefreshMaxPx = with(density) { FeedPullRefreshMaxDistance.toPx() }
-            val canPullRefreshState = rememberUpdatedState(
+            var retainedVisiblePostId by rememberSaveable { mutableStateOf<String?>(null) }
+            var hasAppliedRetainedPost by remember { mutableStateOf(retainedVisiblePostId == null) }
+            var lastHandledFeedResetToken by rememberSaveable { mutableStateOf(feedResetToken) }
+            val canPullRefresh =
                 pagerState.currentPage == 0 &&
                     !state.isRefreshing &&
                     commentsPost == null &&
                     !isLiveOpen
+            val pullRefreshState = rememberQuataFeedPullRefreshState(
+                enabled = canPullRefresh,
+                isRefreshing = state.isRefreshing,
+                onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) }
             )
-            val isRefreshingState = rememberUpdatedState(state.isRefreshing)
-            val requestRefreshState = rememberUpdatedState {
-                viewModel.onEvent(FeedUiEvent.Refresh)
-            }
-            val pullRefreshConnection = remember(pullRefreshTriggerPx, pullRefreshMaxPx) {
-                object : NestedScrollConnection {
-                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                        val deltaY = available.y
-                        if (deltaY > 0f && canPullRefreshState.value) {
-                            val resistance = 1f - (pullRefreshDistancePx / pullRefreshMaxPx).coerceIn(0f, 0.72f)
-                            pullRefreshDistancePx = (pullRefreshDistancePx + deltaY * resistance).coerceAtMost(pullRefreshMaxPx)
-                            return Offset(0f, deltaY)
-                        }
-                        if (deltaY < 0f && pullRefreshDistancePx > 0f) {
-                            val consumed = minOf(pullRefreshDistancePx, -deltaY)
-                            pullRefreshDistancePx -= consumed
-                            return Offset(0f, -consumed)
-                        }
-                        return Offset.Zero
-                    }
-
-                    override suspend fun onPreFling(available: Velocity): Velocity {
-                        if (pullRefreshDistancePx >= pullRefreshTriggerPx && !isRefreshingState.value) {
-                            pullRefreshDistancePx = pullRefreshTriggerPx
-                            requestRefreshState.value()
-                        } else if (!isRefreshingState.value) {
-                            pullRefreshDistancePx = 0f
-                        }
-                        return Velocity.Zero
-                    }
-                }
-            }
-
-            LaunchedEffect(state.isRefreshing, pagerState.currentPage, pullRefreshTriggerPx) {
-                if (state.isRefreshing && pagerState.currentPage == 0 && pullRefreshDistancePx < pullRefreshTriggerPx) {
-                    pullRefreshDistancePx = pullRefreshTriggerPx
-                } else if (!state.isRefreshing) {
-                    pullRefreshDistancePx = 0f
-                }
-            }
 
             LaunchedEffect(focusedPostId) {
                 if (focusedPostId != null && focusedPostId != handledFocusedPostId) {
@@ -309,22 +271,66 @@ fun FeedScreen(
                 val targetIndex = state.posts.indexOfFirst { it.id == targetId }
                 if (targetIndex >= 0) {
                     pagerState.scrollToPage(targetIndex)
+                    retainedVisiblePostId = targetId
+                    hasAppliedRetainedPost = true
                     handledFocusedPostId = targetId
                     onFocusedPostHandled()
                 }
             }
 
+            LaunchedEffect(retainedVisiblePostId, state.posts, focusedPostId) {
+                val targetId = retainedVisiblePostId
+                if (
+                    !hasAppliedRetainedPost &&
+                    focusedPostId == null &&
+                    targetId != null &&
+                    state.posts.isNotEmpty()
+                ) {
+                    val targetIndex = state.posts.indexOfFirst { it.id == targetId }
+                    if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
+                        pagerState.scrollToPage(targetIndex)
+                    }
+                    hasAppliedRetainedPost = true
+                }
+            }
+
             LaunchedEffect(feedResetToken, state.posts.size) {
-                if (feedResetToken != 0 && focusedPostId == null && state.posts.isNotEmpty()) {
+                if (
+                    feedResetToken != lastHandledFeedResetToken &&
+                    focusedPostId == null &&
+                    state.posts.isNotEmpty()
+                ) {
                     pagerState.scrollToPage(0)
+                    retainedVisiblePostId = state.posts.firstOrNull()?.id
+                    hasAppliedRetainedPost = true
+                    lastHandledFeedResetToken = feedResetToken
                 }
             }
 
             val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
             val nextPostId = state.posts.getOrNull(pagerState.currentPage + 1)?.id
             LaunchedEffect(visiblePostId, nextPostId) {
+                if (hasAppliedRetainedPost && visiblePostId != null) {
+                    retainedVisiblePostId = visiblePostId
+                }
                 visiblePostId?.let { postId ->
                     viewModel.onEvent(FeedUiEvent.PostDisplayed(postId, nextPostId))
+                }
+            }
+
+            LaunchedEffect(
+                pagerState.currentPage,
+                state.posts.size,
+                state.hasMoreOlderPosts,
+                state.isLoadingOlder
+            ) {
+                val shouldLoadOlder =
+                    state.posts.isNotEmpty() &&
+                        state.hasMoreOlderPosts &&
+                        !state.isLoadingOlder &&
+                        pagerState.currentPage >= state.posts.lastIndex - FeedOlderPostsPrefetchDistance
+                if (shouldLoadOlder) {
+                    viewModel.onEvent(FeedUiEvent.LoadOlderPage)
                 }
             }
 
@@ -332,7 +338,7 @@ fun FeedScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .nestedScroll(pullRefreshConnection)
+                    .nestedScroll(pullRefreshState.nestedScrollConnection)
                     .background(Color.Black)
             ) {
                 VerticalPager(
@@ -395,9 +401,8 @@ fun FeedScreen(
                         )
                     }
                 }
-                FeedPullRefreshIndicator(
-                    pullDistancePx = pullRefreshDistancePx,
-                    triggerDistancePx = pullRefreshTriggerPx,
+                QuataFeedPullRefreshIndicator(
+                    state = pullRefreshState,
                     isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
@@ -465,7 +470,7 @@ private fun FeedMessageScreen(
     message: String,
     onRefresh: () -> Unit
 ) {
-    QuataScreen(padding) {
+    QuataScreen(padding, applyLandscapeSafeDrawing = false) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(message, color = MaterialTheme.colorScheme.onBackground)
@@ -473,61 +478,6 @@ private fun FeedMessageScreen(
                 CompactIconButton(onClick = onRefresh) {
                     CompactIcon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeedPullRefreshIndicator(
-    pullDistancePx: Float,
-    triggerDistancePx: Float,
-    isRefreshing: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val progress = if (isRefreshing) {
-        1f
-    } else {
-        (pullDistancePx / triggerDistancePx).coerceIn(0f, 1f)
-    }
-    if (progress <= 0f && !isRefreshing) return
-
-    val template = quataTheme()
-    val density = LocalDensity.current
-    val indicatorOffset = with(density) {
-        (-FeedPullRefreshIndicatorSize.toPx() + FeedPullRefreshIndicatorTravel.toPx() * progress).toDp()
-    }
-    val indicatorScale = 0.74f + 0.26f * progress
-
-    Surface(
-        modifier = modifier
-            .offset(y = indicatorOffset)
-            .graphicsLayer {
-                alpha = if (isRefreshing) 1f else (0.28f + progress * 0.72f)
-                rotationZ = if (isRefreshing) 0f else progress * 180f
-                scaleX = indicatorScale
-                scaleY = indicatorScale
-            }
-            .size(FeedPullRefreshIndicatorSize),
-        shape = CircleShape,
-        color = template.colors.surfaceRaised.copy(alpha = 0.96f),
-        contentColor = template.colors.textPrimary,
-        shadowElevation = 6.dp
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    color = QuataOrange,
-                    strokeWidth = 2.5.dp
-                )
-            } else {
-                CompactIcon(
-                    Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.common_refresh),
-                    tint = if (progress >= 1f) QuataOrange else template.colors.textPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
             }
         }
     }
@@ -618,42 +568,59 @@ private fun ReelPost(
             onVideoPositionChanged = onVideoPositionChanged,
             onMuteChange = onFeedMutedChange
         )
-        ReelScrims()
+        val mediaBadgeText = when {
+            post.videoUrl != null -> postMeta.mediaTitle.ifBlank { postMeta.imageLocation }
+            post.imageUrl != null -> postMeta.imageLocation
+            else -> ""
+        }
+        val hasTopOverlayText = mediaBadgeText.isNotBlank() || !shortcodeContent.documentText.isNullOrBlank()
+        ReelScrims(showTopScrim = !isVideo || hasTopOverlayText)
         ReelTopChips(
             documentText = shortcodeContent.documentText,
-            mediaBadgeText = when {
-                post.videoUrl != null -> postMeta.mediaTitle.ifBlank { postMeta.imageLocation }
-                post.imageUrl != null -> postMeta.imageLocation
-                else -> ""
-            },
+            mediaBadgeText = mediaBadgeText,
             isVideo = isVideo
         )
-        ReelActions(
+        QuataFeedActionRail(
             likes = post.likesCount,
             isLiked = post.isLikedByCurrentUser,
-            isReported = post.isReportedByCurrentUser,
             comments = post.comments.size,
             postRank = postRankInfo.position,
-            showRankLiveActions = !isLandscapeLayout,
+            isLandscape = isLandscapeLayout,
+            likeLabel = stringResource(R.string.feed_like),
+            commentsLabel = stringResource(R.string.feed_comments),
+            shareLabel = stringResource(R.string.feed_share),
+            rankLabel = stringResource(R.string.feed_rank),
+            liveLabel = stringResource(R.string.common_live),
+            publishLabel = stringResource(R.string.nav_publish),
+            isReported = post.isReportedByCurrentUser,
+            reportLabel = stringResource(R.string.feed_report),
+            deleteLabel = stringResource(R.string.feed_delete_post),
+            showReport = true,
             showDelete = canDelete,
+            showPublish = true,
             onLike = onLike,
             onOpenComments = onOpenComments,
             onOpenLive = onOpenLive,
             onShare = onShare,
             onReport = onReport,
             onDelete = onDelete,
-            onCreatePost = onCreatePost,
+            onPublish = onCreatePost,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 18.dp, bottom = 22.dp)
         )
         if (isLandscapeLayout) {
-            ReelRankLiveActions(
+            QuataFeedOverflowActionButton(
                 postRank = postRankInfo.position,
+                rankLabel = stringResource(R.string.feed_rank),
+                liveLabel = stringResource(R.string.common_live),
+                reportLabel = stringResource(R.string.feed_report),
+                showReport = true,
                 onOpenLive = onOpenLive,
+                onReport = onReport,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 22.dp, bottom = if (post.videoUrl != null) 176.dp else 132.dp)
+                    .padding(start = 24.dp, bottom = if (isVideo) 148.dp else 86.dp)
             )
         }
         ReelAuthor(
@@ -854,9 +821,9 @@ private fun ReelVideo(
     var retryCount by remember(videoUrl) { mutableStateOf(0) }
     var retrySignal by remember(videoUrl) { mutableLongStateOf(0L) }
     var playerGeneration by remember(videoUrl) { mutableLongStateOf(0L) }
-    val playbackMetadata by produceState(initialValue = FeedVideoPlaybackMetadata(), videoUrl) {
+    val playbackRotation by produceState(initialValue = 0, videoUrl) {
         value = withContext(Dispatchers.IO) {
-            readFeedVideoPlaybackMetadata(context, Uri.parse(videoUrl))
+            readQuataVideoRotation(context, Uri.parse(videoUrl))
         }
     }
     val mediaSourceFactory = remember(context) { QuataMediaCache.videoMediaSourceFactory(context) }
@@ -1060,28 +1027,15 @@ private fun ReelVideo(
             },
             update = {
                 val applyLegacyRotationTransform =
-                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && playbackMetadata.rotation != 0
-                val effectiveResizeMode = if (
-                    applyLegacyRotationTransform &&
-                    (playbackMetadata.rotation == 90 || playbackMetadata.rotation == 270)
-                ) {
-                    AspectRatioFrameLayout.RESIZE_MODE_FILL
-                } else {
-                    videoResizeMode
-                }
+                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && playbackRotation != 0
                 it.useController = false
-                it.resizeMode = effectiveResizeMode
+                it.resizeMode = videoResizeMode
                 if (it.player !== player) {
                     it.player = player
                 }
-                it.findChildTextureView()?.let { textureView ->
-                    if (applyLegacyRotationTransform) {
-                        textureView.applyFeedVideoPlaybackTransform(playbackMetadata)
-                    } else {
-                        textureView.setTransform(Matrix())
-                        textureView.invalidate()
-                    }
-                }
+                it.findQuataTextureView()?.applyQuataVideoPlaybackTransform(
+                    if (applyLegacyRotationTransform) playbackRotation else 0
+                )
             }
         )
         Box(
@@ -1262,18 +1216,27 @@ private fun formatVideoTime(ms: Long): String {
 }
 
 @Composable
-private fun ReelScrims() {
+private fun ReelScrims(showTopScrim: Boolean) {
+    val stops = if (showTopScrim) {
+        arrayOf(
+            0f to Color.Black.copy(alpha = 0.64f),
+            0.14f to Color.Black.copy(alpha = 0.42f),
+            0.34f to Color.Transparent,
+            0.58f to Color.Transparent,
+            1f to Color.Black.copy(alpha = 0.68f)
+        )
+    } else {
+        arrayOf(
+            0f to Color.Transparent,
+            0.58f to Color.Transparent,
+            1f to Color.Black.copy(alpha = 0.68f)
+        )
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.64f),
-                    0.14f to Color.Black.copy(alpha = 0.42f),
-                    0.34f to Color.Transparent,
-                    0.58f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.68f)
-                )
+                Brush.verticalGradient(*stops)
             )
     )
 }
@@ -1366,147 +1329,6 @@ private fun ReelChip(
     }
 }
 
-@Composable
-private fun ReelActions(
-    likes: Int,
-    isLiked: Boolean,
-    isReported: Boolean,
-    comments: Int,
-    postRank: Int,
-    showRankLiveActions: Boolean,
-    onLike: () -> Unit,
-    onOpenComments: () -> Unit,
-    onOpenLive: () -> Unit,
-    onShare: () -> Unit,
-    onReport: () -> Unit,
-    showDelete: Boolean,
-    onDelete: () -> Unit,
-    onCreatePost: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        if (showRankLiveActions) {
-            ReelRankLiveActions(
-                postRank = postRank,
-                onOpenLive = onOpenLive
-            )
-        }
-        ReelActionButton(
-            icon = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            contentDescription = stringResource(R.string.feed_like),
-            count = likes.toString(),
-            tint = if (isLiked) Color(0xFFFF7EA8) else Color.White,
-            onClick = onLike
-        )
-        ReelActionButton(
-            icon = Icons.Filled.ChatBubble,
-            contentDescription = stringResource(R.string.feed_comments),
-            count = comments.toString(),
-            onClick = onOpenComments
-        )
-        ReelActionButton(
-            icon = Icons.Filled.Share,
-            contentDescription = stringResource(R.string.feed_share),
-            onClick = onShare
-        )
-        ReelActionButton(
-            icon = Icons.Filled.Flag,
-            contentDescription = stringResource(R.string.feed_report),
-            tint = if (isReported) QuataOrange else Color.White,
-            onClick = onReport
-        )
-        if (showDelete) {
-            ReelActionButton(
-                icon = Icons.Filled.Delete,
-                contentDescription = stringResource(R.string.feed_delete_post),
-                tint = Color.White,
-                onClick = onDelete
-            )
-        }
-        ReelActionButton(
-            icon = Icons.Filled.Add,
-            contentDescription = stringResource(R.string.nav_publish),
-            tint = Color.White,
-            backgroundColor = QuataOrange,
-            onClick = onCreatePost
-        )
-    }
-}
-
-@Composable
-private fun ReelRankLiveActions(
-    postRank: Int,
-    onOpenLive: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        ReelTextActionButton(
-            text = "\uD83D\uDD25",
-            contentDescription = stringResource(R.string.feed_rank),
-            count = postRank.toString(),
-            onClick = onOpenLive
-        )
-        ReelTextActionButton(
-            text = stringResource(R.string.common_live),
-            contentDescription = stringResource(R.string.common_live),
-            onClick = onOpenLive
-        )
-    }
-}
-
-@Composable
-private fun ReelTextActionButton(
-    text: String,
-    contentDescription: String,
-    count: String? = null,
-    tint: Color = Color.White,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.42f))
-                .semantics { this.contentDescription = contentDescription }
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = text,
-                    color = tint,
-                    fontSize = if (text.length <= 2) 19.sp else 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    lineHeight = if (text.length <= 2) 20.sp else 12.sp,
-                    modifier = Modifier.padding(horizontal = 5.dp)
-                )
-                if (count != null) {
-                    Text(
-                        text = count,
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        lineHeight = 10.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
 private data class PostRankingInfo(
     val position: Int,
     val likes: Int
@@ -1516,10 +1338,7 @@ private data class PostPublishedAtInfo(
     val publishedAt: LocalDateTime
 )
 
-private val FeedPullRefreshTriggerDistance = 96.dp
-private val FeedPullRefreshMaxDistance = 148.dp
-private val FeedPullRefreshIndicatorSize = 44.dp
-private val FeedPullRefreshIndicatorTravel = 72.dp
+private const val FeedOlderPostsPrefetchDistance = 8
 private val TextOnlyReelActionRailSafePadding = 92.dp
 
 private fun calculatePostRankingMap(posts: List<Post>): Map<String, PostRankingInfo> =
@@ -1592,134 +1411,6 @@ private fun parseAbsoluteDateTime(value: String): LocalDateTime? {
     return runCatching {
         LocalDateTime.ofInstant(Instant.parse(value), ZoneId.systemDefault())
     }.getOrNull()
-}
-
-@Composable
-private fun ReelActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    count: String? = null,
-    tint: Color = Color.White,
-    backgroundColor: Color = Color.Black.copy(alpha = 0.42f),
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(backgroundColor)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CompactIcon(
-                    imageVector = icon,
-                    contentDescription = contentDescription,
-                    tint = tint,
-                    modifier = Modifier.size(25.dp)
-                )
-                if (count != null) {
-                    Text(
-                        text = count,
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 11.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-private data class FeedVideoPlaybackMetadata(
-    val rotation: Int = 0,
-    val width: Int = 0,
-    val height: Int = 0
-)
-
-private fun readFeedVideoPlaybackMetadata(context: Context, uri: Uri): FeedVideoPlaybackMetadata =
-    runCatching {
-        withQuataMediaMetadataRetriever { retriever ->
-            retriever.setFeedVideoSource(context, uri)
-            FeedVideoPlaybackMetadata(
-                rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-                    ?.toIntOrNull()
-                    ?.normalizedFeedVideoRotation()
-                    ?: 0,
-                width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-                    ?.toIntOrNull()
-                    ?: 0,
-                height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-                    ?.toIntOrNull()
-                    ?: 0
-            )
-        }
-    }.getOrDefault(FeedVideoPlaybackMetadata())
-
-private fun MediaMetadataRetriever.setFeedVideoSource(context: Context, uri: Uri) {
-    when (uri.scheme?.lowercase()) {
-        null, "", "content", "file", "android.resource" -> setDataSource(context, uri)
-        "http", "https" -> setDataSource(uri.toString(), emptyMap())
-        else -> setDataSource(context, uri)
-    }
-}
-
-private fun Int.normalizedFeedVideoRotation(): Int {
-    val normalized = ((this % 360) + 360) % 360
-    return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
-}
-
-private fun View.findChildTextureView(): TextureView? {
-    if (this is TextureView) return this
-    if (this !is ViewGroup) return null
-    for (index in 0 until childCount) {
-        getChildAt(index).findChildTextureView()?.let { return it }
-    }
-    return null
-}
-
-private fun TextureView.applyFeedVideoPlaybackTransform(metadata: FeedVideoPlaybackMetadata) {
-    fun applyTransform() {
-        val viewWidth = width.toFloat()
-        val viewHeight = height.toFloat()
-        if (viewWidth <= 0f || viewHeight <= 0f) return
-        val rotation = metadata.rotation.normalizedFeedVideoRotation()
-        if (rotation == 90 || rotation == 270) {
-            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
-            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
-            val centerX = viewRect.centerX()
-            val centerY = viewRect.centerY()
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
-            val matrix = Matrix().apply {
-                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
-                val scale = max(viewHeight / viewWidth, viewWidth / viewHeight)
-                postScale(scale, scale, centerX, centerY)
-                postRotate(rotation.toFloat(), centerX, centerY)
-            }
-            setTransform(matrix)
-            invalidate()
-            return
-        }
-        if (rotation == 180) {
-            setTransform(
-                Matrix().apply {
-                    postRotate(180f, viewWidth / 2f, viewHeight / 2f)
-                }
-            )
-            invalidate()
-            return
-        }
-        setTransform(Matrix())
-        invalidate()
-    }
-    if (width > 0 && height > 0) {
-        applyTransform()
-    } else {
-        post { applyTransform() }
-    }
 }
 
 private fun postShareText(post: Post): String = quataPostUrl(post.id)

@@ -78,7 +78,7 @@ import com.quata.core.text.localizedSosPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
-import com.quata.core.ui.components.QuataFloatingPanel
+import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
@@ -419,7 +419,7 @@ fun ConversationCandidatePickerDialog(
             }
     }
 
-    QuataFloatingPanel(
+    QuataStandardFloatingPanel(
         onDismiss = onDismiss,
         template = template
     ) { panelModifier, isLandscape ->

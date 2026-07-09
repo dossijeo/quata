@@ -11,10 +11,20 @@ import kotlinx.coroutines.flow.Flow
 class FeedRemoteDataSource(
     private val supabaseApi: SupabaseCommunityApi
 ) {
-    suspend fun getPosts(cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST): List<CommunityPost> =
-        supabaseApi.getFeedPosts(limit = 50, cacheMode = cacheMode)
+    suspend fun getPosts(
+        limit: Int = 50,
+        offset: Int = 0,
+        createdBefore: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+    ): List<CommunityPost> =
+        supabaseApi.getFeedPosts(
+            limit = limit,
+            offset = offset,
+            createdBefore = createdBefore,
+            cacheMode = cacheMode
+        )
 
-    fun observePosts(): Flow<List<CommunityPost>> = supabaseApi.observeFeedPosts(limit = 50)
+    fun observePosts(limit: Int = 50): Flow<List<CommunityPost>> = supabaseApi.observeFeedPosts(limit = limit)
 
     suspend fun getPost(
         postId: String,

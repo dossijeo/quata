@@ -13,9 +13,20 @@ val releaseSigningProperties = Properties().apply {
         releaseSigningPropertiesFile.inputStream().use(::load)
     }
 }
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties().apply {
+    if (localPropertiesFile.isFile) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
 
 fun releaseSigningValue(propertyName: String, environmentName: String): String? =
     releaseSigningProperties.getProperty(propertyName)
+        ?: providers.environmentVariable(environmentName).orNull
+
+fun localOrEnvironmentValue(propertyName: String, environmentName: String): String? =
+    localProperties.getProperty(propertyName)
+        ?: providers.gradleProperty(propertyName).orNull
         ?: providers.environmentVariable(environmentName).orNull
 
 val releaseStoreFile = releaseSigningValue("storeFile", "QUATA_SIGNING_STORE_FILE")
@@ -42,8 +53,8 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "0.10.4"
+        versionCode = 26
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -54,7 +65,12 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-03\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-09\"")
+        buildConfigField(
+            "String",
+            "DEEPL_API_KEY",
+            "\"${localOrEnvironmentValue("quata.deeplApiKey", "QUATA_DEEPL_API_KEY").orEmpty()}\""
+        )
     }
 
     buildFeatures {
@@ -113,6 +129,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")

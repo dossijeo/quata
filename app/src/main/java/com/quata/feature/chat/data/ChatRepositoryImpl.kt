@@ -10,6 +10,7 @@ import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.model.AuthSession
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.MessageDeliveryState
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.notifications.NotificationFactory
@@ -55,7 +56,8 @@ class ChatRepositoryImpl(
     private val remote: ChatRemoteDataSource,
     private val supabaseRealtimeClient: SupabaseRealtimeClient,
     private val sessionManager: SessionManager,
-    private val mediaUploadOptimizer: MediaUploadOptimizer
+    private val mediaUploadOptimizer: MediaUploadOptimizer,
+    private val messageStateAckManager: ChatMessageStateAckManager
 ) : ChatRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cacheStore = SupabaseChatCacheStore(appContext)
@@ -95,7 +97,6 @@ class ChatRepositoryImpl(
             scope.launch {
                 val session = sessionManager.currentSession() ?: return@launch
                 restoreCache(session.userId)
-                refreshAndConnectRealtime(session.userId)
             }
         }
     }
@@ -124,7 +125,11 @@ class ChatRepositoryImpl(
         _isRealtimeOnline.value = false
         sessionManager.currentSession()?.let { session ->
             scope.launch {
-                refreshAndConnectRealtime(session.userId)
+                if (appForegroundState.value) {
+                    refreshAndConnectRealtime(session.userId)
+                } else {
+                    refreshAll(session.userId)
+                }
             }
         }
     }
@@ -195,6 +200,8 @@ class ChatRepositoryImpl(
                     refreshAndConnectRealtime(session.userId)
                 }
             }
+        } else {
+            stopRealtime()
         }
     }
 
@@ -512,12 +519,24 @@ class ChatRepositoryImpl(
         }
         val session = sessionManager.currentSession() ?: return@runCatching
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching
-        val unreadCount = _conversations.value.firstOrNull { it.id == conversationId }?.unreadCount ?: 0
-        if (unreadCount <= 0) {
-            notificationFactory.clearChatMessage(conversationId)
-            return@runCatching
+        val incomingMessageIds = messageStates[conversationId]
+            ?.value
+            .orEmpty()
+            .mapNotNull { message ->
+                message.id.toLongOrNull()?.takeIf { !message.isMine && !message.isDeleted }
+            }
+        if (incomingMessageIds.isNotEmpty()) {
+            messageStateAckManager.markMessages(
+                messageIds = incomingMessageIds,
+                status = ChatMessageStateAckStatus.Read,
+                source = "chat_open"
+            )
+        } else {
+            val unreadCount = _conversations.value.firstOrNull { it.id == conversationId }?.unreadCount ?: 0
+            if (unreadCount > 0) {
+                remote.markChatThreadRead(session.userId, conversationId.requireThreadId())
+            }
         }
-        remote.markChatThreadRead(session.userId, conversationId.requireThreadId())
         updateConversation(conversationId) { it.copy(unreadCount = 0) }
         notificationFactory.clearChatMessage(conversationId)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -755,12 +774,17 @@ class ChatRepositoryImpl(
                 _conversations.value = conversations
                 cacheStore.replaceConversations(profileId, conversations)
                 parsed.messagesByConversation.forEach { (conversationId, messages) ->
-                    val displayMessages = attachmentFileCache.prefetchAndResolve(profileId, messages)
+                    val cachedMessages = cacheStore.cachedMessages(profileId, conversationId)
+                    val mergedMessages = (messages + cachedMessages)
+                        .distinctBy { it.id }
+                        .sortedBy { it.sentAtMillis ?: 0L }
+                    val displayMessages = attachmentFileCache.prefetchAndResolve(profileId, mergedMessages)
                     val state = messagesState(conversationId)
                     if (state.value.isEmpty()) {
                         state.value = displayMessages
                     }
-                    cacheStore.replaceMessages(profileId, conversationId, messages)
+                    cacheStore.replaceMessages(profileId, conversationId, mergedMessages)
+                    ackIncomingMessages(messages, ChatMessageStateAckStatus.Delivered, "inbox_refresh")
                 }
                 emitNotifications(previous, conversations)
                 refreshFavorites(profileId, force = force)
@@ -824,6 +848,7 @@ class ChatRepositoryImpl(
             val displayMessages = attachmentFileCache.prefetchAndResolve(session.userId, messages)
             messagesState(conversationId).value = displayMessages
             cacheStore.replaceMessages(session.userId, conversationId, messages)
+            ackIncomingMessages(displayMessages, ChatMessageStateAckStatus.Delivered, "thread_refresh")
             _isRealtimeOnline.value = true
         }.onFailure {
             _isRealtimeOnline.value = false
@@ -860,7 +885,7 @@ class ChatRepositoryImpl(
 
     private fun connectRealtime(session: AuthSession) {
         if (AppConfig.USE_MOCK_BACKEND) return
-        if (!deviceNetworkAvailable.value || !session.isSupabaseAuthenticated()) return
+        if (!appForegroundState.value || !deviceNetworkAvailable.value || !session.isSupabaseAuthenticated()) return
         val accessToken = session.bearerToken
         if (realtimeProfileId == session.userId &&
             realtimeAccessToken == accessToken &&
@@ -916,6 +941,7 @@ class ChatRepositoryImpl(
 
     private fun scheduleReconnect() {
         if (AppConfig.USE_MOCK_BACKEND) return
+        if (!appForegroundState.value) return
         if (!deviceNetworkAvailable.value) return
         if (reconnectJob?.isActive == true) return
         reconnectJob = scope.launch {
@@ -935,6 +961,7 @@ class ChatRepositoryImpl(
         val delayMillis = (refreshAtSeconds - nowEpochSeconds).coerceAtLeast(0L) * 1000L
         realtimeTokenRefreshJob = scope.launch {
             delay(delayMillis)
+            if (!appForegroundState.value) return@launch
             if (!deviceNetworkAvailable.value) return@launch
             val current = sessionManager.currentSession()?.takeIf { it.userId == session.userId }
                 ?: run {
@@ -964,7 +991,22 @@ class ChatRepositoryImpl(
         remote.ensureFreshSession()
         refreshAll(profileId)
         val freshSession = sessionManager.currentSession()?.takeIf { it.userId == profileId } ?: return
-        connectRealtime(freshSession)
+        if (appForegroundState.value) {
+            connectRealtime(freshSession)
+        }
+    }
+
+    private fun stopRealtime() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        realtimeTokenRefreshJob?.cancel()
+        realtimeTokenRefreshJob = null
+        isRealtimeConnecting = false
+        realtimeProfileId = null
+        realtimeAccessToken = null
+        realtimeReadyProfileId = null
+        _isRealtimeOnline.value = false
+        supabaseRealtimeClient.disconnect()
     }
 
     private fun handleRealtimeEvent(event: RealtimeRawEvent) {
@@ -978,7 +1020,7 @@ class ChatRepositoryImpl(
             Log.d(TAG, "Realtime event table=$table thread=$threadId active=$active")
             when (table) {
                 "chat_message_favorites" -> refreshFavorites(session.userId)
-                "chat_messages", "chat_attachments", "chat_message_reads" -> {
+                "chat_messages", "chat_attachments", "chat_message_reads", "chat_message_states" -> {
                     conversationId?.let { refreshThread(it) }
                     if (active != null &&
                         active != AppDestinations.FavoriteMessagesConversationId &&
@@ -1089,7 +1131,7 @@ class ChatRepositoryImpl(
             .forEach { upsertConversation(session.userId, it) }
         parsed.messagesByConversation.forEach { (conversationId, incomingMessages) ->
             val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
-            val merged = (cachedMessages + incomingMessages)
+            val merged = (incomingMessages + cachedMessages)
                 .distinctBy { it.id }
                 .sortedBy { it.sentAtMillis ?: 0L }
             messagesState(conversationId).value = attachmentFileCache.prefetchAndResolve(session.userId, merged)
@@ -1171,6 +1213,11 @@ class ChatRepositoryImpl(
         val senderId = string("sender_profile_id").orEmpty()
         val senderProfile = obj("sender")?.toProfile() ?: profiles[senderId] ?: profilesById[senderId]
         val firstAttachment = array("attachments").firstOrNull()?.objOrNull
+        val deliveryState = when (string("delivery_state")?.uppercase(Locale.ROOT)) {
+            "READ" -> MessageDeliveryState.Read
+            "DELIVERED" -> MessageDeliveryState.Delivered
+            else -> MessageDeliveryState.Sent
+        }
         return Message(
             id = messageId.toString(),
             conversationId = supabaseChatConversationId(threadId),
@@ -1188,8 +1235,23 @@ class ChatRepositoryImpl(
             forwardedFromSenderId = string("forwarded_from_profile_id"),
             attachmentUri = firstAttachment?.string("url"),
             attachmentName = firstAttachment?.string("name"),
-            attachmentMimeType = firstAttachment?.string("mime_type")
+            attachmentMimeType = firstAttachment?.string("mime_type"),
+            deliveryState = if (senderId == currentProfileId) deliveryState else MessageDeliveryState.Sent
         )
+    }
+
+    private fun ackIncomingMessages(
+        messages: List<Message>,
+        status: ChatMessageStateAckStatus,
+        source: String
+    ) {
+        val messageIds = messages.mapNotNull { message ->
+            message.id.toLongOrNull()?.takeIf { !message.isMine && !message.isDeleted }
+        }
+        if (messageIds.isEmpty()) return
+        scope.launch {
+            messageStateAckManager.markMessages(messageIds, status, source)
+        }
     }
 
     private fun List<Message>.withReplyContext(): List<Message> {
@@ -1310,7 +1372,8 @@ class ChatRepositoryImpl(
             "chat_messages",
             "chat_attachments",
             "chat_message_favorites",
-            "chat_message_reads"
+            "chat_message_reads",
+            "chat_message_states"
         )
     }
 }

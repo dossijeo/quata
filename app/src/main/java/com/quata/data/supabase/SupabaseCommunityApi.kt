@@ -170,6 +170,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         wallId: String? = null,
         profileId: String? = null,
         postId: String? = null,
+        createdBefore: String? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<CommunityPost> = client.getList(
         "community_posts",
@@ -178,6 +179,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             "id" to postId?.let { "eq.$it" },
             "wall_id" to wallId?.let { "eq.$it" },
             "profile_id" to profileId?.let { "eq.$it" },
+            "created_at" to createdBefore?.let { "lt.$it" },
             "order" to "created_at.desc",
             "limit" to limit.toString(),
             "offset" to offset.toString()
@@ -232,6 +234,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         offset: Int = 0,
         postId: String? = null,
         profileId: String? = null,
+        publishedBefore: String? = null,
+        language: String? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<OfficialPost> = client.getList(
         "official_posts",
@@ -239,23 +243,42 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             "select" to OFFICIAL_POST_SELECT,
             "id" to postId?.let { "eq.$it" },
             "profile_id" to profileId?.let { "eq.$it" },
+            "published_at" to publishedBefore?.let { "lt.$it" },
+            "language" to language?.takeIf { it.equals(DefaultOfficialLanguage, ignoreCase = true) }?.let { "eq.${it.lowercase()}" },
+            "or" to language
+                ?.takeIf { !it.equals(DefaultOfficialLanguage, ignoreCase = true) }
+                ?.lowercase()
+                ?.let { "(language.eq.$it,language.eq.$DefaultOfficialLanguage)" },
             "is_published" to "eq.true",
             "deleted_at" to "is.null",
             "order" to "published_at.desc,created_at.desc",
-            "limit" to limit.toString(),
+            "limit" to if (language?.equals(DefaultOfficialLanguage, ignoreCase = true) == false) {
+                (limit.coerceAtLeast(1) * 2).toString()
+            } else {
+                limit.toString()
+            },
             "offset" to offset.toString()
         ),
         cacheMode = cacheMode
     )
 
-    fun observeOfficialPosts(limit: Int = 50, offset: Int = 0): Flow<List<OfficialPost>> = client.observeList(
+    fun observeOfficialPosts(limit: Int = 50, offset: Int = 0, language: String? = null): Flow<List<OfficialPost>> = client.observeList(
         "official_posts",
         mapOf(
             "select" to OFFICIAL_POST_SELECT,
+            "language" to language?.takeIf { it.equals(DefaultOfficialLanguage, ignoreCase = true) }?.let { "eq.${it.lowercase()}" },
+            "or" to language
+                ?.takeIf { !it.equals(DefaultOfficialLanguage, ignoreCase = true) }
+                ?.lowercase()
+                ?.let { "(language.eq.$it,language.eq.$DefaultOfficialLanguage)" },
             "is_published" to "eq.true",
             "deleted_at" to "is.null",
             "order" to "published_at.desc,created_at.desc",
-            "limit" to limit.toString(),
+            "limit" to if (language?.equals(DefaultOfficialLanguage, ignoreCase = true) == false) {
+                (limit.coerceAtLeast(1) * 2).toString()
+            } else {
+                limit.toString()
+            },
             "offset" to offset.toString()
         )
     )
@@ -267,6 +290,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         postType: String,
         contentHtml: String,
         readMoreLabel: String?,
+        language: String,
+        translationGroupId: String?,
         mediaUrl: String?,
         mediaType: String?,
         linkUrl: String?,
@@ -281,6 +306,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
                 post_type = postType,
                 content_html = contentHtml,
                 read_more_label = readMoreLabel,
+                language = language,
+                translation_group_id = translationGroupId,
                 media_url = mediaUrl,
                 media_type = mediaType,
                 link_url = linkUrl,
@@ -289,12 +316,14 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             select = OFFICIAL_POST_SELECT
         )
 
-    suspend fun deleteOfficialPost(postId: String) {
-        client.patch<OfficialPost, OfficialPostUpdate>(
+    suspend fun deleteOfficialPost(postId: String, translationGroupId: String? = null) {
+        client.patchMinimal(
             "official_posts",
-            mapOf("id" to "eq.$postId"),
-            OfficialPostUpdate(deleted_at = Instant.now().toString()),
-            select = OFFICIAL_POST_SELECT
+            translationGroupId
+                ?.takeIf { it.isNotBlank() }
+                ?.let { mapOf("translation_group_id" to "eq.$it") }
+                ?: mapOf("id" to "eq.$postId"),
+            OfficialPostUpdate(deleted_at = Instant.now().toString())
         )
     }
 
@@ -811,6 +840,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun markChatThreadRead(profileId: String, threadId: Long): JsonElement =
         client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_mark_thread_read", QuataChatThreadActionRequest(profileId, threadId))
 
+    suspend fun markChatMessagesState(profileId: String, messageIds: List<Long>, status: String, source: String = "client"): JsonElement =
+        client.rpc<QuataChatMessagesStateRequest, JsonElement>(
+            "quata_chat_mark_messages_state",
+            QuataChatMessagesStateRequest(profileId, messageIds, status, source)
+        )
+
     suspend fun setChatMuted(profileId: String, threadId: Long, muted: Boolean): JsonElement =
         client.rpc<QuataChatMutedRequest, JsonElement>("quata_chat_set_muted", QuataChatMutedRequest(profileId, threadId, muted))
 
@@ -910,7 +945,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         const val WALL_FOLLOW_SELECT = "id,wall_id,profile_id,created_at"
         const val PROFILE_FOLLOW_SELECT = "id,follower_profile_id,followed_profile_id,created_at"
         const val EMERGENCY_CONTACT_SELECT = "contact_profile_id,position"
-        const val OFFICIAL_POST_SELECT = "id,profile_id,title,summary,post_type,content_html,read_more_label,media_url,media_type,link_url,is_live,is_published,published_at,created_at,updated_at,deleted_at"
+        const val DefaultOfficialLanguage = "es"
+        const val OFFICIAL_POST_SELECT = "id,profile_id,title,summary,post_type,content_html,read_more_label,language,translation_group_id,media_url,media_type,link_url,is_live,is_published,published_at,created_at,updated_at,deleted_at"
         const val OFFICIAL_LIKE_SELECT = "id,official_post_id,profile_id,created_at"
         const val OFFICIAL_COMMENT_SELECT = "id,official_post_id,profile_id,body,created_at"
     }

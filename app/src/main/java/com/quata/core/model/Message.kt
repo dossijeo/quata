@@ -1,5 +1,12 @@
 package com.quata.core.model
 
+enum class MessageDeliveryState {
+    Pending,
+    Sent,
+    Delivered,
+    Read
+}
+
 data class Message(
     val id: String,
     val conversationId: String,
@@ -22,5 +29,6 @@ data class Message(
     val attachmentName: String? = null,
     val attachmentMimeType: String? = null,
     val isPending: Boolean = false,
-    val isLocalEcho: Boolean = false
+    val isLocalEcho: Boolean = false,
+    val deliveryState: MessageDeliveryState = if (isPending) MessageDeliveryState.Pending else MessageDeliveryState.Sent
 )

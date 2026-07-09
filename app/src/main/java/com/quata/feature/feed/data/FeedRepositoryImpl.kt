@@ -66,9 +66,29 @@ class FeedRepositoryImpl(
         }
 
     override suspend fun getFeed(): Result<List<Post>> =
-        runCatching { loadPostShells(SupabaseCacheMode.CACHE_FIRST) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+        runCatching { loadPostShells(SupabaseCacheMode.CACHE_FIRST, FeedPageSize, 0) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
     override suspend fun refreshFeed(): Result<List<Post>> =
-        runCatching { loadPostShells(SupabaseCacheMode.NETWORK_ONLY) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+        runCatching { loadPostShells(SupabaseCacheMode.NETWORK_ONLY, FeedPageSize, 0) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
+
+    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
+        runCatching {
+            if (AppConfig.USE_MOCK_BACKEND) {
+                val cursorIndex = beforeCreatedAt
+                    ?.let { cursor -> MockData.posts.indexOfFirst { it.createdAt == cursor } }
+                    ?.takeIf { it >= 0 }
+                    ?: -1
+                MockData.posts
+                    .drop(cursorIndex + 1)
+                    .take(limit.coerceAtLeast(1))
+            } else {
+                loadPostShells(
+                    cacheMode = SupabaseCacheMode.CACHE_FIRST,
+                    limit = limit.coerceAtLeast(1),
+                    offset = 0,
+                    createdBefore = beforeCreatedAt
+                )
+            }
+        }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = sessionManager.currentSession()?.userId ?: return@runCatching null
@@ -148,10 +168,20 @@ class FeedRepositoryImpl(
         runCatching { wordpressClient.deletePostVideoAjax(mediaUrl) }
     }
 
-    private suspend fun loadPostShells(cacheMode: SupabaseCacheMode): List<Post> {
-        if (AppConfig.USE_MOCK_BACKEND) return MockData.posts
+    private suspend fun loadPostShells(
+        cacheMode: SupabaseCacheMode,
+        limit: Int,
+        offset: Int,
+        createdBefore: String? = null
+    ): List<Post> {
+        if (AppConfig.USE_MOCK_BACKEND) return MockData.posts.drop(offset.coerceAtLeast(0)).take(limit.coerceAtLeast(1))
 
-        val posts = remote.getPosts(cacheMode)
+        val posts = remote.getPosts(
+            limit = limit,
+            offset = offset,
+            createdBefore = createdBefore,
+            cacheMode = cacheMode
+        )
         val postIds = posts.map { it.id }
         val comments = if (postIds.isEmpty()) emptyList() else remote.getComments(postIds, cacheMode)
         val likes = if (postIds.isEmpty()) emptyList() else remote.getLikes(postIds, cacheMode)
@@ -238,4 +268,8 @@ class FeedRepositoryImpl(
 
     private fun <T> Flow<List<T>>.emptyOnFailure(): Flow<List<T>> =
         catch { emit(emptyList()) }
+
+    private companion object {
+        const val FeedPageSize = 50
+    }
 }

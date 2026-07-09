@@ -54,7 +54,7 @@ fun QuataLiveRankingPanel(
     onOpenItem: (String) -> Unit
 ) {
     val template = quataTheme()
-    QuataFloatingPanel(
+    QuataStandardFloatingPanel(
         onDismiss = onDismiss,
         template = template
     ) { panelModifier, isLandscape ->

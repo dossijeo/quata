@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
 import android.graphics.Matrix
-import android.graphics.RectF
 import android.opengl.GLES20
 import android.opengl.EGL14
 import android.opengl.EGLConfig
@@ -179,9 +178,12 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.VideoExportProfile
 import com.quata.core.media.VideoExportSystemProfile
 import com.quata.core.media.withQuataMediaMetadataRetriever
+import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataEditorScaffold
+import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -210,7 +212,6 @@ fun QuataVideoEditorDialog(
     onExported: (Uri) -> Unit
 ) {
     val context = LocalContext.current
-    val template = quataTheme()
     val editorSourceUri = rememberVideoEditorSourceUri(videoUri)
     if (editorSourceUri == null) {
         VideoEditorPreparingSurface()
@@ -595,36 +596,50 @@ fun QuataVideoEditorDialog(
     }
     val showMaxDurationWarning = durationMs > MaximumTrimDurationMs
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = template.colors.background,
-        contentColor = template.colors.textPrimary
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(bottom = 0.dp)
-        ) {
-            VideoEditorTopBar(
-                isMuted = isMuted,
-                isCropPanelOpen = isCropPanelOpen,
-                isCaptionPanelOpen = isCaptionPanelOpen,
-                hasCaptions = captionStyle != null,
-                isExporting = isExporting,
-                showTitle = !isLandscapeLayout,
-                onBack = ::requestBack,
-                onToggleMute = { isMuted = !isMuted },
-                onToggleCrop = {
+    QuataEditorScaffold(
+        title = stringResource(R.string.video_editor_title),
+        showTitle = !isLandscapeLayout,
+        onBack = ::requestBack,
+        actions = {
+            if (!isExporting) {
+                QuataEditorToolButton(
+                    label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
+                    enabled = true,
+                    onClick = { isMuted = !isMuted }
+                ) {
+                    CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+                }
+                QuataEditorToolButton(
+                    label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
+                    enabled = true,
+                    onClick = {
                     isCaptionPanelOpen = false
                     isCropPanelOpen = !isCropPanelOpen
-                },
-                onToggleCaptions = {
+                    }
+                ) {
+                    CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null)
+                }
+                QuataEditorToolButton(
+                    label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
+                    enabled = true,
+                    selected = captionStyle != null,
+                    onClick = {
                     isCropPanelOpen = false
                     isCaptionPanelOpen = !isCaptionPanelOpen
-                },
-                onExport = ::export
-            )
+                    }
+                ) {
+                    CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null)
+                }
+                QuataEditorToolButton(
+                    label = stringResource(R.string.video_editor_export),
+                    enabled = true,
+                    onClick = ::export,
+                ) {
+                    CompactIcon(Icons.Filled.Save, contentDescription = null)
+                }
+            }
+        }
+    ) {
 
             if (isLandscapeLayout) {
                 Row(
@@ -801,7 +816,6 @@ fun QuataVideoEditorDialog(
                     onPlayPause = ::playOrPause
                 )
             }
-        }
     }
 
     if (isCancelExportDialogOpen) {
@@ -863,119 +877,6 @@ fun QuataVideoEditorDialog(
                 }
             }
         )
-    }
-}
-
-@Composable
-private fun VideoEditorTopBar(
-    isMuted: Boolean,
-    isCropPanelOpen: Boolean,
-    isCaptionPanelOpen: Boolean,
-    hasCaptions: Boolean,
-    isExporting: Boolean,
-    showTitle: Boolean,
-    onBack: () -> Unit,
-    onToggleMute: () -> Unit,
-    onToggleCrop: () -> Unit,
-    onToggleCaptions: () -> Unit,
-    onExport: () -> Unit
-) {
-    val template = quataTheme()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .background(template.colors.surfaceRaised)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CompactIconButton(onClick = onBack, enabled = true) {
-            CompactIcon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.video_editor_back),
-                tint = template.colors.textPrimary
-            )
-        }
-        Spacer(Modifier.width(6.dp))
-        if (showTitle) {
-            Text(
-                text = stringResource(R.string.video_editor_title),
-                color = template.colors.textPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        } else {
-            Spacer(Modifier.width(8.dp))
-        }
-        if (!isExporting) {
-            VideoToolButton(
-                label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
-                enabled = true,
-                onClick = onToggleMute
-            ) {
-                CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
-            }
-            VideoToolButton(
-                label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
-                enabled = true,
-                onClick = onToggleCrop
-            ) {
-                CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null)
-            }
-            VideoToolButton(
-                label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
-                enabled = true,
-                selected = hasCaptions,
-                onClick = onToggleCaptions
-            ) {
-                CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null)
-            }
-            VideoToolButton(
-                label = stringResource(R.string.video_editor_export),
-                enabled = true,
-                onClick = onExport,
-            ) {
-                CompactIcon(Icons.Filled.Save, contentDescription = null)
-            }
-        }
-    }
-}
-
-@Composable
-private fun VideoToolButton(
-    label: String,
-    enabled: Boolean,
-    selected: Boolean = false,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
-) {
-    val template = quataTheme()
-    val contentAlpha = if (enabled) 1f else 0.42f
-    val iconColor = if (selected) template.colors.accentContent else template.colors.textPrimary.copy(alpha = contentAlpha)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.widthIn(min = 66.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (selected) template.colors.accent else template.colors.surfaceAlt.copy(alpha = if (enabled) 1f else 0.54f))
-                .border(1.dp, if (selected) template.colors.accent else template.colors.divider, RoundedCornerShape(12.dp))
-                .clickable(enabled = enabled, onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            CompositionLocalProvider(LocalContentColor provides iconColor) {
-                Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
-                    icon()
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = template.colors.textSecondary.copy(alpha = contentAlpha), fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -3258,26 +3159,8 @@ private fun TextureView.applyVideoEditorPlaybackTransform(
         val viewHeight = height.toFloat()
         if (viewWidth <= 0f || viewHeight <= 0f) return
         val rotation = rotationDegrees.normalizedVideoRotation()
-        if (crop.isFullFrame && (rotation == 90 || rotation == 270)) {
-            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
-            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
-            val centerX = viewRect.centerX()
-            val centerY = viewRect.centerY()
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
-            val matrix = Matrix().apply {
-                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
-                postRotate(rotation.toFloat(), centerX, centerY)
-            }
-            setTransform(matrix)
-            invalidate()
-            return
-        }
-        if (crop.isFullFrame && rotation == 180) {
-            val matrix = Matrix().apply {
-                postRotate(180f, viewWidth / 2f, viewHeight / 2f)
-            }
-            setTransform(matrix)
-            invalidate()
+        if (crop.isFullFrame) {
+            applyQuataVideoPlaybackTransform(rotation)
             return
         }
         val safeWidth = crop.width.coerceAtLeast(0.01f)

@@ -99,8 +99,11 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.ProfileAvatarWithLoadingHalo
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.components.findQuataTextureView
 import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
+import com.quata.core.ui.components.readQuataVideoRotation
 import com.quata.core.ui.textCanvasBrush
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -112,7 +115,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import android.net.Uri
+import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.compose.runtime.produceState
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -185,13 +191,6 @@ fun NeighborhoodsScreen(
                 .fillMaxSize()
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.neighborhoods_title),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
-                letterSpacing = 1.6.sp
-            )
-            Spacer(Modifier.height(10.dp))
             Text(stringResource(R.string.neighborhoods_open_community), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
@@ -1140,6 +1139,9 @@ private fun MiniFeedAction(
 private fun ProfileVideoPlayer(videoUrl: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val playbackRotation by produceState(initialValue = 0, videoUrl) {
+        value = readQuataVideoRotation(context, Uri.parse(videoUrl))
+    }
     val player = remember(videoUrl) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(videoUrl))
@@ -1166,15 +1168,25 @@ private fun ProfileVideoPlayer(videoUrl: String) {
             .fillMaxWidth()
             .height(430.dp),
         factory = { viewContext ->
-            PlayerView(viewContext).apply {
+            (LayoutInflater.from(viewContext)
+                .inflate(R.layout.quata_attachment_player_texture, null, false) as PlayerView).apply {
                 this.player = player
                 useController = true
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             }
+        },
+        update = { playerView ->
+            playerView.useController = true
+            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            if (playerView.player !== player) {
+                playerView.player = player
+            }
+            playerView.findQuataTextureView()?.applyQuataVideoPlaybackTransform(playbackRotation)
         }
     )
 }

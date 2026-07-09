@@ -16,6 +16,7 @@ import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.core.session.SessionManager
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.chat.data.ChatMessageStateAckManager
 import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
 import com.quata.feature.chat.domain.ChatRepository
@@ -57,6 +58,12 @@ class AppContainer(context: Context) {
         supabaseApi = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager
     )
+    val chatRemoteDataSource = ChatRemoteDataSource(networkModule.supabaseCommunityApi)
+    val chatMessageStateAckManager = ChatMessageStateAckManager(
+        appContext = appContext,
+        remote = chatRemoteDataSource,
+        sessionManager = sessionManager
+    )
 
     val authRepository: AuthRepository = AuthRepositoryImpl(
         appContext = appContext,
@@ -91,10 +98,11 @@ class AppContainer(context: Context) {
 
     val chatRepository: ChatRepository = ChatRepositoryImpl(
         appContext = appContext,
-        remote = ChatRemoteDataSource(networkModule.supabaseCommunityApi),
+        remote = chatRemoteDataSource,
         supabaseRealtimeClient = networkModule.supabaseRealtimeClient,
         sessionManager = sessionManager,
-        mediaUploadOptimizer = mediaUploadOptimizer
+        mediaUploadOptimizer = mediaUploadOptimizer,
+        messageStateAckManager = chatMessageStateAckManager
     )
 
     val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(

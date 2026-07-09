@@ -5,6 +5,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,12 +52,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,9 +68,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,23 +84,34 @@ import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.language.QuataDetectedLanguage
+import com.quata.core.language.QuataLanguageIdentifier
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.model.User
+import com.quata.core.text.decodeHtmlEntities
+import com.quata.core.ui.components.QuataEditorScaffold
+import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
+import com.quata.core.translation.QuataDeepLLanguage
+import com.quata.core.translation.QuataOfficialDeepLTranslator
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostLanguage
+import com.quata.feature.official.domain.OfficialReadMoreOption
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
+import kotlinx.coroutines.launch
+import java.util.UUID
 
 @Composable
 fun OfficialPostEditorRoute(
     padding: PaddingValues,
     repository: OfficialRepository,
-    onBack: () -> Unit,
-    onPublished: () -> Unit,
+    onPublished: (String?) -> Unit,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {},
     viewModel: OfficialFeedViewModel = viewModel(factory = OfficialFeedViewModel.factory(repository))
 ) {
@@ -95,8 +119,9 @@ fun OfficialPostEditorRoute(
 
     LaunchedEffect(state.message) {
         if (state.message != null) {
+            val createdPostId = state.createdPostId
             viewModel.onEvent(OfficialFeedUiEvent.ClearMessage)
-            onPublished()
+            onPublished(createdPostId)
         }
     }
 
@@ -105,8 +130,7 @@ fun OfficialPostEditorRoute(
         currentUser = state.currentUser,
         isPublishing = state.isPublishing,
         error = state.error,
-        onBack = onBack,
-        onSubmit = { draft -> viewModel.onEvent(OfficialFeedUiEvent.CreatePost(draft)) },
+        onSubmit = { drafts -> viewModel.onEvent(OfficialFeedUiEvent.CreatePosts(drafts)) },
         onFullscreenEditorVisibilityChange = onFullscreenEditorVisibilityChange
     )
 }
@@ -117,16 +141,18 @@ fun OfficialPostEditorScreen(
     currentUser: User?,
     isPublishing: Boolean,
     error: String?,
-    onBack: () -> Unit,
-    onSubmit: (OfficialPostDraft) -> Unit,
+    onSubmit: (List<OfficialPostDraft>) -> Unit,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val template = quataTheme()
-    val defaultReadMoreLabel = stringResource(R.string.official_read_more)
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var editorMode by rememberSaveable { mutableStateOf(OfficialEditorMode.Quick) }
     var title by rememberSaveable { mutableStateOf("") }
     var summary by rememberSaveable { mutableStateOf("") }
     var contentHtml by rememberSaveable { mutableStateOf("") }
-    var readMoreLabel by rememberSaveable { mutableStateOf(defaultReadMoreLabel) }
+    var readMoreOption by rememberSaveable { mutableStateOf(OfficialReadMoreOption.ReadMore) }
+    var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
     var linkUrl by rememberSaveable { mutableStateOf("") }
     var mediaUrl by rememberSaveable { mutableStateOf("") }
     var mediaType by rememberSaveable { mutableStateOf<OfficialMediaType?>(null) }
@@ -136,6 +162,7 @@ fun OfficialPostEditorScreen(
     var longEditorHtml by rememberSaveable { mutableStateOf("") }
     var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var pendingTranslation by remember { mutableStateOf<OfficialPendingTranslation?>(null) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         imageEditorUri = uri
@@ -152,16 +179,67 @@ fun OfficialPostEditorScreen(
         isLongEditorOpen = false
     }
 
+    val contentPlain = contentHtml.stripHtmlForOfficialEditor()
+    val quickTextBlocks = remember(contentHtml) { contentHtml.extractOfficialEditorBlocks() }
+    val quickTitle = quickTextBlocks.firstOrNull().orEmpty()
+    val quickSummary = quickTextBlocks.drop(1).joinToString(" ").ellipsizeOfficialSummary(140)
+    val effectiveTitle = if (editorMode == OfficialEditorMode.Quick) quickTitle else title.trim()
+    val effectiveSummary = if (editorMode == OfficialEditorMode.Quick) quickSummary else summary.trim()
+    val effectiveReadMoreCode = if (editorMode == OfficialEditorMode.Quick) {
+        OfficialReadMoreOption.ReadMore.shortcode
+    } else {
+        readMoreOption.shortcode
+    }
+    val effectiveLinkUrl = if (editorMode == OfficialEditorMode.Quick) "" else linkUrl.trim()
+
     fun canPublishPost(): Boolean =
-        title.isNotBlank() && (
-            summary.isNotBlank() ||
-                contentHtml.stripHtmlForOfficialEditor().isNotBlank() ||
-                (mediaType != null && mediaUrl.isNotBlank())
+        if (editorMode == OfficialEditorMode.Quick) {
+            contentPlain.isNotBlank()
+        } else {
+            title.isNotBlank() && (
+                summary.isNotBlank() ||
+                    contentPlain.isNotBlank() ||
+                    (mediaType != null && mediaUrl.isNotBlank())
+                )
+        }
+
+    fun buildDraft(language: OfficialPostLanguage = currentOfficialPostLanguage()): OfficialPostDraft =
+        OfficialPostDraft(
+            title = effectiveTitle.ifBlank { context.getString(R.string.official_post_default_title) },
+            summary = effectiveSummary,
+            contentHtml = contentHtml,
+            readMoreLabel = effectiveReadMoreCode,
+            language = language,
+            type = postType,
+            mediaUrl = mediaUrl.takeIf { mediaType != null && it.isNotBlank() },
+            mediaType = mediaType?.takeIf { mediaUrl.isNotBlank() },
+            linkUrl = effectiveLinkUrl.takeIf { it.isNotBlank() },
+            isLive = false
+        )
+
+    fun requestPublication() {
+        val draft = buildDraft()
+        coroutineScope.launch {
+            val sourceLanguage = detectOfficialPostLanguage(context, draft)
+            val missingLanguages = OfficialPostLanguage.entries.filterNot { it == sourceLanguage }
+            pendingTranslation = OfficialPendingTranslation(
+                draft = draft.copy(language = sourceLanguage),
+                sourceLanguage = sourceLanguage,
+                targetLanguages = missingLanguages
             )
+        }
+    }
 
     if (isLongEditorOpen) {
         OfficialLongContentEditor(
             html = longEditorHtml,
+            title = stringResource(
+                if (editorMode == OfficialEditorMode.Quick) {
+                    R.string.official_form_body_quick
+                } else {
+                    R.string.official_form_body
+                }
+            ),
             onHtmlChange = { longEditorHtml = it },
             onBack = { isLongEditorOpen = false },
             onSave = {
@@ -179,17 +257,52 @@ fun OfficialPostEditorScreen(
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack, enabled = !isPublishing) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    Text(
+                        text = stringResource(R.string.official_create),
+                        color = template.colors.textPrimary,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 23.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OfficialEditorCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(
+                                        if (editorMode == OfficialEditorMode.Quick) {
+                                            R.string.official_form_mode_quick
+                                        } else {
+                                            R.string.official_form_mode_advanced
+                                        }
+                                    ),
+                                    color = template.colors.textPrimary,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = stringResource(
+                                        if (editorMode == OfficialEditorMode.Quick) {
+                                            R.string.official_form_mode_description_quick
+                                        } else {
+                                            R.string.official_form_mode_description_advanced
+                                        }
+                                    ),
+                                    color = template.colors.textSecondary,
+                                    fontSize = 13.sp,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                            Switch(
+                                checked = editorMode == OfficialEditorMode.Advanced,
+                                onCheckedChange = { checked ->
+                                    editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
+                                }
+                            )
                         }
-                        Text(
-                            text = stringResource(R.string.official_create),
-                            color = template.colors.textPrimary,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 23.sp,
-                            modifier = Modifier.weight(1f)
-                        )
                     }
 
                     OfficialEditorCard {
@@ -210,20 +323,22 @@ fun OfficialPostEditorScreen(
                                 }
                             }
                         }
-                        OutlinedTextField(
-                            value = title,
-                            onValueChange = { title = it },
-                            label = { Text(stringResource(R.string.official_form_title)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = summary,
-                            onValueChange = { summary = it },
-                            label = { Text(stringResource(R.string.official_form_summary)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3
-                        )
+                        if (editorMode == OfficialEditorMode.Advanced) {
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it },
+                                label = { Text(stringResource(R.string.official_form_title)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = summary,
+                                onValueChange = { summary = it },
+                                label = { Text(stringResource(R.string.official_form_summary)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 3
+                            )
+                        }
                     }
 
                     OfficialEditorCard {
@@ -266,14 +381,39 @@ fun OfficialPostEditorScreen(
                     }
 
                     OfficialEditorCard {
-                        OfficialEditorSectionTitle(stringResource(R.string.official_form_read_more_section))
-                        OutlinedTextField(
-                            value = readMoreLabel,
-                            onValueChange = { readMoreLabel = it },
-                            label = { Text(stringResource(R.string.official_form_read_more_label)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                        OfficialEditorSectionTitle(
+                            stringResource(
+                                if (editorMode == OfficialEditorMode.Quick) {
+                                    R.string.official_form_body_quick
+                                } else {
+                                    R.string.official_form_read_more_section
+                                }
+                            )
                         )
+                        if (editorMode == OfficialEditorMode.Advanced) {
+                            Box(Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { readMoreMenuOpen = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(localizedOfficialReadMoreLabel(readMoreOption.shortcode))
+                                }
+                                DropdownMenu(
+                                    expanded = readMoreMenuOpen,
+                                    onDismissRequest = { readMoreMenuOpen = false }
+                                ) {
+                                    officialReadMoreUiOptions.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(option.labelRes)) },
+                                            onClick = {
+                                                readMoreOption = option.option
+                                                readMoreMenuOpen = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         OutlinedButton(
                             onClick = {
                                 longEditorHtml = contentHtml
@@ -283,28 +423,39 @@ fun OfficialPostEditorScreen(
                         ) {
                             Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.size(8.dp))
-                            Text(stringResource(R.string.official_form_edit_body), fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                stringResource(
+                                    if (editorMode == OfficialEditorMode.Quick) {
+                                        R.string.official_form_edit_body_quick
+                                    } else {
+                                        R.string.official_form_edit_body
+                                    }
+                                ),
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         }
-                        OutlinedTextField(
-                            value = linkUrl,
-                            onValueChange = { linkUrl = it },
-                            label = { Text(stringResource(R.string.official_form_link)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                        if (editorMode == OfficialEditorMode.Advanced) {
+                            OutlinedTextField(
+                                value = linkUrl,
+                                onValueChange = { linkUrl = it },
+                                label = { Text(stringResource(R.string.official_form_link)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
                     }
 
                     OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
                     OfficialPostPreview(
                         author = currentUser,
-                        title = title,
-                        summary = summary,
+                        title = effectiveTitle,
+                        summary = effectiveSummary,
                         contentHtml = contentHtml,
-                        readMoreLabel = readMoreLabel.ifBlank { defaultReadMoreLabel },
+                        readMoreLabel = effectiveReadMoreCode,
                         postType = postType,
                         mediaUrl = mediaUrl,
                         mediaType = mediaType,
-                        linkUrl = linkUrl
+                        linkUrl = effectiveLinkUrl
                     )
 
                     if (error != null) {
@@ -314,25 +465,41 @@ fun OfficialPostEditorScreen(
                     OfficialPublishButton(
                         enabled = canPublishPost(),
                         isPublishing = isPublishing,
-                        onClick = {
-                            onSubmit(
-                                OfficialPostDraft(
-                                    title = title.trim(),
-                                    summary = summary.trim(),
-                                    contentHtml = contentHtml,
-                                    readMoreLabel = readMoreLabel.trim().ifBlank { defaultReadMoreLabel },
-                                    type = postType,
-                                    mediaUrl = mediaUrl.takeIf { mediaType != null && it.isNotBlank() },
-                                    mediaType = mediaType?.takeIf { mediaUrl.isNotBlank() },
-                                    linkUrl = linkUrl.trim().takeIf { it.isNotBlank() },
-                                    isLive = false
-                                )
-                            )
-                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { requestPublication() },
                     )
+                    Spacer(Modifier.height(96.dp))
                 }
             }
         }
+    }
+
+    pendingTranslation?.let { pending ->
+        OfficialTranslationPromptDialog(
+            pending = pending,
+            onDismiss = {
+                if (!pending.isTranslating) {
+                    pendingTranslation = null
+                }
+            },
+            onSkip = {
+                val groupId = UUID.randomUUID().toString()
+                onSubmit(listOf(pending.draft.copy(translationGroupId = groupId)))
+                pendingTranslation = null
+            },
+            onGenerate = {
+                pendingTranslation = pending.copy(isTranslating = true)
+                coroutineScope.launch {
+                    val translatedDrafts = runCatching {
+                        buildTranslatedOfficialDrafts(context, pending)
+                    }.getOrElse {
+                        listOf(pending.draft.copy(translationGroupId = UUID.randomUUID().toString()))
+                    }
+                    onSubmit(translatedDrafts)
+                    pendingTranslation = null
+                }
+            }
+        )
     }
 
     imageEditorUri?.let { sourceUri ->
@@ -360,42 +527,187 @@ fun OfficialPostEditorScreen(
     }
 }
 
+private enum class OfficialEditorMode {
+    Quick,
+    Advanced
+}
+
+private data class OfficialPendingTranslation(
+    val draft: OfficialPostDraft,
+    val sourceLanguage: OfficialPostLanguage,
+    val targetLanguages: List<OfficialPostLanguage>,
+    val isTranslating: Boolean = false
+)
+
+@Composable
+private fun OfficialTranslationPromptDialog(
+    pending: OfficialPendingTranslation,
+    onDismiss: () -> Unit,
+    onSkip: () -> Unit,
+    onGenerate: () -> Unit
+) {
+    val spanishName = stringResource(R.string.official_language_spanish)
+    val englishName = stringResource(R.string.official_language_english)
+    val frenchName = stringResource(R.string.official_language_french)
+    fun languageName(language: OfficialPostLanguage): String = when (language) {
+        OfficialPostLanguage.Spanish -> spanishName
+        OfficialPostLanguage.English -> englishName
+        OfficialPostLanguage.French -> frenchName
+    }
+    val targets = pending.targetLanguages.joinToString(", ") { languageName(it) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.official_translation_title), fontWeight = FontWeight.Black) },
+        text = {
+            if (pending.isTranslating) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OfficialTranslationLoader()
+                    Text(stringResource(R.string.official_translation_progress), fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Text(
+                    stringResource(
+                        R.string.official_translation_message,
+                        languageName(pending.sourceLanguage),
+                        targets
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !pending.isTranslating, onClick = onGenerate) {
+                Text(stringResource(R.string.official_translation_confirm), fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !pending.isTranslating, onClick = onSkip) {
+                Text(stringResource(R.string.official_translation_skip))
+            }
+        }
+    )
+}
+
+@Composable
+private fun OfficialTranslationLoader() {
+    val transition = rememberInfiniteTransition(label = "official_translation_loader")
+    val step by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "official_translation_loader_step"
+    )
+    val flip by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "official_translation_loader_flip"
+    )
+    val isSecondPhase = step >= 0.5f
+    val containerRotation = if (isSecondPhase) -90f else 0f
+    val containerScale = if (isSecondPhase) -1f else 1f
+    val halfColor = if (isSecondPhase) Color(0xFF25B09B) else Color(0xFF514B82)
+    val halfTravel = when {
+        flip <= 0.05f -> 0.dp
+        flip <= 0.33f -> ((flip - 0.05f) / 0.28f * -10f).dp
+        flip <= 0.66f -> (-10).dp
+        flip <= 0.95f -> (-10f + ((flip - 0.66f) / 0.29f * 10f)).dp
+        else -> 0.dp
+    }
+    val halfRotationX = when {
+        flip <= 0.33f -> 0f
+        flip <= 0.66f -> ((flip - 0.33f) / 0.33f) * -180f
+        else -> -180f
+    }
+    val leftShape = if (isSecondPhase) {
+        RoundedCornerShape(topStart = 30.dp, bottomStart = 30.dp)
+    } else {
+        RoundedCornerShape(0.dp)
+    }
+    val rightShape = if (isSecondPhase) {
+        RoundedCornerShape(topEnd = 30.dp, bottomEnd = 30.dp)
+    } else {
+        RoundedCornerShape(0.dp)
+    }
+    Row(
+        modifier = Modifier
+            .size(60.dp)
+            .rotate(containerRotation)
+            .graphicsLayer {
+                scaleX = containerScale
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(30.dp)
+                .graphicsLayer {
+                    translationX = halfTravel.toPx()
+                    rotationX = halfRotationX
+                    cameraDistance = 12f * density
+                }
+                .background(halfColor, leftShape)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(30.dp)
+                .graphicsLayer {
+                    translationX = -halfTravel.toPx()
+                    rotationX = -halfRotationX
+                    cameraDistance = 12f * density
+                }
+                .background(halfColor, rightShape)
+        )
+    }
+}
+
 @Composable
 private fun OfficialLongContentEditor(
     html: String,
+    title: String,
     onHtmlChange: (String) -> Unit,
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
     val template = quataTheme()
-    Surface(color = template.colors.background, contentColor = template.colors.textPrimary, modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
-                Text(
-                    stringResource(R.string.official_form_body),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 22.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onSave) {
-                    Text(stringResource(R.string.common_save_changes))
-                }
+    QuataEditorScaffold(
+        title = title,
+        showTitle = true,
+        onBack = onBack,
+        actions = {
+            QuataEditorToolButton(
+                label = stringResource(R.string.common_save_changes),
+                enabled = true,
+                onClick = onSave
+            ) {
+                Icon(Icons.Filled.Save, contentDescription = null)
             }
+        }
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 10.dp)
+        ) {
             QuataRichTextEditorBox(
                 initialHtml = html,
-                placeholder = stringResource(R.string.official_form_body),
+                placeholder = title,
                 onHtmlChange = onHtmlChange,
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxSize()
                     .fillMaxWidth()
                     .border(1.dp, template.colors.divider, RoundedCornerShape(8.dp))
                     .padding(top = 6.dp, bottom = 2.dp)
@@ -559,7 +871,7 @@ private fun OfficialPostPreview(
         summary = safeSummary,
         contentHtml = safeContentHtml,
         contentPlain = longTextPlain,
-        readMoreLabel = readMoreLabel.ifBlank { stringResource(R.string.official_read_more) },
+        readMoreLabel = readMoreLabel,
         type = postType,
         mediaUrl = mediaUrl.takeIf { mediaType != null && it.isNotBlank() },
         mediaType = mediaType?.takeIf { mediaUrl.isNotBlank() },
@@ -661,6 +973,164 @@ private fun OfficialPostType.editorLabel(): String = when (this) {
     OfficialPostType.Urgent -> stringResource(R.string.official_type_urgent)
 }
 
+@Composable
+private fun OfficialPostLanguage.localizedName(): String = stringResource(
+    when (this) {
+        OfficialPostLanguage.Spanish -> R.string.official_language_spanish
+        OfficialPostLanguage.English -> R.string.official_language_english
+        OfficialPostLanguage.French -> R.string.official_language_french
+    }
+)
+
+private fun currentOfficialPostLanguage(): OfficialPostLanguage =
+    OfficialPostLanguage.fromAppLanguage(QuataLanguageManager.currentLanguage.tag)
+
+private suspend fun detectOfficialPostLanguage(
+    context: android.content.Context,
+    draft: OfficialPostDraft
+): OfficialPostLanguage {
+    val text = buildString {
+        appendLine(draft.title)
+        appendLine(draft.summary)
+        append(draft.contentHtml.stripHtmlForOfficialEditor())
+    }.trim()
+    val detected = runCatching { QuataLanguageIdentifier.detect(context, text) }.getOrNull()?.language
+    return when (detected) {
+        QuataDetectedLanguage.Spanish -> OfficialPostLanguage.Spanish
+        QuataDetectedLanguage.English -> OfficialPostLanguage.English
+        QuataDetectedLanguage.French -> OfficialPostLanguage.French
+        else -> currentOfficialPostLanguage()
+    }
+}
+
+private suspend fun buildTranslatedOfficialDrafts(
+    context: android.content.Context,
+    pending: OfficialPendingTranslation
+): List<OfficialPostDraft> {
+    val groupId = UUID.randomUUID().toString()
+    val sourceDraft = pending.draft.copy(
+        language = pending.sourceLanguage,
+        translationGroupId = groupId
+    )
+    val translations = pending.targetLanguages.map { target ->
+        translateOfficialDraft(
+            context = context,
+            draft = sourceDraft,
+            source = pending.sourceLanguage,
+            target = target,
+            groupId = groupId
+        )
+    }
+    return listOf(sourceDraft) + translations
+}
+
+private suspend fun translateOfficialDraft(
+    context: android.content.Context,
+    draft: OfficialPostDraft,
+    source: OfficialPostLanguage,
+    target: OfficialPostLanguage,
+    groupId: String
+): OfficialPostDraft {
+    val sourceLanguage = source.toDeepLLanguage()
+    val targetLanguage = target.toDeepLLanguage()
+    return draft.copy(
+        title = translateOfficialText(context, draft.title, sourceLanguage, targetLanguage),
+        summary = translateOfficialText(context, draft.summary, sourceLanguage, targetLanguage),
+        contentHtml = translateOfficialHtml(context, draft.contentHtml, sourceLanguage, targetLanguage),
+        language = target,
+        translationGroupId = groupId
+    )
+}
+
+private suspend fun translateOfficialHtml(
+    context: android.content.Context,
+    html: String,
+    source: QuataDeepLLanguage,
+    target: QuataDeepLLanguage
+): String {
+    val matches = OfficialHtmlBlockRegex.findAll(html).toList()
+    if (matches.isEmpty()) {
+        val translated = translateOfficialText(
+            context = context,
+            text = html.stripHtmlForOfficialEditor(),
+            source = source,
+            target = target
+        )
+        return "<p>${translated.escapePreviewHtml()}</p>"
+    }
+
+    val translated = StringBuilder()
+    var cursor = 0
+    matches.forEach { match ->
+        translated.append(html.substring(cursor, match.range.first))
+        val tag = match.groupValues[1]
+        val attributes = match.groupValues.getOrNull(2).orEmpty()
+        val inner = match.groupValues.getOrNull(3).orEmpty().stripHtmlForOfficialEditor()
+        val translatedInner = translateOfficialText(
+            context = context,
+            text = inner,
+            source = source,
+            target = target
+        )
+        translated.append('<')
+            .append(tag)
+            .append(attributes)
+            .append('>')
+            .append(translatedInner.escapePreviewHtml())
+            .append("</")
+            .append(tag)
+            .append('>')
+        cursor = match.range.last + 1
+    }
+    translated.append(html.substring(cursor))
+    return translated.toString()
+}
+
+private suspend fun translateOfficialText(
+    context: android.content.Context,
+    text: String,
+    source: QuataDeepLLanguage,
+    target: QuataDeepLLanguage
+): String {
+    val normalized = text.trim()
+    if (normalized.isBlank()) return ""
+    if (source == target) return normalized
+    return QuataOfficialDeepLTranslator.shared
+        .translateText(normalized, source, target)
+        .ifBlank { normalized }
+}
+
+private fun OfficialPostLanguage.toDeepLLanguage(): QuataDeepLLanguage = when (this) {
+    OfficialPostLanguage.Spanish -> QuataDeepLLanguage.Spanish
+    OfficialPostLanguage.English -> QuataDeepLLanguage.English
+    OfficialPostLanguage.French -> QuataDeepLLanguage.French
+}
+
+private fun String.extractOfficialEditorBlocks(): List<String> {
+    val blocks = OfficialHtmlBlockRegex.findAll(this)
+        .map { it.groupValues.getOrNull(3).orEmpty().stripHtmlForOfficialEditor() }
+        .map { it.normalizeOfficialPlainText() }
+        .filter { it.isNotBlank() }
+        .toList()
+    return blocks.ifEmpty {
+        listOf(stripHtmlForOfficialEditor().normalizeOfficialPlainText()).filter { it.isNotBlank() }
+    }
+}
+
+private fun String.ellipsizeOfficialSummary(maxChars: Int): String {
+    val normalized = normalizeOfficialPlainText()
+    if (normalized.length <= maxChars) return normalized
+    return normalized.take(maxChars).trimEnd('.', ',', ';', ':', ' ') + "..."
+}
+
+private fun String.normalizeOfficialPlainText(): String =
+    decodeHtmlEntities().replace(Regex("\\s+"), " ").trim()
+
 private fun String.stripHtmlForOfficialEditor(): String = replace(Regex("<[^>]+>"), " ")
     .replace("&nbsp;", " ")
     .trim()
+
+private val OfficialHtmlBlockRegex = Regex(
+    pattern = "<(h[1-6]|p|blockquote|li)([^>]*)>(.*?)</\\1>",
+    options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+)

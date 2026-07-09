@@ -487,7 +487,10 @@
     <string name="official_type_news">Actualite</string>
     <string name="official_type_event">Evenement</string>
     <string name="official_type_urgent">Urgent</string>
-    <string name="official_read_more">Plus d informations</string>
+    <string name="official_read_more">Lire plus</string>
+    <string name="official_read_more_more_information">Plus d informations</string>
+    <string name="official_read_more_continue_reading">Continuer la lecture</string>
+    <string name="official_read_more_details">Details</string>
     <string name="official_communicated">Communique</string>
     <string name="official_delete">Supprimer publication officielle</string>
     <string name="official_delete_confirm_title">Supprimer la publication officielle ?</string>
@@ -495,10 +498,16 @@
     <string name="official_form_main_section">Details de la publication</string>
     <string name="official_form_media_section">Photo ou video</string>
     <string name="official_form_read_more_section">Lire plus</string>
+    <string name="official_form_mode_quick">Mode rapide</string>
+    <string name="official_form_mode_advanced">Mode avance</string>
+    <string name="official_form_mode_description_quick">Ecrivez le texte complet ; Q&#252;ata extrait le titre et le resume.</string>
+    <string name="official_form_mode_description_advanced">Controlez le titre, le resume, le texte du lien et l URL d information.</string>
     <string name="official_form_title">Titre</string>
     <string name="official_form_summary">Resume court</string>
     <string name="official_form_body">Description longue</string>
+    <string name="official_form_body_quick">Description</string>
     <string name="official_form_edit_body">Modifier la description longue</string>
+    <string name="official_form_edit_body_quick">Modifier la description</string>
     <string name="official_form_read_more_label">Texte du lien pour lire plus</string>
     <string name="official_form_link">Lien d information</string>
     <string name="official_form_media_url">URL du media</string>
@@ -507,6 +516,14 @@
     <string name="official_media_video">Video</string>
     <string name="official_form_live">Marquer comme LIVE</string>
     <string name="official_publish">Publier</string>
+    <string name="official_translation_title">Generer les traductions ?</string>
+    <string name="official_translation_message">Le texte semble etre en %1$s. Voulez-vous generer automatiquement les versions en %2$s ?</string>
+    <string name="official_translation_confirm">Generer</string>
+    <string name="official_translation_skip">Publier ainsi</string>
+    <string name="official_translation_progress">Traduction...</string>
+    <string name="official_language_spanish">espagnol</string>
+    <string name="official_language_english">anglais</string>
+    <string name="official_language_french">francais</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
 </resources>

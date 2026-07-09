@@ -11,6 +11,7 @@ import coil.memory.MemoryCache
 import com.quata.core.di.AppContainer
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.AuthSession
+import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
 import com.google.android.play.core.splitcompat.SplitCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ class QuataApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        ChatMessageStateWorkScheduler.ensurePeriodic(this)
         observeSupabaseAuthState()
         refreshSupabaseSessionIfNeeded()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

@@ -7,6 +7,7 @@ import com.quata.core.common.UserFacingException
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
@@ -25,6 +26,7 @@ import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.wordpress.QuataWordPressClient
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import java.util.UUID
 
 class OfficialRepositoryImpl(
     private val appContext: Context,
@@ -51,7 +54,8 @@ class OfficialRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             mockPostsState.map { Result.success(it) }
         } else {
-            supabaseApi.observeOfficialPosts()
+            supabaseApi.observeOfficialPosts(language = currentOfficialLanguage().remoteValue)
+                .map { posts -> posts.selectPreferredTranslations(currentOfficialLanguage()) }
                 .flatMapLatest { posts ->
                     val postIds = posts.map { it.id }
                     if (postIds.isEmpty()) {
@@ -82,12 +86,41 @@ class OfficialRepositoryImpl(
         }
 
     override suspend fun getOfficialFeed(): Result<List<OfficialPostItem>> =
-        runCatching { loadOfficialFeed(SupabaseCacheMode.CACHE_FIRST) }
+        runCatching { loadOfficialFeed(SupabaseCacheMode.CACHE_FIRST, OfficialFeedPageSize) }
             .mapFailureToUserFacing(appContext, R.string.error_load_official_feed)
 
     override suspend fun refreshOfficialFeed(): Result<List<OfficialPostItem>> =
-        runCatching { loadOfficialFeed(SupabaseCacheMode.NETWORK_ONLY) }
+        runCatching { loadOfficialFeed(SupabaseCacheMode.NETWORK_ONLY, OfficialFeedPageSize) }
             .mapFailureToUserFacing(appContext, R.string.error_load_official_feed)
+
+    override suspend fun loadOlderOfficialFeedPage(beforePublishedAt: String?, limit: Int): Result<List<OfficialPostItem>> =
+        runCatching {
+            if (AppConfig.USE_MOCK_BACKEND) {
+                val cursorIndex = beforePublishedAt
+                    ?.let { cursor -> mockPostsState.value.indexOfFirst { it.createdAt == cursor } }
+                    ?.takeIf { it >= 0 }
+                    ?: -1
+                mockPostsState.value
+                    .drop(cursorIndex + 1)
+                    .take(limit.coerceAtLeast(1))
+            } else {
+                loadOfficialFeed(
+                    cacheMode = SupabaseCacheMode.CACHE_FIRST,
+                    limit = limit.coerceAtLeast(1),
+                    publishedBefore = beforePublishedAt
+                )
+            }
+        }
+            .mapFailureToUserFacing(appContext, R.string.error_load_official_feed)
+
+    override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> =
+        runCatching {
+            if (AppConfig.USE_MOCK_BACKEND) {
+                mockPostsState.value.firstOrNull { it.id == postId }
+            } else {
+                loadOfficialPost(postId, SupabaseCacheMode.NETWORK_ONLY)
+            }
+        }.mapFailureToUserFacing(appContext, R.string.error_load_official_feed)
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = sessionManager.currentSession()?.userId ?: return@runCatching null
@@ -101,49 +134,73 @@ class OfficialRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = runCatching {
+        createOfficialPostsInternal(listOf(draft))
+    }.mapFailureToUserFacing(appContext, R.string.error_publish_post)
+
+    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {
+        createOfficialPostsInternal(drafts)
+    }.mapFailureToUserFacing(appContext, R.string.error_publish_post)
+
+    private suspend fun createOfficialPostsInternal(drafts: List<OfficialPostDraft>): OfficialPostItem? {
+        val safeDrafts = drafts.filter { it.contentHtmlOrFallback().stripHtmlTagsAndDecode().isNotBlank() }
+        if (safeDrafts.isEmpty()) return null
         val session = sessionManager.currentSession()
             ?: throw UserFacingException(appContext.getString(R.string.error_backend_unauthorized))
-        val contentHtml = draft.contentHtmlOrFallback()
-        if (AppConfig.USE_MOCK_BACKEND) {
+        val firstDraft = safeDrafts.first()
+        val groupId = safeDrafts.firstNotNullOfOrNull { it.translationGroupId?.takeIf(String::isNotBlank) }
+            ?: UUID.randomUUID().toString()
+        return if (AppConfig.USE_MOCK_BACKEND) {
             val currentUser = MockData.userById(session.userId).copy(isAdmin = true, isOfficial = true)
-            val created = OfficialPostItem(
-                id = "official_${System.currentTimeMillis()}",
-                author = currentUser,
-                title = draft.title.trim(),
-                summary = draft.summary.trim(),
-                contentHtml = contentHtml,
-                contentPlain = contentHtml.stripHtmlTagsAndDecode(),
-                readMoreLabel = draft.readMoreLabel.trim(),
-                type = draft.type,
-                mediaUrl = draft.mediaUrl,
-                mediaType = draft.mediaType,
-                linkUrl = draft.linkUrl,
-                isLive = draft.isLive,
-                createdAt = appContext.getString(R.string.common_now)
-            )
-            mockPostsState.value = listOf(created) + mockPostsState.value
-            created
+            val createdPosts = safeDrafts.mapIndexed { index, draft ->
+                val contentHtml = draft.contentHtmlOrFallback()
+                OfficialPostItem(
+                    id = "official_${System.currentTimeMillis()}_$index",
+                    author = currentUser,
+                    title = draft.title.trim(),
+                    summary = draft.summary.trim(),
+                    contentHtml = contentHtml,
+                    contentPlain = contentHtml.stripHtmlTagsAndDecode(),
+                    readMoreLabel = draft.readMoreLabel.trim(),
+                    language = draft.language,
+                    translationGroupId = groupId,
+                    type = draft.type,
+                    mediaUrl = draft.mediaUrl,
+                    mediaType = draft.mediaType,
+                    linkUrl = draft.linkUrl,
+                    isLive = draft.isLive,
+                    createdAt = appContext.getString(R.string.common_now)
+                )
+            }
+            mockPostsState.value = createdPosts.selectPreferredDomainTranslations(currentOfficialLanguage()) + mockPostsState.value
+            createdPosts.selectPreferredDomainTranslations(currentOfficialLanguage()).firstOrNull()
         } else {
             val currentProfile = supabaseApi.getProfiles(listOf(session.userId), cacheMode = SupabaseCacheMode.NETWORK_ONLY).firstOrNull()
             if (currentProfile?.is_official != true) {
                 throw UserFacingException(appContext.getString(R.string.official_not_allowed))
             }
-            val publicMediaUrl = uploadOfficialMediaIfNeeded(session.userId, draft)
-            val created = supabaseApi.createOfficialPost(
-                profileId = session.userId,
-                title = draft.title.trim(),
-                summary = draft.summary.trim().takeIf { it.isNotBlank() },
-                postType = draft.type.remoteValue,
-                contentHtml = contentHtml,
-                readMoreLabel = draft.readMoreLabel.trim().takeIf { it.isNotBlank() },
-                mediaUrl = publicMediaUrl,
-                mediaType = draft.mediaType?.remoteValue,
-                linkUrl = draft.linkUrl?.trim()?.takeIf { it.isNotBlank() },
-                isLive = draft.isLive
-            ) ?: return@runCatching null
-            loadOfficialPost(created.id, SupabaseCacheMode.NETWORK_ONLY)
+            val publicMediaUrl = uploadOfficialMediaIfNeeded(session.userId, firstDraft)
+            val created = safeDrafts.mapNotNull { draft ->
+                supabaseApi.createOfficialPost(
+                    profileId = session.userId,
+                    title = draft.title.trim(),
+                    summary = draft.summary.trim().takeIf { it.isNotBlank() },
+                    postType = draft.type.remoteValue,
+                    contentHtml = draft.contentHtmlOrFallback(),
+                    readMoreLabel = draft.readMoreLabel.trim().takeIf { it.isNotBlank() },
+                    language = draft.language.remoteValue,
+                    translationGroupId = groupId,
+                    mediaUrl = publicMediaUrl,
+                    mediaType = draft.mediaType?.remoteValue,
+                    linkUrl = draft.linkUrl?.trim()?.takeIf { it.isNotBlank() },
+                    isLive = draft.isLive
+                )
+            }
+            val preferred = created.selectPreferredTranslations(currentOfficialLanguage()).firstOrNull()
+                ?: created.firstOrNull()
+                ?: return null
+            loadOfficialPost(preferred.id, SupabaseCacheMode.NETWORK_ONLY)
         }
-    }.mapFailureToUserFacing(appContext, R.string.error_publish_post)
+    }
 
     private suspend fun uploadOfficialMediaIfNeeded(profileId: String, draft: OfficialPostDraft): String? {
         val rawUri = draft.mediaUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
@@ -190,9 +247,13 @@ class OfficialRepositoryImpl(
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
-            mockPostsState.value = mockPostsState.value.filterNot { it.id == postId }
+            val groupId = mockPostsState.value.firstOrNull { it.id == postId }?.translationGroupId
+            mockPostsState.value = mockPostsState.value.filterNot {
+                it.id == postId || (groupId != null && it.translationGroupId == groupId)
+            }
         } else {
-            supabaseApi.deleteOfficialPost(postId)
+            val post = loadOfficialPost(postId, SupabaseCacheMode.NETWORK_ONLY)
+            supabaseApi.deleteOfficialPost(postId, post?.translationGroupId)
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -246,9 +307,18 @@ class OfficialRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    private suspend fun loadOfficialFeed(cacheMode: SupabaseCacheMode): List<OfficialPostItem> {
-        if (AppConfig.USE_MOCK_BACKEND) return mockPostsState.value
-        val posts = supabaseApi.getOfficialPosts(cacheMode = cacheMode)
+    private suspend fun loadOfficialFeed(
+        cacheMode: SupabaseCacheMode,
+        limit: Int,
+        publishedBefore: String? = null
+    ): List<OfficialPostItem> {
+        if (AppConfig.USE_MOCK_BACKEND) return mockPostsState.value.take(limit.coerceAtLeast(1))
+        val posts = supabaseApi.getOfficialPosts(
+            limit = limit,
+            publishedBefore = publishedBefore,
+            language = currentOfficialLanguage().remoteValue,
+            cacheMode = cacheMode
+        ).selectPreferredTranslations(currentOfficialLanguage())
         val postIds = posts.map { it.id }
         val likes = supabaseApi.getOfficialLikes(postIds, cacheMode)
         val comments = supabaseApi.getOfficialComments(postIds, cacheMode)
@@ -260,7 +330,11 @@ class OfficialRepositoryImpl(
     }
 
     private suspend fun loadOfficialPost(postId: String, cacheMode: SupabaseCacheMode): OfficialPostItem? {
-        val post = supabaseApi.getOfficialPosts(limit = 1, postId = postId, cacheMode = cacheMode).firstOrNull() ?: return null
+        val post = supabaseApi.getOfficialPosts(
+            limit = 1,
+            postId = postId,
+            cacheMode = cacheMode
+        ).selectPreferredTranslations(currentOfficialLanguage()).firstOrNull() ?: return null
         val likes = supabaseApi.getOfficialLikes(listOf(postId), cacheMode)
         val comments = supabaseApi.getOfficialComments(listOf(postId), cacheMode)
         val snapshot = OfficialSnapshot(posts = listOf(post), likes = likes, comments = comments)
@@ -344,6 +418,8 @@ class OfficialRepositoryImpl(
             contentHtml = safeHtml,
             contentPlain = safePlain,
             readMoreLabel = read_more_label?.decodeHtmlEntities().orEmpty(),
+            language = OfficialPostLanguage.fromRemote(language),
+            translationGroupId = translation_group_id,
             type = OfficialPostType.fromRemote(post_type),
             mediaUrl = media_url,
             mediaType = OfficialMediaType.fromRemote(media_type),
@@ -397,6 +473,8 @@ class OfficialRepositoryImpl(
                 contentHtml = "<h1>Campana Nacional de Vacunacion 2025</h1><p>A partir del lunes se habilitaran nuevos puntos de vacunacion en Bata y Malabo.</p><blockquote>La vacunacion es gratuita, segura y protege a toda la comunidad.</blockquote>",
                 contentPlain = "Campana Nacional de Vacunacion 2025\nA partir del lunes se habilitaran nuevos puntos de vacunacion en Bata y Malabo.",
                 readMoreLabel = appContext.getString(R.string.official_read_more),
+                language = OfficialPostLanguage.Spanish,
+                translationGroupId = "official_mock_1",
                 type = OfficialPostType.Announcement,
                 linkUrl = "https://www.salud.ge",
                 isLive = true,
@@ -409,5 +487,45 @@ class OfficialRepositoryImpl(
 
     private companion object {
         const val OFFICIAL_REPOSITORY_LOG_TAG = "QuataOfficial"
+        const val OfficialFeedPageSize = 50
     }
+
+    private fun currentOfficialLanguage(): OfficialPostLanguage =
+        OfficialPostLanguage.fromAppLanguage(QuataLanguageManager.currentLanguage.tag)
+
+    private fun List<OfficialPost>.selectPreferredTranslations(
+        preferredLanguage: OfficialPostLanguage
+    ): List<OfficialPost> =
+        groupBy { it.translation_group_id ?: it.id }
+            .values
+            .mapNotNull { variants ->
+                variants.minWithOrNull(
+                    compareBy<OfficialPost> {
+                        when (OfficialPostLanguage.fromRemote(it.language)) {
+                            preferredLanguage -> 0
+                            OfficialPostLanguage.Spanish -> 1
+                            else -> 2
+                        }
+                    }.thenByDescending { it.published_at ?: it.created_at.orEmpty() }
+                )
+            }
+            .sortedWith(compareByDescending<OfficialPost> { it.published_at ?: it.created_at.orEmpty() })
+
+    private fun List<OfficialPostItem>.selectPreferredDomainTranslations(
+        preferredLanguage: OfficialPostLanguage
+    ): List<OfficialPostItem> =
+        groupBy { it.translationGroupId ?: it.id }
+            .values
+            .mapNotNull { variants ->
+                variants.minWithOrNull(
+                    compareBy<OfficialPostItem> {
+                        when (it.language) {
+                            preferredLanguage -> 0
+                            OfficialPostLanguage.Spanish -> 1
+                            else -> 2
+                        }
+                    }.thenByDescending { it.createdAt }
+                )
+            }
+            .sortedByDescending { it.createdAt }
 }

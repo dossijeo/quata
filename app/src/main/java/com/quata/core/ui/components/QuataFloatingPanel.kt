@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -60,6 +63,7 @@ fun QuataFloatingPanel(
     portraitHeightFraction: Float = 0.92f,
     landscapeWidthFraction: Float = 0.76f,
     landscapeHeightFraction: Float = 0.97f,
+    landscapeVerticalOffset: Dp = 0.dp,
     landscapePadding: PaddingValues = PaddingValues(horizontal = 72.dp, vertical = 10.dp),
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
@@ -85,13 +89,22 @@ fun QuataFloatingPanel(
             )
         ) {
             ConfigureQuataFloatingPanelSystemBars(template, fullscreen = true)
-            Box(
+            BoxWithConstraints(
                 modifier = modifier
                     .fillMaxSize()
                     .padding(landscapePadding),
                 contentAlignment = Alignment.Center
             ) {
                 val panelInteractionSource = remember { MutableInteractionSource() }
+                val panelWidthFraction: Float
+                val panelHeightFraction: Float
+                if (maxHeight > maxWidth) {
+                    panelWidthFraction = landscapeHeightFraction
+                    panelHeightFraction = landscapeWidthFraction
+                } else {
+                    panelWidthFraction = landscapeWidthFraction
+                    panelHeightFraction = landscapeHeightFraction
+                }
                 Box(
                     modifier = Modifier
                         .matchParentSize()
@@ -104,8 +117,9 @@ fun QuataFloatingPanel(
                     contentColor = template.colors.textPrimary,
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
-                        .fillMaxWidth(landscapeWidthFraction)
-                        .fillMaxHeight(landscapeHeightFraction)
+                        .fillMaxWidth(panelWidthFraction)
+                        .fillMaxHeight(panelHeightFraction)
+                        .offset(y = landscapeVerticalOffset)
                         .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(28.dp))
                         .clickable(
                             interactionSource = panelInteractionSource,
@@ -149,6 +163,40 @@ fun QuataFloatingPanel(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QuataStandardFloatingPanel(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    template: QuataThemeTemplate = quataTheme(),
+    content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
+) {
+    QuataFloatingPanel(
+        onDismiss = onDismiss,
+        modifier = modifier,
+        template = template,
+        landscapeHeightFraction = 0.86f,
+        landscapeVerticalOffset = (-24).dp,
+        content = content
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QuataFeedOverlayPanel(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    template: QuataThemeTemplate = quataTheme(),
+    content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
+) {
+    QuataStandardFloatingPanel(
+        onDismiss = onDismiss,
+        modifier = modifier,
+        template = template,
+        content = content
+    )
 }
 
 @Composable

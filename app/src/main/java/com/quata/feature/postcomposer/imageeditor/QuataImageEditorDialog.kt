@@ -75,6 +75,8 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataEditorScaffold
+import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.Dispatchers
@@ -99,7 +101,6 @@ fun QuataImageEditorDialog(
     mode: QuataImageEditorMode = QuataImageEditorMode.Post
 ) {
     val context = LocalContext.current
-    val template = quataTheme()
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val outputSpec = remember(mode) {
         when (mode) {
@@ -133,24 +134,19 @@ fun QuataImageEditorDialog(
 
     BackHandler(enabled = !isSaving, onBack = onDismiss)
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = template.colors.background,
-        contentColor = template.colors.textPrimary
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(bottom = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir)
-        ) {
-            ImageEditorTopBar(
-                isCropPanelOpen = isCropPanelOpen,
-                isSaving = isSaving,
-                canSave = bitmap != null,
-                showTitle = !isLandscapeLayout,
-                onBack = onDismiss,
-                onReset = {
+    QuataEditorScaffold(
+        title = stringResource(R.string.video_editor_title),
+        showTitle = !isLandscapeLayout,
+        onBack = onDismiss,
+        backEnabled = !isSaving,
+        bottomPadding = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir,
+        actions = {
+            if (!isSaving) {
+                val canSave = bitmap != null
+                QuataEditorToolButton(
+                    label = stringResource(R.string.image_editor_reset),
+                    enabled = canSave,
+                    onClick = {
                     originalBitmap?.let { original ->
                         bitmap = original
                         zoom = 1f
@@ -158,15 +154,29 @@ fun QuataImageEditorDialog(
                         isCropPanelOpen = isCropLocked
                         isCropApplied = isCropLocked
                     }
-                },
-                onRotate = {
+                    }
+                ) {
+                    CompactIcon(Icons.Filled.Replay, contentDescription = null)
+                }
+                QuataEditorToolButton(
+                    label = stringResource(R.string.image_editor_rotate),
+                    enabled = canSave,
+                    onClick = {
                     bitmap = bitmap?.rotateClockwise()
                     zoom = 1f
                     pan = Offset.Zero
                     isCropApplied = isCropLocked
                     isCropPanelOpen = isCropLocked
-                },
-                onToggleCrop = {
+                    }
+                ) {
+                    CompactIcon(Icons.Filled.Rotate90DegreesCw, contentDescription = null)
+                }
+                if (!isCropLocked) {
+                    QuataEditorToolButton(
+                        label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
+                        enabled = canSave,
+                        selected = isCropPanelOpen,
+                        onClick = {
                     if (!isCropLocked) {
                         if (isCropPanelOpen) {
                             isCropApplied = true
@@ -175,9 +185,19 @@ fun QuataImageEditorDialog(
                             isCropPanelOpen = true
                         }
                     }
-                },
-                onSave = {
-                    val source = bitmap ?: return@ImageEditorTopBar
+                        }
+                    ) {
+                        CompactIcon(
+                            if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop,
+                            contentDescription = null
+                        )
+                    }
+                }
+                QuataEditorToolButton(
+                    label = stringResource(R.string.video_editor_export),
+                    enabled = canSave,
+                    onClick = {
+                    val source = bitmap ?: return@QuataEditorToolButton
                     val cropToOutputAspect = isCropLocked || isCropPanelOpen || isCropApplied
                     isSaving = true
                     isCropPanelOpen = isCropLocked
@@ -196,9 +216,13 @@ fun QuataImageEditorDialog(
                         isSaving = false
                         onEdited(edited)
                     }
-                },
-                showCropToggle = !isCropLocked
-            )
+                    }
+                ) {
+                    CompactIcon(Icons.Filled.Save, contentDescription = null)
+                }
+            }
+        }
+    ) {
 
             if (isLandscapeLayout && isCropPanelOpen) {
                 Row(
@@ -266,7 +290,6 @@ fun QuataImageEditorDialog(
                     )
                 }
             }
-        }
     }
 }
 
@@ -319,128 +342,6 @@ private fun ImageEditorPreviewArea(
                 CircularProgressIndicator(color = template.colors.accent)
             }
         }
-    }
-}
-
-@Composable
-private fun ImageEditorTopBar(
-    isCropPanelOpen: Boolean,
-    isSaving: Boolean,
-    canSave: Boolean,
-    showTitle: Boolean,
-    onBack: () -> Unit,
-    onReset: () -> Unit,
-    onRotate: () -> Unit,
-    onToggleCrop: () -> Unit,
-    onSave: () -> Unit,
-    showCropToggle: Boolean = true
-) {
-    val template = quataTheme()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .background(template.colors.surfaceRaised)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CompactIconButton(onClick = onBack, enabled = !isSaving) {
-            CompactIcon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.video_editor_back),
-                tint = template.colors.textPrimary
-            )
-        }
-        Spacer(Modifier.width(6.dp))
-        if (showTitle) {
-            Text(
-                text = stringResource(R.string.video_editor_title),
-                color = template.colors.textPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        } else {
-            Spacer(Modifier.width(8.dp))
-        }
-        if (!isSaving) {
-            ImageToolButton(
-                label = stringResource(R.string.image_editor_reset),
-                enabled = canSave,
-                onClick = onReset
-            ) {
-                CompactIcon(Icons.Filled.Replay, contentDescription = null)
-            }
-            ImageToolButton(
-                label = stringResource(R.string.image_editor_rotate),
-                enabled = canSave,
-                onClick = onRotate
-            ) {
-                CompactIcon(Icons.Filled.Rotate90DegreesCw, contentDescription = null)
-            }
-            if (showCropToggle) {
-                ImageToolButton(
-                    label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
-                    enabled = canSave,
-                    selected = isCropPanelOpen,
-                    onClick = onToggleCrop
-                ) {
-                    CompactIcon(
-                        if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop,
-                        contentDescription = null
-                    )
-                }
-            }
-            ImageToolButton(
-                label = stringResource(R.string.video_editor_export),
-                enabled = canSave,
-                onClick = onSave
-            ) {
-                CompactIcon(Icons.Filled.Save, contentDescription = null)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ImageToolButton(
-    label: String,
-    enabled: Boolean,
-    selected: Boolean = false,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
-) {
-    val template = quataTheme()
-    val contentAlpha = if (enabled) 1f else 0.42f
-    val iconColor = if (selected) template.colors.accentContent else template.colors.textPrimary.copy(alpha = contentAlpha)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.widthIn(min = 66.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (selected) template.colors.accent else template.colors.surfaceAlt.copy(alpha = if (enabled) 1f else 0.54f))
-                .border(1.dp, if (selected) template.colors.accent else template.colors.divider, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            CompactIconButton(
-                onClick = onClick,
-                enabled = enabled,
-                modifier = Modifier.matchParentSize()
-            ) {
-                CompositionLocalProvider(LocalContentColor provides iconColor) {
-                    Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
-                        icon()
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = template.colors.textSecondary.copy(alpha = contentAlpha), fontSize = 11.sp, maxLines = 1)
     }
 }
 

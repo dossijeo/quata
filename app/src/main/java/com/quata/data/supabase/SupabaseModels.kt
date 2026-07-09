@@ -490,6 +490,14 @@ data class QuataChatForwardMessageRequest(
 data class QuataChatThreadActionRequest(val p_actor_profile_id: String, val p_thread_id: Long)
 
 @Serializable
+data class QuataChatMessagesStateRequest(
+    val p_actor_profile_id: String,
+    val p_message_ids: List<Long>,
+    val p_status: String,
+    val p_source: String = "client"
+)
+
+@Serializable
 data class QuataChatMutedRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_muted: Boolean)
 
 @Serializable
@@ -535,6 +543,8 @@ data class OfficialPost(
     val post_type: String? = null,
     val content_html: String? = null,
     val read_more_label: String? = null,
+    val language: String? = null,
+    val translation_group_id: String? = null,
     val media_url: String? = null,
     val media_type: String? = null,
     val link_url: String? = null,
@@ -554,6 +564,8 @@ data class OfficialPostCreate(
     val post_type: String = "announcement",
     val content_html: String,
     val read_more_label: String? = null,
+    val language: String = "es",
+    val translation_group_id: String? = null,
     val media_url: String? = null,
     val media_type: String? = null,
     val link_url: String? = null,

@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.graphics.RectF
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
@@ -20,8 +19,6 @@ import android.os.Build
 import android.provider.OpenableColumns
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.TextureView
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -145,8 +142,11 @@ import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.findQuataTextureView
+import com.quata.core.ui.components.normalizedQuataVideoRotation
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
@@ -1523,8 +1523,8 @@ private fun ComposerPreviewVideoPlayer(
                     if (playerView.player !== activePlayer) {
                         playerView.player = activePlayer
                     }
-                    playerView.findChildTextureView()
-                        ?.applyComposerVideoPlaybackTransform(playbackRotation)
+                    playerView.findQuataTextureView()
+                        ?.applyQuataVideoPlaybackTransform(playbackRotation)
                 },
                 onRelease = { playerView ->
                     playerView.player = null
@@ -2253,55 +2253,7 @@ private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: In
     }
 }
 
-private fun Int.normalizedComposerVideoRotation(): Int =
-    ((this % 360) + 360) % 360
-
-private fun View.findChildTextureView(): TextureView? {
-    if (this is TextureView) return this
-    if (this !is ViewGroup) return null
-    for (index in 0 until childCount) {
-        getChildAt(index).findChildTextureView()?.let { return it }
-    }
-    return null
-}
-
-private fun TextureView.applyComposerVideoPlaybackTransform(rotationDegrees: Int) {
-    fun applyTransform() {
-        val viewWidth = width.toFloat()
-        val viewHeight = height.toFloat()
-        if (viewWidth <= 0f || viewHeight <= 0f) return
-        val rotation = rotationDegrees.normalizedComposerVideoRotation()
-        if (rotation == 90 || rotation == 270) {
-            val viewRect = RectF(0f, 0f, viewWidth, viewHeight)
-            val bufferRect = RectF(0f, 0f, viewHeight, viewWidth)
-            val centerX = viewRect.centerX()
-            val centerY = viewRect.centerY()
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
-            val matrix = Matrix().apply {
-                setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
-                postRotate(rotation.toFloat(), centerX, centerY)
-            }
-            setTransform(matrix)
-            invalidate()
-            return
-        }
-        if (rotation == 180) {
-            val matrix = Matrix().apply {
-                postRotate(180f, viewWidth / 2f, viewHeight / 2f)
-            }
-            setTransform(matrix)
-            invalidate()
-            return
-        }
-        setTransform(Matrix())
-        invalidate()
-    }
-    if (width > 0 && height > 0) {
-        applyTransform()
-    } else {
-        post { applyTransform() }
-    }
-}
+private fun Int.normalizedComposerVideoRotation(): Int = normalizedQuataVideoRotation()
 
 private fun Context.mediaHashSeed(uri: Uri): String? =
     runCatching {

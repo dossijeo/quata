@@ -123,7 +123,7 @@ fun QuataCommentsPanel(
         }
     }
 
-    QuataFloatingPanel(
+    QuataStandardFloatingPanel(
         onDismiss = onDismiss,
         template = template
     ) { panelModifier, isLandscape ->

@@ -3,6 +3,7 @@ package com.quata.feature.official.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.core.feed.QuataPagedFeedStore
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.Job
@@ -16,8 +17,14 @@ class OfficialFeedViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OfficialFeedUiState())
     val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
+    private val feedStore = QuataPagedFeedStore(
+        pageSize = OfficialFeedPageSize,
+        idOf = OfficialPostItem::id,
+        cursorOf = OfficialPostItem::createdAt
+    )
     private var feedJob: Job? = null
     private var refreshJob: Job? = null
+    private var loadOlderJob: Job? = null
 
     init {
         observeFeed()
@@ -27,11 +34,18 @@ class OfficialFeedViewModel(
     fun onEvent(event: OfficialFeedUiEvent) {
         when (event) {
             OfficialFeedUiEvent.Refresh -> refresh()
-            OfficialFeedUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(error = null, message = null)
+            OfficialFeedUiEvent.LoadOlderPage -> loadOlderPage()
+            OfficialFeedUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(
+                error = null,
+                message = null,
+                createdPostId = null
+            )
             is OfficialFeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is OfficialFeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
             is OfficialFeedUiEvent.DeletePost -> deletePost(event.postId)
             is OfficialFeedUiEvent.CreatePost -> createPost(event.draft)
+            is OfficialFeedUiEvent.CreatePosts -> createPosts(event.drafts)
+            is OfficialFeedUiEvent.EnsurePostLoaded -> ensurePostLoaded(event.postId)
         }
     }
 
@@ -44,16 +58,19 @@ class OfficialFeedViewModel(
     }
 
     private fun observeFeed() {
+        feedStore.reset()
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         feedJob?.cancel()
         feedJob = viewModelScope.launch {
             repository.observeOfficialFeed().collect { result ->
                 result
                     .onSuccess { posts ->
+                        val mergedPosts = feedStore.setRealtime(posts)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            posts = posts,
+                            posts = mergedPosts,
+                            hasMoreOlderPosts = feedStore.hasMoreOlderItems,
                             error = null
                         )
                     }
@@ -79,10 +96,13 @@ class OfficialFeedViewModel(
             )
             repository.refreshOfficialFeed()
                 .onSuccess { posts ->
+                    val mergedPosts = feedStore.replaceInitialPage(posts)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        posts = posts,
+                        isLoadingOlder = false,
+                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                        posts = mergedPosts,
                         error = null
                     )
                 }
@@ -96,20 +116,59 @@ class OfficialFeedViewModel(
         }
     }
 
+    private fun loadOlderPage() {
+        val state = _uiState.value
+        if (loadOlderJob?.isActive == true) return
+        if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
+        val beforePublishedAt = feedStore.olderCursor()
+        if (beforePublishedAt == null) {
+            _uiState.value = state.copy(hasMoreOlderPosts = false)
+            return
+        }
+        loadOlderJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
+            repository.loadOlderOfficialFeedPage(beforePublishedAt = beforePublishedAt, limit = OfficialFeedPageSize)
+                .onSuccess { posts ->
+                    val mergedPosts = feedStore.appendOlder(posts)
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlder = false,
+                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                        posts = mergedPosts,
+                        error = null
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlder = false,
+                        error = error.message ?: _uiState.value.error
+                    )
+                }
+        }
+    }
+
     private fun createPost(draft: com.quata.feature.official.domain.OfficialPostDraft) = viewModelScope.launch {
-        if (_uiState.value.isPublishing) return@launch
+        createPostsInternal(listOf(draft))
+    }
+
+    private fun createPosts(drafts: List<com.quata.feature.official.domain.OfficialPostDraft>) = viewModelScope.launch {
+        createPostsInternal(drafts)
+    }
+
+    private suspend fun createPostsInternal(drafts: List<com.quata.feature.official.domain.OfficialPostDraft>) {
+        if (_uiState.value.isPublishing) return
         _uiState.value = _uiState.value.copy(isPublishing = true, error = null)
-        repository.createPost(draft)
+        repository.createPosts(drafts)
             .onSuccess { created ->
                 val posts = if (created != null && _uiState.value.posts.none { it.id == created.id }) {
-                    listOf(created) + _uiState.value.posts
+                    feedStore.prependIfMissing(created)
                 } else {
                     _uiState.value.posts
                 }
                 _uiState.value = _uiState.value.copy(
                     isPublishing = false,
                     posts = posts,
-                    message = "ok"
+                    message = OfficialFeedMessages.PostCreated,
+                    createdPostId = created?.id
                 )
             }
             .onFailure { error ->
@@ -124,8 +183,26 @@ class OfficialFeedViewModel(
         repository.deletePost(postId)
             .onSuccess {
                 _uiState.value = _uiState.value.copy(
-                    posts = _uiState.value.posts.filterNot { it.id == postId }
+                    posts = feedStore.remove(postId),
+                    message = OfficialFeedMessages.PostDeleted,
+                    error = null
                 )
+            }
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+            }
+    }
+
+    private fun ensurePostLoaded(postId: String) = viewModelScope.launch {
+        if (_uiState.value.posts.any { it.id == postId }) return@launch
+        repository.getOfficialPost(postId)
+            .onSuccess { post ->
+                if (post != null && _uiState.value.posts.none { it.id == post.id }) {
+                    _uiState.value = _uiState.value.copy(
+                        posts = feedStore.prependIfMissing(post),
+                        error = null
+                    )
+                }
             }
             .onFailure { error ->
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
@@ -144,13 +221,13 @@ class OfficialFeedViewModel(
 
     private fun replacePost(updated: OfficialPostItem) {
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
-                if (post.id == updated.id) updated else post
-            }
+            posts = feedStore.replace(updated)
         )
     }
 
     companion object {
+        private const val OfficialFeedPageSize = 50
+
         fun factory(repository: OfficialRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = OfficialFeedViewModel(repository) as T

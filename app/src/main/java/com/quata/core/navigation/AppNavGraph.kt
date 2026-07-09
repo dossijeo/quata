@@ -277,9 +277,22 @@ fun AppNavGraph(
             isTranslatorOverlayMounted = false
         }
     }
-    val showPrimaryNavigation = currentRoute in bottomRoutes && !isVideoEditorOpen
+    val publishEditorRoutes = setOf(
+        AppDestinations.CreatePost.route,
+        AppDestinations.OfficialPostEditor.route
+    )
+    val primaryNavigationRoutes = bottomRoutes + publishEditorRoutes
+    val showPrimaryNavigation = currentRoute in primaryNavigationRoutes && !isVideoEditorOpen
     val showBottomNavigation = showPrimaryNavigation && !isLandscapeLayout
     val useNavigationRail = showAppChrome && isLandscapeLayout
+    var lastPrimaryNavigationRoute by rememberSaveable { mutableStateOf(AppDestinations.Feed.route) }
+    val navigationChromeRoute = when {
+        currentRoute == AppDestinations.CreatePost.route -> AppDestinations.Feed.route
+        currentRoute == AppDestinations.OfficialPostEditor.route -> AppDestinations.Official.route
+        currentRoute != null && currentRoute in bottomRoutes -> currentRoute
+        else -> lastPrimaryNavigationRoute
+    }
+    var appContentPadding by remember { mutableStateOf(QuataAppContentPadding()) }
     var createPostResetToken by rememberSaveable { mutableStateOf(0) }
     var createPostCancelUploadToken by rememberSaveable { mutableStateOf(0) }
     var feedResetToken by rememberSaveable { mutableStateOf(0) }
@@ -379,6 +392,9 @@ fun AppNavGraph(
     }
 
     LaunchedEffect(currentRoute) {
+        if (currentRoute != null && currentRoute in bottomRoutes) {
+            lastPrimaryNavigationRoute = currentRoute
+        }
         if (currentRoute != AppDestinations.CreatePost.route) {
             isCreatePostUploadInProgress = false
             pendingCreatePostUploadRoute = null
@@ -464,7 +480,7 @@ fun AppNavGraph(
             },
             bottomBar = {
                 if (showBottomNavigation) {
-                    QuataBottomBar(currentRoute = currentRoute, onDestinationClick = ::handleBottomRoute)
+                    QuataBottomBar(currentRoute = navigationChromeRoute, onDestinationClick = ::handleBottomRoute)
                 }
             }
         ) { scaffoldPadding ->
@@ -481,6 +497,17 @@ fun AppNavGraph(
                 )
             } else {
                 scaffoldPadding
+            }
+            val latestContentPadding = QuataAppContentPadding(
+                start = padding.calculateStartPadding(layoutDirection),
+                top = padding.calculateTopPadding(),
+                end = padding.calculateEndPadding(layoutDirection),
+                bottom = padding.calculateBottomPadding()
+            )
+            SideEffect {
+                if (appContentPadding != latestContentPadding) {
+                    appContentPadding = latestContentPadding
+                }
             }
             Box(Modifier.fillMaxSize()) {
                 NavHost(navController = navController, startDestination = startDestination) {
@@ -567,8 +594,8 @@ fun AppNavGraph(
                     OfficialPostEditorRoute(
                         padding = padding,
                         repository = container.officialRepository,
-                        onBack = { navController.popBackStack() },
-                        onPublished = {
+                        onPublished = { postId ->
+                            officialFocusedPostId = postId
                             navController.navigate(AppDestinations.Official.route) {
                                 popUpTo(AppDestinations.Official.route) {
                                     inclusive = false
@@ -739,7 +766,7 @@ fun AppNavGraph(
             }
                 if (useNavigationRail) {
                     QuataNavigationRail(
-                        currentRoute = currentRoute,
+                        currentRoute = navigationChromeRoute,
                         onDestinationClick = ::handleBottomRoute,
                         notificationCount = notificationCount,
                         isNotificationBouncing = isNotificationBounceActive,
@@ -782,6 +809,7 @@ fun AppNavGraph(
                 container = container,
                 isAuthenticated = isAuthenticated,
                 onAuthRequired = { requestAuthentication() },
+                layoutPadding = appContentPadding.toPaddingValues(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(
@@ -796,10 +824,11 @@ fun AppNavGraph(
                 container = container,
                 isAuthenticated = isAuthenticated,
                 onAuthRequired = { requestAuthentication() },
+                layoutPadding = appContentPadding.toPaddingValues(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(
-                        top = statusBarTop + 14.dp,
+                        top = statusBarTop,
                         end = 16.dp + safeDrawingPadding.calculateEndPadding(layoutDirection)
                     )
             )
@@ -1352,6 +1381,7 @@ private fun GlobalSosButton(
     container: AppContainer,
     isAuthenticated: Boolean,
     onAuthRequired: () -> Unit,
+    layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
  ) {
     if (!isAuthenticated) {
@@ -1363,12 +1393,17 @@ private fun GlobalSosButton(
         return
     }
 
-    AuthenticatedGlobalSosButton(container = container, modifier = modifier)
+    AuthenticatedGlobalSosButton(
+        container = container,
+        layoutPadding = layoutPadding,
+        modifier = modifier
+    )
 }
 
 @Composable
 private fun AuthenticatedGlobalSosButton(
     container: AppContainer,
+    layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel = viewModel(
         key = "global_sos_profile",
@@ -1594,6 +1629,7 @@ private fun AuthenticatedGlobalSosButton(
     val profile = configProfile
     if (isConfigOpen && profile != null) {
         EmergencyContactsDialog(
+            layoutPadding = layoutPadding,
             candidates = configCandidates,
             selectedIds = configContactIds,
             message = configMessage,
@@ -1644,6 +1680,16 @@ private fun GlobalSosButtonSurface(
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     this.then(Modifier.padding(PaddingValues()).let { Modifier.clickable(onClick = onClick) })
+
+private data class QuataAppContentPadding(
+    val start: Dp = 0.dp,
+    val top: Dp = 0.dp,
+    val end: Dp = 0.dp,
+    val bottom: Dp = 0.dp
+) {
+    fun toPaddingValues(): PaddingValues =
+        PaddingValues(start = start, top = top, end = end, bottom = bottom)
+}
 
 private fun Context.hasNotificationPermission(): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

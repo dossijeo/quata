@@ -489,7 +489,10 @@
     <string name="official_type_news">Noticia</string>
     <string name="official_type_event">Evento</string>
     <string name="official_type_urgent">Urgente</string>
-    <string name="official_read_more">M&#225;s informaci&#243;n</string>
+    <string name="official_read_more">Leer m&#225;s</string>
+    <string name="official_read_more_more_information">M&#225;s informaci&#243;n</string>
+    <string name="official_read_more_continue_reading">Seguir leyendo</string>
+    <string name="official_read_more_details">Detalles</string>
     <string name="official_communicated">Comunicado</string>
     <string name="official_delete">Borrar publicaci&#243;n oficial</string>
     <string name="official_delete_confirm_title">&#191;Borrar publicaci&#243;n oficial?</string>
@@ -497,10 +500,16 @@
     <string name="official_form_main_section">Datos de la publicaci&#243;n</string>
     <string name="official_form_media_section">Foto o v&#237;deo</string>
     <string name="official_form_read_more_section">Leer m&#225;s</string>
+    <string name="official_form_mode_quick">Modo r&#225;pido</string>
+    <string name="official_form_mode_advanced">Modo avanzado</string>
+    <string name="official_form_mode_description_quick">Escribe el texto completo; Q&#252;ata extraer&#225; el t&#237;tulo y el resumen.</string>
+    <string name="official_form_mode_description_advanced">Controla t&#237;tulo, resumen, texto del enlace y URL informativa.</string>
     <string name="official_form_title">T&#237;tulo</string>
     <string name="official_form_summary">Resumen corto</string>
     <string name="official_form_body">Descripci&#243;n larga</string>
+    <string name="official_form_body_quick">Descripci&#243;n</string>
     <string name="official_form_edit_body">Editar descripci&#243;n larga</string>
+    <string name="official_form_edit_body_quick">Editar descripci&#243;n</string>
     <string name="official_form_read_more_label">Texto del enlace para leer m&#225;s</string>
     <string name="official_form_link">Enlace informativo</string>
     <string name="official_form_media_url">URL del contenido multimedia</string>
@@ -509,6 +518,14 @@
     <string name="official_media_video">V&#237;deo</string>
     <string name="official_form_live">Marcar como LIVE</string>
     <string name="official_publish">Publicar</string>
+    <string name="official_translation_title">&#191;Generar traducciones?</string>
+    <string name="official_translation_message">El texto parece estar en %1$s. &#191;Quieres generar autom&#225;ticamente las versiones en %2$s?</string>
+    <string name="official_translation_confirm">Generar</string>
+    <string name="official_translation_skip">Publicar as&#237;</string>
+    <string name="official_translation_progress">Traduciendo...</string>
+    <string name="official_language_spanish">espa&#241;ol</string>
+    <string name="official_language_english">ingl&#233;s</string>
+    <string name="official_language_french">franc&#233;s</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
 </resources>

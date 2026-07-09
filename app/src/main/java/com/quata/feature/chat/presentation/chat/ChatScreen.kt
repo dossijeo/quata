@@ -138,6 +138,7 @@ import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.MessageDeliveryState
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.text.localizedSosMessage
@@ -1806,17 +1807,28 @@ private fun MessageBubble(
                 Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.weight(1f))
                 Box(
                     modifier = Modifier
-                        .width(84.dp)
+                        .width(104.dp)
                         .height(16.dp),
                     contentAlignment = Alignment.TopEnd
                 ) {
-                    Text(
-                        message.chatTimestampLabel(),
-                        color = textColor.copy(alpha = 0.56f),
-                        fontSize = 12.sp,
+                    Row(
                         modifier = Modifier.align(Alignment.TopEnd)
-                    )
-                    if (message.isEdited || message.isFavorite || message.isPending) {
+                    ) {
+                        Text(
+                            message.chatTimestampLabel(),
+                            color = textColor.copy(alpha = 0.56f),
+                            fontSize = 12.sp
+                        )
+                        if (message.isMine) {
+                            Spacer(Modifier.width(4.dp))
+                            MessageDeliveryIndicator(
+                                state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
+                                tint = textColor.copy(alpha = 0.62f),
+                                readTint = template.colors.accent
+                            )
+                        }
+                    }
+                    if (message.isEdited || message.isFavorite) {
                         Row(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -1837,15 +1849,6 @@ private fun MessageBubble(
                                     contentDescription = stringResource(R.string.conversation_favorite_marker),
                                     tint = textColor.copy(alpha = 0.62f),
                                     modifier = Modifier.size(15.dp)
-                                )
-                            }
-                            if (message.isPending) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier
-                                        .size(13.dp)
-                                        .offset(y = 3.dp),
-                                    color = textColor.copy(alpha = 0.72f),
-                                    strokeWidth = 2.dp
                                 )
                             }
                         }
@@ -1943,6 +1946,34 @@ private fun MessageBubble(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun MessageDeliveryIndicator(
+    state: MessageDeliveryState,
+    tint: Color,
+    readTint: Color
+) {
+    when (state) {
+        MessageDeliveryState.Pending -> CircularProgressIndicator(
+            modifier = Modifier.size(12.dp),
+            color = tint.copy(alpha = 0.72f),
+            strokeWidth = 1.7.dp
+        )
+        MessageDeliveryState.Sent -> Text(
+            text = "\u2713",
+            color = tint,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+        MessageDeliveryState.Delivered,
+        MessageDeliveryState.Read -> Text(
+            text = "\u2713\u2713",
+            color = if (state == MessageDeliveryState.Read) readTint else tint,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
