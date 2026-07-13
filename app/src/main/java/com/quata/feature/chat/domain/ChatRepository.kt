@@ -49,7 +49,15 @@ interface ChatRepository {
         attachmentMimeType: String? = null,
         clientMessageId: String? = null
     ): Result<Unit>
-    suspend fun sendReply(conversationId: String, text: String, replyTo: Message, clientMessageId: String? = null): Result<Unit>
+    suspend fun sendReply(
+        conversationId: String,
+        text: String,
+        replyTo: Message,
+        attachmentUri: String? = null,
+        attachmentName: String? = null,
+        attachmentMimeType: String? = null,
+        clientMessageId: String? = null
+    ): Result<Unit>
     suspend fun sendSosMessage(
         contactIds: List<String>,
         text: String,

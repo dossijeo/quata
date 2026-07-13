@@ -1,15 +1,18 @@
 # Q&uuml;ata Android
 
-Version: **1.0.0**
-Fecha de version: **2026-07-09**
-Estado: **release 1.0.0 preparada para produccion inicial**
+Version: **1.0.1**
+Fecha de version: **2026-07-13**
+Estado: **release 1.0.1 de mantenimiento en produccion**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `1.0.0` consolida el primer lanzamiento completo de Q&uuml;ata: chat Supabase con estados de entrega/lectura, muro oficial multidioma, feeds paginados offline-first, editor oficial rapido/avanzado con traduccion DeepL, layouts seguros en portrait/landscape, borrado moderado por administradores y una limpieza final de artefactos de QA.
+La version `1.0.1` refina el chat y el seguro de proximidad tras el primer lanzamiento: las conversaciones activas se actualizan al volver a abrir la app, las respuestas aceptan notas de voz y adjuntos, y el bloqueo por proximidad espera una confirmacion breve para evitar activaciones accidentales.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Al volver la app a primer plano, la conversacion activa se refresca de inmediato para mostrar mensajes recibidos mientras Q&uuml;ata estaba en segundo plano.
+- Las respuestas de chat ahora aceptan notas de voz y adjuntos, manteniendo la referencia al mensaje respondido.
+- El seguro de proximidad espera 3 segundos antes de apagar la pantalla; si el sensor se destapa antes, el contador se cancela.
 - Doble check de chat estilo WhatsApp: `Pendiente`, `Enviado`, `Entregado` y `Leido`, con checks junto a la hora y color corporativo cuando el destinatario lee el mensaje.
 - Nueva tabla Supabase `chat_message_states` para estados `DELIVERED` y `READ`, con eventos Realtime para que el emisor vea los cambios sin polling.
 - La recepcion FCM marca mensajes como `DELIVERED`; si falla la red, se guarda una cola local JSON y WorkManager reintenta el envio al recuperar conectividad.
@@ -461,9 +464,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 26
-versionName = 1.0.0
-APP_VERSION_DATE = 2026-07-09
+versionCode = 27
+versionName = 1.0.1
+APP_VERSION_DATE = 2026-07-13
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

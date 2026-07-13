@@ -206,7 +206,15 @@ class ChatViewModel(
 
         val result = when {
             editingMessage != null -> repository.editMessage(editingMessage.id, text)
-            replyToMessage != null -> repository.sendReply(conversationId, text, replyToMessage, draft.clientMessageId)
+            replyToMessage != null -> repository.sendReply(
+                conversationId = conversationId,
+                text = text,
+                replyTo = replyToMessage,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType,
+                clientMessageId = draft.clientMessageId
+            )
             else -> repository.sendMessage(
                 conversationId = conversationId,
                 text = text,

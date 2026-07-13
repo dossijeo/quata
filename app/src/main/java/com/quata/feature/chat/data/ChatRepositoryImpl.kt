@@ -198,6 +198,9 @@ class ChatRepositoryImpl(
             sessionManager.currentSession()?.let { session ->
                 scope.launch {
                     refreshAndConnectRealtime(session.userId)
+                    _activeConversationId.value?.let { conversationId ->
+                        refreshMessages(conversationId, force = true)
+                    }
                 }
             }
         } else {
@@ -393,17 +396,44 @@ class ChatRepositoryImpl(
         refreshAll(session.userId, force = true)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, clientMessageId: String?): Result<Unit> = runCatching {
+    override suspend fun sendReply(
+        conversationId: String,
+        text: String,
+        replyTo: Message,
+        attachmentUri: String?,
+        attachmentName: String?,
+        attachmentMimeType: String?,
+        clientMessageId: String?
+    ): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
-            MockData.addMessage(conversationId, text, user.id, user.displayName, replyTo = replyTo)
+            MockData.addMessage(
+                conversationId = conversationId,
+                text = text.ifBlank { attachmentName.orEmpty() },
+                senderId = user.id,
+                senderName = user.displayName,
+                replyTo = replyTo,
+                attachmentUri = attachmentUri,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType
+            )
             _conversations.value = MockData.conversations
             messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
             return@runCatching
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = conversationId.requireThreadId()
-        remote.sendChatMessage(session.userId, threadId, text, replyToMessageId = replyTo.id.toLongOrNull(), clientMessageId = clientMessageId)
+        val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
+            listOf(uploadAttachment(session.userId, threadId, uri, attachmentName, attachmentMimeType))
+        }.orEmpty()
+        remote.sendChatMessage(
+            profileId = session.userId,
+            threadId = threadId,
+            message = text,
+            fileIds = fileIds,
+            replyToMessageId = replyTo.id.toLongOrNull(),
+            clientMessageId = clientMessageId
+        )
         refreshThread(conversationId, force = true)
         refreshAll(session.userId, force = true)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -816,13 +846,13 @@ class ChatRepositoryImpl(
         }
     }
 
-    private suspend fun refreshMessages(conversationId: String) {
+    private suspend fun refreshMessages(conversationId: String, force: Boolean = false) {
         if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession() ?: return
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
             refreshFavorites(session.userId, force = true)
         } else {
-            refreshThread(conversationId)
+            refreshThread(conversationId, force = force)
         }
     }
 
