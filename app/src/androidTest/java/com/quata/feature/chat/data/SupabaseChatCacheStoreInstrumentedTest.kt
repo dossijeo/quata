@@ -62,6 +62,22 @@ class SupabaseChatCacheStoreInstrumentedTest {
         assertTrue(SupabaseChatCacheStore(context).pendingOutgoing("profile-b").isEmpty())
     }
 
+    @Test
+    fun replySnapshotSurvivesDatabaseRecreation() = runBlocking {
+        val reply = message("20", "sb:7").copy(
+            replyToMessageId = "1",
+            replyToSenderName = "Ana",
+            replyToText = "mensaje citado"
+        )
+        SupabaseChatCacheStore(context).replaceMessages("profile-a", "sb:7", listOf(reply))
+
+        val restored = SupabaseChatCacheStore(context).cachedMessages("profile-a", "sb:7").single()
+
+        assertEquals("1", restored.replyToMessageId)
+        assertEquals("Ana", restored.replyToSenderName)
+        assertEquals("mensaje citado", restored.replyToText)
+    }
+
     private fun conversation(id: String, title: String) = Conversation(id = id, title = title, lastMessagePreview = title)
 
     private fun message(id: String, conversationId: String) = Message(

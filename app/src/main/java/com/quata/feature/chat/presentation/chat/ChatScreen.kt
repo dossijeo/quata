@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,6 +45,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -110,6 +112,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -186,6 +189,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 
@@ -218,6 +223,7 @@ fun ChatScreen(
     val screenScope = rememberCoroutineScope()
     val metrics = context.resources.displayMetrics
     val messagesListState = rememberLazyListState()
+    val isUserDraggingMessages by messagesListState.interactionSource.collectIsDraggedAsState()
     val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
     val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
@@ -254,12 +260,6 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(messagesListState, state.hasMoreHistory) {
-        snapshotFlow { messagesListState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .filter { index -> index <= 2 }
-            .collect { viewModel.loadOlderMessages() }
-    }
     var autoPlayVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var activeVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
@@ -267,7 +267,25 @@ fun ChatScreen(
     var suppressAutoScrollForFocusedOpen by rememberSaveable(conversationId) {
         mutableStateOf(focusedMessageId != null)
     }
+    var userHasDetachedFromBottom by remember(conversationId) { mutableStateOf(false) }
+    var previousMessageLayout by remember(conversationId) { mutableStateOf(emptyList<ChatMessageLayoutKey>()) }
+    var initialMessagePositionReady by remember(conversationId) { mutableStateOf(false) }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
+    val isPreparingInitialMessagePosition =
+        state.messages.isNotEmpty() && focusedMessageId == null && !initialMessagePositionReady
+    val lastMessageNeedsBottomBuffer = remember(context, state.messages.lastOrNull()?.text) {
+        state.messages.lastOrNull()?.text?.let { text ->
+            context.localizedSosMessage(text) ?: text.parseSosLocationMessage()
+        } != null
+    }
+
+    LaunchedEffect(messagesListState, state.hasMoreHistory, initialMessagePositionReady, focusedMessageId) {
+        if (!initialMessagePositionReady && focusedMessageId == null) return@LaunchedEffect
+        snapshotFlow { messagesListState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .filter { index -> index <= 2 }
+            .collect { viewModel.loadOlderMessages() }
+    }
     val activeComposerBannerKey = listOfNotNull(
         state.editingMessage?.id?.let { "edit:$it" }?.takeUnless { isFavoritesConversation },
         state.replyToMessage?.id?.let { "reply:$it" }?.takeUnless { isFavoritesConversation },
@@ -323,6 +341,16 @@ fun ChatScreen(
     LaunchedEffect(focusedMessageId) {
         if (focusedMessageId != null) {
             suppressAutoScrollForFocusedOpen = true
+        }
+    }
+
+    LaunchedEffect(messagesListState, isUserDraggingMessages) {
+        if (isUserDraggingMessages) {
+            snapshotFlow { messagesListState.isAtConversationBottom() }
+                .distinctUntilChanged()
+                .collect { isAtBottom -> userHasDetachedFromBottom = !isAtBottom }
+        } else if (messagesListState.isAtConversationBottom()) {
+            userHasDetachedFromBottom = false
         }
     }
 
@@ -543,8 +571,14 @@ fun ChatScreen(
                             state = messagesListState,
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer {
+                                    alpha = if (isPreparingInitialMessagePosition) 0f else 1f
+                                }
                                 .padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(top = 14.dp),
+                            contentPadding = PaddingValues(
+                                top = 14.dp,
+                                bottom = if (lastMessageNeedsBottomBuffer) 48.dp else 0.dp
+                            ),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             if (state.isLoadingOlderMessages) {
@@ -610,6 +644,23 @@ fun ChatScreen(
                                                 )
                                             }
                                         }
+                                    )
+                                }
+                            }
+                        }
+                        if (isPreparingInitialMessagePosition) {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                contentPadding = PaddingValues(top = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                userScrollEnabled = false
+                            ) {
+                                items(6, key = { index -> "initial_message_skeleton_$index" }) { index ->
+                                    ChatMessageSkeleton(
+                                        isMine = index % 2 == 0,
+                                        pulseDelayMillis = index * 90
                                     )
                                 }
                             }
@@ -796,9 +847,35 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(conversationId, state.messages.size) {
-        if (state.messages.isNotEmpty() && focusedMessageId == null && !suppressAutoScrollForFocusedOpen) {
-            messagesListState.scrollToItem(state.messages.lastIndex)
+    val currentMessageLayout = remember(state.messages) { state.messages.map(Message::chatLayoutKey) }
+    LaunchedEffect(conversationId, currentMessageLayout, state.isLoading) {
+        if (currentMessageLayout.isEmpty()) {
+            previousMessageLayout = emptyList()
+            return@LaunchedEffect
+        }
+        val shouldFollowUpdate = shouldFollowChatLayoutUpdate(
+            previous = previousMessageLayout,
+            current = currentMessageLayout,
+            userHasDetachedFromBottom = userHasDetachedFromBottom
+        )
+        if (
+            shouldFollowUpdate &&
+            focusedMessageId == null &&
+            !suppressAutoScrollForFocusedOpen
+        ) {
+            userHasDetachedFromBottom = false
+            messagesListState.scrollToConversationBottom(
+                lastIndex = currentMessageLayout.lastIndex,
+                lastItemKey = currentMessageLayout.last().id
+            )
+        }
+        previousMessageLayout = currentMessageLayout
+        if (
+            !state.isLoading &&
+            focusedMessageId == null &&
+            !suppressAutoScrollForFocusedOpen
+        ) {
+            initialMessagePositionReady = true
         }
     }
 
@@ -2297,6 +2374,21 @@ private fun Message.attachmentPreview(context: Context): AttachmentPreview? {
         uri = uri,
         mimeType = attachmentMimeType
     )
+}
+
+private fun LazyListState.isAtConversationBottom(): Boolean {
+    return !canScrollForward
+}
+
+private suspend fun LazyListState.scrollToConversationBottom(lastIndex: Int, lastItemKey: String) {
+    if (lastIndex < 0) return
+    scrollToItem(lastIndex)
+    val lastItemSize = snapshotFlow {
+        layoutInfo.visibleItemsInfo.lastOrNull { item ->
+            item.index == lastIndex && item.key == lastItemKey
+        }?.size
+    }.filterNotNull().first()
+    scrollToItem(lastIndex, scrollOffset = lastItemSize)
 }
 
 private fun Message.chatTimestampLabel(context: Context): String {

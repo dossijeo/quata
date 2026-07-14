@@ -330,9 +330,9 @@ class ChatRepositoryImpl(
         val payload = remote.getChatThread(session.userId, conversationId.requireThreadId(), limit, knownIds)
         val parsed = parseChatPayload(payload)
         parsed.profiles.forEach { profilesById[it.id] = it }
-        val older = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }.withReplyContext()
+        val older = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }
         if (older.isNotEmpty()) {
-            val merged = (older + messagesState(conversationId).value).distinctBy { it.id }.sortedBy { it.sentAtMillis ?: 0L }
+            val merged = reconcileChatMessages(older, messagesState(conversationId).value)
             messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
             cacheStore.replaceMessages(session.userId, conversationId, merged)
         }
@@ -982,9 +982,7 @@ class ChatRepositoryImpl(
                 cacheStore.replaceConversations(profileId, conversations)
                 parsed.messagesByConversation.forEach { (conversationId, messages) ->
                     val cachedMessages = cacheStore.cachedMessages(profileId, conversationId)
-                    val mergedMessages = (messages + cachedMessages)
-                        .distinctBy { it.id }
-                        .sortedBy { it.sentAtMillis ?: 0L }
+                    val mergedMessages = reconcileChatMessages(messages, cachedMessages)
                     val displayMessages = attachmentFileCache.resolveCached(profileId, mergedMessages)
                     val state = messagesState(conversationId)
                     if (state.value.isEmpty()) {
@@ -1052,9 +1050,9 @@ class ChatRepositoryImpl(
             if (conversation != null) {
                 upsertConversation(session.userId, conversation)
             }
-            val messages = parsed.messages
-                .map { it.toMessage(session.userId, parsed.profilesById) }
-                .withReplyContext()
+            val incomingMessages = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }
+            val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
+            val messages = reconcileChatMessages(incomingMessages, cachedMessages)
             val displayMessages = attachmentFileCache.resolveCached(session.userId, messages)
             messagesState(conversationId).value = displayMessages
             cacheStore.replaceMessages(session.userId, conversationId, messages)
@@ -1080,9 +1078,12 @@ class ChatRepositoryImpl(
             val payload = remote.getChatFavorites(profileId)
             val parsed = parseChatPayload(payload)
             parsed.profiles.forEach { profilesById[it.id] = it }
-            val messages = parsed.messages
-                .map { it.toMessage(profileId, parsed.profilesById) }
-                .withReplyContext()
+            val cachedMessages = cacheStore.cachedFavoriteMessages(profileId)
+            val messages = reconcileChatMessages(
+                incoming = parsed.messages.map { it.toMessage(profileId, parsed.profilesById) },
+                existing = cachedMessages,
+                retainUnmatchedExisting = false
+            )
                 .sortedByDescending { it.sentAtMillis ?: 0L }
             val displayMessages = attachmentFileCache.resolveCached(profileId, messages)
             favoriteMessages.value = displayMessages
@@ -1361,9 +1362,7 @@ class ChatRepositoryImpl(
         parsed.messagesByConversation.forEach { (conversationId, incomingMessages) ->
             if (sessionManager.currentSession()?.userId != expectedProfileId) return
             val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
-            val merged = (incomingMessages + cachedMessages)
-                .distinctBy { it.id }
-                .sortedBy { it.sentAtMillis ?: 0L }
+            val merged = reconcileChatMessages(incomingMessages, cachedMessages)
             messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
             cacheStore.replaceMessages(session.userId, conversationId, merged)
         }
@@ -1390,9 +1389,9 @@ class ChatRepositoryImpl(
             )
             .distinctBy { it.id }
         val profilesById = profiles.associateBy { it.id }
-        val messagesByConversation = messages
-            .map { it.toMessage(sessionManager.currentSession()?.userId.orEmpty(), profilesById) }
-            .withReplyContext()
+        val messagesByConversation = reconcileChatMessages(
+            incoming = messages.map { it.toMessage(sessionManager.currentSession()?.userId.orEmpty(), profilesById) }
+        )
             .groupBy { it.conversationId }
         return ParsedChatPayload(
             threads = threads,
@@ -1470,6 +1469,11 @@ class ChatRepositoryImpl(
             isDeleted = boolean("is_deleted") == true,
             isFavorite = boolean("favorited") == true,
             replyToMessageId = long("reply_to_message_id")?.toString(),
+            replyToSenderName = string("reply_to_sender_name")
+                ?: obj("reply_to_sender")?.let { sender ->
+                    sender.string("display_name") ?: sender.string("name") ?: sender.string("phone_local")
+                },
+            replyToText = string("reply_to_body"),
             forwardedFromSenderId = string("forwarded_from_profile_id"),
             attachmentUri = firstAttachment?.string("url"),
             attachmentName = firstAttachment?.string("name"),
@@ -1490,21 +1494,6 @@ class ChatRepositoryImpl(
         if (messageIds.isEmpty()) return
         scope.launch {
             messageStateAckManager.markMessages(messageIds, status, source)
-        }
-    }
-
-    private fun List<Message>.withReplyContext(): List<Message> {
-        val byId = associateBy { it.id }
-        return map { message ->
-            val reply = message.replyToMessageId?.let(byId::get)
-            if (reply == null) {
-                message
-            } else {
-                message.copy(
-                    replyToSenderName = reply.senderName,
-                    replyToText = reply.text
-                )
-            }
         }
     }
 
