@@ -22,4 +22,3 @@ private const val ATTACHMENT_PREVIEW_VOICE_NOTE = "[QUATA_ATTACHMENT:voice_note]
 private const val ATTACHMENT_PREVIEW_FILE = "[QUATA_ATTACHMENT:file]"
 private const val LEGACY_VOICE_NOTE_PREVIEW = "[QUATA_NOTIFICATION:chat_voice_note]"
 private const val LEGACY_ATTACHMENT_PREVIEW = "[QUATA_NOTIFICATION:chat_attachment]"
-
