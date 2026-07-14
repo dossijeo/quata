@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Authentication credentials must never leave this installation through backup. -->
+    <exclude domain="sharedpref" path="quata_session.xml" />
+    <exclude domain="database" path="quata_chat_cache.db" />
+    <exclude domain="file" path="supabase_chat_cache_v1" />
+    <exclude domain="file" path="chat_outbox_attachments" />
+    <exclude domain="file" path="supabase_chat_message_state_acks_v1" />
+</full-backup-content>
