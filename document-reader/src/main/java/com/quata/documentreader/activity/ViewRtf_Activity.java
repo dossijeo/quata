@@ -13,6 +13,7 @@ import android.print.PrintJob;
 import android.print.PrintManager;
 import android.util.Log;
 import android.view.View;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.widget.Toast;
 
@@ -98,7 +99,10 @@ public class ViewRtf_Activity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient());
         this.webview.getSettings().setBuiltInZoomControls(true);
         this.webview.getSettings().setDisplayZoomControls(false);
-        this.webview.getSettings().setAllowFileAccess(true);
+        this.webview.getSettings().setJavaScriptEnabled(false);
+        this.webview.getSettings().setAllowContentAccess(false);
+        this.webview.getSettings().setAllowFileAccess(false);
+        this.webview.getSettings().setBlockNetworkLoads(true);
         loadRtfAsync();
        // Utility.Toast(this, "Please wait...");
     }
@@ -134,7 +138,12 @@ public class ViewRtf_Activity extends AppCompatActivity {
 
         File htmlFile = getCachedHtmlFile(file);
         if (htmlFile.exists() && htmlFile.length() > 0L) {
-            return RtfLoadResult.success(htmlFile, true, 0L, 0L);
+            try {
+                byte[] cachedHtml = java.nio.file.Files.readAllBytes(htmlFile.toPath());
+                return RtfLoadResult.success(new String(cachedHtml, StandardCharsets.UTF_8), cachedHtml.length, true, 0L, 0L);
+            } catch (IOException error) {
+                Log.w(TAG, "Unable to read cached RTF; regenerating it", error);
+            }
         }
 
         RtfReader rtfReader = new RtfReader();
@@ -151,7 +160,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
             long writeStart = System.currentTimeMillis();
             writeHtmlFile(htmlFile, html);
             long writeMs = System.currentTimeMillis() - writeStart;
-            return RtfLoadResult.success(htmlFile, false, parseMs, writeMs);
+            return RtfLoadResult.success(html, html.getBytes(StandardCharsets.UTF_8).length, false, parseMs, writeMs);
         } catch (RtfParseException e) {
             Utility.logCatMsg("RtfParseException " + e.getMessage());
             Log.w(TAG, "Unable to parse RTF", e);
@@ -171,9 +180,9 @@ public class ViewRtf_Activity extends AppCompatActivity {
         if (result.cancelled) {
             return;
         }
-        if (result.htmlFile != null) {
-            Log.d(TAG, "RTF ready cache=" + result.usedCache + " parseMs=" + result.parseMs + " writeMs=" + result.writeMs + " bytes=" + result.htmlFile.length());
-            ViewRtf_Activity.this.webview.loadUrl(Uri.fromFile(result.htmlFile).toString());
+        if (result.html != null) {
+            Log.d(TAG, "RTF ready cache=" + result.usedCache + " parseMs=" + result.parseMs + " writeMs=" + result.writeMs + " bytes=" + result.byteCount);
+            ViewRtf_Activity.this.webview.loadDataWithBaseURL(null, result.html, "text/html", "UTF-8", null);
         } else {
             binding.progressBar.setVisibility(View.GONE);
             Log.w(TAG, "RTF render failed: " + result.errorMessage);
@@ -182,15 +191,17 @@ public class ViewRtf_Activity extends AppCompatActivity {
     }
 
     private static class RtfLoadResult {
-        final File htmlFile;
+        final String html;
+        final int byteCount;
         final boolean usedCache;
         final long parseMs;
         final long writeMs;
         final String errorMessage;
         final boolean cancelled;
 
-        private RtfLoadResult(File htmlFile, boolean usedCache, long parseMs, long writeMs, String errorMessage, boolean cancelled) {
-            this.htmlFile = htmlFile;
+        private RtfLoadResult(String html, int byteCount, boolean usedCache, long parseMs, long writeMs, String errorMessage, boolean cancelled) {
+            this.html = html;
+            this.byteCount = byteCount;
             this.usedCache = usedCache;
             this.parseMs = parseMs;
             this.writeMs = writeMs;
@@ -198,16 +209,16 @@ public class ViewRtf_Activity extends AppCompatActivity {
             this.cancelled = cancelled;
         }
 
-        static RtfLoadResult success(File htmlFile, boolean usedCache, long parseMs, long writeMs) {
-            return new RtfLoadResult(htmlFile, usedCache, parseMs, writeMs, null, false);
+        static RtfLoadResult success(String html, int byteCount, boolean usedCache, long parseMs, long writeMs) {
+            return new RtfLoadResult(html, byteCount, usedCache, parseMs, writeMs, null, false);
         }
 
         static RtfLoadResult error(String errorMessage) {
-            return new RtfLoadResult(null, false, 0L, 0L, errorMessage, false);
+            return new RtfLoadResult(null, 0, false, 0L, 0L, errorMessage, false);
         }
 
         static RtfLoadResult cancelled() {
-            return new RtfLoadResult(null, false, 0L, 0L, null, true);
+            return new RtfLoadResult(null, 0, false, 0L, 0L, null, true);
         }
     }
 
@@ -269,7 +280,11 @@ public class ViewRtf_Activity extends AppCompatActivity {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String str) {
-            webView.loadUrl(str);
+            return true;
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
             return true;
         }
 
