@@ -1,15 +1,27 @@
 # Q&uuml;ata Android
 
-Version: **1.0.1**
-Fecha de version: **2026-07-13**
-Estado: **release 1.0.1 de mantenimiento en produccion**
+Version: **1.0.2**
+Fecha de version: **2026-07-14**
+Estado: **release 1.0.2 definitiva para publicacion; QA automatizada y validacion visual en API 27 y API 37 completadas**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `1.0.1` refina el chat y el seguro de proximidad tras el primer lanzamiento: las conversaciones activas se actualizan al volver a abrir la app, las respuestas aceptan notas de voz y adjuntos, y el bloqueo por proximidad espera una confirmacion breve para evitar activaciones accidentales.
+La version `1.0.2` refuerza el chat offline-first y su sincronizacion en tiempo real, mejora el envio y los estados de los mensajes, corrige la apertura y el autoscroll de las conversaciones y adapta mejor los formularios al teclado en pantalla.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- La cache offline del chat conserva respuestas, adjuntos precargados y el contexto completo de los mensajes para evitar cambios de layout al reconciliar con la red.
+- Las conversaciones se abren directamente en el ultimo mensaje mediante el skeleton existente, incluido el hilo SOS con tarjetas de ubicacion altas.
+- El autoscroll sigue mensajes nuevos y cambios de contenido cuando el usuario esta al final, pero respeta la lectura manual del historial.
+- El envio de mensajes y adjuntos tolera mejor cortes de red, reintentos y confirmaciones tardias sin duplicar contenido.
+- Los estados de entrega y lectura, las notificaciones internas y las notificaciones nativas se coordinan de forma mas fiable.
+- Al iniciar una conversacion individual solo se reutiliza un hilo que contenga exactamente a esos dos participantes; los grupos mantienen los nombres de sus miembros.
+- La lista de chats muestra previews claros para fotos, videos, documentos, notas de voz y otros archivos.
+- El estado de conectividad se reconcilia al volver a primer plano para retirar correctamente el aviso sin conexion.
+- Los campos de chat y comentarios usan capitalizacion de frases, y las pantallas afectadas conservan visibles sus campos cuando aparece el teclado.
+- El editor de imagenes reduce la resolucion de carga y reutiliza cache mediante Coil para limitar memoria y evitar decodificaciones manuales completas.
+- La variante release activa R8 y la reduccion de recursos, conservando de forma explicita los servicios dinamicos, los modelos Vosk bajo demanda y el motor de documentos.
+- La interfaz edge-to-edge se ha validado en Android API 37, en portrait, landscape y con el teclado virtual desplegado.
 - Al volver la app a primer plano, la conversacion activa se refresca de inmediato para mostrar mensajes recibidos mientras Q&uuml;ata estaba en segundo plano.
 - Las respuestas de chat ahora aceptan notas de voz y adjuntos, manteniendo la referencia al mensaje respondido.
 - El seguro de proximidad espera 3 segundos antes de apagar la pantalla; si el sensor se destapa antes, el contador se cancela.
@@ -464,9 +476,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 27
-versionName = 1.0.1
-APP_VERSION_DATE = 2026-07-13
+versionCode = 28
+versionName = 1.0.2
+APP_VERSION_DATE = 2026-07-14
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

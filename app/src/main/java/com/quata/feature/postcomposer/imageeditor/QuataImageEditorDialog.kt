@@ -2,7 +2,6 @@ package com.quata.feature.postcomposer.imageeditor
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
@@ -69,7 +68,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.exifinterface.media.ExifInterface
+import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
@@ -645,29 +649,20 @@ private fun Bitmap.cropGeometryForAspect(
     )
 }
 
-private fun Context.loadEditorBitmap(uri: Uri): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    val boundsDecoded = runCatching {
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-    }.isSuccess
-    if (!boundsDecoded || bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-
-    val options = BitmapFactory.Options().apply {
-        inPreferredConfig = Bitmap.Config.ARGB_8888
-        inSampleSize = calculateImageSampleSize(bounds.outWidth, bounds.outHeight, ImageEditorDecodeMaxSize)
-    }
-    val decoded = runCatching {
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-    }.getOrNull() ?: return null
-    return decoded.orientFromExif(readImageOrientation(uri))
-}
-
-private fun calculateImageSampleSize(width: Int, height: Int, maxSize: Int): Int {
-    var sample = 1
-    while (width / sample > maxSize || height / sample > maxSize) {
-        sample *= 2
-    }
-    return sample
+private suspend fun Context.loadEditorBitmap(uri: Uri): Bitmap? {
+    val cacheKey = "image-editor:$uri:$ImageEditorDecodeMaxSize"
+    val request = ImageRequest.Builder(this)
+        .data(uri)
+        .size(ImageEditorDecodeMaxSize, ImageEditorDecodeMaxSize)
+        .allowHardware(false)
+        .memoryCacheKey(cacheKey)
+        .diskCacheKey(cacheKey)
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .build()
+    val result = runCatching { imageLoader.execute(request) }.getOrNull() as? SuccessResult
+        ?: return null
+    return result.drawable.toBitmap(config = Bitmap.Config.ARGB_8888)
 }
 
 private fun Context.exportEditedImage(
@@ -699,16 +694,6 @@ private fun Context.exportEditedImage(
     }
 }
 
-private fun Context.readImageOrientation(uri: Uri): Int =
-    runCatching {
-        contentResolver.openInputStream(uri)?.use { input ->
-            ExifInterface(input).getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL
-            )
-        } ?: ExifInterface.ORIENTATION_NORMAL
-    }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
-
 private fun Context.imageHashSeed(uri: Uri): String? =
     runCatching {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -726,29 +711,6 @@ private fun Context.imageHashSeed(uri: Uri): String? =
 private fun Bitmap.rotateClockwise(): Bitmap {
     val matrix = Matrix().apply { postRotate(90f) }
     return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
-}
-
-private fun Bitmap.orientFromExif(orientation: Int): Bitmap {
-    val matrix = Matrix()
-    when (orientation) {
-        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
-        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
-        ExifInterface.ORIENTATION_TRANSPOSE -> {
-            matrix.postRotate(90f)
-            matrix.postScale(-1f, 1f)
-        }
-        ExifInterface.ORIENTATION_TRANSVERSE -> {
-            matrix.postRotate(270f)
-            matrix.postScale(-1f, 1f)
-        }
-        else -> return this
-    }
-    val oriented = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
-    if (oriented !== this) recycle()
-    return oriented
 }
 
 private fun Context.copyImageGpsMetadata(sourceUri: Uri, outputFile: File) {

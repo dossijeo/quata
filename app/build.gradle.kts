@@ -53,8 +53,8 @@ android {
         applicationId = "com.quata"
         minSdk = 26
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.0.1"
+        versionCode = 28
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -65,7 +65,7 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
-        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-13\"")
+        buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-14\"")
         buildConfigField(
             "String",
             "DEEPL_API_KEY",
@@ -91,6 +91,12 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
