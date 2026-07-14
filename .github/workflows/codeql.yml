@@ -51,8 +51,10 @@ jobs:
         if: matrix.language == 'java-kotlin'
         shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36.1" "build-tools;36.1.0"
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
