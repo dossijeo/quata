@@ -1,5 +1,6 @@
 package com.quata.feature.chat.presentation.chat
 
+import android.content.Context
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -48,6 +49,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -104,6 +106,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -125,6 +128,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -132,6 +136,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
@@ -173,9 +180,12 @@ import com.quata.feature.chat.presentation.conversations.ConversationCandidatePi
 import com.quata.feature.chat.presentation.conversations.ConversationsUiState
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
+import com.quata.feature.chat.presentation.relativeTimeLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.withContext
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 
@@ -195,10 +205,11 @@ fun ChatScreen(
     appHeaderActions: (@Composable RowScope.() -> Unit)? = null,
     viewModel: ChatViewModel = viewModel(
         key = "chat_$conversationId",
-        factory = ChatViewModel.factory(conversationId, repository)
+        factory = ChatViewModel.factory(conversationId, repository, LocalContext.current)
     )
 ) {
     val state by viewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -212,6 +223,7 @@ fun ChatScreen(
     var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
     var lastShownError by remember { mutableStateOf<String?>(null) }
     var previousIncomingCount by remember(conversationId) { mutableStateOf(0) }
+    var hasInitializedIncomingCount by remember(conversationId) { mutableStateOf(false) }
     var attachmentMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isEmojiPickerVisible by rememberSaveable(conversationId) { mutableStateOf(false) }
     val emojiDismissState = rememberCommunityEmojiPanelDismissState {
@@ -223,6 +235,31 @@ fun ChatScreen(
     var isCameraVisible by remember { mutableStateOf(false) }
     var cameraAudioEnabled by remember { mutableStateOf(false) }
     var isAudioRecorderVisible by rememberSaveable { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> viewModel.setConversationVisible(true)
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> viewModel.setConversationVisible(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            viewModel.setConversationVisible(true)
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.setConversationVisible(false)
+        }
+    }
+
+    LaunchedEffect(messagesListState, state.hasMoreHistory) {
+        snapshotFlow { messagesListState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .filter { index -> index <= 2 }
+            .collect { viewModel.loadOlderMessages() }
+    }
     var autoPlayVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var activeVoiceMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
     var highlightedMessageId by rememberSaveable(conversationId) { mutableStateOf<String?>(null) }
@@ -245,7 +282,7 @@ fun ChatScreen(
         val currentIndex = state.messages.indexOfFirst { it.id == finishedMessage.id }
         val nextIndex = currentIndex + 1
         val nextMessage = state.messages.getOrNull(nextIndex)
-        val nextAttachment = nextMessage?.attachmentPreview()
+        val nextAttachment = nextMessage?.attachmentPreview(context)
         if (
             currentIndex >= 0 &&
             nextMessage != null &&
@@ -510,6 +547,9 @@ fun ChatScreen(
                             contentPadding = PaddingValues(top = 14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            if (state.isLoadingOlderMessages) {
+                                item(key = "older_messages_loading") { ConversationActionProgressBar() }
+                            }
                             if (state.isLoading && state.messages.isEmpty()) {
                                 items(6) { index ->
                                     ChatMessageSkeleton(
@@ -557,7 +597,9 @@ fun ChatScreen(
                                         onVoiceNoteEnded = { queueNextConsecutiveVoiceNote(message) },
                                         onClick = {
                                             if (message.isLocalEcho) {
-                                                Unit
+                                                if (message.deliveryState == MessageDeliveryState.Failed) {
+                                                    message.clientMessageId?.let(viewModel::retryPendingMessage)
+                                                }
                                             } else if (isFavoritesConversation) {
                                                 onOpenMessageConversation(message.conversationId, message.id)
                                             } else {
@@ -660,6 +702,9 @@ fun ChatScreen(
                                         }
                                     },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Sentences
+                                ),
                                 leadingIcon = {
                                     CompactIconButton(
                                         onClick = {
@@ -790,10 +835,11 @@ fun ChatScreen(
 
     LaunchedEffect(state.messages) {
         val incomingCount = state.messages.count { !it.isMine }
-        if (isAppForeground && incomingCount > previousIncomingCount) {
+        if (hasInitializedIncomingCount && isAppForeground && incomingCount > previousIncomingCount) {
             context.playChatSound(R.raw.notification)
         }
         previousIncomingCount = incomingCount
+        hasInitializedIncomingCount = true
     }
 
     LaunchedEffect(state.error) {
@@ -1793,7 +1839,7 @@ private fun MessageBubble(
                         Modifier.quataTranslatableText(
                             id = "chat-message:${message.id}",
                             text = message.text,
-                            displayText = message.translatorDisplayText()
+                            displayText = message.translatorDisplayText(context)
                         )
                     } else {
                         Modifier
@@ -1815,7 +1861,7 @@ private fun MessageBubble(
                         modifier = Modifier.align(Alignment.TopEnd)
                     ) {
                         Text(
-                            message.chatTimestampLabel(),
+                            message.chatTimestampLabel(context),
                             color = textColor.copy(alpha = 0.56f),
                             fontSize = 12.sp
                         )
@@ -1897,7 +1943,7 @@ private fun MessageBubble(
                         )
                     }
                 }
-                message.attachmentPreview()?.let { attachment ->
+                message.attachmentPreview(context)?.let { attachment ->
                     Spacer(Modifier.padding(4.dp))
                     if (attachment.isAudio) {
                         AudioAttachmentPlayer(
@@ -1960,6 +2006,12 @@ private fun MessageDeliveryIndicator(
             modifier = Modifier.size(12.dp),
             color = tint.copy(alpha = 0.72f),
             strokeWidth = 1.7.dp
+        )
+        MessageDeliveryState.Failed -> Text(
+            text = "!",
+            color = Color(0xFFD32F2F),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.ExtraBold
         )
         MessageDeliveryState.Sent -> Text(
             text = "\u2713",
@@ -2238,35 +2290,32 @@ private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
     )
 }
 
-private fun Message.attachmentPreview(): AttachmentPreview? {
+private fun Message.attachmentPreview(context: Context): AttachmentPreview? {
     val uri = attachmentUri?.takeIf { it.isNotBlank() } ?: return null
     return AttachmentPreview(
-        name = attachmentName ?: "archivo",
+        name = attachmentName ?: context.getString(R.string.common_file),
         uri = uri,
         mimeType = attachmentMimeType
     )
 }
 
-private fun Message.chatTimestampLabel(): String {
+private fun Message.chatTimestampLabel(context: Context): String {
     val millis = sentAtMillis ?: return sentAt
     val now = System.currentTimeMillis()
     val elapsed = (now - millis).coerceAtLeast(0L)
     val day = 24L * 60L * 60L * 1000L
     return when {
         elapsed < day -> java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(millis))
-        elapsed < 7L * day -> "hace ${elapsed / day}d"
-        elapsed < 31L * day -> "hace ${elapsed / (7L * day)} sem."
-        elapsed < 365L * day -> "hace ${elapsed / (31L * day)} mes"
-        else -> "hace un año"
+        else -> relativeTimeLabel(context, millis, now)
     }
 }
 
-private fun Message.translatorDisplayText(): String = buildString {
+private fun Message.translatorDisplayText(context: Context): String = buildString {
     append(if (isMine) "mine" else "other")
     append(" | ")
     append(senderName)
     append(" | ")
-    append(chatTimestampLabel())
+    append(chatTimestampLabel(context))
     append('\n')
     append(text)
 }
@@ -2278,7 +2327,8 @@ private fun android.content.Context.displayNameForUri(uri: Uri): String {
             if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
         }
     }.getOrNull()
-    return name?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { "archivo" }
+    return name?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { getString(R.string.common_file) }
 }
 
 private fun android.content.Context.openMaps(url: String) {

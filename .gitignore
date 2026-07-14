@@ -13,4 +13,5 @@ captures/
 .externalNativeBuild/
 .cxx/
 scripts/backups/
+supabase/.temp/
 quata-app-firebase-adminsdk-*.json

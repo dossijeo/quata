@@ -8,6 +8,7 @@ import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.AuthSession
 import com.quata.core.session.SessionManager
+import com.quata.core.notifications.PushTokenManager
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityProfileCreate
 import com.quata.data.supabase.SupabaseCommunityApi
@@ -20,7 +21,8 @@ class AuthRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
     private val sessionManager: SessionManager,
-    private val googleAuthHelper: GoogleAuthHelper
+    private val googleAuthHelper: GoogleAuthHelper,
+    private val pushTokenManager: PushTokenManager
 ) : AuthRepository {
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
@@ -145,6 +147,7 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout() {
+        pushTokenManager.unregisterCurrentToken()
         sessionManager.clearSession()
     }
 

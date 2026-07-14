@@ -30,7 +30,8 @@ class ChatRemoteDataSource(
     suspend fun sendSos(profileId: String, text: String, lat: Double? = null, lng: Double? = null, accuracy: Double? = null) =
         supabaseApi.sendSos(profileId, text, lat, lng, accuracy)
     suspend fun getChatInbox(profileId: String, limit: Int = 100) = supabaseApi.getChatInbox(profileId, limit)
-    suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250) = supabaseApi.getChatThread(profileId, threadId, limit)
+    suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250, knownMessageIds: List<Long> = emptyList()) =
+        supabaseApi.getChatThread(profileId, threadId, limit, knownMessageIds)
     suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String) = supabaseApi.getOrCreatePrivateThread(profileId, peerProfileId)
     suspend fun searchChatConversationCandidates(profileId: String, query: String = "", limit: Int = 30, offset: Int = 0) =
         supabaseApi.searchChatConversationCandidates(profileId, query, limit, offset)

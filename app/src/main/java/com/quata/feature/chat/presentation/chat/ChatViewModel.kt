@@ -1,8 +1,11 @@
 package com.quata.feature.chat.presentation.chat
 
+import android.content.Context
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.R
 import com.quata.core.model.MessageDeliveryState
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.model.Message
@@ -15,11 +18,13 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.util.UUID
 
 class ChatViewModel(
     private val conversationId: String,
-    private val repository: ChatRepository
+    private val repository: ChatRepository,
+    private val resolveString: (Int) -> String = { "Chat error" }
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -32,28 +37,31 @@ class ChatViewModel(
     private var participantCandidatePageJob: Job? = null
     private var forwardCandidateSearchJob: Job? = null
     private var forwardCandidatePageJob: Job? = null
+    private var isConversationVisible = false
 
     init {
-        repository.setActiveConversation(conversationId)
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
         viewModelScope.launch {
-            if (repository.isAppForeground.value) {
+            if (isConversationVisible && repository.isAppForeground.value) {
                 repository.markConversationRead(conversationId)
             }
         }
         viewModelScope.launch {
             repository.isAppForeground.collect { isForeground ->
-                if (isForeground) {
+                if (isForeground && isConversationVisible) {
                     repository.markConversationRead(conversationId)
                 }
             }
+        }
+        viewModelScope.launch {
+            repository.syncStatus.collect { status -> _uiState.value = _uiState.value.copy(syncStatus = status) }
         }
         viewModelScope.launch {
             repository.observeConversations()
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "No se pudieron cargar los chats"
+                        error = errorText(R.string.chat_error_load_conversations)
                     )
                 }
                 .collect { conversations ->
@@ -67,7 +75,7 @@ class ChatViewModel(
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "No se pudieron cargar los mensajes"
+                        error = errorText(R.string.chat_error_load_messages)
                     )
                 }
                 .collect { messages ->
@@ -88,7 +96,7 @@ class ChatViewModel(
                             }
                     }
                     publishMessages(isLoading = false)
-                    if (repository.isAppForeground.value) {
+                    if (isConversationVisible && repository.isAppForeground.value) {
                         repository.markConversationRead(conversationId)
                     }
                 }
@@ -144,9 +152,35 @@ class ChatViewModel(
         }
     }
 
+    fun setConversationVisible(visible: Boolean) {
+        if (isConversationVisible == visible) return
+        isConversationVisible = visible
+        repository.setConversationVisible(conversationId, visible)
+        if (visible && repository.isAppForeground.value) {
+            viewModelScope.launch { repository.markConversationRead(conversationId) }
+        }
+    }
+
     fun cleanupEmptyConversationIfNeeded() {
         if (!isFavoritesConversation && backendMessages.isEmpty() && localEchoMessages.isEmpty()) {
             repository.cleanupEmptyConversation(conversationId)
+        }
+    }
+
+    fun loadOlderMessages() {
+        if (isFavoritesConversation || _uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreHistory) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
+            repository.loadOlderMessages(conversationId)
+                .onSuccess { hasMore -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, hasMoreHistory = hasMore) }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, error = error.message) }
+        }
+    }
+
+    fun retryPendingMessage(clientMessageId: String) {
+        viewModelScope.launch {
+            repository.retryPendingMessage(clientMessageId)
+                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message) }
         }
     }
 
@@ -253,7 +287,7 @@ class ChatViewModel(
                     restoreEditDraftIfComposerIsEmpty(editingMessage, text)
                     publishMessages(isLoading = false)
                 }
-                _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo enviar")
+                _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_send))
             }
     }
 
@@ -283,9 +317,9 @@ class ChatViewModel(
             id = "local:${draft.clientMessageId}",
             conversationId = conversationId,
             senderId = currentUser?.id.orEmpty(),
-            senderName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Tu",
+            senderName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: resolveString(R.string.common_you),
             text = draft.text,
-            sentAt = "Ahora",
+            sentAt = Instant.ofEpochMilli(now).toString(),
             sentAtMillis = now,
             isMine = true,
             isRead = false,
@@ -295,6 +329,7 @@ class ChatViewModel(
             attachmentUri = draft.attachmentUri,
             attachmentName = draft.attachmentName,
             attachmentMimeType = draft.attachmentMimeType,
+            clientMessageId = draft.clientMessageId,
             isPending = true,
             isLocalEcho = true,
             deliveryState = MessageDeliveryState.Pending
@@ -339,6 +374,7 @@ class ChatViewModel(
 
     private fun Message.matchesLocalEcho(local: Message): Boolean {
         if (!local.isLocalEcho || !isMine) return false
+        if (!clientMessageId.isNullOrBlank() && clientMessageId == local.clientMessageId) return true
         val remoteText = text.normalizedEchoText()
         val localText = local.text.normalizedEchoText()
         val sameLink = local.text.echoUrls()
@@ -393,7 +429,7 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     conversation = previousConversation,
                     isConversationActionInProgress = false,
-                    error = it.message ?: "No se pudo actualizar"
+                    error = errorText(R.string.chat_error_update)
                 )
             }
     }
@@ -402,7 +438,7 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.setMemberInvitesEnabled(conversationId, enabled)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo actualizar") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_update)) }
     }
 
     fun onParticipantCandidateQueryChanged(query: String) {
@@ -443,7 +479,7 @@ class ChatViewModel(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         addingCandidateProfileId = null,
-                        participantCandidateError = error.message ?: "No se pudo anadir participante"
+                        participantCandidateError = errorText(R.string.chat_error_add_participant)
                     )
                 }
         }
@@ -564,7 +600,7 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     isForwardCandidateInitialLoading = false,
                     isForwardCandidatePageLoading = false,
-                    forwardCandidateError = error.message ?: "No se pudo cargar la lista"
+                    forwardCandidateError = errorText(R.string.chat_error_load_candidates)
                 )
             }
         }
@@ -605,7 +641,7 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     isParticipantCandidateInitialLoading = false,
                     isParticipantCandidatePageLoading = false,
-                    participantCandidateError = error.message ?: "No se pudo cargar la lista"
+                    participantCandidateError = errorText(R.string.chat_error_load_candidates)
                 )
             }
         }
@@ -623,56 +659,56 @@ class ChatViewModel(
             .onSuccess {
                 _uiState.value = _uiState.value.copy(isConversationActionInProgress = false)
             }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudieron anadir participantes") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_add_participants)) }
     }
 
     private fun hideConversation() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.hideConversation(conversationId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo borrar la conversacion") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_delete_conversation)) }
     }
 
     private fun deleteConversation() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.deleteConversation(conversationId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo borrar la conversacion") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_delete_conversation)) }
     }
 
     private fun leaveConversation() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.leaveConversation(conversationId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo abandonar la conversacion") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_leave_conversation)) }
     }
 
     private fun promoteModerator(userId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.promoteModerator(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo ascender") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_promote_participant)) }
     }
 
     private fun demoteModerator(userId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.demoteModerator(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo quitar moderador") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_demote_participant)) }
     }
 
     private fun removeParticipant(userId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.removeParticipant(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo expulsar") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_remove_participant)) }
     }
 
     private fun blockParticipant(userId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.blockParticipant(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = it.message ?: "No se pudo bloquear") }
+            .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = errorText(R.string.chat_error_block_participant)) }
     }
 
     private fun selectedMessage() = _uiState.value.messages.firstOrNull { it.id == _uiState.value.selectedMessageId }
@@ -697,14 +733,14 @@ class ChatViewModel(
         val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return@launch
         repository.toggleFavoriteMessage(message.id)
             .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo actualizar favorito") }
+            .onFailure { _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_update_favorite)) }
     }
 
     private fun deleteSelectedMessage() = viewModelScope.launch {
         val message = selectedMessage()?.takeIf { it.isMine && !it.isLocalEcho } ?: return@launch
         repository.deleteMessage(message.id)
             .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo eliminar") }
+            .onFailure { _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_delete_message)) }
     }
 
     private fun toggleForwardProfile(profileId: String) {
@@ -718,8 +754,6 @@ class ChatViewModel(
         val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return@launch
         val selectedProfileIds = _uiState.value.selectedForwardProfileIds
         if (selectedProfileIds.isEmpty()) return@launch
-        val candidateConversations = _uiState.value.forwardConversationCandidates
-            .associate { it.profileId to it.existingConversationId }
         _uiState.value = _uiState.value.copy(
             isConversationActionInProgress = true,
             isForwardDialogOpen = false,
@@ -727,8 +761,7 @@ class ChatViewModel(
         )
         runCatching {
             selectedProfileIds.map { profileId ->
-                candidateConversations[profileId]?.takeIf { it.isNotBlank() }
-                    ?: repository.openPrivateConversation(profileId).getOrThrow()
+                repository.openPrivateConversation(profileId).getOrThrow()
             }
                 .filterNot { it == conversationId }
                 .distinct()
@@ -749,14 +782,14 @@ class ChatViewModel(
                 }.onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isConversationActionInProgress = false,
-                        error = error.message ?: "No se pudo reenviar"
+                        error = errorText(R.string.chat_error_forward)
                     )
                 }
             },
             onFailure = { error ->
                 _uiState.value = _uiState.value.copy(
                     isConversationActionInProgress = false,
-                    error = error.message ?: "No se pudo reenviar"
+                    error = errorText(R.string.chat_error_forward)
                 )
             }
         )
@@ -768,15 +801,18 @@ class ChatViewModel(
         private const val LOCAL_ECHO_ENRICHED_TEXT_MIN_LENGTH = 12
         private val ECHO_URL_REGEX = Regex("""https?://\S+|www\.\S+""", RegexOption.IGNORE_CASE)
 
-        fun factory(conversationId: String, repository: ChatRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(conversationId: String, repository: ChatRepository, context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = ChatViewModel(conversationId, repository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ChatViewModel(conversationId, repository, context.applicationContext::getString) as T
         }
     }
 
+    private fun errorText(@StringRes id: Int): String = resolveString(id)
+
     override fun onCleared() {
         cleanupEmptyConversationIfNeeded()
-        repository.setActiveConversation(null)
+        repository.setConversationVisible(conversationId, false)
         super.onCleared()
     }
 }

@@ -846,7 +846,8 @@ object MockData {
         mutableConversations.firstOrNull { conversation ->
             !conversation.isGroup &&
                 !conversation.isEmergency &&
-                setOf(senderId, userId).all { it in conversation.participantIds }
+                conversation.participantIds.size == 2 &&
+                conversation.participantIds.toSet() == setOf(senderId, userId)
         }?.let { return it.id }
 
         val now = System.currentTimeMillis()

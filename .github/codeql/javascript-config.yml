@@ -1,0 +1,4 @@
+name: Quata Supabase functions CodeQL configuration
+
+paths:
+  - "supabase/functions/**"

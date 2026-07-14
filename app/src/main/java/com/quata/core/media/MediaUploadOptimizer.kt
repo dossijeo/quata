@@ -188,7 +188,10 @@ class MediaUploadOptimizer(private val appContext: Context) {
     }
 
     private suspend fun MediaSource.readPayload(): UploadMediaPayload = withContext(Dispatchers.IO) {
-        val bytes = appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        val bytes = when (uri.scheme?.lowercase()) {
+            ContentResolver.SCHEME_FILE -> FileInputStream(File(uri.path ?: error("Ruta de archivo no valida")))
+            else -> appContext.contentResolver.openInputStream(uri)
+        }?.use { it.readBytes() }
             ?: error("No se pudo leer el archivo seleccionado")
         UploadMediaPayload(
             fileName = fileName,

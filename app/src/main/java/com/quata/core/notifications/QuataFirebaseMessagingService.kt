@@ -18,6 +18,9 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
         val quataApp = application as? QuataApp
         val data = message.data
         if (data["type"] != "chat_message") return
+        val expectedProfileId = data["recipient_profile_id"]?.takeIf { it.isNotBlank() }
+        val currentProfileId = quataApp?.container?.sessionManager?.currentSession()?.userId
+        if (expectedProfileId != null && expectedProfileId != currentProfileId) return
         data["message_id"]?.toLongOrNull()?.let { messageId ->
             runBlocking(Dispatchers.IO) {
                 quataApp?.container?.chatMessageStateAckManager?.markMessages(

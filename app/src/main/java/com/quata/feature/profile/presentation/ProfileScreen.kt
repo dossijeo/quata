@@ -11,6 +11,9 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,8 +29,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -63,6 +69,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -108,7 +116,6 @@ private enum class ProfileAccountPage {
 @Composable
 fun ProfileScreen(
     padding: PaddingValues,
-    sessionManager: SessionManager,
     repository: ProfileRepository,
     touchFlowEnabled: Boolean,
     onTouchFlowEnabledChange: (Boolean) -> Unit,
@@ -373,7 +380,6 @@ fun ProfileScreen(
                     )
                     OutlinedButton(
                         onClick = {
-                            sessionManager.clearSession()
                             onLogout()
                         },
                         modifier = Modifier
@@ -651,6 +657,7 @@ private fun <T> DropdownField(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun EmergencyContactsDialog(
     layoutPadding: PaddingValues = PaddingValues(),
     candidates: List<EmergencyContactCandidate>,
@@ -666,9 +673,25 @@ fun EmergencyContactsDialog(
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val bottomActionHeight = 54.dp
     val bottomActionOffset = if (isLandscapeLayout) 0.dp else 12.dp
-    val contentBottomSpace = bottomActionHeight + bottomActionOffset + 18.dp
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyTab.Contacts) }
+    // These states are used only while the IME reduces the available viewport.
+    // They preserve the unchanged layout and position at rest.
+    val messageScrollState = rememberScrollState()
+    val contactsListState = rememberLazyListState()
+    val messageBringIntoViewRequester = remember { BringIntoViewRequester() }
+    var isMessageFocused by remember { mutableStateOf(false) }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(isMessageFocused, imeBottom) {
+        if (isMessageFocused && imeBottom > 0) {
+            messageBringIntoViewRequester.bringIntoView()
+        }
+    }
+    LaunchedEffect(imeBottom, selectedTab) {
+        if (imeBottom == 0 && selectedTab == EmergencyTab.Contacts) {
+            contactsListState.scrollToItem(0)
+        }
+    }
     val visibleUsers = candidates
         .filter { user ->
             query.isBlank() ||
@@ -758,7 +781,11 @@ fun EmergencyContactsDialog(
                                     }
                                 }
                             }
-                            Column(Modifier.weight(0.92f)) {
+                            Column(
+                                Modifier
+                                    .weight(0.92f)
+                                    .verticalScroll(messageScrollState)
+                            ) {
                                 Text(stringResource(R.string.emergency_message_tab), fontWeight = FontWeight.ExtraBold)
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -788,7 +815,10 @@ fun EmergencyContactsDialog(
                                             onValueChange = onMessageChange,
                                             minLines = 4,
                                             maxLines = 5,
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .bringIntoViewRequester(messageBringIntoViewRequester)
+                                                .onFocusChanged { isMessageFocused = it.isFocused },
                                             shape = RoundedCornerShape(18.dp)
                                         )
                                     }
@@ -797,74 +827,63 @@ fun EmergencyContactsDialog(
                         }
                     }
                 } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = contentBottomSpace)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CompactIconButton(onClick = onDismiss) {
-                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                            }
-                            Spacer(Modifier.width(6.dp))
-                            Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
-                                Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Text(stringResource(R.string.emergency_contacts_title), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            stringResource(R.string.emergency_contacts_description),
-                            color = template.colors.textSecondary,
-                            lineHeight = 22.sp
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            EmergencyTabButton(
-                                text = stringResource(R.string.emergency_contacts_tab),
-                                selected = selectedTab == EmergencyTab.Contacts,
-                                onClick = { selectedTab = EmergencyTab.Contacts },
-                                modifier = Modifier.weight(1f)
-                            )
-                            EmergencyTabButton(
-                                text = stringResource(R.string.emergency_message_tab),
-                                selected = selectedTab == EmergencyTab.Message,
-                                onClick = { selectedTab = EmergencyTab.Message },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-
-                        when (selectedTab) {
-                            EmergencyTab.Contacts -> Column(Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = query,
-                                onValueChange = { query = it },
-                                placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(18.dp)
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = template.colors.accent, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(14.dp))
-                            Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
-                            Spacer(Modifier.height(8.dp))
-                            LazyColumn(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(visibleUsers) { user ->
-                                    EmergencyUserRow(
-                                        user = user,
-                                        selected = user.id in selectedIds,
-                                        onToggle = { onToggleContact(user) }
+                    Column(Modifier.fillMaxSize()) {
+                    when (selectedTab) {
+                        EmergencyTab.Contacts -> LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            state = contactsListState,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                if (imeBottom == 0) {
+                                    EmergencyContactsPortraitHeader(
+                                        selectedTab = selectedTab,
+                                        onTabSelected = { selectedTab = it },
+                                        onDismiss = onDismiss
                                     )
+                                    Spacer(Modifier.height(10.dp))
                                 }
+                                OutlinedTextField(
+                                    value = query,
+                                    onValueChange = { query = it },
+                                    placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    stringResource(R.string.emergency_selected_count, selectedIds.size),
+                                    color = template.colors.accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
+                            }
+                            items(visibleUsers, key = { it.id }) { user ->
+                                EmergencyUserRow(
+                                    user = user,
+                                    selected = user.id in selectedIds,
+                                    onToggle = { onToggleContact(user) }
+                                )
                             }
                         }
-                        EmergencyTab.Message -> Column(Modifier.weight(1f)) {
+                        EmergencyTab.Message -> Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(messageScrollState)
+                        ) {
+                            if (imeBottom == 0) {
+                                EmergencyContactsPortraitHeader(
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { selectedTab = it },
+                                    onDismiss = onDismiss
+                                )
+                                Spacer(Modifier.height(10.dp))
+                            }
                             ProfilePanel {
                                 Column {
                                     Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
@@ -878,32 +897,90 @@ fun EmergencyContactsDialog(
                                         value = message,
                                         onValueChange = onMessageChange,
                                         minLines = 8,
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .bringIntoViewRequester(messageBringIntoViewRequester)
+                                            .onFocusChanged { isMessageFocused = it.isFocused },
                                         shape = RoundedCornerShape(18.dp)
                                     )
                                 }
                             }
                         }
                     }
+                    if (imeBottom == 0) {
+                        Spacer(Modifier.height(18.dp))
+                        Button(
+                            onClick = onSave,
+                            enabled = !isSaving,
+                            colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(bottomActionHeight)
+                        ) {
+                            Text(
+                                stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(Modifier.height(bottomActionOffset))
                     }
-                    Button(
-                        onClick = onSave,
-                        enabled = !isSaving,
-                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = bottomActionOffset)
-                            .fillMaxWidth()
-                            .height(bottomActionHeight)
-                    ) {
-                        Text(
-                            stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
-                            fontWeight = FontWeight.ExtraBold
-                        )
                     }
                 }
         }
+    }
+}
+
+@Composable
+private fun EmergencyContactsPortraitHeader(
+    selectedTab: EmergencyTab,
+    onTabSelected: (EmergencyTab) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val template = quataTheme()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CompactIconButton(onClick = onDismiss) {
+            CompactIcon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.common_back)
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
+            Text(
+                stringResource(R.string.common_sos),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            stringResource(R.string.emergency_contacts_title),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        stringResource(R.string.emergency_contacts_description),
+        color = template.colors.textSecondary,
+        lineHeight = 22.sp
+    )
+    Spacer(Modifier.height(14.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        EmergencyTabButton(
+            text = stringResource(R.string.emergency_contacts_tab),
+            selected = selectedTab == EmergencyTab.Contacts,
+            onClick = { onTabSelected(EmergencyTab.Contacts) },
+            modifier = Modifier.weight(1f)
+        )
+        EmergencyTabButton(
+            text = stringResource(R.string.emergency_message_tab),
+            selected = selectedTab == EmergencyTab.Message,
+            onClick = { onTabSelected(EmergencyTab.Message) },
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

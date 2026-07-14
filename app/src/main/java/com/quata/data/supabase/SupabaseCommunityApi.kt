@@ -524,6 +524,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             QuataRegisterPushTokenRequest(profileId, token, platform)
         )
 
+    suspend fun unregisterPushToken(profileId: String, token: String): JsonElement =
+        client.rpc<QuataUnregisterPushTokenRequest, JsonElement>(
+            "quata_unregister_push_token",
+            QuataUnregisterPushTokenRequest(profileId, token)
+        )
+
     suspend fun createOrGetPrivateChat(user1: String, user2: String): String {
         val chatId = client.rpc<RpcCreateOrGetPrivateChatRequest, String>("create_or_get_private_chat", RpcCreateOrGetPrivateChatRequest(user1, user2))
         client.invalidateTables("community_private_chats")
@@ -722,8 +728,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun getChatInbox(profileId: String, limit: Int = 100): JsonElement =
         client.rpc<QuataChatInboxRequest, JsonElement>("quata_chat_get_inbox", QuataChatInboxRequest(profileId, limit))
 
-    suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250): JsonElement =
-        client.rpc<QuataChatThreadRequest, JsonElement>("quata_chat_get_thread", QuataChatThreadRequest(profileId, threadId, p_limit = limit))
+    suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250, knownMessageIds: List<Long> = emptyList()): JsonElement =
+        client.rpc<QuataChatThreadRequest, JsonElement>("quata_chat_get_thread", QuataChatThreadRequest(profileId, threadId, knownMessageIds, limit))
 
     suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String): JsonElement =
         client.rpc<QuataChatPrivateThreadRequest, JsonElement>(

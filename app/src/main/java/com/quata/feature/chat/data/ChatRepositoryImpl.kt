@@ -15,6 +15,7 @@ import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.notifications.NotificationFactory
 import com.quata.core.session.SessionManager
+import com.quata.core.session.AuthState
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.RealtimeRawEvent
 import com.quata.data.supabase.RealtimeStatus
@@ -22,6 +23,8 @@ import com.quata.data.supabase.SupabaseRealtimeClient
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.domain.ChatSyncStatus
+import com.quata.feature.chat.domain.isExactPrivateConversation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,6 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -48,8 +53,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.text.Normalizer
+import java.time.Instant
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
+import kotlin.random.Random
 
 class ChatRepositoryImpl(
     private val appContext: Context,
@@ -62,6 +70,7 @@ class ChatRepositoryImpl(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cacheStore = SupabaseChatCacheStore(appContext)
     private val attachmentFileCache = ChatAttachmentFileCache(appContext)
+    private val outboxAttachmentStore = ChatOutboxAttachmentStore(appContext)
     private val notificationFactory = NotificationFactory(appContext)
     private val refreshMutex = Mutex()
     private val messageStates = ConcurrentHashMap<String, MutableStateFlow<List<Message>>>()
@@ -71,6 +80,7 @@ class ChatRepositoryImpl(
     private val _activeConversationId = MutableStateFlow<String?>(null)
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     private val _isRealtimeOnline = MutableStateFlow(true)
+    private val _syncStatus = MutableStateFlow(ChatSyncStatus.Refreshing)
     private val appForegroundState = MutableStateFlow(false)
     private val deviceNetworkAvailable = MutableStateFlow(true)
     private var realtimeProfileId: String? = null
@@ -79,15 +89,19 @@ class ChatRepositoryImpl(
     @Volatile
     private var isRealtimeConnecting = false
     private var reconnectJob: Job? = null
+    private var reconnectAttempt: Int = 0
     private var realtimeTokenRefreshJob: Job? = null
     private var lastFullRefreshAtMillis: Long = 0L
     private var lastFavoritesRefreshAtMillis: Long = 0L
     private val lastThreadRefreshAtMillis = ConcurrentHashMap<String, Long>()
+    @Volatile
+    private var cacheProfileId: String? = null
 
     override val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
     override val isAppForeground: StateFlow<Boolean> = appForegroundState.asStateFlow()
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation.asStateFlow()
     override val isRealtimeOnline: StateFlow<Boolean> = _isRealtimeOnline.asStateFlow()
+    override val syncStatus: StateFlow<ChatSyncStatus> = _syncStatus.asStateFlow()
 
     init {
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -95,8 +109,10 @@ class ChatRepositoryImpl(
             _isRealtimeOnline.value = true
         } else {
             scope.launch {
-                val session = sessionManager.currentSession() ?: return@launch
-                restoreCache(session.userId)
+                sessionManager.authState
+                    .map { state -> (state as? AuthState.LoggedIn)?.userId }
+                    .distinctUntilChanged()
+                    .collect { profileId -> switchChatProfile(profileId) }
             }
         }
     }
@@ -110,6 +126,7 @@ class ChatRepositoryImpl(
         if (deviceNetworkAvailable.value == isAvailable) return
         deviceNetworkAvailable.value = isAvailable
         if (!isAvailable) {
+            _syncStatus.value = ChatSyncStatus.Offline
             _isRealtimeOnline.value = false
             isRealtimeConnecting = false
             realtimeProfileId = null
@@ -123,6 +140,7 @@ class ChatRepositoryImpl(
             return
         }
         _isRealtimeOnline.value = false
+        _syncStatus.value = ChatSyncStatus.Refreshing
         sessionManager.currentSession()?.let { session ->
             scope.launch {
                 if (appForegroundState.value) {
@@ -130,6 +148,7 @@ class ChatRepositoryImpl(
                 } else {
                     refreshAll(session.userId)
                 }
+                flushPendingMessages()
             }
         }
     }
@@ -163,6 +182,36 @@ class ChatRepositoryImpl(
                 restoreMessagesFromCache(conversationId)
                 if (deviceNetworkAvailable.value) refreshMessagesInBackground(conversationId)
             }
+        }
+    }
+
+    override fun setConversationVisible(conversationId: String, visible: Boolean) {
+        if (visible) {
+            setActiveConversation(conversationId)
+        } else if (_activeConversationId.value == conversationId) {
+            _activeConversationId.value = null
+        }
+    }
+
+    private suspend fun switchChatProfile(profileId: String?) {
+        if (cacheProfileId == profileId) return
+        stopRealtime()
+        cacheProfileId = profileId
+        _activeConversationId.value = null
+        _pendingDeletedConversation.value = null
+        _conversations.value = emptyList()
+        messageStates.clear()
+        favoriteMessages.value = emptyList()
+        profilesById.clear()
+        lastThreadRefreshAtMillis.clear()
+        lastFullRefreshAtMillis = 0L
+        lastFavoritesRefreshAtMillis = 0L
+        notificationFactory.clearChatMessages()
+        if (profileId == null) return
+        restoreCache(profileId)
+        if (appForegroundState.value && deviceNetworkAvailable.value) {
+            refreshAndConnectRealtime(profileId)
+            flushPendingMessages()
         }
     }
 
@@ -274,6 +323,22 @@ class ChatRepositoryImpl(
         }
         }
 
+    override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND || conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching false
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val knownIds = messagesState(conversationId).value.mapNotNull { it.id.toLongOrNull() }
+        val payload = remote.getChatThread(session.userId, conversationId.requireThreadId(), limit, knownIds)
+        val parsed = parseChatPayload(payload)
+        parsed.profiles.forEach { profilesById[it.id] = it }
+        val older = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }.withReplyContext()
+        if (older.isNotEmpty()) {
+            val merged = (older + messagesState(conversationId).value).distinctBy { it.id }.sortedBy { it.sentAtMillis ?: 0L }
+            messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
+            cacheStore.replaceMessages(session.userId, conversationId, merged)
+        }
+        older.size >= limit
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
+
     override fun observeParticipantCandidates(): Flow<List<User>> {
         if (AppConfig.USE_MOCK_BACKEND) {
             return MockData.socialFlow.map { MockData.registeredUsers }
@@ -323,7 +388,9 @@ class ChatRepositoryImpl(
                         avatarUrl = user.avatarUrl,
                         sectionKey = if (isContact) "contacts" else "other",
                         neighborhoodGroup = user.neighborhood,
-                        existingConversationId = existingConversations.firstOrNull { !it.isGroup && profile.id in it.participantIds }?.id
+                        existingConversationId = existingConversations.firstOrNull {
+                            it.isExactPrivateConversation(currentId, profile.id)
+                        }?.id
                     )
                 }
             return@runCatching ChatConversationCandidatePage(
@@ -387,13 +454,19 @@ class ChatRepositoryImpl(
             return@runCatching
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-        val threadId = conversationId.requireThreadId()
-        val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
-            listOf(uploadAttachment(session.userId, threadId, uri, attachmentName, attachmentMimeType))
-        }.orEmpty()
-        remote.sendChatMessage(session.userId, threadId, text, fileIds, clientMessageId = clientMessageId)
-        refreshThread(conversationId, force = true)
-        refreshAll(session.userId, force = true)
+        val id = clientMessageId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val stagedUri = outboxAttachmentStore.stage(id, attachmentUri)
+        val pending = PendingOutgoingMessage(
+            profileId = session.userId,
+            clientMessageId = id,
+            conversationId = conversationId,
+            text = text,
+            attachmentUri = stagedUri,
+            attachmentName = attachmentName,
+            attachmentMimeType = attachmentMimeType
+        )
+        persistPendingOutgoing(session, pending)
+        if (deviceNetworkAvailable.value) attemptOutgoing(pending) else ChatOutboxWorkScheduler.scheduleOneTime(appContext)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendReply(
@@ -422,21 +495,122 @@ class ChatRepositoryImpl(
             return@runCatching
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-        val threadId = conversationId.requireThreadId()
-        val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
-            listOf(uploadAttachment(session.userId, threadId, uri, attachmentName, attachmentMimeType))
-        }.orEmpty()
-        remote.sendChatMessage(
+        val id = clientMessageId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val stagedUri = outboxAttachmentStore.stage(id, attachmentUri)
+        val pending = PendingOutgoingMessage(
             profileId = session.userId,
-            threadId = threadId,
-            message = text,
-            fileIds = fileIds,
-            replyToMessageId = replyTo.id.toLongOrNull(),
-            clientMessageId = clientMessageId
+            clientMessageId = id,
+            conversationId = conversationId,
+            text = text,
+            attachmentUri = stagedUri,
+            attachmentName = attachmentName,
+            attachmentMimeType = attachmentMimeType,
+            replyToMessageId = replyTo.id,
+            replyToSenderName = replyTo.senderName,
+            replyToText = replyTo.text
         )
-        refreshThread(conversationId, force = true)
-        refreshAll(session.userId, force = true)
+        persistPendingOutgoing(session, pending)
+        if (deviceNetworkAvailable.value) attemptOutgoing(pending) else ChatOutboxWorkScheduler.scheduleOneTime(appContext)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun flushPendingMessages(): Boolean {
+        if (AppConfig.USE_MOCK_BACKEND) return true
+        val session = sessionManager.currentSession() ?: return true
+        if (!deviceNetworkAvailable.value) return false
+        val pending = cacheStore.pendingOutgoing(session.userId)
+        var allSent = true
+        pending.forEach { outgoing ->
+            if (outgoing.attempts >= MAX_OUTBOX_ATTEMPTS) {
+                markOutgoingFailed(outgoing)
+            } else if (!attemptOutgoing(outgoing)) {
+                allSent = false
+            }
+        }
+        return allSent
+    }
+
+    override suspend fun retryPendingMessage(clientMessageId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val outgoing = cacheStore.pendingOutgoing(session.userId).firstOrNull { it.clientMessageId == clientMessageId }
+            ?: error("Mensaje pendiente no encontrado")
+        cacheStore.resetOutgoingAttempts(session.userId, clientMessageId)
+        val state = messagesState(outgoing.conversationId)
+        state.value = state.value.map { message ->
+            if (message.clientMessageId == clientMessageId) message.copy(isPending = true, deliveryState = MessageDeliveryState.Pending) else message
+        }
+        cacheStore.replaceMessages(session.userId, outgoing.conversationId, state.value)
+        if (deviceNetworkAvailable.value) attemptOutgoing(outgoing.copy(attempts = 0, lastError = null)) else ChatOutboxWorkScheduler.scheduleOneTime(appContext)
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    private suspend fun markOutgoingFailed(outgoing: PendingOutgoingMessage) {
+        val state = messagesState(outgoing.conversationId)
+        state.value = state.value.map { message ->
+            if (message.clientMessageId == outgoing.clientMessageId) message.copy(isPending = false, deliveryState = MessageDeliveryState.Failed) else message
+        }
+        cacheStore.replaceMessages(outgoing.profileId, outgoing.conversationId, state.value)
+    }
+
+    private suspend fun persistPendingOutgoing(session: AuthSession, outgoing: PendingOutgoingMessage) {
+        cacheStore.enqueueOutgoing(outgoing)
+        val message = Message(
+            id = "local:${outgoing.clientMessageId}",
+            conversationId = outgoing.conversationId,
+            senderId = session.userId,
+            senderName = session.displayName.ifBlank { appContext.getString(R.string.common_you) },
+            text = outgoing.text,
+            sentAt = Instant.ofEpochMilli(outgoing.createdAtMillis).toString(),
+            sentAtMillis = outgoing.createdAtMillis,
+            isMine = true,
+            isRead = false,
+            replyToMessageId = outgoing.replyToMessageId,
+            replyToSenderName = outgoing.replyToSenderName,
+            replyToText = outgoing.replyToText,
+            attachmentUri = outgoing.attachmentUri,
+            attachmentName = outgoing.attachmentName,
+            attachmentMimeType = outgoing.attachmentMimeType,
+            clientMessageId = outgoing.clientMessageId,
+            isPending = true,
+            isLocalEcho = true,
+            deliveryState = MessageDeliveryState.Pending
+        )
+        val state = messagesState(outgoing.conversationId)
+        state.value = (state.value.filterNot { it.clientMessageId == outgoing.clientMessageId } + message)
+            .sortedBy { it.sentAtMillis ?: Long.MAX_VALUE }
+        cacheStore.upsertMessage(session.userId, message)
+    }
+
+    private suspend fun attemptOutgoing(outgoing: PendingOutgoingMessage): Boolean {
+        val session = sessionManager.currentSession()?.takeIf { it.userId == outgoing.profileId } ?: return false
+        return runCatching {
+            val threadId = outgoing.conversationId.requireThreadId()
+            val remoteFileId = outgoing.remoteFileId ?: outgoing.attachmentUri?.takeIf { it.isNotBlank() }?.let { uri ->
+                uploadAttachment(session.userId, threadId, uri, outgoing.attachmentName, outgoing.attachmentMimeType).also { fileId ->
+                    cacheStore.markOutgoingUploaded(session.userId, outgoing.clientMessageId, fileId)
+                }
+            }
+            val payload = remote.sendChatMessage(
+                profileId = session.userId,
+                threadId = threadId,
+                message = outgoing.text,
+                fileIds = listOfNotNull(remoteFileId),
+                replyToMessageId = outgoing.replyToMessageId?.toLongOrNull(),
+                clientMessageId = outgoing.clientMessageId
+            )
+            cacheStore.removeOutgoing(session.userId, outgoing.clientMessageId)
+            cacheStore.removePendingMessage(session.userId, outgoing.conversationId, outgoing.clientMessageId)
+            outboxAttachmentStore.remove(outgoing.attachmentUri)
+            messagesState(outgoing.conversationId).value = messagesState(outgoing.conversationId).value
+                .filterNot { it.clientMessageId == outgoing.clientMessageId && it.isLocalEcho }
+            mergeChatPayload(payload, session.userId)
+            refreshThread(outgoing.conversationId, force = true)
+            refreshAll(session.userId, force = true)
+        }.onFailure { error ->
+            cacheStore.markOutgoingAttempt(outgoing.profileId, outgoing.clientMessageId, error.message)
+            ChatOutboxWorkScheduler.scheduleOneTime(appContext)
+            Log.w(TAG, "Could not send queued message ${outgoing.clientMessageId}", error)
+        }.isSuccess
+    }
 
     override suspend fun sendSosMessage(
         contactIds: List<String>,
@@ -456,7 +630,7 @@ class ChatRepositoryImpl(
         val payload = remote.sendChatSos(session.userId, contactIds, text, lat, lng, accuracy)
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: error("No se pudo abrir SOS")
         val conversationId = supabaseChatConversationId(threadId)
-        mergeChatPayload(payload)
+        mergeChatPayload(payload, session.userId)
         refreshThread(conversationId, force = true)
         conversationId
     }.mapFailureToUserFacing(appContext, R.string.sos_send_error)
@@ -468,11 +642,11 @@ class ChatRepositoryImpl(
         }
         val session = sessionManager.currentSession() ?: return null
         val existing = _conversations.value.firstOrNull { conversation ->
-            !conversation.isGroup && userId in conversation.participantIds
+            conversation.isExactPrivateConversation(session.userId, userId)
         }?.id
         if (existing != null) return existing
         val payload = remote.getOrCreatePrivateThread(session.userId, userId)
-        mergeChatPayload(payload)
+        mergeChatPayload(payload, session.userId)
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: return null
         refreshAll(session.userId, force = true)
         return supabaseChatConversationId(threadId)
@@ -499,7 +673,7 @@ class ChatRepositoryImpl(
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val payload = remote.openCommunityChatThread(session.userId, communityId, title)
-        mergeChatPayload(payload)
+        mergeChatPayload(payload, session.userId)
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: error("No se pudo abrir el chat")
         val conversationId = supabaseChatConversationId(threadId)
         refreshThread(conversationId, force = true)
@@ -532,7 +706,7 @@ class ChatRepositoryImpl(
                 uniqueKey = "quata-group:${(cleanParticipants + session.userId).sorted().joinToString(":")}:${title.orEmpty().normalizeName()}"
             )
         }
-        mergeChatPayload(payload)
+        mergeChatPayload(payload, session.userId)
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: error("No se pudo abrir el chat")
         val conversationId = supabaseChatConversationId(threadId)
         refreshThread(conversationId, force = true)
@@ -781,6 +955,7 @@ class ChatRepositoryImpl(
     private suspend fun restoreCache(profileId: String): Boolean {
         val cachedConversations = cacheStore.cachedConversations(profileId)
         if (cachedConversations.isNotEmpty()) _conversations.value = cachedConversations
+        if (cachedConversations.isNotEmpty()) _syncStatus.value = ChatSyncStatus.CacheAvailable
         cacheStore.cachedFavoriteMessages(profileId).takeIf { it.isNotEmpty() }?.let { favoriteMessages.value = it }
         cacheStore.cachedProfileDirectory(profileId).forEach { profilesById[it.id] = it }
         return cachedConversations.isNotEmpty()
@@ -790,12 +965,14 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) return
         refreshMutex.withLock {
             if (!deviceNetworkAvailable.value) return@withLock
+            _syncStatus.value = ChatSyncStatus.Refreshing
             val now = System.currentTimeMillis()
             if (!force && now - lastFullRefreshAtMillis < FULL_REFRESH_MIN_INTERVAL_MILLIS) return@withLock
             lastFullRefreshAtMillis = now
             runCatching {
                 val previous = _conversations.value.associateBy { it.id }
                 val payload = remote.getChatInbox(profileId)
+                if (sessionManager.currentSession()?.userId != profileId) return@runCatching
                 val parsed = parseChatPayload(payload)
                 parsed.profiles.forEach { profilesById[it.id] = it }
                 val conversations = parsed.threads
@@ -808,7 +985,7 @@ class ChatRepositoryImpl(
                     val mergedMessages = (messages + cachedMessages)
                         .distinctBy { it.id }
                         .sortedBy { it.sentAtMillis ?: 0L }
-                    val displayMessages = attachmentFileCache.prefetchAndResolve(profileId, mergedMessages)
+                    val displayMessages = attachmentFileCache.resolveCached(profileId, mergedMessages)
                     val state = messagesState(conversationId)
                     if (state.value.isEmpty()) {
                         state.value = displayMessages
@@ -819,8 +996,10 @@ class ChatRepositoryImpl(
                 emitNotifications(previous, conversations)
                 refreshFavorites(profileId, force = force)
                 _isRealtimeOnline.value = true
+                _syncStatus.value = ChatSyncStatus.Online
             }.onFailure {
                 _isRealtimeOnline.value = false
+                _syncStatus.value = if (deviceNetworkAvailable.value) ChatSyncStatus.Error else ChatSyncStatus.Offline
             }
         }
     }
@@ -866,6 +1045,7 @@ class ChatRepositoryImpl(
         lastThreadRefreshAtMillis[conversationId] = now
         runCatching {
             val payload = remote.getChatThread(session.userId, threadId)
+            if (sessionManager.currentSession()?.userId != session.userId) return@runCatching
             val parsed = parseChatPayload(payload)
             parsed.profiles.forEach { profilesById[it.id] = it }
             val conversation = parsed.threads.firstOrNull()?.toConversation(session.userId, parsed.profilesById)
@@ -875,13 +1055,19 @@ class ChatRepositoryImpl(
             val messages = parsed.messages
                 .map { it.toMessage(session.userId, parsed.profilesById) }
                 .withReplyContext()
-            val displayMessages = attachmentFileCache.prefetchAndResolve(session.userId, messages)
+            val displayMessages = attachmentFileCache.resolveCached(session.userId, messages)
             messagesState(conversationId).value = displayMessages
             cacheStore.replaceMessages(session.userId, conversationId, messages)
+            scope.launch {
+                val prefetched = attachmentFileCache.prefetchAndResolve(session.userId, messages)
+                if (sessionManager.currentSession()?.userId == session.userId) messagesState(conversationId).value = prefetched
+            }
             ackIncomingMessages(displayMessages, ChatMessageStateAckStatus.Delivered, "thread_refresh")
             _isRealtimeOnline.value = true
+            _syncStatus.value = ChatSyncStatus.Online
         }.onFailure {
             _isRealtimeOnline.value = false
+            _syncStatus.value = if (deviceNetworkAvailable.value) ChatSyncStatus.Error else ChatSyncStatus.Offline
         }
     }
 
@@ -898,10 +1084,14 @@ class ChatRepositoryImpl(
                 .map { it.toMessage(profileId, parsed.profilesById) }
                 .withReplyContext()
                 .sortedByDescending { it.sentAtMillis ?: 0L }
-            val displayMessages = attachmentFileCache.prefetchAndResolve(profileId, messages)
+            val displayMessages = attachmentFileCache.resolveCached(profileId, messages)
             favoriteMessages.value = displayMessages
             messagesState(AppDestinations.FavoriteMessagesConversationId).value = displayMessages
             cacheStore.replaceFavoriteMessages(profileId, messages)
+            scope.launch {
+                val prefetched = attachmentFileCache.prefetchAndResolve(profileId, messages)
+                if (sessionManager.currentSession()?.userId == profileId) favoriteMessages.value = prefetched
+            }
         }.onFailure { error ->
             Log.w(TAG, "Could not refresh favorite chat messages", error)
         }
@@ -946,12 +1136,15 @@ class ChatRepositoryImpl(
                         isRealtimeConnecting = false
                         if (realtimeReadyProfileId == session.userId) return@onStatus
                         realtimeReadyProfileId = session.userId
+                        reconnectAttempt = 0
                         _isRealtimeOnline.value = true
+                        _syncStatus.value = ChatSyncStatus.Online
                         scope.launch { refreshAll(session.userId) }
                     }
                     RealtimeStatus.Closed, RealtimeStatus.Error -> {
                         isRealtimeConnecting = false
                         _isRealtimeOnline.value = false
+                        _syncStatus.value = if (deviceNetworkAvailable.value) ChatSyncStatus.Error else ChatSyncStatus.Offline
                         realtimeAccessToken = null
                         realtimeReadyProfileId = null
                         realtimeTokenRefreshJob?.cancel()
@@ -975,7 +1168,9 @@ class ChatRepositoryImpl(
         if (!deviceNetworkAvailable.value) return
         if (reconnectJob?.isActive == true) return
         reconnectJob = scope.launch {
-            delay(2_000)
+            val baseDelay = (2_000L shl reconnectAttempt.coerceAtMost(5)).coerceAtMost(60_000L)
+            reconnectAttempt = (reconnectAttempt + 1).coerceAtMost(6)
+            delay(baseDelay + Random.nextLong(0L, 1_000L))
             val session = sessionManager.currentSession() ?: return@launch
             realtimeProfileId = null
             refreshAndConnectRealtime(session.userId)
@@ -1035,6 +1230,7 @@ class ChatRepositoryImpl(
         realtimeProfileId = null
         realtimeAccessToken = null
         realtimeReadyProfileId = null
+        reconnectAttempt = 0
         _isRealtimeOnline.value = false
         supabaseRealtimeClient.disconnect()
     }
@@ -1152,19 +1348,23 @@ class ChatRepositoryImpl(
             ?.requireThreadId()
             ?: error("Mensaje no cargado")
 
-    private suspend fun mergeChatPayload(payload: JsonElement) {
-        val session = sessionManager.currentSession() ?: return
+    private suspend fun mergeChatPayload(payload: JsonElement, expectedProfileId: String) {
+        val session = sessionManager.currentSession()?.takeIf { it.userId == expectedProfileId } ?: return
         val parsed = parseChatPayload(payload)
         parsed.profiles.forEach { profilesById[it.id] = it }
         parsed.threads
             .map { it.toConversation(session.userId, parsed.profilesById) }
-            .forEach { upsertConversation(session.userId, it) }
+            .forEach {
+                if (sessionManager.currentSession()?.userId != expectedProfileId) return
+                upsertConversation(session.userId, it)
+            }
         parsed.messagesByConversation.forEach { (conversationId, incomingMessages) ->
+            if (sessionManager.currentSession()?.userId != expectedProfileId) return
             val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
             val merged = (incomingMessages + cachedMessages)
                 .distinctBy { it.id }
                 .sortedBy { it.sentAtMillis ?: 0L }
-            messagesState(conversationId).value = attachmentFileCache.prefetchAndResolve(session.userId, merged)
+            messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
             cacheStore.replaceMessages(session.userId, conversationId, merged)
         }
     }
@@ -1209,10 +1409,18 @@ class ChatRepositoryImpl(
         val participantIds = array("participants").mapNotNull { it.stringOrNull() }.distinct()
         val otherIds = participantIds.filterNot { it == currentProfileId }
         val otherProfiles = otherIds.mapNotNull { profiles[it] ?: profilesById[it] }
-        val title = if (type == "private") {
-            otherProfiles.firstOrNull()?.displayName().orEmpty().ifBlank { string("title") ?: "Chat" }
-        } else {
-            string("title") ?: string("subject") ?: "Chat"
+        val participantTitle = otherProfiles
+            .map { it.displayName() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(", ")
+        val backendTitle = string("title")?.takeIf { it.isNotBlank() }
+        val explicitGroupTitle = string("subject")?.takeIf { it.isNotBlank() }
+            ?: backendTitle?.takeUnless { it == "Chat $threadId" }
+        val title = when (type) {
+            "private" -> otherProfiles.firstOrNull()?.displayName().orEmpty().ifBlank { backendTitle ?: "Chat" }
+            "group" -> explicitGroupTitle ?: participantTitle.ifBlank { "Chat" }
+            else -> backendTitle ?: string("subject") ?: "Chat"
         }
         val avatarUrl = if (type == "private") otherProfiles.firstOrNull()?.avatar_url else string("image")
         return Conversation(
@@ -1266,6 +1474,7 @@ class ChatRepositoryImpl(
             attachmentUri = firstAttachment?.string("url"),
             attachmentName = firstAttachment?.string("name"),
             attachmentMimeType = firstAttachment?.string("mime_type"),
+            clientMessageId = string("client_message_id"),
             deliveryState = if (senderId == currentProfileId) deliveryState else MessageDeliveryState.Sent
         )
     }
@@ -1396,6 +1605,7 @@ class ChatRepositoryImpl(
         const val THREAD_REFRESH_MIN_INTERVAL_MILLIS = 1_200L
         const val REALTIME_REFRESH_LEEWAY_SECONDS = 115L
         const val REALTIME_REFRESH_RETRY_MILLIS = 60_000L
+        const val MAX_OUTBOX_ATTEMPTS = 5
         val RealtimeTables = listOf(
             "chat_threads",
             "chat_participants",

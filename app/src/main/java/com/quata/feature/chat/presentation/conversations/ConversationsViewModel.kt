@@ -1,8 +1,11 @@
 package com.quata.feature.chat.presentation.conversations
 
+import android.content.Context
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.quata.R
 import com.quata.core.model.Conversation
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatRepository
@@ -14,7 +17,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
-class ConversationsViewModel(private val repository: ChatRepository) : ViewModel() {
+class ConversationsViewModel(
+    private val repository: ChatRepository,
+    private val resolveString: (Int) -> String = { "Chat error" }
+) : ViewModel() {
     private val _uiState = MutableStateFlow(ConversationsUiState())
     val uiState: StateFlow<ConversationsUiState> = _uiState.asStateFlow()
     private var conversationsJob: Job? = null
@@ -23,7 +29,12 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
     private var candidateSearchJob: Job? = null
     private var candidatePageJob: Job? = null
 
-    init { observe() }
+    init {
+        observe()
+        viewModelScope.launch {
+            repository.syncStatus.collect { status -> _uiState.value = _uiState.value.copy(syncStatus = status) }
+        }
+    }
 
     fun onEvent(event: ConversationsUiEvent) {
         when (event) {
@@ -78,14 +89,6 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
 
     fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit) {
         if (_uiState.value.openingCandidateProfileId != null) return
-        candidate.existingConversationId?.let { conversationId ->
-            _uiState.value = _uiState.value.copy(
-                isNewConversationPickerOpen = false,
-                candidateError = null
-            )
-            onOpened(conversationId)
-            return
-        }
         _uiState.value = _uiState.value.copy(openingCandidateProfileId = candidate.profileId, candidateError = null)
         viewModelScope.launch {
             repository.openPrivateConversation(candidate.profileId)
@@ -99,7 +102,7 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         openingCandidateProfileId = null,
-                        candidateError = error.message ?: "No se pudo abrir el chat"
+                        candidateError = errorText(R.string.chat_error_open_conversation)
                     )
                 }
         }
@@ -142,12 +145,12 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Error cargando chats"
+                        error = errorText(R.string.chat_error_load_conversations)
                     )
                 }
             repository.observeConversations()
                 .catch { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Error cargando chats")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = errorText(R.string.chat_error_load_conversations))
                 }
                 .collect { conversations ->
                     _uiState.value = _uiState.value.copy(
@@ -161,12 +164,12 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
 
     private fun restoreDeletedConversation() = viewModelScope.launch {
         repository.restorePendingDeletedConversation()
-            .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo restaurar") }
+            .onFailure { _ -> _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_restore_conversation)) }
     }
 
     private fun finalizeDeletedConversation() = viewModelScope.launch {
         repository.finalizePendingDeletedConversation()
-            .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo borrar") }
+            .onFailure { _ -> _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_delete_conversation)) }
     }
 
     private fun loadConversationCandidates(reset: Boolean) {
@@ -198,16 +201,19 @@ class ConversationsViewModel(private val repository: ChatRepository) : ViewModel
                 _uiState.value = _uiState.value.copy(
                     isCandidateInitialLoading = false,
                     isCandidatePageLoading = false,
-                    candidateError = error.message ?: "No se pudo cargar la lista"
+                    candidateError = errorText(R.string.chat_error_load_candidates)
                 )
             }
         }
     }
 
     companion object {
-        fun factory(repository: ChatRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(repository: ChatRepository, context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = ConversationsViewModel(repository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ConversationsViewModel(repository, context.applicationContext::getString) as T
         }
     }
+
+    private fun errorText(@StringRes id: Int): String = resolveString(id)
 }

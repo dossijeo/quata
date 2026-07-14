@@ -2,6 +2,7 @@
 
 package com.quata.feature.postcomposer.videoeditor
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
@@ -2473,7 +2474,7 @@ private suspend fun Context.directStreamCopyEditedVideo(
                 0,
                 sampleSize,
                 (sampleTimeUs - firstTimeUs).coerceAtLeast(0L),
-                extractor.sampleFlags
+                extractor.sampleFlags.toMediaCodecBufferFlags()
             )
             muxer.writeSampleData(muxedTrackIndex, buffer, bufferInfo)
 
@@ -2841,11 +2842,23 @@ private class LegacyBlurredFitShaderProgram(
         }
     }
 
+    @SuppressLint("MissingSuperCall")
     override fun release() {
         // Legacy emulator EGL can crash inside glDeleteFramebuffers after Transformer completes.
         // This export-only shader lets the GL context own the tiny temporary texture pool instead.
         runCatching { glProgram.delete() }
     }
+}
+
+private fun Int.toMediaCodecBufferFlags(): Int {
+    var codecFlags = 0
+    if (this and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
+    }
+    if (this and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) {
+        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+    }
+    return codecFlags
 }
 
 private fun NormalizedCropRect.toShaderCropArray(): FloatArray =

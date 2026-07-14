@@ -5,6 +5,11 @@ import android.net.Uri
 import android.webkit.MimeTypeMap
 import com.quata.core.model.Message
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -23,9 +28,20 @@ internal class ChatAttachmentFileCache(
 ) {
     suspend fun prefetchAndResolve(profileId: String, messages: List<Message>): List<Message> =
         withContext(Dispatchers.IO) {
-            messages.map { message ->
-                val cachedFile = ensureCached(profileId, message)
-                if (cachedFile != null) message.withLocalAttachment(cachedFile) else message
+            prune(profileId)
+            val candidates = messages.takeLast(MAX_PREFETCH_ATTACHMENTS).map { it.id }.toSet()
+            val semaphore = Semaphore(MAX_CONCURRENT_DOWNLOADS)
+            coroutineScope {
+                messages.map { message ->
+                    async {
+                        val cachedFile = if (message.id in candidates) {
+                            semaphore.withPermit { ensureCached(profileId, message) }
+                        } else {
+                            cachedFile(profileId, message)
+                        }
+                        if (cachedFile != null) message.withLocalAttachment(cachedFile) else message
+                    }
+                }.awaitAll()
             }
         }
 
@@ -74,6 +90,20 @@ internal class ChatAttachmentFileCache(
         val id = message.id.safePathSegment().ifBlank { suffix }
         val name = if (extension.isBlank()) "$id-$suffix" else "$id-$suffix.$extension"
         return File(directory, name)
+    }
+
+    private fun prune(profileId: String) {
+        val directory = File(File(appContext.filesDir, CACHE_DIRECTORY), "attachments/${profileId.safePathSegment()}")
+        val files = directory.listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") }.orEmpty()
+        val cutoff = System.currentTimeMillis() - MAX_CACHE_AGE_MILLIS
+        files.filter { it.lastModified() < cutoff }.forEach(File::delete)
+        var total = files.filter(File::exists).sumOf(File::length)
+        if (total <= MAX_CACHE_BYTES) return
+        files.filter(File::exists).sortedBy(File::lastModified).forEach { file ->
+            if (total <= MAX_CACHE_BYTES) return
+            total -= file.length()
+            file.delete()
+        }
     }
 
     private fun extensionFor(message: Message, remoteUrl: String): String {
@@ -125,5 +155,9 @@ internal class ChatAttachmentFileCache(
 
     private companion object {
         const val CACHE_DIRECTORY = "supabase_chat_cache_v1"
+        const val MAX_PREFETCH_ATTACHMENTS = 12
+        const val MAX_CONCURRENT_DOWNLOADS = 3
+        const val MAX_CACHE_BYTES = 96L * 1024L * 1024L
+        const val MAX_CACHE_AGE_MILLIS = 30L * 24L * 60L * 60L * 1000L
     }
 }

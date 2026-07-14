@@ -43,8 +43,9 @@ class ChatMessageStateAckManager(
         val session = sessionManager.currentSession() ?: return false
         val cleanMessageIds = messageIds.distinct().filter { it > 0L }
         if (cleanMessageIds.isEmpty()) return true
+        val handledIds = store.alreadyHandledMessageIds(session.userId, cleanMessageIds, status)
         val pendingAcks = cleanMessageIds
-            .filterNot { store.isAlreadyHandled(session.userId, it, status) }
+            .filterNot { it in handledIds }
             .map { messageId ->
                 ChatMessageStateAck(
                     profileId = session.userId,
@@ -72,7 +73,8 @@ class ChatMessageStateAckManager(
     }
 
     suspend fun flushPending(): Boolean {
-        val pending = store.pendingAcks()
+        val session = sessionManager.currentSession() ?: return true
+        val pending = store.pendingAcks(session.userId)
         if (pending.isEmpty()) return true
         var allSent = true
         pending
@@ -142,23 +144,18 @@ class ChatMessageStateAckStore(
 ) {
     private val mutex = Mutex()
 
-    suspend fun isAlreadyHandled(profileId: String, messageId: Long, status: ChatMessageStateAckStatus): Boolean =
+    suspend fun alreadyHandledMessageIds(profileId: String, messageIds: List<Long>, status: ChatMessageStateAckStatus): Set<Long> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
                 val state = readState()
-                val key = stateKey(profileId, messageId, status.wireValue)
-                if (key in state.sentKeys) return@withContext true
-                if (status == ChatMessageStateAckStatus.Delivered &&
-                    stateKey(profileId, messageId, ChatMessageStateAckStatus.Read.wireValue) in state.sentKeys
-                ) {
-                    return@withContext true
-                }
-                state.pending.any { pending ->
-                    pending.profileId == profileId &&
-                        pending.messageId == messageId &&
-                        (pending.status == status.wireValue ||
-                            status == ChatMessageStateAckStatus.Delivered &&
-                            pending.status == ChatMessageStateAckStatus.Read.wireValue)
+                val sent = state.sentKeys.toHashSet()
+                messageIds.filterTo(mutableSetOf()) { messageId ->
+                    stateKey(profileId, messageId, status.wireValue) in sent ||
+                        status == ChatMessageStateAckStatus.Delivered && stateKey(profileId, messageId, ChatMessageStateAckStatus.Read.wireValue) in sent ||
+                        state.pending.any { pending ->
+                            pending.profileId == profileId && pending.messageId == messageId &&
+                                (pending.status == status.wireValue || status == ChatMessageStateAckStatus.Delivered && pending.status == ChatMessageStateAckStatus.Read.wireValue)
+                        }
                 }
             }
         }
@@ -187,8 +184,8 @@ class ChatMessageStateAckStore(
         }
     }
 
-    suspend fun pendingAcks(): List<ChatMessageStateAck> = mutex.withLock {
-        withContext(Dispatchers.IO) { readState().pending }
+    suspend fun pendingAcks(profileId: String): List<ChatMessageStateAck> = mutex.withLock {
+        withContext(Dispatchers.IO) { readState().pending.filter { it.profileId == profileId } }
     }
 
     suspend fun markSent(ack: ChatMessageStateAck) {

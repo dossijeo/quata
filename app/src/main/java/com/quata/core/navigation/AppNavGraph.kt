@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -83,6 +84,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -113,6 +115,7 @@ import com.quata.core.di.AppContainer
 import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.quataPreciseLocationWithRetries
+import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
@@ -268,6 +271,7 @@ fun AppNavGraph(
     val layoutDirection = LocalLayoutDirection.current
     val windowLayoutInfo = rememberQuataWindowLayoutInfo()
     val isLandscapeLayout = windowLayoutInfo.isLandscape
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val translatorViewportKey = windowLayoutInfo.viewportKey
     LaunchedEffect(translatorViewportKey) {
         if (isTranslatorOverlayMounted || isTranslatorModeActive || translatorBackground != null) {
@@ -283,7 +287,7 @@ fun AppNavGraph(
     )
     val primaryNavigationRoutes = bottomRoutes + publishEditorRoutes
     val showPrimaryNavigation = currentRoute in primaryNavigationRoutes && !isVideoEditorOpen
-    val showBottomNavigation = showPrimaryNavigation && !isLandscapeLayout
+    val showBottomNavigation = showPrimaryNavigation && !isLandscapeLayout && !isImeVisible
     val useNavigationRail = showAppChrome && isLandscapeLayout
     var lastPrimaryNavigationRoute by rememberSaveable { mutableStateOf(AppDestinations.Feed.route) }
     val navigationChromeRoute = when {
@@ -736,7 +740,6 @@ fun AppNavGraph(
                     } else {
                         ProfileScreen(
                             padding = padding,
-                            sessionManager = container.sessionManager,
                             repository = container.profileRepository,
                             touchFlowEnabled = touchFlowEnabled,
                             onTouchFlowEnabledChange = { enabled ->
@@ -747,9 +750,12 @@ fun AppNavGraph(
                             networkReconnectToken = feedNetworkReconnectToken,
                             onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it },
                             onLogout = {
-                                navController.navigate(AppDestinations.Feed.route) {
-                                    popUpTo(0)
-                                    launchSingleTop = true
+                                appScope.launch {
+                                    container.authRepository.logout()
+                                    navController.navigate(AppDestinations.Feed.route) {
+                                        popUpTo(0)
+                                        launchSingleTop = true
+                                    }
                                 }
                             },
                             onProfileSaved = {
@@ -1213,47 +1219,101 @@ private fun AuthRequiredDialog(
 @Composable
 private fun rememberDeviceNetworkAvailable(): Boolean {
     val context = LocalContext.current.applicationContext
-    var isAvailable by remember(context) { mutableStateOf(context.hasUsableNetwork()) }
-    DisposableEffect(context) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val initialAvailable = remember(context) { context.hasUsableNetwork() }
+    var isAvailable by remember(context) { mutableStateOf(initialAvailable) }
+    val reconciler = remember(context, lifecycleOwner) {
+        ForegroundConnectivityReconciler(
+            initialAvailable = initialAvailable,
+            initiallyForeground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        )
+    }
+    DisposableEffect(context, lifecycleOwner, reconciler) {
         val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
         if (connectivityManager == null) return@DisposableEffect onDispose {}
         val mainHandler = Handler(Looper.getMainLooper())
-        fun refresh() {
+        var reconciliationGeneration = 0L
+        var disposed = false
+
+        fun publishNetworkObservation() {
             mainHandler.post {
-                isAvailable = context.hasUsableNetwork()
+                if (disposed) return@post
+                reconciler.onNetworkObservation(context.hasUsableNetwork())?.let { observed ->
+                    isAvailable = observed
+                }
+            }
+        }
+
+        fun reconcileOnForeground() {
+            reconciliationGeneration += 1L
+            val generation = reconciliationGeneration
+            isAvailable = reconciler.onForeground(context.hasUsableNetwork())
+            FOREGROUND_NETWORK_RECHECK_DELAYS_MILLIS.forEach { delayMillis ->
+                mainHandler.postDelayed({
+                    if (disposed || generation != reconciliationGeneration) return@postDelayed
+                    reconciler.onNetworkObservation(context.hasUsableNetwork())?.let { observed ->
+                        isAvailable = observed
+                    }
+                }, delayMillis)
+            }
+        }
+
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME -> reconcileOnForeground()
+                Lifecycle.Event.ON_STOP -> {
+                    reconciliationGeneration += 1L
+                    reconciler.onBackground()
+                }
+                else -> Unit
             }
         }
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                refresh()
+                publishNetworkObservation()
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                refresh()
+                publishNetworkObservation()
             }
 
             override fun onLost(network: Network) {
-                refresh()
+                publishNetworkObservation()
             }
 
             override fun onUnavailable() {
-                refresh()
+                publishNetworkObservation()
             }
         }
-        refresh()
-        connectivityManager.registerDefaultNetworkCallback(callback)
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            reconcileOnForeground()
+        } else {
+            reconciler.onBackground()
+        }
+        val callbackRegistered = runCatching {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+        }.isSuccess
         onDispose {
-            runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+            disposed = true
+            reconciliationGeneration += 1L
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            if (callbackRegistered) {
+                runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+            }
         }
     }
     return isAvailable
 }
 
+private val FOREGROUND_NETWORK_RECHECK_DELAYS_MILLIS = longArrayOf(250L, 1_000L, 2_500L)
+
 private fun Context.hasUsableNetwork(): Boolean {
     val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return true
     val network = connectivityManager.activeNetwork ?: return false
     val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
 
 @Composable

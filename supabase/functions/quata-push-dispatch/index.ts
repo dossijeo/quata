@@ -49,6 +49,17 @@ type PushToken = {
   last_seen_at: string | null;
 };
 
+type ChatParticipantPushRow = {
+  profile_id: string;
+  muted_at: string | null;
+};
+
+type ConversationUserStatePushRow = {
+  user_id: string;
+  muted_at: string | null;
+  deleted_at: string | null;
+};
+
 type FcmErrorBody = {
   error?: {
     status?: string;
@@ -61,7 +72,7 @@ type FcmErrorBody = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-quata-push-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -83,6 +94,14 @@ Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
+    const expectedSecret = Deno.env.get("QUATA_PUSH_DISPATCH_SECRET")?.trim();
+    if (!expectedSecret) {
+      console.error("QUATA_PUSH_DISPATCH_SECRET is not configured");
+      return jsonResponse({ error: "service_unavailable" }, 503);
+    }
+    if (req.headers.get("x-quata-push-secret") !== expectedSecret) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
     const payload = await parsePushRequest(req);
     const messageId = Number(payload.message_id);
     if (!Number.isFinite(messageId) || messageId <= 0) {
@@ -150,15 +169,33 @@ async function dispatchChatPush(messageId: number) {
 
   const { data: participants, error: participantsError } = await admin
     .from("chat_participants")
-    .select("profile_id")
+    .select("profile_id,muted_at")
     .eq("thread_id", chatMessage.thread_id)
     .is("left_at", null)
-    .eq("is_deleted", false)
-    .is("muted_at", null)
     .neq("profile_id", chatMessage.sender_profile_id);
   if (participantsError) throw participantsError;
 
-  const recipientIds = ((participants ?? []) as Array<{ profile_id: string }>)
+  const participantRows = ((participants ?? []) as ChatParticipantPushRow[]).filter((participant) =>
+    Boolean(participant.profile_id)
+  );
+  const participantIds = participantRows.map((participant) => participant.profile_id);
+  const { data: userStates, error: userStatesError } = participantIds.length === 0
+    ? { data: [], error: null }
+    : await admin
+      .from("conversation_user_state")
+      .select("user_id,muted_at,deleted_at")
+      .eq("conversation_id", chatMessage.thread_id)
+      .in("user_id", participantIds);
+  if (userStatesError) throw userStatesError;
+
+  const stateByUser = new Map(
+    ((userStates ?? []) as ConversationUserStatePushRow[]).map((state) => [state.user_id, state]),
+  );
+  const recipientIds = participantRows
+    .filter((participant) => {
+      const state = stateByUser.get(participant.profile_id);
+      return !participant.muted_at && !state?.muted_at;
+    })
     .map((participant) => participant.profile_id)
     .filter(Boolean);
   if (recipientIds.length === 0) return { result: true, recipients: 0, sent: 0 };
@@ -194,6 +231,7 @@ async function dispatchChatPush(messageId: number) {
       threadId: String(chatMessage.thread_id),
       conversationId: `sb:${chatMessage.thread_id}`,
       messageId: String(chatMessage.id),
+      recipientProfileId: pushToken.user_id,
     });
     if (response.ok) {
       sent += 1;
@@ -308,6 +346,30 @@ async function reserveDelivery(
   profileId: string,
   tokenId: string,
 ): Promise<boolean> {
+  const { data: existing, error: existingError } = await admin
+    .from("push_delivery_log")
+    .select("status,created_at")
+    .eq("message_id", messageId)
+    .eq("profile_id", profileId)
+    .eq("push_token_id", tokenId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.status === "sent") return false;
+  if (existing) {
+    const reservedAt = Date.parse(existing.created_at ?? "");
+    const isStaleReservation = existing.status === "reserved" &&
+      (!Number.isFinite(reservedAt) || Date.now() - reservedAt >= 60_000);
+    if (existing.status !== "error" && !isStaleReservation) return false;
+    const { error: retryError } = await admin
+      .from("push_delivery_log")
+      .update({ status: "reserved", error_text: null, sent_at: null, created_at: new Date().toISOString() })
+      .eq("message_id", messageId)
+      .eq("profile_id", profileId)
+      .eq("push_token_id", tokenId)
+      .neq("status", "sent");
+    if (retryError) throw retryError;
+    return true;
+  }
   const { error } = await admin.from("push_delivery_log").insert({
     message_id: messageId,
     profile_id: profileId,
@@ -340,7 +402,7 @@ async function sendFcmMessage(
   projectId: string,
   accessToken: string,
   token: string,
-  payload: { title: string; body: string; bodyKey?: string | null; threadId: string; conversationId: string; messageId: string },
+  payload: { title: string; body: string; bodyKey?: string | null; threadId: string; conversationId: string; messageId: string; recipientProfileId: string },
 ) {
   return fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: "POST",
@@ -360,6 +422,7 @@ async function sendFcmMessage(
           thread_id: payload.threadId,
           conversation_id: payload.conversationId,
           message_id: payload.messageId,
+          recipient_profile_id: payload.recipientProfileId,
         },
       },
     }),

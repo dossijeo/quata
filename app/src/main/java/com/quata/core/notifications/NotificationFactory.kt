@@ -1,6 +1,7 @@
 package com.quata.core.notifications
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -51,8 +52,9 @@ class NotificationFactory(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .addAction(replyAction(conversationId, notificationId))
             .build()
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
-        rememberPostedNotificationId(notificationId)
+        if (notifySafely(notificationId, notification)) {
+            rememberPostedNotificationId(notificationId)
+        }
     }
 
     fun showChatMessage(conversation: Conversation) {
@@ -89,8 +91,9 @@ class NotificationFactory(private val context: Context) {
             .setNumber(conversation.unreadCount)
             .build()
 
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
-        rememberPostedNotificationId(notificationId)
+        if (notifySafely(notificationId, notification)) {
+            rememberPostedNotificationId(notificationId)
+        }
     }
 
     fun showChatReplyFailed(conversationId: String) {
@@ -118,8 +121,9 @@ class NotificationFactory(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_ERROR)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
-        rememberPostedNotificationId(notificationId)
+        if (notifySafely(notificationId, notification)) {
+            rememberPostedNotificationId(notificationId)
+        }
     }
 
     fun clearChatMessage(conversationId: String) {
@@ -131,8 +135,6 @@ class NotificationFactory(private val context: Context) {
 
     fun replaceAnsweredChatMessageForDismissal(conversationId: String, replyText: String) {
         val notificationId = chatNotificationId(conversationId)
-        val nativeManager = context.getSystemService(NotificationManager::class.java)
-        val manager = NotificationManagerCompat.from(context)
         if (hasNotificationPermission()) {
             val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_SOCIAL)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -146,8 +148,18 @@ class NotificationFactory(private val context: Context) {
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setTimeoutAfter(REPLY_SENT_DISMISS_TIMEOUT_MILLIS)
                 .build()
-            nativeManager?.notify(notificationId, notification)
-            manager.notify(notificationId, notification)
+            notifySafely(notificationId, notification)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun notifySafely(notificationId: Int, notification: android.app.Notification): Boolean {
+        if (!hasNotificationPermission()) return false
+        return try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+            true
+        } catch (_: SecurityException) {
+            false
         }
     }
 

@@ -4,6 +4,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatSyncStatus
 
 data class ChatUiState(
     val messageText: String = "",
@@ -40,6 +41,9 @@ data class ChatUiState(
     val addingCandidateProfileId: String? = null,
     val participantCandidateError: String? = null,
     val isLoading: Boolean = false,
+    val isLoadingOlderMessages: Boolean = false,
+    val hasMoreHistory: Boolean = true,
+    val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val isConversationActionInProgress: Boolean = false,
     val shouldCloseConversation: Boolean = false,
     val error: String? = null

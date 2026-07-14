@@ -74,7 +74,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
-import com.quata.core.text.localizedSosPreview
+import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
@@ -97,7 +97,7 @@ fun ConversationsScreen(
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null,
     onOpenFavorites: () -> Unit = {},
-    viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository))
+    viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository, LocalContext.current))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -111,7 +111,7 @@ fun ConversationsScreen(
             state.conversations.filter { conversation ->
                 val messages = state.messagesByConversation[conversation.id].orEmpty()
                 val rawPreview = messages.lastOrNull()?.text ?: conversation.lastMessagePreview
-                val preview = context.localizedSosPreview(rawPreview) ?: rawPreview
+                val preview = context.localizedChatPreview(rawPreview)
                 val participantNames = conversation.participantIds
                     .mapNotNull { state.usersById[it]?.displayName }
                     .joinToString(" ")
@@ -751,7 +751,7 @@ private fun ConversationCard(
 ) {
     val context = LocalContext.current
     val rawPreview = messages.lastOrNull()?.text ?: item.lastMessagePreview
-    val preview = context.localizedSosPreview(rawPreview) ?: rawPreview
+    val preview = context.localizedChatPreview(rawPreview)
     QuataCard(modifier = Modifier.clickable { onOpenConversation(item.id) }) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -763,7 +763,7 @@ private fun ConversationCard(
                 Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(item.relativeUpdatedAt(timestampNowMillis), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(item.relativeUpdatedAt(context, timestampNowMillis), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 if (!item.isMuted && item.unreadCount > 0) {
                     Badge(
                         containerColor = MaterialTheme.colorScheme.primary,

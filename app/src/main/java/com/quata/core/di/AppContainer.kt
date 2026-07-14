@@ -69,7 +69,8 @@ class AppContainer(context: Context) {
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager,
-        googleAuthHelper = GoogleAuthHelper()
+        googleAuthHelper = GoogleAuthHelper(),
+        pushTokenManager = pushTokenManager
     )
 
     val feedRepository: FeedRepository = FeedRepositoryImpl(

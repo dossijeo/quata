@@ -12,6 +12,7 @@ import com.quata.core.di.AppContainer
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.AuthSession
 import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
+import com.quata.feature.chat.data.ChatOutboxWorkScheduler
 import com.google.android.play.core.splitcompat.SplitCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,7 @@ class QuataApp : Application(), ImageLoaderFactory {
         super.onCreate()
         container = AppContainer(this)
         ChatMessageStateWorkScheduler.ensurePeriodic(this)
+        ChatOutboxWorkScheduler.ensurePeriodic(this)
         observeSupabaseAuthState()
         refreshSupabaseSessionIfNeeded()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

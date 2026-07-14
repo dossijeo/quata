@@ -382,6 +382,12 @@ data class QuataRegisterPushTokenRequest(
 )
 
 @Serializable
+data class QuataUnregisterPushTokenRequest(
+    val p_profile_id: String,
+    val p_token: String
+)
+
+@Serializable
 data class QuataChatThreadRequest(
     val p_actor_profile_id: String,
     val p_thread_id: Long,

@@ -61,7 +61,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         appContainer = (application as QuataApp).container
-        clearStaleChatNotifications()
         incomingLink.value = intent?.data
 
         setContent {
@@ -96,25 +95,17 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        clearStaleChatNotifications()
         incomingLink.value = intent.data
     }
 
     override fun onResume() {
         super.onResume()
         QuataProximityState.start(this)
-        if (::appContainer.isInitialized) {
-            clearStaleChatNotifications()
-        }
     }
 
     override fun onPause() {
         QuataProximityState.stop()
         super.onPause()
-    }
-
-    private fun clearStaleChatNotifications() {
-        appContainer.chatRepository.clearChatNotifications()
     }
 
     private fun configureEdgeToEdgeCutoutMode() {

@@ -24,20 +24,25 @@ data class ChatConversationCandidatePage(
     val actorNeighborhood: String
 )
 
+enum class ChatSyncStatus { CacheAvailable, Refreshing, Online, Offline, Error }
+
 interface ChatRepository {
     val activeConversationId: StateFlow<String?>
     val isAppForeground: StateFlow<Boolean>
     val pendingDeletedConversation: StateFlow<Conversation?>
     val isRealtimeOnline: StateFlow<Boolean>
+    val syncStatus: StateFlow<ChatSyncStatus>
     fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
+    fun setConversationVisible(conversationId: String, visible: Boolean)
     fun setAppForeground(isForeground: Boolean)
     fun cleanupEmptyConversation(conversationId: String)
     fun clearChatNotifications()
     suspend fun getConversations(): Result<List<Conversation>>
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
+    suspend fun loadOlderMessages(conversationId: String, limit: Int = 100): Result<Boolean>
     fun observeParticipantCandidates(): Flow<List<User>>
     suspend fun searchConversationCandidates(query: String, limit: Int = 30, offset: Int = 0): Result<ChatConversationCandidatePage>
     suspend fun openPrivateConversation(peerProfileId: String): Result<String>
@@ -86,4 +91,6 @@ interface ChatRepository {
     suspend fun deleteMessage(messageId: String): Result<Unit>
     suspend fun toggleFavoriteMessage(messageId: String): Result<Unit>
     suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit>
+    suspend fun flushPendingMessages(): Boolean
+    suspend fun retryPendingMessage(clientMessageId: String): Result<Unit>
 }

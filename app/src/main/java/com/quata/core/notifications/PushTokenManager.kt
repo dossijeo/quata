@@ -39,6 +39,22 @@ class PushTokenManager(
         syncCurrentToken()
     }
 
+    suspend fun unregisterCurrentToken() {
+        if (AppConfig.USE_MOCK_BACKEND) return
+        val session = sessionManager.currentSession()
+        val token = runCatching { FirebaseMessaging.getInstance().token.await() }
+            .getOrNull()
+            ?: preferences.getString(KEY_REGISTERED_TOKEN, null)
+            ?: preferences.getString(KEY_PENDING_TOKEN, null)
+        if (session != null && !token.isNullOrBlank()) {
+            runCatching { supabaseApi.unregisterPushToken(session.userId, token) }
+                .onFailure { Log.w(TAG, "Could not unregister FCM token", it) }
+        }
+        runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
+            .onFailure { Log.w(TAG, "Could not delete local FCM token", it) }
+        preferences.edit().clear().apply()
+    }
+
     private suspend fun registerToken(profileId: String, token: String) {
         runCatching {
             supabaseApi.registerPushToken(profileId = profileId, token = token)
