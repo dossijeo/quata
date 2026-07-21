@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,6 +56,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -462,6 +464,8 @@ fun CommunityProfileScreen(
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
+    onReportProfile: (String) -> Unit = {},
+    onBlockProfile: (String) -> Unit = {},
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onFollowUser: (String) -> Unit = { onFollow() },
@@ -475,6 +479,7 @@ fun CommunityProfileScreen(
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
     var userListTitle by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
+    var pendingProfileAction by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val template = quataTheme()
     val avatarUrl = profile.user.avatarUrl?.trim()?.takeIf { it.isNotBlank() }
@@ -482,6 +487,23 @@ fun CommunityProfileScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(showPosts) {
         if (showPosts) listState.animateScrollToItem(1)
+    }
+    pendingProfileAction?.let { action ->
+        val isBlock = action == "block"
+        AlertDialog(
+            onDismissRequest = { pendingProfileAction = null },
+            title = { Text(stringResource(if (isBlock) R.string.moderation_block_title else R.string.moderation_report_title)) },
+            text = { Text(stringResource(if (isBlock) R.string.moderation_block_profile_confirm else R.string.moderation_report_profile_confirm)) },
+            dismissButton = {
+                TextButton(onClick = { pendingProfileAction = null }) { Text(stringResource(R.string.common_cancel)) }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingProfileAction = null
+                    if (isBlock) onBlockProfile(profile.user.id) else onReportProfile(profile.user.id)
+                }) { Text(stringResource(if (isBlock) R.string.moderation_block else R.string.moderation_report)) }
+            }
+        )
     }
     ModalBottomSheet(
         onDismissRequest = onBack,
@@ -593,6 +615,30 @@ fun CommunityProfileScreen(
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.common_chat), fontSize = 18.sp)
+                        }
+                    }
+                    if (!isOwnProfile) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            TextButton(
+                                onClick = {
+                                    if (currentUserId == null) onAuthRequired() else pendingProfileAction = "report"
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                CompactIcon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(17.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.moderation_report))
+                            }
+                            TextButton(
+                                onClick = {
+                                    if (currentUserId == null) onAuthRequired() else pendingProfileAction = "block"
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                CompactIcon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(17.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.moderation_block))
+                            }
                         }
                     }
                     if (currentUserIsAdmin && !isOwnProfile) {

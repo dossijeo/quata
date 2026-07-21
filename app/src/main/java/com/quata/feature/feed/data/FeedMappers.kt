@@ -53,6 +53,7 @@ fun CommunityComment.toDomain(authorName: String): PostComment =
             authorName = authorName,
             message = parsed.message,
             timestamp = created_at.orEmpty(),
+            authorId = profile_id,
             replyToAuthorName = parsed.authorName,
             replyToCommentId = parsed.commentId
         )
@@ -69,6 +70,7 @@ fun List<CommunityComment>.toDomainComments(authorNameFor: (CommunityComment) ->
             authorName = authorNameFor(comment),
             message = parsed.message,
             timestamp = comment.created_at.orEmpty(),
+            authorId = comment.profile_id,
             replyToAuthorName = parsed.authorName ?: target?.let(authorNameFor),
             replyToMessage = targetParsed?.message,
             replyToCommentId = parsed.commentId

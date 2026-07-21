@@ -133,6 +133,8 @@ class ChatViewModel(
             ChatUiEvent.CancelEdit -> _uiState.value = _uiState.value.copy(editingMessage = null, messageText = "")
             ChatUiEvent.ToggleFavoriteSelected -> toggleFavoriteSelected()
             ChatUiEvent.DeleteSelectedMessage -> deleteSelectedMessage()
+            ChatUiEvent.ReportSelectedMessage -> reportSelectedMessage()
+            ChatUiEvent.ClearNotice -> _uiState.value = _uiState.value.copy(notice = null)
             ChatUiEvent.OpenForwardDialog -> openForwardPicker()
             ChatUiEvent.CloseForwardDialog -> closeForwardPicker()
             ChatUiEvent.SendForward -> sendForward()
@@ -741,6 +743,18 @@ class ChatViewModel(
         repository.deleteMessage(message.id)
             .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
             .onFailure { _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_delete_message)) }
+    }
+
+    private fun reportSelectedMessage() = viewModelScope.launch {
+        val message = selectedMessage()?.takeIf { !it.isMine && !it.isLocalEcho } ?: return@launch
+        repository.reportMessage(message.id)
+            .onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    selectedMessageId = null,
+                    notice = resolveString(R.string.moderation_report_sent)
+                )
+            }
+            .onFailure { _uiState.value = _uiState.value.copy(error = errorText(R.string.chat_error_report_message)) }
     }
 
     private fun toggleForwardProfile(profileId: String) {

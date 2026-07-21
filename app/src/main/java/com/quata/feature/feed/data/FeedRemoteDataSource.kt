@@ -70,4 +70,7 @@ class FeedRemoteDataSource(
 
     suspend fun deletePost(postId: String, profileId: String? = null) =
         supabaseApi.deletePost(postId, profileId)
+
+    suspend fun reportPost(postId: String, profileId: String) =
+        supabaseApi.reportUgc(profileId, "community_post", postId, "other")
 }

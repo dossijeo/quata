@@ -824,6 +824,12 @@ class ChatRepositoryImpl(
         updateConversation(conversationId) { it.copy(blockedUserIds = (it.blockedUserIds + userId).distinct()) }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun reportMessage(messageId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) return@runCatching
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        remote.reportChatMessage(session.userId, messageId)
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.leaveConversation(conversationId, MockData.currentUser.id)

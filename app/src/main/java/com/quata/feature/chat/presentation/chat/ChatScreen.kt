@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forward
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.LocationOn
@@ -547,6 +548,7 @@ fun ChatScreen(
                                 viewModel.onEvent(ChatUiEvent.ToggleFavoriteSelected)
                             },
                             onDeleteSelected = { confirmAction = ConfirmAction.DeleteMessage },
+                            onReportSelected = { confirmAction = ConfirmAction.ReportMessage },
                             onBack = onBack,
                             onToggleMute = { muted -> viewModel.onEvent(ChatUiEvent.ConversationMutedChanged(muted)) },
                             onToggleMemberInvites = { enabled -> viewModel.onEvent(ChatUiEvent.MemberInvitesChanged(enabled)) },
@@ -926,6 +928,12 @@ fun ChatScreen(
             android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
+    LaunchedEffect(state.notice) {
+        state.notice?.takeIf { it.isNotBlank() }?.let { notice ->
+            Toast.makeText(context, notice, Toast.LENGTH_SHORT).show()
+            viewModel.onEvent(ChatUiEvent.ClearNotice)
+        }
+    }
 
     if (state.isAddParticipantsOpen) {
         ConversationCandidatePickerDialog(
@@ -1002,6 +1010,7 @@ fun ChatScreen(
                         viewModel.onEvent(ChatUiEvent.LeaveConversation)
                     }
                     ConfirmAction.DeleteMessage -> viewModel.onEvent(ChatUiEvent.DeleteSelectedMessage)
+                    ConfirmAction.ReportMessage -> viewModel.onEvent(ChatUiEvent.ReportSelectedMessage)
                     is ConfirmAction.BlockParticipant -> viewModel.onEvent(ChatUiEvent.BlockParticipant(currentAction.userId))
                     is ConfirmAction.RemoveParticipant -> viewModel.onEvent(ChatUiEvent.RemoveParticipant(currentAction.userId))
                     is ConfirmAction.ToggleModerator -> {
@@ -1309,6 +1318,7 @@ private fun ChatHeader(
     onEditSelected: () -> Unit,
     onToggleFavoriteSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
+    onReportSelected: () -> Unit,
     onBack: () -> Unit,
     onToggleMute: (Boolean) -> Unit,
     onToggleMemberInvites: (Boolean) -> Unit,
@@ -1358,6 +1368,11 @@ private fun ChatHeader(
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
                         CompactIconButton(onClick = onEditSelected) {
                             CompactIcon(Icons.Filled.Edit, contentDescription = stringResource(R.string.conversation_edit_message))
+                        }
+                    }
+                    if (!selectedMessage.isMine && !selectedMessage.isDeleted) {
+                        CompactIconButton(onClick = onReportSelected) {
+                            CompactIcon(Icons.Filled.Flag, contentDescription = stringResource(R.string.moderation_report))
                         }
                     }
                     CompactIconButton(onClick = onToggleFavoriteSelected) {
@@ -1579,6 +1594,7 @@ private fun ConfirmDialog(
         ConfirmAction.DeleteConversation -> stringResource(R.string.conversation_delete)
         ConfirmAction.LeaveConversation -> stringResource(R.string.conversation_leave)
         ConfirmAction.DeleteMessage -> stringResource(R.string.conversation_delete_message)
+        ConfirmAction.ReportMessage -> stringResource(R.string.moderation_report_message_title)
         is ConfirmAction.BlockParticipant -> stringResource(R.string.conversation_block_user)
         is ConfirmAction.RemoveParticipant -> stringResource(R.string.conversation_remove_participant)
         is ConfirmAction.ToggleModerator -> if (action.isModerator) {
@@ -1591,6 +1607,7 @@ private fun ConfirmDialog(
         ConfirmAction.DeleteConversation -> stringResource(R.string.conversation_delete_confirm)
         ConfirmAction.LeaveConversation -> stringResource(R.string.conversation_leave_confirm)
         ConfirmAction.DeleteMessage -> stringResource(R.string.conversation_delete_message_confirm)
+        ConfirmAction.ReportMessage -> stringResource(R.string.moderation_report_message_confirm)
         is ConfirmAction.BlockParticipant -> stringResource(R.string.conversation_block_user_confirm)
         is ConfirmAction.RemoveParticipant -> stringResource(R.string.conversation_remove_participant_confirm)
         is ConfirmAction.ToggleModerator -> if (action.isModerator) {
@@ -1652,6 +1669,7 @@ private sealed class ConfirmAction {
     data object DeleteConversation : ConfirmAction()
     data object LeaveConversation : ConfirmAction()
     data object DeleteMessage : ConfirmAction()
+    data object ReportMessage : ConfirmAction()
     data class BlockParticipant(val userId: String) : ConfirmAction()
     data class RemoveParticipant(val userId: String) : ConfirmAction()
     data class ToggleModerator(val userId: String, val isModerator: Boolean) : ConfirmAction()

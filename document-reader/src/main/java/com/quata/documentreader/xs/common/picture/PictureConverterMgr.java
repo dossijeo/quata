@@ -6,8 +6,6 @@
  */
 package com.quata.documentreader.xs.common.picture;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -20,7 +18,6 @@ import com.quata.documentreader.xs.system.IControl;
 import com.quata.documentreader.xs.thirdpart.emf.util.EMFUtil;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 
 /**
  * TODO: 文件注释
@@ -101,7 +98,7 @@ public class PictureConverterMgr
              if(type == Picture.WMF)
              {
                  int ret = PDFLib.getPDFLib().wmf2Jpg(sourPath, destPath, picWidth, picHeight);    		     
-                 sBitmap = BitmapFactory.decodeFile(destPath);                 
+                 sBitmap = BitmapDecodeUtil.decodeFile(destPath);
              }
              else if(type == Picture.EMF)
              {
@@ -208,8 +205,7 @@ public class PictureConverterMgr
              
              if(ret)
              {
-            	 InputStream in = new FileInputStream(destPath);
-            	 Bitmap sBitmap = BitmapFactory.decodeStream(in, null, null);
+                 Bitmap sBitmap = BitmapDecodeUtil.decodeFile(destPath);
             	 if(sBitmap != null)
             	 {
             		 control.getSysKit().getPictureManage().addBitmap(destPath, sBitmap);

@@ -1,13 +1,10 @@
 package com.quata.documentreader.xs.common.bg;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
-
 import com.quata.documentreader.xs.common.picture.Picture;
+import com.quata.documentreader.xs.common.picture.BitmapDecodeUtil;
 import com.quata.documentreader.xs.system.IControl;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.BitmapShader;
 import android.graphics.Rect;
@@ -101,13 +98,11 @@ public class TileShader extends AShader
 	    		if(imageType == Picture.WMF || imageType == Picture.EMF)
 	            {
 	                String dst = control.getSysKit().getPictureManage().convertVectorgraphToPng(viewIndex, imageType, path, rect.width(), rect.height(), true);
-	                InputStream in = new FileInputStream(dst);
-	                sBitmap = BitmapFactory.decodeStream(in, null, options);
+	                sBitmap = BitmapDecodeUtil.decodeFile(dst, options);
 	            }
 	            else
 	            {
-	                InputStream in = new FileInputStream(path);	               
-	                sBitmap = BitmapFactory.decodeStream(in, null, options);
+	                sBitmap = BitmapDecodeUtil.decodeFile(path, options);
 	            }
 	            if (sBitmap == null)
 	            {

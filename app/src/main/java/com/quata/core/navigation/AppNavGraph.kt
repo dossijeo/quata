@@ -3,6 +3,7 @@ package com.quata.core.navigation
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
@@ -115,6 +116,8 @@ import com.quata.core.di.AppContainer
 import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.quataPreciseLocationWithRetries
+import com.quata.core.moderation.LegalLinks
+import com.quata.core.moderation.ModerationTarget
 import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
@@ -235,7 +238,13 @@ fun AppNavGraph(
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
     var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
+    var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
+    var isAcceptingUgcTerms by remember(currentUserId) { mutableStateOf(false) }
     ConfigureAppSystemBars()
+    LaunchedEffect(currentUserId) {
+        ugcTermsAccepted = if (currentUserId == null) null else
+            container.moderationRepository.hasAcceptedTerms().getOrDefault(false)
+    }
     LaunchedEffect(isDeviceNetworkAvailable) {
         container.chatRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
         if (previousDeviceNetworkAvailable == false && isDeviceNetworkAvailable) {
@@ -573,6 +582,13 @@ fun AppNavGraph(
                         onCreatePost = {
                             if (isAuthenticated) navigateBottomRoute(AppDestinations.CreatePost.route) else requestAuthentication()
                         },
+                        onReportComment = { commentId ->
+                            appScope.launch {
+                                container.moderationRepository.report(ModerationTarget.CommunityComment, commentId)
+                                    .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
+                                    .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
+                            }
+                        },
                         onLandscapeCommentsOverlayActiveChange = { isFeedCommentsOverlayVisible = it }
                     )
                 }
@@ -590,6 +606,13 @@ fun AppNavGraph(
                         },
                         onCreateOfficialPost = {
                             navController.navigate(AppDestinations.OfficialPostEditor.route)
+                        },
+                        onReportComment = { commentId ->
+                            appScope.launch {
+                                container.moderationRepository.report(ModerationTarget.OfficialComment, commentId)
+                                    .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
+                                    .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
+                            }
                         }
                     )
                 }
@@ -855,6 +878,23 @@ fun AppNavGraph(
                 onReportPost = { postId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
                 },
+                onReportProfile = { profileId ->
+                    appScope.launch {
+                        container.moderationRepository.report(ModerationTarget.Profile, profileId)
+                            .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
+                            .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
+                    }
+                },
+                onBlockProfile = { profileId ->
+                    appScope.launch {
+                        container.moderationRepository.blockProfile(profileId)
+                            .onSuccess {
+                                Toast.makeText(appContext, R.string.moderation_profile_blocked, Toast.LENGTH_SHORT).show()
+                                globalProfileViewModel.closeUserProfile()
+                            }
+                            .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
+                    }
+                },
                 onBack = { globalProfileViewModel.closeUserProfile() },
                 onFollow = {
                     if (isAuthenticated) globalProfileViewModel.toggleFollowUser(profile.user.id) else requestAuthentication()
@@ -929,6 +969,32 @@ fun AppNavGraph(
         if (isAboutDialogOpen) {
             AboutQuataDialog(
                 onDismiss = { isAboutDialogOpen = false }
+            )
+        }
+
+        if (currentUserId != null && ugcTermsAccepted == false) {
+            UgcTermsDialog(
+                isAccepting = isAcceptingUgcTerms,
+                onAccept = {
+                    if (!isAcceptingUgcTerms) {
+                        isAcceptingUgcTerms = true
+                        appScope.launch {
+                            container.moderationRepository.acceptTerms()
+                                .onSuccess { ugcTermsAccepted = true }
+                                .onFailure {
+                                    Toast.makeText(appContext, R.string.ugc_terms_accept_error, Toast.LENGTH_LONG).show()
+                                }
+                            isAcceptingUgcTerms = false
+                        }
+                    }
+                },
+                onLogout = {
+                    appScope.launch {
+                        container.authRepository.logout()
+                        ugcTermsAccepted = null
+                        navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
+                    }
+                }
             )
         }
 
@@ -1141,6 +1207,7 @@ private fun ConfigureTranslatorDialogWindow() {
 private fun AboutQuataDialog(
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -1166,6 +1233,11 @@ private fun AboutQuataDialog(
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(R.string.about_body))
+                Spacer(Modifier.height(12.dp))
+                LegalLinkButton(R.string.legal_privacy, LegalLinks.Privacy, context)
+                LegalLinkButton(R.string.legal_child_safety, LegalLinks.ChildSafety, context)
+                LegalLinkButton(R.string.legal_account_deletion, LegalLinks.AccountDeletion, context)
+                LegalLinkButton(R.string.legal_data_deletion, LegalLinks.DataDeletion, context)
             }
         },
         confirmButton = {
@@ -1174,6 +1246,50 @@ private fun AboutQuataDialog(
             }
         }
     )
+}
+
+@Composable
+private fun UgcTermsDialog(
+    isAccepting: Boolean,
+    onAccept: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text(stringResource(R.string.ugc_terms_title), fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column {
+                Text(stringResource(R.string.ugc_terms_body))
+                Spacer(Modifier.height(8.dp))
+                LegalLinkButton(R.string.legal_child_safety, LegalLinks.ChildSafety, context)
+                LegalLinkButton(R.string.legal_privacy, LegalLinks.Privacy, context)
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !isAccepting, onClick = onLogout) {
+                Text(stringResource(R.string.ugc_terms_logout))
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !isAccepting, onClick = onAccept) {
+                Text(stringResource(if (isAccepting) R.string.ugc_terms_accepting else R.string.ugc_terms_accept))
+            }
+        }
+    )
+}
+
+@Composable
+private fun LegalLinkButton(label: Int, url: String, context: Context) {
+    TextButton(
+        onClick = {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
+    }
 }
 
 @Composable

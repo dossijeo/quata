@@ -1,15 +1,21 @@
 # Q&uuml;ata Android
 
-Version: **1.0.2**
-Fecha de version: **2026-07-14**
-Estado: **release 1.0.2 definitiva para publicacion; QA automatizada y validacion visual en API 27 y API 37 completadas**
+Version: **1.0.3**
+Fecha de version: **2026-07-16**
+Estado: **release 1.0.3 definitiva para publicacion; QA automatizada y validacion funcional y visual en API 27 y API 37 completadas**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `1.0.2` refuerza el chat offline-first y su sincronizacion en tiempo real, mejora el envio y los estados de los mensajes, corrige la apertura y el autoscroll de las conversaciones y adapta mejor los formularios al teclado en pantalla.
+La version `1.0.3` refuerza la seguridad de la comunidad con normas de uso, reportes persistentes y bloqueo global de perfiles; mejora la compatibilidad edge-to-edge y el uso de memoria; y corrige la generacion de subtitulos automaticos en las versiones optimizadas para publicacion.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Las normas de comunidad deben aceptarse al iniciar sesion y estan localizadas en espanol, ingles y frances, con acceso directo a privacidad, seguridad infantil y eliminacion de cuenta o datos.
+- Los usuarios pueden reportar publicaciones, comentarios, mensajes y perfiles, y bloquear perfiles de forma global con aplicacion efectiva sobre nuevos mensajes de chat.
+- La interfaz edge-to-edge usa la gestion moderna de insets y barras del sistema, validada en Android antiguo y en Android 15 o posterior.
+- El lector de documentos limita la resolucion y memoria de bitmaps incrustados y corrige la contabilidad y expulsion de su cache de imagenes.
+- Los subtitulos automaticos Vosk funcionan tambien en builds release optimizadas con R8 y modelos de idioma distribuidos bajo demanda.
+- El editor de publicaciones de texto activa la capitalizacion automatica por frases.
 - La cache offline del chat conserva respuestas, adjuntos precargados y el contexto completo de los mensajes para evitar cambios de layout al reconciliar con la red.
 - Las conversaciones se abren directamente en el ultimo mensaje mediante el skeleton existente, incluido el hilo SOS con tarjetas de ubicacion altas.
 - El autoscroll sigue mensajes nuevos y cambios de contenido cuando el usuario esta al final, pero respeta la lectura manual del historial.
@@ -476,9 +482,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 28
-versionName = 1.0.2
-APP_VERSION_DATE = 2026-07-14
+versionCode = 29
+versionName = 1.0.3
+APP_VERSION_DATE = 2026-07-16
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

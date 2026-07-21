@@ -46,5 +46,6 @@ data class ChatUiState(
     val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val isConversationActionInProgress: Boolean = false,
     val shouldCloseConversation: Boolean = false,
+    val notice: String? = null,
     val error: String? = null
 )

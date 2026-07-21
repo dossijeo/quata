@@ -85,6 +85,7 @@ fun QuataCommentsPanel(
     canParticipate: Boolean,
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
+    onReportComment: (PostComment) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -145,6 +146,7 @@ fun QuataCommentsPanel(
                 canParticipate = canParticipate,
                 onAuthRequired = onAuthRequired,
                 onAddComment = onAddComment,
+                onReportComment = onReportComment,
                 onCommentAdded = { shouldScrollToCommentsEnd = true },
                 onTranslatorClick = { view ->
                     translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
@@ -180,7 +182,8 @@ fun QuataCommentsPanel(
                     items(comments) { comment ->
                         QuataCommentRow(
                             comment = comment,
-                            onReply = { replyTarget = comment }
+                            onReply = { replyTarget = comment },
+                            onReport = { onReportComment(comment) }
                         )
                     }
                     item(key = "comments-end") {
@@ -246,6 +249,7 @@ private fun LandscapeQuataCommentsPanel(
     canParticipate: Boolean,
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
+    onReportComment: (PostComment) -> Unit,
     onCommentAdded: () -> Unit,
     onTranslatorClick: (View) -> Unit,
     onDismiss: () -> Unit,
@@ -296,7 +300,8 @@ private fun LandscapeQuataCommentsPanel(
                 items(comments) { comment ->
                     QuataCommentRow(
                         comment = comment,
-                        onReply = { onReplyTargetChange(comment) }
+                        onReply = { onReplyTargetChange(comment) },
+                        onReport = { onReportComment(comment) }
                     )
                 }
                 item(key = "comments-end") {
@@ -521,7 +526,8 @@ private fun QuataReplyTargetBanner(
 @Composable
 private fun QuataCommentRow(
     comment: PostComment,
-    onReply: () -> Unit
+    onReply: () -> Unit,
+    onReport: () -> Unit
 ) {
     val template = quataTheme()
     val translatorReplyText = comment.replyToAuthorName?.let { author ->
@@ -600,15 +606,20 @@ private fun QuataCommentRow(
                     lineHeight = 21.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
-                TextButton(
-                    onClick = onReply,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text(
-                        text = stringResource(R.string.comments_reply_button),
-                        color = template.colors.accent,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    TextButton(onClick = onReport) {
+                        Text(
+                            text = stringResource(R.string.moderation_report),
+                            color = template.colors.textSecondary
+                        )
+                    }
+                    TextButton(onClick = onReply) {
+                        Text(
+                            text = stringResource(R.string.comments_reply_button),
+                            color = template.colors.accent,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
         }

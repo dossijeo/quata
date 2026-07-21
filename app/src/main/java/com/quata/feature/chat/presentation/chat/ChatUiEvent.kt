@@ -18,6 +18,8 @@ sealed class ChatUiEvent {
     data object CancelEdit : ChatUiEvent()
     data object ToggleFavoriteSelected : ChatUiEvent()
     data object DeleteSelectedMessage : ChatUiEvent()
+    data object ReportSelectedMessage : ChatUiEvent()
+    data object ClearNotice : ChatUiEvent()
     data object OpenForwardDialog : ChatUiEvent()
     data object CloseForwardDialog : ChatUiEvent()
     data object SendForward : ChatUiEvent()

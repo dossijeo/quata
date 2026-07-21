@@ -7,9 +7,6 @@
 
 package com.quata.documentreader.xs.common.picture;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
-
 import com.quata.documentreader.xs.common.pictureefftect.PictureCroppedInfo;
 import com.quata.documentreader.xs.common.pictureefftect.PictureEffectInfo;
 import com.quata.documentreader.xs.common.pictureefftect.PictureEffectUtil;
@@ -19,7 +16,6 @@ import com.quata.documentreader.xs.pg.animate.ShapeAnimation;
 import com.quata.documentreader.xs.system.IControl;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
@@ -285,10 +281,9 @@ public class PictureKit
                }
                else
                {
-            	   try
-            	   {
-            		   InputStream in = new FileInputStream(path);
-                       sBitmap = BitmapFactory.decodeStream(in, null, options);
+                   try
+                   {
+                       sBitmap = BitmapDecodeUtil.decodeFile(path, options);
                        if(sBitmap == null)
                        {
                     	   //load fail, so call library to convert it to normal png image

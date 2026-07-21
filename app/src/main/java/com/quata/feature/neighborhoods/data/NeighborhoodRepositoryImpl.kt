@@ -161,7 +161,11 @@ class NeighborhoodRepositoryImpl(
     override suspend fun reportPost(postId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.reportPost(postId)
+        } else {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            supabaseApi.reportUgc(session.userId, "community_post", postId, "other")
         }
+        Unit
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {

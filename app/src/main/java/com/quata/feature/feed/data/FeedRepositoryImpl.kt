@@ -129,6 +129,8 @@ class FeedRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.reportPost(postId)
         } else {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            remote.reportPost(postId, session.userId)
             loadPost(postId, SupabaseCacheMode.NETWORK_ONLY)?.copy(isReportedByCurrentUser = true)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)

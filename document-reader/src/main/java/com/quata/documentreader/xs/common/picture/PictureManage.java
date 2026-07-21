@@ -41,7 +41,7 @@ import android.graphics.Bitmap;
 public class PictureManage
 {
     //
-    private final int CACHE_SIZE = 8 * 1024 * 1024;
+    private static final int CACHE_SIZE_BYTES = 8 * 1024 * 1024;
     
     //
     public PictureManage(IControl control)
@@ -285,14 +285,35 @@ public class PictureManage
      */
     public synchronized void addBitmap(String key, Bitmap bitmap)
     {
-        if (bitmapTotalCacheSize > CACHE_SIZE)
+        if (key == null || bitmap == null || bitmap.isRecycled())
         {
-            String str = bitmaps.entrySet().iterator().next().getKey();
-            Bitmap b = bitmaps.get(str);
-            bitmapTotalCacheSize -= b.getWidth() * b.getHeight();
-            bitmaps.remove(str).recycle();
+            return;
         }
-        bitmapTotalCacheSize += bitmap.getHeight() * bitmap.getHeight();
+        Bitmap previous = bitmaps.remove(key);
+        if (previous != null && !previous.isRecycled())
+        {
+            bitmapTotalCacheSize -= previous.getAllocationByteCount();
+            if (previous != bitmap)
+            {
+                previous.recycle();
+            }
+        }
+        int bitmapSize = bitmap.getAllocationByteCount();
+        while (!bitmaps.isEmpty() && bitmapTotalCacheSize + bitmapSize > CACHE_SIZE_BYTES)
+        {
+            String oldestKey = bitmaps.entrySet().iterator().next().getKey();
+            Bitmap oldest = bitmaps.remove(oldestKey);
+            if (oldest != null && !oldest.isRecycled())
+            {
+                bitmapTotalCacheSize -= oldest.getAllocationByteCount();
+                oldest.recycle();
+            }
+        }
+        if (bitmapSize > CACHE_SIZE_BYTES)
+        {
+            return;
+        }
+        bitmapTotalCacheSize += bitmapSize;
         bitmaps.put(key, bitmap);
     }
     

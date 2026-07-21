@@ -524,6 +524,27 @@ data class QuataChatParticipantRequest(
 )
 
 @Serializable
+data class QuataUgcReportRequest(
+    val p_actor_profile_id: String,
+    val p_target_type: String,
+    val p_target_id: String,
+    val p_reason: String,
+    val p_details: String? = null
+)
+
+@Serializable
+data class QuataProfileModerationRequest(
+    val p_actor_profile_id: String,
+    val p_profile_id: String
+)
+
+@Serializable
+data class QuataUgcTermsRequest(
+    val p_actor_profile_id: String,
+    val p_terms_version: String
+)
+
+@Serializable
 data class QuataChatSosRequest(
     val p_actor_profile_id: String,
     val p_contact_profile_ids: List<String> = emptyList(),

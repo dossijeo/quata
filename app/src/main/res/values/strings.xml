@@ -561,4 +561,25 @@
     <string name="official_language_french">French</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
+    <string name="legal_privacy">Privacy policy</string>
+    <string name="legal_child_safety">Child safety and community standards</string>
+    <string name="legal_account_deletion">Delete account</string>
+    <string name="legal_data_deletion">Request data deletion</string>
+    <string name="ugc_terms_title">Community rules</string>
+    <string name="ugc_terms_body">To participate and share content on Q&#252;ata, you must accept our community and child safety standards. Illegal, abusive, sexual, violent, hateful or exploitative content is not permitted. You can report content and block users at any time.</string>
+    <string name="ugc_terms_accept">I accept</string>
+    <string name="ugc_terms_accepting">Saving&#8230;</string>
+    <string name="ugc_terms_logout">Sign out</string>
+    <string name="ugc_terms_accept_error">We could not save your acceptance. Check your connection and try again.</string>
+    <string name="moderation_report">Report</string>
+    <string name="moderation_block">Block</string>
+    <string name="moderation_report_title">Report profile</string>
+    <string name="moderation_block_title">Block profile</string>
+    <string name="moderation_report_profile_confirm">Send this profile to the Q&#252;ata moderation team for review?</string>
+    <string name="moderation_block_profile_confirm">This person will no longer be able to send you messages. You can still report their content separately.</string>
+    <string name="moderation_report_sent">Report sent for review</string>
+    <string name="moderation_profile_blocked">Profile blocked</string>
+    <string name="moderation_report_message_title">Report message</string>
+    <string name="moderation_report_message_confirm">Send this message to the Q&#252;ata moderation team for review?</string>
+    <string name="chat_error_report_message">The message could not be reported</string>
 </resources>

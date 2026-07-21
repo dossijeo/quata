@@ -7,6 +7,7 @@ import com.quata.core.camera.ImageCompressor
 import com.quata.core.camera.ImagePickerManager
 import com.quata.core.common.AppDispatchers
 import com.quata.core.media.MediaUploadOptimizer
+import com.quata.core.moderation.ModerationRepository
 import com.quata.core.network.NetworkModule
 import com.quata.core.notifications.NotificationChannels
 import com.quata.core.notifications.PushTokenManager
@@ -59,6 +60,10 @@ class AppContainer(context: Context) {
         sessionManager = sessionManager
     )
     val chatRemoteDataSource = ChatRemoteDataSource(networkModule.supabaseCommunityApi)
+    val moderationRepository = ModerationRepository(
+        api = networkModule.supabaseCommunityApi,
+        sessionManager = sessionManager
+    )
     val chatMessageStateAckManager = ChatMessageStateAckManager(
         appContext = appContext,
         remote = chatRemoteDataSource,

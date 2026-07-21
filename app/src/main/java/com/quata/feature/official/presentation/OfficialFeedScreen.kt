@@ -128,6 +128,7 @@ fun OfficialFeedScreen(
     onAuthRequired: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: (() -> Unit)? = null,
+    onReportComment: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: OfficialFeedViewModel = viewModel(factory = OfficialFeedViewModel.factory(repository))
 ) {
@@ -329,6 +330,9 @@ fun OfficialFeedScreen(
                         )
                     )
                 }
+            },
+            onReportComment = { comment ->
+                if (currentUserId != null) onReportComment(comment.id) else onAuthRequired()
             },
             onDismiss = { commentsPost = null }
         )

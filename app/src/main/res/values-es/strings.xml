@@ -561,4 +561,25 @@
     <string name="vosk_model_fr_title">Modelo de subtítulos en francés</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
+    <string name="legal_privacy">Pol&#237;tica de privacidad</string>
+    <string name="legal_child_safety">Seguridad infantil y normas de la comunidad</string>
+    <string name="legal_account_deletion">Eliminar cuenta</string>
+    <string name="legal_data_deletion">Solicitar eliminaci&#243;n de datos</string>
+    <string name="ugc_terms_title">Normas de la comunidad</string>
+    <string name="ugc_terms_body">Para participar y compartir contenido en Q&#252;ata debes aceptar nuestras normas de comunidad y seguridad infantil. No se permite contenido ilegal, abusivo, sexual, violento, de odio o de explotaci&#243;n. Puedes denunciar contenido y bloquear usuarios en cualquier momento.</string>
+    <string name="ugc_terms_accept">Acepto</string>
+    <string name="ugc_terms_accepting">Guardando&#8230;</string>
+    <string name="ugc_terms_logout">Cerrar sesi&#243;n</string>
+    <string name="ugc_terms_accept_error">No hemos podido guardar tu aceptaci&#243;n. Comprueba la conexi&#243;n e int&#233;ntalo de nuevo.</string>
+    <string name="moderation_report">Denunciar</string>
+    <string name="moderation_block">Bloquear</string>
+    <string name="moderation_report_title">Denunciar perfil</string>
+    <string name="moderation_block_title">Bloquear perfil</string>
+    <string name="moderation_report_profile_confirm">&#191;Enviar este perfil al equipo de moderaci&#243;n de Q&#252;ata para que lo revise?</string>
+    <string name="moderation_block_profile_confirm">Esta persona dejar&#225; de poder enviarte mensajes. Puedes denunciar su contenido por separado.</string>
+    <string name="moderation_report_sent">Denuncia enviada para revisi&#243;n</string>
+    <string name="moderation_profile_blocked">Perfil bloqueado</string>
+    <string name="moderation_report_message_title">Denunciar mensaje</string>
+    <string name="moderation_report_message_confirm">&#191;Enviar este mensaje al equipo de moderaci&#243;n de Q&#252;ata para que lo revise?</string>
+    <string name="chat_error_report_message">No se ha podido denunciar el mensaje</string>
 </resources>

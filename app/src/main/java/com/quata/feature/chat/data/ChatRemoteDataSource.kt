@@ -63,6 +63,8 @@ class ChatRemoteDataSource(
     suspend fun demoteChatModerator(profileId: String, threadId: Long, participantId: String) = supabaseApi.demoteChatModerator(profileId, threadId, participantId)
     suspend fun removeChatParticipant(profileId: String, threadId: Long, participantId: String) = supabaseApi.removeChatParticipant(profileId, threadId, participantId)
     suspend fun blockChatParticipant(profileId: String, threadId: Long, participantId: String) = supabaseApi.blockChatParticipant(profileId, threadId, participantId)
+    suspend fun reportChatMessage(profileId: String, messageId: String) =
+        supabaseApi.reportUgc(profileId, "chat_message", messageId, "other")
     suspend fun leaveChatThread(profileId: String, threadId: Long) = supabaseApi.leaveChatThread(profileId, threadId)
     suspend fun deleteChatThread(profileId: String, threadId: Long) = supabaseApi.deleteChatThread(profileId, threadId)
     suspend fun cleanupEmptyPrivateThread(profileId: String, threadId: Long) = supabaseApi.cleanupEmptyPrivateThread(profileId, threadId)

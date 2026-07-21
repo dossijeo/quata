@@ -202,6 +202,7 @@ fun FeedScreen(
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
+    onReportComment: (String) -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
     viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
 ) {
@@ -419,6 +420,9 @@ fun FeedScreen(
                     onAuthRequired = onAuthRequired,
                     onAddComment = { comment ->
                         viewModel.onEvent(FeedUiEvent.AddComment(currentPost.id, comment))
+                    },
+                    onReportComment = { comment ->
+                        if (canParticipate) onReportComment(comment.id) else onAuthRequired()
                     },
                     onDismiss = { commentsPost = null }
                 )

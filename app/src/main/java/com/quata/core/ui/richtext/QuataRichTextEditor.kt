@@ -82,6 +82,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.focus.FocusRequester
@@ -286,9 +287,10 @@ fun QuataRichTextEditorBox(
 @Composable
 private fun rememberLocalizedSlashCommandRegistry(): QuataSlashCommandRegistry {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val languageTag = rememberEditorLanguageTag()
-    val localizedContext = remember(context, languageTag) {
-        val config = Configuration(context.resources.configuration)
+    val localizedContext = remember(context, configuration, languageTag) {
+        val config = Configuration(configuration)
         config.setLocale(Locale.forLanguageTag(languageTag))
         context.createConfigurationContext(config)
     }

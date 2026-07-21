@@ -876,6 +876,36 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun blockChatParticipant(profileId: String, threadId: Long, participantId: String): JsonElement =
         client.rpc<QuataChatParticipantRequest, JsonElement>("quata_chat_block_participant", QuataChatParticipantRequest(profileId, threadId, participantId))
 
+    suspend fun reportUgc(profileId: String, targetType: String, targetId: String, reason: String, details: String? = null): JsonElement =
+        client.rpc<QuataUgcReportRequest, JsonElement>(
+            "quata_ugc_report",
+            QuataUgcReportRequest(profileId, targetType, targetId, reason, details)
+        )
+
+    suspend fun blockProfile(profileId: String, blockedProfileId: String): JsonElement =
+        client.rpc<QuataProfileModerationRequest, JsonElement>(
+            "quata_profile_block",
+            QuataProfileModerationRequest(profileId, blockedProfileId)
+        )
+
+    suspend fun unblockProfile(profileId: String, blockedProfileId: String): JsonElement =
+        client.rpc<QuataProfileModerationRequest, JsonElement>(
+            "quata_profile_unblock",
+            QuataProfileModerationRequest(profileId, blockedProfileId)
+        )
+
+    suspend fun hasAcceptedUgcTerms(profileId: String, termsVersion: String): Boolean =
+        client.rpc<QuataUgcTermsRequest, Boolean>(
+            "quata_has_accepted_ugc_terms",
+            QuataUgcTermsRequest(profileId, termsVersion)
+        )
+
+    suspend fun acceptUgcTerms(profileId: String, termsVersion: String): JsonElement =
+        client.rpc<QuataUgcTermsRequest, JsonElement>(
+            "quata_accept_ugc_terms",
+            QuataUgcTermsRequest(profileId, termsVersion)
+        )
+
     suspend fun leaveChatThread(profileId: String, threadId: Long): JsonElement =
         client.rpc<QuataChatThreadActionRequest, JsonElement>("quata_chat_leave_thread", QuataChatThreadActionRequest(profileId, threadId))
 

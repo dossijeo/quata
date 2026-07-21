@@ -7,11 +7,14 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
+  action?: "login" | "recovery_question" | "reset_password";
   profile_id?: string;
   country_code?: string;
   phone?: string;
   phone_local?: string;
   password?: string;
+  secret_answer?: string;
+  new_password?: string;
 };
 
 type CommunityProfile = {
@@ -32,6 +35,8 @@ type CommunityProfile = {
   avatar?: string | null;
   barrio?: string | null;
   neighborhood?: string | null;
+  secret_question?: string | null;
+  secret_answer?: string | null;
 };
 
 const profileSelect = [
@@ -52,6 +57,8 @@ const profileSelect = [
   "avatar",
   "barrio",
   "neighborhood",
+  "secret_question",
+  "secret_answer",
 ].join(",");
 
 Deno.serve(async (req) => {
@@ -114,17 +121,27 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ error: "invalid_json" }, 400);
   }
 
-  const password = payload.password?.trim();
-  if (!password) {
-    return jsonResponse({ error: "password_required" }, 400);
-  }
-
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { "X-Client-Info": "quata-auth-bridge" } },
   });
 
   const profile = await findProfile(admin, payload);
+  const action = payload.action || "login";
+  if (action === "recovery_question") {
+    if (!profile?.secret_question?.trim()) {
+      return jsonResponse({ error: "recovery_profile_not_found" }, 404);
+    }
+    return jsonResponse({ secret_question: profile.secret_question });
+  }
+  if (action === "reset_password") {
+    return handlePasswordReset({ admin, profile, payload, serviceRoleKey });
+  }
+
+  const password = payload.password?.trim();
+  if (!password) {
+    return jsonResponse({ error: "password_required" }, 400);
+  }
   if (!profile) {
     return jsonResponse({ error: "invalid_credentials" }, 401);
   }
@@ -157,10 +174,28 @@ async function handleRequest(req: Request): Promise<Response> {
     global: { headers: { "X-Client-Info": "quata-auth-bridge-signin" } },
   });
 
-  const { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
+  let { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
     email,
     password: authPassword,
   });
+
+  // Updating an Auth password revokes every refresh token for that user. A
+  // regular bridge login must therefore reuse the existing internal password
+  // so a dashboard session cannot sign the Android app out (or vice versa).
+  // The legacy password was already verified above; only rotate the internal
+  // Auth password when it is genuinely out of date after a legacy change.
+  if ((signInError || !signInData.session) && isInvalidAuthPassword(signInError)) {
+    const { error: updatePasswordError } = await admin.auth.admin.updateUserById(authUserId, {
+      password: authPassword,
+    });
+    if (updatePasswordError) {
+      return jsonResponse({ error: "auth_session_failed", detail: updatePasswordError.message }, 500);
+    }
+    ({ data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
+      email,
+      password: authPassword,
+    }));
+  }
 
   if (signInError || !signInData.session) {
     return jsonResponse(
@@ -185,6 +220,50 @@ async function handleRequest(req: Request): Promise<Response> {
     session: signInData.session,
     user: signInData.user,
   });
+}
+
+async function handlePasswordReset(params: {
+  admin: ReturnType<typeof createClient>;
+  profile: CommunityProfile | null;
+  payload: BridgeRequest;
+  serviceRoleKey: string;
+}): Promise<Response> {
+  const { admin, profile, payload, serviceRoleKey } = params;
+  const newPassword = payload.new_password?.trim() || "";
+  const secretAnswer = payload.secret_answer?.trim() || "";
+  if (!profile?.secret_question?.trim() || !profile.secret_answer?.trim()) {
+    return jsonResponse({ error: "recovery_profile_not_found" }, 404);
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return jsonResponse({ error: "invalid_new_password" }, 400);
+  }
+  if (!secretAnswer || profile.secret_answer.trim().localeCompare(secretAnswer.trim(), undefined, { sensitivity: "accent" }) !== 0) {
+    return jsonResponse({ error: "invalid_secret_answer" }, 401);
+  }
+
+  const email = profileEmail(profile, payload);
+  const authPassword = await supabaseAuthPassword(profile.id, newPassword, serviceRoleKey);
+  const authUserId = await ensureAuthUser(admin, {
+    profile,
+    email,
+    password: authPassword,
+    userMetadata: {
+      profile_id: profile.id,
+      display_name: displayNameFor(profile),
+      avatar_url: profile.avatar_url || profile.avatar || null,
+      neighborhood: profile.neighborhood || profile.barrio || null,
+      auth_source: "quata_legacy_bridge",
+    },
+  });
+  const { error: authError } = await admin.auth.admin.updateUserById(authUserId, { password: authPassword });
+  if (authError) throw authError;
+  const { error: profileError } = await admin.from("community_profiles").update({
+    auth_user_id: authUserId,
+    pass_hash: await sha256(newPassword),
+    pass_plain: null,
+  }).eq("id", profile.id);
+  if (profileError) throw profileError;
+  return jsonResponse({ ok: true });
 }
 
 async function findProfile(admin: ReturnType<typeof createClient>, payload: BridgeRequest): Promise<CommunityProfile | null> {
@@ -233,7 +312,6 @@ async function ensureAuthUser(
   if (currentAuthUserId) {
     const { data, error } = await admin.auth.admin.updateUserById(currentAuthUserId, {
       email,
-      password,
       user_metadata: userMetadata,
       email_confirm: true,
     });
@@ -244,7 +322,6 @@ async function ensureAuthUser(
   if (existing?.id) {
     const { data, error } = await admin.auth.admin.updateUserById(existing.id, {
       email,
-      password,
       user_metadata: userMetadata,
       email_confirm: true,
     });
@@ -260,6 +337,10 @@ async function ensureAuthUser(
   });
   if (error || !data.user) throw error ?? new Error("Could not create auth user");
   return data.user.id;
+}
+
+function isInvalidAuthPassword(error: { code?: string | null; message?: string | null } | null): boolean {
+  return error?.code === "invalid_credentials" || /invalid login credentials/i.test(error?.message || "");
 }
 
 async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {

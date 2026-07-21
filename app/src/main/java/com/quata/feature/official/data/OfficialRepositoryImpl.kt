@@ -369,6 +369,7 @@ class OfficialRepositoryImpl(
                         ?: appContext.getString(R.string.comments_you),
                     message = parsed.message,
                     timestamp = comment.created_at.orEmpty(),
+                    authorId = comment.profile_id,
                     replyToAuthorName = parsed.authorName ?: target?.let { targetComment ->
                         profilesById[targetComment.profile_id]?.display_name
                             ?: profilesById[targetComment.profile_id]?.nombre

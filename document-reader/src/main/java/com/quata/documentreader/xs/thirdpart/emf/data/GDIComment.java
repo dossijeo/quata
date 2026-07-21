@@ -3,18 +3,17 @@
 package com.quata.documentreader.xs.thirdpart.emf.data;
 
 //import java.awt.Image;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import com.quata.documentreader.xs.thirdpart.emf.EMFConstants;
 import com.quata.documentreader.xs.thirdpart.emf.EMFInputStream;
 import com.quata.documentreader.xs.thirdpart.emf.EMFRenderer;
 import com.quata.documentreader.xs.thirdpart.emf.EMFTag;
+import com.quata.documentreader.xs.common.picture.BitmapDecodeUtil;
 
 //import javax.imageio.ImageIO;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 
 /**
  * GDIComment TAG.
@@ -143,7 +142,7 @@ public class GDIComment extends EMFTag
             // read the image data
             byte[] bytes = emf.readByte(size);
 //            result.image = ImageIO.read(new ByteArrayInputStream(bytes));
-            result.image = BitmapFactory.decodeStream(new ByteArrayInputStream(bytes));
+            result.image = BitmapDecodeUtil.decodeByteArray(bytes, 0, bytes.length);
             return this;
 
         }

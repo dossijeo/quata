@@ -561,4 +561,25 @@
     <string name="vosk_model_fr_title">Modèle de sous-titres français</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
+    <string name="legal_privacy">Politique de confidentialit&#233;</string>
+    <string name="legal_child_safety">S&#233;curit&#233; des enfants et r&#232;gles de la communaut&#233;</string>
+    <string name="legal_account_deletion">Supprimer le compte</string>
+    <string name="legal_data_deletion">Demander la suppression des donn&#233;es</string>
+    <string name="ugc_terms_title">R&#232;gles de la communaut&#233;</string>
+    <string name="ugc_terms_body">Pour participer et partager du contenu sur Q&#252;ata, vous devez accepter nos r&#232;gles de communaut&#233; et de s&#233;curit&#233; des enfants. Les contenus ill&#233;gaux, abusifs, sexuels, violents, haineux ou relevant de l\'exploitation sont interdits. Vous pouvez signaler du contenu et bloquer des utilisateurs &#224; tout moment.</string>
+    <string name="ugc_terms_accept">J\'accepte</string>
+    <string name="ugc_terms_accepting">Enregistrement&#8230;</string>
+    <string name="ugc_terms_logout">Se d&#233;connecter</string>
+    <string name="ugc_terms_accept_error">Impossible d\'enregistrer votre acceptation. V&#233;rifiez la connexion et r&#233;essayez.</string>
+    <string name="moderation_report">Signaler</string>
+    <string name="moderation_block">Bloquer</string>
+    <string name="moderation_report_title">Signaler le profil</string>
+    <string name="moderation_block_title">Bloquer le profil</string>
+    <string name="moderation_report_profile_confirm">Envoyer ce profil &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
+    <string name="moderation_block_profile_confirm">Cette personne ne pourra plus vous envoyer de messages. Vous pouvez toujours signaler son contenu s&#233;par&#233;ment.</string>
+    <string name="moderation_report_sent">Signalement envoy&#233; pour examen</string>
+    <string name="moderation_profile_blocked">Profil bloqu&#233;</string>
+    <string name="moderation_report_message_title">Signaler le message</string>
+    <string name="moderation_report_message_confirm">Envoyer ce message &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
+    <string name="chat_error_report_message">Impossible de signaler le message</string>
 </resources>

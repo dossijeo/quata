@@ -82,6 +82,7 @@ interface ChatRepository {
     suspend fun demoteModerator(conversationId: String, userId: String): Result<Unit>
     suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit>
     suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit>
+    suspend fun reportMessage(messageId: String): Result<Unit>
     suspend fun leaveConversation(conversationId: String): Result<Unit>
     suspend fun hideConversation(conversationId: String): Result<Unit>
     suspend fun deleteConversation(conversationId: String): Result<Unit>
