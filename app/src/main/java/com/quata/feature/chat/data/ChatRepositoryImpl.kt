@@ -65,7 +65,8 @@ class ChatRepositoryImpl(
     private val supabaseRealtimeClient: SupabaseRealtimeClient,
     private val sessionManager: SessionManager,
     private val mediaUploadOptimizer: MediaUploadOptimizer,
-    private val messageStateAckManager: ChatMessageStateAckManager
+    private val messageStateAckManager: ChatMessageStateAckManager,
+    private val typingIndicatorManager: ChatTypingIndicatorManager
 ) : ChatRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cacheStore = SupabaseChatCacheStore(appContext)
@@ -101,6 +102,7 @@ class ChatRepositoryImpl(
     override val isAppForeground: StateFlow<Boolean> = appForegroundState.asStateFlow()
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation.asStateFlow()
     override val isRealtimeOnline: StateFlow<Boolean> = _isRealtimeOnline.asStateFlow()
+    override val typingProfileIds: StateFlow<Set<String>> = typingIndicatorManager.typingProfileIds
     override val syncStatus: StateFlow<ChatSyncStatus> = _syncStatus.asStateFlow()
 
     init {
@@ -118,6 +120,7 @@ class ChatRepositoryImpl(
     }
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
+        typingIndicatorManager.setDeviceNetworkAvailable(isAvailable)
         if (AppConfig.USE_MOCK_BACKEND) {
             deviceNetworkAvailable.value = isAvailable
             _isRealtimeOnline.value = isAvailable
@@ -186,6 +189,7 @@ class ChatRepositoryImpl(
     }
 
     override fun setConversationVisible(conversationId: String, visible: Boolean) {
+        typingIndicatorManager.setVisibleConversation(conversationId, visible)
         if (visible) {
             setActiveConversation(conversationId)
         } else if (_activeConversationId.value == conversationId) {
@@ -243,6 +247,7 @@ class ChatRepositoryImpl(
     override fun setAppForeground(isForeground: Boolean) {
         if (appForegroundState.value == isForeground) return
         appForegroundState.value = isForeground
+        typingIndicatorManager.setAppForeground(isForeground)
         if (isForeground) {
             sessionManager.currentSession()?.let { session ->
                 scope.launch {
@@ -255,6 +260,10 @@ class ChatRepositoryImpl(
         } else {
             stopRealtime()
         }
+    }
+
+    override fun setTyping(conversationId: String, isTyping: Boolean) {
+        typingIndicatorManager.setTyping(conversationId, isTyping)
     }
 
     override fun clearChatNotifications() {
@@ -597,12 +606,12 @@ class ChatRepositoryImpl(
                 replyToMessageId = outgoing.replyToMessageId?.toLongOrNull(),
                 clientMessageId = outgoing.clientMessageId
             )
+            // Reconcile the confirmed server row while the optimistic row is
+            // still present. This avoids an observable empty/removal frame and
+            // persists the client's stable visual identity on the confirmed row.
+            mergeChatPayload(payload, session.userId, outgoing)
             cacheStore.removeOutgoing(session.userId, outgoing.clientMessageId)
-            cacheStore.removePendingMessage(session.userId, outgoing.conversationId, outgoing.clientMessageId)
             outboxAttachmentStore.remove(outgoing.attachmentUri)
-            messagesState(outgoing.conversationId).value = messagesState(outgoing.conversationId).value
-                .filterNot { it.clientMessageId == outgoing.clientMessageId && it.isLocalEcho }
-            mergeChatPayload(payload, session.userId)
             refreshThread(outgoing.conversationId, force = true)
             refreshAll(session.userId, force = true)
         }.onFailure { error ->
@@ -1355,7 +1364,11 @@ class ChatRepositoryImpl(
             ?.requireThreadId()
             ?: error("Mensaje no cargado")
 
-    private suspend fun mergeChatPayload(payload: JsonElement, expectedProfileId: String) {
+    private suspend fun mergeChatPayload(
+        payload: JsonElement,
+        expectedProfileId: String,
+        confirmedOutgoing: PendingOutgoingMessage? = null
+    ) {
         val session = sessionManager.currentSession()?.takeIf { it.userId == expectedProfileId } ?: return
         val parsed = parseChatPayload(payload)
         parsed.profiles.forEach { profilesById[it.id] = it }
@@ -1365,12 +1378,50 @@ class ChatRepositoryImpl(
                 if (sessionManager.currentSession()?.userId != expectedProfileId) return
                 upsertConversation(session.userId, it)
             }
-        parsed.messagesByConversation.forEach { (conversationId, incomingMessages) ->
+        parsed.messagesByConversation.forEach { (conversationId, parsedIncomingMessages) ->
             if (sessionManager.currentSession()?.userId != expectedProfileId) return
+            val incomingMessages = parsedIncomingMessages.withConfirmedOutgoingIdentity(
+                confirmedOutgoing?.takeIf { it.conversationId == conversationId }
+            )
             val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
             val merged = reconcileChatMessages(incomingMessages, cachedMessages)
             messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
             cacheStore.replaceMessages(session.userId, conversationId, merged)
+        }
+    }
+
+    private fun List<Message>.withConfirmedOutgoingIdentity(
+        outgoing: PendingOutgoingMessage?
+    ): List<Message> {
+        outgoing ?: return this
+        if (any { it.clientMessageId == outgoing.clientMessageId }) return this
+
+        val eligibleIndices = indices.filter { index ->
+            val message = this[index]
+            message.isMine && message.clientMessageId.isNullOrBlank()
+        }
+        val exactIndices = eligibleIndices.filter { index ->
+            val message = this[index]
+            message.text == outgoing.text &&
+                message.replyToMessageId == outgoing.replyToMessageId &&
+                (outgoing.attachmentName.isNullOrBlank() || message.attachmentName == outgoing.attachmentName)
+        }
+        val confirmedIndex = when {
+            exactIndices.size == 1 -> exactIndices.single()
+            eligibleIndices.size == 1 -> eligibleIndices.single()
+            else -> return this // Ambiguous payload: never assign one client identity to two rows.
+        }
+        return mapIndexed { index, message ->
+            if (index == confirmedIndex) {
+                message.copy(
+                    clientMessageId = outgoing.clientMessageId,
+                    isPending = false,
+                    isLocalEcho = false,
+                    deliveryState = MessageDeliveryState.Sent
+                )
+            } else {
+                message
+            }
         }
     }
 

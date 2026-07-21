@@ -652,6 +652,7 @@ private fun CandidateUserCard(
             AvatarImage(
                 name = candidate.displayName,
                 avatarUrl = candidate.avatarUrl,
+                profileId = candidate.profileId,
                 modifier = Modifier.size(48.dp)
             )
             Spacer(Modifier.size(10.dp))
@@ -810,6 +811,7 @@ private fun ConversationAvatar(
                 ClickableProfileAvatar(
                     name = privateUser.displayName,
                     avatarUrl = privateUser.avatarUrl,
+                    profileId = privateUser.id,
                     isLoading = openingProfileUserId == privateUser.id,
                     onClick = { onOpenUserProfile(privateUser.id) },
                     modifier = Modifier.size(46.dp)

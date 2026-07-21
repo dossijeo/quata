@@ -20,6 +20,7 @@ sealed class AppDestinations(val route: String) {
         fun createRoute(conversationId: String) = "chat/${Uri.encode(conversationId)}"
     }
     data object Notifications : AppDestinations("notifications")
+    data object ReleaseHistory : AppDestinations("release_history")
     data object Profile : AppDestinations("profile")
     data object UserProfile : AppDestinations("user_profile/{userId}") {
         fun createRoute(userId: String) = "user_profile/$userId"

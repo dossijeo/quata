@@ -300,6 +300,8 @@
     <string name="secret_question_friend">Name of your best friend?</string>
     <string name="secret_question_food">Your favorite food?</string>
     <string name="profile_configure_emergency_contacts">Configure emergency contacts</string>
+    <string name="profile_account_management">Account management</string>
+    <string name="profile_account_management_description">Manage account deactivation and personal data deletion requests.</string>
     <string name="profile_logout">Log out</string>
     <string name="profile_loading">Loading profile…</string>
     <string name="profile_camera_permission_photo">We need camera and media permission to take the photo</string>
@@ -326,6 +328,10 @@
     <string name="sos_blocked_by_proximity">SOS blocked while the phone is close to your ear.</string>
     <string name="sos_recently_sent">You already sent an SOS. You can send it again in %1$s min if nobody replies.</string>
     <string name="sos_location_unavailable">📍 Location unavailable</string>
+    <string name="sos_location_recovery_channel">SOS location</string>
+    <string name="sos_location_recovery_channel_description">Temporary location recovery after sending an SOS alert</string>
+    <string name="sos_location_recovery_title">Completing SOS location</string>
+    <string name="sos_location_recovery_body">Looking for a more recent location for your SOS alert</string>
     <string name="sos_location">📍 Location: %1$s</string>
     <string name="sos_default_message">🚨 REAL SOS: %1$s needs urgent help. You are one of their emergency contacts in QUATA.</string>
     <string name="sos_location_update">SOS location update</string>
@@ -565,6 +571,20 @@
     <string name="legal_child_safety">Child safety and community standards</string>
     <string name="legal_account_deletion">Delete account</string>
     <string name="legal_data_deletion">Request data deletion</string>
+    <string name="account_action_login_required">Sign in to manage your account.</string>
+    <string name="account_password_prompt">Enter your current password again to continue.</string>
+    <string name="account_password_required">Enter your current password.</string>
+    <string name="account_password_incorrect">The password is incorrect.</string>
+    <string name="account_deactivate_confirm_title">Deactivate account?</string>
+    <string name="account_deactivate_confirm_body">You will be signed out and the account will be deactivated. Your data will be kept, and you can reactivate it by registering again with the same phone number and password.</string>
+    <string name="account_deactivate_confirm_action">Deactivate account</string>
+    <string name="account_deactivate_success">Your account has been deactivated.</string>
+    <string name="account_delete_confirm_title">Delete all your data?</string>
+    <string name="account_delete_confirm_body">This action cannot be undone. Your account, posts, attachments, sent messages, memberships, and all complete private conversations will be deleted.</string>
+    <string name="account_delete_confirmation_word">DELETE</string>
+    <string name="account_delete_type_confirmation">Type %1$s to confirm.</string>
+    <string name="account_delete_confirm_action">Delete permanently</string>
+    <string name="account_delete_success">Your account and data have been deleted.</string>
     <string name="ugc_terms_title">Community rules</string>
     <string name="ugc_terms_body">To participate and share content on Q&#252;ata, you must accept our community and child safety standards. Illegal, abusive, sexual, violent, hateful or exploitative content is not permitted. You can report content and block users at any time.</string>
     <string name="ugc_terms_accept">I accept</string>
@@ -582,4 +602,16 @@
     <string name="moderation_report_message_title">Report message</string>
     <string name="moderation_report_message_confirm">Send this message to the Q&#252;ata moderation team for review?</string>
     <string name="chat_error_report_message">The message could not be reported</string>
+    <string name="whats_new_title">What\'s new</string>
+    <string name="whats_new_version">Version %1$s</string>
+    <string name="whats_new_version_heading">What\'s new in version %1$s</string>
+    <string name="whats_new_previous">Previous</string>
+    <string name="whats_new_next">Next</string>
+    <string name="whats_new_continue">Continue</string>
+    <string name="release_history">Version history</string>
+    <string name="release_history_short">Version history</string>
+    <string name="release_history_title">Version history</string>
+    <string name="release_history_subtitle">Browse the notes for every tracked release.</string>
+    <string name="release_history_empty">No release notes are available yet.</string>
+    <string name="release_history_error">Version history is unavailable right now.</string>
 </resources>

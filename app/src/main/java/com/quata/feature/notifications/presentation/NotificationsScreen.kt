@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.model.NotificationItem
+import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.presentation.relativeTimeLabel
@@ -132,7 +133,10 @@ private fun NotificationCard(
         Column(Modifier.padding(16.dp)) {
             val createdAt = relativeTimeLabel(context, item.createdAt, timestampNowMillis)
             Text(item.title, fontWeight = FontWeight.Bold)
-            Text(item.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = context.localizedChatPreview(item.body),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(
                 text = if (item.unreadCount > 1) "$createdAt - ${item.unreadCount}" else createdAt,
                 color = MaterialTheme.colorScheme.primary,

@@ -63,8 +63,25 @@ object QuataMediaCache {
         val file = videoThumbnailFile(context.applicationContext, videoUri)
         if (!file.exists() || file.length() <= 0L) return null
         file.setLastModified(System.currentTimeMillis())
-        return runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
+        return runCatching {
+            val bounds = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+                inSampleSize = 1
+            }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+            var sampleSize = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / sampleSize > VIDEO_THUMBNAIL_MAX_DIMENSION) {
+                sampleSize *= 2
+            }
+            BitmapFactory.decodeFile(
+                file.absolutePath,
+                BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            )
+        }.getOrNull()
     }
+
+    private const val VIDEO_THUMBNAIL_MAX_DIMENSION = 2048
 
     fun cacheVideoThumbnail(context: Context, videoUri: String, bitmap: Bitmap): Bitmap {
         val appContext = context.applicationContext

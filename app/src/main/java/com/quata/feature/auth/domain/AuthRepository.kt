@@ -9,6 +9,8 @@ interface AuthRepository {
     suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?>
     suspend fun resetPassword(countryCode: String, phone: String, secretAnswer: String, newPassword: String): Result<Unit>
     suspend fun loginWithGoogle(context: Context): Result<AuthSession>
+    suspend fun deactivateAccount(password: String): Result<Unit>
+    suspend fun deleteAccountData(password: String): Result<Unit>
     suspend fun logout()
 }
 

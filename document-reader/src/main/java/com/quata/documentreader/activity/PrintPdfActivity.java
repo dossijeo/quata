@@ -12,6 +12,7 @@ import android.webkit.WebView;
 import androidx.core.content.ContextCompat;
 
 import com.quata.documentreader.R;
+import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.databinding.ActivityPrintPdfBinding;
 import com.quata.documentreader.manageui.CustomFrameLayout;
 import com.quata.documentreader.util.Singleton;
@@ -34,8 +35,7 @@ public class PrintPdfActivity extends BaseActivity {
         binding = ActivityPrintPdfBinding.inflate(getLayoutInflater());
         View layout = binding.getRoot();
         setContentView(layout);
-        setStatusBar();
-        adaptFitsSystemWindows(getWindow().getDecorView());
+        DocumentReaderChrome.apply(this, layout);
         configHeader();
 
         WebView webView = binding.webView;

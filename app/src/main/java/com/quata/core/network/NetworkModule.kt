@@ -68,6 +68,18 @@ class NetworkModule(
         okHttp = supabaseRealtimeSocketClient
     )
 
+    // Presence and typing use their own lightweight channels so chat replication
+    // can reconnect independently without losing ephemeral UI state.
+    val supabasePresenceRealtimeClient = SupabaseRealtimeClient(
+        config = supabaseHelperConfig,
+        okHttp = supabaseRealtimeSocketClient
+    )
+
+    val supabaseTypingRealtimeClient = SupabaseRealtimeClient(
+        config = supabaseHelperConfig,
+        okHttp = supabaseRealtimeSocketClient
+    )
+
     val quataWordPressClient = QuataWordPressClient(
         baseUrl = AppConfig.QUATA_WORDPRESS_BASE_URL,
         httpClient = wordpressClient

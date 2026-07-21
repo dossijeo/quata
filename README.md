@@ -1,15 +1,26 @@
 # Q&uuml;ata Android
 
-Version: **1.0.3**
-Fecha de version: **2026-07-16**
-Estado: **release 1.0.3 definitiva para publicacion; QA automatizada y validacion funcional y visual en API 27 y API 37 completadas**
+Version: **1.0.4**
+Fecha de version: **2026-07-21**
+Estado: **release 1.0.4 definitiva para publicacion; QA automatizada, validacion funcional en API 28 y API 37 y prueba SOS real completadas**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `1.0.3` refuerza la seguridad de la comunidad con normas de uso, reportes persistentes y bloqueo global de perfiles; mejora la compatibilidad edge-to-edge y el uso de memoria; y corrige la generacion de subtitulos automaticos en las versiones optimizadas para publicacion.
+La version `1.0.4` incorpora gestion segura del ciclo de vida de la cuenta, mejora la comunicacion en tiempo real del chat y refuerza la recuperacion de ubicacion de los avisos SOS. Tambien estrena una experiencia de novedades e historial de versiones y suma ajustes de estabilidad, compatibilidad y memoria.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- La cuenta puede desactivarse de forma reversible o eliminarse definitivamente desde la app; ambas acciones exigen volver a introducir la contrasena y limpian los datos locales asociados.
+- Una cuenta desactivada se reactiva de forma segura al registrarse de nuevo con el mismo telefono y sus credenciales.
+- El chat muestra presencia online e indicadores de escritura efimeros, sin guardarlos ni reproducirlos offline.
+- Realtime, los estados de entrega/lectura y las notificaciones nativas coordinan mejor reconexiones, arranques en frio y restricciones de segundo plano.
+- La apertura y reconciliacion de conversaciones conserva identidades visuales estables y evita autoscrolls innecesarios cuando el usuario esta leyendo el historial.
+- La aplicacion incorpora una pantalla de novedades y un historial de versiones localizado, con progreso de lectura resistente a cortes de red.
+- La aceptacion de normas de comunidad queda disponible offline y sincroniza automaticamente cuando vuelve la conectividad.
+- Cuando un SOS se envia con una ubicacion ausente o antigua, un servicio temporal busca una posicion mas precisa y, si falla, aprovecha ubicaciones pasivas durante un maximo de 30 minutos sin activar sensores adicionales.
+- La recuperacion de ubicacion SOS continua durante standby mediante una notificacion silenciosa y termina tras enviar una unica actualizacion o agotar el plazo.
+- La decodificacion de imagenes del lector de documentos aplica limites de resolucion tambien a streams y miniaturas para reducir picos de memoria.
+- La gestion edge-to-edge, las barras del sistema y varios layouts compartidos se han refinado para Android moderno y versiones antiguas compatibles.
 - Las normas de comunidad deben aceptarse al iniciar sesion y estan localizadas en espanol, ingles y frances, con acceso directo a privacidad, seguridad infantil y eliminacion de cuenta o datos.
 - Los usuarios pueden reportar publicaciones, comentarios, mensajes y perfiles, y bloquear perfiles de forma global con aplicacion efectiva sobre nuevos mensajes de chat.
 - La interfaz edge-to-edge usa la gestion moderna de insets y barras del sistema, validada en Android antiguo y en Android 15 o posterior.
@@ -482,9 +493,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 Version actual:
 
 ```text
-versionCode = 29
-versionName = 1.0.3
-APP_VERSION_DATE = 2026-07-16
+versionCode = 30
+versionName = 1.0.4
+APP_VERSION_DATE = 2026-07-21
 ```
 
 La app muestra esta informacion en la modal **Acerca de Q&uuml;ata**, accesible pulsando el logo de la esquina superior izquierda.

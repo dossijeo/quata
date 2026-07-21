@@ -37,13 +37,29 @@ internal object ProceduralChatBackground {
         val file = cacheFile(context, conversationName, templateId).takeIf { it.exists() }
             ?: return null
 
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            inSampleSize = 1
+        }
         BitmapFactory.decodeFile(file.absolutePath, bounds)
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sampleSize = 1
+        while (
+            bounds.outWidth / (sampleSize * 2) >= width.coerceAtLeast(1) &&
+            bounds.outHeight / (sampleSize * 2) >= height.coerceAtLeast(1)
+        ) {
+            sampleSize *= 2
+        }
+        val bitmap = BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        ) ?: return null
         return if (bitmap.width == width && bitmap.height == height) {
             bitmap.asImageBitmap()
         } else {
-            Bitmap.createScaledBitmap(bitmap, width, height, true).asImageBitmap()
+            Bitmap.createScaledBitmap(bitmap, width, height, true).also {
+                if (it !== bitmap) bitmap.recycle()
+            }.asImageBitmap()
         }
     }
 

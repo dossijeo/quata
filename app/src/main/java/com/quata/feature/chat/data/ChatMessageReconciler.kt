@@ -17,7 +17,7 @@ internal fun reconcileChatMessages(
     val reconciledIncoming = incoming.map { message ->
         val previous = existingById[message.id]
             ?: message.clientMessageId?.takeIf(String::isNotBlank)?.let(existingByClientId::get)
-        message.preserveReplySnapshotFrom(previous)
+        message.preserveLocalIdentityAndReplySnapshotFrom(previous)
     }
     val retained = if (retainUnmatchedExisting) {
         existing.filterNot { message ->
@@ -33,11 +33,19 @@ internal fun reconcileChatMessages(
         .withResolvedReplyContext()
 }
 
-private fun Message.preserveReplySnapshotFrom(previous: Message?): Message {
-    if (replyToMessageId == null || replyToMessageId != previous?.replyToMessageId) return this
+private fun Message.preserveLocalIdentityAndReplySnapshotFrom(previous: Message?): Message {
+    previous ?: return this
+    val stableClientMessageId = clientMessageId?.takeIf(String::isNotBlank)
+        ?: previous.clientMessageId?.takeIf(String::isNotBlank)
+    val preservesReplySnapshot = replyToMessageId != null && replyToMessageId == previous.replyToMessageId
     return copy(
-        replyToSenderName = replyToSenderName ?: previous.replyToSenderName,
-        replyToText = replyToText ?: previous.replyToText
+        clientMessageId = stableClientMessageId,
+        replyToSenderName = if (preservesReplySnapshot) {
+            replyToSenderName ?: previous.replyToSenderName
+        } else {
+            replyToSenderName
+        },
+        replyToText = if (preservesReplySnapshot) replyToText ?: previous.replyToText else replyToText
     )
 }
 

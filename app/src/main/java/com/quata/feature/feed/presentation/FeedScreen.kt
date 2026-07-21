@@ -504,6 +504,7 @@ private fun LiveRankingDialog(
         items = rankedPosts.mapIndexed { index, post ->
             QuataLiveRankingItem(
                 id = post.id,
+                profileId = post.author.id,
                 rank = postRanks[post.id]?.position ?: (index + 1),
                 title = post.author.displayName,
                 subtitle = postTypeLabel(post),
@@ -1453,6 +1454,7 @@ private fun ReelAuthor(
                 name = post.author.displayName,
                 avatarUrl = post.author.avatarUrl,
                 isOfficial = post.author.isOfficial,
+                profileId = post.author.id,
                 isLoading = isProfileLoading,
                 onClick = onOpenUserProfile,
                 modifier = Modifier

@@ -8,7 +8,9 @@ package com.quata.documentreader.xs.fc;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 
+import com.quata.documentreader.xs.common.picture.BitmapDecodeUtil;
 import com.quata.documentreader.xs.fc.fs.filesystem.CFBFileSystem;
 import com.quata.documentreader.xs.fc.fs.filesystem.Property;
 import com.quata.documentreader.xs.fc.fs.storage.LittleEndian;
@@ -25,7 +27,6 @@ import com.quata.documentreader.xs.pg.view.SlideDrawKit;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 
 
@@ -229,7 +230,13 @@ public class ReaderThumbnail
                         else if (picType == 0x0333)
                         {
                             // JPEG
-                            return BitmapFactory.decodeByteArray(data, pic_data_offset, data.length - pic_data_offset);
+                            return BitmapDecodeUtil.decodeByteArray(
+                                data,
+                                pic_data_offset,
+                                data.length - pic_data_offset,
+                                width,
+                                height
+                            );
                         }
                         
                     }
@@ -303,7 +310,10 @@ public class ReaderThumbnail
         {
             return null;
         }
-        return BitmapFactory.decodeStream(part.getInputStream());
+        try (InputStream input = part.getInputStream())
+        {
+            return BitmapDecodeUtil.decodeStream(input);
+        }
     }
     
     /**

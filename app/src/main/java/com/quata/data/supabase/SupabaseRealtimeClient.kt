@@ -36,6 +36,9 @@ class SupabaseRealtimeClient(
     private val intentionallyClosedSockets = ConcurrentHashMap.newKeySet<WebSocket>()
     private var socket: WebSocket? = null
     private var heartbeatTimer: Timer? = null
+    private var activeTopic: String? = null
+    private var activeJoinRef: String? = null
+    private var onChannelJoined: (() -> Unit)? = null
 
     fun connect(
         accessToken: String,
@@ -45,7 +48,94 @@ class SupabaseRealtimeClient(
         onStatus: (RealtimeStatus) -> Unit = {},
         onFailure: (Throwable) -> Unit = {}
     ) {
+        connectChannel(
+            accessToken = accessToken,
+            presenceKey = presenceKey,
+            topic = "realtime:quata-chat-$presenceKey",
+            tables = tables,
+            presenceEnabled = false,
+            onEvent = onEvent,
+            onStatus = onStatus,
+            onFailure = onFailure
+        )
+    }
+
+    /** Opens a lightweight Presence/Broadcast channel, separate from database replication. */
+    fun connectPresence(
+        accessToken: String,
+        presenceKey: String,
+        topic: String,
+        presencePayload: JsonObject,
+        onEvent: (RealtimeRawEvent) -> Unit,
+        onStatus: (RealtimeStatus) -> Unit = {},
+        onFailure: (Throwable) -> Unit = {}
+    ) {
+        connectChannel(
+            accessToken = accessToken,
+            presenceKey = presenceKey,
+            topic = topic,
+            tables = emptyList(),
+            presenceEnabled = true,
+            onEvent = onEvent,
+            onStatus = onStatus,
+            onFailure = onFailure,
+            onJoined = { trackPresence(presencePayload) }
+        )
+    }
+
+    /** Opens a Broadcast-only channel. */
+    fun connectBroadcast(
+        accessToken: String,
+        presenceKey: String,
+        topic: String,
+        onEvent: (RealtimeRawEvent) -> Unit,
+        onStatus: (RealtimeStatus) -> Unit = {},
+        onFailure: (Throwable) -> Unit = {}
+    ) {
+        connectChannel(
+            accessToken = accessToken,
+            presenceKey = presenceKey,
+            topic = topic,
+            tables = emptyList(),
+            presenceEnabled = false,
+            onEvent = onEvent,
+            onStatus = onStatus,
+            onFailure = onFailure
+        )
+    }
+
+    fun sendBroadcast(event: String, payload: JsonObject): Boolean {
+        val topic = activeTopic ?: return false
+        val currentSocket = socket ?: return false
+        return currentSocket.send(
+            encodePhoenixFrame(
+                joinRef = activeJoinRef,
+                ref = ref.incrementAndGet().toString(),
+                topic = topic,
+                event = "broadcast",
+                payload = buildJsonObject {
+                    put("type", "broadcast")
+                    put("event", event)
+                    put("payload", payload)
+                }
+            )
+        )
+    }
+
+    private fun connectChannel(
+        accessToken: String,
+        presenceKey: String,
+        topic: String,
+        tables: List<String>,
+        presenceEnabled: Boolean,
+        onEvent: (RealtimeRawEvent) -> Unit,
+        onStatus: (RealtimeStatus) -> Unit,
+        onFailure: (Throwable) -> Unit,
+        onJoined: (() -> Unit)? = null
+    ) {
         disconnect()
+        activeTopic = topic
+        onChannelJoined = onJoined
         val realtimeApiKey = accessToken.takeIf { it.isNotBlank() } ?: config.anonKey
         val request = Request.Builder()
             .url(config.realtimeUrl(realtimeApiKey))
@@ -58,7 +148,7 @@ class SupabaseRealtimeClient(
                 Log.d(TAG, "Realtime websocket opened")
                 onStatus(RealtimeStatus.Connected)
                 startHeartbeat(webSocket)
-                joinTables(webSocket, accessToken, presenceKey, tables)
+                joinChannel(webSocket, accessToken, presenceKey, topic, tables, presenceEnabled)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -75,9 +165,11 @@ class SupabaseRealtimeClient(
                 when {
                     parsed.event == "phx_reply" &&
                         parsed.topic.orEmpty().startsWith("realtime:") &&
-                        parsed.payload.statusOrNull() == "ok" -> {
+                        parsed.payload.statusOrNull() == "ok" &&
+                        parsed.ref == activeJoinRef -> {
                         Log.d(TAG, "Realtime subscribed")
                         onStatus(RealtimeStatus.Subscribed)
+                        onChannelJoined?.invoke()
                     }
                     parsed.event == "phx_reply" &&
                         parsed.topic.orEmpty().startsWith("realtime:") &&
@@ -89,7 +181,13 @@ class SupabaseRealtimeClient(
                         Log.d(TAG, "Realtime postgres ready")
                         onStatus(RealtimeStatus.PostgresReady)
                     }
-                    parsed.event == "postgres_changes" -> {
+                    parsed.event == "system" -> {
+                        Log.w(TAG, "Realtime system event payload=${parsed.payload}")
+                    }
+                    parsed.event == "postgres_changes" ||
+                        parsed.event == "presence_state" ||
+                        parsed.event == "presence_diff" ||
+                        parsed.event == "broadcast" -> {
                         Log.d(TAG, "Realtime change table=${parsed.table.orEmpty()}")
                         onEvent(parsed)
                     }
@@ -127,24 +225,41 @@ class SupabaseRealtimeClient(
         val currentSocket = socket
         stopHeartbeat()
         socket = null
+        activeTopic = null
+        activeJoinRef = null
+        onChannelJoined = null
         if (currentSocket != null) {
             intentionallyClosedSockets.add(currentSocket)
             currentSocket.close(1000, "client-close")
         }
     }
 
-    private fun joinTables(webSocket: WebSocket, accessToken: String, presenceKey: String, tables: List<String>) {
+    private fun joinChannel(
+        webSocket: WebSocket,
+        accessToken: String,
+        presenceKey: String,
+        topic: String,
+        tables: List<String>,
+        presenceEnabled: Boolean
+    ) {
         val payload = realtimeJoinPayload(
             accessToken = accessToken,
             presenceKey = presenceKey,
-            tables = tables.distinct().filter { it.isNotBlank() }
+            tables = tables.distinct().filter { it.isNotBlank() },
+            presenceEnabled = presenceEnabled
         )
         val currentRef = ref.incrementAndGet().toString()
-        val sent = webSocket.send(encodePhoenixFrame(null, currentRef, "realtime:quata-chat-$presenceKey", "phx_join", payload))
+        activeJoinRef = currentRef
+        val sent = webSocket.send(encodePhoenixFrame(null, currentRef, topic, "phx_join", payload))
         Log.d(TAG, "Realtime join sent=$sent tables=${tables.size}")
     }
 
-    private fun realtimeJoinPayload(accessToken: String, presenceKey: String, tables: List<String>): JsonObject = buildJsonObject {
+    private fun realtimeJoinPayload(
+        accessToken: String,
+        presenceKey: String,
+        tables: List<String>,
+        presenceEnabled: Boolean
+    ): JsonObject = buildJsonObject {
         put("access_token", accessToken)
         putJsonObject("config") {
             putJsonObject("broadcast") {
@@ -153,7 +268,7 @@ class SupabaseRealtimeClient(
             }
             putJsonObject("presence") {
                 put("key", presenceKey)
-                put("enabled", false)
+                put("enabled", presenceEnabled)
             }
             putJsonArray("postgres_changes") {
                 tables.forEach { table ->
@@ -166,6 +281,23 @@ class SupabaseRealtimeClient(
             }
             put("private", false)
         }
+    }
+
+    private fun trackPresence(payload: JsonObject) {
+        val topic = activeTopic ?: return
+        val currentSocket = socket ?: return
+        currentSocket.send(
+            encodePhoenixFrame(
+                joinRef = activeJoinRef,
+                ref = ref.incrementAndGet().toString(),
+                topic = topic,
+                event = "presence",
+                payload = buildJsonObject {
+                    put("event", "track")
+                    put("payload", payload)
+                }
+            )
+        )
     }
 
     private fun startHeartbeat(webSocket: WebSocket) {

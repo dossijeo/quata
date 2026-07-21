@@ -68,7 +68,10 @@ private fun ByteArray.readImageExifOrientation(): Int =
     }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
 
 private fun ByteArray.decodeSampledImage(maxSide: Int): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    val bounds = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+        inSampleSize = 1
+    }
     BitmapFactory.decodeByteArray(this, 0, size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 

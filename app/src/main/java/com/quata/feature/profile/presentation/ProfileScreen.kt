@@ -71,7 +71,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -82,7 +81,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.QuataOrange
@@ -90,13 +88,12 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.session.SessionManager
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
-import com.quata.core.ui.components.AvatarLetter
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
-import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
@@ -110,13 +107,15 @@ private enum class EmergencyTab {
 
 private enum class ProfileAccountPage {
     Overview,
-    Details
+    Details,
+    Management
 }
 
 @Composable
 fun ProfileScreen(
     padding: PaddingValues,
     repository: ProfileRepository,
+    profileId: String,
     touchFlowEnabled: Boolean,
     onTouchFlowEnabledChange: (Boolean) -> Unit,
     themeMode: QuataThemeMode,
@@ -124,6 +123,8 @@ fun ProfileScreen(
     networkReconnectToken: Long = 0L,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {},
     onLogout: () -> Unit,
+    onDeactivateAccount: () -> Unit,
+    onDeleteAccountData: () -> Unit,
     onProfileSaved: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
 ) {
@@ -166,7 +167,7 @@ fun ProfileScreen(
         onDispose { onFullscreenEditorVisibilityChange(false) }
     }
 
-    BackHandler(enabled = accountPage == ProfileAccountPage.Details) {
+    BackHandler(enabled = accountPage != ProfileAccountPage.Overview) {
         accountPage = ProfileAccountPage.Overview
     }
 
@@ -267,14 +268,13 @@ fun ProfileScreen(
 
                     ProfilePanel(contentPadding = PaddingValues(12.dp)) {
                         val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
-                        val profileAvatarModel = rememberCachedRemoteImageRequest(profileAvatarUri)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                            AvatarImage(
+                                name = profile.displayName.ifBlank { "Q" },
+                                avatarUrl = profileAvatarUri,
+                                profileId = profileId,
                                 modifier = Modifier
                                     .size(76.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(QuataOrange.copy(alpha = 0.2f))
-                                    .border(1.dp, QuataOrange.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
                                     .clickable(enabled = profileAvatarUri != null) {
                                         val avatarUri = profileAvatarUri ?: return@clickable
                                         selectedAvatarPreview = AttachmentPreview(
@@ -282,20 +282,8 @@ fun ProfileScreen(
                                             uri = avatarUri,
                                             mimeType = "image/jpeg"
                                         )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (profileAvatarUri != null) {
-                                    AsyncImage(
-                                        model = profileAvatarModel,
-                                        contentDescription = stringResource(R.string.profile_photo),
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    AvatarLetter(profile.displayName.ifBlank { "Q" })
-                                }
-                            }
+                                    }
+                            )
                             Spacer(Modifier.width(12.dp))
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -350,13 +338,16 @@ fun ProfileScreen(
                                 ) {
                                     Text(stringResource(R.string.profile_my_data), fontWeight = FontWeight.ExtraBold)
                                 }
-                                Text(
-                                    stringResource(R.string.profile_photo_hint),
-                                    color = template.colors.textSecondary,
-                                    fontSize = template.textSizes.caption,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                OutlinedButton(
+                                    onClick = { accountPage = ProfileAccountPage.Management },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .compactButtonMinSize(),
+                                    shape = RoundedCornerShape(9.dp),
+                                    contentPadding = CompactButtonContentPadding
+                                ) {
+                                    Text(stringResource(R.string.profile_account_management), fontWeight = FontWeight.ExtraBold)
+                                }
                             }
                         }
                     }
@@ -449,6 +440,43 @@ fun ProfileScreen(
                         isSaving = state.isSaving,
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
                     )
+                    }
+
+                    ProfileAccountPage.Management -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.profile_account_management),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.profile_account_management_description),
+                        color = template.colors.textSecondary
+                    )
+                    OutlinedButton(
+                        onClick = onDeactivateAccount,
+                        modifier = Modifier.fillMaxWidth().compactButtonMinSize(),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = CompactButtonContentPadding
+                    ) {
+                        Text(stringResource(R.string.legal_account_deletion))
+                    }
+                    OutlinedButton(
+                        onClick = onDeleteAccountData,
+                        modifier = Modifier.fillMaxWidth().compactButtonMinSize(),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = CompactButtonContentPadding
+                    ) {
+                        Text(stringResource(R.string.legal_data_deletion))
+                    }
                     }
                 }
             }
@@ -1024,7 +1052,12 @@ private fun EmergencyUserRow(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AvatarLetter(user.displayName, modifier = Modifier.size(46.dp))
+            AvatarImage(
+                name = user.displayName,
+                avatarUrl = null,
+                profileId = user.id,
+                modifier = Modifier.size(46.dp)
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

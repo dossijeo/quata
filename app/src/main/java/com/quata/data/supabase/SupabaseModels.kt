@@ -317,7 +317,20 @@ data class LoginResult(
 data class SupabaseAuthBridgeRequest(
     val country_code: String,
     val phone: String,
+    val password: String,
+    val reactivate_deactivated: Boolean = false
+)
+
+@Serializable
+data class SupabaseAccountLifecycleRequest(
+    val action: String,
     val password: String
+)
+
+@Serializable
+data class SupabaseAccountLifecycleResponse(
+    val ok: Boolean,
+    val action: String
 )
 
 @Serializable
@@ -356,6 +369,32 @@ data class SupabaseAuthUser(
 @Serializable
 data class SupabaseRefreshTokenRequest(
     val refresh_token: String
+)
+
+@Serializable
+data class QuataPendingAndroidReleasesRequest(
+    val p_installed_version_code: Long,
+    val p_track: String = "production"
+)
+
+@Serializable
+data class QuataAndroidReleaseProgressRequest(
+    val p_up_to_version_code: Long,
+    val p_installed_version_code: Long
+)
+
+@Serializable
+data class QuataAndroidReleaseHistoryRequest(
+    val p_track: String = "production"
+)
+
+@Serializable
+data class AndroidPendingReleaseDto(
+    val release_id: String,
+    val version_code: Long,
+    val version_name: String? = null,
+    val notes: Map<String, String> = emptyMap(),
+    val available_language_tags: List<String> = emptyList()
 )
 
 @Serializable

@@ -8,9 +8,11 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.quata.QuataApp
 import com.quata.core.session.SessionManager
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +111,44 @@ class ChatMessageStateSyncWorker(
             remote = ChatRemoteDataSource(app.container.supabaseCommunityApi),
             sessionManager = app.container.sessionManager
         )
-        return if (manager.flushPending()) Result.success() else Result.retry()
+        val chatAcksSynced = manager.flushPending()
+        val termsAcceptanceSynced = app.container.moderationRepository.flushPendingTermsForCurrentUser()
+        return if (chatAcksSynced && termsAcceptanceSynced) Result.success() else Result.retry()
+    }
+}
+
+class ChatMessageDeliveredWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
+    override suspend fun doWork(): Result {
+        val messageId = inputData.getLong(KEY_MESSAGE_ID, INVALID_MESSAGE_ID)
+        val expectedProfileId = inputData.getString(KEY_PROFILE_ID)
+            ?.takeIf(String::isNotBlank)
+            ?: return Result.failure()
+        if (messageId <= 0L) return Result.failure()
+
+        val app = applicationContext as? QuataApp ?: return Result.retry()
+        val currentProfileId = app.container.sessionManager.currentSession()?.userId
+        if (currentProfileId != expectedProfileId) {
+            // Never acknowledge a message using a different user's session.
+            return Result.success()
+        }
+
+        app.container.chatMessageStateAckManager.markMessages(
+            messageIds = listOf(messageId),
+            status = ChatMessageStateAckStatus.Delivered,
+            source = "fcm"
+        )
+        // markMessages persists failed network attempts and schedules the shared
+        // retry worker, so this per-message work does not need another retry.
+        return Result.success()
+    }
+
+    companion object {
+        internal const val KEY_PROFILE_ID = "profile_id"
+        internal const val KEY_MESSAGE_ID = "message_id"
+        private const val INVALID_MESSAGE_ID = -1L
     }
 }
 
@@ -126,6 +165,25 @@ object ChatMessageStateWorkScheduler {
             .enqueueUniqueWork(ONE_TIME_WORK_NAME, ExistingWorkPolicy.KEEP, request)
     }
 
+    fun scheduleDelivered(context: Context, profileId: String, messageId: Long) {
+        if (profileId.isBlank() || messageId <= 0L) return
+        val request = OneTimeWorkRequestBuilder<ChatMessageDeliveredWorker>()
+            .setInputData(
+                workDataOf(
+                    ChatMessageDeliveredWorker.KEY_PROFILE_ID to profileId,
+                    ChatMessageDeliveredWorker.KEY_MESSAGE_ID to messageId
+                )
+            )
+            .setConstraints(constraints)
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            "$DELIVERED_WORK_PREFIX:$profileId:$messageId",
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+    }
+
     fun ensurePeriodic(context: Context) {
         val request = PeriodicWorkRequestBuilder<ChatMessageStateSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
@@ -136,6 +194,7 @@ object ChatMessageStateWorkScheduler {
 
     private const val ONE_TIME_WORK_NAME = "quata-chat-message-state-sync"
     private const val PERIODIC_WORK_NAME = "quata-chat-message-state-sync-periodic"
+    private const val DELIVERED_WORK_PREFIX = "quata-chat-message-delivered"
 }
 
 class ChatMessageStateAckStore(

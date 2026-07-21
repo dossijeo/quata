@@ -190,8 +190,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 
@@ -298,7 +296,9 @@ fun ChatScreen(
     val backgroundSeed = conversationId.takeUnless { isFavoritesConversation }
 
     fun queueNextConsecutiveVoiceNote(finishedMessage: Message) {
-        val currentIndex = state.messages.indexOfFirst { it.id == finishedMessage.id }
+        val currentIndex = state.messages.indexOfFirst {
+            it.composeKey() == finishedMessage.composeKey()
+        }
         val nextIndex = currentIndex + 1
         val nextMessage = state.messages.getOrNull(nextIndex)
         val nextAttachment = nextMessage?.attachmentPreview(context)
@@ -309,8 +309,8 @@ fun ChatScreen(
             nextMessage.senderId == finishedMessage.senderId &&
             nextAttachment?.isAudio == true
         ) {
-            activeVoiceMessageId = nextMessage.id
-            autoPlayVoiceMessageId = nextMessage.id
+            activeVoiceMessageId = nextMessage.composeKey()
+            autoPlayVoiceMessageId = nextMessage.composeKey()
             screenScope.launch {
                 messagesListState.animateScrollToItem(nextIndex)
             }
@@ -401,6 +401,20 @@ fun ChatScreen(
     val template = quataTheme()
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    LaunchedEffect(
+        state.typingProfileIds,
+        state.messages.size,
+        state.isLoadingOlderMessages,
+        isImeVisible
+    ) {
+        // The typing bubble is a real final item. Keep it above the composer when the
+        // user is already following the conversation, including after the IME resizes it.
+        if (state.typingProfileIds.isNotEmpty() && !userHasDetachedFromBottom) {
+            delay(80L)
+            val typingItemIndex = state.messages.size + if (state.isLoadingOlderMessages) 1 else 0
+            messagesListState.animateScrollToItem(typingItemIndex)
+        }
+    }
     val emojiGridMaxHeight = when {
         isLandscapeLayout -> 128.dp
         isImeVisible -> 168.dp
@@ -596,7 +610,7 @@ fun ChatScreen(
                             } else {
                                 items(
                                     items = state.messages,
-                                    key = { message -> message.id }
+                                    key = { message -> message.composeKey() }
                                 ) { message ->
                                     MessageBubble(
                                         message = message,
@@ -605,8 +619,8 @@ fun ChatScreen(
                                         isSelected = message.id == state.selectedMessageId ||
                                             (message.id == highlightedMessageId && highlightVisible),
                                         isSenderProfileLoading = openingProfileUserId == message.senderId,
-                                        autoPlayVoiceNote = autoPlayVoiceMessageId == message.id,
-                                        pauseVoiceNote = activeVoiceMessageId != null && activeVoiceMessageId != message.id,
+                                        autoPlayVoiceNote = autoPlayVoiceMessageId == message.composeKey(),
+                                        pauseVoiceNote = activeVoiceMessageId != null && activeVoiceMessageId != message.composeKey(),
                                         onOpenSenderProfile = { onOpenUserProfile(message.senderId) },
                                         onOpenAttachment = { attachment ->
                                             if (attachment.isMedia) {
@@ -625,8 +639,8 @@ fun ChatScreen(
                                             }
                                         },
                                         onVoiceNoteStarted = {
-                                            activeVoiceMessageId = message.id
-                                            if (autoPlayVoiceMessageId != message.id) {
+                                            activeVoiceMessageId = message.composeKey()
+                                            if (autoPlayVoiceMessageId != message.composeKey()) {
                                                 autoPlayVoiceMessageId = null
                                             }
                                         },
@@ -647,6 +661,13 @@ fun ChatScreen(
                                             }
                                         }
                                     )
+                                }
+                                if (state.typingProfileIds.isNotEmpty()) {
+                                    item(key = "typing_indicator") {
+                                        TypingIndicatorBubble(
+                                            names = state.typingProfileIds.mapNotNull { usersById[it]?.displayName }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -868,7 +889,7 @@ fun ChatScreen(
             userHasDetachedFromBottom = false
             messagesListState.scrollToConversationBottom(
                 lastIndex = currentMessageLayout.lastIndex,
-                lastItemKey = currentMessageLayout.last().id
+                lastItemKey = currentMessageLayout.last().composeKey
             )
         }
         previousMessageLayout = currentMessageLayout
@@ -1511,12 +1532,18 @@ private fun ChatHeader(
                                 ClickableProfileAvatar(
                                     name = member.name,
                                     avatarUrl = member.avatarUrl,
+                                    profileId = member.id,
                                     isLoading = openingProfileUserId == member.id,
                                     onClick = { onOpenUserProfile(member.id) },
                                     modifier = Modifier.size(38.dp)
                                 )
                             } else {
-                                AvatarImage(member.name, member.avatarUrl, modifier = Modifier.size(38.dp))
+                                AvatarImage(
+                                    name = member.name,
+                                    avatarUrl = member.avatarUrl,
+                                    profileId = member.id,
+                                    modifier = Modifier.size(38.dp)
+                                )
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
@@ -1730,12 +1757,18 @@ private fun ChatAvatar(
             ClickableProfileAvatar(
                 name = resolvedPrivateUser?.displayName ?: privateUserName,
                 avatarUrl = resolvedPrivateUser?.avatarUrl ?: privateAvatarUrl,
+                profileId = profileId,
                 isLoading = openingProfileUserId == profileId,
                 onClick = { onOpenUserProfile(profileId) },
                 modifier = Modifier.size(avatarSize)
             )
         } else {
-            AvatarImage(privateUserName, privateAvatarUrl, modifier = Modifier.size(avatarSize))
+            AvatarImage(
+                name = privateUserName,
+                avatarUrl = privateAvatarUrl,
+                profileId = resolvedPrivateUserId,
+                modifier = Modifier.size(avatarSize)
+            )
         }
         if (conversation?.isMuted == true) {
             MutedConversationBadge(Modifier.align(Alignment.TopEnd))
@@ -1870,6 +1903,7 @@ private fun MessageBubble(
 ) {
     val context = LocalContext.current
     val template = quataTheme()
+    val composeKey = message.composeKey()
     val mapsUrl = message.text.extractMapsUrl()
     val sosLocationMessage = remember(context, message.text) {
         context.localizedSosMessage(message.text) ?: message.text.parseSosLocationMessage()
@@ -1883,6 +1917,7 @@ private fun MessageBubble(
             ClickableProfileAvatar(
                 name = sender?.displayName ?: message.senderName,
                 avatarUrl = sender?.avatarUrl,
+                profileId = sender?.id ?: message.senderId,
                 isLoading = isSenderProfileLoading,
                 onClick = onOpenSenderProfile,
                 modifier = Modifier
@@ -1911,7 +1946,7 @@ private fun MessageBubble(
                     },
                     shape = RoundedCornerShape(20.dp)
                 )
-                .pointerInput(message.id) {
+                .pointerInput(composeKey) {
                     var totalDrag = 0f
                     detectHorizontalDragGestures(
                         onDragStart = { totalDrag = 0f },
@@ -1932,7 +1967,7 @@ private fun MessageBubble(
                 .then(
                     if (!message.isDeleted && message.text.isNotBlank() && sosLocationMessage == null) {
                         Modifier.quataTranslatableText(
-                            id = "chat-message:${message.id}",
+                            id = "chat-message:$composeKey",
                             text = message.text,
                             displayText = message.translatorDisplayText(context)
                         )
@@ -2085,6 +2120,51 @@ private fun MessageBubble(
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { context.openMaps(mapsUrl) }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypingIndicatorBubble(names: List<String>) {
+    val template = quataTheme()
+    val transition = rememberInfiniteTransition(label = "chat_typing_dots")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Restart),
+        label = "chat_typing_phase"
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Column(
+            modifier = Modifier
+                .background(template.colors.chatOther, RoundedCornerShape(20.dp))
+                .border(1.dp, template.colors.divider, RoundedCornerShape(20.dp))
+                .padding(horizontal = 17.dp, vertical = 13.dp)
+        ) {
+            names.firstOrNull()?.takeIf { names.size == 1 }?.let { name ->
+                Text(
+                    text = name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = template.colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 7.dp)
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                repeat(3) { index ->
+                    val shifted = (phase + index * 0.22f) % 1f
+                    val scale = 0.72f + 0.42f * (1f - kotlin.math.abs(shifted * 2f - 1f))
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .graphicsLayer(scaleX = scale, scaleY = scale, alpha = 0.5f + scale * 0.45f)
+                            .background(template.colors.textSecondary, CircleShape)
+                    )
+                }
             }
         }
     }
@@ -2400,13 +2480,15 @@ private fun LazyListState.isAtConversationBottom(): Boolean {
 
 private suspend fun LazyListState.scrollToConversationBottom(lastIndex: Int, lastItemKey: String) {
     if (lastIndex < 0) return
-    scrollToItem(lastIndex)
-    val lastItemSize = snapshotFlow {
-        layoutInfo.visibleItemsInfo.lastOrNull { item ->
+    val targetIsAlreadyAtBottom = !canScrollForward &&
+        layoutInfo.visibleItemsInfo.any { item ->
             item.index == lastIndex && item.key == lastItemKey
-        }?.size
-    }.filterNotNull().first()
-    scrollToItem(lastIndex, scrollOffset = lastItemSize)
+        }
+    if (targetIsAlreadyAtBottom) return
+
+    // A large positive offset is clamped to the list's maximum scroll range,
+    // placing the final item at the conversation bottom in one operation.
+    scrollToItem(lastIndex, scrollOffset = Int.MAX_VALUE)
 }
 
 private fun Message.chatTimestampLabel(context: Context): String {

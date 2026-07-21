@@ -874,7 +874,10 @@ private fun Context.createQuataCameraVideoFile(): File {
 
 private fun File.normalizeCameraXJpegIfNeeded(targetRotation: Int) {
     runCatching {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            inSampleSize = 1
+        }
         BitmapFactory.decodeFile(absolutePath, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching
 
@@ -897,7 +900,10 @@ private fun File.normalizeCameraXJpegIfNeeded(targetRotation: Int) {
 
         val decoded = BitmapFactory.decodeFile(
             absolutePath,
-            BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+            BitmapFactory.Options().apply {
+                inSampleSize = calculateCameraBitmapSampleSize(bounds.outWidth, bounds.outHeight)
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
         ) ?: return@runCatching
         val rotated = if (rotationDegrees == 0f) {
             decoded
@@ -923,6 +929,22 @@ private fun File.normalizeCameraXJpegIfNeeded(targetRotation: Int) {
         }
     }
 }
+
+private fun calculateCameraBitmapSampleSize(width: Int, height: Int): Int {
+    var sampleSize = 1
+    while (
+        width / sampleSize > CameraBitmapMaxDimension ||
+        height / sampleSize > CameraBitmapMaxDimension ||
+        width.toLong() * height.toLong() /
+            (sampleSize.toLong() * sampleSize.toLong()) > CameraBitmapMaxPixels
+    ) {
+        sampleSize *= 2
+    }
+    return sampleSize
+}
+
+private const val CameraBitmapMaxDimension = 4096
+private const val CameraBitmapMaxPixels = 8L * 1024L * 1024L
 
 private fun ProcessCameraProvider.availableQuataCameraLenses(): Set<QuataCameraLens> = buildSet {
     if (runCatching { hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) }.getOrDefault(false)) {

@@ -275,6 +275,8 @@
     <string name="secret_question_friend">Nom de ton meilleur ami ?</string>
     <string name="secret_question_food">Ton plat prefere ?</string>
     <string name="profile_configure_emergency_contacts">Configurer contacts SOS</string>
+    <string name="profile_account_management">Gestion du compte</string>
+    <string name="profile_account_management_description">Gerez la desactivation du compte et les demandes de suppression des donnees.</string>
     <string name="profile_logout">Se deconnecter</string>
     <string name="profile_loading">Chargement profil&#8230;</string>
     <string name="profile_camera_permission_photo">Permission camera et medias requise pour prendre la photo</string>
@@ -301,6 +303,10 @@
     <string name="sos_blocked_by_proximity">SOS bloque tant que le telephone est pres de ton oreille.</string>
     <string name="sos_recently_sent">Tu as deja envoye un SOS. Tu pourras le renvoyer dans %1$s min si personne ne repond.</string>
     <string name="sos_location_unavailable">&#128205; Position indisponible</string>
+    <string name="sos_location_recovery_channel">Localisation SOS</string>
+    <string name="sos_location_recovery_channel_description">Recherche temporaire de localisation après l’envoi d’une alerte SOS</string>
+    <string name="sos_location_recovery_title">Mise à jour de la localisation SOS</string>
+    <string name="sos_location_recovery_body">Recherche d’une localisation plus récente pour votre alerte SOS</string>
     <string name="sos_location">&#128205; Position : %1$s</string>
     <string name="sos_default_message">&#128680; SOS REEL : %1$s a besoin d\'aide urgente. Tu es un de ses contacts SOS sur QUATA.</string>
     <string name="sos_location_update">Mise a jour de position SOS</string>
@@ -565,6 +571,20 @@
     <string name="legal_child_safety">S&#233;curit&#233; des enfants et r&#232;gles de la communaut&#233;</string>
     <string name="legal_account_deletion">Supprimer le compte</string>
     <string name="legal_data_deletion">Demander la suppression des donn&#233;es</string>
+    <string name="account_action_login_required">Connecte-toi pour g&#233;rer ton compte.</string>
+    <string name="account_password_prompt">Saisis &#224; nouveau ton mot de passe actuel pour continuer.</string>
+    <string name="account_password_required">Saisis ton mot de passe actuel.</string>
+    <string name="account_password_incorrect">Le mot de passe est incorrect.</string>
+    <string name="account_deactivate_confirm_title">D&#233;sactiver le compte ?</string>
+    <string name="account_deactivate_confirm_body">La session sera ferm&#233;e et le compte sera d&#233;sactiv&#233;. Tes donn&#233;es seront conserv&#233;es et tu pourras le r&#233;activer en t&#8217;inscrivant &#224; nouveau avec le m&#234;me num&#233;ro et mot de passe.</string>
+    <string name="account_deactivate_confirm_action">D&#233;sactiver le compte</string>
+    <string name="account_deactivate_success">Le compte a &#233;t&#233; d&#233;sactiv&#233;.</string>
+    <string name="account_delete_confirm_title">Supprimer toutes tes donn&#233;es ?</string>
+    <string name="account_delete_confirm_body">Cette action est irr&#233;versible. Ton compte, tes publications, pi&#232;ces jointes, messages envoy&#233;s, adh&#233;sions et toutes tes conversations priv&#233;es compl&#232;tes seront supprim&#233;s.</string>
+    <string name="account_delete_confirmation_word">SUPPRIMER</string>
+    <string name="account_delete_type_confirmation">Saisis %1$s pour confirmer.</string>
+    <string name="account_delete_confirm_action">Supprimer d&#233;finitivement</string>
+    <string name="account_delete_success">Le compte et ses donn&#233;es ont &#233;t&#233; supprim&#233;s.</string>
     <string name="ugc_terms_title">R&#232;gles de la communaut&#233;</string>
     <string name="ugc_terms_body">Pour participer et partager du contenu sur Q&#252;ata, vous devez accepter nos r&#232;gles de communaut&#233; et de s&#233;curit&#233; des enfants. Les contenus ill&#233;gaux, abusifs, sexuels, violents, haineux ou relevant de l\'exploitation sont interdits. Vous pouvez signaler du contenu et bloquer des utilisateurs &#224; tout moment.</string>
     <string name="ugc_terms_accept">J\'accepte</string>
@@ -582,4 +602,16 @@
     <string name="moderation_report_message_title">Signaler le message</string>
     <string name="moderation_report_message_confirm">Envoyer ce message &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
     <string name="chat_error_report_message">Impossible de signaler le message</string>
+    <string name="whats_new_title">Nouveaut&#233;s</string>
+    <string name="whats_new_version">Version %1$s</string>
+    <string name="whats_new_version_heading">Nouveaut&#233;s de la version %1$s</string>
+    <string name="whats_new_previous">Pr&#233;c&#233;dent</string>
+    <string name="whats_new_next">Suivant</string>
+    <string name="whats_new_continue">Continuer</string>
+    <string name="release_history">Voir l\'historique des versions</string>
+    <string name="release_history_short">Historique versions</string>
+    <string name="release_history_title">Historique des versions</string>
+    <string name="release_history_subtitle">Consultez les nouveaut&#233;s de toutes les versions suivies.</string>
+    <string name="release_history_empty">Aucune note de version n\'est encore disponible.</string>
+    <string name="release_history_error">L\'historique des versions est indisponible pour le moment.</string>
 </resources>

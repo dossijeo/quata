@@ -208,7 +208,10 @@ class MediaUploadOptimizer(private val appContext: Context) {
         if (!media.mimeType.startsWith("image/", ignoreCase = true)) return media
         if (!options.cropToSquare && media.bytes.size <= options.compressAboveBytes) return media
 
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            inSampleSize = 1
+        }
         BitmapFactory.decodeByteArray(media.bytes, 0, media.bytes.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return media
 

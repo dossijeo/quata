@@ -114,6 +114,16 @@ class SupabaseResponseCacheStore(context: Context) {
         tableNames.distinct().forEach { tableName -> invalidateTable(tableName) }
     }
 
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        val db = helper.writableDatabase
+        val keys = mutableListOf<String>()
+        db.query(TABLE_CACHE, arrayOf(COL_KEY), null, null, null, null, null).use { cursor ->
+            while (cursor.moveToNext()) keys += cursor.getString(0)
+        }
+        db.delete(TABLE_CACHE, null, null)
+        keys.forEach(changes::tryEmit)
+    }
+
     fun observe(key: String): Flow<CachedSupabaseResponse?> =
         changes
             .filter { changedKey -> changedKey == key }

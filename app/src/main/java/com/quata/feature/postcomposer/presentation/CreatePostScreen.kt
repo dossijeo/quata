@@ -1894,7 +1894,10 @@ private fun Context.prepareComposerImageSource(sourceUri: Uri): Uri? {
     return runCatching {
         val preparedUri = copyImageToFileNormalizingOrientation(sourceUri, outputFile)
 
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            inSampleSize = 1
+        }
         BitmapFactory.decodeFile(outputFile.absolutePath, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             error("Prepared image is not decodable")

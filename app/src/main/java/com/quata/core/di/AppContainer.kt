@@ -8,18 +8,22 @@ import com.quata.core.camera.ImagePickerManager
 import com.quata.core.common.AppDispatchers
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.moderation.ModerationRepository
+import com.quata.core.moderation.UgcTermsAcceptanceStore
 import com.quata.core.network.NetworkModule
 import com.quata.core.notifications.NotificationChannels
 import com.quata.core.notifications.PushTokenManager
 import com.quata.core.preferences.SessionPreferences
 import com.quata.core.preferences.ThemePreferences
 import com.quata.core.preferences.TouchFlowPreferences
+import com.quata.core.presence.UserPresenceRepository
+import com.quata.core.presence.UserPresenceRepositoryImpl
 import com.quata.core.session.SessionManager
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.chat.data.ChatMessageStateAckManager
 import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
+import com.quata.feature.chat.data.ChatTypingIndicatorManager
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.FeedRemoteDataSource
 import com.quata.feature.feed.data.FeedRepositoryImpl
@@ -35,6 +39,7 @@ import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.profile.data.ProfileRepositoryImpl
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import com.quata.feature.profile.domain.ProfileRepository
+import com.quata.feature.whatsnew.data.WhatsNewRepositoryImpl
 
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
@@ -62,11 +67,21 @@ class AppContainer(context: Context) {
     val chatRemoteDataSource = ChatRemoteDataSource(networkModule.supabaseCommunityApi)
     val moderationRepository = ModerationRepository(
         api = networkModule.supabaseCommunityApi,
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        termsAcceptanceStore = UgcTermsAcceptanceStore(appContext),
+        appContext = appContext
     )
     val chatMessageStateAckManager = ChatMessageStateAckManager(
         appContext = appContext,
         remote = chatRemoteDataSource,
+        sessionManager = sessionManager
+    )
+    val userPresenceRepository: UserPresenceRepository = UserPresenceRepositoryImpl(
+        realtimeClient = networkModule.supabasePresenceRealtimeClient,
+        sessionManager = sessionManager
+    )
+    private val chatTypingIndicatorManager = ChatTypingIndicatorManager(
+        realtimeClient = networkModule.supabaseTypingRealtimeClient,
         sessionManager = sessionManager
     )
 
@@ -108,13 +123,20 @@ class AppContainer(context: Context) {
         supabaseRealtimeClient = networkModule.supabaseRealtimeClient,
         sessionManager = sessionManager,
         mediaUploadOptimizer = mediaUploadOptimizer,
-        messageStateAckManager = chatMessageStateAckManager
+        messageStateAckManager = chatMessageStateAckManager,
+        typingIndicatorManager = chatTypingIndicatorManager
     )
 
     val notificationsRepository: NotificationsRepository = NotificationsRepositoryImpl(
         appContext = appContext,
         chatRepository = chatRepository,
         supabaseApi = networkModule.supabaseCommunityApi,
+        sessionManager = sessionManager
+    )
+
+    val whatsNewRepository: WhatsNewRepositoryImpl = WhatsNewRepositoryImpl(
+        appContext = appContext,
+        api = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager
     )
 

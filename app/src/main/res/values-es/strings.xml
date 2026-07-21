@@ -275,6 +275,8 @@
     <string name="secret_question_friend">¿Nombre de tu mejor amigo?</string>
     <string name="secret_question_food">¿Tu comida favorita?</string>
     <string name="profile_configure_emergency_contacts">Configurar contactos de emergencia</string>
+    <string name="profile_account_management">Gesti&#243;n de cuenta</string>
+    <string name="profile_account_management_description">Gestiona la desactivaci&#243;n de tu cuenta y las solicitudes de eliminaci&#243;n de datos.</string>
     <string name="profile_logout">Cerrar sesión</string>
     <string name="profile_loading">Cargando perfil…</string>
     <string name="profile_camera_permission_photo">Necesitamos permiso de c&#225;mara y multimedia para hacer la foto</string>
@@ -301,6 +303,10 @@
     <string name="sos_blocked_by_proximity">SOS bloqueado mientras el movil esta pegado al oido.</string>
     <string name="sos_recently_sent">Ya has enviado un SOS. Podrás reenviarlo en %1$s min. si nadie responde.</string>
     <string name="sos_location_unavailable">📍 Ubicación no disponible</string>
+    <string name="sos_location_recovery_channel">Ubicación SOS</string>
+    <string name="sos_location_recovery_channel_description">Recuperación temporal de ubicación tras enviar un aviso SOS</string>
+    <string name="sos_location_recovery_title">Completando la ubicación SOS</string>
+    <string name="sos_location_recovery_body">Buscando una ubicación más reciente para tu aviso SOS</string>
     <string name="sos_location">📍 Ubicación: %1$s</string>
     <string name="sos_default_message">🚨 SOS REAL: %1$s necesita ayuda urgente. Eres uno de sus contactos de emergencia en QUATA.</string>
     <string name="sos_location_update">Actualizacion de ubicacion SOS</string>
@@ -565,6 +571,20 @@
     <string name="legal_child_safety">Seguridad infantil y normas de la comunidad</string>
     <string name="legal_account_deletion">Eliminar cuenta</string>
     <string name="legal_data_deletion">Solicitar eliminaci&#243;n de datos</string>
+    <string name="account_action_login_required">Inicia sesi&#243;n para gestionar tu cuenta.</string>
+    <string name="account_password_prompt">Vuelve a introducir tu contrase&#241;a actual para continuar.</string>
+    <string name="account_password_required">Introduce tu contrase&#241;a actual.</string>
+    <string name="account_password_incorrect">La contrase&#241;a no es correcta.</string>
+    <string name="account_deactivate_confirm_title">&#191;Desactivar la cuenta?</string>
+    <string name="account_deactivate_confirm_body">Se cerrar&#225; la sesi&#243;n y la cuenta quedar&#225; desactivada. Tus datos se conservar&#225;n y podr&#225;s reactivarla registr&#225;ndote de nuevo con el mismo tel&#233;fono y contrase&#241;a.</string>
+    <string name="account_deactivate_confirm_action">Desactivar cuenta</string>
+    <string name="account_deactivate_success">La cuenta se ha desactivado.</string>
+    <string name="account_delete_confirm_title">&#191;Eliminar todos tus datos?</string>
+    <string name="account_delete_confirm_body">Esta acci&#243;n es irreversible. Se eliminar&#225;n tu cuenta, publicaciones, adjuntos, mensajes enviados, membres&#237;as y todas tus conversaciones privadas completas.</string>
+    <string name="account_delete_confirmation_word">ELIMINAR</string>
+    <string name="account_delete_type_confirmation">Escribe %1$s para confirmar.</string>
+    <string name="account_delete_confirm_action">Eliminar definitivamente</string>
+    <string name="account_delete_success">La cuenta y sus datos se han eliminado.</string>
     <string name="ugc_terms_title">Normas de la comunidad</string>
     <string name="ugc_terms_body">Para participar y compartir contenido en Q&#252;ata debes aceptar nuestras normas de comunidad y seguridad infantil. No se permite contenido ilegal, abusivo, sexual, violento, de odio o de explotaci&#243;n. Puedes denunciar contenido y bloquear usuarios en cualquier momento.</string>
     <string name="ugc_terms_accept">Acepto</string>
@@ -582,4 +602,16 @@
     <string name="moderation_report_message_title">Denunciar mensaje</string>
     <string name="moderation_report_message_confirm">&#191;Enviar este mensaje al equipo de moderaci&#243;n de Q&#252;ata para que lo revise?</string>
     <string name="chat_error_report_message">No se ha podido denunciar el mensaje</string>
+    <string name="whats_new_title">Novedades</string>
+    <string name="whats_new_version">Versi&#243;n %1$s</string>
+    <string name="whats_new_version_heading">Novedades de la versi&#243;n %1$s</string>
+    <string name="whats_new_previous">Anterior</string>
+    <string name="whats_new_next">Siguiente</string>
+    <string name="whats_new_continue">Continuar</string>
+    <string name="release_history">Ver historial de versiones</string>
+    <string name="release_history_short">Ver hist. versiones</string>
+    <string name="release_history_title">Historial de versiones</string>
+    <string name="release_history_subtitle">Consulta las novedades de todas las versiones registradas.</string>
+    <string name="release_history_empty">Aún no hay notas de versión disponibles.</string>
+    <string name="release_history_error">El historial de versiones no está disponible ahora mismo.</string>
 </resources>

@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.quata-push-dispatch]
 verify_jwt = false
+
+[functions.quata-account-lifecycle]
+verify_jwt = false

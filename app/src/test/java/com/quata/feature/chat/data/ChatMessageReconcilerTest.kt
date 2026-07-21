@@ -46,6 +46,24 @@ class ChatMessageReconcilerTest {
         )
     }
 
+    @Test
+    fun refreshPreservesPreviouslyStoredClientIdentityForConfirmedServerRow() {
+        val cached = message("9876").copy(clientMessageId = "temp-1234")
+        val refreshedWithoutClientId = cached.copy(
+            clientMessageId = null,
+            isLocalEcho = false,
+            isPending = false
+        )
+
+        val result = reconcileChatMessages(
+            incoming = listOf(refreshedWithoutClientId),
+            existing = listOf(cached),
+            retainUnmatchedExisting = false
+        ).single()
+
+        assertEquals("temp-1234", result.clientMessageId)
+    }
+
     private fun message(
         id: String,
         sender: String = "Usuario",

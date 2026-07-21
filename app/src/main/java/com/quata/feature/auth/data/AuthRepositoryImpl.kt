@@ -4,18 +4,26 @@ import android.content.Context
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.common.mapFailureToUserFacing
+import com.quata.core.common.UserFacingException
 import com.quata.core.config.AppConfig
 import com.quata.core.data.MockData
 import com.quata.core.model.AuthSession
 import com.quata.core.session.SessionManager
 import com.quata.core.notifications.PushTokenManager
+import com.quata.core.moderation.UgcTermsAcceptanceStore
+import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityProfileCreate
 import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.data.supabase.SupabaseApiException
+import com.quata.data.supabase.SupabaseResponseCacheStore
+import com.quata.feature.chat.data.ChatAttachmentFileCache
+import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import java.security.MessageDigest
+import androidx.core.app.NotificationManagerCompat
 
 class AuthRepositoryImpl(
     private val appContext: Context,
@@ -66,7 +74,12 @@ class AuthRepositoryImpl(
             val existingProfile = supabaseApi.getProfileByPhoneIdentity(countryCode, phoneLocal)
             if (existingProfile != null) {
                 if (existingProfile.matchesPassword(request.password)) {
-                    return@runCatching supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password)
+                    return@runCatching supabaseApi.loginWithAuthBridge(
+                        countryCode,
+                        phoneLocal,
+                        request.password,
+                        reactivateDeactivated = true
+                    )
                         .toSession(fallbackProfile = existingProfile)
                 }
                 error("Ya existe una cuenta con ese telefono")
@@ -146,9 +159,51 @@ class AuthRepositoryImpl(
         return googleAuthHelper.signIn(context).onSuccess { sessionManager.setSession(it) }
     }
 
+    override suspend fun deactivateAccount(password: String): Result<Unit> = runCatching {
+        require(password.isNotBlank()) { appContext.getString(R.string.account_password_required) }
+        val profileId = sessionManager.currentSession()?.userId ?: error("No hay sesion activa")
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            check(performAccountLifecycle("deactivate", password)) {
+                "No se pudo desactivar la cuenta"
+            }
+        }
+        clearLocalAccountData(profileId)
+        sessionManager.clearSession()
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun deleteAccountData(password: String): Result<Unit> = runCatching {
+        require(password.isNotBlank()) { appContext.getString(R.string.account_password_required) }
+        val profileId = sessionManager.currentSession()?.userId ?: error("No hay sesion activa")
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            check(performAccountLifecycle("delete", password)) {
+                "No se pudieron eliminar los datos de la cuenta"
+            }
+        }
+        clearLocalAccountData(profileId)
+        sessionManager.clearSession()
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun logout() {
         pushTokenManager.unregisterCurrentToken()
         sessionManager.clearSession()
+    }
+
+    private suspend fun clearLocalAccountData(profileId: String) {
+        SupabaseChatCacheStore(appContext).clearProfile(profileId)
+        ChatAttachmentFileCache(appContext).clearProfile(profileId)
+        SupabaseResponseCacheStore(appContext).clearAll()
+        UgcTermsAcceptanceStore(appContext).clearUser(profileId)
+        TouchFlowPreferences(appContext).clear(profileId)
+        NotificationManagerCompat.from(appContext).cancelAll()
+    }
+
+    private suspend fun performAccountLifecycle(action: String, password: String): Boolean = try {
+        supabaseApi.performAccountLifecycle(action, password).ok
+    } catch (error: SupabaseApiException) {
+        if (error.responseBody?.contains("invalid_password", ignoreCase = true) == true) {
+            throw UserFacingException(appContext.getString(R.string.account_password_incorrect), error)
+        }
+        throw error
     }
 
     private fun MockData.MockUserProfile.toSession(token: String): AuthSession =

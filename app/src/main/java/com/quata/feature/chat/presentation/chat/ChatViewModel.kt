@@ -57,6 +57,11 @@ class ChatViewModel(
             repository.syncStatus.collect { status -> _uiState.value = _uiState.value.copy(syncStatus = status) }
         }
         viewModelScope.launch {
+            repository.typingProfileIds.collect { profileIds ->
+                _uiState.value = _uiState.value.copy(typingProfileIds = profileIds)
+            }
+        }
+        viewModelScope.launch {
             repository.observeConversations()
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
@@ -112,7 +117,10 @@ class ChatViewModel(
 
     fun onEvent(event: ChatUiEvent) {
         when (event) {
-            is ChatUiEvent.MessageChanged -> _uiState.value = _uiState.value.copy(messageText = event.value)
+            is ChatUiEvent.MessageChanged -> {
+                _uiState.value = _uiState.value.copy(messageText = event.value)
+                repository.setTyping(conversationId, event.value.isNotBlank())
+            }
             is ChatUiEvent.AttachmentSelected -> _uiState.value = _uiState.value.copy(
                 attachmentUri = event.uri,
                 attachmentName = event.name,
@@ -158,6 +166,7 @@ class ChatViewModel(
         if (isConversationVisible == visible) return
         isConversationVisible = visible
         repository.setConversationVisible(conversationId, visible)
+        if (!visible) repository.setTyping(conversationId, false)
         if (visible && repository.isAppForeground.value) {
             viewModelScope.launch { repository.markConversationRead(conversationId) }
         }
@@ -262,6 +271,7 @@ class ChatViewModel(
         }
         result
             .onSuccess {
+                repository.setTyping(conversationId, false)
                 optimisticMessage?.let(::markLocalEchoSent)
                 if (editingMessage != null) {
                     optimisticEditedMessages = optimisticEditedMessages.mapValues { (messageId, message) ->
@@ -299,7 +309,7 @@ class ChatViewModel(
         }
         val visibleMessages = (editedBackendMessages + localEchoMessages)
             .filter { isFavoritesConversation || it.conversationId == conversationId }
-            .distinctBy { it.id }
+            .distinctBy(Message::composeKey)
             .withIndex()
             .sortedWith(
                 compareBy<IndexedValue<Message>> { it.value.visibleSortMillis() }

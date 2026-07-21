@@ -31,5 +31,10 @@ class TouchFlowPreferences(context: Context) {
         preferenceChanges.value += 1
     }
 
+    fun clear(userId: String) {
+        prefs.edit().remove(enabledKey(userId)).apply()
+        preferenceChanges.value += 1
+    }
+
     private fun enabledKey(userId: String): String = "touch_flow_enabled_$userId"
 }

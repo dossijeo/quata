@@ -124,14 +124,59 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         return LoginResult(profile, matches)
     }
 
-    suspend fun loginWithAuthBridge(countryCode: String, phone: String, password: String): SupabaseAuthBridgeResponse =
+    suspend fun loginWithAuthBridge(
+        countryCode: String,
+        phone: String,
+        password: String,
+        reactivateDeactivated: Boolean = false
+    ): SupabaseAuthBridgeResponse =
         client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeResponse>(
             "quata-auth-bridge",
             SupabaseAuthBridgeRequest(
                 country_code = digitsOnly(countryCode),
                 phone = digitsOnly(phone),
-                password = password
+                password = password,
+                reactivate_deactivated = reactivateDeactivated
             )
+        )
+
+    suspend fun performAccountLifecycle(action: String, password: String): SupabaseAccountLifecycleResponse =
+        client.invokeFunction<SupabaseAccountLifecycleRequest, SupabaseAccountLifecycleResponse>(
+            "quata-account-lifecycle",
+            SupabaseAccountLifecycleRequest(action, password)
+        )
+
+    suspend fun getPendingAndroidReleases(
+        installedVersionCode: Long,
+        track: String = "production"
+    ): List<AndroidPendingReleaseDto> =
+        client.rpc<QuataPendingAndroidReleasesRequest, List<AndroidPendingReleaseDto>>(
+            "quata_pending_android_releases",
+            QuataPendingAndroidReleasesRequest(
+                p_installed_version_code = installedVersionCode,
+                p_track = track
+            )
+        )
+
+    suspend fun markAndroidReleasesSeen(
+        upToVersionCode: Long,
+        installedVersionCode: Long
+    ) {
+        client.rpcUnit(
+            "quata_mark_android_releases_seen",
+            QuataAndroidReleaseProgressRequest(
+                p_up_to_version_code = upToVersionCode,
+                p_installed_version_code = installedVersionCode
+            )
+        )
+    }
+
+    suspend fun getAndroidReleaseHistory(
+        track: String = "production"
+    ): List<AndroidPendingReleaseDto> =
+        client.rpc<QuataAndroidReleaseHistoryRequest, List<AndroidPendingReleaseDto>>(
+            "quata_android_release_history",
+            QuataAndroidReleaseHistoryRequest(p_track = track)
         )
 
     suspend fun touchLastLogin(profileId: String, atIso: String = Instant.now().toString()): CommunityProfile? =

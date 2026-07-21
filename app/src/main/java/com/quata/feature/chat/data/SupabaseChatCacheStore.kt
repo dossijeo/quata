@@ -125,6 +125,30 @@ internal class SupabaseChatCacheStore(
         helper.writableDatabase.delete(TABLE_OUTBOX, "profile_id = ? AND client_message_id = ?", arrayOf(profileId, clientMessageId))
     }
 
+    suspend fun clearProfile(profileId: String) = io {
+        val stagedAttachments = mutableListOf<String>()
+        helper.readableDatabase.query(
+            TABLE_OUTBOX,
+            arrayOf("attachment_uri"),
+            "profile_id = ? AND attachment_uri IS NOT NULL",
+            arrayOf(profileId),
+            null,
+            null,
+            null
+        ).use { cursor -> while (cursor.moveToNext()) stagedAttachments += cursor.getString(0) }
+        val db = helper.writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_CACHE, "profile_id = ?", arrayOf(profileId))
+            db.delete(TABLE_OUTBOX, "profile_id = ?", arrayOf(profileId))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        val outboxStore = ChatOutboxAttachmentStore(appContext)
+        stagedAttachments.forEach(outboxStore::remove)
+    }
+
     private suspend fun writePayload(profileId: String, key: String, payload: String) = io {
         helper.writableDatabase.insertWithOnConflict(TABLE_CACHE, null, ContentValues().apply {
             put("profile_id", profileId); put("cache_key", key); put("payload_json", payload); put("updated_at_millis", System.currentTimeMillis())

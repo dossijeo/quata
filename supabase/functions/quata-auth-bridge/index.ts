@@ -15,6 +15,7 @@ type BridgeRequest = {
   password?: string;
   secret_answer?: string;
   new_password?: string;
+  reactivate_deactivated?: boolean;
 };
 
 type CommunityProfile = {
@@ -37,6 +38,8 @@ type CommunityProfile = {
   neighborhood?: string | null;
   secret_question?: string | null;
   secret_answer?: string | null;
+  account_status?: "active" | "deactivated" | null;
+  deactivated_at?: string | null;
 };
 
 const profileSelect = [
@@ -59,6 +62,8 @@ const profileSelect = [
   "neighborhood",
   "secret_question",
   "secret_answer",
+  "account_status",
+  "deactivated_at",
 ].join(",");
 
 Deno.serve(async (req) => {
@@ -151,6 +156,11 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ error: "invalid_credentials" }, 401);
   }
 
+  const isDeactivated = profile.account_status === "deactivated" || Boolean(profile.deactivated_at);
+  if (isDeactivated && payload.reactivate_deactivated !== true) {
+    return jsonResponse({ error: "account_deactivated" }, 403);
+  }
+
   const email = profileEmail(profile, payload);
   const displayName = displayNameFor(profile);
   const authPassword = await supabaseAuthPassword(profile.id, password, serviceRoleKey);
@@ -167,6 +177,7 @@ async function handleRequest(req: Request): Promise<Response> {
     email,
     password: authPassword,
     userMetadata,
+    reactivate: isDeactivated,
   });
 
   const signInClient = createClient(supabaseUrl, publicKey, {
@@ -207,13 +218,16 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  await admin
+  const { error: linkProfileError } = await admin
     .from("community_profiles")
     .update({
       auth_user_id: authUserId,
       last_login_at: new Date().toISOString(),
+      account_status: "active",
+      deactivated_at: null,
     })
     .eq("id", profile.id);
+  if (linkProfileError) throw linkProfileError;
 
   return jsonResponse({
     profile: publicProfile(profile, authUserId),
@@ -304,9 +318,10 @@ async function ensureAuthUser(
     email: string;
     password: string;
     userMetadata: Record<string, unknown>;
+    reactivate?: boolean;
   },
 ): Promise<string> {
-  const { profile, email, password, userMetadata } = params;
+  const { profile, email, password, userMetadata, reactivate = false } = params;
   const currentAuthUserId = profile.auth_user_id?.trim();
 
   if (currentAuthUserId) {
@@ -314,6 +329,7 @@ async function ensureAuthUser(
       email,
       user_metadata: userMetadata,
       email_confirm: true,
+      ...(reactivate ? { ban_duration: "none" } : {}),
     });
     if (!error && data.user) return data.user.id;
   }
@@ -324,6 +340,7 @@ async function ensureAuthUser(
       email,
       user_metadata: userMetadata,
       email_confirm: true,
+      ...(reactivate ? { ban_duration: "none" } : {}),
     });
     if (error || !data.user) throw error ?? new Error("Could not update auth user");
     return data.user.id;

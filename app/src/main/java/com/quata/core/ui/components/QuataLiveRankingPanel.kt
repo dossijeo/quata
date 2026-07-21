@@ -38,6 +38,7 @@ import com.quata.core.designsystem.theme.quataTheme
 
 data class QuataLiveRankingItem(
     val id: String,
+    val profileId: String,
     val rank: Int,
     val title: String,
     val subtitle: String,
@@ -175,6 +176,7 @@ private fun QuataLiveRankingRow(
         AvatarImage(
             name = item.avatarName,
             avatarUrl = item.avatarUrl,
+            profileId = item.profileId,
             isOfficial = item.isOfficial,
             modifier = Modifier.size(44.dp)
         )

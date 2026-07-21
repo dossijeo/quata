@@ -31,12 +31,14 @@ interface ChatRepository {
     val isAppForeground: StateFlow<Boolean>
     val pendingDeletedConversation: StateFlow<Conversation?>
     val isRealtimeOnline: StateFlow<Boolean>
+    val typingProfileIds: StateFlow<Set<String>>
     val syncStatus: StateFlow<ChatSyncStatus>
     fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
     fun setActiveConversation(conversationId: String?)
     fun setConversationVisible(conversationId: String, visible: Boolean)
     fun setAppForeground(isForeground: Boolean)
+    fun setTyping(conversationId: String, isTyping: Boolean)
     fun cleanupEmptyConversation(conversationId: String)
     fun clearChatNotifications()
     suspend fun getConversations(): Result<List<Conversation>>

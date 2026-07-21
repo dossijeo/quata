@@ -22,12 +22,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.User
+import com.quata.core.presence.LocalUserPresence
 
 @Composable
 fun QuataCard(
@@ -79,10 +84,17 @@ fun AvatarImage(
     name: String,
     avatarUrl: String?,
     isOfficial: Boolean = false,
+    profileId: String? = null,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
     val template = quataTheme()
     val imageModel = rememberCachedRemoteImageRequest(avatarUrl)
+    val presenceRepository = LocalUserPresence.current
+    val onlineProfileIds by presenceRepository?.onlineProfileIds?.collectAsState(emptySet())
+        ?: remember { androidx.compose.runtime.mutableStateOf(emptySet()) }
+    LaunchedEffect(profileId) {
+        profileId?.let { presenceRepository?.observeProfiles(listOf(it)) }
+    }
     Box(modifier = modifier) {
         if (avatarUrl.isNullOrBlank()) {
             AvatarLetter(name, Modifier.fillMaxSize())
@@ -100,6 +112,12 @@ fun AvatarImage(
         if (isOfficial) {
             OfficialAccountBadge(Modifier.align(Alignment.BottomEnd))
         }
+        if (profileId != null && presenceRepository != null) {
+            AvatarPresenceBadge(
+                isOnline = profileId in onlineProfileIds,
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
+        }
     }
 }
 
@@ -109,6 +127,7 @@ fun UserAvatar(user: User, modifier: Modifier = Modifier.size(44.dp)) {
         name = user.displayName,
         avatarUrl = user.avatarUrl,
         isOfficial = user.isOfficial,
+        profileId = user.id,
         modifier = modifier
     )
 }
@@ -118,6 +137,7 @@ fun ClickableProfileAvatar(
     name: String,
     avatarUrl: String?,
     isOfficial: Boolean = false,
+    profileId: String? = null,
     isLoading: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier.size(44.dp)
@@ -126,6 +146,7 @@ fun ClickableProfileAvatar(
         name = name,
         avatarUrl = avatarUrl,
         isOfficial = isOfficial,
+        profileId = profileId,
         isLoading = isLoading,
         modifier = modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -140,6 +161,7 @@ fun ProfileAvatarWithLoadingHalo(
     name: String,
     avatarUrl: String?,
     isOfficial: Boolean = false,
+    profileId: String? = null,
     isLoading: Boolean,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
@@ -201,8 +223,31 @@ fun ProfileAvatarWithLoadingHalo(
             name = name,
             avatarUrl = avatarUrl,
             isOfficial = isOfficial,
+            profileId = profileId,
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@Composable
+private fun AvatarPresenceBadge(isOnline: Boolean, modifier: Modifier = Modifier) {
+    val template = quataTheme()
+    Box(
+        modifier = modifier
+            .size(15.dp)
+            .clip(CircleShape)
+            .background(if (isOnline) Color(0xFF25B56A) else template.colors.surface.copy(alpha = 0.96f))
+            .border(1.5.dp, template.colors.surface, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!isOnline) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = null,
+                tint = template.colors.textSecondary.copy(alpha = 0.72f),
+                modifier = Modifier.size(10.dp)
+            )
+        }
     }
 }
 

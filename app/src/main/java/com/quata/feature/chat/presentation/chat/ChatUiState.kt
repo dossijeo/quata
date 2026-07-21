@@ -43,6 +43,7 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val isLoadingOlderMessages: Boolean = false,
     val hasMoreHistory: Boolean = true,
+    val typingProfileIds: Set<String> = emptySet(),
     val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val isConversationActionInProgress: Boolean = false,
     val shouldCloseConversation: Boolean = false,

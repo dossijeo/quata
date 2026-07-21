@@ -862,6 +862,7 @@ private fun NeighborhoodUserRow(
             ClickableProfileAvatar(
                 name = user.displayName,
                 avatarUrl = user.avatarUrl,
+                profileId = user.id,
                 isOfficial = user.isOfficial,
                 isLoading = isProfileLoading,
                 onClick = onOpenProfile,
@@ -977,6 +978,7 @@ private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier,
     ProfileAvatarWithLoadingHalo(
         name = user.displayName,
         avatarUrl = user.avatarUrl,
+        profileId = user.id,
         isOfficial = user.isOfficial,
         isLoading = isLoading,
         modifier = modifier

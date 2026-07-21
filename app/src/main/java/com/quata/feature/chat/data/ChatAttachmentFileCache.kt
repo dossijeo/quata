@@ -53,6 +53,11 @@ internal class ChatAttachmentFileCache(
             }
         }
 
+    suspend fun clearProfile(profileId: String) = withContext(Dispatchers.IO) {
+        File(File(appContext.filesDir, CACHE_DIRECTORY), "attachments/${profileId.safePathSegment()}")
+            .deleteRecursively()
+    }
+
     private fun ensureCached(profileId: String, message: Message): File? {
         val remoteUrl = message.remoteAttachmentUrl() ?: return null
         val target = attachmentFile(profileId, message, remoteUrl)

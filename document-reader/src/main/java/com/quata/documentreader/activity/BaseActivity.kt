@@ -33,6 +33,7 @@ open class BaseActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         QuataDocumentReaderTheme.apply(this)
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
     }
 
     override fun onRequestPermissionsResult(
@@ -148,7 +149,9 @@ open class BaseActivity : AppCompatActivity() {
 
     open fun setTransparentForWindow(z: Boolean, z2: Boolean) {
         val window = window
-        WindowCompat.setDecorFitsSystemWindows(window, !z2)
+        // Edge-to-edge remains enabled for every document-reader activity.
+        // Callers should consume system-bar insets on their root view.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = z
             isAppearanceLightNavigationBars = z

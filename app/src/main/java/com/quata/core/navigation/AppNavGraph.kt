@@ -34,6 +34,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,6 +59,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.Scaffold
@@ -89,6 +93,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,10 +123,12 @@ import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
 import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
-import com.quata.core.location.quataPreciseLocationWithRetries
-import com.quata.core.moderation.LegalLinks
+import com.quata.core.location.SosLocationRecoveryService
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.LegalDocuments
 import com.quata.core.moderation.ModerationTarget
 import com.quata.core.network.ForegroundConnectivityReconciler
+import com.quata.core.presence.LocalUserPresence
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
@@ -160,6 +170,10 @@ import com.quata.feature.profile.presentation.EmergencyContactsDialog
 import com.quata.feature.profile.presentation.ProfileUiEvent
 import com.quata.feature.profile.presentation.ProfileViewModel
 import com.quata.feature.profile.presentation.ProfileScreen
+import com.quata.feature.whatsnew.domain.StartupDestination
+import com.quata.feature.whatsnew.presentation.StartupCoordinator
+import com.quata.feature.whatsnew.presentation.ReleaseHistoryScreen
+import com.quata.feature.whatsnew.presentation.WhatsNewScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.BuildConfig
@@ -182,6 +196,14 @@ fun AppNavGraph(
     val authState by container.sessionManager.authState.collectAsState()
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
     val isAuthenticated = currentUserId != null
+    val startupCoordinator = remember(container.whatsNewRepository) {
+        StartupCoordinator(container.whatsNewRepository)
+    }
+    var startupDestination by remember(currentUserId) {
+        mutableStateOf(if (currentUserId == null) StartupDestination.Main else StartupDestination.Loading)
+    }
+    var isCompletingWhatsNew by remember(currentUserId) { mutableStateOf(false) }
+    val isWhatsNewStartupActive = isAuthenticated && startupDestination != StartupDestination.Main
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
@@ -193,8 +215,9 @@ fun AppNavGraph(
     val routeShowsAppChrome = currentRoute != null &&
         currentRoute != AppDestinations.Login.route &&
         currentRoute != AppDestinations.Register.route &&
-        currentRoute != AppDestinations.ForgotPassword.route
-    val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen
+        currentRoute != AppDestinations.ForgotPassword.route &&
+        currentRoute != AppDestinations.ReleaseHistory.route
+    val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen && !isWhatsNewStartupActive
     val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
     val notificationCount = observedNotificationCount ?: 0
     val isDeviceNetworkAvailable = rememberDeviceNetworkAvailable()
@@ -238,6 +261,9 @@ fun AppNavGraph(
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
     var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingAccountAction by remember { mutableStateOf<AccountLifecycleAction?>(null) }
+    var isAccountOperationInProgress by remember { mutableStateOf(false) }
+    var accountOperationError by remember { mutableStateOf<String?>(null) }
     var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
     var isAcceptingUgcTerms by remember(currentUserId) { mutableStateOf(false) }
     ConfigureAppSystemBars()
@@ -247,6 +273,7 @@ fun AppNavGraph(
     }
     LaunchedEffect(isDeviceNetworkAvailable) {
         container.chatRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
+        container.userPresenceRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
         if (previousDeviceNetworkAvailable == false && isDeviceNetworkAvailable) {
             feedNetworkReconnectToken = System.currentTimeMillis()
         }
@@ -313,6 +340,31 @@ fun AppNavGraph(
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(currentUserId) {
+        startupDestination = if (currentUserId == null) {
+            StartupDestination.Main
+        } else {
+            StartupDestination.Loading
+            startupCoordinator.resolve(
+                installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                locales = appContext.resources.configuration.locales
+            )
+        }
+    }
+
+    fun finishWhatsNewPresentation() {
+        val releases = (startupDestination as? StartupDestination.WhatsNew)?.releases ?: return
+        if (isCompletingWhatsNew) return
+        isCompletingWhatsNew = true
+        startupDestination = StartupDestination.Main
+        appScope.launch {
+            container.whatsNewRepository.markReleasesSeen(
+                upToVersionCode = releases.maxOf { it.versionCode },
+                installedVersionCode = BuildConfig.VERSION_CODE.toLong()
+            )
+            isCompletingWhatsNew = false
+        }
+    }
     fun requestAuthentication() {
         isAuthRequiredPromptOpen = true
     }
@@ -384,13 +436,16 @@ fun AppNavGraph(
                 Lifecycle.Event.ON_RESUME -> {
                     isAppForeground = true
                     container.chatRepository.setAppForeground(true)
+                    container.userPresenceRepository.setAppForeground(true)
                 }
                 Lifecycle.Event.ON_PAUSE -> {
                     isAppForeground = false
                     container.chatRepository.setAppForeground(false)
+                    container.userPresenceRepository.setAppForeground(false)
                 }
                 Lifecycle.Event.ON_DESTROY -> {
                     container.chatRepository.setAppForeground(false)
+                    container.userPresenceRepository.setAppForeground(false)
                 }
                 else -> Unit
             }
@@ -402,6 +457,7 @@ fun AppNavGraph(
     }
     LaunchedEffect(isAppForeground) {
         container.chatRepository.setAppForeground(isAppForeground)
+        container.userPresenceRepository.setAppForeground(isAppForeground)
     }
 
     LaunchedEffect(currentRoute) {
@@ -464,7 +520,8 @@ fun AppNavGraph(
         LocalQuataNetworkImageState provides QuataNetworkImageState(
             isNetworkAvailable = isDeviceNetworkAvailable,
             reconnectToken = feedNetworkReconnectToken
-        )
+        ),
+        LocalUserPresence provides container.userPresenceRepository
     ) {
         QuataTranslatorModeProvider(
             registry = translatorRegistry,
@@ -523,6 +580,30 @@ fun AppNavGraph(
                 }
             }
             Box(Modifier.fillMaxSize()) {
+                if (isWhatsNewStartupActive) {
+                    when (val destination = startupDestination) {
+                        StartupDestination.Loading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(template.colors.background),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = template.colors.accent)
+                            }
+                        }
+                        is StartupDestination.WhatsNew -> {
+                            WhatsNewScreen(
+                                releases = destination.releases,
+                                isCompleting = isCompletingWhatsNew,
+                                onComplete = ::finishWhatsNewPresentation,
+                                onDismiss = ::finishWhatsNewPresentation,
+                                padding = padding
+                            )
+                        }
+                        StartupDestination.Main -> Unit
+                    }
+                } else {
                 NavHost(navController = navController, startDestination = startDestination) {
                 composable(AppDestinations.Login.route) {
                     LoginScreen(
@@ -559,6 +640,13 @@ fun AppNavGraph(
                     ForgotPasswordScreen(
                         padding = padding,
                         authRepository = container.authRepository,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(AppDestinations.ReleaseHistory.route) {
+                    ReleaseHistoryScreen(
+                        repository = container.whatsNewRepository,
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -764,6 +852,7 @@ fun AppNavGraph(
                         ProfileScreen(
                             padding = padding,
                             repository = container.profileRepository,
+                            profileId = currentUserId.orEmpty(),
                             touchFlowEnabled = touchFlowEnabled,
                             onTouchFlowEnabledChange = { enabled ->
                                 container.touchFlowPreferences.setEnabled(currentUserId, enabled)
@@ -780,6 +869,14 @@ fun AppNavGraph(
                                         launchSingleTop = true
                                     }
                                 }
+                            },
+                            onDeactivateAccount = {
+                                accountOperationError = null
+                                pendingAccountAction = AccountLifecycleAction.Deactivate
+                            },
+                            onDeleteAccountData = {
+                                accountOperationError = null
+                                pendingAccountAction = AccountLifecycleAction.DeleteData
                             },
                             onProfileSaved = {
                                 navController.navigate(AppDestinations.Feed.route) {
@@ -809,6 +906,7 @@ fun AppNavGraph(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                     )
+                }
                 }
             }
         }
@@ -968,7 +1066,52 @@ fun AppNavGraph(
 
         if (isAboutDialogOpen) {
             AboutQuataDialog(
-                onDismiss = { isAboutDialogOpen = false }
+                onDismiss = { isAboutDialogOpen = false },
+                onOpenReleaseHistory = {
+                    isAboutDialogOpen = false
+                    navController.navigate(AppDestinations.ReleaseHistory.route)
+                }
+            )
+        }
+
+        pendingAccountAction?.let { action ->
+            AccountLifecycleConfirmationDialog(
+                action = action,
+                isWorking = isAccountOperationInProgress,
+                errorMessage = accountOperationError,
+                onDismiss = {
+                    if (!isAccountOperationInProgress) {
+                        accountOperationError = null
+                        pendingAccountAction = null
+                    }
+                },
+                onConfirm = { password ->
+                    if (!isAccountOperationInProgress) {
+                        isAccountOperationInProgress = true
+                        accountOperationError = null
+                        appScope.launch {
+                            val result = when (action) {
+                                AccountLifecycleAction.Deactivate -> container.authRepository.deactivateAccount(password)
+                                AccountLifecycleAction.DeleteData -> container.authRepository.deleteAccountData(password)
+                            }
+                            isAccountOperationInProgress = false
+                            result.onSuccess {
+                                val message = if (action == AccountLifecycleAction.Deactivate) {
+                                    R.string.account_deactivate_success
+                                } else {
+                                    R.string.account_delete_success
+                                }
+                                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
+                                pendingAccountAction = null
+                                isAboutDialogOpen = false
+                                ugcTermsAccepted = null
+                                navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
+                            }.onFailure { error ->
+                                accountOperationError = error.toUserFacingMessage(appContext)
+                            }
+                        }
+                    }
+                }
             )
         }
 
@@ -978,12 +1121,10 @@ fun AppNavGraph(
                 onAccept = {
                     if (!isAcceptingUgcTerms) {
                         isAcceptingUgcTerms = true
+                        // Local acceptance always unlocks the app; synchronization is retried by WorkManager.
+                        ugcTermsAccepted = true
                         appScope.launch {
                             container.moderationRepository.acceptTerms()
-                                .onSuccess { ugcTermsAccepted = true }
-                                .onFailure {
-                                    Toast.makeText(appContext, R.string.ugc_terms_accept_error, Toast.LENGTH_LONG).show()
-                                }
                             isAcceptingUgcTerms = false
                         }
                     }
@@ -1205,7 +1346,8 @@ private fun ConfigureTranslatorDialogWindow() {
 
 @Composable
 private fun AboutQuataDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenReleaseHistory: () -> Unit
 ) {
     val context = LocalContext.current
     AlertDialog(
@@ -1217,7 +1359,7 @@ private fun AboutQuataDialog(
             )
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = stringResource(
                         R.string.about_version,
@@ -1234,15 +1376,114 @@ private fun AboutQuataDialog(
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(R.string.about_body))
                 Spacer(Modifier.height(12.dp))
-                LegalLinkButton(R.string.legal_privacy, LegalLinks.Privacy, context)
-                LegalLinkButton(R.string.legal_child_safety, LegalLinks.ChildSafety, context)
-                LegalLinkButton(R.string.legal_account_deletion, LegalLinks.AccountDeletion, context)
-                LegalLinkButton(R.string.legal_data_deletion, LegalLinks.DataDeletion, context)
+                LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
+                LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_close))
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = onOpenReleaseHistory) {
+                    Text(stringResource(R.string.release_history_short))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_close))
+                }
+            }
+        }
+    )
+}
+
+private enum class AccountLifecycleAction { Deactivate, DeleteData }
+
+@Composable
+private fun AccountLifecycleConfirmationDialog(
+    action: AccountLifecycleAction,
+    isWorking: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var confirmation by remember(action) { mutableStateOf("") }
+    var password by remember(action) { mutableStateOf("") }
+    val isDeletion = action == AccountLifecycleAction.DeleteData
+    val requiredConfirmation = stringResource(R.string.account_delete_confirmation_word)
+    val canConfirm = !isWorking && password.isNotBlank() &&
+        (!isDeletion || confirmation.trim().equals(requiredConfirmation, ignoreCase = true))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = !isWorking,
+            dismissOnClickOutside = !isWorking
+        ),
+        title = {
+            Text(
+                stringResource(
+                    if (isDeletion) R.string.account_delete_confirm_title
+                    else R.string.account_deactivate_confirm_title
+                ),
+                fontWeight = FontWeight.ExtraBold
+            )
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    stringResource(
+                        if (isDeletion) R.string.account_delete_confirm_body
+                        else R.string.account_deactivate_confirm_body
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.account_password_prompt))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    enabled = !isWorking,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.auth_password)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isDeletion) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.account_delete_type_confirmation, requiredConfirmation))
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = confirmation,
+                        onValueChange = { confirmation = it },
+                        enabled = !isWorking,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                errorMessage?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(it, color = Color.Red)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !isWorking, onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = canConfirm, onClick = { onConfirm(password) }) {
+                if (isWorking) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        stringResource(
+                            if (isDeletion) R.string.account_delete_confirm_action
+                            else R.string.account_deactivate_confirm_action
+                        )
+                    )
+                }
             }
         }
     )
@@ -1263,8 +1504,8 @@ private fun UgcTermsDialog(
             Column {
                 Text(stringResource(R.string.ugc_terms_body))
                 Spacer(Modifier.height(8.dp))
-                LegalLinkButton(R.string.legal_child_safety, LegalLinks.ChildSafety, context)
-                LegalLinkButton(R.string.legal_privacy, LegalLinks.Privacy, context)
+                LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
+                LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
             }
         },
         dismissButton = {
@@ -1286,6 +1527,17 @@ private fun LegalLinkButton(label: Int, url: String, context: Context) {
         onClick = {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun LegalDocumentLinkButton(label: Int, document: LegalDocument, context: Context) {
+    val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
+    TextButton(
+        onClick = { LegalDocuments.open(context, document, isDarkMode) },
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(stringResource(label), modifier = Modifier.fillMaxWidth())
@@ -1655,18 +1907,18 @@ private fun AuthenticatedGlobalSosButton(
             ).onSuccess { conversationId ->
                 Toast.makeText(context, context.getString(R.string.sos_sent), Toast.LENGTH_SHORT).show()
                 if (shouldRefreshPreciseLocation) {
-                    launch {
-                        Log.d(SosLocationLogTag, "Requesting precise SOS location update")
-                        val freshLocation = context.quataPreciseLocationWithRetries()
-                        if (freshLocation != null) {
-                            Log.d(SosLocationLogTag, "Sending precise SOS location update")
-                            container.chatRepository.sendMessage(
-                                conversationId = conversationId,
-                                text = buildSosMessage(profile, freshLocation, isLocationUpdate = true)
-                            )
-                        } else {
-                            Log.d(SosLocationLogTag, "Precise SOS location update unavailable")
-                        }
+                    Log.d(SosLocationLogTag, "Starting resilient SOS location recovery")
+                    runCatching {
+                        SosLocationRecoveryService.start(
+                            context = context,
+                            conversationId = conversationId,
+                            expectedProfileId = container.sessionManager.currentSession()?.userId.orEmpty(),
+                            senderName = profile.displayName,
+                            customMessage = profile.emergencyMessage.takeUnless { profile.emergencyMessageIsDefault },
+                            initialLocationTimeMillis = location?.time ?: 0L
+                        )
+                    }.onFailure { error ->
+                        Log.w(SosLocationLogTag, "Could not start SOS location recovery", error)
                     }
                 }
             }.onFailure { error ->

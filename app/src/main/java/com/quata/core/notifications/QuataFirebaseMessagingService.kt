@@ -3,9 +3,7 @@ package com.quata.core.notifications
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.quata.QuataApp
-import com.quata.feature.chat.data.ChatMessageStateAckStatus
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
 
 class QuataFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
@@ -21,26 +19,30 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
         val expectedProfileId = data["recipient_profile_id"]?.takeIf { it.isNotBlank() }
         val currentProfileId = quataApp?.container?.sessionManager?.currentSession()?.userId
         if (expectedProfileId != null && expectedProfileId != currentProfileId) return
-        data["message_id"]?.toLongOrNull()?.let { messageId ->
-            runBlocking(Dispatchers.IO) {
-                quataApp?.container?.chatMessageStateAckManager?.markMessages(
-                    messageIds = listOf(messageId),
-                    status = ChatMessageStateAckStatus.Delivered,
-                    source = "fcm"
+        val messageId = data["message_id"]?.toLongOrNull()
+
+        // Posting the user-visible notification takes priority over background
+        // bookkeeping during a cold or resource-constrained process start.
+        if (quataApp?.isAppForeground != true) {
+            val threadId = data["thread_id"]?.takeIf { it.isNotBlank() }
+            val conversationId = data["conversation_id"]?.takeIf { it.isNotBlank() }
+                ?: threadId?.let { "sb:$it" }
+            if (conversationId != null) {
+                NotificationFactory(this).showChatPush(
+                    conversationId = conversationId,
+                    title = data["title"].orEmpty(),
+                    body = data["body"].orEmpty().ifBlank { data["message"].orEmpty() },
+                    bodyKey = data["body_key"].orEmpty()
                 )
             }
         }
-        if (quataApp?.isAppForeground == true) return
-        val threadId = data["thread_id"]?.takeIf { it.isNotBlank() }
-        val conversationId = data["conversation_id"]?.takeIf { it.isNotBlank() }
-            ?: threadId?.let { "sb:$it" }
-            ?: return
-        NotificationChannels(this).ensureChannels()
-        NotificationFactory(this).showChatPush(
-            conversationId = conversationId,
-            title = data["title"].orEmpty(),
-            body = data["body"].orEmpty().ifBlank { data["message"].orEmpty() },
-            bodyKey = data["body_key"].orEmpty()
-        )
+
+        if (currentProfileId != null && messageId != null) {
+            ChatMessageStateWorkScheduler.scheduleDelivered(
+                context = this,
+                profileId = currentProfileId,
+                messageId = messageId
+            )
+        }
     }
 }

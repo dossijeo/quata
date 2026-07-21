@@ -347,6 +347,7 @@ fun OfficialFeedScreen(
             items = rankedOfficialPosts.mapIndexed { index, post ->
                 QuataLiveRankingItem(
                     id = post.id,
+                    profileId = post.author.id,
                     rank = postRanks[post.id]?.position ?: (index + 1),
                     title = post.title,
                     subtitle = post.author.displayName,
@@ -776,6 +777,7 @@ private fun OfficialAuthorHeader(
             name = post.author.displayName,
             avatarUrl = post.author.avatarUrl,
             isOfficial = true,
+            profileId = post.author.id,
             modifier = Modifier
                 .size(58.dp)
                 .clickable(onClick = onOpenAuthor)
