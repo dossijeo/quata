@@ -193,6 +193,12 @@ object DocumentReaderChrome {
 
     private fun printHtml(activity: Activity, title: String?, html: String) {
         val webView = WebView(activity)
+        webView.settings.apply {
+            javaScriptEnabled = false
+            allowContentAccess = false
+            allowFileAccess = false
+            blockNetworkLoads = true
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
                 val printManager = activity.getSystemService(Context.PRINT_SERVICE) as PrintManager
