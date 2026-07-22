@@ -8,7 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.quata.R
 import com.quata.core.model.Conversation
 import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.data.AndroidContactsReader
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +19,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ConversationsViewModel(
     private val repository: ChatRepository,
+    private val readAndroidContacts: () -> List<ChatInviteContact> = { emptyList() },
     private val resolveString: (Int) -> String = { "Chat error" }
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ConversationsUiState())
@@ -49,6 +54,9 @@ class ConversationsViewModel(
             isNewConversationPickerOpen = true,
             candidateQuery = "",
             conversationCandidates = emptyList(),
+            inviteContacts = emptyList(),
+            isInviteContactsLoading = false,
+            inviteContactsError = null,
             candidateHasMore = true,
             candidateNextOffset = 0,
             candidateError = null
@@ -61,6 +69,9 @@ class ConversationsViewModel(
         candidatePageJob?.cancel()
         _uiState.value = _uiState.value.copy(
             isNewConversationPickerOpen = false,
+            inviteContacts = emptyList(),
+            isInviteContactsLoading = false,
+            inviteContactsError = null,
             openingCandidateProfileId = null,
             candidateError = null
         )
@@ -85,6 +96,38 @@ class ConversationsViewModel(
         if (!_uiState.value.isNewConversationPickerOpen) return
         if (_uiState.value.isCandidateInitialLoading || _uiState.value.isCandidatePageLoading || !_uiState.value.candidateHasMore) return
         loadConversationCandidates(reset = false)
+    }
+
+    fun loadInviteContacts() {
+        val state = _uiState.value
+        if (!state.isNewConversationPickerOpen || state.isInviteContactsLoading) return
+        _uiState.value = state.copy(isInviteContactsLoading = true, inviteContactsError = null)
+        viewModelScope.launch {
+            val contacts = withContext(Dispatchers.IO) { readAndroidContacts() }
+            if (contacts.isEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    inviteContacts = emptyList(),
+                    isInviteContactsLoading = false,
+                    inviteContactsError = null
+                )
+                return@launch
+            }
+            repository.matchRegisteredContactPhones(contacts.flatMap { it.phoneKeys })
+                .onSuccess { registeredPhones ->
+                    _uiState.value = _uiState.value.copy(
+                        inviteContacts = contacts.filter { contact -> contact.phoneKeys.none(registeredPhones::contains) },
+                        isInviteContactsLoading = false,
+                        inviteContactsError = null
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        inviteContacts = emptyList(),
+                        isInviteContactsLoading = false,
+                        inviteContactsError = errorText(R.string.chat_error_load_candidates)
+                    )
+                }
+        }
     }
 
     fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit) {
@@ -211,7 +254,11 @@ class ConversationsViewModel(
         fun factory(repository: ChatRepository, context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ConversationsViewModel(repository, context.applicationContext::getString) as T
+                ConversationsViewModel(
+                    repository = repository,
+                    readAndroidContacts = AndroidContactsReader(context).let { reader -> reader::readContacts },
+                    resolveString = context.applicationContext::getString
+                ) as T
         }
     }
 

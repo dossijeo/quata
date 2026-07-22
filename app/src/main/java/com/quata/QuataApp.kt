@@ -13,6 +13,9 @@ import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.AuthSession
 import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
 import com.quata.feature.chat.data.ChatOutboxWorkScheduler
+import com.quata.core.session.AuthState
+import com.quata.feature.externalshare.ShareConversationShortcuts
+import com.quata.feature.externalshare.ShareTargetAvailability
 import com.google.android.play.core.splitcompat.SplitCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 
 class QuataApp : Application(), ImageLoaderFactory {
@@ -41,9 +45,11 @@ class QuataApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        ShareTargetAvailability.setEnabled(this, container.sessionManager.currentSession() != null)
         ChatMessageStateWorkScheduler.ensurePeriodic(this)
         ChatOutboxWorkScheduler.ensurePeriodic(this)
         observeSupabaseAuthState()
+        observeShareConversationShortcuts()
         refreshSupabaseSessionIfNeeded()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
@@ -96,6 +102,25 @@ class QuataApp : Application(), ImageLoaderFactory {
         appScope.launch {
             container.sessionManager.authState.collect {
                 scheduleNextSupabaseSessionRefresh()
+            }
+        }
+    }
+
+    private fun observeShareConversationShortcuts() {
+        appScope.launch {
+            container.sessionManager.authState.collectLatest { authState ->
+                ShareTargetAvailability.setEnabled(this@QuataApp, authState is AuthState.LoggedIn)
+                if (authState is AuthState.LoggedIn) {
+                    container.chatRepository.observeConversations().collect { conversations ->
+                        ShareConversationShortcuts.publish(
+                            context = this@QuataApp,
+                            conversations = conversations,
+                            currentUserId = authState.userId
+                        )
+                    }
+                } else {
+                    ShareConversationShortcuts.clear(this@QuataApp)
+                }
             }
         }
     }

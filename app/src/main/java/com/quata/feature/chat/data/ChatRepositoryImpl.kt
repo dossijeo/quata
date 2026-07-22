@@ -25,6 +25,8 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.domain.isExactPrivateConversation
+import com.quata.feature.chat.domain.normalizeContactPhoneKey
+import com.quata.feature.chat.domain.prepareContactDiscoveryBatches
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -434,6 +436,36 @@ class ChatRepositoryImpl(
             nextOffset = root.int("next_offset") ?: (offset + candidates.size),
             actorNeighborhood = root.string("actor_neighborhood").orEmpty()
         )
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
+
+    override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>> = runCatching {
+        val candidateBatches = prepareContactDiscoveryBatches(phoneCandidates)
+        if (candidateBatches.isEmpty()) return@runCatching emptySet()
+        val normalizedCandidates = candidateBatches.flatten()
+
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val registeredKeys = MockData.mockAuthProfiles
+                .flatMap { profile ->
+                    listOf(
+                        profile.phone,
+                        "${profile.countryCode}${profile.phone}"
+                    )
+                }
+                .map(::normalizeContactPhoneKey)
+                .filter { it.length in 6..20 }
+                .toSet()
+            return@runCatching normalizedCandidates.filterTo(mutableSetOf()) { it in registeredKeys }
+        }
+
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        buildSet {
+            candidateBatches.forEach { batch ->
+                val root = remote.matchRegisteredChatContacts(session.userId, batch).obj
+                root.array("matched_phones").forEach { value ->
+                    value.jsonPrimitive.contentOrNull?.let(::add)
+                }
+            }
+        }
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override suspend fun openPrivateConversation(peerProfileId: String): Result<String> =

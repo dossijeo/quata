@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -40,15 +41,22 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.quata.core.di.AppContainer
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
+import com.quata.feature.externalshare.ExternalShareIntentParser
+import com.quata.feature.externalshare.ExternalShareParseResult
+import com.quata.feature.externalshare.ExternalSharePayload
+import com.quata.feature.externalshare.ShareTargetAvailability
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
+    private val incomingShare = mutableStateOf<ExternalSharePayload?>(null)
     private lateinit var appContainer: AppContainer
 
     override fun attachBaseContext(newBase: Context) {
@@ -62,19 +70,23 @@ class MainActivity : ComponentActivity() {
             .show(WindowInsetsCompat.Type.navigationBars())
 
         appContainer = (application as QuataApp).container
-        incomingLink.value = intent?.data
+        ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
+        val launchedFromShare = intent?.action in SHARE_ACTIONS
+        handleIncomingIntent(intent)
 
         setContent {
             val themeMode by appContainer.themePreferences.observeThemeMode()
                 .collectAsState(initial = appContainer.themePreferences.themeMode())
             QuataTheme(mode = themeMode) {
-                var showSplash by rememberSaveable { mutableStateOf(true) }
+                var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare) }
                 Box(Modifier.fillMaxSize()) {
                     AppNavGraph(
                         container = appContainer,
                         themeMode = themeMode,
                         incomingLink = incomingLink.value,
-                        onIncomingLinkHandled = { incomingLink.value = null }
+                        onIncomingLinkHandled = { incomingLink.value = null },
+                        incomingShare = incomingShare.value,
+                        onIncomingShareHandled = ::clearIncomingShare
                     )
                     AnimatedVisibility(
                         visible = showSplash,
@@ -96,7 +108,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        incomingLink.value = intent.data
+        handleIncomingIntent(intent)
     }
 
     override fun onResume() {
@@ -109,6 +121,48 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         QuataProximityState.stop()
         super.onPause()
+    }
+
+    private fun handleIncomingIntent(sourceIntent: Intent?) {
+        incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
+        val shareIntent = sourceIntent?.takeIf {
+            it.action in SHARE_ACTIONS
+        }
+        if (shareIntent == null) {
+            incomingShare.value = null
+            return
+        }
+        if (appContainer.sessionManager.currentSession() == null) {
+            ShareTargetAvailability.setEnabled(this, false)
+            Toast.makeText(this, R.string.share_to_quata_login_required, Toast.LENGTH_LONG).show()
+            clearIncomingShare()
+            return
+        }
+        lifecycleScope.launch {
+            when (val result = ExternalShareIntentParser.parse(this@MainActivity, shareIntent)) {
+                is ExternalShareParseResult.Accepted -> incomingShare.value = result.payload
+                ExternalShareParseResult.Empty -> rejectIncomingShare(R.string.share_to_quata_empty)
+                ExternalShareParseResult.Unsupported -> rejectIncomingShare(R.string.error_attachment_type_not_allowed)
+                ExternalShareParseResult.Unreadable -> rejectIncomingShare(R.string.share_to_quata_read_error)
+                ExternalShareParseResult.TooManyFiles -> rejectIncomingShare(R.string.share_to_quata_too_many_files)
+            }
+        }
+    }
+
+    private fun rejectIncomingShare(messageRes: Int) {
+        Toast.makeText(this, messageRes, Toast.LENGTH_LONG).show()
+        clearIncomingShare()
+    }
+
+    private fun clearIncomingShare() {
+        incomingShare.value = null
+        if (intent?.action in SHARE_ACTIONS) {
+            setIntent(Intent(this, MainActivity::class.java).apply { action = Intent.ACTION_MAIN })
+        }
+    }
+
+    private companion object {
+        val SHARE_ACTIONS = setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
     }
 
 }

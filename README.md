@@ -1,15 +1,26 @@
 # Q&uuml;ata Android
 
 Version: **1.0.4**
-Fecha de version: **2026-07-21**
+VersionCode: **32**
+Fecha de version: **2026-07-22**
 Estado: **release 1.0.4 definitiva para publicacion; QA automatizada, validacion funcional en API 28 y API 37 y prueba SOS real completadas**
 
 Q&uuml;ata es una aplicacion Android social y comunitaria construida con Kotlin y Jetpack Compose. Reune feed visual, muro oficial, barrios/comunidades, perfiles, chat en tiempo real sobre Supabase Realtime, notificaciones Firebase, SOS, publicacion de contenido y navegacion anonima con acciones protegidas por login.
 
-La version `1.0.4` incorpora gestion segura del ciclo de vida de la cuenta, mejora la comunicacion en tiempo real del chat y refuerza la recuperacion de ubicacion de los avisos SOS. Tambien estrena una experiencia de novedades e historial de versiones y suma ajustes de estabilidad, compatibilidad y memoria.
+La version `1.0.4` incorpora gestion segura del ciclo de vida de la cuenta, mejora la comunicacion en tiempo real del chat y refuerza la recuperacion de ubicacion de los avisos SOS. Tambien estrena una experiencia de novedades e historial de versiones, permite compartir contenido externo directamente con conversaciones de Q&uuml;ata e incorpora invitaciones localizadas para contactos que todavia no usan la aplicacion.
 
 ## Mejoras recientes de rendimiento y estabilidad
 
+- Android permite compartir con Q&uuml;ata texto, imagenes, audio, video y documentos compatibles, tanto individualmente como en selecciones de hasta diez archivos.
+- El flujo de compartir reutiliza el selector de conversaciones: al elegir un unico destino abre directamente el chat enviado y, con varios destinos, conserva el envio multiple.
+- Los accesos directos de compartir muestran hasta tres conversaciones recientes con sus avatares y solo se publican cuando existe una cuenta autenticada.
+- La apertura desde el menu Compartir evita el splash intermedio y valida permisos de lectura, tipos admitidos y disponibilidad real de cada archivo antes de enviarlo.
+- El selector de nuevo chat incluye una seccion **Invitar a Q&uuml;ata** con contactos de Android que no coinciden con usuarios registrados, integrada tambien en la busqueda.
+- Las invitaciones usan un panel localizado inspirado en el selector nativo, con SMS y aplicaciones de mensajeria compatibles; cuando una aplicacion lo permite, abre directamente el contacto por numero de telefono.
+- El descubrimiento de contactos compara numeros normalizados en lotes limitados, no envia los nombres de la agenda y evita exponer el directorio de usuarios de Q&uuml;ata.
+- La politica de privacidad en espanol, ingles y frances explica el permiso de contactos, su finalidad, la comparacion de numeros, la conservacion y el uso de aplicaciones externas para invitar.
+- Los avatares sin fotografia usan iniciales y color estable de forma coherente dentro de Q&uuml;ata y en los accesos directos de compartir.
+- La copia de mensajes y textos de invitacion utiliza la API moderna de portapapeles de Android.
 - La cuenta puede desactivarse de forma reversible o eliminarse definitivamente desde la app; ambas acciones exigen volver a introducir la contrasena y limpian los datos locales asociados.
 - Una cuenta desactivada se reactiva de forma segura al registrarse de nuevo con el mismo telefono y sus credenciales.
 - El chat muestra presencia online e indicadores de escritura efimeros, sin guardarlos ni reproducirlos offline.

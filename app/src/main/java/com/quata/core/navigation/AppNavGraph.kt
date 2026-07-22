@@ -157,6 +157,9 @@ import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.presentation.chat.ChatScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
+import com.quata.feature.externalshare.ExternalSharePayload
+import com.quata.feature.externalshare.ShareTargetAvailability
+import com.quata.feature.externalshare.ShareToQuataDialog
 import com.quata.feature.neighborhoods.presentation.CommunityProfileScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
@@ -187,7 +190,9 @@ fun AppNavGraph(
     container: AppContainer,
     themeMode: QuataThemeMode,
     incomingLink: Uri? = null,
-    onIncomingLinkHandled: () -> Unit = {}
+    onIncomingLinkHandled: () -> Unit = {},
+    incomingShare: ExternalSharePayload? = null,
+    onIncomingShareHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -367,6 +372,10 @@ fun AppNavGraph(
     }
     fun requestAuthentication() {
         isAuthRequiredPromptOpen = true
+    }
+
+    LaunchedEffect(isAuthenticated) {
+        ShareTargetAvailability.setEnabled(appContext, isAuthenticated)
     }
 
     fun navigateToFeed() {
@@ -1035,6 +1044,24 @@ fun AppNavGraph(
                     navController.navigate(AppDestinations.Login.route) {
                         launchSingleTop = true
                     }
+                }
+            )
+        }
+
+        if (
+            incomingShare != null &&
+            isAuthenticated &&
+            ugcTermsAccepted == true &&
+            !isWhatsNewStartupActive
+        ) {
+            ShareToQuataDialog(
+                payload = incomingShare,
+                repository = container.chatRepository,
+                onDismiss = onIncomingShareHandled,
+                onSent = { conversationId ->
+                    Toast.makeText(appContext, R.string.share_to_quata_sent, Toast.LENGTH_SHORT).show()
+                    onIncomingShareHandled()
+                    conversationId?.let(::navigateToChat)
                 }
             )
         }

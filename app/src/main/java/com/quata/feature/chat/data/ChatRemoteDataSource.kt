@@ -35,6 +35,8 @@ class ChatRemoteDataSource(
     suspend fun getOrCreatePrivateThread(profileId: String, peerProfileId: String) = supabaseApi.getOrCreatePrivateThread(profileId, peerProfileId)
     suspend fun searchChatConversationCandidates(profileId: String, query: String = "", limit: Int = 30, offset: Int = 0) =
         supabaseApi.searchChatConversationCandidates(profileId, query, limit, offset)
+    suspend fun matchRegisteredChatContacts(profileId: String, phoneCandidates: List<String>) =
+        supabaseApi.matchRegisteredChatContacts(profileId, phoneCandidates)
     suspend fun startChatThread(profileId: String, participantIds: List<String>, subject: String?, type: String, message: String = "", uniqueKey: String? = null, communityId: String? = null) =
         supabaseApi.startChatThread(profileId, participantIds, subject, type, message, uniqueKey, communityId)
     suspend fun openCommunityChatThread(profileId: String, communityId: String, title: String) = supabaseApi.openCommunityChatThread(profileId, communityId, title)

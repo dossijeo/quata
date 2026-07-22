@@ -24,6 +24,14 @@ data class ChatConversationCandidatePage(
     val actorNeighborhood: String
 )
 
+data class ChatInviteContact(
+    val id: String,
+    val displayName: String,
+    val phone: String,
+    val phoneKeys: Set<String>,
+    val internationalPhone: String? = null
+)
+
 enum class ChatSyncStatus { CacheAvailable, Refreshing, Online, Offline, Error }
 
 interface ChatRepository {
@@ -47,6 +55,7 @@ interface ChatRepository {
     suspend fun loadOlderMessages(conversationId: String, limit: Int = 100): Result<Boolean>
     fun observeParticipantCandidates(): Flow<List<User>>
     suspend fun searchConversationCandidates(query: String, limit: Int = 30, offset: Int = 0): Result<ChatConversationCandidatePage>
+    suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>>
     suspend fun openPrivateConversation(peerProfileId: String): Result<String>
     suspend fun sendMessage(
         conversationId: String,

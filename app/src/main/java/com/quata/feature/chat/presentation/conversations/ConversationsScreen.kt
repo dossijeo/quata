@@ -1,5 +1,10 @@
 package com.quata.feature.chat.presentation.conversations
 
+import android.Manifest
+import android.content.ClipData
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -17,10 +22,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -44,8 +52,11 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -53,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -61,13 +73,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
@@ -79,15 +96,18 @@ import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataStandardFloatingPanel
+import com.quata.core.ui.components.QuataFloatingPanel
 import com.quata.core.ui.components.QuataCard
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConversationsScreen(
@@ -102,6 +122,15 @@ fun ConversationsScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
+    var contactsPermissionGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
+    var contactsPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsPermissionGranted = granted
+        contactsPermissionRequested = true
+        if (granted) viewModel.loadInviteContacts()
+    }
     var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val visibleConversations = remember(context, state.conversations, state.messagesByConversation, state.usersById, query) {
         val cleanQuery = query.trim()
@@ -206,8 +235,28 @@ fun ConversationsScreen(
             onOpenCandidate = { candidate ->
                 viewModel.openCandidateConversation(candidate, onOpenConversation)
             },
+            inviteContactsEnabled = contactsPermissionGranted,
+            onRequestInviteContactsPermission = {
+                contactsPermissionRequested = true
+                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            },
+            onInviteContact = {},
             onDismiss = viewModel::closeNewConversationPicker
         )
+    }
+
+    LaunchedEffect(state.isNewConversationPickerOpen) {
+        if (!state.isNewConversationPickerOpen) return@LaunchedEffect
+        contactsPermissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (contactsPermissionGranted) {
+            viewModel.loadInviteContacts()
+        } else if (!contactsPermissionRequested) {
+            contactsPermissionRequested = true
+            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        }
     }
 
     LaunchedEffect(state.pendingDeletedConversation?.id) {
@@ -370,6 +419,9 @@ fun ConversationCandidatePickerDialog(
     onLoadMore: () -> Unit,
     onOpenCandidate: (ChatConversationCandidate) -> Unit,
     onDismiss: () -> Unit,
+    inviteContactsEnabled: Boolean = false,
+    onRequestInviteContactsPermission: (() -> Unit)? = null,
+    onInviteContact: ((ChatInviteContact) -> Unit)? = null,
     title: String = stringResource(R.string.conversations_new_chat_title),
     actionIcon: ImageVector = Icons.Filled.ChatBubble,
     actionContentDescription: String = stringResource(R.string.common_chat),
@@ -387,6 +439,7 @@ fun ConversationCandidatePickerDialog(
     val contactsTitle = stringResource(R.string.conversations_new_chat_contacts)
     val followingTitle = stringResource(R.string.conversations_new_chat_following)
     val followersTitle = stringResource(R.string.conversations_new_chat_followers)
+    val recentTitle = stringResource(R.string.share_to_quata_recent_conversations)
     val otherTitle = stringResource(R.string.conversations_new_chat_other_neighborhoods)
     val unknownNeighborhood = stringResource(R.string.conversations_new_chat_unknown_neighborhood)
     val displayItems = remember(
@@ -396,6 +449,7 @@ fun ConversationCandidatePickerDialog(
         contactsTitle,
         followingTitle,
         followersTitle,
+        recentTitle,
         otherTitle,
         unknownNeighborhood
     ) {
@@ -405,6 +459,7 @@ fun ConversationCandidatePickerDialog(
             contactsTitle = contactsTitle,
             followingTitle = followingTitle,
             followersTitle = followersTitle,
+            recentTitle = recentTitle,
             otherTitle = otherTitle,
             unknownNeighborhood = unknownNeighborhood
         )
@@ -439,6 +494,9 @@ fun ConversationCandidatePickerDialog(
                 confirmContentDescription = confirmContentDescription,
                 onSearchChange = onSearchChange,
                 onOpenCandidate = onOpenCandidate,
+                inviteContactsEnabled = inviteContactsEnabled,
+                onRequestInviteContactsPermission = onRequestInviteContactsPermission,
+                onInviteContact = onInviteContact,
                 onDismiss = onDismiss,
                 modifier = panelModifier.padding(
                     start = 20.dp,
@@ -467,10 +525,25 @@ private fun NewConversationPanelContent(
     confirmContentDescription: String,
     onSearchChange: (String) -> Unit,
     onOpenCandidate: (ChatConversationCandidate) -> Unit,
+    inviteContactsEnabled: Boolean,
+    onRequestInviteContactsPermission: (() -> Unit)?,
+    onInviteContact: ((ChatInviteContact) -> Unit)?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
+    var pendingInviteContact by remember { mutableStateOf<ChatInviteContact?>(null) }
+    val cleanQuery = state.candidateQuery.trim()
+    val filteredInviteContacts = remember(state.inviteContacts, cleanQuery) {
+        filterInviteContacts(state.inviteContacts, cleanQuery)
+    }
+    val canShowInviteSection = onInviteContact != null && !state.candidateHasMore
+    val hasInviteContent = canShowInviteSection && (
+        filteredInviteContacts.isNotEmpty() ||
+            state.isInviteContactsLoading ||
+            !inviteContactsEnabled ||
+            state.inviteContactsError != null
+        )
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -511,7 +584,7 @@ private fun NewConversationPanelContent(
                     CircularProgressIndicator(color = template.colors.accent)
                 }
             }
-            displayItems.isEmpty() -> {
+            displayItems.isEmpty() && !hasInviteContent -> {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -557,6 +630,30 @@ private fun NewConversationPanelContent(
                             }
                         }
                     }
+                    if (canShowInviteSection) {
+                        item(key = "invite-section") {
+                            CandidateSectionHeader(stringResource(R.string.conversations_invite_to_quata))
+                        }
+                        when {
+                            !inviteContactsEnabled -> item(key = "invite-permission") {
+                                InviteContactsPermissionCard(onRequestInviteContactsPermission)
+                            }
+                            state.isInviteContactsLoading -> item(key = "invite-loading") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(color = template.colors.accent, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                            state.inviteContactsError != null -> item(key = "invite-error") {
+                                Text(state.inviteContactsError, color = MaterialTheme.colorScheme.error)
+                            }
+                            else -> items(filteredInviteContacts, key = { "invite:${it.id}" }) { contact ->
+                                InviteContactCard(contact = contact, onInvite = { pendingInviteContact = contact })
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -591,6 +688,213 @@ private fun NewConversationPanelContent(
                 }
             }
         }
+    }
+    pendingInviteContact?.let { contact ->
+        InviteChannelSheet(
+            contact = contact,
+            onDismiss = { pendingInviteContact = null }
+        )
+    }
+}
+
+@Composable
+private fun InviteContactsPermissionCard(onRequestPermission: (() -> Unit)?) {
+    val template = quataTheme()
+    Surface(
+        color = template.colors.surface,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                stringResource(R.string.conversations_invite_contacts_permission),
+                color = template.colors.textSecondary,
+                modifier = Modifier.weight(1f)
+            )
+            Button(onClick = { onRequestPermission?.invoke() }, enabled = onRequestPermission != null) {
+                Text(stringResource(R.string.conversations_invite_allow))
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteContactCard(contact: ChatInviteContact, onInvite: () -> Unit) {
+    val template = quataTheme()
+    Surface(
+        color = template.colors.surface,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            AvatarLetter(contact.displayName, modifier = Modifier.size(48.dp), stableId = contact.id)
+            Spacer(Modifier.size(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(contact.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(contact.phone, color = template.colors.textSecondary, fontSize = 13.sp, maxLines = 1)
+            }
+            Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = onInvite,
+                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = CompactButtonContentPadding
+            ) {
+                Text(stringResource(R.string.conversations_invite_action), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteChannelSheet(contact: ChatInviteContact, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val targets = remember(contact) { availableInviteTargets(context, contact) }
+    val message = stringResource(R.string.conversations_invite_message)
+    val chooserTitle = stringResource(R.string.conversations_invite_chooser_title)
+    val smsLabel = stringResource(R.string.conversations_invite_channel_sms)
+    val template = quataTheme()
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    QuataFloatingPanel(
+        onDismiss = onDismiss,
+        template = template,
+        portraitHeightFraction = 0.50f,
+        landscapeWidthFraction = 0.74f,
+        landscapeHeightFraction = 0.78f
+    ) { panelModifier, _ ->
+        Column(
+            modifier = panelModifier.padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            Text(
+                stringResource(R.string.conversations_invite_text_to_share),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+                color = template.colors.textPrimary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            Surface(
+                color = template.colors.surface,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        message,
+                        color = template.colors.textSecondary,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 14.dp, top = 11.dp, end = 58.dp, bottom = 11.dp)
+                    )
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = stringResource(R.string.conversations_invite_copy_message),
+                        tint = template.colors.textSecondary,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .clip(CircleShape)
+                            .clickable {
+                                scope.launch {
+                                    clipboard.setClipEntry(
+                                        ClipEntry(ClipData.newPlainText("Qüata", message))
+                                    )
+                                }
+                            }
+                            .padding(12.dp)
+                            .size(24.dp)
+                    )
+                }
+            }
+            HorizontalDivider(
+                color = template.colors.divider,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+            Text(
+                stringResource(R.string.conversations_invite_choose_app_for, contact.displayName),
+                fontSize = 14.sp,
+                color = template.colors.textSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp)
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
+            ) {
+                items(targets, key = { it.id }) { target ->
+                    InviteTargetItem(
+                        target = target,
+                        label = when (target.route) {
+                            InviteRoute.Sms -> target.label.ifBlank { smsLabel }
+                            else -> target.label
+                        },
+                        onClick = {
+                            onDismiss()
+                            launchQuataInvitation(context, contact, target, message, chooserTitle)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteTargetItem(target: InviteTarget, label: String, onClick: () -> Unit) {
+    val template = quataTheme()
+    Column(
+        modifier = Modifier
+            .width(86.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = template.colors.surface,
+            modifier = Modifier.size(58.dp)
+        ) {
+            when {
+                target.icon != null -> AsyncImage(
+                    model = target.icon,
+                    contentDescription = label,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.padding(7.dp)
+                )
+                else -> Icon(
+                    Icons.Default.ChatBubble,
+                    contentDescription = label,
+                    tint = template.colors.accent,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        }
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = template.colors.textPrimary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
+}
+
+internal fun filterInviteContacts(contacts: List<ChatInviteContact>, query: String): List<ChatInviteContact> {
+    val cleanQuery = query.trim()
+    if (cleanQuery.isBlank()) return contacts
+    val queryDigits = cleanQuery.filter(Char::isDigit)
+    return contacts.filter { contact ->
+        contact.displayName.contains(cleanQuery, ignoreCase = true) ||
+            contact.phone.contains(cleanQuery, ignoreCase = true) ||
+            (queryDigits.isNotEmpty() && contact.phoneKeys.any { key -> key.contains(queryDigits) })
     }
 }
 
@@ -704,6 +1008,7 @@ private fun buildCandidateDisplayItems(
     contactsTitle: String,
     followingTitle: String,
     followersTitle: String,
+    recentTitle: String,
     otherTitle: String,
     unknownNeighborhood: String
 ): List<CandidateDisplayItem> {
@@ -715,6 +1020,7 @@ private fun buildCandidateDisplayItems(
             lastSectionKey = candidate.sectionKey
             lastOtherNeighborhood = null
             val title = when (candidate.sectionKey) {
+                "recent" -> recentTitle
                 "contacts" -> contactsTitle
                 "following" -> followingTitle
                 "followers" -> followersTitle
@@ -791,21 +1097,24 @@ private fun ConversationAvatar(
         .firstOrNull { it != currentUser?.id }
         ?.let { usersById[it] }
     Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-        if (item.isGroup || item.isEmergency) {
+        if (item.isEmergency) {
             Box(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(if (item.isEmergency) template.colors.sosSurface else template.colors.accent.copy(alpha = 0.22f))
+                    .background(template.colors.sosSurface)
                     .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (item.isEmergency) {
-                    Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
-                } else {
-                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
-                }
+                Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
             }
+        } else if (item.isGroup) {
+            AvatarImage(
+                name = item.chatDisplayTitle(),
+                avatarUrl = item.avatarUrl,
+                profileId = item.id,
+                modifier = Modifier.size(46.dp)
+            )
         } else {
             if (privateUser != null) {
                 ClickableProfileAvatar(

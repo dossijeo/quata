@@ -792,6 +792,12 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         QuataChatConversationCandidatesRequest(profileId, query, limit, offset)
     )
 
+    suspend fun matchRegisteredChatContacts(profileId: String, phoneCandidates: List<String>): JsonElement =
+        client.rpc<QuataChatContactMatchRequest, JsonElement>(
+            "quata_chat_match_registered_contacts",
+            QuataChatContactMatchRequest(profileId, phoneCandidates)
+        )
+
     suspend fun startChatThread(
         profileId: String,
         participantIds: List<String>,

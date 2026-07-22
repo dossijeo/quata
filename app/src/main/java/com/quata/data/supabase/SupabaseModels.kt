@@ -446,6 +446,12 @@ data class QuataChatConversationCandidatesRequest(
 )
 
 @Serializable
+data class QuataChatContactMatchRequest(
+    val p_actor_profile_id: String,
+    val p_phone_candidates: List<String>
+)
+
+@Serializable
 data class QuataChatStartThreadRequest(
     val p_actor_profile_id: String,
     val p_recipient_profile_ids: List<String> = emptyList(),

@@ -53,6 +53,15 @@
     <string name="error_backend_unauthorized">Your session could not be verified. Please sign in again.</string>
     <string name="error_backend_unavailable">The server is temporarily unavailable.</string>
     <string name="error_attachment_type_not_allowed">This file type cannot be sent here. Try a photo, video, PDF, or text file.</string>
+    <string name="share_with_quata">Share with Qüata</string>
+    <string name="share_to_quata_sending">Sending…</string>
+    <string name="share_to_quata_sent">Shared successfully</string>
+    <string name="share_to_quata_send_error">Qüata could not share this item. Try again.</string>
+    <string name="share_to_quata_login_required">Sign in to Qüata before sharing to a chat.</string>
+    <string name="share_to_quata_empty">There is nothing to share.</string>
+    <string name="share_to_quata_read_error">Qüata could not read the shared file.</string>
+    <string name="share_to_quata_too_many_files">You can share up to 10 files at a time.</string>
+    <string name="share_to_quata_recent_conversations">Recent conversations</string>
     <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
     <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
     <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>
@@ -118,6 +127,18 @@
     <string name="conversations_new_chat_other_neighborhoods">Other districts</string>
     <string name="conversations_new_chat_unknown_neighborhood">No district</string>
     <string name="conversations_new_chat_no_results">No users found for this search.</string>
+    <string name="conversations_invite_to_quata">Invite to Qüata</string>
+    <string name="conversations_invite_action">Invite</string>
+    <string name="conversations_invite_allow">Allow</string>
+    <string name="conversations_invite_contacts_permission">Allow contact access to see who you can invite.</string>
+    <string name="conversations_invite_message">I\'d like to talk with you on Qüata. Download it here: https://play.google.com/store/apps/details?id=com.quata</string>
+    <string name="conversations_invite_chooser_title">Invite to Qüata</string>
+    <string name="conversations_invite_channel_title">Invite %1$s with</string>
+    <string name="conversations_invite_channel_sms">Text message (SMS)</string>
+    <string name="conversations_invite_channel_other">Another app</string>
+    <string name="conversations_invite_text_to_share">Text to share</string>
+    <string name="conversations_invite_choose_app_for">Choose an app to invite %1$s</string>
+    <string name="conversations_invite_copy_message">Copy text</string>
     <string name="conversation_message">Message</string>
     <string name="conversation_member_count">%1$d members</string>
     <string name="conversation_reactivate_notifications">Reactivate notifications</string>

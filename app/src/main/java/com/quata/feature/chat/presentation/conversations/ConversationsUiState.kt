@@ -4,6 +4,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatSyncStatus
 
 data class ConversationsUiState(
@@ -17,6 +18,9 @@ data class ConversationsUiState(
     val isNewConversationPickerOpen: Boolean = false,
     val candidateQuery: String = "",
     val conversationCandidates: List<ChatConversationCandidate> = emptyList(),
+    val inviteContacts: List<ChatInviteContact> = emptyList(),
+    val isInviteContactsLoading: Boolean = false,
+    val inviteContactsError: String? = null,
     val isCandidateInitialLoading: Boolean = false,
     val isCandidatePageLoading: Boolean = false,
     val candidateHasMore: Boolean = true,

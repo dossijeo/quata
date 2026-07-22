@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,15 +69,26 @@ fun QuataCard(
 }
 
 @Composable
-fun AvatarLetter(name: String, modifier: Modifier = Modifier.size(44.dp)) {
-    val template = quataTheme()
-    val letter = name.trim().firstOrNull()?.uppercase() ?: "Q"
-    Box(
+fun AvatarLetter(
+    name: String,
+    modifier: Modifier = Modifier.size(44.dp),
+    stableId: String = name
+) {
+    val initials = avatarInitials(name)
+    BoxWithConstraints(
         modifier = modifier
-            .background(template.colors.accent, CircleShape),
+            .background(Color(avatarFallbackColorArgb(stableId)), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text(letter, fontWeight = FontWeight.Black, fontSize = template.textSizes.title, color = template.colors.accentContent)
+        val relativeFontSize = with(LocalDensity.current) {
+            (minOf(maxWidth, maxHeight) * if (initials.length > 1) 0.34f else 0.46f).toSp()
+        }
+        Text(
+            initials,
+            fontWeight = FontWeight.Black,
+            fontSize = relativeFontSize,
+            color = Color.White
+        )
     }
 }
 
@@ -97,7 +110,7 @@ fun AvatarImage(
     }
     Box(modifier = modifier) {
         if (avatarUrl.isNullOrBlank()) {
-            AvatarLetter(name, Modifier.fillMaxSize())
+            AvatarLetter(name, Modifier.fillMaxSize(), stableId = profileId ?: name)
         } else {
             AsyncImage(
                 model = imageModel,

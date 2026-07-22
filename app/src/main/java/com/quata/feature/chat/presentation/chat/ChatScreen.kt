@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import android.content.Context
+import android.content.ClipData
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -119,7 +120,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -216,7 +218,7 @@ fun ChatScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val screenScope = rememberCoroutineScope()
@@ -540,7 +542,13 @@ fun ChatScreen(
                             selectedMessage = selectedMessage,
                             onClearSelection = { viewModel.onEvent(ChatUiEvent.MessageSelected(null)) },
                             onCopySelected = {
-                                selectedMessage?.let { clipboard.setText(AnnotatedString(it.text)) }
+                                selectedMessage?.let { message ->
+                                    screenScope.launch {
+                                        clipboard.setClipEntry(
+                                            ClipEntry(ClipData.newPlainText("Qüata", message.text))
+                                        )
+                                    }
+                                }
                                 Toast.makeText(context, context.getString(R.string.conversation_text_copied), Toast.LENGTH_SHORT).show()
                                 viewModel.onEvent(ChatUiEvent.MessageSelected(null))
                             },
