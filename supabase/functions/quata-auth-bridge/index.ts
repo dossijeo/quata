@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
-  action?: "login" | "recovery_question" | "reset_password";
+  action?: "login" | "web_login" | "recovery_question" | "reset_password";
   profile_id?: string;
   country_code?: string;
   phone?: string;
@@ -16,6 +16,7 @@ type BridgeRequest = {
   secret_answer?: string;
   new_password?: string;
   reactivate_deactivated?: boolean;
+  client_instance_id?: string;
 };
 
 type CommunityProfile = {
@@ -229,11 +230,51 @@ async function handleRequest(req: Request): Promise<Response> {
     .eq("id", profile.id);
   if (linkProfileError) throw linkProfileError;
 
-  return jsonResponse({
+  const response: Record<string, unknown> = {
     profile: publicProfile(profile, authUserId),
     session: signInData.session,
     user: signInData.user,
-  });
+  };
+  if (action === "web_login") {
+    const clientInstanceId = payload.client_instance_id?.trim() || "";
+    if (clientInstanceId.length < 8 || clientInstanceId.length > 200) {
+      return jsonResponse({ error: "invalid_client_instance_id" }, 400);
+    }
+    response.client_type = "web";
+    response.web_session = await createWebClientSession(admin, {
+      profileId: profile.id,
+      authUserId,
+      clientInstanceId,
+    });
+  }
+  return jsonResponse(response);
+}
+
+async function createWebClientSession(
+  admin: ReturnType<typeof createClient>,
+  params: { profileId: string; authUserId: string; clientInstanceId: string },
+) {
+  const token = randomBase64Url(32);
+  const tokenHash = await sha256(token);
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from("web_client_sessions")
+    .upsert(
+      {
+        profile_id: params.profileId,
+        auth_user_id: params.authUserId,
+        client_instance_id: params.clientInstanceId,
+        token_hash: tokenHash,
+        updated_at: now,
+        last_seen_at: now,
+        revoked_at: null,
+      },
+      { onConflict: "profile_id,client_instance_id" },
+    )
+    .select("id")
+    .single();
+  if (error) throw error;
+  return { id: data.id, token };
 }
 
 async function handlePasswordReset(params: {
@@ -388,6 +429,13 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function randomBase64Url(byteLength: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 async function supabaseAuthPassword(profileId: string, legacyPassword: string, serviceRoleKey: string): Promise<string> {

@@ -1,5 +1,7 @@
 ﻿import { createClient } from "npm:@supabase/supabase-js@2";
 
+import webpush from "npm:web-push@3.6.7";
+
 type ServiceAccount = {
   project_id: string;
   client_email: string;
@@ -47,6 +49,14 @@ type PushToken = {
   created_at: string | null;
   updated_at: string | null;
   last_seen_at: string | null;
+};
+
+type WebPushSubscription = {
+  id: string;
+  profile_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth_secret: string;
 };
 
 type ChatParticipantPushRow = {
@@ -200,71 +210,142 @@ async function dispatchChatPush(messageId: number) {
     .filter(Boolean);
   if (recipientIds.length === 0) return { result: true, recipients: 0, sent: 0 };
 
-  const { data: tokens, error: tokensError } = await admin
-    .from("push_tokens")
-    .select("id,user_id,token,created_at,updated_at,last_seen_at")
-    .in("user_id", recipientIds)
-    .is("disabled_at", null);
+  const [
+    { data: tokens, error: tokensError },
+    { data: webSubscriptions, error: webSubscriptionsError },
+  ] = await Promise.all([
+    admin
+      .from("push_tokens")
+      .select("id,user_id,token,created_at,updated_at,last_seen_at")
+      .in("user_id", recipientIds)
+      .is("disabled_at", null),
+    admin
+      .from("web_push_subscriptions")
+      .select("id,profile_id,endpoint,p256dh,auth_secret")
+      .in("profile_id", recipientIds)
+      .is("disabled_at", null),
+  ]);
   if (tokensError) throw tokensError;
+  if (webSubscriptionsError) throw webSubscriptionsError;
 
-  const pushTokens = latestPushTokensByUser(((tokens ?? []) as PushToken[]).filter((row) => row.token));
-  if (pushTokens.length === 0) return { result: true, recipients: recipientIds.length, sent: 0 };
+  const pushTokens = ((tokens ?? []) as PushToken[]).filter((row) => row.token);
+  const browserSubscriptions = ((webSubscriptions ?? []) as WebPushSubscription[])
+    .filter((row) => row.endpoint && row.p256dh && row.auth_secret);
+  if (pushTokens.length === 0 && browserSubscriptions.length === 0) {
+    return {
+      result: true,
+      recipients: recipientIds.length,
+      android_tokens: 0,
+      web_subscriptions: 0,
+      sent: 0,
+    };
+  }
 
-  const serviceAccount = firebaseServiceAccount();
-  const accessToken = await firebaseAccessToken(serviceAccount);
   const title = notificationTitle(thread as ChatThread, sender as CommunityProfile);
   const body = notificationBody(chatMessage, messageAttachments);
   const bodyKey = notificationBodyKey(chatMessage, messageAttachments);
-  let sent = 0;
-  let skipped = 0;
+  let androidSent = 0;
+  let androidSkipped = 0;
+  let webSent = 0;
+  let webSkipped = 0;
 
-  for (const pushToken of pushTokens) {
-    const inserted = await reserveDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id);
-    if (!inserted) {
-      skipped += 1;
-      continue;
-    }
-    const response = await sendFcmMessage(serviceAccount.project_id, accessToken, pushToken.token, {
-      title,
-      body,
-      bodyKey,
-      threadId: String(chatMessage.thread_id),
-      conversationId: `sb:${chatMessage.thread_id}`,
-      messageId: String(chatMessage.id),
-      recipientProfileId: pushToken.user_id,
-    });
-    if (response.ok) {
-      sent += 1;
-      await markDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id, "sent", null);
-    } else {
-      const errorText = await response.text();
-      await markDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id, "error", errorText.slice(0, 800));
-      if (isPermanentFcmTokenError(errorText)) {
-        await disablePushToken(admin, pushToken.id, errorText.slice(0, 800));
+  if (pushTokens.length > 0) {
+    const serviceAccount = firebaseServiceAccount();
+    const accessToken = await firebaseAccessToken(serviceAccount);
+    for (const pushToken of pushTokens) {
+      const inserted = await reserveDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id);
+      if (!inserted) {
+        androidSkipped += 1;
+        continue;
+      }
+      const response = await sendFcmMessage(serviceAccount.project_id, accessToken, pushToken.token, {
+        title,
+        body,
+        bodyKey,
+        threadId: String(chatMessage.thread_id),
+        conversationId: `sb:${chatMessage.thread_id}`,
+        messageId: String(chatMessage.id),
+        recipientProfileId: pushToken.user_id,
+      });
+      if (response.ok) {
+        androidSent += 1;
+        await markDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id, "sent", null);
+      } else {
+        const errorText = await response.text();
+        await markDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id, "error", errorText.slice(0, 800));
+        if (isPermanentFcmTokenError(errorText)) {
+          await disablePushToken(admin, pushToken.id, errorText.slice(0, 800));
+        }
       }
     }
   }
 
-  return { result: true, recipients: recipientIds.length, tokens: pushTokens.length, sent, skipped };
-}
-
-function latestPushTokensByUser(tokens: PushToken[]): PushToken[] {
-  const latest = new Map<string, PushToken>();
-  for (const token of tokens) {
-    const current = latest.get(token.user_id);
-    if (!current || pushTokenSortTime(token) > pushTokenSortTime(current)) {
-      latest.set(token.user_id, token);
+  if (browserSubscriptions.length > 0) {
+    configureWebPush();
+    const webPayload = {
+      type: "chat_message",
+      title,
+      body,
+      body_key: bodyKey ?? "",
+      thread_id: String(chatMessage.thread_id),
+      conversation_id: `sb:${chatMessage.thread_id}`,
+      message_id: String(chatMessage.id),
+    };
+    for (const subscription of browserSubscriptions) {
+      const inserted = await reserveWebDelivery(
+        admin,
+        chatMessage.id,
+        subscription.profile_id,
+        subscription.id,
+      );
+      if (!inserted) {
+        webSkipped += 1;
+        continue;
+      }
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth_secret,
+            },
+          },
+          JSON.stringify({
+            ...webPayload,
+            recipient_profile_id: subscription.profile_id,
+          }),
+          { TTL: 86_400, urgency: "high" },
+        );
+        webSent += 1;
+        await markWebDelivery(admin, chatMessage.id, subscription.id, "sent", null);
+      } catch (error) {
+        const errorText = webPushErrorText(error);
+        await markWebDelivery(
+          admin,
+          chatMessage.id,
+          subscription.id,
+          "error",
+          errorText.slice(0, 800),
+        );
+        if (isPermanentWebPushError(error)) {
+          await disableWebPushSubscription(admin, subscription.id, errorText.slice(0, 800));
+        }
+      }
     }
   }
-  return Array.from(latest.values());
-}
 
-function pushTokenSortTime(token: PushToken): number {
-  for (const value of [token.last_seen_at, token.updated_at, token.created_at]) {
-    const time = Date.parse(value ?? "");
-    if (Number.isFinite(time)) return time;
-  }
-  return 0;
+  return {
+    result: true,
+    recipients: recipientIds.length,
+    android_tokens: pushTokens.length,
+    android_sent: androidSent,
+    android_skipped: androidSkipped,
+    web_subscriptions: browserSubscriptions.length,
+    web_sent: webSent,
+    web_skipped: webSkipped,
+    sent: androidSent + webSent,
+  };
 }
 
 async function waitForMessageAttachments(
@@ -322,6 +403,22 @@ async function disablePushToken(
     .from("push_tokens")
     .update({ disabled_at: new Date().toISOString(), last_error_text: errorText })
     .eq("id", tokenId);
+  if (error) throw error;
+}
+
+async function disableWebPushSubscription(
+  admin: ReturnType<typeof createClient>,
+  subscriptionId: string,
+  errorText: string,
+) {
+  const { error } = await admin
+    .from("web_push_subscriptions")
+    .update({
+      disabled_at: new Date().toISOString(),
+      last_error_text: errorText,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", subscriptionId);
   if (error) throw error;
 }
 
@@ -395,6 +492,69 @@ async function markDelivery(
     .eq("message_id", messageId)
     .eq("profile_id", profileId)
     .eq("push_token_id", tokenId);
+  if (error) throw error;
+}
+
+async function reserveWebDelivery(
+  admin: ReturnType<typeof createClient>,
+  messageId: number,
+  profileId: string,
+  subscriptionId: string,
+): Promise<boolean> {
+  const { data: existing, error: existingError } = await admin
+    .from("web_push_delivery_log")
+    .select("status,created_at")
+    .eq("message_id", messageId)
+    .eq("subscription_id", subscriptionId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.status === "sent") return false;
+  if (existing) {
+    const reservedAt = Date.parse(existing.created_at ?? "");
+    const isStaleReservation = existing.status === "reserved" &&
+      (!Number.isFinite(reservedAt) || Date.now() - reservedAt >= 60_000);
+    if (existing.status !== "error" && !isStaleReservation) return false;
+    const { error: retryError } = await admin
+      .from("web_push_delivery_log")
+      .update({
+        status: "reserved",
+        error_text: null,
+        sent_at: null,
+        created_at: new Date().toISOString(),
+      })
+      .eq("message_id", messageId)
+      .eq("subscription_id", subscriptionId)
+      .neq("status", "sent");
+    if (retryError) throw retryError;
+    return true;
+  }
+  const { error } = await admin.from("web_push_delivery_log").insert({
+    message_id: messageId,
+    profile_id: profileId,
+    subscription_id: subscriptionId,
+    status: "reserved",
+  });
+  if (!error) return true;
+  if (error.code === "23505") return false;
+  throw error;
+}
+
+async function markWebDelivery(
+  admin: ReturnType<typeof createClient>,
+  messageId: number,
+  subscriptionId: string,
+  status: string,
+  errorText: string | null,
+) {
+  const { error } = await admin
+    .from("web_push_delivery_log")
+    .update({
+      status,
+      error_text: errorText,
+      sent_at: status === "sent" ? new Date().toISOString() : null,
+    })
+    .eq("message_id", messageId)
+    .eq("subscription_id", subscriptionId);
   if (error) throw error;
 }
 
@@ -483,6 +643,29 @@ function normalizeExtension(value: string | null | undefined): string | null {
 
 function displayName(profile: CommunityProfile): string {
   return profile.display_name?.trim() || profile.nombre?.trim() || "Q\u00fcata";
+}
+
+function configureWebPush() {
+  webpush.setVapidDetails(
+    requireEnv("WEB_PUSH_VAPID_SUBJECT"),
+    requireEnv("WEB_PUSH_VAPID_PUBLIC_KEY"),
+    requireEnv("WEB_PUSH_VAPID_PRIVATE_KEY"),
+  );
+}
+
+function webPushErrorText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const details = error as Error & { statusCode?: number; body?: string };
+  return JSON.stringify({
+    message: details.message,
+    statusCode: details.statusCode,
+    body: details.body,
+  });
+}
+
+function isPermanentWebPushError(error: unknown): boolean {
+  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+  return statusCode === 404 || statusCode === 410;
 }
 
 function firebaseServiceAccount(): ServiceAccount {

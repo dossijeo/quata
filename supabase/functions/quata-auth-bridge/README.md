@@ -37,6 +37,26 @@ supabase secrets set QUATA_AUTH_BRIDGE_API_KEY="sb_publishable_..."
 
 Si `QUATA_AUTH_BRIDGE_API_KEY` existe, la funcion exigira que el request envie esa key en `apikey`, `Authorization: Bearer ...` o `x-quata-api-key`.
 
+## Login web y Web Push
+
+Los clientes Android mantienen `action: "login"` sin cambios. Un cliente web
+debe usar `action: "web_login"` y enviar ademas un `client_instance_id`
+persistente de entre 8 y 200 caracteres. La respuesta conserva
+`profile/session/user` y anade:
+
+```json
+{
+  "client_type": "web",
+  "web_session": {
+    "id": "uuid",
+    "token": "token opaco"
+  }
+}
+```
+
+La integracion completa, incluido registro del service worker, suscripcion y
+logout aislado, esta documentada en `supabase/WEB_PUSH_INTEGRATION.md`.
+
 ## Deploy
 
 La funcion debe poder ejecutarse antes de que el usuario tenga JWT, asi que se despliega sin verificacion JWT de Supabase. Esto queda fijado en `supabase/config.toml`; tambien puedes pasar el flag explicitamente:
