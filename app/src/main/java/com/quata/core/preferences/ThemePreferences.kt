@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
-class ThemePreferences(context: Context) {
+class ThemePreferences(context: Context) : ThemeModeStorage {
     private val prefs = context.getSharedPreferences("quata_theme", Context.MODE_PRIVATE)
     private val preferenceChanges = MutableStateFlow(0)
 
@@ -25,6 +25,20 @@ class ThemePreferences(context: Context) {
         prefs.edit()
             .putString(KEY_THEME_MODE, mode.storageValue)
             .apply()
+        preferenceChanges.value += 1
+    }
+
+    override fun observeStoredThemeMode(): Flow<String> =
+        preferenceChanges
+            .map { storedThemeMode() }
+            .onStart { emit(storedThemeMode()) }
+            .distinctUntilChanged()
+
+    override fun storedThemeMode(): String =
+        prefs.getString(KEY_THEME_MODE, QuataThemeMode.System.storageValue) ?: QuataThemeMode.System.storageValue
+
+    override fun setStoredThemeMode(value: String) {
+        prefs.edit().putString(KEY_THEME_MODE, value).apply()
         preferenceChanges.value += 1
     }
 

@@ -2,15 +2,9 @@ package com.quata.core.moderation
 
 import android.content.Context
 import androidx.core.content.FileProvider
-import com.quata.core.localization.QuataLanguage
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.documentreader.QuataDocumentReader
 import java.io.File
-
-enum class LegalDocument {
-    Privacy,
-    ChildSafety
-}
 
 /** Opens the bundled, language-specific legal documents with the in-app document reader. */
 object LegalDocuments {
@@ -20,7 +14,7 @@ object LegalDocuments {
 
     fun open(context: Context, document: LegalDocument, isDarkMode: Boolean) {
         runCatching {
-            val assetName = assetNameFor(document, QuataLanguageManager.currentLanguage)
+            val assetName = document.assetName(QuataLanguageManager.currentLanguage)
             val localFile = File(context.cacheDir, "legal_documents/$assetName")
             localFile.parentFile?.mkdirs()
             context.assets.open("$AssetDirectory/$assetName").use { input ->
@@ -39,18 +33,5 @@ object LegalDocuments {
                 isDarkMode = isDarkMode
             )
         }
-    }
-
-    private fun assetNameFor(document: LegalDocument, language: QuataLanguage): String {
-        val languageCode = when (language) {
-            QuataLanguage.Spanish -> "es"
-            QuataLanguage.French -> "fr"
-            QuataLanguage.English -> "en"
-        }
-        val prefix = when (document) {
-            LegalDocument.Privacy -> "privacy"
-            LegalDocument.ChildSafety -> "child_safety"
-        }
-        return "${prefix}_$languageCode.docx"
     }
 }

@@ -7,8 +7,11 @@ import android.graphics.RectF
 import android.text.TextPaint
 import com.quata.core.captions.core.CaptionAnimationEngine
 import com.quata.core.captions.core.CaptionDocument
-import com.quata.core.captions.core.CaptionLayoutEngine
+import com.quata.core.captions.core.CaptionFontMetrics
+import com.quata.core.captions.core.CaptionLayoutCalculator
+import com.quata.core.captions.core.CaptionLayoutTemplate
 import com.quata.core.captions.core.CaptionSegment
+import com.quata.core.captions.core.CaptionTextMeasurer
 import com.quata.core.captions.core.WordTiming
 import com.quata.core.captions.core.isActiveAt
 import com.quata.core.captions.core.typewriterText
@@ -17,7 +20,7 @@ import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.captions.templates.CaptionTemplates
 
 class CaptionBitmapRenderer(
-    private val layoutEngine: CaptionLayoutEngine = CaptionLayoutEngine(),
+    private val layoutEngine: CaptionLayoutCalculator = CaptionLayoutCalculator(),
     private val animationEngine: CaptionAnimationEngine = CaptionAnimationEngine()
 ) {
     fun renderFrame(
@@ -52,7 +55,17 @@ class CaptionBitmapRenderer(
             return
         }
 
-        val layout = layoutEngine.layout(segment, template, textPaint, width, height)
+        val layout = layoutEngine.layout(
+            segment = segment,
+            template = CaptionLayoutTemplate(template.maxWidthRatio, template.maxLines, template.verticalPosition, template.lineHeightMultiplier, template.uppercase),
+            measurer = object : CaptionTextMeasurer {
+                override fun measureText(text: String): Float = textPaint.measureText(text)
+                override val fontMetrics: CaptionFontMetrics
+                    get() = textPaint.fontMetrics.let { CaptionFontMetrics(it.ascent, it.descent) }
+            },
+            canvasWidth = width,
+            canvasHeight = height,
+        )
         if (layout.words.isEmpty()) return
         renderSegmentBackground(canvas, template, layout.words.minOf { it.x }, layout.words.maxOf { it.x + it.width }, layout.words.minOf { it.y - layout.lineHeight }, layout.words.maxOf { it.y }, width)
 

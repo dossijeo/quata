@@ -54,7 +54,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -90,20 +89,21 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.PhoneInputSection
+import com.quata.core.ui.components.QuataDropdownField
+import com.quata.core.ui.components.QuataPanel
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
+import com.quata.core.ui.components.QuataSavingButton
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.QuataTextField
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
-
-private enum class EmergencyTab {
-    Contacts,
-    Message
-}
+import com.quata.feature.settings.presentation.AppearanceSettingsControls
+import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 
 private enum class ProfileAccountPage {
     Overview,
@@ -126,7 +126,7 @@ fun ProfileScreen(
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     onProfileSaved: () -> Unit,
-    viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory(repository))
+    viewModel: ProfileAndroidViewModel = viewModel(factory = ProfileAndroidViewModel.Factory(repository))
 ) {
     val template = quataTheme()
     val context = LocalContext.current
@@ -217,56 +217,23 @@ fun ProfileScreen(
             ) {
                 when (accountPage) {
                     ProfileAccountPage.Overview -> {
-                    ProfilePanel(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.profile_touch_flow_setting),
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(
-                                checked = touchFlowEnabled,
-                                onCheckedChange = onTouchFlowEnabledChange
-                            )
-                        }
+                    QuataPanel(contentPadding = PaddingValues(14.dp)) {
+                        AppearanceSettingsControls(
+                            touchFlowEnabled = touchFlowEnabled,
+                            themeMode = themeMode,
+                            strings = AppearanceSettingsStrings(
+                                touchFlow = stringResource(R.string.profile_touch_flow_setting),
+                                theme = stringResource(R.string.profile_theme_setting),
+                                system = stringResource(R.string.theme_mode_system),
+                                dark = stringResource(R.string.theme_mode_dark),
+                                light = stringResource(R.string.theme_mode_light)
+                            ),
+                            onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+                            onThemeModeChange = onThemeModeChange
+                        )
                     }
 
-                    ProfilePanel(contentPadding = PaddingValues(14.dp)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = stringResource(R.string.profile_theme_setting),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                ThemeModeButton(
-                                    text = stringResource(R.string.theme_mode_system),
-                                    selected = themeMode == QuataThemeMode.System,
-                                    onClick = { onThemeModeChange(QuataThemeMode.System) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                ThemeModeButton(
-                                    text = stringResource(R.string.theme_mode_dark),
-                                    selected = themeMode == QuataThemeMode.Dark,
-                                    onClick = { onThemeModeChange(QuataThemeMode.Dark) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                ThemeModeButton(
-                                    text = stringResource(R.string.theme_mode_light),
-                                    selected = themeMode == QuataThemeMode.Light,
-                                    onClick = { onThemeModeChange(QuataThemeMode.Light) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-
-                    ProfilePanel(contentPadding = PaddingValues(12.dp)) {
+                    QuataPanel(contentPadding = PaddingValues(12.dp)) {
                         val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             AvatarImage(
@@ -365,8 +332,10 @@ fun ProfileScreen(
                         Text("${profile.emergencyContactIds.size}/5")
                     }
                     Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
-                    ProfileSaveButton(
+                    QuataSavingButton(
                         isSaving = state.isSaving,
+                        savingText = stringResource(R.string.common_saving),
+                        actionText = stringResource(R.string.common_save_changes),
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
                     )
                     OutlinedButton(
@@ -399,12 +368,12 @@ fun ProfileScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    ProfileTextField(
+                    QuataTextField(
                         value = profile.displayName,
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
                         label = stringResource(R.string.auth_name)
                     )
-                    ProfileTextField(
+                    QuataTextField(
                         value = profile.neighborhood,
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
                         label = stringResource(R.string.profile_neighborhood)
@@ -415,29 +384,32 @@ fun ProfileScreen(
                         onPrefixChange = { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) },
                         phone = profile.phone,
                         onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
-                        phoneLabel = stringResource(R.string.profile_phone)
+                        phoneLabel = stringResource(R.string.profile_phone),
+                        searchPlaceholder = stringResource(R.string.profile_search_prefix)
                     )
-                    ProfileTextField(
+                    QuataTextField(
                         value = state.newPassword,
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.NewPasswordChanged(it)) },
                         label = stringResource(R.string.profile_new_password),
                         isPassword = true
                     )
-                    DropdownField(
+                    QuataDropdownField(
                         value = profile.selectedSecretQuestion,
                         options = state.secretQuestions,
                         optionLabel = { it.label },
                         onSelected = { viewModel.onEvent(ProfileUiEvent.SecretQuestionChanged(it.value)) },
                         displayText = state.secretQuestions.firstOrNull { it.value == profile.selectedSecretQuestion }?.label.orEmpty()
                     )
-                    ProfileTextField(
+                    QuataTextField(
                         value = state.newSecretAnswer,
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
                         label = stringResource(R.string.profile_new_secret_answer)
                     )
                     Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
-                    ProfileSaveButton(
+                    QuataSavingButton(
                         isSaving = state.isSaving,
+                        savingText = stringResource(R.string.common_saving),
+                        actionText = stringResource(R.string.common_save_changes),
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
                     )
                     }
@@ -529,162 +501,6 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfilePanel(
-    contentPadding: PaddingValues = PaddingValues(14.dp),
-    content: @Composable () -> Unit
-) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface.copy(alpha = 0.82f),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.divider.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
-    ) {
-        Box(Modifier.padding(contentPadding)) {
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ProfileSaveButton(
-    isSaving: Boolean,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        enabled = !isSaving,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .compactButtonMinSize(),
-        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
-        shape = RoundedCornerShape(9.dp),
-        contentPadding = CompactButtonContentPadding
-    ) {
-        Text(
-            if (isSaving) stringResource(R.string.common_saving) else stringResource(R.string.common_save_changes),
-            fontWeight = FontWeight.ExtraBold
-        )
-    }
-}
-
-@Composable
-private fun ThemeModeButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Surface(
-        color = if (selected) template.colors.accent else template.colors.surfaceAlt,
-        contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
-        shape = RoundedCornerShape(14.dp),
-        modifier = modifier
-            .height(40.dp)
-            .border(
-                width = 1.dp,
-                color = if (selected) template.colors.accent else template.colors.divider,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clickable(onClick = onClick)
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
-            Text(
-                text = text,
-                fontSize = template.textSizes.caption,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProfileTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    isPassword: Boolean = false
-) {
-    val template = quataTheme()
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = { Text(label) },
-        singleLine = !label.contains("respuesta", ignoreCase = true),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(CompactTextFieldHeight),
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = template.colors.surfaceAlt,
-            unfocusedContainerColor = template.colors.surfaceAlt,
-            focusedBorderColor = template.colors.accent,
-            unfocusedBorderColor = template.colors.inputBorder,
-            cursorColor = template.colors.accent
-        )
-    )
-}
-
-@Composable
-private fun <T> DropdownField(
-    value: String,
-    options: List<T>,
-    optionLabel: (T) -> String,
-    onSelected: (T) -> Unit,
-    displayText: String,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    var expanded by remember { mutableStateOf(false) }
-    Box(modifier) {
-        Surface(
-            color = Color.Transparent,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(CompactDropdownHeight)
-                .border(1.dp, template.colors.inputBorder, RoundedCornerShape(18.dp))
-                .clickable { expanded = true }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = displayText.ifBlank { value },
-                    color = template.colors.textPrimary,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                CompactIcon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 320.dp)
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
 @OptIn(ExperimentalFoundationApi::class)
 fun EmergencyContactsDialog(
     layoutPadding: PaddingValues = PaddingValues(),
@@ -698,11 +514,19 @@ fun EmergencyContactsDialog(
     onSave: () -> Unit
 ) {
     val template = quataTheme()
+    val headerStrings = EmergencyContactsHeaderStrings(
+        back = stringResource(R.string.common_back),
+        sos = stringResource(R.string.common_sos),
+        title = stringResource(R.string.emergency_contacts_title),
+        description = stringResource(R.string.emergency_contacts_description),
+        contactsTab = stringResource(R.string.emergency_contacts_tab),
+        messageTab = stringResource(R.string.emergency_message_tab)
+    )
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val bottomActionHeight = 54.dp
     val bottomActionOffset = if (isLandscapeLayout) 0.dp else 12.dp
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedTab by rememberSaveable { mutableStateOf(EmergencyTab.Contacts) }
+    var selectedTab by rememberSaveable { mutableStateOf(EmergencyContactsTab.Contacts) }
     // These states are used only while the IME reduces the available viewport.
     // They preserve the unchanged layout and position at rest.
     val messageScrollState = rememberScrollState()
@@ -716,22 +540,15 @@ fun EmergencyContactsDialog(
         }
     }
     LaunchedEffect(imeBottom, selectedTab) {
-        if (imeBottom == 0 && selectedTab == EmergencyTab.Contacts) {
+        if (imeBottom == 0 && selectedTab == EmergencyContactsTab.Contacts) {
             contactsListState.scrollToItem(0)
         }
     }
-    val visibleUsers = candidates
-        .filter { user ->
-            query.isBlank() ||
-                user.displayName.contains(query, ignoreCase = true) ||
-                user.email.contains(query, ignoreCase = true) ||
-                user.neighborhood.contains(query, ignoreCase = true) ||
-                user.phone.contains(query, ignoreCase = true)
-        }
-        .sortedWith(
-            compareByDescending<EmergencyContactCandidate> { it.id in selectedIds }
-                .thenBy { it.displayName.lowercase() }
-        )
+    val visibleUsers = filterEmergencyContactCandidates(
+        candidates = candidates,
+        selectedIds = selectedIds.toSet(),
+        query = query
+    )
 
     BackHandler(enabled = true, onBack = onDismiss)
     QuataScreen(padding = layoutPadding) {
@@ -825,7 +642,7 @@ fun EmergencyContactsDialog(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                ProfilePanel(contentPadding = PaddingValues(12.dp)) {
+                                QuataPanel(contentPadding = PaddingValues(12.dp)) {
                                     Column {
                                         Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
                                         Spacer(Modifier.height(6.dp))
@@ -857,7 +674,7 @@ fun EmergencyContactsDialog(
                 } else {
                     Column(Modifier.fillMaxSize()) {
                     when (selectedTab) {
-                        EmergencyTab.Contacts -> LazyColumn(
+                        EmergencyContactsTab.Contacts -> LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
@@ -866,8 +683,9 @@ fun EmergencyContactsDialog(
                         ) {
                             item {
                                 if (imeBottom == 0) {
-                                    EmergencyContactsPortraitHeader(
+                                    EmergencyContactsHeaderContent(
                                         selectedTab = selectedTab,
+                                        strings = headerStrings,
                                         onTabSelected = { selectedTab = it },
                                         onDismiss = onDismiss
                                     )
@@ -898,21 +716,22 @@ fun EmergencyContactsDialog(
                                 )
                             }
                         }
-                        EmergencyTab.Message -> Column(
+                        EmergencyContactsTab.Message -> Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
                                 .verticalScroll(messageScrollState)
                         ) {
                             if (imeBottom == 0) {
-                                EmergencyContactsPortraitHeader(
+                                EmergencyContactsHeaderContent(
                                     selectedTab = selectedTab,
+                                    strings = headerStrings,
                                     onTabSelected = { selectedTab = it },
                                     onDismiss = onDismiss
                                 )
                                 Spacer(Modifier.height(10.dp))
                             }
-                            ProfilePanel {
+                            QuataPanel {
                                 Column {
                                     Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
                                     Spacer(Modifier.height(8.dp))
@@ -960,114 +779,26 @@ fun EmergencyContactsDialog(
 }
 
 @Composable
-private fun EmergencyContactsPortraitHeader(
-    selectedTab: EmergencyTab,
-    onTabSelected: (EmergencyTab) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val template = quataTheme()
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        CompactIconButton(onClick = onDismiss) {
-            CompactIcon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.common_back)
-            )
-        }
-        Spacer(Modifier.width(6.dp))
-        Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
-            Text(
-                stringResource(R.string.common_sos),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            stringResource(R.string.emergency_contacts_title),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f)
-        )
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(
-        stringResource(R.string.emergency_contacts_description),
-        color = template.colors.textSecondary,
-        lineHeight = 22.sp
-    )
-    Spacer(Modifier.height(14.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        EmergencyTabButton(
-            text = stringResource(R.string.emergency_contacts_tab),
-            selected = selectedTab == EmergencyTab.Contacts,
-            onClick = { onTabSelected(EmergencyTab.Contacts) },
-            modifier = Modifier.weight(1f)
-        )
-        EmergencyTabButton(
-            text = stringResource(R.string.emergency_message_tab),
-            selected = selectedTab == EmergencyTab.Message,
-            onClick = { onTabSelected(EmergencyTab.Message) },
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun EmergencyTabButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Surface(
-        color = if (selected) template.colors.accent else template.colors.surfaceAlt,
-        contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier
-            .height(48.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-@Composable
 private fun EmergencyUserRow(
     user: EmergencyContactCandidate,
     selected: Boolean,
     onToggle: () -> Unit
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    EmergencyUserRowContent(
+        user = user,
+        selected = selected,
+        addLabel = stringResource(R.string.common_add),
+        removeLabel = stringResource(R.string.common_remove),
+        avatar = {
             AvatarImage(
                 name = user.displayName,
                 avatarUrl = null,
                 profileId = user.id,
                 modifier = Modifier.size(46.dp)
             )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(user.neighborhood, color = template.colors.textSecondary, maxLines = 1)
-            }
-            OutlinedButton(onClick = onToggle, shape = RoundedCornerShape(14.dp)) {
-                Text(if (selected) stringResource(R.string.common_remove) else stringResource(R.string.common_add))
-            }
-        }
-    }
+        },
+        onToggle = onToggle
+    )
 }
 
 private fun Context.hasCapturePermissions(): Boolean =

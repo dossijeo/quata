@@ -92,11 +92,6 @@ import kotlin.math.roundToInt
 
 const val QuataEditedImageFilePrefix = "quata-edited-image-"
 
-enum class QuataImageEditorMode {
-    Post,
-    Avatar
-}
-
 @Composable
 fun QuataImageEditorDialog(
     imageUri: Uri,
@@ -142,6 +137,7 @@ fun QuataImageEditorDialog(
         title = stringResource(R.string.video_editor_title),
         showTitle = !isLandscapeLayout,
         onBack = onDismiss,
+        backContentDescription = stringResource(R.string.video_editor_back),
         backEnabled = !isSaving,
         bottomPadding = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir,
         actions = {
@@ -611,13 +607,6 @@ private data class ImageCropGeometry(
     val maxShiftY: Float
 )
 
-private data class ImageEditorOutputSpec(
-    val width: Int,
-    val height: Int
-) {
-    val aspectRatio: Float = width.toFloat() / height.toFloat()
-}
-
 private fun Bitmap.cropGeometryForAspect(
     zoom: Float,
     pan: Offset,
@@ -779,8 +768,6 @@ private val ImageGpsTags = listOf(
     ExifInterface.TAG_GPS_TIMESTAMP
 )
 
-private val ImageEditorPostOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1920)
-private val ImageEditorAvatarOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1080)
 private const val ImageEditorDecodeMaxSize = 2160
 private const val ImageEditorJpegQuality = 92
 private val ImageEditorBottomAir = 56.dp

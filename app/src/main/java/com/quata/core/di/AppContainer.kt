@@ -6,6 +6,7 @@ import com.quata.core.camera.CameraCaptureManager
 import com.quata.core.camera.ImageCompressor
 import com.quata.core.camera.ImagePickerManager
 import com.quata.core.common.AppDispatchers
+import com.quata.core.config.AppConfig
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.moderation.ModerationRepository
 import com.quata.core.moderation.UgcTermsAcceptanceStore
@@ -45,7 +46,7 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
     val sessionPreferences = SessionPreferences(appContext)
-    val sessionManager = SessionManager(sessionPreferences)
+    val sessionManager = SessionManager(sessionPreferences, useMockBackend = AppConfig.USE_MOCK_BACKEND)
     val networkModule = NetworkModule(appContext, sessionManager)
     val supabaseCommunityApi = networkModule.supabaseCommunityApi
     val supabaseRealtimeClient = networkModule.supabaseRealtimeClient

@@ -201,7 +201,7 @@ fun CreatePostScreen(
     onPostCreated: (String?) -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
     onUploadStateChange: (Boolean) -> Unit = {},
-    viewModel: CreatePostViewModel = viewModel(factory = CreatePostViewModel.factory(repository))
+    viewModel: CreatePostAndroidViewModel = viewModel(factory = CreatePostAndroidViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val template = quataTheme()
@@ -484,8 +484,13 @@ fun CreatePostScreen(
                 Spacer(Modifier.height(28.dp))
 
                 when (step) {
-                    ComposerStep.TypePicker -> TypePicker(
+                    ComposerStep.TypePicker -> ComposerTypePickerContent(
                         isLandscapeLayout = isLandscapeLayout,
+                        strings = ComposerTypePickerStrings(
+                            text = stringResource(R.string.composer_text_type),
+                            image = stringResource(R.string.composer_image_type),
+                            video = stringResource(R.string.composer_video_type)
+                        ),
                         onText = {
                             clearEditedImageTemp()
                             clearPreparedImageTemp()
@@ -699,122 +704,6 @@ fun CreatePostScreen(
 }
 
 @Composable
-private fun TypePicker(
-    isLandscapeLayout: Boolean,
-    onText: () -> Unit,
-    onImage: () -> Unit,
-    onVideo: () -> Unit
-) {
-    if (isLandscapeLayout) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            TypeCard(
-                label = stringResource(R.string.composer_text_type),
-                icon = Icons.Filled.Edit,
-                onClick = onText,
-                modifier = Modifier.weight(1f),
-                iconAboveText = true
-            )
-            TypeCard(
-                label = stringResource(R.string.composer_image_type),
-                icon = Icons.Filled.PhotoCamera,
-                onClick = onImage,
-                modifier = Modifier.weight(1f),
-                iconAboveText = true
-            )
-            TypeCard(
-                label = stringResource(R.string.composer_video_type),
-                icon = Icons.Filled.Videocam,
-                onClick = onVideo,
-                modifier = Modifier.weight(1f),
-                iconAboveText = true
-            )
-        }
-    } else {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            TypeCard(stringResource(R.string.composer_text_type), Icons.Filled.Edit, onText)
-            TypeCard(stringResource(R.string.composer_image_type), Icons.Filled.PhotoCamera, onImage)
-            TypeCard(stringResource(R.string.composer_video_type), Icons.Filled.Videocam, onVideo)
-        }
-    }
-}
-
-@Composable
-private fun TypeCard(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconAboveText: Boolean = false
-) {
-    val context = LocalContext.current
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .height(128.dp)
-            .border(1.dp, template.colors.divider, RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick)
-    ) {
-        if (iconAboveText) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 12.dp, vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(62.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, template.colors.selectedBorder, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CompactIcon(icon, contentDescription = null, tint = template.colors.accent, modifier = Modifier.size(28.dp))
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    label.uppercase(),
-                    color = template.colors.textPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp,
-                    lineHeight = 16.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(82.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, template.colors.selectedBorder, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CompactIcon(icon, contentDescription = null, tint = template.colors.accent, modifier = Modifier.size(34.dp))
-                }
-                Spacer(Modifier.width(20.dp))
-                Text(label.uppercase(), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.title)
-            }
-        }
-    }
-}
-
-@Composable
 private fun TextPostForm(
     isLandscapeLayout: Boolean,
     state: CreatePostUiState,
@@ -884,9 +773,10 @@ private fun TextPostForm(
     @Composable
     fun TextPreviewPanel() {
         Column {
-            TextPatternSelector(
-                selectedPatternId = state.textPatternId,
-                onPatternSelected = onTextPatternSelected
+                    TextPatternSelectorContent(
+                        selectedPatternId = state.textPatternId,
+                        title = stringResource(R.string.composer_text_background),
+                        onPatternSelected = onTextPatternSelected
             )
             Spacer(Modifier.height(10.dp))
             PreviewPanel(stringResource(R.string.composer_preview)) {
@@ -925,139 +815,6 @@ private fun TextPostForm(
             PublishButton(state.isLoading, onSubmit)
         }
     }
-}
-
-@Composable
-private fun TextPatternSelector(
-    selectedPatternId: String,
-    onPatternSelected: (String) -> Unit
-) {
-    val template = quataTheme()
-    var isDialogOpen by rememberSaveable { mutableStateOf(false) }
-    val selectedPattern = remember(selectedPatternId) {
-        textCanvasPatterns.firstOrNull { it.id == selectedPatternId } ?: textCanvasPatterns.first()
-    }
-
-    Surface(
-        color = template.colors.surface.copy(alpha = 0.94f),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { isDialogOpen = true }
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextPatternSwatch(
-                patternId = selectedPattern.id,
-                modifier = Modifier.size(54.dp)
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.composer_text_background),
-                    color = template.colors.textPrimary,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text = selectedPattern.label,
-                    color = template.colors.textSecondary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-
-    if (isDialogOpen) {
-        Dialog(onDismissRequest = { isDialogOpen = false }) {
-            Surface(
-                color = template.colors.surface,
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        stringResource(R.string.composer_text_background),
-                        color = template.colors.textPrimary,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp
-                    )
-                    textCanvasPatterns.chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            row.forEach { pattern ->
-                                TextPatternChoice(
-                                    label = pattern.label,
-                                    patternId = pattern.id,
-                                    isSelected = selectedPattern.id == pattern.id,
-                                    onClick = {
-                                        onPatternSelected(pattern.id)
-                                        isDialogOpen = false
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            if (row.size == 1) {
-                                Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TextPatternChoice(
-    label: String,
-    patternId: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .border(
-                2.dp,
-                if (isSelected) template.colors.accent else template.colors.divider,
-                RoundedCornerShape(14.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TextPatternSwatch(
-            patternId = patternId,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(68.dp)
-        )
-        Text(
-            label,
-            color = template.colors.textPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun TextPatternSwatch(
-    patternId: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(textCanvasBrush(seedText = null, patternId = patternId))
-    )
 }
 
 @Composable
@@ -1275,16 +1032,17 @@ private fun VideoPostForm(
     @Composable
     fun VideoPreviewPanel() {
         PreviewPanel(stringResource(R.string.composer_preview)) {
-            if (state.videoUri != null) {
+            val videoUri = state.videoUri
+            if (videoUri != null) {
                 ComposerFeedPreviewFrame(
                     isVideo = true,
                     description = state.text,
                     locationLabel = null,
                     compact = isLandscapeLayout,
-                    backgroundSeed = state.videoUri
+                    backgroundSeed = videoUri
                 ) {
                     ComposerPreviewVideoPlayer(
-                        videoUri = state.videoUri,
+                        videoUri = videoUri,
                         useContainLayout = isLandscapeLayout
                     )
                 }

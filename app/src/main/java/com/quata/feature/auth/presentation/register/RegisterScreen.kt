@@ -1,29 +1,21 @@
 package com.quata.feature.auth.presentation.register
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
-import com.quata.core.ui.components.PhoneInputSection
-import com.quata.core.ui.components.QuataDropdownField
-import com.quata.core.ui.components.QuataPrimaryButton
-import com.quata.core.ui.components.QuataSecondaryButton
-import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.presentation.AuthResponsiveLayout
+import com.quata.feature.auth.presentation.register.RegisterForm
+import com.quata.feature.auth.presentation.register.RegisterFormStrings
+import com.quata.feature.auth.presentation.register.RegisterSecretQuestion
 import com.quata.feature.profile.data.countryPrefixOptions
 import com.quata.feature.profile.data.registrationSecretQuestionOptions
 
@@ -33,14 +25,12 @@ fun RegisterScreen(
     authRepository: AuthRepository,
     onBack: () -> Unit,
     onRegisterSuccess: () -> Unit,
-    viewModel: RegisterViewModel = viewModel(factory = RegisterViewModel.factory(authRepository))
+    viewModel: RegisterAndroidViewModel = viewModel(factory = RegisterAndroidViewModel.factory(authRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val prefixes = remember(context) { context.countryPrefixOptions() }
     val secretQuestions = remember(context) { context.registrationSecretQuestionOptions() }
-    val selectedQuestionLabel = secretQuestions.firstOrNull { it.value == state.secretQuestion }?.label
-        ?: secretQuestions.firstOrNull()?.label.orEmpty()
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { if (it is RegisterEffect.Success) onRegisterSuccess() }
@@ -51,65 +41,19 @@ fun RegisterScreen(
         subtitle = stringResource(R.string.auth_create_account_title),
         portraitLogoSpacing = 14.dp
     ) { isLandscape ->
-            QuataTextField(
-                value = state.displayName,
-                onValueChange = { viewModel.onEvent(RegisterUiEvent.DisplayNameChanged(it)) },
-                label = stringResource(R.string.auth_name),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.neighborhood,
-                onValueChange = { viewModel.onEvent(RegisterUiEvent.NeighborhoodChanged(it)) },
-                label = stringResource(R.string.auth_neighborhood_community),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            PhoneInputSection(
-                prefixes = prefixes,
-                selectedPrefix = state.countryCode,
-                onPrefixChange = { viewModel.onEvent(RegisterUiEvent.CountryCodeChanged(it)) },
-                phone = state.phone,
-                onPhoneChange = { viewModel.onEvent(RegisterUiEvent.PhoneChanged(it)) },
-                phoneLabel = stringResource(R.string.auth_phone),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.password,
-                onValueChange = { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) },
-                label = stringResource(R.string.auth_password),
-                modifier = Modifier.fillMaxWidth(),
-                isPassword = true
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataDropdownField(
-                value = state.secretQuestion,
-                options = secretQuestions,
-                optionLabel = { it.label },
-                onSelected = { viewModel.onEvent(RegisterUiEvent.SecretQuestionChanged(it.value)) },
-                displayText = selectedQuestionLabel,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.secretAnswer,
-                onValueChange = { viewModel.onEvent(RegisterUiEvent.SecretAnswerChanged(it)) },
-                label = stringResource(R.string.auth_secret_answer),
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (state.error != null) {
-                Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-                Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-            QuataPrimaryButton(
-                text = if (state.isLoading) stringResource(R.string.auth_creating) else stringResource(R.string.auth_create_account),
-                enabled = !state.isLoading
-            ) {
-                viewModel.onEvent(RegisterUiEvent.Submit)
-            }
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataSecondaryButton(stringResource(R.string.common_back), onClick = onBack)
+        RegisterForm(
+            state = state,
+            prefixes = prefixes,
+            secretQuestions = secretQuestions.map { RegisterSecretQuestion(it.value, it.label) },
+            strings = RegisterFormStrings(
+                displayName = stringResource(R.string.auth_name), neighborhood = stringResource(R.string.auth_neighborhood_community),
+                phone = stringResource(R.string.auth_phone), password = stringResource(R.string.auth_password), secretAnswer = stringResource(R.string.auth_secret_answer),
+                searchPrefix = stringResource(R.string.profile_search_prefix), creating = stringResource(R.string.auth_creating),
+                createAccount = stringResource(R.string.auth_create_account), back = stringResource(R.string.common_back),
+            ),
+            isLandscape = isLandscape,
+            onEvent = viewModel::onEvent,
+            onBack = onBack,
+        )
     }
 }

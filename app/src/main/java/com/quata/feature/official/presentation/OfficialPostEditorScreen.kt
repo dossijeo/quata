@@ -113,7 +113,7 @@ fun OfficialPostEditorRoute(
     repository: OfficialRepository,
     onPublished: (String?) -> Unit,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {},
-    viewModel: OfficialFeedViewModel = viewModel(factory = OfficialFeedViewModel.factory(repository))
+    viewModel: OfficialFeedAndroidViewModel = viewModel(factory = OfficialFeedAndroidViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -686,6 +686,7 @@ private fun OfficialLongContentEditor(
         title = title,
         showTitle = true,
         onBack = onBack,
+        backContentDescription = stringResource(R.string.video_editor_back),
         actions = {
             QuataEditorToolButton(
                 label = stringResource(R.string.common_save_changes),
@@ -924,13 +925,6 @@ private fun OfficialPostPreview(
     }
 }
 
-private fun String.escapePreviewHtml(): String =
-    replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&#39;")
-
 @Composable
 private fun OfficialPublishButton(
     enabled: Boolean,
@@ -1048,7 +1042,7 @@ private suspend fun translateOfficialHtml(
     source: QuataDeepLLanguage,
     target: QuataDeepLLanguage
 ): String {
-    val matches = OfficialHtmlBlockRegex.findAll(html).toList()
+    val matches = officialHtmlBlockRegex.findAll(html).toList()
     if (matches.isEmpty()) {
         val translated = translateOfficialText(
             context = context,
@@ -1105,32 +1099,3 @@ private fun OfficialPostLanguage.toDeepLLanguage(): QuataDeepLLanguage = when (t
     OfficialPostLanguage.English -> QuataDeepLLanguage.English
     OfficialPostLanguage.French -> QuataDeepLLanguage.French
 }
-
-private fun String.extractOfficialEditorBlocks(): List<String> {
-    val blocks = OfficialHtmlBlockRegex.findAll(this)
-        .map { it.groupValues.getOrNull(3).orEmpty().stripHtmlForOfficialEditor() }
-        .map { it.normalizeOfficialPlainText() }
-        .filter { it.isNotBlank() }
-        .toList()
-    return blocks.ifEmpty {
-        listOf(stripHtmlForOfficialEditor().normalizeOfficialPlainText()).filter { it.isNotBlank() }
-    }
-}
-
-private fun String.ellipsizeOfficialSummary(maxChars: Int): String {
-    val normalized = normalizeOfficialPlainText()
-    if (normalized.length <= maxChars) return normalized
-    return normalized.take(maxChars).trimEnd('.', ',', ';', ':', ' ') + "..."
-}
-
-private fun String.normalizeOfficialPlainText(): String =
-    decodeHtmlEntities().replace(Regex("\\s+"), " ").trim()
-
-private fun String.stripHtmlForOfficialEditor(): String = replace(Regex("<[^>]+>"), " ")
-    .replace("&nbsp;", " ")
-    .trim()
-
-private val OfficialHtmlBlockRegex = Regex(
-    pattern = "<(h[1-6]|p|blockquote|li)([^>]*)>(.*?)</\\1>",
-    options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
-)

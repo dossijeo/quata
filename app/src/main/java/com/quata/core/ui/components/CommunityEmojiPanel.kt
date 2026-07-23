@@ -58,69 +58,13 @@ fun CommunityEmojiPanel(
     initialSectionKey: String = "frequent",
     gridMaxHeight: Dp = 220.dp
 ) {
-    val template = quataTheme()
-    val sections = CommunityEmojiCatalog.sections
-    var selectedSectionKey by rememberSaveable { mutableStateOf(initialSectionKey) }
-    val selectedSection = sections.firstOrNull { it.key == selectedSectionKey } ?: sections.first()
-
-    Surface(
-        color = template.colors.surfaceRaised,
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(20.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.accent.copy(alpha = 0.62f), RoundedCornerShape(20.dp))
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(sections) { section ->
-                    Surface(
-                        color = if (section.key == selectedSectionKey) {
-                            template.colors.accent
-                        } else {
-                            Color.Transparent
-                        },
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.clickable { selectedSectionKey = section.key }
-                    ) {
-                        Text(
-                            text = stringResource(section.labelRes),
-                            color = if (section.key == selectedSectionKey) {
-                                template.colors.accentContent
-                            } else {
-                                template.colors.textSecondary
-                            },
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 44.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 96.dp, max = gridMaxHeight),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(selectedSection.emojis) { emoji ->
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(template.colors.surfaceAlt)
-                            .border(1.dp, template.colors.divider, RoundedCornerShape(14.dp))
-                            .clickable { onEmojiClick(emoji) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(emoji, fontSize = 24.sp)
-                    }
-                }
-            }
-        }
-    }
+    CommunityEmojiPanelContent(
+        sections = CommunityEmojiCatalog.sections.map { QuataEmojiSection(it.key, stringResource(it.labelRes), it.emojis) },
+        onEmojiClick = onEmojiClick,
+        modifier = modifier,
+        initialSectionKey = initialSectionKey,
+        gridMaxHeight = gridMaxHeight
+    )
 }
 
 @Composable

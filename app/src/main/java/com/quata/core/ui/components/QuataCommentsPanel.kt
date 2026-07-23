@@ -67,8 +67,8 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.PostComment
 import com.quata.core.translation.FangTranslatorIconButton
 import com.quata.core.translation.LocalQuataTranslatorModeController
-import com.quata.core.translation.QuataTranslatorOverlaySource
-import com.quata.core.translation.quataTranslatableText
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
+import com.quata.designsystem.translation.quataTranslatableText
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -399,80 +399,25 @@ private fun QuataCommentInput(
     currentUserLabel: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        OutlinedTextField(
-            value = draft,
-            onValueChange = onDraftChange,
-            placeholder = { Text(stringResource(R.string.comments_placeholder)) },
-            leadingIcon = {
-                CompactIconButton(
-                    onClick = { onEmojiPickerVisibleChange(!isEmojiPickerVisible) },
-                    modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
-                ) {
-                    CompactIcon(
-                        imageVector = Icons.Filled.InsertEmoticon,
-                        contentDescription = stringResource(R.string.comments_show_emojis),
-                        tint = Color(0xFFFFC55C)
-                    )
-                }
-            },
-            trailingIcon = {
-                CompactIconButton(
-                    enabled = draft.text.isNotBlank(),
-                    onClick = {
-                        if (canParticipate) {
-                            onAddComment(
-                                PostComment(
-                                    id = "local_${postId}_${System.currentTimeMillis()}",
-                                    authorName = currentUserLabel,
-                                    message = draft.text.trim(),
-                                    timestamp = nowCommentTimestamp(),
-                                    replyToAuthorName = replyTarget?.authorName,
-                                    replyToMessage = replyTarget?.message,
-                                    replyToCommentId = replyTarget?.id
-                                )
-                            )
-                            onCommentAdded()
-                        } else {
-                            onAuthRequired()
-                        }
-                    }
-                ) {
-                    CompactIcon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = stringResource(R.string.comments_send)
-                    )
-                }
-            },
-            modifier = Modifier
-                .weight(1f)
-                .requiredHeightIn(min = 58.dp)
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused && isEmojiPickerVisible) {
-                        onEmojiPickerVisibleChange(false)
-                    }
-                },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences
-            )
-        )
-    }
-}
-
-private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
-    val start = selection.start.coerceIn(0, text.length)
-    val end = selection.end.coerceIn(0, text.length)
-    val replaceStart = minOf(start, end)
-    val replaceEnd = maxOf(start, end)
-    val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
-    val cursor = replaceStart + value.length
-    return TextFieldValue(
-        text = updatedText,
-        selection = TextRange(cursor)
+    QuataCommentInputContent(
+        postId = postId,
+        draft = draft,
+        replyTarget = replyTarget,
+        canParticipate = canParticipate,
+        currentUserLabel = currentUserLabel,
+        strings = QuataCommentInputStrings(stringResource(R.string.comments_placeholder), stringResource(R.string.comments_send)),
+        timestamp = ::nowCommentTimestamp,
+        leadingAction = {
+            CompactIconButton(onClick = { onEmojiPickerVisibleChange(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) {
+                CompactIcon(Icons.Filled.InsertEmoticon, stringResource(R.string.comments_show_emojis), tint = Color(0xFFFFC55C))
+            }
+        },
+        onDraftChange = onDraftChange,
+        onAuthRequired = onAuthRequired,
+        onAddComment = onAddComment,
+        onCommentAdded = onCommentAdded,
+        onFocused = { if (isEmojiPickerVisible) onEmojiPickerVisibleChange(false) },
+        modifier = modifier
     )
 }
 
@@ -481,46 +426,12 @@ private fun QuataReplyTargetBanner(
     comment: PostComment,
     onClear: () -> Unit
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.accent.copy(alpha = 0.08f),
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.accent.copy(alpha = 0.34f), RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.comments_replying_to, comment.authorName),
-                    color = template.colors.textPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = comment.message,
-                    color = template.colors.textSecondary,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            CompactIconButton(
-                onClick = onClear,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surfaceAlt)
-            ) {
-                CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cancel_reply))
-            }
-        }
-    }
+    QuataReplyTargetBannerContent(
+        comment = comment,
+        replyingTo = stringResource(R.string.comments_replying_to, comment.authorName),
+        cancelDescription = stringResource(R.string.comments_cancel_reply),
+        onClear = onClear
+    )
 }
 
 @Composable
@@ -529,101 +440,25 @@ private fun QuataCommentRow(
     onReply: () -> Unit,
     onReport: () -> Unit
 ) {
-    val template = quataTheme()
+    val context = LocalContext.current
     val translatorReplyText = comment.replyToAuthorName?.let { author ->
         stringResource(R.string.comments_reply_to, author)
     }
     val translatorDisplayText = remember(comment, translatorReplyText) {
         comment.translatorDisplayText(translatorReplyText)
     }
-    Surface(
-        color = template.colors.surface,
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .quataTranslatableText(
-                id = "feed-comment:${comment.id}",
-                text = comment.message,
-                displayText = translatorDisplayText
-            )
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(14.dp)
-        ) {
-            if (comment.replyToAuthorName != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(2.dp)
-                        .background(template.colors.accent)
-                )
-                Spacer(Modifier.width(14.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(
-                        text = comment.authorName,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        color = template.colors.textPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = formatCommentTimestamp(comment.timestamp),
-                        color = template.colors.textSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-                comment.replyToAuthorName?.let { author ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.comments_reply_to, author),
-                        color = template.colors.accent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = quoted,
-                            color = template.colors.textSecondary,
-                            fontSize = 13.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = comment.message,
-                    color = template.colors.textPrimary,
-                    fontSize = 16.sp,
-                    lineHeight = 21.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(modifier = Modifier.align(Alignment.End)) {
-                    TextButton(onClick = onReport) {
-                        Text(
-                            text = stringResource(R.string.moderation_report),
-                            color = template.colors.textSecondary
-                        )
-                    }
-                    TextButton(onClick = onReply) {
-                        Text(
-                            text = stringResource(R.string.comments_reply_button),
-                            color = template.colors.accent,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
-        }
-    }
+    QuataCommentRowContent(
+        comment = comment,
+        timestamp = formatCommentTimestamp(comment.timestamp),
+        strings = QuataCommentRowStrings(
+            replyTo = { author -> context.getString(R.string.comments_reply_to, author) },
+            report = stringResource(R.string.moderation_report),
+            reply = stringResource(R.string.comments_reply_button)
+        ),
+        modifier = Modifier.quataTranslatableText(id = "feed-comment:${comment.id}", text = comment.message, displayText = translatorDisplayText),
+        onReply = onReply,
+        onReport = onReport
+    )
 }
 
 private fun PostComment.translatorDisplayText(replyText: String?): String =

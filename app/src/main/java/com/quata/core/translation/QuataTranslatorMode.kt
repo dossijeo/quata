@@ -84,69 +84,25 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.language.QuataDetectedLanguage
+import com.quata.core.language.FangOverlayTranslationUseCase
 import com.quata.core.language.QuataLanguageIdentifier
 import com.quata.core.language.QuataTranslationLanguage
 import com.quata.core.language.QuataTranslator
+import com.quata.core.language.TextLanguageIdentifier
+import com.quata.core.language.TranslatorBoxState
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.localization.QuataLanguageManager
+import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatableTextBox
+import com.quata.designsystem.translation.QuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatorBackground
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
+import com.quata.designsystem.translation.QuataTranslatorBackdrop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.math.roundToInt
 import kotlin.coroutines.resume
 
-data class QuataTranslatableTextBox(
-    val id: String,
-    val text: String,
-    val displayText: String,
-    val bounds: Rect
-)
-
-data class QuataTranslatorBackground(
-    val image: ImageBitmap,
-    val originLeftPx: Int,
-    val originTopPx: Int,
-    val widthPx: Int,
-    val heightPx: Int,
-    val navigationCropLeftPx: Int = 0,
-    val navigationCropTopPx: Int = 0,
-    val navigationCropRightPx: Int = 0,
-    val navigationCropBottomPx: Int = 0
-) {
-    val excludesNavigationBar: Boolean
-        get() = navigationCropLeftPx > 0 ||
-            navigationCropTopPx > 0 ||
-            navigationCropRightPx > 0 ||
-            navigationCropBottomPx > 0
-}
-
-enum class QuataTranslatorOverlaySource {
-    Chat,
-    Comments
-}
-
-@Stable
-class QuataTranslatableTextRegistry {
-    private val boxes = mutableStateMapOf<String, QuataTranslatableTextBox>()
-
-    val visibleBoxes: List<QuataTranslatableTextBox>
-        get() = boxes.values
-            .filter { it.text.isNotBlank() && it.bounds.width > 8f && it.bounds.height > 8f }
-            .sortedWith(compareBy<QuataTranslatableTextBox> { it.bounds.top }.thenBy { it.bounds.left })
-
-    fun update(id: String, text: String, displayText: String, bounds: Rect) {
-        if (text.isBlank()) {
-            boxes.remove(id)
-        } else {
-            boxes[id] = QuataTranslatableTextBox(id = id, text = text, displayText = displayText, bounds = bounds)
-        }
-    }
-
-    fun unregister(id: String) {
-        boxes.remove(id)
-    }
-}
-
-val LocalQuataTranslatableTextRegistry = compositionLocalOf<QuataTranslatableTextRegistry?> { null }
 fun interface QuataTranslatorModeController {
     fun activate(anchorView: View, source: QuataTranslatorOverlaySource)
 }
@@ -166,24 +122,6 @@ fun QuataTranslatorModeProvider(
         LocalQuataTranslatorModeController provides controller
     ) {
         content()
-    }
-}
-
-fun Modifier.quataTranslatableText(
-    id: String,
-    text: String,
-    displayText: String = text
-): Modifier = composed {
-    val registry = LocalQuataTranslatableTextRegistry.current
-    DisposableEffect(registry, id) {
-        onDispose { registry?.unregister(id) }
-    }
-    if (registry == null) {
-        this
-    } else {
-        onGloballyPositioned { coordinates ->
-            registry.update(id, text, displayText, coordinates.boundsInWindow())
-        }
     }
 }
 
@@ -360,35 +298,11 @@ fun QuataTranslatorOverlayBackdrop(
     background: QuataTranslatorBackground?,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
-    Box(
-        modifier = modifier
-            .background(template.colors.background)
-    ) {
-        if (background != null) {
-            Image(
-                bitmap = background.image,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 0.86f },
-                contentScale = ContentScale.FillBounds
-            )
-        }
-        Image(
-            painter = painterResource(R.drawable.quata_translator_frosted_texture),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = 0.70f },
-            contentScale = ContentScale.Crop
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.16f))
-        )
-    }
+    QuataTranslatorBackdrop(
+        background = background,
+        frostedTexture = painterResource(R.drawable.quata_translator_frosted_texture),
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -556,8 +470,9 @@ private fun TranslatorTextOverlayBox(
     val width = with(density) { box.bounds.width.roundToInt().coerceAtLeast(42).toDp() }
     val height = with(density) { box.bounds.height.roundToInt().coerceAtLeast(36).toDp() }
     val shape = RoundedCornerShape(18.dp)
-    val displayText = if (state?.showTranslation == true && state.translation != null) {
-        box.displayText.replaceFirst(box.text, state.translation)
+    val translation = state?.translation
+    val displayText = if (state?.showTranslation == true && translation != null) {
+        box.displayText.replaceFirst(box.text, translation)
     } else {
         box.displayText
     }
@@ -606,6 +521,7 @@ private fun TranslatorTextOverlayBox(
                 strokeWidth = 2.dp
             )
         } else if (state?.showTranslation == true && state.directionLabel != null) {
+            val directionLabel = state.directionLabel ?: return@Box
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -622,7 +538,7 @@ private fun TranslatorTextOverlayBox(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = state.directionLabel,
+                    text = directionLabel,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 10.sp
@@ -646,14 +562,15 @@ private fun TranslatorChatOverlayBox(
     val top = with(density) { (box.bounds.top.roundToInt() - viewportOriginTopPx).coerceAtLeast(0).toDp() }
     val width = with(density) { box.bounds.width.roundToInt().coerceAtLeast(42).toDp() }
     val height = with(density) { box.bounds.height.roundToInt().coerceAtLeast(36).toDp() }
-    val parts = remember(box.displayText, box.text, state?.translation, state?.showTranslation) {
+    val translation = state?.translation
+    val parts = remember(box.displayText, box.text, translation, state?.showTranslation) {
         TranslatorChatParts.from(
-            displayText = if (state?.showTranslation == true && state.translation != null) {
-                box.displayText.replaceFirst(box.text, state.translation)
+            displayText = if (state?.showTranslation == true && translation != null) {
+                box.displayText.replaceFirst(box.text, translation)
             } else {
                 box.displayText
             },
-            message = if (state?.showTranslation == true && state.translation != null) state.translation else box.text
+            message = if (state?.showTranslation == true && translation != null) translation else box.text
         )
     }
     val shape = RoundedCornerShape(20.dp)
@@ -691,8 +608,9 @@ private fun TranslatorChatOverlayBox(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                if (state?.showTranslation == true && state.directionLabel != null) {
-                    TranslatorDirectionBadge(directionLabel = state.directionLabel)
+                val directionLabel = state?.directionLabel
+                if (state?.showTranslation == true && directionLabel != null) {
+                    TranslatorDirectionBadge(directionLabel = directionLabel)
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(
@@ -774,14 +692,15 @@ private fun TranslatorCommentOverlayBox(
     val top = with(density) { (box.bounds.top.roundToInt() - viewportOriginTopPx).coerceAtLeast(0).toDp() }
     val width = with(density) { box.bounds.width.roundToInt().coerceAtLeast(42).toDp() }
     val height = with(density) { box.bounds.height.roundToInt().coerceAtLeast(36).toDp() }
-    val parts = remember(box.displayText, box.text, state?.translation, state?.showTranslation) {
+    val translation = state?.translation
+    val parts = remember(box.displayText, box.text, translation, state?.showTranslation) {
         TranslatorCommentParts.from(
-            displayText = if (state?.showTranslation == true && state.translation != null) {
-                box.displayText.replaceFirst(box.text, state.translation)
+            displayText = if (state?.showTranslation == true && translation != null) {
+                box.displayText.replaceFirst(box.text, translation)
             } else {
                 box.displayText
             },
-            message = if (state?.showTranslation == true && state.translation != null) state.translation else box.text
+            message = if (state?.showTranslation == true && translation != null) translation else box.text
         )
     }
     val shape = RoundedCornerShape(18.dp)
@@ -895,6 +814,7 @@ private fun TranslatorCommentOverlayBox(
                 strokeWidth = 2.dp
             )
         } else if (state?.showTranslation == true && state.directionLabel != null) {
+            val directionLabel = state.directionLabel ?: return@Box
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -905,7 +825,7 @@ private fun TranslatorCommentOverlayBox(
             ) {
                 Text("T", color = Color.White, fontWeight = FontWeight.Black, fontSize = 10.sp)
                 Spacer(Modifier.width(4.dp))
-                Text(state.directionLabel, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                Text(directionLabel, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
         }
     }
@@ -1084,42 +1004,14 @@ private suspend fun translateOverlayText(
     context: Context,
     text: String
 ): TranslatorBoxState? {
-    val originalText = text.trim()
-    if (originalText.isBlank()) return null
     return runCatching {
-        val detection = QuataLanguageIdentifier.detect(context, originalText)
-        val source = QuataTranslationLanguage.fromDetectedLanguage(detection.language) ?: return null
-        val target = if (source == QuataTranslationLanguage.Fang) {
-            QuataLanguageManager.currentLanguage.toTranslationLanguage()
-        } else {
-            QuataTranslationLanguage.Fang
-        }
-        if (source == target) return TranslatorBoxState(originalText = originalText)
-        val result = QuataCachedTranslator.get(context).translate(
-            text = originalText,
-            sourceLanguage = source,
-            targetLanguage = target
+        FangOverlayTranslationUseCase(
+            identifier = TextLanguageIdentifier { value -> QuataLanguageIdentifier.detect(context, value) },
+            translator = QuataCachedTranslator.get(context),
+            preferredLanguage = { QuataLanguageManager.currentLanguage },
         )
-        TranslatorBoxState(
-            originalText = originalText,
-            translation = result.translation,
-            directionLabel = "${source.shortCode()}->${target.shortCode()}",
-            showTranslation = true
-        )
+            .translate(text)
     }.getOrNull()
-}
-
-private fun QuataLanguage.toTranslationLanguage(): QuataTranslationLanguage = when (this) {
-    QuataLanguage.Spanish -> QuataTranslationLanguage.Spanish
-    QuataLanguage.French -> QuataTranslationLanguage.French
-    QuataLanguage.English -> QuataTranslationLanguage.English
-}
-
-private fun QuataTranslationLanguage.shortCode(): String = when (this) {
-    QuataTranslationLanguage.Fang -> "FAN"
-    QuataTranslationLanguage.Spanish -> "ES"
-    QuataTranslationLanguage.English -> "EN"
-    QuataTranslationLanguage.French -> "FR"
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -1266,13 +1158,5 @@ private data class TranslatorCropInsets(
         val Zero = TranslatorCropInsets()
     }
 }
-
-data class TranslatorBoxState(
-    val originalText: String,
-    val translation: String? = null,
-    val directionLabel: String? = null,
-    val showTranslation: Boolean = false,
-    val isLoading: Boolean = false
-)
 
 private const val CaptureScale = 0.1f

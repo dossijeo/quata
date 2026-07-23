@@ -7,23 +7,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
-class TouchFlowPreferences(context: Context) {
+class TouchFlowPreferences(context: Context) : TouchFlowPreferenceStore {
     private val prefs = context.getSharedPreferences("quata_touch_flow", Context.MODE_PRIVATE)
     private val preferenceChanges = MutableStateFlow(0)
 
-    fun observeEnabled(userId: String?): Flow<Boolean> =
+    override fun observeEnabled(userId: String?): Flow<Boolean> =
         preferenceChanges
             .map { isEnabled(userId) }
             .onStart { emit(isEnabled(userId)) }
             .distinctUntilChanged()
 
-    fun isEnabled(userId: String?): Boolean =
+    override fun isEnabled(userId: String?): Boolean =
         userId
             ?.takeIf { it.isNotBlank() }
             ?.let { prefs.getBoolean(enabledKey(it), false) }
             ?: false
 
-    fun setEnabled(userId: String?, enabled: Boolean) {
+    override fun setEnabled(userId: String?, enabled: Boolean) {
         val cleanUserId = userId?.takeIf { it.isNotBlank() } ?: return
         prefs.edit()
             .putBoolean(enabledKey(cleanUserId), enabled)
@@ -31,7 +31,7 @@ class TouchFlowPreferences(context: Context) {
         preferenceChanges.value += 1
     }
 
-    fun clear(userId: String) {
+    override fun clear(userId: String) {
         prefs.edit().remove(enabledKey(userId)).apply()
         preferenceChanges.value += 1
     }

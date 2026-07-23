@@ -24,14 +24,20 @@ import com.quata.core.navigation.quataChatUrl
 import com.quata.core.text.localizedSosPreview
 
 class NotificationFactory(private val context: Context) {
-    fun showChatPush(conversationId: String, title: String, body: String, bodyKey: String = "") {
+    fun showChatPush(
+        conversationId: String,
+        title: String,
+        body: String,
+        bodyKey: String = "",
+        messageId: String? = null,
+    ) {
         if (!hasNotificationPermission()) return
         val notificationId = chatNotificationId(conversationId)
         val localizedBody = localizedPushBody(bodyKey.ifBlank { body.notificationBodyKeyOrNull().orEmpty() })
             ?: context.localizedSosPreview(body)
             ?: body
         val intent = Intent(context, MainActivity::class.java).apply {
-            data = Uri.parse(quataChatUrl(conversationId))
+            data = Uri.parse(quataChatUrl(conversationId, messageId))
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pendingIntent = PendingIntent.getActivity(

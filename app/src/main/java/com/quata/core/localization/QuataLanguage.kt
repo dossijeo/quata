@@ -5,12 +5,6 @@ import android.content.res.Configuration
 import android.os.LocaleList
 import java.util.Locale
 
-enum class QuataLanguage(val tag: String) {
-    Spanish("es"),
-    French("fr"),
-    English("en")
-}
-
 object QuataLanguageManager {
     var currentLanguage: QuataLanguage = QuataLanguage.English
         private set

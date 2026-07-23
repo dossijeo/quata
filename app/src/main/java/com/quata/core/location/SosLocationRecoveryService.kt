@@ -5,7 +5,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -63,7 +62,8 @@ class SosLocationRecoveryService : Service() {
 
     private suspend fun recoverLocation(request: RecoveryRequest) {
         if (!hasExpectedSession(request.expectedProfileId)) return
-        val precise = quataPreciseLocationWithRetries()
+        val locationProvider = AndroidFusedLocationProvider(applicationContext)
+        val precise = locationProvider.preciseWithRetries()
             ?.takeIf { it.isNewerThan(request.initialLocationTimeMillis) }
         if (precise != null) {
             sendLocationUpdate(request, precise)
@@ -73,13 +73,13 @@ class SosLocationRecoveryService : Service() {
         val remainingMillis = request.deadlineMillis - System.currentTimeMillis()
         if (remainingMillis <= 0L) return
         Log.d(TAG, "Precise SOS recovery failed; waiting passively for ${remainingMillis}ms")
-        val passive = quataPassiveLocation(remainingMillis)
+        val passive = locationProvider.passive(remainingMillis)
             ?.takeIf { it.isNewerThan(request.initialLocationTimeMillis) }
             ?: return
         sendLocationUpdate(request, passive)
     }
 
-    private suspend fun sendLocationUpdate(request: RecoveryRequest, location: Location) {
+    private suspend fun sendLocationUpdate(request: RecoveryRequest, location: QuataLocation) {
         if (!hasExpectedSession(request.expectedProfileId)) return
         val text = buildSosShortcode(
             kind = SosShortcodeKind.LocationUpdate,
@@ -87,9 +87,9 @@ class SosLocationRecoveryService : Service() {
             customMessage = request.customMessage,
             latitude = location.latitude,
             longitude = location.longitude,
-            ageMillis = max(0L, System.currentTimeMillis() - location.time),
-            accuracyMeters = location.takeIf(Location::hasAccuracy)?.accuracy?.toDouble(),
-            speedKmh = location.takeIf(Location::hasSpeed)?.speed?.times(3.6f)?.toDouble()
+            ageMillis = max(0L, System.currentTimeMillis() - (location.timestampMillis ?: System.currentTimeMillis())),
+            accuracyMeters = location.accuracyMeters?.toDouble(),
+            speedKmh = location.speedKmh
         )
         val app = application as? QuataApp ?: return
         app.container.chatRepository.sendMessage(
@@ -193,7 +193,8 @@ class SosLocationRecoveryService : Service() {
     }
 }
 
-private fun Location.isNewerThan(previousTimeMillis: Long): Boolean =
-    time > previousTimeMillis && time >= System.currentTimeMillis() - MAX_ACCEPTED_LOCATION_AGE_MILLIS
+private fun QuataLocation.isNewerThan(previousTimeMillis: Long): Boolean =
+    (timestampMillis ?: 0L) > previousTimeMillis &&
+        (timestampMillis ?: 0L) >= System.currentTimeMillis() - MAX_ACCEPTED_LOCATION_AGE_MILLIS
 
 private const val MAX_ACCEPTED_LOCATION_AGE_MILLIS = 2L * 60L * 1000L

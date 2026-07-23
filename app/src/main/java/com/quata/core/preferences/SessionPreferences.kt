@@ -2,11 +2,12 @@ package com.quata.core.preferences
 
 import android.content.Context
 import com.quata.core.model.AuthSession
+import com.quata.core.preferences.SessionStorage
 
-class SessionPreferences(context: Context) {
+class SessionPreferences(context: Context) : SessionStorage {
     private val prefs = context.getSharedPreferences("quata_session", Context.MODE_PRIVATE)
 
-    fun saveSession(session: AuthSession) {
+    override fun saveSession(session: AuthSession) {
         prefs.edit()
             .putString(KEY_TOKEN, session.token)
             .putString(KEY_USER_ID, session.userId)
@@ -19,7 +20,7 @@ class SessionPreferences(context: Context) {
             .apply()
     }
 
-    fun getSession(): AuthSession? {
+    override fun getSession(): AuthSession? {
         val token = prefs.getString(KEY_TOKEN, null) ?: return null
         val userId = prefs.getString(KEY_USER_ID, null) ?: return null
         val email = prefs.getString(KEY_EMAIL, "") ?: ""
@@ -40,7 +41,7 @@ class SessionPreferences(context: Context) {
         )
     }
 
-    fun clear() {
+    override fun clear() {
         prefs.edit().clear().apply()
     }
 

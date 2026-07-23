@@ -124,6 +124,19 @@ android {
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
 
+    implementation(project(":core"))
+    implementation(project(":designsystem"))
+    implementation(project(":feature:feed"))
+    implementation(project(":feature:chat"))
+    implementation(project(":feature:official"))
+    implementation(project(":feature:postcomposer"))
+    implementation(project(":feature:profile"))
+    implementation(project(":feature:auth"))
+    implementation(project(":feature:neighborhoods"))
+    implementation(project(":feature:notifications"))
+    implementation(project(":feature:whatsnew"))
+    implementation(project(":feature:externalshare"))
+    implementation(project(":feature:settings"))
     implementation(project(":document-reader"))
 
     implementation(composeBom)

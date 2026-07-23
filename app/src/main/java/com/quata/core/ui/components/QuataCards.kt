@@ -25,8 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,22 +49,6 @@ import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.User
 import com.quata.core.presence.LocalUserPresence
-
-@Composable
-fun QuataCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val template = quataTheme()
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = template.colors.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        content()
-    }
-}
 
 @Composable
 fun AvatarLetter(

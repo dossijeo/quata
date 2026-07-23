@@ -75,13 +75,8 @@ private fun ByteArray.decodeSampledImage(maxSide: Int): Bitmap? {
     BitmapFactory.decodeByteArray(this, 0, size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
-    var sampleSize = 1
-    while (maxOf(bounds.outWidth / sampleSize, bounds.outHeight / sampleSize) > maxSide) {
-        sampleSize *= 2
-    }
-
     val options = BitmapFactory.Options().apply {
-        inSampleSize = sampleSize
+        inSampleSize = imageSampleSize(bounds.outWidth, bounds.outHeight, maxSide)
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
     return BitmapFactory.decodeByteArray(this, 0, size, options)
@@ -89,23 +84,23 @@ private fun ByteArray.decodeSampledImage(maxSide: Int): Bitmap? {
 
 private fun Bitmap.applyImageExifOrientation(orientation: Int): Bitmap {
     val matrix = Matrix()
-    when (orientation) {
-        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
-        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
-        ExifInterface.ORIENTATION_TRANSPOSE -> {
-            matrix.postRotate(90f)
-            matrix.postScale(-1f, 1f)
-        }
-        ExifInterface.ORIENTATION_TRANSVERSE -> {
-            matrix.postRotate(270f)
-            matrix.postScale(-1f, 1f)
-        }
-        else -> return this
-    }
+    val transform = orientation.toImageOrientation().transform()
+    if (transform.rotationDegrees == 0f && !transform.flipHorizontally && !transform.flipVertically) return this
+    if (transform.rotationDegrees != 0f) matrix.postRotate(transform.rotationDegrees)
+    if (transform.flipHorizontally) matrix.postScale(-1f, 1f)
+    if (transform.flipVertically) matrix.postScale(1f, -1f)
     return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+}
+
+private fun Int.toImageOrientation(): ImageOrientation = when (this) {
+    ExifInterface.ORIENTATION_ROTATE_90 -> ImageOrientation.Rotate90
+    ExifInterface.ORIENTATION_ROTATE_180 -> ImageOrientation.Rotate180
+    ExifInterface.ORIENTATION_ROTATE_270 -> ImageOrientation.Rotate270
+    ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> ImageOrientation.FlipHorizontal
+    ExifInterface.ORIENTATION_FLIP_VERTICAL -> ImageOrientation.FlipVertical
+    ExifInterface.ORIENTATION_TRANSPOSE -> ImageOrientation.Transpose
+    ExifInterface.ORIENTATION_TRANSVERSE -> ImageOrientation.Transverse
+    else -> ImageOrientation.Normal
 }
 
 private fun ByteArray.readPreservedImageExif(): Map<String, String> =

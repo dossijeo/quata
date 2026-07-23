@@ -1,87 +1,52 @@
 package com.quata.feature.notifications.presentation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
-import com.quata.core.model.NotificationItem
 import com.quata.core.text.localizedChatPreview
-import com.quata.core.ui.components.QuataCard
-import com.quata.core.ui.components.QuataScreen
 import com.quata.feature.chat.presentation.relativeTimeLabel
 import com.quata.feature.notifications.domain.NotificationsRepository
 import kotlinx.coroutines.delay
 
+/** Android entry point: resources, lifecycle ViewModel and navigation adapter for common content. */
 @Composable
 fun NotificationsScreen(
     padding: PaddingValues,
     repository: NotificationsRepository,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
-    viewModel: NotificationsViewModel = viewModel(factory = NotificationsViewModel.factory(repository))
+    viewModel: NotificationsAndroidViewModel = viewModel(factory = NotificationsAndroidViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val strings = NotificationsStrings(
+        title = stringResource(R.string.notifications_title),
+        subtitle = stringResource(R.string.notifications_subtitle),
+        backContentDescription = stringResource(R.string.common_back),
+        relativeTime = { createdAt, now -> relativeTimeLabel(context, createdAt, now) },
+        localizedBody = context::localizedChatPreview
+    )
 
-    QuataScreen(padding) {
-        Column(Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                CompactIconButton(onClick = onBack) {
-                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
-                Text(stringResource(R.string.notifications_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            }
-            Text(stringResource(R.string.notifications_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.padding(8.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(state.items, key = { it.id }) { item ->
-                    DismissibleNotificationCard(
-                        item = item,
-                        timestampNowMillis = timestampNowMillis,
-                        onClick = {
-                            viewModel.markRead(item)
-                            onOpenConversation(item.conversationId)
-                        },
-                        onDismiss = { viewModel.dismiss(item) }
-                    )
-                }
-            }
-        }
-    }
+    NotificationsContent(
+        padding = padding,
+        state = state,
+        timestampNowMillis = timestampNowMillis,
+        strings = strings,
+        onBack = onBack,
+        onOpenConversation = onOpenConversation,
+        onMarkRead = viewModel::markRead,
+        onDismiss = viewModel::dismiss
+    )
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -90,59 +55,3 @@ fun NotificationsScreen(
         }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DismissibleNotificationCard(
-    item: NotificationItem,
-    timestampNowMillis: Long,
-    onClick: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled) {
-                onDismiss()
-                true
-            } else {
-                false
-            }
-        }
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {},
-        content = {
-            NotificationCard(
-                item = item,
-                timestampNowMillis = timestampNowMillis,
-                modifier = Modifier.clickable(onClick = onClick)
-            )
-        }
-    )
-}
-
-@Composable
-private fun NotificationCard(
-    item: NotificationItem,
-    timestampNowMillis: Long,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    QuataCard(modifier = modifier) {
-        Column(Modifier.padding(16.dp)) {
-            val createdAt = relativeTimeLabel(context, item.createdAt, timestampNowMillis)
-            Text(item.title, fontWeight = FontWeight.Bold)
-            Text(
-                text = context.localizedChatPreview(item.body),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = if (item.unreadCount > 1) "$createdAt - ${item.unreadCount}" else createdAt,
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 12.sp
-            )
-        }
-    }
-}
-

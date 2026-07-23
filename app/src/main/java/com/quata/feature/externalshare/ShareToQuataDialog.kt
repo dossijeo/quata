@@ -26,9 +26,9 @@ fun ShareToQuataDialog(
     onSent: (String?) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: ShareToQuataViewModel = viewModel(
+    val viewModel: ShareToQuataAndroidViewModel = viewModel(
         key = "share-to-quata-${payload.id}",
-        factory = ShareToQuataViewModel.factory(repository, payload, context)
+        factory = ShareToQuataAndroidViewModel.factory(repository, payload, context)
     )
     val state by viewModel.uiState.collectAsState()
     val displayedCandidates = ((state.recentCandidates.takeIf { state.candidateQuery.isBlank() }.orEmpty()) + state.candidates)

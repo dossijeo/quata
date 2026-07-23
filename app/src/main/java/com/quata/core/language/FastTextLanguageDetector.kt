@@ -6,37 +6,6 @@ import kotlinx.coroutines.withContext
 import java.nio.charset.StandardCharsets
 import kotlin.math.exp
 
-enum class QuataDetectedLanguage(val code: String) {
-    Spanish("es"),
-    French("fr"),
-    English("en"),
-    Fang("fan"),
-    Unknown("und");
-
-    companion object {
-        fun fromCode(code: String): QuataDetectedLanguage = when (code.lowercase()) {
-            "es" -> Spanish
-            "fr" -> French
-            "en" -> English
-            "fan" -> Fang
-            else -> Unknown
-        }
-    }
-}
-
-data class QuataLanguageScore(
-    val language: QuataDetectedLanguage,
-    val code: String,
-    val confidence: Float
-)
-
-data class QuataLanguageDetection(
-    val language: QuataDetectedLanguage,
-    val code: String,
-    val confidence: Float,
-    val scores: List<QuataLanguageScore>
-)
-
 class FastTextLanguageDetector private constructor(
     private val args: FastTextArgs,
     private val dictionary: FastTextDictionary,

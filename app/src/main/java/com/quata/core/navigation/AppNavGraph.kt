@@ -139,15 +139,15 @@ import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataSystemBars
-import com.quata.core.ui.effects.fluidTouchEffect
+import com.quata.designsystem.effects.fluidTouchEffect
 import com.quata.core.ui.richtext.RichTextEditorQaScreen
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
-import com.quata.core.translation.QuataTranslatableTextRegistry
-import com.quata.core.translation.QuataTranslatorBackground
+import com.quata.designsystem.translation.QuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatorBackground
 import com.quata.core.translation.QuataTranslatorModeProvider
 import com.quata.core.translation.QuataTranslatorOverlay
 import com.quata.core.translation.QuataTranslatorOverlayBackdrop
-import com.quata.core.translation.QuataTranslatorOverlaySource
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.QuataTranslatorModeController
 import com.quata.core.translation.captureTranslatorBackground
 import com.quata.feature.auth.presentation.login.LoginScreen
@@ -162,7 +162,7 @@ import com.quata.feature.externalshare.ShareTargetAvailability
 import com.quata.feature.externalshare.ShareToQuataDialog
 import com.quata.feature.neighborhoods.presentation.CommunityProfileScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
-import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsAndroidViewModel
 import com.quata.feature.notifications.presentation.NotificationsScreen
 import com.quata.feature.official.presentation.OfficialFeedScreen
 import com.quata.feature.official.presentation.OfficialPostEditorRoute
@@ -171,7 +171,7 @@ import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
 import com.quata.feature.profile.presentation.EmergencyContactsDialog
 import com.quata.feature.profile.presentation.ProfileUiEvent
-import com.quata.feature.profile.presentation.ProfileViewModel
+import com.quata.feature.profile.presentation.ProfileAndroidViewModel
 import com.quata.feature.profile.presentation.ProfileScreen
 import com.quata.feature.whatsnew.domain.StartupDestination
 import com.quata.feature.whatsnew.presentation.StartupCoordinator
@@ -352,7 +352,7 @@ fun AppNavGraph(
             StartupDestination.Loading
             startupCoordinator.resolve(
                 installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
-                locales = appContext.resources.configuration.locales
+                languageTags = appContext.resources.configuration.locales.languageTags()
             )
         }
     }
@@ -430,9 +430,9 @@ fun AppNavGraph(
             navigateBottomRoute(route)
         }
     }
-    val globalProfileViewModel: NeighborhoodsViewModel = viewModel(
+    val globalProfileViewModel: NeighborhoodsAndroidViewModel = viewModel(
         key = "global_user_profile",
-        factory = NeighborhoodsViewModel.factory(container.neighborhoodRepository)
+        factory = NeighborhoodsAndroidViewModel.factory(container.neighborhoodRepository)
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -479,8 +479,13 @@ fun AppNavGraph(
         }
     }
 
-    LaunchedEffect(incomingLink) {
-        if (incomingLink?.isQuataRichTextEditorQaLink() == true) {
+    LaunchedEffect(incomingLink, currentBackStackEntry) {
+        // A cold deep link can arrive before NavHost has installed its graph.
+        // Wait for an actual back-stack entry so navigation remains safe on all
+        // launch paths (notification, share link, or external browser).
+        if (incomingLink != null && currentBackStackEntry == null) return@LaunchedEffect
+        val incomingLinkValue = incomingLink?.toString()
+        if (incomingLinkValue?.isQuataRichTextEditorQaLink() == true) {
             navController.navigate(AppDestinations.RichTextEditorQa.route) {
                 launchSingleTop = true
             }
@@ -488,18 +493,18 @@ fun AppNavGraph(
             return@LaunchedEffect
         }
 
-        val conversationId = incomingLink?.quataConversationIdOrNull()
-        if (conversationId != null) {
+        val chatDeepLink = incomingLinkValue?.quataChatDeepLinkOrNull()
+        if (chatDeepLink != null) {
             globalProfileViewModel.closeUserProfile()
             feedFocusedPostId = null
             officialFocusedPostId = null
             chatFocusedMessageId = null
-            navigateToChat(conversationId)
+            navigateToChat(chatDeepLink.conversationId, focusedMessageId = chatDeepLink.messageId)
             onIncomingLinkHandled()
             return@LaunchedEffect
         }
 
-        val officialPostId = incomingLink?.quataOfficialPostIdOrNull()
+        val officialPostId = incomingLinkValue?.quataOfficialPostIdOrNull()
         if (officialPostId != null) {
             officialFocusedPostId = officialPostId
             feedFocusedPostId = null
@@ -513,7 +518,7 @@ fun AppNavGraph(
             return@LaunchedEffect
         }
 
-        val postId = incomingLink?.quataPostIdOrNull() ?: return@LaunchedEffect
+        val postId = incomingLinkValue?.quataPostIdOrNull() ?: return@LaunchedEffect
         feedFocusedPostId = postId
         officialFocusedPostId = null
         globalProfileViewModel.closeUserProfile()
@@ -1266,6 +1271,9 @@ fun AppNavGraph(
     }
 }
 
+private fun android.os.LocaleList.languageTags(): List<String> =
+    List(size()) { index -> get(index).toLanguageTag() }
+
 @Composable
 private fun ConfigureAppSystemBars() {
     val context = LocalContext.current
@@ -1860,9 +1868,9 @@ private fun AuthenticatedGlobalSosButton(
     container: AppContainer,
     layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
-    profileViewModel: ProfileViewModel = viewModel(
+    profileViewModel: ProfileAndroidViewModel = viewModel(
         key = "global_sos_profile",
-        factory = ProfileViewModel.Factory(container.profileRepository)
+        factory = ProfileAndroidViewModel.Factory(container.profileRepository)
     )
 ) {
     val context = LocalContext.current

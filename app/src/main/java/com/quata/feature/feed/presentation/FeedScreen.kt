@@ -169,8 +169,8 @@ import com.quata.core.ui.components.UserAvatar
 import com.quata.core.ui.components.rememberCachedRemoteImageRequest
 import com.quata.core.translation.FangTranslatorIconButton
 import com.quata.core.translation.LocalQuataTranslatorModeController
-import com.quata.core.translation.QuataTranslatorOverlaySource
-import com.quata.core.translation.quataTranslatableText
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
+import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.textCanvasTypography
 import com.quata.feature.feed.domain.FeedRepository
@@ -204,7 +204,7 @@ fun FeedScreen(
     onCreatePost: () -> Unit = {},
     onReportComment: (String) -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
-    viewModel: FeedViewModel = viewModel(factory = FeedViewModel.factory(feedRepository))
+    viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -407,6 +407,7 @@ fun FeedScreen(
                 QuataFeedPullRefreshIndicator(
                     state = pullRefreshState,
                     isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+                    refreshContentDescription = stringResource(R.string.common_refresh),
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
@@ -477,15 +478,11 @@ private fun FeedMessageScreen(
     onRefresh: () -> Unit
 ) {
     QuataScreen(padding, applyLandscapeSafeDrawing = false) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(message, color = MaterialTheme.colorScheme.onBackground)
-                Spacer(Modifier.height(12.dp))
-                CompactIconButton(onClick = onRefresh) {
-                    CompactIcon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
-                }
-            }
-        }
+        FeedStatusContent(
+            message = message,
+            retryLabel = stringResource(R.string.common_refresh),
+            onRetry = onRefresh
+        )
     }
 }
 
@@ -665,7 +662,7 @@ private fun ReelMedia(
                     .background(textCanvasBrush(post.videoUrl ?: post.id))
             ) {
                 ReelVideo(
-                    videoUrl = post.videoUrl,
+                    videoUrl = post.videoUrl.orEmpty(),
                     isActive = isActive,
                     isMuted = isMuted,
                     networkReconnectToken = networkReconnectToken,
@@ -1224,28 +1221,7 @@ private fun formatVideoTime(ms: Long): String {
 
 @Composable
 private fun ReelScrims(showTopScrim: Boolean) {
-    val stops = if (showTopScrim) {
-        arrayOf(
-            0f to Color.Black.copy(alpha = 0.64f),
-            0.14f to Color.Black.copy(alpha = 0.42f),
-            0.34f to Color.Transparent,
-            0.58f to Color.Transparent,
-            1f to Color.Black.copy(alpha = 0.68f)
-        )
-    } else {
-        arrayOf(
-            0f to Color.Transparent,
-            0.58f to Color.Transparent,
-            1f to Color.Black.copy(alpha = 0.68f)
-        )
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(*stops)
-            )
-    )
+    ReelScrimContent(showTopScrim, Modifier.fillMaxSize())
 }
 
 @Composable
@@ -1254,31 +1230,7 @@ private fun ReelTopChips(
     mediaBadgeText: String,
     isVideo: Boolean
 ) {
-    Column(
-        modifier = Modifier
-            .statusBarsPadding()
-            .padding(start = 22.dp, end = 22.dp, top = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        val cleanMediaBadgeText = mediaBadgeText.trim()
-        if (cleanMediaBadgeText.isNotBlank()) {
-            Text(
-                text = if (isVideo) {
-                    "\uD83D\uDCDD $cleanMediaBadgeText"
-                } else {
-                    stringResource(R.string.feed_location_chip, cleanMediaBadgeText)
-                },
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        documentText?.let { text ->
-            ReelChip(text = "\uD83D\uDCC4 $text")
-        }
-    }
+    ReelTopChipsContent(documentText, mediaBadgeText, isVideo, locationLabel = { stringResource(R.string.feed_location_chip, it) })
 }
 
 @Composable
@@ -1315,25 +1267,7 @@ private fun ReelChip(
     highlighted: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
-    val template = quataTheme()
-    val borderColor = if (highlighted) template.colors.live else Color.White.copy(alpha = 0.22f)
-    val textColor = if (highlighted) template.colors.live else Color.White
-
-    Surface(
-        color = if (highlighted) template.colors.surface.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
-        contentColor = textColor,
-        shape = RoundedCornerShape(28.dp),
-        modifier = Modifier
-            .border(1.dp, borderColor, RoundedCornerShape(28.dp))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-        )
-    }
+    ReelChipContent(text, highlighted, onClick)
 }
 
 private data class PostRankingInfo(

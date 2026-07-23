@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.sp
 import com.quata.R
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.AppDestinations
+import com.quata.core.ui.components.QuataBottomNavigation
+import com.quata.core.ui.components.QuataNavigationItem
 
 data class BottomDestination(
     val route: String,
@@ -74,25 +76,11 @@ fun QuataBottomBar(
     currentRoute: String?,
     onDestinationClick: (String) -> Unit
 ) {
-    val template = quataTheme()
-    NavigationBar(
-        containerColor = template.colors.background,
-        modifier = Modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
-            .height(92.dp),
-        windowInsets = WindowInsets(0.dp)
-    ) {
-        bottomDestinations.forEach { item ->
-            val selected = currentRoute == item.route
-            val label = stringResource(item.labelRes)
-            CompactBottomBarItem(
-                selected = selected,
-                label = label,
-                icon = item.icon,
-                onClick = { onDestinationClick(item.route) },
-            )
-        }
-    }
+    QuataBottomNavigation(
+        items = bottomDestinations.map { QuataNavigationItem(it.route, stringResource(it.labelRes), it.icon) },
+        selectedId = currentRoute,
+        onItemClick = onDestinationClick,
+    )
 }
 
 @Composable
@@ -231,58 +219,6 @@ private fun CompactNotificationRailItem(
     }
 }
 
-@Composable
-private fun RowScope.CompactBottomBarItem(
-    selected: Boolean,
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit
-) {
-    val template = quataTheme()
-    val selectedContentColor = template.colors.textPrimary
-    val unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val contentColor = if (selected) selectedContentColor else unselectedContentColor
-    Surface(
-        color = if (selected) template.colors.selectedSurface else template.colors.surfaceAlt,
-        contentColor = contentColor,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (selected) template.colors.selectedBorder else template.colors.divider
-        ),
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 10.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(horizontal = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = label,
-                color = contentColor,
-                fontSize = template.textSizes.tiny,
-                lineHeight = template.textSizes.caption,
-                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-        }
-    }
-}
 
 @Composable
 private fun CompactNavigationRailItem(

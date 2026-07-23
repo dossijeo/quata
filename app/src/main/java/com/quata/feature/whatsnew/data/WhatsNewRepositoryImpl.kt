@@ -1,7 +1,6 @@
 package com.quata.feature.whatsnew.data
 
 import android.content.Context
-import android.os.LocaleList
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -28,7 +27,7 @@ class WhatsNewRepositoryImpl internal constructor(
 
     override suspend fun getPendingReleases(
         installedVersionCode: Long,
-        locales: LocaleList
+        languageTags: List<String>
     ): Result<List<PendingRelease>> = withContext(Dispatchers.IO) {
         val profileId = sessionManager.currentSession()?.userId
             ?: return@withContext Result.failure(IllegalStateException("authentication_required"))
@@ -48,7 +47,7 @@ class WhatsNewRepositoryImpl internal constructor(
                 }
             )
             remoteReleases
-                .mapNotNull { dto -> dto.toPendingRelease(locales) }
+                .mapNotNull { dto -> dto.toPendingRelease(languageTags) }
                 .distinctBy { it.versionCode }
                 .sortedBy { it.versionCode }
         }.recoverCatching {
@@ -59,14 +58,14 @@ class WhatsNewRepositoryImpl internal constructor(
                         release.versionCode > (cached.lastSeenVersionCode ?: 0L)
                 }
                 .mapNotNull { cachedRelease ->
-                    cachedRelease.toPendingRelease(locales)
+                    cachedRelease.toPendingRelease(languageTags)
                 }
                 .distinctBy { it.versionCode }
                 .sortedBy { it.versionCode }
         }
     }
 
-    override suspend fun getReleaseHistory(locales: LocaleList): Result<List<PendingRelease>> =
+    override suspend fun getReleaseHistory(languageTags: List<String>): Result<List<PendingRelease>> =
         withContext(Dispatchers.IO) {
             val profileId = sessionManager.currentSession()?.userId
                 ?: return@withContext Result.failure(IllegalStateException("authentication_required"))
@@ -85,19 +84,19 @@ class WhatsNewRepositoryImpl internal constructor(
                             }
                         )
                     }
-                    .mapNotNull { dto -> dto.toPendingRelease(locales) }
+                    .mapNotNull { dto -> dto.toPendingRelease(languageTags) }
                     .distinctBy { it.versionCode }
                     .sortedByDescending { it.versionCode }
             }.recoverCatching {
                 cacheStore.read(profileId).releases
-                    .mapNotNull { cachedRelease -> cachedRelease.toPendingRelease(locales) }
+                    .mapNotNull { cachedRelease -> cachedRelease.toPendingRelease(languageTags) }
                     .distinctBy { it.versionCode }
                     .sortedByDescending { it.versionCode }
             }
         }
 
     override suspend fun initializeForNewUser(installedVersionCode: Long): Result<Unit> =
-        getPendingReleases(installedVersionCode, LocaleList.getDefault()).map { Unit }
+        getPendingReleases(installedVersionCode, Locale.getDefault().let { listOf(it.toLanguageTag(), it.language) }).map { Unit }
 
     override suspend fun markReleasesSeen(
         upToVersionCode: Long,
@@ -132,8 +131,8 @@ class WhatsNewRepositoryImpl internal constructor(
         }.getOrDefault(false)
     }
 
-    private fun AndroidPendingReleaseDto.toPendingRelease(locales: LocaleList): PendingRelease? {
-        val localizedNote = resolveReleaseNote(notes, locales) ?: return null
+    private fun AndroidPendingReleaseDto.toPendingRelease(languageTags: List<String>): PendingRelease? {
+        val localizedNote = resolveReleaseNote(notes, languageTags) ?: return null
         return PendingRelease(
             releaseId = release_id,
             versionCode = version_code,
@@ -143,8 +142,8 @@ class WhatsNewRepositoryImpl internal constructor(
         )
     }
 
-    private fun CachedRelease.toPendingRelease(locales: LocaleList): PendingRelease? {
-        val localizedNote = resolveReleaseNote(notes, locales) ?: return null
+    private fun CachedRelease.toPendingRelease(languageTags: List<String>): PendingRelease? {
+        val localizedNote = resolveReleaseNote(notes, languageTags) ?: return null
         return PendingRelease(
             releaseId = releaseId,
             versionCode = versionCode,
@@ -156,20 +155,19 @@ class WhatsNewRepositoryImpl internal constructor(
 }
 
 /** Exact tag, language-only tag, English and finally any usable translation. */
-fun resolveReleaseNote(notes: Map<String, String>, locales: LocaleList): String? {
+fun resolveReleaseNote(notes: Map<String, String>, languageTags: List<String>): String? {
     val cleanNotes = notes
         .mapValues { (_, value) -> value.trim() }
         .filterValues { it.isNotEmpty() }
     if (cleanNotes.isEmpty()) return null
 
-    for (index in 0 until locales.size()) {
-        val locale = locales[index]
-        cleanNotes.entries.firstOrNull { (tag, _) -> tag.equals(locale.toLanguageTag(), ignoreCase = true) }
+    for (languageTag in languageTags) {
+        cleanNotes.entries.firstOrNull { (tag, _) -> tag.equals(languageTag, ignoreCase = true) }
             ?.value
             ?.let { return it }
     }
-    for (index in 0 until locales.size()) {
-        val locale = locales[index]
+    for (languageTag in languageTags) {
+        val locale = Locale.forLanguageTag(languageTag)
         cleanNotes.entries.firstOrNull { (tag, _) ->
             Locale.forLanguageTag(tag).language.equals(locale.language, ignoreCase = true)
         }?.value?.let { return it }

@@ -35,7 +35,7 @@ fun LoginScreen(
     onGoToRegister: () -> Unit,
     onForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit,
-    viewModel: LoginViewModel = viewModel(factory = LoginViewModel.factory(authRepository))
+    viewModel: LoginAndroidViewModel = viewModel(factory = LoginAndroidViewModel.factory(authRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -52,50 +52,20 @@ fun LoginScreen(
         subtitle = stringResource(R.string.auth_tagline),
         portraitLogoSpacing = 22.dp
     ) { isLandscape ->
-            PhoneInputSection(
+            LoginForm(
+                state = state,
                 prefixes = prefixes,
-                selectedPrefix = state.countryCode,
-                onPrefixChange = { viewModel.onEvent(LoginUiEvent.CountryCodeChanged(it)) },
-                phone = state.phone,
-                onPhoneChange = { viewModel.onEvent(LoginUiEvent.PhoneChanged(it)) },
-                phoneLabel = stringResource(R.string.auth_phone),
-                modifier = Modifier.fillMaxWidth()
+                strings = LoginFormStrings(
+                    phone = stringResource(R.string.auth_phone), password = stringResource(R.string.auth_password),
+                    signingIn = stringResource(R.string.auth_signing_in), signIn = stringResource(R.string.auth_sign_in),
+                    forgotPassword = stringResource(R.string.auth_forgot_password), createAccount = stringResource(R.string.auth_create_account),
+                    searchPrefix = stringResource(R.string.profile_search_prefix), mockNotice = stringResource(R.string.auth_mock_notice),
+                ),
+                isLandscape = isLandscape,
+                showMockNotice = AppConfig.USE_MOCK_BACKEND,
+                onEvent = viewModel::onEvent,
+                onForgotPassword = onForgotPassword,
+                onGoToRegister = onGoToRegister,
             )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.password,
-                onValueChange = { viewModel.onEvent(LoginUiEvent.PasswordChanged(it)) },
-                label = stringResource(R.string.auth_password),
-                isPassword = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (state.error != null) {
-                Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-                Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-            QuataPrimaryButton(
-                text = if (state.isLoading) stringResource(R.string.auth_signing_in) else stringResource(R.string.auth_sign_in),
-                enabled = !state.isLoading
-            ) { viewModel.onEvent(LoginUiEvent.Submit) }
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataSecondaryButton(
-                text = stringResource(R.string.auth_forgot_password),
-                enabled = !state.isLoading
-            ) { onForgotPassword() }
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataSecondaryButton(text = stringResource(R.string.auth_create_account), onClick = onGoToRegister)
-            if (state.isLoading) {
-                Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp))
-                CircularProgressIndicator()
-            }
-            if (AppConfig.USE_MOCK_BACKEND) {
-                Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp))
-                Text(
-                    text = stringResource(R.string.auth_mock_notice),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-            }
     }
 }

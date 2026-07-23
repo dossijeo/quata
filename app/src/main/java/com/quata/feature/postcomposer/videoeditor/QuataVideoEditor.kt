@@ -27,7 +27,6 @@ import android.view.Surface
 import android.view.TextureView
 import android.view.WindowManager
 import android.app.Activity
-import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -169,6 +168,7 @@ import com.quata.core.captions.android.CaptionPreviewRenderer
 import com.quata.core.captions.media3.CaptionBurnInTrack
 import com.quata.core.captions.media3.CaptionMedia3BurnIn
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.captions.templates.labelRes
 import com.quata.core.captions.transcriber.VoskModelDeliveryManager
 import com.quata.core.captions.transcriber.VoskModelLanguage
 import com.quata.core.captions.transcriber.VoskModelNotInstalledException
@@ -601,6 +601,7 @@ fun QuataVideoEditorDialog(
         title = stringResource(R.string.video_editor_title),
         showTitle = !isLandscapeLayout,
         onBack = ::requestBack,
+        backContentDescription = stringResource(R.string.video_editor_back),
         actions = {
             if (!isExporting) {
                 QuataEditorToolButton(
@@ -1354,7 +1355,7 @@ private fun CropControls(
                     ) {
                         CompactIcon(Icons.Filled.AspectRatio, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(option.labelRes), fontWeight = FontWeight.ExtraBold)
+                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
                     }
                 } else {
                     OutlinedButton(
@@ -1364,7 +1365,7 @@ private fun CropControls(
                         contentPadding = CompactButtonContentPadding,
                         modifier = Modifier.height(36.dp)
                     ) {
-                        Text(stringResource(option.labelRes), fontWeight = FontWeight.ExtraBold)
+                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
@@ -3118,40 +3119,6 @@ private fun NormalizedCropRect.toMedia3Crop(): Crop {
     return Crop(leftNdc, rightNdc, bottomNdc, topNdc)
 }
 
-private fun NormalizedCropRect.displayAspectRatio(sourceAspectRatio: Float): Float =
-    (sourceAspectRatio * width.coerceAtLeast(0.01f) / height.coerceAtLeast(0.01f)).coerceAtLeast(0.1f)
-
-private fun NormalizedCropRect.centerCropToAspect(
-    targetAspectRatio: Float,
-    sourceAspectRatio: Float
-): NormalizedCropRect {
-    val safeSourceAspect = sourceAspectRatio.coerceAtLeast(0.1f)
-    val safeTargetAspect = targetAspectRatio.coerceAtLeast(0.1f)
-    val cropAspect = displayAspectRatio(safeSourceAspect)
-    var nextWidth = width
-    var nextHeight = height
-    if (cropAspect > safeTargetAspect) {
-        nextWidth = (safeTargetAspect * nextHeight / safeSourceAspect).coerceAtMost(width)
-    } else if (cropAspect < safeTargetAspect) {
-        nextHeight = (safeSourceAspect * nextWidth / safeTargetAspect).coerceAtMost(height)
-    }
-    val centerX = (left + right) / 2f
-    val centerY = (top + bottom) / 2f
-    val clampedCenter = clampCropCenter(nextWidth, nextHeight, Offset(centerX, centerY))
-    val result = NormalizedCropRect(
-        left = clampedCenter.x - nextWidth / 2f,
-        top = clampedCenter.y - nextHeight / 2f,
-        right = clampedCenter.x + nextWidth / 2f,
-        bottom = clampedCenter.y + nextHeight / 2f
-    )
-    return result
-}
-
-private fun Int.normalizedVideoRotation(): Int {
-    val normalized = ((this % 360) + 360) % 360
-    return if (normalized == 90 || normalized == 180 || normalized == 270) normalized else 0
-}
-
 private fun Int.videoRotationCorrectionDegrees(): Int {
     val normalizedRotation = normalizedVideoRotation()
     return normalizedRotation
@@ -3262,92 +3229,17 @@ private fun rememberVideoPreviewFrame(
     return frame
 }
 
-private fun VideoCropMode.cropRect(
-    videoAspect: Float,
-    zoom: Float,
-    center: Offset
-): NormalizedCropRect {
-    val aspect = targetAspect ?: return NormalizedCropRect.Full
-    val safeVideoAspect = videoAspect.coerceAtLeast(0.1f)
-    var width = 1f
-    var height = safeVideoAspect / aspect
-    if (height > 1f) {
-        height = 1f
-        width = aspect / safeVideoAspect
-    }
-    val safeZoom = zoom.coerceIn(1f, 3f)
-    width = (width / safeZoom).coerceIn(0.12f, 1f)
-    height = (height / safeZoom).coerceIn(0.12f, 1f)
-    val clampedCenter = clampCropCenter(width, height, center)
-    return NormalizedCropRect(
-        left = clampedCenter.x - width / 2f,
-        top = clampedCenter.y - height / 2f,
-        right = clampedCenter.x + width / 2f,
-        bottom = clampedCenter.y + height / 2f
-    )
-}
-
-private fun VideoCropMode.clampCenter(
-    videoAspect: Float,
-    zoom: Float,
-    center: Offset
-): Offset {
-    val rect = cropRect(videoAspect, zoom, Offset(0.5f, 0.5f))
-    return clampCropCenter(rect.width, rect.height, center)
-}
-
-private fun clampCropCenter(width: Float, height: Float, center: Offset): Offset =
-    Offset(
-        x = center.x.coerceIn(width / 2f, 1f - width / 2f),
-        y = center.y.coerceIn(height / 2f, 1f - height / 2f)
-    )
-
-private enum class VideoCropMode(
-    @param:StringRes val labelRes: Int,
-    val targetAspect: Float?
-) {
-    Original(R.string.video_editor_crop_original, null),
-    Square(R.string.video_editor_crop_square, 1f),
-    FourFive(R.string.video_editor_crop_four_five, 4f / 5f),
-    Portrait(R.string.video_editor_crop_portrait, 9f / 16f),
-    Landscape(R.string.video_editor_crop_landscape, 16f / 9f)
+private fun VideoCropMode.labelRes(): Int = when (this) {
+    VideoCropMode.Original -> R.string.video_editor_crop_original
+    VideoCropMode.Square -> R.string.video_editor_crop_square
+    VideoCropMode.FourFive -> R.string.video_editor_crop_four_five
+    VideoCropMode.Portrait -> R.string.video_editor_crop_portrait
+    VideoCropMode.Landscape -> R.string.video_editor_crop_landscape
 }
 
 private enum class TimelineMarker {
     Start,
     End
-}
-
-private data class VideoEditorMetadata(
-    val durationMs: Long = 0L,
-    val width: Int = 0,
-    val height: Int = 0,
-    val rotation: Int = 0,
-    val bitrate: Long? = null,
-    val frameRate: Float? = null
-) {
-    val displayWidth: Int
-        get() {
-            val normalizedRotation = rotation.normalizedVideoRotation()
-            val rotated = normalizedRotation == 90 || normalizedRotation == 270
-            return if (rotated) height else width
-        }
-
-    val displayHeight: Int
-        get() {
-            val normalizedRotation = rotation.normalizedVideoRotation()
-            val rotated = normalizedRotation == 90 || normalizedRotation == 270
-            return if (rotated) width else height
-        }
-
-    val aspectRatio: Float?
-        get() {
-            if (displayWidth <= 0 || displayHeight <= 0) return null
-            return displayWidth.toFloat() / displayHeight.toFloat()
-        }
-
-    fun hasNineSixteenAspect(): Boolean =
-        aspectRatio?.let { abs(it - EditorOutputAspectRatio) <= DirectStreamAspectTolerance } == true
 }
 
 private data class VideoEditorExportRequest(
@@ -3369,21 +3261,6 @@ private data class VideoEditorExportRequest(
     val captionTrack: CaptionBurnInTrack?
 )
 
-private data class NormalizedCropRect(
-    val left: Float,
-    val top: Float,
-    val right: Float,
-    val bottom: Float
-) {
-    val width: Float get() = right - left
-    val height: Float get() = bottom - top
-    val isFullFrame: Boolean
-        get() = left <= 0.001f && top <= 0.001f && right >= 0.999f && bottom >= 0.999f
-
-    companion object {
-        val Full = NormalizedCropRect(0f, 0f, 1f, 1f)
-    }
-}
 
 private const val TimelineFrameCount = 6
 private const val TimelineFrameMaxDimension = 120

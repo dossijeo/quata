@@ -116,6 +116,7 @@ import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.official.domain.calculateOfficialPostRanking
 import kotlinx.coroutines.launch
 
 @Composable
@@ -130,7 +131,7 @@ fun OfficialFeedScreen(
     onCreateOfficialPost: (() -> Unit)? = null,
     onReportComment: (String) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: OfficialFeedViewModel = viewModel(factory = OfficialFeedViewModel.factory(repository))
+    viewModel: OfficialFeedAndroidViewModel = viewModel(factory = OfficialFeedAndroidViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -155,7 +156,7 @@ fun OfficialFeedScreen(
 
     val canPublish = state.currentUser?.isOfficial == true
     val canModerateAll = state.currentUser?.isAdmin == true
-    val postRanks = remember(state.posts) { calculateOfficialPostRankingMap(state.posts) }
+    val postRanks = remember(state.posts) { calculateOfficialPostRanking(state.posts) }
     val pagerState = rememberPagerState(pageCount = { state.posts.size.coerceAtLeast(1) })
     var retainedVisiblePostId by rememberSaveable { mutableStateOf<String?>(null) }
     var hasAppliedRetainedPost by remember { mutableStateOf(retainedVisiblePostId == null) }
@@ -245,15 +246,17 @@ fun OfficialFeedScreen(
         ) {
             when {
                 state.isLoading && state.posts.isEmpty() -> {
-                    OfficialLoadingPage(
+                    OfficialLoadingContent(
                         canPublish = canPublish,
+                        strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
                         onCreate = { requestCreateOfficialPost() },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
                 state.posts.isEmpty() -> {
-                    OfficialEmptyPage(
+                    OfficialEmptyContent(
                         canPublish = canPublish,
+                        strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
                         onCreate = { requestCreateOfficialPost() },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -286,10 +289,11 @@ fun OfficialFeedScreen(
                     }
                 }
             }
-            QuataFeedPullRefreshIndicator(
-                state = pullRefreshState,
-                isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
-                modifier = Modifier
+                QuataFeedPullRefreshIndicator(
+                    state = pullRefreshState,
+                    isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+                    refreshContentDescription = stringResource(R.string.common_refresh),
+                    modifier = Modifier
                     .align(Alignment.TopCenter)
                     .zIndex(4f)
             )
@@ -440,84 +444,6 @@ private fun OfficialPostPage(
     }
 }
 
-@Composable
-private fun OfficialLoadingPage(
-    canPublish: Boolean,
-    onCreate: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
-
-    Box(
-        modifier = modifier.padding(horizontal = 14.dp)
-    ) {
-        OfficialPostSkeleton(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 10.dp)
-        )
-        if (canPublish) {
-            OfficialCreateActionButton(
-                onClick = onCreate,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 10.dp, bottom = 16.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun OfficialEmptyPage(
-    canPublish: Boolean,
-    onCreate: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
-
-    Box(
-        modifier = modifier.padding(horizontal = 14.dp)
-    ) {
-        OfficialEmptyState(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 10.dp)
-        )
-        if (canPublish) {
-            OfficialCreateActionButton(
-                onClick = onCreate,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 10.dp, bottom = 16.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun OfficialCreateActionButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        color = QuataOrange,
-        contentColor = Color.White,
-        shape = CircleShape,
-        shadowElevation = 6.dp,
-        border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.88f)),
-        modifier = modifier
-            .size(48.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            CompactIcon(
-                Icons.Filled.Add,
-                contentDescription = stringResource(R.string.official_create),
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
 
 @Composable
 internal fun OfficialPostCard(
@@ -587,7 +513,7 @@ internal fun OfficialPostCard(
                         .padding(end = 10.dp, bottom = 16.dp)
                 )
                 OfficialTypePill(
-                    post.type,
+                    label = post.type.label(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 28.dp, end = 14.dp)
@@ -631,7 +557,7 @@ internal fun OfficialPostCard(
                         .padding(end = 10.dp, bottom = 16.dp)
                 )
                 OfficialTypePill(
-                    post.type,
+                    label = post.type.label(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 38.dp, end = 8.dp)
@@ -671,7 +597,7 @@ private fun OfficialPostPortraitContent(
             )
             Spacer(Modifier.height(12.dp))
             OfficialPostTextBlock(post, titleSize = 17, compact = true)
-            OfficialReadMoreLink(post = post, onReadMore = onReadMore)
+            OfficialReadMoreLink(post = post, label = localizedOfficialReadMoreLabel(post.readMoreLabel), onReadMore = onReadMore)
         }
     }
 }
@@ -725,7 +651,7 @@ private fun OfficialPostLandscapeContent(
             )
             Spacer(Modifier.height(18.dp))
             OfficialPostTextBlock(post, titleSize = 22, compact = false, modifier = Modifier.weight(1f, fill = false))
-            OfficialReadMoreLink(post = post, onReadMore = onReadMore)
+            OfficialReadMoreLink(post = post, label = localizedOfficialReadMoreLabel(post.readMoreLabel), onReadMore = onReadMore)
         }
     }
 }
@@ -760,6 +686,7 @@ private fun OfficialPostTextOnlyBlock(
         }
         OfficialReadMoreLink(
             post = post,
+            label = localizedOfficialReadMoreLabel(post.readMoreLabel),
             onReadMore = onReadMore,
             alignEnd = alignReadMoreEnd
         )
@@ -772,8 +699,12 @@ private fun OfficialAuthorHeader(
     onOpenAuthor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        AvatarImage(
+    OfficialAuthorHeaderContent(
+        displayName = post.author.displayName,
+        neighborhood = post.author.neighborhood,
+        fallbackNeighborhood = stringResource(R.string.official_account_fallback),
+        avatar = {
+            AvatarImage(
             name = post.author.displayName,
             avatarUrl = post.author.avatarUrl,
             isOfficial = true,
@@ -781,116 +712,10 @@ private fun OfficialAuthorHeader(
             modifier = Modifier
                 .size(58.dp)
                 .clickable(onClick = onOpenAuthor)
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    post.author.displayName,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.width(4.dp))
-                CompactIcon(
-                    Icons.Filled.Verified,
-                    contentDescription = null,
-                    tint = Color(0xFF2F80ED),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Text(
-                post.author.neighborhood.ifBlank { stringResource(R.string.official_account_fallback) },
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
             )
-        }
-    }
-}
-
-@Composable
-private fun OfficialTypePill(
-    type: OfficialPostType,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Surface(
-        color = Color(0xFF2BA84A).copy(alpha = if (template.resolvedTheme == QuataResolvedTheme.Dark) 0.18f else 0.10f),
-        contentColor = Color(0xFF2BA84A),
-        shape = RoundedCornerShape(100.dp),
-        modifier = modifier
-    ) {
-        Text(
-            text = type.label(),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun OfficialPostTextBlock(
-    post: OfficialPostItem,
-    titleSize: Int,
-    compact: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Text(
-            post.title,
-            fontWeight = FontWeight.Black,
-            fontSize = titleSize.sp,
-            lineHeight = (titleSize + 5).sp,
-            maxLines = if (compact) 2 else 4,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
-        Box(
-            modifier = Modifier
-                .height(3.dp)
-                .width(54.dp)
-                .background(Color(0xFF2BA84A), RoundedCornerShape(20.dp))
-        )
-        Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
-        Text(
-            post.summary.ifBlank { post.contentPlain },
-            fontSize = if (compact) 14.sp else 16.sp,
-            lineHeight = if (compact) 20.sp else 23.sp,
-            maxLines = if (compact) 3 else 7,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun OfficialReadMoreLink(
-    post: OfficialPostItem,
-    onReadMore: () -> Unit,
-    alignEnd: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    val hasReadableBody = post.contentPlain.isNotBlank() && post.contentPlain.trim() != post.summary.trim()
-    if (!hasReadableBody && post.linkUrl.isNullOrBlank()) return
-    Spacer(Modifier.height(12.dp))
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start
-    ) {
-        Text(
-            localizedOfficialReadMoreLabel(post.readMoreLabel),
-            color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.clickable(onClick = onReadMore)
-        )
-    }
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -966,36 +791,6 @@ private fun OfficialPostActionRail(
     )
 }
 
-@Composable
-private fun OfficialPostSkeleton(modifier: Modifier = Modifier) {
-    val template = quataTheme()
-    Card(
-        colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
-        shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth()
-    ) {}
-}
-
-@Composable
-private fun OfficialEmptyState(modifier: Modifier = Modifier) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = quataTheme().colors.surfaceAlt),
-        shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(Icons.Filled.Info, contentDescription = null, tint = QuataOrange, modifier = Modifier.size(36.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.official_empty), fontWeight = FontWeight.Bold)
-        }
-    }
-}
 
 @Composable
 internal fun OfficialPostDetailPanel(
@@ -1070,20 +865,7 @@ private fun OfficialMediaViewerDialog(
     )
 }
 
-private data class OfficialPostRankingInfo(
-    val position: Int,
-    val likes: Int
-)
-
 private const val OfficialOlderPostsPrefetchDistance = 8
-
-private fun calculateOfficialPostRankingMap(posts: List<OfficialPostItem>): Map<String, OfficialPostRankingInfo> =
-    posts
-        .sortedWith(compareByDescending<OfficialPostItem> { it.likesCount }.thenByDescending { it.createdAt })
-        .mapIndexed { index, post ->
-            post.id to OfficialPostRankingInfo(position = index + 1, likes = post.likesCount)
-        }
-        .toMap()
 
 @Composable
 private fun OfficialPostType.label(): String = when (this) {

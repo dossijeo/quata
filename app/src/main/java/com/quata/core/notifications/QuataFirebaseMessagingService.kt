@@ -19,7 +19,8 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
         val expectedProfileId = data["recipient_profile_id"]?.takeIf { it.isNotBlank() }
         val currentProfileId = quataApp?.container?.sessionManager?.currentSession()?.userId
         if (expectedProfileId != null && expectedProfileId != currentProfileId) return
-        val messageId = data["message_id"]?.toLongOrNull()
+        val messageIdValue = data["message_id"]?.takeIf { it.isNotBlank() }
+        val messageId = messageIdValue?.toLongOrNull()
 
         // Posting the user-visible notification takes priority over background
         // bookkeeping during a cold or resource-constrained process start.
@@ -32,7 +33,8 @@ class QuataFirebaseMessagingService : FirebaseMessagingService() {
                     conversationId = conversationId,
                     title = data["title"].orEmpty(),
                     body = data["body"].orEmpty().ifBlank { data["message"].orEmpty() },
-                    bodyKey = data["body_key"].orEmpty()
+                    bodyKey = data["body_key"].orEmpty(),
+                    messageId = messageIdValue,
                 )
             }
         }

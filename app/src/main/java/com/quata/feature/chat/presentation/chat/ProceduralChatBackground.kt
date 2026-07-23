@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import com.quata.core.designsystem.theme.QuataChatBackgroundPalette
+import com.quata.designsystem.chat.proceduralChatBackgroundSpec
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -69,15 +70,17 @@ internal object ProceduralChatBackground {
         templateId: String,
         palettes: List<QuataChatBackgroundPalette>,
         width: Int,
-        height: Int
+        height: Int,
     ): ImageBitmap? {
         val safeWidth = width.coerceAtLeast(1)
         val safeHeight = height.coerceAtLeast(1)
         val cached = cachedBitmap(context, conversationName, templateId, safeWidth, safeHeight)
         if (cached != null) return cached
 
-        val bitmap = ProceduralChatBackgroundRenderer.render(
-            seedText = conversationName.ifBlank { "quata" },
+        val spec = proceduralChatBackgroundSpec(conversationName, templateId, palettes.size)
+        val bitmap = EglProceduralChatBackgroundRenderer.render(
+            seed = spec.seed,
+            paletteIndex = spec.paletteIndex,
             palettes = palettes,
             width = safeWidth,
             height = safeHeight
@@ -92,21 +95,12 @@ internal object ProceduralChatBackground {
     }
 
     private fun cacheFile(context: Context, conversationName: String, templateId: String): File {
-        val hash = fnv1a("${templateId}:${conversationName.ifBlank { "quata" }}")
-        return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_$hash.webp")
-    }
-
-    private fun fnv1a(value: String): Long {
-        var hash = 0x811c9dc5L
-        value.forEach { char ->
-            hash = hash xor char.code.toLong()
-            hash = (hash + (hash shl 1) + (hash shl 4) + (hash shl 7) + (hash shl 8) + (hash shl 24)) and 0xffffffffL
-        }
-        return hash
+        val spec = proceduralChatBackgroundSpec(conversationName, templateId, paletteCount = 1)
+        return File(File(context.filesDir, "chat_backgrounds"), "chat_bg_${spec.cacheKey}.webp")
     }
 }
 
-private object ProceduralChatBackgroundRenderer {
+private object EglProceduralChatBackgroundRenderer {
     private val quadVertices: FloatBuffer = ByteBuffer
         .allocateDirect(8 * Float.SIZE_BYTES)
         .order(ByteOrder.nativeOrder())
@@ -116,17 +110,17 @@ private object ProceduralChatBackgroundRenderer {
             position(0)
         }
 
-    fun render(seedText: String, palettes: List<QuataChatBackgroundPalette>, width: Int, height: Int): Bitmap? {
+    fun render(seed: Long, paletteIndex: Int, palettes: List<QuataChatBackgroundPalette>, width: Int, height: Int): Bitmap? {
         val egl = EglSession.create(width, height) ?: run {
             Log.w(ProceduralChatBackgroundTag, "Could not create EGL session for ${width}x$height")
             return null
         }
         return try {
-            val seed = fnv1a(seedText).toFloat()
+            val seedValue = seed.toFloat()
             val paletteValues = palettes.takeIf { it.isNotEmpty() } ?: listOf(
                 QuataChatBackgroundPalette(Color(0xFF030408), Color(0xFF2F8CFF), Color(0xFF7C3CFF), Color(0xFFFF8A1F))
             )
-            val palette = paletteValues[(seed.toLong() and 0xffffffffL).toInt().floorMod(paletteValues.size)]
+            val palette = paletteValues[paletteIndex.floorMod(paletteValues.size)]
             val proceduralProgram = createProgram(FullScreenVertexShader, ProceduralFragmentShader)
             val compositeProgram = createProgram(FullScreenVertexShader, CompositeFragmentShader)
             if (proceduralProgram == 0 || compositeProgram == 0) {
@@ -143,8 +137,8 @@ private object ProceduralChatBackgroundRenderer {
                 return null
             }
 
-            renderProceduralLayer(proceduralProgram, baseTarget, width, height, seed, palette, mode = 0)
-            renderProceduralLayer(proceduralProgram, glowTarget, width, height, seed, palette, mode = 1)
+            renderProceduralLayer(proceduralProgram, baseTarget, width, height, seedValue, palette, mode = 0)
+            renderProceduralLayer(proceduralProgram, glowTarget, width, height, seedValue, palette, mode = 1)
             renderComposite(compositeProgram, baseTarget.texture, glowTarget.texture, width, height)
 
             readBitmap(width, height).also {

@@ -155,7 +155,7 @@ class AuthRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun loginWithGoogle(context: Context): Result<AuthSession> {
+    suspend fun loginWithGoogle(context: Context): Result<AuthSession> {
         return googleAuthHelper.signIn(context).onSuccess { sessionManager.setSession(it) }
     }
 

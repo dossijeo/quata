@@ -8,6 +8,7 @@ import com.quata.core.language.QuataTranslationLanguage
 import com.quata.core.language.QuataTranslationResult
 import com.quata.core.language.QuataTranslator
 import com.quata.core.language.QuataTranslatorClient
+import com.quata.core.language.TextTranslator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
@@ -15,8 +16,14 @@ import java.security.MessageDigest
 class CachedQuataTranslator(
     context: Context,
     private val client: QuataTranslatorClient = QuataTranslator.shared
-) {
+) : TextTranslator {
     private val store = QuataTranslationCacheStore(context.applicationContext)
+
+    override suspend fun translate(
+        text: String,
+        sourceLanguage: QuataTranslationLanguage,
+        targetLanguage: QuataTranslationLanguage,
+    ): QuataTranslationResult = translate(text, sourceLanguage, targetLanguage, QuataTranslatorClient.DefaultMaxNewTokens)
 
     suspend fun translate(
         text: String,

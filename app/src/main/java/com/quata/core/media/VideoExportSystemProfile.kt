@@ -6,17 +6,6 @@ import android.media.MediaFormat
 import android.os.Build
 import androidx.annotation.RequiresApi
 
-data class VideoExportProfile(
-    val width: Int,
-    val height: Int,
-    val maxFrameRate: Int,
-    val label: String,
-    val targetBitrate: Int,
-    val intermediateBitrate: Int
-) {
-    val aspectRatio: Float get() = width.toFloat() / height.toFloat()
-}
-
 object VideoExportSystemProfile {
     private val sd480 = VideoExportProfile(
         width = 480,

@@ -6,26 +6,6 @@ import com.quata.core.session.SessionManager
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
 
-enum class ModerationTarget(val wireValue: String) {
-    CommunityPost("community_post"),
-    OfficialPost("official_post"),
-    CommunityComment("community_comment"),
-    OfficialComment("official_comment"),
-    ChatMessage("chat_message"),
-    Profile("profile")
-}
-
-enum class ReportReason(val wireValue: String) {
-    ChildSafety("child_safety"),
-    Harassment("harassment"),
-    Hate("hate"),
-    Sexual("sexual"),
-    Violence("violence"),
-    Spam("spam"),
-    Impersonation("impersonation"),
-    Other("other")
-}
-
 class ModerationRepository(
     private val api: SupabaseCommunityApi,
     private val sessionManager: SessionManager,
@@ -47,7 +27,7 @@ class ModerationRepository(
         api.blockProfile(requireProfileId(), profileId)
     }
 
-    suspend fun hasAcceptedTerms(version: String = CURRENT_TERMS_VERSION): Result<Boolean> = runCatching {
+    suspend fun hasAcceptedTerms(version: String = CurrentUgcTermsVersion): Result<Boolean> = runCatching {
         val userId = requireProfileId()
         if (termsAcceptanceStore.isAccepted(userId, version)) {
             if (termsAcceptanceStore.isPending(userId, version)) {
@@ -60,13 +40,13 @@ class ModerationRepository(
         acceptedRemotely
     }
 
-    suspend fun acceptTerms(version: String = CURRENT_TERMS_VERSION): Result<Unit> = runCatching {
+    suspend fun acceptTerms(version: String = CurrentUgcTermsVersion): Result<Unit> = runCatching {
         val userId = requireProfileId()
         termsAcceptanceStore.markAcceptedPendingSync(userId, version)
         ChatMessageStateWorkScheduler.scheduleOneTime(appContext)
     }
 
-    suspend fun flushPendingTermsForCurrentUser(version: String = CURRENT_TERMS_VERSION): Boolean {
+    suspend fun flushPendingTermsForCurrentUser(version: String = CurrentUgcTermsVersion): Boolean {
         val userId = sessionManager.currentSession()?.userId ?: return true
         if (!termsAcceptanceStore.isPending(userId, version)) return true
         return runCatching {
@@ -78,7 +58,4 @@ class ModerationRepository(
     private fun requireProfileId(): String =
         requireNotNull(sessionManager.currentSession()?.userId) { "Authentication required" }
 
-    companion object {
-        const val CURRENT_TERMS_VERSION = "2026-07"
-    }
 }

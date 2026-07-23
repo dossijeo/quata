@@ -117,7 +117,7 @@ fun ConversationsScreen(
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null,
     onOpenFavorites: () -> Unit = {},
-    viewModel: ConversationsViewModel = viewModel(factory = ConversationsViewModel.factory(repository, LocalContext.current))
+    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current))
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -456,12 +456,14 @@ fun ConversationCandidatePickerDialog(
         buildCandidateDisplayItems(
             candidates = state.conversationCandidates.filterNot { it.profileId in excludedProfileIds },
             actorNeighborhood = state.candidateActorNeighborhood,
-            contactsTitle = contactsTitle,
-            followingTitle = followingTitle,
-            followersTitle = followersTitle,
-            recentTitle = recentTitle,
-            otherTitle = otherTitle,
-            unknownNeighborhood = unknownNeighborhood
+            labels = CandidateDisplayLabels(
+                contacts = contactsTitle,
+                following = followingTitle,
+                followers = followersTitle,
+                recent = recentTitle,
+                otherNeighborhoods = otherTitle,
+                unknownNeighborhood = unknownNeighborhood
+            )
         )
     }
 
@@ -647,7 +649,7 @@ private fun NewConversationPanelContent(
                                 }
                             }
                             state.inviteContactsError != null -> item(key = "invite-error") {
-                                Text(state.inviteContactsError, color = MaterialTheme.colorScheme.error)
+                                Text(state.inviteContactsError.orEmpty(), color = MaterialTheme.colorScheme.error)
                             }
                             else -> items(filteredInviteContacts, key = { "invite:${it.id}" }) { contact ->
                                 InviteContactCard(contact = contact, onInvite = { pendingInviteContact = contact })
@@ -994,55 +996,6 @@ private fun CandidateUserCard(
             }
         }
     }
-}
-
-private sealed class CandidateDisplayItem(val key: String) {
-    data class SectionHeader(val title: String, val sectionKey: String) : CandidateDisplayItem("section:$sectionKey")
-    data class NeighborhoodHeader(val title: String) : CandidateDisplayItem("neighborhood:$title")
-    data class CandidateRow(val candidate: ChatConversationCandidate) : CandidateDisplayItem("candidate:${candidate.profileId}")
-}
-
-private fun buildCandidateDisplayItems(
-    candidates: List<ChatConversationCandidate>,
-    actorNeighborhood: String,
-    contactsTitle: String,
-    followingTitle: String,
-    followersTitle: String,
-    recentTitle: String,
-    otherTitle: String,
-    unknownNeighborhood: String
-): List<CandidateDisplayItem> {
-    val items = mutableListOf<CandidateDisplayItem>()
-    var lastSectionKey: String? = null
-    var lastOtherNeighborhood: String? = null
-    candidates.forEach { candidate ->
-        if (candidate.sectionKey != lastSectionKey) {
-            lastSectionKey = candidate.sectionKey
-            lastOtherNeighborhood = null
-            val title = when (candidate.sectionKey) {
-                "recent" -> recentTitle
-                "contacts" -> contactsTitle
-                "following" -> followingTitle
-                "followers" -> followersTitle
-                "neighborhood" -> actorNeighborhood.ifBlank {
-                    candidate.neighborhood.ifBlank { unknownNeighborhood }
-                }
-                else -> otherTitle
-            }
-            items += CandidateDisplayItem.SectionHeader(title, candidate.sectionKey)
-        }
-        if (candidate.sectionKey == "other") {
-            val neighborhood = candidate.neighborhoodGroup
-                .ifBlank { candidate.neighborhood }
-                .ifBlank { unknownNeighborhood }
-            if (neighborhood != lastOtherNeighborhood) {
-                lastOtherNeighborhood = neighborhood
-                items += CandidateDisplayItem.NeighborhoodHeader(neighborhood)
-            }
-        }
-        items += CandidateDisplayItem.CandidateRow(candidate)
-    }
-    return items
 }
 
 @Composable

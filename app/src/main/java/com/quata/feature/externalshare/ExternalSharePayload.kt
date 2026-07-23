@@ -8,34 +8,10 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.core.content.pm.ShortcutManagerCompat
-import com.quata.documentreader.QuataDocumentReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
-import java.util.UUID
-
-data class ExternalSharePayload(
-    val id: String = UUID.randomUUID().toString(),
-    val text: String = "",
-    val attachments: List<ExternalShareAttachment> = emptyList(),
-    val directConversationId: String? = null
-)
-
-data class ExternalShareAttachment(
-    val uri: String,
-    val name: String,
-    val mimeType: String?
-)
-
-sealed interface ExternalShareParseResult {
-    data class Accepted(val payload: ExternalSharePayload) : ExternalShareParseResult
-    data object Empty : ExternalShareParseResult
-    data object Unsupported : ExternalShareParseResult
-    data object Unreadable : ExternalShareParseResult
-    data object TooManyFiles : ExternalShareParseResult
-}
-
 object ExternalShareIntentParser {
     suspend fun parse(context: Context, intent: Intent): ExternalShareParseResult = withContext(Dispatchers.IO) {
         if (intent.action !in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
@@ -68,7 +44,7 @@ object ExternalShareIntentParser {
         val attachments = streams.map { stream ->
             val fileName = context.displayName(stream)
             val mimeType = context.resolveSharedMimeType(stream, fileName, intent.type)
-            if (!isSupportedAttachment(stream, fileName, mimeType)) {
+            if (!isSupportedSharedAttachment(stream.toString(), fileName, mimeType)) {
                 return@withContext ExternalShareParseResult.Unsupported
             }
             if (!context.canRead(stream)) {
@@ -88,14 +64,6 @@ object ExternalShareIntentParser {
                 directConversationId = directConversationId
             )
         )
-    }
-
-    private fun isSupportedAttachment(uri: Uri, fileName: String, mimeType: String?): Boolean {
-        val normalizedMime = mimeType?.substringBefore(';')?.lowercase(Locale.US).orEmpty()
-        return normalizedMime.startsWith("image/") ||
-            normalizedMime.startsWith("audio/") ||
-            normalizedMime.startsWith("video/") ||
-            QuataDocumentReader.canOpen(uri, fileName, normalizedMime)
     }
 
     @Suppress("DEPRECATION")

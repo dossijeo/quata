@@ -2,7 +2,7 @@ package com.quata.feature.profile.data
 
 import android.content.Context
 import com.quata.R
-import com.quata.feature.profile.domain.CountryPrefix
+import com.quata.core.model.CountryPrefix
 import com.quata.feature.profile.domain.SecretQuestionOption
 
 fun Context.countryPrefixOptions(): List<CountryPrefix> {

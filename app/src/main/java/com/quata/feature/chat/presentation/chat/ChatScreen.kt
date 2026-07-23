@@ -149,6 +149,8 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.designsystem.chat.ProceduralChatBackgroundCanvas
+import com.quata.designsystem.chat.proceduralChatBackgroundSpec
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
@@ -179,8 +181,8 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.translation.FangTranslatorIconButton
 import com.quata.core.translation.LocalQuataTranslatorModeController
-import com.quata.core.translation.QuataTranslatorOverlaySource
-import com.quata.core.translation.quataTranslatableText
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
+import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerDialog
 import com.quata.feature.chat.presentation.conversations.ConversationsUiState
@@ -209,9 +211,9 @@ fun ChatScreen(
     onBack: () -> Unit,
     compactHeader: Boolean = false,
     appHeaderActions: (@Composable RowScope.() -> Unit)? = null,
-    viewModel: ChatViewModel = viewModel(
+    viewModel: ChatAndroidViewModel = viewModel(
         key = "chat_$conversationId",
-        factory = ChatViewModel.factory(conversationId, repository, LocalContext.current)
+        factory = ChatAndroidViewModel.factory(conversationId, repository, LocalContext.current)
     )
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -503,6 +505,20 @@ fun ChatScreen(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(template.colors.scrim)
+                )
+            } ?: backgroundSeed?.let { seed ->
+                ProceduralChatBackgroundCanvas(
+                    spec = proceduralChatBackgroundSpec(
+                        conversationName = seed,
+                        templateId = "${template.id}-clouds-v3",
+                        paletteCount = template.colors.chatBackgroundPalettes.size
+                    ),
+                    palettes = template.colors.chatBackgroundPalettes
                 )
                 Box(
                     modifier = Modifier
@@ -1108,20 +1124,7 @@ private fun ComposerModeBanner(
     text: String,
     onClear: () -> Unit
 ) {
-    val template = quataTheme()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, top = 10.dp, end = 12.dp)
-            .background(template.colors.surface.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
-            .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        TextButton(onClick = onClear) {
-            Text("X")
-        }
-    }
+    ChatComposerModeBannerContent(text = text, onClear = onClear)
 }
 
 @Composable
@@ -1130,67 +1133,15 @@ private fun ChatAttachmentQuickPanel(
     onPickGallery: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(18.dp),
-        shadowElevation = 4.dp,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ChatAttachmentQuickAction(
-                icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-                label = stringResource(R.string.conversation_attach_file),
-                onClick = onPickFile,
-                modifier = Modifier.weight(1f)
-            )
-            ChatAttachmentQuickAction(
-                icon = Icons.Filled.PhotoLibrary,
-                label = stringResource(R.string.conversation_attach_gallery),
-                onClick = onPickGallery,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ChatAttachmentQuickAction(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
+    ChatAttachmentQuickPanelContent(
+        strings = ChatAttachmentQuickPanelStrings(
+            file = stringResource(R.string.conversation_attach_file),
+            gallery = stringResource(R.string.conversation_attach_gallery)
+        ),
+        onPickFile = onPickFile,
+        onPickGallery = onPickGallery,
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(template.colors.accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CompactIcon(icon, contentDescription = null, tint = template.colors.accent)
-        }
-        Text(
-            text = label,
-            color = template.colors.textPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    )
 }
 
 @Composable
@@ -2057,7 +2008,7 @@ private fun MessageBubble(
                 ) {
                     Column(Modifier.padding(8.dp)) {
                         Text(message.replyToSenderName.orEmpty(), fontWeight = FontWeight.Bold, color = textColor, fontSize = 12.sp)
-                        Text(message.replyToText, color = textColor.copy(alpha = 0.72f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(message.replyToText.orEmpty(), color = textColor.copy(alpha = 0.72f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Spacer(Modifier.padding(4.dp))
@@ -2135,47 +2086,7 @@ private fun MessageBubble(
 
 @Composable
 private fun TypingIndicatorBubble(names: List<String>) {
-    val template = quataTheme()
-    val transition = rememberInfiniteTransition(label = "chat_typing_dots")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Restart),
-        label = "chat_typing_phase"
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Column(
-            modifier = Modifier
-                .background(template.colors.chatOther, RoundedCornerShape(20.dp))
-                .border(1.dp, template.colors.divider, RoundedCornerShape(20.dp))
-                .padding(horizontal = 17.dp, vertical = 13.dp)
-        ) {
-            names.firstOrNull()?.takeIf { names.size == 1 }?.let { name ->
-                Text(
-                    text = name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = template.colors.textSecondary,
-                    modifier = Modifier.padding(bottom = 7.dp)
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                repeat(3) { index ->
-                    val shifted = (phase + index * 0.22f) % 1f
-                    val scale = 0.72f + 0.42f * (1f - kotlin.math.abs(shifted * 2f - 1f))
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .graphicsLayer(scaleX = scale, scaleY = scale, alpha = 0.5f + scale * 0.45f)
-                            .background(template.colors.textSecondary, CircleShape)
-                    )
-                }
-            }
-        }
-    }
+    ChatTypingIndicatorContent(names)
 }
 
 @Composable
@@ -2184,32 +2095,7 @@ private fun MessageDeliveryIndicator(
     tint: Color,
     readTint: Color
 ) {
-    when (state) {
-        MessageDeliveryState.Pending -> CircularProgressIndicator(
-            modifier = Modifier.size(12.dp),
-            color = tint.copy(alpha = 0.72f),
-            strokeWidth = 1.7.dp
-        )
-        MessageDeliveryState.Failed -> Text(
-            text = "!",
-            color = Color(0xFFD32F2F),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
-        MessageDeliveryState.Sent -> Text(
-            text = "\u2713",
-            color = tint,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
-        MessageDeliveryState.Delivered,
-        MessageDeliveryState.Read -> Text(
-            text = "\u2713\u2713",
-            color = if (state == MessageDeliveryState.Read) readTint else tint,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    ChatMessageDeliveryIndicatorContent(state, tint, readTint)
 }
 
 @Composable
@@ -2350,31 +2236,7 @@ private fun LinkifiedMessageText(
     linkColor: Color
 ) {
     val context = LocalContext.current
-    val annotatedText = remember(text, color, linkColor) {
-        text.toLinkAnnotatedString(
-            linkColor = linkColor
-        )
-    }
-    if (annotatedText.getStringAnnotations(UrlAnnotationTag, 0, annotatedText.length).isEmpty()) {
-        Text(text, color = color)
-    } else {
-        var layoutResult by remember(annotatedText) { mutableStateOf<TextLayoutResult?>(null) }
-        BasicText(
-            text = annotatedText,
-            style = TextStyle(color = color, fontSize = 14.sp),
-            modifier = Modifier.pointerInput(annotatedText) {
-                detectTapGestures { tapOffset ->
-                    val textOffset = layoutResult?.getOffsetForPosition(tapOffset) ?: return@detectTapGestures
-                    annotatedText
-                        .getStringAnnotations(UrlAnnotationTag, textOffset, textOffset)
-                        .firstOrNull()
-                        ?.item
-                        ?.let { context.openBrowserUrl(it) }
-                }
-            },
-            onTextLayout = { layoutResult = it }
-        )
-    }
+    ChatLinkifiedTextContent(text, color, linkColor, onOpenLink = context::openBrowserUrl)
 }
 
 private fun String.extractMapsUrl(): String? =
@@ -2434,31 +2296,6 @@ private fun String.startsWithAnySosLabel(vararg labels: String): Boolean {
     val normalized = lowercase(java.util.Locale.ROOT)
     return labels.any { label -> normalized.startsWith(label) }
 }
-
-private const val UrlAnnotationTag = "url"
-
-private val UrlRegex = Regex("""(https?://[^\s]+|www\.[^\s]+)""")
-
-private fun String.toLinkAnnotatedString(linkColor: Color): AnnotatedString =
-    buildAnnotatedString {
-        var currentIndex = 0
-        UrlRegex.findAll(this@toLinkAnnotatedString).forEach { match ->
-            if (match.range.first > currentIndex) {
-                append(this@toLinkAnnotatedString.substring(currentIndex, match.range.first))
-            }
-            val rawUrl = match.value.trimEnd('.', ',', ';', ')')
-            val normalizedUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) rawUrl else "https://$rawUrl"
-            pushStringAnnotation(tag = UrlAnnotationTag, annotation = normalizedUrl)
-            pushStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Bold))
-            append(rawUrl)
-            pop()
-            pop()
-            currentIndex = match.range.first + rawUrl.length
-        }
-        if (currentIndex < this@toLinkAnnotatedString.length) {
-            append(this@toLinkAnnotatedString.substring(currentIndex))
-        }
-    }
 
 private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
     val start = selection.start.coerceIn(0, text.length)

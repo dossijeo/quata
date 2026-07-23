@@ -37,10 +37,9 @@ fun ForgotPasswordScreen(
     padding: PaddingValues,
     authRepository: AuthRepository,
     onBack: () -> Unit,
-    viewModel: ForgotPasswordViewModel = viewModel(factory = ForgotPasswordViewModel.factory(authRepository))
+    viewModel: ForgotPasswordAndroidViewModel = viewModel(factory = ForgotPasswordAndroidViewModel.factory(authRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
-    val template = quataTheme()
     val context = LocalContext.current
     val prefixes = remember(context) { context.countryPrefixOptions() }
     val secretQuestion = remember(context, state.secretQuestion, state.isLoadingQuestion) {
@@ -65,60 +64,19 @@ fun ForgotPasswordScreen(
         subtitle = stringResource(R.string.auth_recover_password_title),
         portraitLogoSpacing = 14.dp
     ) { isLandscape ->
-            PhoneInputSection(
+            ForgotPasswordForm(
+                state = state,
                 prefixes = prefixes,
-                selectedPrefix = state.countryCode,
-                onPrefixChange = { viewModel.onEvent(ForgotPasswordUiEvent.CountryCodeChanged(it)) },
-                phone = state.phone,
-                onPhoneChange = { viewModel.onEvent(ForgotPasswordUiEvent.PhoneChanged(it)) },
-                phoneLabel = stringResource(R.string.auth_your_phone),
-                modifier = Modifier.fillMaxWidth()
+                resolvedQuestion = secretQuestion,
+                strings = ForgotPasswordFormStrings(
+                    phone = stringResource(R.string.auth_your_phone), searchPrefix = stringResource(R.string.profile_search_prefix),
+                    secretQuestion = stringResource(R.string.auth_your_secret_question), secretAnswer = stringResource(R.string.auth_your_secret_answer),
+                    newPassword = stringResource(R.string.auth_new_password), saving = stringResource(R.string.common_saving),
+                    updatePassword = stringResource(R.string.auth_update_password), back = stringResource(R.string.common_back),
+                ),
+                isLandscape = isLandscape,
+                onEvent = viewModel::onEvent,
+                onBack = onBack,
             )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            OutlinedTextField(
-                value = secretQuestion,
-                onValueChange = {},
-                readOnly = true,
-                placeholder = { Text(stringResource(R.string.auth_your_secret_question)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(CompactTextFieldHeight),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = template.colors.surfaceAlt,
-                    unfocusedContainerColor = template.colors.surfaceAlt,
-                    focusedBorderColor = template.colors.accent,
-                    unfocusedBorderColor = template.colors.inputBorder,
-                    cursorColor = template.colors.accent
-                )
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.secretAnswer,
-                onValueChange = { viewModel.onEvent(ForgotPasswordUiEvent.SecretAnswerChanged(it)) },
-                label = stringResource(R.string.auth_your_secret_answer),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataTextField(
-                value = state.newPassword,
-                onValueChange = { viewModel.onEvent(ForgotPasswordUiEvent.NewPasswordChanged(it)) },
-                label = stringResource(R.string.auth_new_password),
-                modifier = Modifier.fillMaxWidth(),
-                isPassword = true
-            )
-            if (state.error != null) {
-                Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-                Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-            QuataPrimaryButton(
-                text = if (state.isUpdating) stringResource(R.string.common_saving) else stringResource(R.string.auth_update_password),
-                enabled = !state.isUpdating
-            ) {
-                viewModel.onEvent(ForgotPasswordUiEvent.Submit)
-            }
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 8.dp))
-            QuataSecondaryButton(stringResource(R.string.common_back), onClick = onBack)
     }
 }
