@@ -79,7 +79,7 @@ class IosKeychainSessionStorage(
             lastStatus = status.takeUnless { it == errSecItemNotFound }
             return@memScoped null
         }
-        val value = result.ptr.pointed.value ?: run {
+        val value = result.value ?: run {
             lastStatus = IosKeychainPayloadMissing
             return@memScoped null
         }
@@ -117,7 +117,7 @@ private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictio
 
 @OptIn(ExperimentalForeignApi::class)
 private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
-    NSData(bytes = pinned.addressOf(0), length = size.toULong())
+    NSData.dataWithBytes(bytes = pinned.addressOf(0), length = size.toULong())
 }
 
 @OptIn(ExperimentalForeignApi::class)
