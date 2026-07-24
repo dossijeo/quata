@@ -67,6 +67,12 @@ implementación: en el árbol actual sólo existen `FeedRepositoryImpl` de Andro
 No hay implementación bajo `feature/feed/src/iosMain` ni un cliente de sesión/HTTP iOS que pueda
 satisfacer siquiera el contrato de lectura.
 
+La ruta mínima ya está definida sin secretos: `RemoteFeedReadRepository` en `commonMain` recibe
+un `FeedReadTransport`. El adaptador iOS debe implementar ese transporte con URLSession, la URL
+pública de despliegue y el token de la sesión del usuario inyectados por su launcher; devuelve DTOs
+`FeedRemote*` y el repositorio común hace el mapeo, perfilado y polling. No hay URL, clave ni
+fallback de datos en ese contrato, y las mutaciones siguen bloqueadas por `ReadOnlyFeedRepository`.
+
 Además, `IosFeedHostDependencies` no recibe `PlatformServices`; por tanto construir
 `IosPlatformServices` desde Swift ahora no puede llegar a Feed. El siguiente cambio con consumidor
 real debe introducir un repositorio iOS autenticado y, únicamente si esa feature necesita servicios

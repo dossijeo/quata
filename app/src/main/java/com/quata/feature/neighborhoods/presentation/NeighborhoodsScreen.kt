@@ -46,7 +46,6 @@ import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -304,11 +303,11 @@ fun CommunityProfileScreen(
             else onReportProfile(profile.user.id)
         }
     )
-    ModalBottomSheet(
-        onDismissRequest = onBack,
+    CommunityProfileSheetContent(
         sheetState = sheetState,
         containerColor = template.colors.background,
-        contentColor = template.colors.textPrimary
+        contentColor = template.colors.textPrimary,
+        onDismiss = onBack,
     ) {
         if (userListTitle != null) {
             ProfileUsersListContent(
