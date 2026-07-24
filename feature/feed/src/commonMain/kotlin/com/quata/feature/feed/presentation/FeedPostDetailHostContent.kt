@@ -88,6 +88,7 @@ fun FeedPostDetailHostContent(
     navigationMessage: String,
     strings: FeedBrowserHostStrings,
     onBackToFeed: () -> Unit,
+    mediaContent: @Composable (Post) -> Unit = { item -> FeedBrowserMediaUnavailableContent(item, strings) },
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository, postId) { FeedPostDetailViewModel(postId, repository) }
@@ -113,7 +114,7 @@ fun FeedPostDetailHostContent(
                 modifier = Modifier.fillMaxSize(),
             )
             post != null -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item(key = post.id) { FeedBrowserPostContent(post, strings) }
+                item(key = post.id) { FeedBrowserPostContent(post, strings, mediaContent) }
             }
             else -> FeedStatusContent(
                 message = state.error ?: strings.detailUnavailable,

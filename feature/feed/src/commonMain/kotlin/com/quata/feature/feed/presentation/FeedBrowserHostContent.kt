@@ -47,8 +47,8 @@ data class FeedBrowserHostStrings(
 /**
  * Read-only browser-style Feed surface shared outside platform launchers.
  *
- * Repository construction and route changes remain platform concerns. Media is deliberately not
- * rendered here; hosts can replace it later with a real cross-platform media slot.
+ * Repository construction and route changes remain platform concerns. Hosts inject media into a
+ * slot, while the common fallback remains explicit for platforms without a compatible renderer.
  */
 @Composable
 fun FeedBrowserHostContent(
@@ -56,6 +56,7 @@ fun FeedBrowserHostContent(
     navigationMessage: String,
     strings: FeedBrowserHostStrings,
     onOpenChats: () -> Unit,
+    mediaContent: @Composable (Post) -> Unit = { post -> FeedBrowserMediaUnavailableContent(post, strings) },
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { FeedViewModel(repository) }
@@ -89,7 +90,7 @@ fun FeedBrowserHostContent(
                     onOpenChats = onOpenChats,
                 )
             }
-            items(state.posts, key = Post::id) { post -> FeedBrowserPostContent(post, strings) }
+            items(state.posts, key = Post::id) { post -> FeedBrowserPostContent(post, strings, mediaContent) }
             if (state.posts.isEmpty()) {
                 item(key = "browser-feed-empty") { FeedBrowserEmptyContent(strings.empty) }
             }
@@ -129,7 +130,11 @@ private fun FeedBrowserStatusContent(
 }
 
 @Composable
-fun FeedBrowserPostContent(post: Post, strings: FeedBrowserHostStrings) {
+fun FeedBrowserPostContent(
+    post: Post,
+    strings: FeedBrowserHostStrings,
+    mediaContent: @Composable (Post) -> Unit = { item -> FeedBrowserMediaUnavailableContent(item, strings) },
+) {
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = post.author.displayName,
@@ -154,13 +159,18 @@ fun FeedBrowserPostContent(post: Post, strings: FeedBrowserHostStrings) {
             },
             modifier = Modifier.fillMaxWidth().height(360.dp),
         )
-        if (post.imageUrl != null || post.videoUrl != null) {
-            Text(
-                text = strings.mediaUnavailable,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
+        mediaContent(post)
+    }
+}
+
+@Composable
+internal fun FeedBrowserMediaUnavailableContent(post: Post, strings: FeedBrowserHostStrings) {
+    if (post.imageUrl != null || post.videoUrl != null) {
+        Text(
+            text = strings.mediaUnavailable,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(16.dp),
+        )
     }
 }
 
