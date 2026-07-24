@@ -1308,17 +1308,14 @@ private fun ChatHeader(
     Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
         Column {
             if (selectedMessage != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = headerVerticalPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    CompactIconButton(onClick = onClearSelection) {
-                        CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                    Spacer(Modifier.weight(1f))
+                ChatSelectedMessageActionBarContent(
+                    compact = compact,
+                    navigationAction = {
+                        CompactIconButton(onClick = onClearSelection) {
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                        }
+                    },
+                    actions = {
                     CompactIconButton(onClick = onCopySelected) {
                         CompactIcon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.conversation_copy_message))
                     }
@@ -1349,10 +1346,8 @@ private fun ChatHeader(
                             CompactIcon(Icons.Filled.Delete, contentDescription = stringResource(R.string.conversation_delete_message))
                         }
                     }
-                    if (compact) {
-                        Spacer(Modifier.width(120.dp))
-                    }
-                }
+                    },
+                )
             } else {
                 val translatorModeController = LocalQuataTranslatorModeController.current
                 Row(

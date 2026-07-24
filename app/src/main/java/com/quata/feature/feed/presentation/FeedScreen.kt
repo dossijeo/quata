@@ -539,25 +539,24 @@ private fun ReelPost(
     onReport: () -> Unit,
     onCreatePost: () -> Unit
 ) {
-    val isVideo = post.videoUrl != null
-    val shortcodeContent = remember(post.text) { post.text.parsePostShortcodeContent() }
-    val postMeta = remember(post.text) { post.text.extractPostMeta() }
-    val displayText = shortcodeContent.cleanText
-    val isTextOnly = post.videoUrl == null && post.imageUrl == null && displayText.isNotBlank()
-    var isDescriptionExpanded by rememberSaveable(post.id) { mutableStateOf(false) }
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val isVideoActive = isCurrentPage && isAppForeground
-
-    val mediaBadgeText = when {
-        post.videoUrl != null -> postMeta.mediaTitle.ifBlank { postMeta.imageLocation }
-        post.imageUrl != null -> postMeta.imageLocation
-        else -> ""
-    }
-    val hasTopOverlayText = mediaBadgeText.isNotBlank() || !shortcodeContent.documentText.isNullOrBlank()
-
-    ReelPostOverlayContent(
-        isVideo = isVideo,
+    FeedReelPostContent(
+        post = post,
+        postRank = postRankInfo.position,
         isLandscape = isLandscapeLayout,
+        canDelete = canDelete,
+        strings = FeedReelStrings(
+            like = stringResource(R.string.feed_like),
+            comments = stringResource(R.string.feed_comments),
+            share = stringResource(R.string.feed_share),
+            rank = stringResource(R.string.feed_rank),
+            live = stringResource(R.string.common_live),
+            publish = stringResource(R.string.nav_publish),
+            report = stringResource(R.string.feed_report),
+            delete = stringResource(R.string.feed_delete_post),
+            locationLabel = { stringResource(R.string.feed_location_chip, it) },
+        ),
         media = {
             ReelMedia(
                 post = post,
@@ -570,65 +569,26 @@ private fun ReelPost(
                 onMuteChange = onFeedMutedChange
             )
         },
-        topOverlay = {
-            ReelTopOverlayContent(
-                showTopScrim = !isVideo || hasTopOverlayText,
-                documentText = shortcodeContent.documentText,
-                mediaBadgeText = mediaBadgeText,
-                isVideo = isVideo,
-                locationLabel = { stringResource(R.string.feed_location_chip, it) }
+        avatar = {
+            ClickableProfileAvatar(
+                name = post.author.displayName,
+                avatarUrl = post.author.avatarUrl,
+                isOfficial = post.author.isOfficial,
+                profileId = post.author.id,
+                isLoading = isAuthorProfileLoading,
+                onClick = onOpenUserProfile,
+                modifier = Modifier
+                    .size(56.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
             )
         },
-        actionRail = {
-            QuataFeedActionRail(
-            likes = post.likesCount,
-            isLiked = post.isLikedByCurrentUser,
-            comments = post.comments.size,
-            postRank = postRankInfo.position,
-            isLandscape = isLandscapeLayout,
-            likeLabel = stringResource(R.string.feed_like),
-            commentsLabel = stringResource(R.string.feed_comments),
-            shareLabel = stringResource(R.string.feed_share),
-            rankLabel = stringResource(R.string.feed_rank),
-            liveLabel = stringResource(R.string.common_live),
-            publishLabel = stringResource(R.string.nav_publish),
-            isReported = post.isReportedByCurrentUser,
-            reportLabel = stringResource(R.string.feed_report),
-            deleteLabel = stringResource(R.string.feed_delete_post),
-            showReport = true,
-            showDelete = canDelete,
-            showPublish = true,
-            onLike = onLike,
-            onOpenComments = onOpenComments,
-            onOpenLive = onOpenLive,
-            onShare = onShare,
-            onReport = onReport,
-            onDelete = onDelete,
-            onPublish = onCreatePost
-            )
-        },
-        overflowAction = {
-            QuataFeedOverflowActionButton(
-                postRank = postRankInfo.position,
-                rankLabel = stringResource(R.string.feed_rank),
-                liveLabel = stringResource(R.string.common_live),
-                reportLabel = stringResource(R.string.feed_report),
-                showReport = true,
-                onOpenLive = onOpenLive,
-                onReport = onReport
-            )
-        },
-        author = {
-            ReelAuthor(
-            post = post,
-            displayText = displayText,
-            showDescription = (isVideo || post.imageUrl != null) && displayText.isNotBlank(),
-            isDescriptionExpanded = isDescriptionExpanded,
-            onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
-            isProfileLoading = isAuthorProfileLoading,
-            onOpenUserProfile = onOpenUserProfile
-            )
-        }
+        onOpenComments = onOpenComments,
+        onOpenLive = onOpenLive,
+        onLike = onLike,
+        onDelete = onDelete,
+        onShare = onShare,
+        onReport = onReport,
+        onCreatePost = onCreatePost,
     )
 }
 
@@ -1199,41 +1159,6 @@ private fun parseAbsoluteDateTime(value: String): LocalDateTime? {
 }
 
 private fun postShareText(post: Post): String = quataPostUrl(post.id)
-
-@Composable
-private fun ReelAuthor(
-    post: Post,
-    displayText: String,
-    showDescription: Boolean,
-    isDescriptionExpanded: Boolean,
-    onToggleDescription: () -> Unit,
-    isProfileLoading: Boolean,
-    onOpenUserProfile: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    ReelAuthorContent(
-        displayName = post.author.displayName,
-        neighborhood = post.author.neighborhood,
-        displayText = displayText,
-        showDescription = showDescription,
-        isDescriptionExpanded = isDescriptionExpanded,
-        onToggleDescription = onToggleDescription,
-        modifier = modifier,
-        avatar = {
-            ClickableProfileAvatar(
-                name = post.author.displayName,
-                avatarUrl = post.author.avatarUrl,
-                isOfficial = post.author.isOfficial,
-                profileId = post.author.id,
-                isLoading = isProfileLoading,
-                onClick = onOpenUserProfile,
-                modifier = Modifier
-                    .size(56.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            )
-        }
-    )
-}
 
 private fun Post.imageTitle(): String =
     placeName?.takeIf { it.isNotBlank() } ?: rankingLabel.takeIf { it.isNotBlank() } ?: "Qüata"
