@@ -1,14 +1,14 @@
 import XCTest
 
 final class QuataIosHostUITests: XCTestCase {
-    func testLaunchesExportedComposeMigrationSurface() {
+    func testLaunchesUIKitCompositionRootWithComposeSurface() {
         let app = XCUIApplication()
         app.launch()
 
-        let migrationSurface = app.descendants(matching: .any)["quata-ios-migration-status"]
+        let migrationSurface = app.descendants(matching: .any)["quata-ios-compose-root"]
         XCTAssertTrue(
             migrationSurface.waitForExistence(timeout: 10),
-            "The Swift host must present the Compose UIViewController exported by QuataFeed.",
+            "The UIKit composition root must present the Compose UIViewController exported by QuataFeed.",
         )
     }
 }
