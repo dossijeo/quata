@@ -94,7 +94,26 @@ class WebAuthRepository(
         phone: String,
         secretAnswer: String,
         newPassword: String,
-    ): Result<Unit> = Result.failure(UnsupportedOperationException("web_auth_recovery_not_implemented"))
+    ): Result<Unit> = runCatching {
+        require(countryCode.any(Char::isDigit)) { "web_auth_country_code_required" }
+        require(phone.any(Char::isDigit)) { "web_auth_phone_required" }
+        require(secretAnswer.isNotBlank()) { "web_auth_secret_answer_required" }
+        require(newPassword.length >= 6) { "web_auth_new_password_invalid" }
+
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        webPostJson(
+            endpoint = configuration.authBridgeEndpoint(),
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("action", "reset_password")
+                put("country_code", countryCode.filter(Char::isDigit).toString())
+                put("phone_local", phone.filter(Char::isDigit).toString())
+                put("secret_answer", secretAnswer.trim())
+                put("new_password", newPassword)
+            }.toString(),
+        )
+        Unit
+    }
 
     override suspend fun deactivateAccount(password: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("web_auth_lifecycle_not_implemented"))

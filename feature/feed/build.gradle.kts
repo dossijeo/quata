@@ -11,7 +11,12 @@ kotlin {
     js(IR) { browser() }
     wasmJs { browser() }
     targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
-        binaries.framework { baseName = "QuataFeed" }
+        binaries.framework {
+            baseName = "QuataFeed"
+            // Keep the Swift launcher to one embedded framework while exposing the iOS platform
+            // service types needed by the eventual authenticated composition root.
+            export(project(":core"))
+        }
     }
     sourceSets {
         commonMain.dependencies {

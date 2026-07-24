@@ -42,13 +42,15 @@ disponible.
 
 ## Límite actual de inyección del launcher
 
-`iosApp/project.yml` enlaza únicamente `QuataFeed.framework`. Aunque `:core` declara targets
-iOS, no genera ni exporta un framework Swift propio y `QuataFeed` no consume
-`IosPlatformServices` hasta recibir un `FeedRepository` real. Por ello el launcher no debe crear
-un `IosViewControllerProvider` todavía: compartir, selector, audio y APNs quedarían construidos
-sin consumidor. La primera fase que añada repositorio autenticado/navegación debe enlazar o
-exportar el framework Core y construir `IosPlatformServices(presenterProvider: …)` desde el
-controlador Compose activo; así los adaptadores reales se conectarán a una feature efectiva.
+`iosApp/project.yml` enlaza únicamente `QuataFeed.framework`. Éste reexporta `:core` para que
+Swift pueda acceder a `IosPlatformServices` y sus contratos desde el mismo framework, sin
+embebir un segundo framework Core. Eso sólo habilita la composición: `QuataFeed` todavía no
+consume `IosPlatformServices` hasta recibir un `FeedRepository` real. Por ello el launcher no
+debe crear un `IosViewControllerProvider` todavía: compartir, selector, audio y APNs quedarían
+construidos sin consumidor. La primera fase que añada repositorio autenticado/navegación debe
+construir `IosPlatformServices(presenterProvider: …)` desde el controlador Compose activo y
+entregarlo a una feature que lo use; así los adaptadores reales se conectarán a una superficie
+efectiva.
 
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:

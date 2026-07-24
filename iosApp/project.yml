@@ -15,6 +15,7 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
+      # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.
       - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
         embed: true
 schemes:
