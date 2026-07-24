@@ -117,7 +117,7 @@ class IosFeedReadTransport(
 private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosFeedDataTaskDelegate(continuation)
     val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
-    val task = session.dataTaskWithRequest(NSURLRequest(URL = url))
+    val task = session.dataTaskWithRequest(NSURLRequest(url))
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()
@@ -142,7 +142,7 @@ private class IosFeedDataTaskDelegate(
         dataTask: NSURLSessionDataTask,
         didReceiveData: NSData,
     ) {
-        if (continuation.isActive) payload.appendData(didReceiveData)
+        if (continuation.isActive) payload.append(didReceiveData)
     }
 
     override fun URLSession(
