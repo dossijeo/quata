@@ -604,14 +604,10 @@ fun CreatePostScreen(
 
                 },
                 feedback = {
-                    state.error?.let {
-                    Spacer(Modifier.height(14.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                    state.successMessage?.let {
-                    Spacer(Modifier.height(14.dp))
-                    Text(it, color = template.colors.accent, fontWeight = FontWeight.Bold)
-                    }
+                    ComposerSubmissionFeedbackContent(
+                        errorMessage = state.error,
+                        successMessage = state.successMessage,
+                    )
                 },
             )
         }

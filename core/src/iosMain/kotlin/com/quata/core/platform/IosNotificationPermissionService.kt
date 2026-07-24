@@ -1,7 +1,7 @@
 package com.quata.core.platform
 
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
 import platform.UserNotifications.UNAuthorizationOptionSound
@@ -25,30 +25,34 @@ class IosNotificationPermissionService(
 
     override suspend fun request(permission: PlatformPermission): PermissionStatus {
         if (permission != PlatformPermission.Notifications) return PermissionStatus.Unavailable
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
             center.requestAuthorizationWithOptions(
                 options = UNAuthorizationOptionAlert or UNAuthorizationOptionBadge or UNAuthorizationOptionSound,
             ) { granted, error ->
                 when {
-                    granted -> continuation.resume(PermissionStatus.Granted)
-                    error != null -> continuation.resume(PermissionStatus.Unavailable)
+                    granted -> if (continuation.isActive) continuation.resume(PermissionStatus.Granted)
+                    error != null -> if (continuation.isActive) continuation.resume(PermissionStatus.Unavailable)
                     else -> center.getNotificationSettingsWithCompletionHandler { settings ->
-                        continuation.resume(
-                            settings?.authorizationStatus?.toNotificationPermissionStatus()
-                                ?: PermissionStatus.Unavailable,
-                        )
+                        if (continuation.isActive) {
+                            continuation.resume(
+                                settings?.authorizationStatus?.toNotificationPermissionStatus()
+                                    ?: PermissionStatus.Unavailable,
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    private suspend fun notificationStatus(): PermissionStatus = suspendCoroutine { continuation ->
+    private suspend fun notificationStatus(): PermissionStatus = suspendCancellableCoroutine { continuation ->
         center.getNotificationSettingsWithCompletionHandler { settings ->
-            continuation.resume(
-                settings?.authorizationStatus?.toNotificationPermissionStatus()
-                    ?: PermissionStatus.Unavailable,
-            )
+            if (continuation.isActive) {
+                continuation.resume(
+                    settings?.authorizationStatus?.toNotificationPermissionStatus()
+                        ?: PermissionStatus.Unavailable,
+                )
+            }
         }
     }
 }

@@ -39,8 +39,6 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
@@ -739,7 +737,6 @@ private fun ProfileCommentsDialog(
     onDismiss: () -> Unit
 ) {
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
-    val template = quataTheme()
     val comments = post.comments + localComments
     val currentUserName = stringResource(R.string.comments_you)
     val nowLabel = stringResource(R.string.common_now)
@@ -748,21 +745,7 @@ private fun ProfileCommentsDialog(
         title = stringResource(R.string.feed_comments),
         closeContentDescription = stringResource(R.string.common_close),
         onDismiss = onDismiss,
-        commentRow = { comment ->
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(comment.authorName, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(6.dp))
-                                Text(comment.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-        },
+        commentRow = { comment -> CommunityProfileCommentRowContent(comment) },
         input = {
             CommunityProfileCommentInputContent(
                 value = draft,

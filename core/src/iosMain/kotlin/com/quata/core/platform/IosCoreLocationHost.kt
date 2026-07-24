@@ -26,12 +26,13 @@ import kotlin.coroutines.resume
 @OptIn(ExperimentalForeignApi::class)
 class IosCoreLocationHost(
     private val manager: CLLocationManager = CLLocationManager(),
-) : NSObject(), LocationService, PermissionService, CLLocationManagerDelegateProtocol {
+) : LocationService, PermissionService {
     private var permissionContinuation: kotlinx.coroutines.CancellableContinuation<PermissionStatus>? = null
     private var locationContinuation: kotlinx.coroutines.CancellableContinuation<PlatformResult<GeoLocation>>? = null
+    private val delegate = IosCoreLocationDelegate(this)
 
     init {
-        manager.delegate = this
+        manager.delegate = delegate
     }
 
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
@@ -74,10 +75,7 @@ class IosCoreLocationHost(
         }
     }
 
-    override fun locationManager(
-        manager: CLLocationManager,
-        didChangeAuthorizationStatus: CLAuthorizationStatus,
-    ) {
+    internal fun onAuthorizationChanged(didChangeAuthorizationStatus: CLAuthorizationStatus) {
         permissionContinuation?.let { continuation ->
             permissionContinuation = null
             if (continuation.isActive) {
@@ -86,10 +84,7 @@ class IosCoreLocationHost(
         }
     }
 
-    override fun locationManager(
-        manager: CLLocationManager,
-        didUpdateLocations: List<*>,
-    ) {
+    internal fun onLocationsUpdated(didUpdateLocations: List<*>) {
         val location = didUpdateLocations.lastOrNull() as? CLLocation
         val continuation = locationContinuation ?: return
         locationContinuation = null
@@ -116,7 +111,7 @@ class IosCoreLocationHost(
         )
     }
 
-    override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
+    internal fun onLocationFailure(didFailWithError: NSError) {
         val continuation = locationContinuation ?: return
         locationContinuation = null
         if (continuation.isActive) {
@@ -125,6 +120,24 @@ class IosCoreLocationHost(
     }
 
     private fun authorizationStatus(): CLAuthorizationStatus = CLLocationManager.authorizationStatus()
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosCoreLocationDelegate(
+    private val host: IosCoreLocationHost,
+) : NSObject(), CLLocationManagerDelegateProtocol {
+    override fun locationManager(
+        manager: CLLocationManager,
+        didChangeAuthorizationStatus: CLAuthorizationStatus,
+    ) = host.onAuthorizationChanged(didChangeAuthorizationStatus)
+
+    override fun locationManager(
+        manager: CLLocationManager,
+        didUpdateLocations: List<*>,
+    ) = host.onLocationsUpdated(didUpdateLocations)
+
+    override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) =
+        host.onLocationFailure(didFailWithError)
 }
 
 @OptIn(ExperimentalForeignApi::class)
