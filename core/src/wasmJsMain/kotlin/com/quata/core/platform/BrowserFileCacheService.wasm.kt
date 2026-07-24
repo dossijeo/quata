@@ -29,7 +29,7 @@ class BrowserFileCacheService : FileCacheService {
 
     override suspend fun remove(cacheKey: String): PlatformResult<Unit> {
         if (!cacheKey.isSafeFileCacheKey()) return PlatformResult.Failure("invalid_cache_key")
-        return suspendCoroutine { continuation ->
+        return suspendCoroutine<PlatformResult<Unit>> { continuation ->
             browserCacheRemove(cacheKey) { state, reason ->
                 continuation.resume(
                     when (state) {
@@ -71,7 +71,7 @@ private suspend fun browserCacheGet(cacheKey: String): PlatformResult<PlatformFi
 }
 
 private fun String.toCachedFileResult(payload: String?): PlatformResult<PlatformFile> = when (this) {
-    "success" -> payload.toCachedPlatformFile()?.let(PlatformResult::Success)
+    "success" -> payload.toCachedPlatformFile()?.let { PlatformResult.Success(it) }
         ?: PlatformResult.Failure("cache_payload_invalid")
     "unsupported" -> PlatformResult.Unsupported
     else -> PlatformResult.Failure(payload)
