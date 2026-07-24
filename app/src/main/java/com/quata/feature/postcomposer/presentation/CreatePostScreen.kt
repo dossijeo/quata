@@ -27,7 +27,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,7 +51,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
@@ -74,7 +72,6 @@ import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -107,7 +104,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -152,10 +148,6 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
-import com.quata.core.text.cleanTextCanvasSeedBody
-import com.quata.core.ui.textCanvasBrush
-import com.quata.core.ui.textCanvasPatterns
-import com.quata.core.ui.textCanvasTypography
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
@@ -742,7 +734,23 @@ private fun TextPostForm(
             )
             Spacer(Modifier.height(10.dp))
             PreviewPanel(stringResource(R.string.composer_preview)) {
-                TextReelPreview(text = state.text, patternId = state.textPatternId, compact = isLandscapeLayout)
+                ComposerTextPostPreviewContent(
+                    text = state.text,
+                    patternId = state.textPatternId,
+                    compact = isLandscapeLayout,
+                    strings = ComposerTextPostPreviewStrings(
+                        emptyText = stringResource(R.string.composer_text_preview_empty),
+                        readMoreText = stringResource(R.string.feed_read_more),
+                        authorName = "Q\u00fcata",
+                        authorSubtitle = "Feed",
+                    ),
+                    actionLabels = composerPreviewActionLabels(),
+                    readerDismissButton = { modifier, onDismiss ->
+                        CompactIconButton(onClick = onDismiss, modifier = modifier) {
+                            CompactIcon(Icons.Filled.Close, stringResource(R.string.common_close), tint = Color.White)
+                        }
+                    },
+                )
             }
         },
         publish = { PublishButton(state.isLoading, onSubmit) },
@@ -1819,30 +1827,6 @@ private fun LocationEditButton(
         onClick = onClick,
         modifier = modifier
     )
-}
-
-@Composable
-private fun TextReelPreview(text: String, patternId: String? = null, compact: Boolean = false) {
-    ComposerFeedPreviewFrame(
-        isVideo = false,
-        description = "",
-        locationLabel = null,
-        compact = compact,
-        backgroundSeed = text
-    ) {
-        ComposerTextCanvasContent(
-            text = text,
-            patternId = patternId,
-            compact = compact,
-            emptyText = stringResource(R.string.composer_text_preview_empty),
-            readMoreText = stringResource(R.string.feed_read_more),
-            readerDismissButton = { modifier, onDismiss ->
-                CompactIconButton(onClick = onDismiss, modifier = modifier) {
-                    CompactIcon(Icons.Filled.Close, stringResource(R.string.common_close), tint = Color.White)
-                }
-            }
-        )
-    }
 }
 
 @Composable
