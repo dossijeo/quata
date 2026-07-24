@@ -20,12 +20,6 @@ class IosUIKitSharePresenter(
         val presenter: UIViewController = presenterProvider.activeViewController()
             ?: return PlatformResult.Unsupported
         return runCatching {
-            // UIActivityViewController requires an anchor on iPad. Using the active controller's
-            // view keeps the share sheet safe for both UIKit and SwiftUI-hosted Compose screens.
-            activityController.popoverPresentationController?.let { popover ->
-                popover.sourceView = presenter.view
-                popover.sourceRect = presenter.view.bounds
-            }
             presenter.presentViewController(activityController, animated = true, completion = null)
             PlatformResult.Success(Unit)
         }.getOrElse { PlatformResult.Failure(it.message) }
