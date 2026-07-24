@@ -2,6 +2,10 @@
 const LOCALE_DB = "quata-web";
 const LOCALE_STORE = "settings";
 const LOCALE_KEY = "notification-locale";
+const INCOMING_SHARE_STORE = "incoming-shares";
+const SHARE_TARGET_PATH = "/share-target";
+const MAX_SHARED_FILES = 8;
+const MAX_SHARED_FILE_BYTES = 25 * 1024 * 1024;
 const notificationBodies = {
   en: { chat_voice_note: "Voice note", chat_attachment: "Attachment", chat_message: "New message" },
   es: { chat_voice_note: "Nota de voz", chat_attachment: "Adjunto", chat_message: "Nuevo mensaje" },
@@ -26,6 +30,15 @@ self.addEventListener("push", (event) => {
   })());
 });
 
+// Web Share Target requests arrive at the worker, not at the Kotlin/Wasm launcher. Persist their
+// FormData (including Blob files) first, then redirect to a stable hash route the launcher reads.
+self.addEventListener("fetch", (event) => {
+  const requestUrl = new URL(event.request.url);
+  if (event.request.method === "POST" && requestUrl.origin === self.location.origin && requestUrl.pathname === SHARE_TARGET_PATH) {
+    event.respondWith(receiveIncomingShare(event.request));
+  }
+});
+
 // The worker cannot read the web-session token from localStorage. An open launcher can, so it
 // performs the authenticated idempotent subscribe operation after receiving this signal. A later
 // launcher startup also performs that reconciliation when no window was open at rotation time.
@@ -41,6 +54,34 @@ self.addEventListener("notificationclick", (event) => {
 
 function readPushPayload(event) {
   try { return event.data?.json() ?? {}; } catch (_) { return {}; }
+}
+
+async function receiveIncomingShare(request) {
+  try {
+    const form = await request.formData();
+    const text = [form.get("title"), form.get("text"), form.get("url")]
+      .filter((value) => typeof value === "string" && value.trim())
+      .join("\n")
+      .trim();
+    const files = form.getAll("files").filter((value) => typeof File !== "undefined" && value instanceof File);
+    if ((!text && files.length === 0) || files.length > MAX_SHARED_FILES || files.some((file) => file.size > MAX_SHARED_FILE_BYTES)) {
+      return Response.redirect(new URL("/#share-target-error", self.location.origin), 303);
+    }
+    await writeIncomingShare({
+      id: `share-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      text,
+      createdAt: Date.now(),
+      attachments: files.map((file) => ({
+        blob: file,
+        name: file.name || "attachment",
+        mimeType: file.type || null,
+      })),
+    });
+    await notifyOpenClients({ type: "quata:incoming-share" });
+    return Response.redirect(new URL("/#share-target", self.location.origin), 303);
+  } catch (_) {
+    return Response.redirect(new URL("/#share-target-error", self.location.origin), 303);
+  }
 }
 
 function chatNotificationTarget(payload) {
@@ -75,10 +116,25 @@ async function localizedNotificationBody(bodyKey, fallback) {
 
 function openLocaleDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(LOCALE_DB, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(LOCALE_STORE);
+    const request = indexedDB.open(LOCALE_DB, 2);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(LOCALE_STORE)) database.createObjectStore(LOCALE_STORE);
+      if (!database.objectStoreNames.contains(INCOMING_SHARE_STORE)) database.createObjectStore(INCOMING_SHARE_STORE, { keyPath: "id" });
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+  });
+}
+
+async function writeIncomingShare(payload) {
+  const database = await openLocaleDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction(INCOMING_SHARE_STORE, "readwrite");
+    transaction.objectStore(INCOMING_SHARE_STORE).put(payload);
+    transaction.oncomplete = resolve;
+    transaction.onerror = reject;
+    transaction.onabort = reject;
   });
 }
 

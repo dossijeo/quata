@@ -77,6 +77,19 @@ private fun observeWebPushSubscriptionChanges(onChanged: () -> Unit): () -> Unit
     """,
 )
 
+/** Delivers a persisted Web Share Target payload to an already-open launcher. */
+private fun observeIncomingWebShares(onReceived: () -> Unit): () -> Unit = js(
+    """
+    const container = globalThis.navigator?.serviceWorker;
+    if (!container?.addEventListener) return () => {};
+    const listener = (event) => {
+      if (event?.data?.type === 'quata:incoming-share') onReceived();
+    };
+    container.addEventListener('message', listener);
+    return () => container.removeEventListener('message', listener);
+    """,
+)
+
 @Composable
 private fun QuataWebApp(
     platformServices: WebPlatformServices,
@@ -130,6 +143,7 @@ private fun QuataWebApp(
             rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
         )
     }
+    val incomingShareStore = remember { WebIncomingShareStore() }
     var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
@@ -159,6 +173,12 @@ private fun QuataWebApp(
                     )
                 }
             }
+        }
+        onDispose(stopObserving)
+    }
+    DisposableEffect(isSessionReady) {
+        val stopObserving = observeIncomingWebShares {
+            if (isSessionReady) navigateWebFragment("share-target")
         }
         onDispose(stopObserving)
     }
@@ -199,7 +219,19 @@ private fun QuataWebApp(
                     )
                 },
             ) {
-                if (navigation.route == "settings") {
+                if (navigation.route == "share-target") {
+                    WebExternalShareHost(
+                        repository = chatRepository,
+                        clipboardService = platformServices.clipboard,
+                        store = incomingShareStore,
+                        onFinished = { conversationId ->
+                            if (conversationId != null) navigateWebConversation(conversationId) else navigateWebFragment("chat")
+                        },
+                        onDismiss = { navigateWebFragment("chat") },
+                    )
+                } else if (navigation.route == "share-target-error") {
+                    WebShareTargetErrorHost(onDismiss = { navigateWebFragment("chat") })
+                } else if (navigation.route == "settings") {
                     WebSettingsHost(
                         touchFlowEnabled = touchFlowEnabled,
                         themeMode = themeMode,
@@ -329,6 +361,12 @@ private fun rememberWebNavigation(): WebNavigationState {
 }
 
 private fun String.toWebNavigationState(): WebNavigationState {
+    if (trim('/').equals("share-target", ignoreCase = true)) {
+        return WebNavigationState(route = "share-target", message = "Contenido recibido para compartir.")
+    }
+    if (trim('/').equals("share-target-error", ignoreCase = true)) {
+        return WebNavigationState(route = "share-target-error", message = "No se pudo recibir el contenido compartido.")
+    }
     if (trim('/').equals("settings", ignoreCase = true)) {
         return WebNavigationState(route = "settings", message = "Apariencia de Quata Web.")
     }
