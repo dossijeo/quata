@@ -14,8 +14,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -26,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.model.Message
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.AudioRecordingOptions
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -37,12 +41,14 @@ import com.quata.feature.chat.presentation.conversations.ConversationsListConten
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /** Host-neutral browser-style Chat viewport. Navigation and external opening are injected. */
 @Composable
 fun ChatBrowserHostContent(
     repository: ChatRepository,
     audioPlayer: AudioPlayerService,
+    audioRecorder: AudioRecorderService,
     filePicker: FilePickerService,
     conversationId: String?,
     navigationMessage: String,
@@ -62,6 +68,7 @@ fun ChatBrowserHostContent(
         ChatBrowserConversationDetail(
             repository = repository,
             audioPlayer = audioPlayer,
+            audioRecorder = audioRecorder,
             filePicker = filePicker,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
@@ -222,6 +229,7 @@ private fun ChatConversationCreationContent(
 private fun ChatBrowserConversationDetail(
     repository: ChatRepository,
     audioPlayer: AudioPlayerService,
+    audioRecorder: AudioRecorderService,
     filePicker: FilePickerService,
     conversationId: String,
     navigationMessage: String,
@@ -241,9 +249,22 @@ private fun ChatBrowserConversationDetail(
     var activeAudioReference by remember { mutableStateOf<String?>(null) }
     var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
     var audioFailed by remember { mutableStateOf(false) }
-    DisposableEffect(viewModel) {
+    var isRecordingAudio by remember { mutableStateOf(false) }
+    var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
+    var recordingError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(isRecordingAudio) {
+        if (!isRecordingAudio) return@LaunchedEffect
+        while (isRecordingAudio) {
+            delay(1_000L)
+            recordingElapsedSeconds += 1L
+        }
+    }
+    DisposableEffect(viewModel, audioRecorder) {
         repository.setActiveConversation(conversationId)
         onDispose {
+            if (isRecordingAudio) {
+                scope.launch { audioRecorder.cancel() }
+            }
             repository.setActiveConversation(null)
             viewModel.close()
         }
@@ -278,6 +299,66 @@ private fun ChatBrowserConversationDetail(
                         state.attachmentName?.let { name ->
                             Text("Adjunto: $name", style = MaterialTheme.typography.bodySmall)
                         }
+                        if (isRecordingAudio) {
+                            Text(
+                                "Grabando ${recordingElapsedSeconds.toDurationLabel()}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Button(onClick = {
+                                scope.launch {
+                                    when (val result = audioRecorder.stop()) {
+                                        is PlatformResult.Success -> {
+                                            isRecordingAudio = false
+                                            recordingElapsedSeconds = result.value.durationMillis / 1_000L
+                                            recordingError = null
+                                            viewModel.onEvent(
+                                                ChatUiEvent.AttachmentSelected(
+                                                    uri = result.value.file.reference,
+                                                    name = result.value.file.displayName ?: "Nota de voz",
+                                                    mimeType = result.value.mimeType,
+                                                ),
+                                            )
+                                        }
+                                        is PlatformResult.Failure -> {
+                                            isRecordingAudio = false
+                                            recordingError = "No se pudo guardar la grabacion: ${result.reason.orEmpty()}"
+                                        }
+                                        PlatformResult.Cancelled -> {
+                                            isRecordingAudio = false
+                                            recordingError = null
+                                        }
+                                        PlatformResult.Unsupported -> {
+                                            isRecordingAudio = false
+                                            recordingError = "La grabacion de audio no esta disponible en este navegador."
+                                        }
+                                    }
+                                }
+                            }) { Text("Detener y adjuntar") }
+                            Button(onClick = {
+                                scope.launch {
+                                    audioRecorder.cancel()
+                                    isRecordingAudio = false
+                                    recordingElapsedSeconds = 0L
+                                    recordingError = null
+                                }
+                            }) { Text("Cancelar grabacion") }
+                        } else {
+                            Button(onClick = {
+                                scope.launch {
+                                    when (val result = audioRecorder.start(AudioRecordingOptions(mimeType = "audio/webm"))) {
+                                        is PlatformResult.Success -> {
+                                            isRecordingAudio = true
+                                            recordingElapsedSeconds = 0L
+                                            recordingError = null
+                                        }
+                                        is PlatformResult.Failure -> recordingError = "No se pudo iniciar la grabacion: ${result.reason.orEmpty()}"
+                                        PlatformResult.Cancelled -> recordingError = null
+                                        PlatformResult.Unsupported -> recordingError = "La grabacion de audio no esta disponible en este navegador."
+                                    }
+                                }
+                            }) { Text("Grabar audio") }
+                        }
+                        recordingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         Button(
                             onClick = {
                                 scope.launch {
@@ -335,6 +416,12 @@ private fun ChatBrowserConversationDetail(
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+private fun Long.toDurationLabel(): String {
+    val minutes = this / 60L
+    val seconds = this % 60L
+    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
 @Composable
