@@ -22,15 +22,23 @@ fun AuthSessionShellContent(
     loggingOutLabel: String,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomNavigation: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(modifier.fillMaxSize()) {
-        content()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = if (bottomNavigation == null) 0.dp else 100.dp),
+        ) {
+            content()
+        }
+        bottomNavigation?.invoke(this)
         Button(
             enabled = !isLoggingOut,
             onClick = onLogout,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(if (bottomNavigation == null) Alignment.BottomCenter else Alignment.TopEnd)
                 .padding(24.dp),
         ) {
             Text(if (isLoggingOut) loggingOutLabel else logoutLabel)

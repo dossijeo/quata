@@ -17,9 +17,17 @@ import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
+import com.quata.core.ui.components.QuataBottomNavigation
+import com.quata.core.ui.components.QuataNavigationItem
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.Alignment
 import com.quata.feature.auth.presentation.AuthSessionShellContent
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
@@ -158,6 +166,14 @@ private fun QuataWebApp(
                         isLoggingOut = false
                     }
                 },
+                bottomNavigation = {
+                    QuataBottomNavigation(
+                        items = webNavigationItems,
+                        selectedId = navigation.route,
+                        onItemClick = ::navigateWebFragment,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                },
             ) {
                 if (navigation.route == "settings") {
                     WebSettingsHost(
@@ -216,6 +232,13 @@ private fun QuataWebApp(
         }
     }
 }
+
+private val webNavigationItems = listOf(
+    QuataNavigationItem("", "Inicio", Icons.Filled.Home),
+    QuataNavigationItem("chat", "Chats", Icons.Filled.Chat),
+    QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
+    QuataNavigationItem("settings", "Ajustes", Icons.Filled.Settings),
+)
 
 private fun WebPushSessionResult.diagnosticValue(): String = when (this) {
     WebPushSessionResult.Success -> "subscribed"

@@ -29,6 +29,7 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.materialIconsExtended)
         }
         androidMain.dependencies { }
         wasmJsMain.dependencies { }
