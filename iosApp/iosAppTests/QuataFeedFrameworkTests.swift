@@ -2,7 +2,7 @@ import XCTest
 import QuataFeed
 
 final class QuataFeedFrameworkTests: XCTestCase {
-    func testExportsMigrationStatusViewController() {
+    func testExportsComposeMigrationViewController() {
         let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
 
         XCTAssertNotNil(controller.view)

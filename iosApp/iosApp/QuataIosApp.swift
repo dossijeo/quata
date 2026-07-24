@@ -1,30 +1,89 @@
-import SwiftUI
 import UIKit
 import QuataFeed
 
+/// UIKit launcher and composition boundary for the iOS application.
+///
+/// Swift owns the window, lifecycle and the authenticated dependency hand-off. The shared Feed
+/// screen is always created by `QuataFeedViewController`; this target deliberately has no Swift
+/// Feed view or sample repository.
 @main
-struct QuataIosApp: App {
-    var body: some Scene {
-        WindowGroup {
-            IosMigrationStatusView()
-                .ignoresSafeArea()
-        }
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    private let compositionRoot = IosAppCompositionRoot()
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
+    ) -> Bool {
+        compositionRoot.start()
+        return true
     }
 }
 
-/// The Feed framework exports `QuataFeedViewController(dependencies:)` for the real host.
-/// This launcher intentionally remains a migration status view until iOS has an authenticated
-/// FeedRepository; constructing Android's repository or a sample repository here would make
-/// the host look functional while bypassing the real backend/session boundary.
-private struct IosMigrationStatusView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
-        // Stable smoke-test surface proving Swift is presenting the exported Compose framework.
-        controller.view.accessibilityIdentifier = "quata-ios-migration-status"
-        controller.view.isAccessibilityElement = true
-        controller.view.accessibilityLabel = "Quata iOS migration status"
-        return controller
+/// Keeps UIKit-only state at the platform edge and exposes one injection point for the future
+/// authenticated session/repository bootstrap. Until that bootstrap exists, the already-exported
+/// Compose migration surface remains visible instead of constructing fake Feed data.
+private final class IosAppCompositionRoot {
+    private var window: UIWindow?
+    private let feedHost = IosFeedHostContainerViewController()
+
+    func start() {
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = feedHost
+        window.makeKeyAndVisible()
+        self.window = window
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    /// Called by the iOS authenticated bootstrap once it has a real `FeedRepository` wrapped in
+    /// the Kotlin dependency object. No Android repository, URL or token is created by Swift.
+    func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
+        feedHost.installAuthenticatedFeed(dependencies)
+    }
+}
+
+/// A UIKit container rather than a SwiftUI replacement screen. It can atomically replace the
+/// explicit unauthenticated Compose status controller with the shared Feed Compose controller.
+private final class IosFeedHostContainerViewController: UIViewController {
+    private var displayedController: UIViewController?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        showMigrationStatus()
+    }
+
+    func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
+        show(
+            QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies),
+            accessibilityIdentifier: "quata-ios-feed-host",
+            accessibilityLabel: "Quata iOS Feed",
+        )
+    }
+
+    private func showMigrationStatus() {
+        show(
+            QuataFeedViewControllerKt.QuataIosMigrationStatusViewController(),
+            accessibilityIdentifier: "quata-ios-compose-root",
+            accessibilityLabel: "Quata iOS requires an authenticated Feed session",
+        )
+    }
+
+    private func show(
+        _ controller: UIViewController,
+        accessibilityIdentifier: String,
+        accessibilityLabel: String,
+    ) {
+        let previous = displayedController
+        addChild(controller)
+        controller.view.frame = view.bounds
+        controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        controller.view.accessibilityIdentifier = accessibilityIdentifier
+        controller.view.isAccessibilityElement = true
+        controller.view.accessibilityLabel = accessibilityLabel
+        view.addSubview(controller.view)
+        controller.didMove(toParent: self)
+
+        previous?.willMove(toParent: nil)
+        previous?.view.removeFromSuperview()
+        previous?.removeFromParent()
+        displayedController = controller
+    }
 }
