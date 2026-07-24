@@ -1,34 +1,30 @@
 package com.quata.feature.profile.data
 
 import android.content.Context
-import com.quata.R
 import com.quata.core.model.CountryPrefix
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.domain.SecretQuestionOption
 
-fun Context.countryPrefixOptions(): List<CountryPrefix> {
-    val codes = resources.getStringArray(R.array.country_prefix_codes)
-    val labels = resources.getStringArray(R.array.country_prefix_labels)
-    require(codes.size == labels.size) { "Country prefix resources must have the same size" }
-    return codes.zip(labels) { code, label -> CountryPrefix(code, label) }
+fun Context.countryPrefixOptions(): List<CountryPrefix> = AuthCatalog.countryPrefixes(authCatalogLocale())
+
+fun Context.authCatalog() = AuthCatalog.copy(authCatalogLocale())
+
+private fun Context.authCatalogLocale(): AuthCatalogLocale =
+    AuthCatalogLocale.fromLanguage(resources.configuration.locales[0]?.language)
+
+fun Context.profileSecretQuestionOptions(): List<SecretQuestionOption> {
+    val copy = authCatalog()
+    return copy.secretQuestions.map { question ->
+        SecretQuestionOption(
+            value = question.value,
+            label = if (question.value.isBlank()) copy.profileKeepCurrentSecretQuestion else question.label,
+        )
+    }
 }
 
-fun Context.profileSecretQuestionOptions(): List<SecretQuestionOption> =
-    listOf(
-        SecretQuestionOption("", getString(R.string.secret_question_keep_current)),
-        SecretQuestionOption("madre", getString(R.string.secret_question_mother)),
-        SecretQuestionOption("barrio", getString(R.string.secret_question_neighborhood)),
-        SecretQuestionOption("amigo", getString(R.string.secret_question_friend)),
-        SecretQuestionOption("comida", getString(R.string.secret_question_food))
-    )
-
 fun Context.registrationSecretQuestionOptions(): List<SecretQuestionOption> =
-    listOf(
-        SecretQuestionOption("", getString(R.string.secret_question_select)),
-        SecretQuestionOption("madre", getString(R.string.secret_question_mother)),
-        SecretQuestionOption("barrio", getString(R.string.secret_question_neighborhood)),
-        SecretQuestionOption("amigo", getString(R.string.secret_question_friend)),
-        SecretQuestionOption("comida", getString(R.string.secret_question_food))
-    )
+    authCatalog().secretQuestions.map { question -> SecretQuestionOption(question.value, question.label) }
 
 fun Context.secretQuestionLabel(value: String): String =
     (profileSecretQuestionOptions() + registrationSecretQuestionOptions())
