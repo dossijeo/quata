@@ -54,7 +54,7 @@ fun ChatBrowserHostContent(
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
-    onOpenAttachment: (String) -> Unit,
+    onOpenAttachment: (PlatformFile) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (conversationId == null) {
@@ -234,7 +234,7 @@ private fun ChatBrowserConversationDetail(
     conversationId: String,
     navigationMessage: String,
     onBackToList: () -> Unit,
-    onOpenAttachment: (String) -> Unit,
+    onOpenAttachment: (PlatformFile) -> Unit,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
@@ -285,7 +285,7 @@ private fun ChatBrowserConversationDetail(
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
             avatar = {},
-            onOpenLink = onOpenAttachment,
+            onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onMessageClick = {},
             composer = { composerModifier ->
                 Surface(composerModifier) {
@@ -432,7 +432,7 @@ private fun ChatBrowserAttachmentContent(
     playback: AudioPlaybackState,
     failed: Boolean,
     onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
-    onOpenAttachment: (String) -> Unit,
+    onOpenAttachment: (PlatformFile) -> Unit,
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
@@ -444,7 +444,7 @@ private fun ChatBrowserAttachmentContent(
         Surface(modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(displayName)
-                Button(onClick = { onOpenAttachment(reference) }) { Text("Abrir adjunto") }
+                Button(onClick = { onOpenAttachment(PlatformFile(reference, displayName, mimeType)) }) { Text("Abrir adjunto") }
             }
         }
         return

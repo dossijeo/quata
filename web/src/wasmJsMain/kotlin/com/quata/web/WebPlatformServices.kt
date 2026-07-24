@@ -2,8 +2,10 @@ package com.quata.web
 
 import com.quata.core.platform.BrowserPreferenceStore
 import com.quata.core.platform.BrowserPermissionService
-import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.platform.BrowserCameraCaptureService
+import com.quata.core.platform.BrowserClipboardService
+import com.quata.core.platform.BrowserDocumentTextReader
+import com.quata.core.platform.BrowserDocumentOpenService
 import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.BrowserFilePickerService
@@ -12,6 +14,8 @@ import com.quata.core.platform.BrowserLocationService
 import com.quata.core.platform.BrowserShareService
 import com.quata.core.platform.BrowserVideoThumbnailService
 import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.DocumentTextReader
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
@@ -37,6 +41,10 @@ data class WebPlatformServices(
     val cameraCapture: BrowserCameraCaptureService = BrowserCameraCaptureService(),
     /** Browser decoder/canvas thumbnail boundary; unsupported codecs return an explicit result. */
     val videoThumbnails: VideoThumbnailService = BrowserVideoThumbnailService(),
+    /** Browser text reader exposed for a future shared document-preview host; Office/PDF remain unsupported. */
+    val documentTextReader: DocumentTextReader = BrowserDocumentTextReader(),
+    /** Native PDF viewing and browser download boundary for RTF/Office attachments. */
+    val documentOpener: DocumentOpenService = BrowserDocumentOpenService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
     val audioPlayer: AudioPlayerService = BrowserAudioPlayerService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
