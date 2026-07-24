@@ -36,6 +36,9 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
         }
+        wasmJsTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies { }
         wasmJsMain.dependencies { }
     }
