@@ -5,7 +5,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSURL
 import platform.UIKit.UIDocumentPickerDelegateProtocol
-import platform.UIKit.UIDocumentPickerModeImport
+import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
 import platform.darwin.NSObject
@@ -32,7 +32,7 @@ class IosDocumentPickerHost(
         return suspendCancellableCoroutine { continuation ->
             val picker = UIDocumentPickerViewController(
                 documentTypes = request.acceptedMimeTypes.toDocumentTypeIdentifiers(),
-                inMode = UIDocumentPickerModeImport,
+                inMode = UIDocumentPickerMode.Import,
             ).apply {
                 allowsMultipleSelection = request.allowMultiple
             }
