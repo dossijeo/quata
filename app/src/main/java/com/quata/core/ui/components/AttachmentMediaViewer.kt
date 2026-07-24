@@ -21,10 +21,6 @@ import android.os.Build
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,14 +36,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -85,9 +79,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -452,46 +443,13 @@ fun AttachmentViewerDialog(
     attachment: AttachmentPreview,
     onDismiss: () -> Unit
 ) {
-    var visible by remember { mutableStateOf(false) }
-    var hasOpened by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        hasOpened = true
-        visible = true
-    }
-
-    Dialog(
-        onDismissRequest = {
-            visible = false
-        },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        AnimatedVisibility(
-            visible = visible,
-            enter = scaleIn(initialScale = 0.18f) + fadeIn(),
-            exit = fadeOut()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF05070C))
-                    .navigationBarsPadding()
-            ) {
-                AttachmentViewerTopBar(
-                    title = attachment.name,
-                    onBack = { visible = false }
-                )
-                when {
-                    attachment.isImage -> ZoomableImage(attachment)
-                    attachment.isVideo -> FullscreenVideoPlayer(attachment.uri)
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(visible, hasOpened) {
-        if (hasOpened && !visible) {
-            delay(170L)
-            onDismiss()
+    QuataFullscreenMediaOverlayContent(
+        title = attachment.name,
+        onDismiss = onDismiss,
+    ) { mediaModifier ->
+        when {
+            attachment.isImage -> ZoomableImage(attachment, mediaModifier)
+            attachment.isVideo -> FullscreenVideoPlayer(attachment.uri, mediaModifier)
         }
     }
 }
@@ -529,38 +487,11 @@ fun Context.openAttachmentWithDocumentReaderOrChooser(
 }
 
 @Composable
-private fun AttachmentViewerTopBar(title: String, onBack: () -> Unit) {
-    val template = quataTheme()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(62.dp)
-            .zIndex(2f)
-            .background(template.colors.topChrome)
-            .padding(horizontal = 8.dp)
-    ) {
-        CompactIconButton(onClick = onBack) {
-            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = template.colors.textPrimary)
-        }
-        Spacer(Modifier.width(4.dp))
-        Text(
-            title,
-            color = template.colors.textPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 18.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun ZoomableImage(attachment: AttachmentPreview) {
+private fun ZoomableImage(attachment: AttachmentPreview, modifier: Modifier = Modifier) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .clipToBounds()
             .background(Color.Black)
@@ -590,7 +521,7 @@ private fun ZoomableImage(attachment: AttachmentPreview) {
 }
 
 @Composable
-private fun FullscreenVideoPlayer(videoUri: String) {
+private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var playbackRotation by remember(videoUri) { mutableStateOf(0) }
@@ -642,7 +573,7 @@ private fun FullscreenVideoPlayer(videoUri: String) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
