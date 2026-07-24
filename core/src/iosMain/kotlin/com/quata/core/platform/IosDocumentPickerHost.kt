@@ -107,6 +107,18 @@ private fun List<String>.toDocumentContentTypes(): List<UTType> {
             "application/pdf" -> "com.adobe.pdf"
             "application/json" -> "public.json"
             "application/zip", "application/x-zip-compressed" -> "public.zip-archive"
+            "application/msword" -> "com.microsoft.word.doc"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                "org.openxmlformats.wordprocessingml.document"
+            "application/vnd.ms-excel" -> "com.microsoft.excel.xls"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ->
+                "org.openxmlformats.spreadsheetml.sheet"
+            "application/vnd.ms-powerpoint" -> "com.microsoft.powerpoint.ppt"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" ->
+                "org.openxmlformats.presentationml.presentation"
+            "application/vnd.oasis.opendocument.text" -> "org.oasis-open.opendocument.text"
+            "application/vnd.oasis.opendocument.spreadsheet" -> "org.oasis-open.opendocument.spreadsheet"
+            "application/vnd.oasis.opendocument.presentation" -> "org.oasis-open.opendocument.presentation"
             else -> mimeType.takeIf { it.startsWith("public.") || it.startsWith("com.") }
                 ?: "public.data"
         }
