@@ -14,11 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataPrimaryButton
@@ -27,6 +25,7 @@ import com.quata.core.ui.components.QuataTextField
 import com.quata.feature.auth.presentation.AuthScreenLayoutContent
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.profile.data.countryPrefixOptions
+import com.quata.feature.profile.data.authCatalog
 
 @Composable
 fun LoginScreen(
@@ -40,6 +39,7 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val prefixes = remember(context) { context.countryPrefixOptions() }
+    val catalog = remember(context) { context.authCatalog() }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -49,18 +49,13 @@ fun LoginScreen(
 
     AuthScreenLayoutContent(
         padding = padding,
-        subtitle = stringResource(R.string.auth_tagline),
+        subtitle = catalog.loginSubtitle,
         portraitLogoSpacing = 22.dp
     ) { isLandscape ->
             LoginForm(
                 state = state,
                 prefixes = prefixes,
-                strings = LoginFormStrings(
-                    phone = stringResource(R.string.auth_phone), password = stringResource(R.string.auth_password),
-                    signingIn = stringResource(R.string.auth_signing_in), signIn = stringResource(R.string.auth_sign_in),
-                    forgotPassword = stringResource(R.string.auth_forgot_password), createAccount = stringResource(R.string.auth_create_account),
-                    searchPrefix = stringResource(R.string.profile_search_prefix), mockNotice = stringResource(R.string.auth_mock_notice),
-                ),
+                strings = catalog.login,
                 isLandscape = isLandscape,
                 showMockNotice = AppConfig.USE_MOCK_BACKEND,
                 onEvent = viewModel::onEvent,
