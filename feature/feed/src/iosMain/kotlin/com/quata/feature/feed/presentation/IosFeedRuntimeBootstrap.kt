@@ -39,3 +39,13 @@ class IosFeedRuntimeBootstrap(
         )
     }
 }
+
+/**
+ * Swift-facing factory for the authenticated runtime bootstrap.
+ *
+ * Kotlin default constructor arguments are not exported as Swift overloads, so the UIKit host
+ * calls this single-argument function instead of depending on an unavailable initializer.
+ */
+fun createIosFeedRuntimeBootstrap(
+    configuration: IosFeedRuntimeConfiguration,
+): IosFeedRuntimeBootstrap = IosFeedRuntimeBootstrap(configuration)

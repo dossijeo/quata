@@ -59,8 +59,10 @@ private final class IosAppCompositionRoot {
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
-    private lazy var runtimeBootstrap = IosPublicRuntimeConfiguration.feedConfiguration()
-        .map(IosFeedRuntimeBootstrap.init(configuration:))
+    private lazy var runtimeBootstrap: IosFeedRuntimeBootstrap? = {
+        guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else { return nil }
+        return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
