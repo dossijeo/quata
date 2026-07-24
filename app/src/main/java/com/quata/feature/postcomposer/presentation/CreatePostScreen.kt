@@ -60,11 +60,8 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -72,7 +69,6 @@ import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -1189,10 +1185,13 @@ private fun ComposerPreviewVideoPlayer(
                 .fillMaxSize()
                 .clickable { togglePlayback() }
         )
-        ComposerPreviewVideoControls(
+        ComposerVideoPreviewControlsContent(
             isPlaying = isPlaying,
             positionMs = positionMs,
             durationMs = durationMs,
+            playContentDescription = stringResource(R.string.feed_play),
+            pauseContentDescription = stringResource(R.string.feed_pause),
+            replayContentDescription = stringResource(R.string.video_editor_previous),
             onPlayPause = { togglePlayback() },
             onReplay = {
                 positionMs = 0L
@@ -1212,59 +1211,6 @@ private fun ComposerPreviewVideoPlayer(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 10.dp, end = 78.dp, bottom = 8.dp)
-        )
-    }
-}
-
-@Composable
-private fun ComposerPreviewVideoControls(
-    isPlaying: Boolean,
-    positionMs: Long,
-    durationMs: Long,
-    onPlayPause: () -> Unit,
-    onReplay: () -> Unit,
-    onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val duration = durationMs.coerceAtLeast(1L)
-    val progress = (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(34.dp)) {
-            CompactIcon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) stringResource(R.string.feed_pause) else stringResource(R.string.feed_play),
-                tint = Color.White
-            )
-        }
-        CompactIconButton(onClick = onReplay, modifier = Modifier.size(34.dp)) {
-            CompactIcon(
-                imageVector = Icons.Filled.Replay,
-                contentDescription = stringResource(R.string.video_editor_previous),
-                tint = Color.White
-            )
-        }
-        Slider(
-            value = progress,
-            onValueChange = { onSeek((it * duration).toLong()) },
-            enabled = durationMs > 0,
-            modifier = Modifier
-                .weight(1f)
-                .height(28.dp)
-        )
-        Text(
-            text = "${formatComposerVideoTime(positionMs)} / ${formatComposerVideoTime(durationMs)}",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(70.dp),
-            maxLines = 1
         )
     }
 }
@@ -1331,13 +1277,6 @@ private fun ComposerPreviewAuthor(
         subtitle = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
         modifier = modifier,
     )
-}
-
-private fun formatComposerVideoTime(ms: Long): String {
-    val totalSeconds = (ms / 1000).coerceAtLeast(0)
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
 private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? =
