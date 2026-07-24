@@ -476,7 +476,7 @@ fun EmergencyContactsDialog(
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     BackHandler(enabled = true, onBack = onDismiss)
-    EmergencyContactsEditorContent(
+    EmergencyContactsDialogContent(
         layoutPadding = layoutPadding,
         isLandscapeLayout = isLandscapeLayout,
         isImeVisible = imeBottom > 0,
@@ -505,19 +505,21 @@ fun EmergencyContactsDialog(
         onToggleContact = onToggleContact,
         onDismiss = onDismiss,
         onSave = onSave,
-        userRow = { user, selected, onToggle ->
-            EmergencyUserRow(user = user, selected = selected, onToggle = onToggle)
-        },
-        messageInput = { modifier, value, onValueChange, minLines, maxLines ->
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                minLines = minLines,
-                maxLines = maxLines ?: Int.MAX_VALUE,
-                modifier = modifier,
-                shape = RoundedCornerShape(18.dp),
-            )
-        },
+        slots = EmergencyContactsDialogSlots(
+            contactRow = { user, selected, onToggle ->
+                EmergencyUserRow(user = user, selected = selected, onToggle = onToggle)
+            },
+            messageInput = { modifier, value, onValueChange, minLines, maxLines ->
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    minLines = minLines,
+                    maxLines = maxLines ?: Int.MAX_VALUE,
+                    modifier = modifier,
+                    shape = RoundedCornerShape(18.dp),
+                )
+            },
+        ),
     )
 }
 
