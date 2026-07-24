@@ -26,11 +26,10 @@ import platform.Foundation.NSTemporaryDirectory
 @OptIn(ExperimentalForeignApi::class)
 class IosAvFoundationAudioHost(
     private val audioSession: AVAudioSession = AVAudioSession.sharedInstance(),
-) : IosAudioRecorderHost, IosAudioPlayerHost {
+) : IosAudioRecorderHost {
     private var recorder: AVAudioRecorder? = null
     private var recorderFile: NSURL? = null
     private var recorderOptions: AudioRecordingOptions? = null
-    private var player: AVAudioPlayer? = null
 
     override suspend fun start(options: AudioRecordingOptions): PlatformResult<Unit> {
         if (!options.supportsIosAac()) return PlatformResult.Unsupported
@@ -106,51 +105,6 @@ class IosAvFoundationAudioHost(
         return PlatformResult.Success(Unit)
     }
 
-    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
-        stopPlayer()
-        val url = file.toIosAudioUrl() ?: return PlatformResult.Failure("audio_file_url_invalid")
-        if (!activateAudioSession()) return PlatformResult.Failure("audio_session_activation_failed")
-        val nativePlayer = runCatching { AVAudioPlayer(url, null) }
-            .getOrElse {
-                deactivateIfIdle()
-                return PlatformResult.Failure(it.message ?: "audio_player_load_failed")
-            }
-        if (!nativePlayer.prepareToPlay()) {
-            nativePlayer.stop()
-            deactivateIfIdle()
-            return PlatformResult.Failure("audio_player_prepare_failed")
-        }
-        player = nativePlayer
-        return PlatformResult.Success(currentState())
-    }
-
-    override suspend fun play(): PlatformResult<AudioPlaybackState> {
-        val activePlayer = player ?: return PlatformResult.Failure("audio_player_not_loaded")
-        if (!activePlayer.play()) return PlatformResult.Failure("audio_player_play_failed")
-        return PlatformResult.Success(currentState())
-    }
-
-    override suspend fun pause(): PlatformResult<AudioPlaybackState> {
-        val activePlayer = player ?: return PlatformResult.Failure("audio_player_not_loaded")
-        activePlayer.pause()
-        return PlatformResult.Success(currentState())
-    }
-
-    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> {
-        val activePlayer = player ?: return PlatformResult.Failure("audio_player_not_loaded")
-        val boundedMillis = positionMillis.coerceIn(0L, (activePlayer.duration * 1_000.0).toLong().coerceAtLeast(0L))
-        activePlayer.currentTime = boundedMillis / 1_000.0
-        return PlatformResult.Success(currentState())
-    }
-
-    override suspend fun stop(): PlatformResult<Unit> {
-        stopPlayer()
-        deactivateIfIdle()
-        return PlatformResult.Success(Unit)
-    }
-
-    override suspend fun state(): AudioPlaybackState = currentState()
-
     /** Releases native players, active recordings and temporary recording output on host teardown. */
     fun release() {
         recorder?.stop()
@@ -158,7 +112,6 @@ class IosAvFoundationAudioHost(
         recorder = null
         recorderFile = null
         recorderOptions = null
-        stopPlayer()
         deactivateIfIdle()
     }
 
@@ -170,28 +123,14 @@ class IosAvFoundationAudioHost(
 
     private fun activateAudioSession(): Boolean = runCatching {
         audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, error = null) &&
-            audioSession.setActive(true, error = null)
+            audioSession.setActive(true, withOptions = 0u, error = null)
     }.getOrDefault(false)
 
     private fun deactivateIfIdle() {
-        if (recorder == null && player == null) {
-            runCatching { audioSession.setActive(false, error = null) }
+        if (recorder == null) {
+            runCatching { audioSession.setActive(false, withOptions = 0u, error = null) }
         }
     }
-
-    private fun stopPlayer() {
-        player?.stop()
-        player = null
-    }
-
-    private fun currentState(): AudioPlaybackState = player?.let { active ->
-        AudioPlaybackState(
-            isLoaded = true,
-            isPlaying = active.playing,
-            positionMillis = (active.currentTime * 1_000.0).toLong().coerceAtLeast(0L),
-            durationMillis = (active.duration * 1_000.0).toLong().coerceAtLeast(0L),
-        )
-    } ?: AudioPlaybackState()
 
     private fun releaseRecorder(result: PlatformResult<AudioRecording>): PlatformResult<AudioRecording> {
         recorder?.stop()
@@ -201,13 +140,6 @@ class IosAvFoundationAudioHost(
         deactivateIfIdle()
         return result
     }
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun PlatformFile.toIosAudioUrl(): NSURL? = when {
-    reference.startsWith("file://") -> NSURL.URLWithString(reference)
-    reference.isNotBlank() -> NSURL.fileURLWithPath(reference)
-    else -> null
 }
 
 private fun AudioRecordingOptions.supportsIosAac(): Boolean = mimeType.trim().lowercase() in setOf("audio/mp4", "audio/m4a", "audio/aac")
