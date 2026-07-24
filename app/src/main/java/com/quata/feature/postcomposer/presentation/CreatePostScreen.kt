@@ -926,15 +926,13 @@ private fun VideoPostForm(
             editAction = videoEditAction,
         )
 
-        ComposerPanel(stringResource(R.string.composer_description)) {
-            OutlinedTextField(
-                value = state.text,
-                onValueChange = onDescriptionChange,
-                placeholder = { Text(stringResource(R.string.composer_description_placeholder)) },
-                minLines = if (isLandscapeLayout) 2 else 3,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        ComposerDescriptionFormContent(
+            value = state.text,
+            title = stringResource(R.string.composer_description),
+            placeholder = stringResource(R.string.composer_description_placeholder),
+            minLines = if (isLandscapeLayout) 2 else 3,
+            onValueChange = onDescriptionChange,
+        )
     }
 
     @Composable
