@@ -2,6 +2,7 @@ package com.quata.core.platform
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.Volatile
 
 /** Request passed from the context-free common contract to an iOS UIKit host. */
 data class IosFilePickerRequest(

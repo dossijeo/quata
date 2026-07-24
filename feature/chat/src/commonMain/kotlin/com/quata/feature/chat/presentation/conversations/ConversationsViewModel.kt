@@ -57,6 +57,9 @@ class ConversationsViewModel(
             inviteContactsError = null,
             candidateHasMore = true,
             candidateNextOffset = 0,
+            selectedNewConversationProfileIds = emptySet(),
+            newGroupTitle = "",
+            isOpeningGroupConversation = false,
             candidateError = null
         )
         loadConversationCandidates(reset = true)
@@ -71,6 +74,9 @@ class ConversationsViewModel(
             isInviteContactsLoading = false,
             inviteContactsError = null,
             openingCandidateProfileId = null,
+            selectedNewConversationProfileIds = emptySet(),
+            newGroupTitle = "",
+            isOpeningGroupConversation = false,
             candidateError = null
         )
     }
@@ -144,6 +150,48 @@ class ConversationsViewModel(
                     _uiState.value = _uiState.value.copy(
                         openingCandidateProfileId = null,
                         candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation)
+                    )
+                }
+        }
+    }
+
+    /** Shared group-composer state; the host chooses its visual presentation and navigation. */
+    fun toggleNewConversationCandidate(candidate: ChatConversationCandidate) {
+        if (_uiState.value.isOpeningGroupConversation) return
+        _uiState.value = _uiState.value.let { state ->
+            state.copy(
+                selectedNewConversationProfileIds = state.selectedNewConversationProfileIds.let { selected ->
+                    if (candidate.profileId in selected) selected - candidate.profileId else selected + candidate.profileId
+                },
+                candidateError = null,
+            )
+        }
+    }
+
+    fun onNewGroupTitleChanged(title: String) {
+        _uiState.value = _uiState.value.copy(newGroupTitle = title.take(120), candidateError = null)
+    }
+
+    fun openSelectedGroupConversation(onOpened: (String) -> Unit) {
+        val state = _uiState.value
+        val participantIds = state.selectedNewConversationProfileIds.toList()
+        if (state.isOpeningGroupConversation || participantIds.size < 2) return
+        _uiState.value = state.copy(isOpeningGroupConversation = true, candidateError = null)
+        scope.launch {
+            repository.openGroupConversation(participantIds, state.newGroupTitle.trim().ifBlank { null })
+                .onSuccess { conversationId ->
+                    _uiState.value = _uiState.value.copy(
+                        isOpeningGroupConversation = false,
+                        isNewConversationPickerOpen = false,
+                        selectedNewConversationProfileIds = emptySet(),
+                        newGroupTitle = "",
+                    )
+                    onOpened(conversationId)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isOpeningGroupConversation = false,
+                        candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation),
                     )
                 }
         }

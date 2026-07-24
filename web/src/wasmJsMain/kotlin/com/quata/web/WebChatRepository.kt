@@ -3,10 +3,12 @@ package com.quata.web
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.data.parseChatRpcPayloadEnvelope
 import com.quata.feature.chat.data.toChatRpcConversations
 import com.quata.feature.chat.data.toChatRpcMessages
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
@@ -19,20 +21,28 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /**
- * Browser chat reader backed by the same RLS-protected inbox/thread RPCs as Android.
+ * Browser chat repository backed by the same RLS-protected inbox/thread RPCs as Android.
  *
- * There is deliberately no browser cache, upload path, mutation API, or Realtime transport here:
- * fresh snapshots are obtained by polling. Every write contract fails explicitly until its browser
- * transport and UX are implemented.
+ * Snapshots are obtained by polling. Text/reply and browser-selected attachment writes use the
+ * matching RPCs; cache, Realtime and the remaining mutations stay explicitly unavailable.
  */
 class WebChatRepository(
     private val rpcClient: WebPostgrestRpcClient,
     private val authRepository: WebAuthRepository,
+    private val attachmentUploader: WebChatAttachmentUploader,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : ChatRepository {
     private val conversations = MutableStateFlow<List<Conversation>>(emptyList())
@@ -107,11 +117,26 @@ class WebChatRepository(
         query: String,
         limit: Int,
         offset: Int,
-    ): Result<ChatConversationCandidatePage> = unsupportedMutation()
+    ): Result<ChatConversationCandidatePage> = runCatching {
+        val userId = currentUserId()
+        val body = buildJsonObject {
+            put("p_actor_profile_id", userId)
+            put("p_query", query.trim())
+            put("p_limit", limit.coerceIn(1, 50))
+            put("p_offset", offset.coerceAtLeast(0))
+        }.toString()
+        val result = rpcClient.post("quata_chat_search_conversation_candidates", body)
+        val response = result as? WebPostgrestResult.Success
+            ?: throw WebPostgrestReadException(result as WebPostgrestResult.Failure)
+        response.body.toWebConversationCandidatePage(offset)
+    }.onFailure { updateReadFailure() }
 
     override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>> = unsupportedMutation()
 
-    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = unsupportedMutation()
+    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = openThread(
+        functionName = "quata_chat_get_or_create_private_thread",
+        body = { userId -> buildJsonObject { put("p_actor_profile_id", userId); put("p_peer_profile_id", peerProfileId) }.toString() },
+    )
 
     override suspend fun sendMessage(
         conversationId: String,
@@ -120,7 +145,15 @@ class WebChatRepository(
         attachmentName: String?,
         attachmentMimeType: String?,
         clientMessageId: String?,
-    ): Result<Unit> = unsupportedMutation()
+    ): Result<Unit> = sendTextMessage(
+        conversationId = conversationId,
+        text = text,
+        attachmentUri = attachmentUri,
+        attachmentName = attachmentName,
+        attachmentMimeType = attachmentMimeType,
+        replyToMessageId = null,
+        clientMessageId = clientMessageId,
+    )
 
     override suspend fun sendReply(
         conversationId: String,
@@ -130,7 +163,19 @@ class WebChatRepository(
         attachmentName: String?,
         attachmentMimeType: String?,
         clientMessageId: String?,
-    ): Result<Unit> = unsupportedMutation()
+    ): Result<Unit> {
+        val replyToMessageId = replyTo.id.toLongOrNull()
+            ?: return Result.failure(IllegalArgumentException("web_chat_invalid_reply_message_id"))
+        return sendTextMessage(
+            conversationId = conversationId,
+            text = text,
+            attachmentUri = attachmentUri,
+            attachmentName = attachmentName,
+            attachmentMimeType = attachmentMimeType,
+            replyToMessageId = replyToMessageId,
+            clientMessageId = clientMessageId,
+        )
+    }
 
     override suspend fun sendSosMessage(
         contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?,
@@ -144,10 +189,34 @@ class WebChatRepository(
         communityId: String, title: String, participantIds: List<String>,
     ): Result<String> = unsupportedMutation()
 
-    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = unsupportedMutation()
+    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = openThread(
+        functionName = "quata_chat_start_thread",
+        body = { userId -> buildJsonObject {
+            put("p_actor_profile_id", userId)
+            put("p_recipient_profile_ids", JsonArray(participantIds.distinct().map(::JsonPrimitive)))
+            put("p_subject", title?.let(::JsonPrimitive) ?: JsonNull)
+            put("p_type", "group")
+            put("p_message", "")
+        }.toString() },
+    )
 
-    override suspend fun markConversationRead(conversationId: String): Result<Unit> = unsupportedMutation()
-    override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = unsupportedMutation()
+    override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
+        val userId = currentUserId()
+        val threadId = conversationId.requireWebThreadId()
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        rpc("quata_chat_mark_thread_read", threadActionRequest(userId, threadId))
+        updateConversation(conversationId) { it.copy(unreadCount = 0) }
+        _syncStatus.value = ChatSyncStatus.Online
+    }.onFailure { updateReadFailure() }
+
+    override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
+        val userId = currentUserId()
+        val threadId = conversationId.requireWebThreadId()
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        rpc("quata_chat_set_muted", mutedRequest(userId, threadId, muted))
+        updateConversation(conversationId) { it.copy(isMuted = muted) }
+        _syncStatus.value = ChatSyncStatus.Online
+    }.onFailure { updateReadFailure() }
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = unsupportedMutation()
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = unsupportedMutation()
     override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = unsupportedMutation()
@@ -178,6 +247,89 @@ class WebChatRepository(
         _syncStatus.value = ChatSyncStatus.Online
         mapped
     }.onFailure { updateReadFailure() }
+
+    private suspend fun openThread(
+        functionName: String,
+        body: (String) -> String,
+    ): Result<String> = runCatching {
+        val userId = currentUserId()
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        val envelope = rpc(functionName, body(userId))
+        val mapped = envelope.toChatRpcConversations(userId)
+        mergeConversations(mapped)
+        mergeMessages(envelope.toChatRpcMessages(userId))
+        _syncStatus.value = ChatSyncStatus.Online
+        mapped.firstOrNull()?.id ?: throw IllegalStateException("web_chat_thread_response_missing")
+    }.onFailure { updateReadFailure() }
+
+    private suspend fun sendTextMessage(
+        conversationId: String,
+        text: String,
+        attachmentUri: String?,
+        attachmentName: String?,
+        attachmentMimeType: String?,
+        replyToMessageId: Long?,
+        clientMessageId: String?,
+    ): Result<Unit> {
+        return runCatching {
+            require(text.isNotBlank() || !attachmentUri.isNullOrBlank()) { "web_chat_message_empty" }
+            val userId = currentUserId()
+            val threadId = conversationId.requireWebThreadId()
+            _syncStatus.value = ChatSyncStatus.Refreshing
+            val fileIds = attachmentUri
+                ?.takeIf { it.isNotBlank() }
+                ?.let { reference ->
+                    listOf(
+                        uploadAndRegisterAttachment(
+                            profileId = userId,
+                            threadId = threadId,
+                            file = PlatformFile(
+                                reference = reference,
+                                displayName = attachmentName,
+                                mimeType = attachmentMimeType,
+                            ),
+                        ),
+                    )
+                }
+                .orEmpty()
+            val envelope = rpc(
+                "quata_chat_send_message",
+                sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId),
+            )
+            mergeConversations(envelope.toChatRpcConversations(userId))
+            mergeMessages(envelope.toChatRpcMessages(userId))
+            _syncStatus.value = ChatSyncStatus.Online
+        }.onFailure { updateReadFailure() }
+    }
+
+    private suspend fun uploadAndRegisterAttachment(
+        profileId: String,
+        threadId: Long,
+        file: PlatformFile,
+    ): Long {
+        val uploaded = attachmentUploader.upload(profileId, file)
+        val body = buildJsonObject {
+            put("p_actor_profile_id", profileId)
+            put("p_thread_id", threadId)
+            put("p_file_url", uploaded.publicUrl)
+            put("p_storage_bucket", ChatAttachmentsBucket)
+            put("p_storage_path", uploaded.storagePath)
+            put("p_mime_type", uploaded.mimeType)
+            put("p_name", uploaded.name)
+            uploaded.sizeBytes?.let { put("p_size_bytes", it) } ?: put("p_size_bytes", JsonNull)
+            put("p_ext", uploaded.extension)
+            put("p_thumb", JsonNull)
+        }.toString()
+        val result = rpcClient.post("quata_chat_register_attachment", body)
+        val response = result as? WebPostgrestResult.Success
+            ?: throw WebPostgrestReadException(result as WebPostgrestResult.Failure)
+        return Json.parseToJsonElement(response.body)
+            .jsonObject["id"]
+            ?.jsonPrimitive
+            ?.longOrNull
+            ?.takeIf { it > 0L }
+            ?: throw IllegalStateException("web_chat_attachment_registration_missing_id")
+    }
 
     private suspend fun refreshThread(conversationId: String, limit: Int): Result<List<Message>> = runCatching {
         val userId = currentUserId()
@@ -213,6 +365,18 @@ class WebChatRepository(
         }
     }
 
+    private fun mergeConversations(incoming: List<Conversation>) {
+        if (incoming.isEmpty()) return
+        conversations.value = (conversations.value.associateBy(Conversation::id) + incoming.associateBy(Conversation::id)).values
+            .sortedByDescending { it.updatedAtMillis ?: 0L }
+    }
+
+    private fun updateConversation(conversationId: String, transform: (Conversation) -> Conversation) {
+        conversations.value = conversations.value.map { conversation ->
+            if (conversation.id == conversationId) transform(conversation) else conversation
+        }
+    }
+
     private fun messagesState(conversationId: String): MutableStateFlow<List<Message>> =
         messagesByConversation.getOrPut(conversationId) { MutableStateFlow(emptyList()) }
 
@@ -232,6 +396,33 @@ class WebChatRepository(
         put("p_known_message_ids", JsonArray(knownIds.map(::JsonPrimitive)))
     }.toString()
 
+    private fun sendMessageRequest(
+        userId: String,
+        threadId: Long,
+        message: String,
+        fileIds: List<Long>,
+        replyToMessageId: Long?,
+        clientMessageId: String?,
+    ): String = buildJsonObject {
+        put("p_actor_profile_id", userId)
+        put("p_thread_id", threadId)
+        put("p_message", message)
+        put("p_file_ids", JsonArray(fileIds.map(::JsonPrimitive)))
+        put("p_reply_to_message_id", replyToMessageId?.let(::JsonPrimitive) ?: JsonNull)
+        put("p_client_message_id", clientMessageId?.let(::JsonPrimitive) ?: JsonNull)
+    }.toString()
+
+    private fun threadActionRequest(userId: String, threadId: Long): String = buildJsonObject {
+        put("p_actor_profile_id", userId)
+        put("p_thread_id", threadId)
+    }.toString()
+
+    private fun mutedRequest(userId: String, threadId: Long, muted: Boolean): String = buildJsonObject {
+        put("p_actor_profile_id", userId)
+        put("p_thread_id", threadId)
+        put("p_muted", muted)
+    }.toString()
+
     private fun <T> unsupportedMutation(): Result<T> =
         Result.failure(UnsupportedOperationException("web_chat_mutation_not_implemented"))
 
@@ -241,5 +432,36 @@ class WebChatRepository(
         const val ThreadPageSize = 250
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
+        const val ChatAttachmentsBucket = "chat-attachments"
     }
+}
+
+private fun String.requireWebThreadId(): Long = removePrefix("sb:").toLongOrNull()
+    ?.takeIf { startsWith("sb:") && it > 0L }
+    ?: throw IllegalArgumentException("web_chat_invalid_conversation_id")
+
+private fun String.toWebConversationCandidatePage(requestOffset: Int): ChatConversationCandidatePage {
+    val root = Json.parseToJsonElement(this).jsonObject
+    val candidates = root["items"]?.jsonArray.orEmpty().mapNotNull { item ->
+        val candidate = item.jsonObject
+        val profileId = candidate["profile_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+        ChatConversationCandidate(
+            profileId = profileId,
+            displayName = candidate["display_name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { "Usuario" },
+            neighborhood = candidate["neighborhood"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            phone = candidate["phone"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            avatarUrl = candidate["avatar_url"]?.jsonPrimitive?.contentOrNull,
+            sectionKey = candidate["section_key"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { "other" },
+            neighborhoodGroup = candidate["neighborhood_group"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            existingConversationId = candidate["existing_thread_id"]?.jsonPrimitive?.longOrNull
+                ?.takeIf { it > 0L }
+                ?.let { "sb:$it" },
+        )
+    }
+    return ChatConversationCandidatePage(
+        candidates = candidates,
+        hasMore = root["has_more"]?.jsonPrimitive?.booleanOrNull ?: false,
+        nextOffset = root["next_offset"]?.jsonPrimitive?.intOrNull ?: requestOffset + candidates.size,
+        actorNeighborhood = root["actor_neighborhood"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+    )
 }

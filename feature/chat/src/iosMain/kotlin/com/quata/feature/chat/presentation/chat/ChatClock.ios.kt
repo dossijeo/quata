@@ -1,5 +1,5 @@
 package com.quata.feature.chat.presentation.chat
 
-import platform.Foundation.NSDate
+import platform.posix.time
 
-actual fun currentEpochMillis(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()
+actual fun currentEpochMillis(): Long = time(null).toLong() * 1_000L

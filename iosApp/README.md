@@ -1,15 +1,25 @@
 # Host iOS mínimo
 
-El host SwiftUI sólo presenta `QuataFeedViewController`, creado en `:feature:feed/iosMain` con Compose Multiplatform y UI de `commonMain`.
+`feature:feed/iosMain` expone `QuataFeedViewController(dependencies:)`. Al recibir un
+`FeedRepository` iOS real, presenta `FeedBrowserHostContent`, cuyo ViewModel, estado y UI son
+código Compose de `commonMain`; el adaptador iOS se limita a crear un `UIViewController`.
 
-Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`IosPreferenceStore`) ya existen en `:core/iosMain`, pero este launcher no los puede conectar todavía: `QuataFeedViewController()` no recibe dependencias y la pantalla de estado no consume esos contratos. La siguiente ampliación debe introducir una API de composición/inyección en el módulo compartido y enlazar el framework que la exporte; no se añade un contenedor Swift sin consumidores.
+El launcher SwiftUI no fabrica un repositorio de ejemplo ni reutiliza el repositorio Android. Por
+ahora muestra de forma explícita el estado de migración, hasta que exista un cliente autenticado
+iOS que implemente `FeedRepository`. Conectar ese repositorio consiste en crear
+`IosFeedHostDependencies(repository: …)` y pasarlo al `FeedRootView` documentado en el entry
+point Swift.
 
-`ShareService` requiere que el host presente `UIActivityViewController`; `LocationService` necesita un `CLLocationManager` delegado y la clave `NSLocationWhenInUseUsageDescription`; y `PermissionService` debe coordinar los delegados de cámara, micrófono, fotos, contactos, ubicación y notificaciones, además de sus claves de `Info.plist` y permisos. Ninguno puede implementarse correctamente en el launcher actual sin esa API de inyección y configuración nativa, por lo que siguen explícitamente no disponibles en iOS.
+Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`IosPreferenceStore`)
+ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
+un presenter/document picker UIKit activo antes de poder declararse disponibles.
 
-En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye primero el framework `QuataFeed` para el simulador iOS:
+En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
+primero el framework `QuataFeed` para el simulador iOS:
 
 ```sh
 ./gradlew :feature:feed:linkDebugFrameworkIosSimulatorArm64
 ```
 
-Windows no puede enlazar los targets nativos de iOS; la compilación Wasm y Android continúa siendo la verificación disponible en este entorno.
+Windows no puede enlazar los targets nativos de iOS; la compilación Wasm y Android continúa
+siendo la verificación disponible en este entorno.

@@ -483,188 +483,52 @@ fun EmergencyContactsDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit
 ) {
-    val template = quataTheme()
-    val headerStrings = EmergencyContactsHeaderStrings(
-        back = stringResource(R.string.common_back),
-        sos = stringResource(R.string.common_sos),
-        title = stringResource(R.string.emergency_contacts_title),
-        description = stringResource(R.string.emergency_contacts_description),
-        contactsTab = stringResource(R.string.emergency_contacts_tab),
-        messageTab = stringResource(R.string.emergency_message_tab)
-    )
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val bottomActionOffset = if (isLandscapeLayout) 0.dp else 12.dp
-    var query by rememberSaveable { mutableStateOf("") }
-    var selectedTab by rememberSaveable { mutableStateOf(EmergencyContactsTab.Contacts) }
-    // These states are used only while the IME reduces the available viewport.
-    // They preserve the unchanged layout and position at rest.
-    val messageScrollState = rememberScrollState()
-    val contactsListState = rememberLazyListState()
-    val messageBringIntoViewRequester = remember { BringIntoViewRequester() }
-    var isMessageFocused by remember { mutableStateOf(false) }
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
-    LaunchedEffect(isMessageFocused, imeBottom) {
-        if (isMessageFocused && imeBottom > 0) {
-            messageBringIntoViewRequester.bringIntoView()
-        }
-    }
-    LaunchedEffect(imeBottom, selectedTab) {
-        if (imeBottom == 0 && selectedTab == EmergencyContactsTab.Contacts) {
-            contactsListState.scrollToItem(0)
-        }
-    }
-    // Landscape keeps both tabs visible and consumes the filtered list directly.
-    val visibleUsers = filterEmergencyContactCandidates(
-        candidates = candidates,
-        selectedIds = selectedIds.toSet(),
-        query = query
-    )
     BackHandler(enabled = true, onBack = onDismiss)
-    EmergencyContactsDialogFrameContent(
+    EmergencyContactsEditorContent(
         layoutPadding = layoutPadding,
-        isLandscapeLayout = isLandscapeLayout
-    ) {
-                if (isLandscapeLayout) {
-                    EmergencyContactsLandscapeEditorLayoutContent(
-                        topBar = {
-                            EmergencyContactsLandscapeTopBarContent(
-                                backLabel = stringResource(R.string.common_back),
-                                sosLabel = stringResource(R.string.common_sos),
-                                title = stringResource(R.string.emergency_contacts_title),
-                                saveLabel = stringResource(
-                                    if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short
-                                ),
-                                isSaving = isSaving,
-                                onDismiss = onDismiss,
-                                onSave = onSave
-                            )
-                        },
-                        contacts = { modifier ->
-                            EmergencyContactsLandscapeContactsSectionContent(
-                                title = stringResource(R.string.emergency_contacts_tab),
-                                selectedCountLabel = stringResource(R.string.emergency_selected_count, selectedIds.size),
-                                modifier = modifier,
-                                searchInput = {
-                                OutlinedTextField(
-                                    value = query,
-                                    onValueChange = { query = it },
-                                    placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                                },
-                                users = { usersModifier ->
-                                LazyColumn(
-                                    modifier = usersModifier,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(visibleUsers) { user ->
-                                        EmergencyUserRow(
-                                            user = user,
-                                            selected = user.id in selectedIds,
-                                            onToggle = { onToggleContact(user) }
-                                        )
-                                    }
-                                }
-                                }
-                            )
-                        },
-                        message = { modifier ->
-                            Column(
-                                modifier
-                                    .verticalScroll(messageScrollState)
-                            ) {
-                                EmergencyContactsLandscapeMessageIntroContent(
-                                    tabLabel = stringResource(R.string.emergency_message_tab),
-                                    description = stringResource(R.string.emergency_contacts_description)
-                                )
-                                EmergencyContactsLandscapeMessagePanelContent(
-                                    title = stringResource(R.string.emergency_message_title),
-                                    hint = stringResource(R.string.emergency_message_hint),
-                                    input = {
-                                        OutlinedTextField(
-                                            value = message,
-                                            onValueChange = onMessageChange,
-                                            minLines = 4,
-                                            maxLines = 5,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .bringIntoViewRequester(messageBringIntoViewRequester)
-                                                .onFocusChanged { isMessageFocused = it.isFocused },
-                                            shape = RoundedCornerShape(18.dp)
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    )
-                } else {
-                    EmergencyContactsPortraitEditorLayoutContent(
-                        body = { modifier ->
-                            when (selectedTab) {
-                                EmergencyContactsTab.Contacts -> EmergencyContactsSelectionContent(
-                            candidates = candidates,
-                            selectedIds = selectedIds.toSet(),
-                            query = query,
-                            onQueryChange = { query = it },
-                            listState = contactsListState,
-                            showHeader = imeBottom == 0,
-                            headerStrings = headerStrings,
-                            searchPlaceholder = stringResource(R.string.emergency_search_placeholder),
-                            selectedCountLabel = stringResource(R.string.emergency_selected_count, selectedIds.size),
-                            networkUsersLabel = stringResource(R.string.emergency_network_users),
-                            onTabSelected = { selectedTab = it },
-                            onDismiss = onDismiss,
-                            userRow = { user, selected ->
-                                EmergencyUserRow(
-                                    user = user,
-                                    selected = selected,
-                                    onToggle = { onToggleContact(user) }
-                                )
-                            },
-                            modifier = modifier
-                                )
-                                EmergencyContactsTab.Message -> EmergencyContactsMessageContent(
-                            scrollState = messageScrollState,
-                            showHeader = imeBottom == 0,
-                            headerStrings = headerStrings,
-                            title = stringResource(R.string.emergency_message_title),
-                            hint = stringResource(R.string.emergency_message_hint),
-                            onTabSelected = { selectedTab = it },
-                            onDismiss = onDismiss,
-                            messageInput = {
-                                OutlinedTextField(
-                                    value = message,
-                                    onValueChange = onMessageChange,
-                                    minLines = 8,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .bringIntoViewRequester(messageBringIntoViewRequester)
-                                        .onFocusChanged { isMessageFocused = it.isFocused },
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                            },
-                            modifier = modifier
-                                )
-                            }
-                        },
-                        saveAction = {
-                            if (imeBottom == 0) {
-                                Spacer(Modifier.height(18.dp))
-                                EmergencyContactsPortraitSaveButtonContent(
-                                    label = stringResource(
-                                        if (isSaving) R.string.common_saving else R.string.emergency_save_contacts
-                                    ),
-                                    isSaving = isSaving,
-                                    onSave = onSave
-                                )
-                                Spacer(Modifier.height(bottomActionOffset))
-                            }
-                        }
-                    )
-                }
-    }
+        isLandscapeLayout = isLandscapeLayout,
+        isImeVisible = imeBottom > 0,
+        candidates = candidates,
+        selectedIds = selectedIds,
+        message = message,
+        isSaving = isSaving,
+        strings = EmergencyContactsEditorStrings(
+            header = EmergencyContactsHeaderStrings(
+                back = stringResource(R.string.common_back),
+                sos = stringResource(R.string.common_sos),
+                title = stringResource(R.string.emergency_contacts_title),
+                description = stringResource(R.string.emergency_contacts_description),
+                contactsTab = stringResource(R.string.emergency_contacts_tab),
+                messageTab = stringResource(R.string.emergency_message_tab),
+            ),
+            selectedCount = { count -> stringResource(R.string.emergency_selected_count, count) },
+            networkUsers = stringResource(R.string.emergency_network_users),
+            searchPlaceholder = stringResource(R.string.emergency_search_placeholder),
+            messageTitle = stringResource(R.string.emergency_message_title),
+            messageHint = stringResource(R.string.emergency_message_hint),
+            savePortrait = stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
+            saveLandscape = stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short),
+        ),
+        onMessageChange = onMessageChange,
+        onToggleContact = onToggleContact,
+        onDismiss = onDismiss,
+        onSave = onSave,
+        userRow = { user, selected, onToggle ->
+            EmergencyUserRow(user = user, selected = selected, onToggle = onToggle)
+        },
+        messageInput = { modifier, value, onValueChange, minLines, maxLines ->
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                minLines = minLines,
+                maxLines = maxLines ?: Int.MAX_VALUE,
+                modifier = modifier,
+                shape = RoundedCornerShape(18.dp),
+            )
+        },
+    )
 }
 
 @Composable

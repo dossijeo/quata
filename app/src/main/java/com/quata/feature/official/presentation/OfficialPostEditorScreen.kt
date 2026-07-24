@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -302,44 +301,48 @@ fun OfficialPostEditorScreen(
                         }
                     }
 
-                    OfficialEditorCard {
-                        OfficialEditorSectionTitle(stringResource(R.string.official_form_media_section))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OfficialEditorMediaSectionContent(
+                        title = stringResource(R.string.official_form_media_section),
+                        imagePicker = { pickerModifier ->
                             OutlinedButton(
                                 onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                                modifier = Modifier.weight(1f)
+                                modifier = pickerModifier,
                             ) {
                                 Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
                                 Text(stringResource(R.string.composer_pick_image), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                        },
+                        videoPicker = { pickerModifier ->
                             OutlinedButton(
                                 onClick = { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                                modifier = Modifier.weight(1f)
+                                modifier = pickerModifier,
                             ) {
                                 Icon(Icons.Filled.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
                                 Text(stringResource(R.string.composer_pick_video), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                        }
-                        val selectedMediaType = mediaType
-                        if (mediaUrl.isNotBlank() && selectedMediaType != null) {
-                            OfficialEditorMediaPreview(
-                                mediaType = selectedMediaType,
-                                mediaUrl = mediaUrl,
-                                onEdit = {
-                                    when (selectedMediaType) {
-                                        OfficialMediaType.Image -> imageEditorUri = Uri.parse(mediaUrl)
-                                        OfficialMediaType.Video -> videoEditorUri = Uri.parse(mediaUrl)
-                                    }
-                                },
-                                onRemove = {
-                                    mediaType = null
-                                    mediaUrl = ""
-                                }
-                            )
-                        }
-                    }
+                        },
+                        preview = {
+                            val selectedMediaType = mediaType
+                            if (mediaUrl.isNotBlank() && selectedMediaType != null) {
+                                OfficialEditorMediaPreview(
+                                    mediaType = selectedMediaType,
+                                    mediaUrl = mediaUrl,
+                                    onEdit = {
+                                        when (selectedMediaType) {
+                                            OfficialMediaType.Image -> imageEditorUri = Uri.parse(mediaUrl)
+                                            OfficialMediaType.Video -> videoEditorUri = Uri.parse(mediaUrl)
+                                        }
+                                    },
+                                    onRemove = {
+                                        mediaType = null
+                                        mediaUrl = ""
+                                    },
+                                )
+                            }
+                        },
+                    )
 
                     OfficialEditorCard {
                         OfficialEditorSectionTitle(

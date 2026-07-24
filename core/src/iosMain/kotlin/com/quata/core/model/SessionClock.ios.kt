@@ -1,5 +1,5 @@
 package com.quata.core.model
 
-import platform.Foundation.NSDate
+import platform.posix.time
 
-actual fun currentEpochSeconds(): Long = NSDate().timeIntervalSince1970.toLong()
+actual fun currentEpochSeconds(): Long = time(null).toLong()

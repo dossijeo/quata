@@ -26,6 +26,13 @@ self.addEventListener("push", (event) => {
   })());
 });
 
+// The worker cannot read the web-session token from localStorage. An open launcher can, so it
+// performs the authenticated idempotent subscribe operation after receiving this signal. A later
+// launcher startup also performs that reconciliation when no window was open at rotation time.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(notifyOpenClients({ type: "quata:push-subscription-change" }));
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = chatNotificationTarget(event.notification.data);
@@ -53,6 +60,11 @@ async function openOrFocusQuataWindow(target) {
     return (navigated || existing).focus();
   }
   return clients.openWindow(target);
+}
+
+async function notifyOpenClients(message) {
+  const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+  windows.forEach((client) => client.postMessage(message));
 }
 
 async function localizedNotificationBody(bodyKey, fallback) {

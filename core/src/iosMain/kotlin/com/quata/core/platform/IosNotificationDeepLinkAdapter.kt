@@ -2,6 +2,7 @@ package com.quata.core.platform
 
 import com.quata.core.navigation.QuataChatDeepLink
 import com.quata.core.navigation.quataNotificationChatDeepLinkOrNull
+import kotlin.concurrent.Volatile
 
 /** UIKit/SwiftUI navigation boundary for an already-delivered APNs notification tap. */
 fun interface IosNotificationDeepLinkHost {

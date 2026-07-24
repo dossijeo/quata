@@ -33,7 +33,10 @@ class IosNotificationPermissionService(
                     granted -> continuation.resume(PermissionStatus.Granted)
                     error != null -> continuation.resume(PermissionStatus.Unavailable)
                     else -> center.getNotificationSettingsWithCompletionHandler { settings ->
-                        continuation.resume(settings.authorizationStatus.toNotificationPermissionStatus())
+                        continuation.resume(
+                            settings?.authorizationStatus?.toNotificationPermissionStatus()
+                                ?: PermissionStatus.Unavailable,
+                        )
                     }
                 }
             }
@@ -42,12 +45,15 @@ class IosNotificationPermissionService(
 
     private suspend fun notificationStatus(): PermissionStatus = suspendCoroutine { continuation ->
         center.getNotificationSettingsWithCompletionHandler { settings ->
-            continuation.resume(settings.authorizationStatus.toNotificationPermissionStatus())
+            continuation.resume(
+                settings?.authorizationStatus?.toNotificationPermissionStatus()
+                    ?: PermissionStatus.Unavailable,
+            )
         }
     }
 }
 
-private fun ULong.toNotificationPermissionStatus(): PermissionStatus = when (this) {
+private fun Long.toNotificationPermissionStatus(): PermissionStatus = when (this) {
     UNAuthorizationStatusAuthorized,
     UNAuthorizationStatusProvisional,
     UNAuthorizationStatusEphemeral -> PermissionStatus.Granted

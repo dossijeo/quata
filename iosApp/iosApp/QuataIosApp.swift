@@ -6,15 +6,19 @@ import QuataFeed
 struct QuataIosApp: App {
     var body: some Scene {
         WindowGroup {
-            FeedRootView()
+            IosMigrationStatusView()
                 .ignoresSafeArea()
         }
     }
 }
 
-private struct FeedRootView: UIViewControllerRepresentable {
+/// The Feed framework exports `QuataFeedViewController(dependencies:)` for the real host.
+/// This launcher intentionally remains a migration status view until iOS has an authenticated
+/// FeedRepository; constructing Android's repository or a sample repository here would make
+/// the host look functional while bypassing the real backend/session boundary.
+private struct IosMigrationStatusView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        QuataFeedViewControllerKt.QuataFeedViewController()
+        QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}

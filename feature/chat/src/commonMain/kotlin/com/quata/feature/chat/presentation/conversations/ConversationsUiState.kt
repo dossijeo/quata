@@ -29,6 +29,9 @@ data class ConversationsUiState(
     val candidateNextOffset: Int = 0,
     val candidateActorNeighborhood: String = "",
     val openingCandidateProfileId: String? = null,
+    val selectedNewConversationProfileIds: Set<String> = emptySet(),
+    val newGroupTitle: String = "",
+    val isOpeningGroupConversation: Boolean = false,
     val candidateError: String? = null,
     val error: String? = null
 )

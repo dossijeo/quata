@@ -48,6 +48,23 @@ private fun registerWebPushWorker(): Unit = js(
     """,
 )
 
+/**
+ * A service worker is the only browser context that receives `pushsubscriptionchange`. It
+ * notifies an open launcher, which has the active access/web-session tokens needed to perform
+ * the authenticated, idempotent `subscribe` request.
+ */
+private fun observeWebPushSubscriptionChanges(onChanged: () -> Unit): () -> Unit = js(
+    """
+    const container = globalThis.navigator?.serviceWorker;
+    if (!container?.addEventListener) return () => {};
+    const listener = (event) => {
+      if (event?.data?.type === 'quata:push-subscription-change') onChanged();
+    };
+    container.addEventListener('message', listener);
+    return () => container.removeEventListener('message', listener);
+    """,
+)
+
 @Composable
 private fun QuataWebApp(
     platformServices: WebPlatformServices,
@@ -80,12 +97,34 @@ private fun QuataWebApp(
         WebChatRepository(
             rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
+            attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
+    }
+    LaunchedEffect(isSessionReady, sessionCoordinator) {
+        if (isSessionReady) {
+            platformServices.preferences.putString(
+                "web.push.subscription_status",
+                sessionCoordinator.subscribeCurrentSession().diagnosticValue(),
+            )
+        }
+    }
+    DisposableEffect(isSessionReady, sessionCoordinator) {
+        val stopObserving = observeWebPushSubscriptionChanges {
+            if (isSessionReady) {
+                scope.launch {
+                    platformServices.preferences.putString(
+                        "web.push.subscription_status",
+                        sessionCoordinator.subscribeCurrentSession().diagnosticValue(),
+                    )
+                }
+            }
+        }
+        onDispose(stopObserving)
     }
     LaunchedEffect(navigation, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.navigation.route", navigation.route)
@@ -108,6 +147,7 @@ private fun QuataWebApp(
                     WebChatHost(
                         repository = chatRepository,
                         audioPlayer = platformServices.audioPlayer,
+                        filePicker = platformServices.filePicker,
                         conversationId = navigation.chatConversationId,
                         navigationMessage = navigation.message,
                         onOpenConversation = { conversationId -> navigateWebFragment("chat/$conversationId") },
@@ -118,6 +158,8 @@ private fun QuataWebApp(
                         repository = feedRepository,
                         navigationMessage = navigation.message,
                         onOpenChats = { navigateWebFragment("chat") },
+                        sharedPostId = navigation.postId,
+                        onBackToFeed = { navigateWebFragment("") },
                     )
                 }
                 Button(
@@ -146,14 +188,8 @@ private fun QuataWebApp(
             WebLoginHost(
                 platformServices = platformServices,
                 configuration = runtimeConfiguration,
-                onLoginSuccess = { pushCoordinator ->
+                onLoginSuccess = {
                     isSessionReady = true
-                    scope.launch {
-                        platformServices.preferences.putString(
-                            "web.push.subscription_status",
-                            pushCoordinator.subscribeCurrentSession().diagnosticValue(),
-                        )
-                    }
                 },
             )
         }
@@ -172,6 +208,7 @@ private data class WebNavigationState(
     val message: String,
     val chatConversationId: String? = null,
     val officialPostId: String? = null,
+    val postId: String? = null,
 )
 
 @Composable
@@ -206,6 +243,7 @@ private fun String.toWebNavigationState(): WebNavigationState {
     canonicalUrl.quataPostIdOrNull()?.let { postId ->
         return WebNavigationState(
             route = "post/$postId",
+            postId = postId,
             message = "Enlace de publicación recibido. La vista compartida se habilitará al conectar datos web.",
         )
     }

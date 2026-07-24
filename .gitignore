@@ -13,5 +13,6 @@ captures/
 .externalNativeBuild/
 .cxx/
 scripts/backups/
+build-reports/
 supabase/.temp/
 quata-app-firebase-adminsdk-*.json

@@ -790,24 +790,25 @@ private fun ImagePostForm(
 
     @Composable
     fun ImageControlsPanel() {
-        ComposerPanel(stringResource(R.string.composer_image), highlighted = true) {
-            if (isLandscapeLayout) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage)
-                    ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, Modifier.weight(1f))
-                    ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, Modifier.weight(1f))
-                }
+        val imageEditAction: (@Composable (Modifier) -> Unit)? = if (state.imageUri != null) {
+            { actionModifier ->
+                ComposerActionButton(stringResource(R.string.composer_edit_image), Icons.Filled.Edit, onEditImage, actionModifier)
             }
-            if (state.imageUri != null) {
-                Spacer(Modifier.height(12.dp))
-                ComposerActionButton(stringResource(R.string.composer_edit_image), Icons.Filled.Edit, onEditImage)
-            }
-            Spacer(Modifier.height(12.dp))
-            Column(
+        } else {
+            null
+        }
+        ComposerMediaSourceFormContent(
+            title = stringResource(R.string.composer_image),
+            isLandscapeLayout = isLandscapeLayout,
+            primarySourceAction = { actionModifier ->
+                ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, actionModifier)
+            },
+            secondarySourceAction = { actionModifier ->
+                ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, actionModifier)
+            },
+            editAction = imageEditAction,
+            afterEdit = {
+                Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onGloballyPositioned { coordinates ->
@@ -853,7 +854,8 @@ private fun ImagePostForm(
                     } else null
                 )
             }
-        }
+        },
+        )
     }
 
     @Composable
@@ -913,30 +915,32 @@ private fun VideoPostForm(
 
     @Composable
     fun VideoControlsPanel() {
-        ComposerPanel(stringResource(R.string.composer_video), highlighted = true) {
-            if (isLandscapeLayout) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo)
-                    ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, Modifier.weight(1f))
-                    ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, Modifier.weight(1f))
-                }
+        val videoEditAction: (@Composable (Modifier) -> Unit)? = if (state.videoUri != null) {
+            { actionModifier ->
+                ComposerActionButton(stringResource(R.string.video_editor_edit_video), Icons.Filled.Edit, onEditVideo, actionModifier)
             }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                state.videoUri?.let { context.displayNameFromUriString(it) } ?: stringResource(R.string.composer_no_file),
-                color = template.colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (state.videoUri != null) {
-                Spacer(Modifier.height(12.dp))
-                ComposerActionButton(stringResource(R.string.video_editor_edit_video), Icons.Filled.Edit, onEditVideo)
-            }
+        } else {
+            null
         }
+        ComposerMediaSourceFormContent(
+            title = stringResource(R.string.composer_video),
+            isLandscapeLayout = isLandscapeLayout,
+            primarySourceAction = { actionModifier ->
+                ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, actionModifier)
+            },
+            secondarySourceAction = { actionModifier ->
+                ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, actionModifier)
+            },
+            beforeEdit = {
+                Text(
+                    state.videoUri?.let { context.displayNameFromUriString(it) } ?: stringResource(R.string.composer_no_file),
+                    color = template.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            editAction = videoEditAction,
+        )
 
         ComposerPanel(stringResource(R.string.composer_description)) {
             OutlinedTextField(
