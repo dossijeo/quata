@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -135,10 +136,29 @@ class WebAuthRepository(
     }
 
     override suspend fun deactivateAccount(password: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("web_auth_lifecycle_not_implemented"))
+        performAccountLifecycle(action = "deactivate", password = password)
 
     override suspend fun deleteAccountData(password: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("web_auth_lifecycle_not_implemented"))
+        performAccountLifecycle(action = "delete", password = password)
+
+    private suspend fun performAccountLifecycle(action: String, password: String): Result<Unit> = runCatching {
+        require(password.isNotBlank()) { "web_auth_password_required" }
+        val session = sessionForAuthenticatedRequest() ?: error("web_auth_session_required")
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val response = webPostJson(
+            endpoint = configuration.accountLifecycleEndpoint(),
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("action", action)
+                put("password", password)
+            }.toString(),
+            accessToken = session.accessToken,
+        )
+        check(Json.parseToJsonElement(response).jsonObject["ok"]?.jsonPrimitive?.booleanOrNull == true) {
+            "web_auth_lifecycle_failed"
+        }
+        WebAuthStorage.clear(preferences)
+    }
 
     private suspend fun notifyServerLogout() {
         val credentials = currentWebPushCredentials() ?: return
@@ -233,6 +253,9 @@ private fun WebRuntimeConfiguration.authBridgeEndpoint(): String =
 internal fun WebRuntimeConfiguration.webPushEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-push"
 
+private fun WebRuntimeConfiguration.accountLifecycleEndpoint(): String =
+    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-account-lifecycle"
+
 private fun WebRuntimeConfiguration.supabaseRefreshTokenEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/auth/v1/token?grant_type=refresh_token"
 
@@ -321,7 +344,11 @@ private fun browserPostJson(
       .then(async (response) => {
         const text = await response.text();
         if (response.ok) onSuccess(text);
-        else onFailure(`web_auth_http_${'$'}{response.status}`);
+        else {
+          let errorCode = null;
+          try { errorCode = JSON.parse(text)?.error; } catch (_) {}
+          onFailure(errorCode ? `web_auth_${'$'}{errorCode}` : `web_auth_http_${'$'}{response.status}`);
+        }
       })
       .catch((error) => onFailure(error?.message || 'web_auth_network_error'));
     """,
