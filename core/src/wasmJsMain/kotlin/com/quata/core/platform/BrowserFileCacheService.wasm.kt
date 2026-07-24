@@ -8,16 +8,23 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-/** IndexedDB-backed binary cache for browser Blob/HTTP references. */
+/**
+ * IndexedDB-backed binary cache for browser Blob/HTTP references.
+ *
+ * URLs returned by [store] and [get] are owned by this instance and can be released with
+ * [release] once a host no longer renders or uploads them.
+ */
 class BrowserFileCacheService : FileCacheService {
+    private val issuedReferences = mutableSetOf<String>()
+
     override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> {
         if (!cacheKey.isSafeFileCacheKey()) return PlatformResult.Failure("invalid_cache_key")
-        return browserCacheStore(cacheKey, file)
+        return browserCacheStore(cacheKey, file).also(::trackIssuedReference)
     }
 
     override suspend fun get(cacheKey: String): PlatformResult<PlatformFile> {
         if (!cacheKey.isSafeFileCacheKey()) return PlatformResult.Failure("invalid_cache_key")
-        return browserCacheGet(cacheKey)
+        return browserCacheGet(cacheKey).also(::trackIssuedReference)
     }
 
     override suspend fun remove(cacheKey: String): PlatformResult<Unit> {
@@ -33,6 +40,20 @@ class BrowserFileCacheService : FileCacheService {
                 )
             }
         }
+    }
+
+    /** Revokes only a Blob URL created by this cache instance; arbitrary caller URLs are ignored. */
+    fun release(file: PlatformFile) {
+        val reference = file.reference
+        if (reference.startsWith("blob:", ignoreCase = true) && issuedReferences.remove(reference)) {
+            browserRevokeObjectUrl(reference)
+        }
+    }
+
+    private fun trackIssuedReference(result: PlatformResult<PlatformFile>) {
+        (result as? PlatformResult.Success<PlatformFile>)?.value?.reference
+            ?.takeIf { it.startsWith("blob:", ignoreCase = true) }
+            ?.let(issuedReferences::add)
     }
 }
 
@@ -68,6 +89,12 @@ private fun String?.toCachedPlatformFile(): PlatformFile? = runCatching {
 }.getOrNull()
 
 private fun String.isSafeFileCacheKey(): Boolean = matches(Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"))
+
+private fun browserRevokeObjectUrl(reference: String): Unit = js(
+    """
+    if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference);
+    """,
+)
 
 private fun browserStoreFile(
     cacheKey: String,
