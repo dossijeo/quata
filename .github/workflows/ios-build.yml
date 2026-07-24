@@ -223,21 +223,24 @@ jobs:
                   }
                 '
           )"
-          if [[ ! "$simulator_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
-            echo "No eligible iOS Simulator UUID was reported by Xcode 16.3:" >&2
-            printf '%s\n' "$available_destinations" >&2
-            exit 1
+          if [[ "$simulator_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+            destination="platform=iOS Simulator,id=$simulator_udid"
+            echo "Selected Xcode-eligible iOS Simulator: $simulator_udid"
+            xcrun simctl boot "$simulator_udid" || true
+            xcrun simctl bootstatus "$simulator_udid" -b
+          else
+            # Xcode 16.3 occasionally exposes only the compatible Apple-Silicon destination
+            # after a runtime import. It still runs the iOS host and XCTest bundle natively.
+            destination="platform=macOS,arch=arm64,variant=Designed for [iPad,iPhone]"
+            echo "No simulator UUID was reported; using Xcode's iOS-compatible Mac destination."
           fi
-          echo "Selected Xcode-eligible iOS Simulator: $simulator_udid"
-          xcrun simctl boot "$simulator_udid" || true
-          xcrun simctl bootstatus "$simulator_udid" -b
           rm -rf build/reports/ios/QuataIos-tests.xcresult
           xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,id=$simulator_udid" \
+            -destination "$destination" \
             -derivedDataPath build/ios-derived-data \
             -resultBundlePath build/reports/ios/QuataIos-tests.xcresult \
             ARCHS=arm64 \
