@@ -94,9 +94,14 @@ jobs:
           )"
           test -n "$runtime_identifier"
           test -n "$device_type_identifier"
-          if ! xcrun simctl list devices available | grep -q 'Quata CI iPhone'; then
-            xcrun simctl create 'Quata CI iPhone' "$device_type_identifier" "$runtime_identifier"
+          device_name="Quata CI iPhone iOS ${runtime_version}"
+          if ! xcrun simctl list devices "$runtime_identifier" | grep -Fq "$device_name"; then
+            xcrun simctl create "$device_name" "$device_type_identifier" "$runtime_identifier"
           fi
+          # Xcode 16.3 can retain a stale CoreSimulator connection after importing a runtime.
+          # Restart the user service so xcodebuild observes the device created for iOS 18.4.
+          pkill -f 'CoreSimulatorService' || true
+          sleep 3
           echo "Selected iOS runtime: $runtime_identifier"
           echo "Selected simulator type: $device_type_identifier"
           xcrun simctl list devices "$runtime_identifier"
