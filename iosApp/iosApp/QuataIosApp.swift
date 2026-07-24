@@ -79,7 +79,12 @@ private final class IosAppCompositionRoot {
     }
 
     private func installRestoredFeedSessionIfAvailable() {
-        guard let dependencies = runtimeBootstrap?.restoredDependencies() else { return }
+        guard let dependencies = runtimeBootstrap?.restoredDependencies(
+            navigationMessage: "Quata para iOS",
+            onOpenChats: { [weak self] in
+                self?.feedHost.presentChatsMigrationNotice()
+            },
+        ) else { return }
         installAuthenticatedFeed(dependencies)
     }
 }
@@ -110,6 +115,23 @@ private final class IosFeedHostContainerViewController: UIViewController {
             accessibilityIdentifier: "quata-ios-feed-host",
             accessibilityLabel: "Quata iOS Feed",
         )
+    }
+
+    /// The shared Feed can already expose its Conversations affordance, but the authenticated
+    /// iOS Chat repository/navigation host is not wired yet. Keep that action explicit rather
+    /// than routing to an invented screen or silently swallowing the tap.
+    func presentChatsMigrationNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_host_pending_title", value: "Conversaciones", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_host_pending_message",
+                value: "Las conversaciones estarÃ¡n disponibles cuando se complete el host autenticado de iOS.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
     }
 
     private func showMigrationStatus() {
