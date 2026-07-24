@@ -9,6 +9,7 @@ este archivo mantiene estado, evidencia y dependencias.
 - Cada entrega vive en worktree/branch aislado y sólo es **Integrado** tras merge en `main`.
 - **En revisión** no es completado: debe contener PR y validación.
 - Actualizar la fila al abrir PR, corregir un fallo, fusionar o descubrir un bloqueo externo.
+- Tras merge verde, eliminar la rama remota y su worktree; nunca reutilizar una rama para otra feature.
 
 ## Leyenda
 
@@ -32,7 +33,7 @@ este archivo mantiene estado, evidencia y dependencias.
 | Dedupe de CI iOS | En revisión | PR #7 `codex/ci-dedupe`; elimina trigger `push` para `codex/**`. |
 | Tests KMP Feed | En revisión | PR #8 `codex/next-tests`; fuentes JS/Wasm compilan; ejecución bloqueada por ICE JS conocido y aviso stdlib/compiler Wasm. |
 | SOS/Profile diálogo público | En revisión | PR #9 `codex/next-profile`, commit `59ba55c`. |
-| Composer preview estructural | En curso | `b5f9980` en `codex/next-composer`; falta PR/validación. |
+| Composer preview estructural | En revisión | PR #11 `codex/next-composer` (`b5f9980`); validación local `:feature:postcomposer:compileKotlinWasmJs :app:compileDebugKotlin` exit 0 (2026-07-24, 126s). |
 | Chat residual | En curso | `codex/next-chat`; extraer sólo una superficie no cubierta por el frame común. |
 | Sesión segura Keychain iOS | En curso | `77321e3` en `codex/next-platform`; falta PR/validación nativa. |
 
@@ -77,3 +78,4 @@ este archivo mantiene estado, evidencia y dependencias.
 2. Integración: instantánea congelada, correcciones sólo en la misma rama.
 3. Publicación: PR a `main`; tras PR #7, iOS se dispara por `pull_request` y no por push de `codex/**`.
 4. Merge: sólo después de checks verdes o ICE conocido documentado con compilación equivalente verde.
+5. Limpieza: tras merge verde, eliminar branch remota y worktree; una rama nunca se reutiliza para otra feature.
