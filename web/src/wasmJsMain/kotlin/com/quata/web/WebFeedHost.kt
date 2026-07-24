@@ -40,6 +40,7 @@ fun WebFeedHost(
             navigationMessage = navigationMessage,
             strings = strings,
             onOpenChats = onOpenChats,
+            mediaContent = { post -> BrowserFeedMediaContent(post, strings.mediaUnavailable) },
             modifier = modifier,
         )
     } else {
@@ -49,6 +50,7 @@ fun WebFeedHost(
             navigationMessage = navigationMessage,
             strings = strings,
             onBackToFeed = onBackToFeed,
+            mediaContent = { post -> BrowserFeedMediaContent(post, strings.mediaUnavailable) },
             modifier = modifier,
         )
     }
