@@ -37,6 +37,9 @@ class IosPlatformServices(
     val audioPlayer: IosAudioPlayerService = IosAudioPlayerService(audioPlayerHost)
     /** Local audio cache; unlike playback/recording it needs no UIKit or AVFoundation host. */
     val audioCache: AudioCacheService = IosAudioCacheService()
+    /** Quick Look document opener; unavailable until the composition root supplies a presenter. */
+    val documentOpener: DocumentOpenService = presenterProvider?.let(::IosDocumentOpenService)
+        ?: UnsupportedDocumentOpenService
 }
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */
