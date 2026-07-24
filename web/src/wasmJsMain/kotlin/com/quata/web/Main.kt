@@ -225,6 +225,12 @@ private fun QuataWebApp(
                     )
                 } else if (navigation.route == "profile") {
                     WebProfileHost(repository = profileRepository)
+                } else if (navigation.route == "composer") {
+                    WebPostComposerRoute(
+                        platformServices = platformServices,
+                        runtimeConfiguration = runtimeConfiguration,
+                        authRepository = authRepository,
+                    )
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
@@ -310,6 +316,9 @@ private fun String.toWebNavigationState(): WebNavigationState {
     }
     if (trim('/').equals("profile", ignoreCase = true)) {
         return WebNavigationState(route = "profile", message = "Perfil y contactos SOS de Quata Web.")
+    }
+    if (trim('/').equals("composer", ignoreCase = true)) {
+        return WebNavigationState(route = "composer", message = "Crear una publicaciÃ³n en Quata Web.")
     }
     if (trim('/').equals("official", ignoreCase = true)) {
         return WebNavigationState(route = "official", message = "Comunicados oficiales de Quata Web.")
