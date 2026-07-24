@@ -2,17 +2,18 @@ package com.quata.core.preferences
 
 import com.quata.core.model.AuthSession
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.reinterpret
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFRelease
-import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -47,7 +48,7 @@ class IosKeychainSessionStorage(
         private set
 
     override fun saveSession(session: AuthSession) {
-        val data = session.toKeychainPayload().encodeToByteArray().toNsData()
+        val data = session.toKeychainPayload().toNsData()
         val update = mapOf<Any?, Any?>(kSecValueData to data)
         val updated = SecItemUpdate(baseQuery().asCfDictionary(), update.asCfDictionary())
         lastStatus = when (updated) {
@@ -67,13 +68,13 @@ class IosKeychainSessionStorage(
     }
 
     override fun getSession(): AuthSession? = memScoped {
-        val result = alloc<CFTypeRefVar>()
+        val result = alloc<ObjCObjectVar<Any?>>()
         val status = SecItemCopyMatching(
             (baseQuery() + mapOf(
                 kSecReturnData to kCFBooleanTrue,
                 kSecMatchLimit to kSecMatchLimitOne,
             )).asCfDictionary(),
-            result.ptr,
+            result.ptr.reinterpret(),
         )
         if (status != errSecSuccess) {
             lastStatus = status.takeUnless { it == errSecItemNotFound }
@@ -116,9 +117,8 @@ class IosKeychainSessionStorage(
 private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictionaryRef
 
 @OptIn(ExperimentalForeignApi::class)
-private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
-    NSData.dataWithBytes(bytes = pinned.addressOf(0), length = size.toULong())
-}
+private fun String.toNsData(): NSData = (this as NSString).dataUsingEncoding(NSUTF8StringEncoding)
+    ?: error("UTF-8 session payload encoding failed")
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toByteArray(): ByteArray {
