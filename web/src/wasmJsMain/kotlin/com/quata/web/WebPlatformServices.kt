@@ -6,6 +6,7 @@ import com.quata.core.platform.BrowserCameraCaptureService
 import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.platform.BrowserDocumentTextReader
 import com.quata.core.platform.BrowserDocumentOpenService
+import com.quata.core.platform.BrowserContactPickerService
 import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.BrowserFilePickerService
@@ -16,6 +17,7 @@ import com.quata.core.platform.BrowserVideoThumbnailService
 import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.DocumentTextReader
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
@@ -35,6 +37,7 @@ data class WebPlatformServices(
     override val filePicker: FilePickerService = BrowserFilePickerService(),
     /** IndexedDB binary cache, kept separate from the small key/value [PreferenceStore] boundary. */
     val fileCache: FileCacheService = BrowserFileCacheService(),
+    override val contacts: ContactPickerService = BrowserContactPickerService(),
     override val location: LocationService = BrowserLocationService(),
     override val permissions: PermissionService = BrowserPermissionService(),
     /** Real still capture via MediaDevices; callers release returned Blob URLs after consumption. */

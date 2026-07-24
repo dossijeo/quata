@@ -4,6 +4,11 @@ package com.quata.core.platform
 data class PlatformFile(val reference: String, val displayName: String? = null, val mimeType: String? = null, val sizeBytes: Long? = null)
 data class SharePayload(val text: String? = null, val title: String? = null, val files: List<PlatformFile> = emptyList())
 data class GeoLocation(val latitude: Double, val longitude: Double, val accuracyMeters: Float? = null, val timestampMillis: Long? = null)
+data class PlatformContact(
+    val displayName: String? = null,
+    val phones: List<String> = emptyList(),
+    val emails: List<String> = emptyList(),
+)
 
 enum class PlatformPermission { Camera, Microphone, Photos, Files, Location, Notifications, Contacts }
 enum class PermissionStatus { Granted, Denied, PermanentlyDenied, Unavailable }
@@ -32,6 +37,14 @@ interface FilePickerService {
         FilePickerSource.Documents, FilePickerSource.Gallery -> pickFiles(request.acceptedMimeTypes, request.allowMultiple)
     }
 }
+/**
+ * User-gesture contact selection boundary. This deliberately does not imply address-book access:
+ * platforms without a native picker return [PlatformResult.Unsupported].
+ */
+interface ContactPickerService { suspend fun pickContacts(): PlatformResult<List<PlatformContact>> }
+object UnsupportedContactPickerService : ContactPickerService {
+    override suspend fun pickContacts(): PlatformResult<List<PlatformContact>> = PlatformResult.Unsupported
+}
 interface PermissionService { suspend fun status(permission: PlatformPermission): PermissionStatus; suspend fun request(permission: PlatformPermission): PermissionStatus }
 interface LocationService { suspend fun currentLocation(): PlatformResult<GeoLocation> }
 interface PreferenceStore { suspend fun getString(key: String): String?; suspend fun putString(key: String, value: String); suspend fun remove(key: String) }
@@ -42,6 +55,7 @@ interface PlatformServices {
     val clipboard: ClipboardService
     val share: ShareService
     val filePicker: FilePickerService
+    val contacts: ContactPickerService
     val location: LocationService
     val permissions: PermissionService
 }

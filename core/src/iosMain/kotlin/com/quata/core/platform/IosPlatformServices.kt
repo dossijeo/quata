@@ -23,6 +23,7 @@ class IosPlatformServices(
             attachGalleryPicker(provider)
         }
     },
+    override val contacts: ContactPickerService = UnsupportedContactPickerService,
     override val location: LocationService = locationHost ?: UnsupportedIosLocationService,
     override val permissions: PermissionService = locationHost?.let { host ->
         IosCompositePermissionService(location = host)
