@@ -26,6 +26,7 @@ kotlin {
             implementation(project(":feature:official"))
             implementation(project(":feature:postcomposer"))
             implementation(project(":feature:notifications"))
+            implementation(project(":feature:profile"))
             implementation(project(":feature:settings"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
             implementation(compose.foundation)

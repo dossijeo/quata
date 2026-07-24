@@ -179,6 +179,7 @@ private fun QuataWebApp(
                     WebSettingsHost(
                         touchFlowEnabled = touchFlowEnabled,
                         themeMode = themeMode,
+                        accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
                         onTouchFlowEnabledChange = { enabled ->
                             touchFlowEnabled = enabled
                             scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
@@ -186,6 +187,15 @@ private fun QuataWebApp(
                         onThemeModeChange = { mode ->
                             themeMode = mode
                             scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+                        },
+                        onAccountLifecycleSuccess = {
+                            scope.launch {
+                                val result = sessionCoordinator.logoutCurrentSession()
+                                platformServices.preferences.remove(WebSessionReadyKey)
+                                platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
+                                navigateWebFragment("")
+                                isSessionReady = false
+                            }
                         },
                     )
                 } else if (navigation.route == "notifications") {
