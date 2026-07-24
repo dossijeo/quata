@@ -102,7 +102,7 @@ private fun NSItemProvider.copyGalleryFile(complete: (PlatformResult<PlatformFil
         ?: return complete(PlatformResult.Unsupported)
     loadFileRepresentationForTypeIdentifier(typeIdentifier) { source, error ->
         if (source == null || error != null) return@loadFileRepresentationForTypeIdentifier complete(PlatformResult.Failure(error?.localizedDescription))
-        val extension = source.pathExtension?.takeIf(String::isNotBlank)
+        val extension = (source.pathExtension as? String)?.takeIf(String::isNotBlank)
         val destination = NSURL.fileURLWithPath(
             NSTemporaryDirectory() + "quata_gallery_${Random.nextLong().toString(16)}" + extension?.let { ".$it" }.orEmpty(),
         )
