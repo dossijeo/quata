@@ -8,11 +8,6 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -26,7 +21,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -116,7 +110,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -607,7 +600,7 @@ fun ChatScreen(
                             appHeaderActions = appHeaderActions
                     )
                     if (state.isConversationActionInProgress) {
-                        ConversationActionProgressBar()
+                        ChatConversationActionProgressContent()
                     }
                 }
                     Box(modifier = Modifier.weight(1f)) {
@@ -626,7 +619,7 @@ fun ChatScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             if (state.isLoadingOlderMessages) {
-                                item(key = "older_messages_loading") { ConversationActionProgressBar() }
+                                item(key = "older_messages_loading") { ChatConversationActionProgressContent() }
                             }
                             if (state.isLoading && state.messages.isEmpty()) {
                                 items(6) { index ->
@@ -1227,43 +1220,6 @@ private fun FavoriteMessagesHeader(onBack: () -> Unit) {
         backLabel = stringResource(R.string.common_back),
         onBack = onBack
     )
-}
-
-@Composable
-private fun ConversationActionProgressBar() {
-    val transition = rememberInfiniteTransition(label = "conversation_action_progress")
-    val progress by transition.animateFloat(
-        initialValue = -0.45f,
-        targetValue = 1.45f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 960),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "conversation_action_progress_offset"
-    )
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(3.dp)
-            .background(QuataOrange.copy(alpha = 0.10f))
-    ) {
-        val segmentWidth = maxWidth * 0.46f
-        Box(
-            modifier = Modifier
-                .width(segmentWidth)
-                .height(3.dp)
-                .offset(x = maxWidth * progress)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            QuataOrange.copy(alpha = 0.95f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-    }
 }
 
 @Composable

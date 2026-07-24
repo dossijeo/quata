@@ -311,18 +311,11 @@ fun ProfileScreen(
                         }
                     )
 
-                    OutlinedButton(
+                    EmergencyContactsSettingsActionContent(
+                        label = stringResource(R.string.profile_configure_emergency_contacts),
+                        selectedCount = profile.emergencyContactIds.size,
                         onClick = { isEmergencyDialogOpen = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .compactButtonMinSize(),
-                        shape = RoundedCornerShape(9.dp),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.profile_configure_emergency_contacts), fontWeight = FontWeight.ExtraBold)
-                        Spacer(Modifier.weight(1f))
-                        Text("${profile.emergencyContactIds.size}/5")
-                    }
+                    )
                     Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
                     QuataSavingButton(
                         isSaving = state.isSaving,

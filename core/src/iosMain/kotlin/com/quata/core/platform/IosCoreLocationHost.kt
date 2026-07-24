@@ -1,6 +1,7 @@
 package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.CoreLocation.CLAuthorizationStatus
 import platform.CoreLocation.CLLocation
@@ -97,15 +98,16 @@ class IosCoreLocationHost(
             continuation.resume(PlatformResult.Failure("location_unavailable"))
             return
         }
+        val coordinate = location.coordinate.useContents { latitude to longitude }
         continuation.resume(
             PlatformResult.Success(
                 GeoLocation(
-                    latitude = location.coordinate.latitude,
-                    longitude = location.coordinate.longitude,
+                    latitude = coordinate.first,
+                    longitude = coordinate.second,
                     accuracyMeters = location.horizontalAccuracy
                         .takeIf { it >= 0.0 }
                         ?.toFloat(),
-                    timestampMillis = (location.timestamp.timeIntervalSince1970 * 1_000.0).toLong(),
+                    timestampMillis = (location.timestamp.timeIntervalSince1970() * 1_000.0).toLong(),
                 ),
             ),
         )
