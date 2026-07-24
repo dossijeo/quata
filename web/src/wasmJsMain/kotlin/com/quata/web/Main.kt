@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import com.quata.feature.auth.presentation.AuthSessionShellContent
+import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 
@@ -113,6 +114,11 @@ private fun QuataWebApp(
         WebProfileRepository(
             preferences = platformServices.preferences,
             contactPicker = platformServices.contacts,
+        )
+    }
+    val whatsNewRepository: WhatsNewRepository = remember(runtimeConfiguration, authRepository) {
+        WebWhatsNewRepository(
+            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }
@@ -205,6 +211,12 @@ private fun QuataWebApp(
                             }
                         },
                     )
+                } else if (navigation.route == "whats-new" || navigation.route == "about") {
+                    WebWhatsNewHost(
+                        repository = whatsNewRepository,
+                        installedVersionCode = runtimeConfiguration.releaseVersionCode,
+                        onBack = { navigateWebFragment("settings") },
+                    )
                 } else if (navigation.route == "notifications") {
                     WebNotificationsHost(
                         repository = notificationsRepository,
@@ -289,6 +301,9 @@ private fun rememberWebNavigation(): WebNavigationState {
 private fun String.toWebNavigationState(): WebNavigationState {
     if (trim('/').equals("settings", ignoreCase = true)) {
         return WebNavigationState(route = "settings", message = "Apariencia de Quata Web.")
+    }
+    if (trim('/').equals("whats-new", ignoreCase = true) || trim('/').equals("about", ignoreCase = true)) {
+        return WebNavigationState(route = trim('/').lowercase(), message = "Novedades e historial de versiones de Quata Web.")
     }
     if (trim('/').equals("notifications", ignoreCase = true)) {
         return WebNavigationState(route = "notifications", message = "Notificaciones de Quata Web.")

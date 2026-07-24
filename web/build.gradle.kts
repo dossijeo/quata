@@ -29,6 +29,7 @@ kotlin {
             implementation(project(":feature:profile"))
             implementation(project(":feature:neighborhoods"))
             implementation(project(":feature:settings"))
+            implementation(project(":feature:whatsnew"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
             implementation(compose.foundation)
             implementation(compose.material3)

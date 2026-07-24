@@ -9,6 +9,7 @@ import kotlinx.browser.document
 data class WebRuntimeConfiguration(
     val supabaseUrl: String? = null,
     val supabasePublishableKey: String? = null,
+    val releaseVersionCode: Long? = null,
 ) {
     val isBackendConfigured: Boolean
         get() = !supabaseUrl.isNullOrBlank() && !supabasePublishableKey.isNullOrBlank()
@@ -17,6 +18,7 @@ data class WebRuntimeConfiguration(
         fun fromDocument(): WebRuntimeConfiguration = WebRuntimeConfiguration(
             supabaseUrl = document.metaContent("quata-supabase-url"),
             supabasePublishableKey = document.metaContent("quata-supabase-publishable-key"),
+            releaseVersionCode = document.metaContent("quata-release-version-code")?.toLongOrNull(),
         )
     }
 }
