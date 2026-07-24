@@ -20,6 +20,12 @@ class IosUIKitSharePresenter(
         val presenter: UIViewController = presenterProvider.activeViewController()
             ?: return PlatformResult.Unsupported
         return runCatching {
+            // UIKit requires an anchor for activity sheets on iPad. The active controller's
+            // bounds are also safe on iPhone, where the popover presentation is ignored.
+            activityController.popoverPresentationController?.apply {
+                sourceView = presenter.view
+                sourceRect = presenter.view.bounds
+            }
             presenter.presentViewController(activityController, animated = true, completion = null)
             PlatformResult.Success(Unit)
         }.getOrElse { PlatformResult.Failure(it.message) }

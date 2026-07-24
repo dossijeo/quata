@@ -75,8 +75,6 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -820,20 +818,11 @@ private fun ImagePostForm(
                     },
                     editor = if (isLocationEditorOpen) {
                         {
-                            OutlinedTextField(
-                        value = state.locationLabel.orEmpty(),
-                        onValueChange = onLocationChange,
-                        placeholder = { Text(stringResource(R.string.composer_location_placeholder)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = template.colors.textPrimary,
-                            unfocusedTextColor = template.colors.textPrimary,
-                            focusedBorderColor = template.colors.accent,
-                            unfocusedBorderColor = template.colors.divider,
-                            cursorColor = template.colors.accent
-                        )
-                    )
+                            ComposerLocationTextEditorContent(
+                                value = state.locationLabel.orEmpty(),
+                                placeholder = stringResource(R.string.composer_location_placeholder),
+                                onValueChange = onLocationChange,
+                            )
                         }
                     } else null
                 )
