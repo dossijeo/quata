@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -35,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -50,7 +48,6 @@ import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,7 +58,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -588,7 +584,7 @@ private fun InviteContactCard(contact: ChatInviteContact, onInvite: () -> Unit) 
 private fun InviteChannelSheet(
     contact: ChatInviteContact,
     clipboardService: ClipboardService,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val targets = remember(contact) { availableInviteTargets(context, contact) }
@@ -596,135 +592,56 @@ private fun InviteChannelSheet(
     val chooserTitle = stringResource(R.string.conversations_invite_chooser_title)
     val smsLabel = stringResource(R.string.conversations_invite_channel_sms)
     val template = quataTheme()
-    val scope = rememberCoroutineScope()
-    QuataFloatingPanel(
+    val targetById = remember(targets) { targets.associateBy(InviteTarget::id) }
+    InviteChannelSheetContent(
+        invitationMessage = message,
+        targets = targets.map { target ->
+            InviteChannelTargetUi(
+                id = target.id,
+                label = if (target.route == InviteRoute.Sms) target.label.ifBlank { smsLabel } else target.label,
+            )
+        },
+        strings = InviteChannelSheetStrings(
+            shareTextTitle = stringResource(R.string.conversations_invite_text_to_share),
+            copyMessage = stringResource(R.string.conversations_invite_copy_message),
+            chooseAppFor = stringResource(R.string.conversations_invite_choose_app_for, contact.displayName),
+        ),
+        clipboardService = clipboardService,
         onDismiss = onDismiss,
-        template = template,
-        portraitHeightFraction = 0.50f,
-        landscapeWidthFraction = 0.74f,
-        landscapeHeightFraction = 0.78f
-    ) { panelModifier, _ ->
-        Column(
-            modifier = panelModifier.padding(horizontal = 20.dp, vertical = 8.dp)
-        ) {
-            Text(
-                stringResource(R.string.conversations_invite_text_to_share),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Medium,
-                color = template.colors.textPrimary,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            Surface(
-                color = template.colors.surface,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        message,
-                        color = template.colors.textSecondary,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(start = 14.dp, top = 11.dp, end = 58.dp, bottom = 11.dp)
-                    )
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = stringResource(R.string.conversations_invite_copy_message),
-                        tint = template.colors.textSecondary,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .clip(CircleShape)
-                            .clickable {
-                                scope.launch {
-                                    /* Superseded by the platform-neutral service below.
-                                    clipboard.setClipEntry(
-                                        ClipEntry(ClipData.newPlainText("Qüata", message))
-                                    )
-                                    */
-                                    clipboardService.writeText(message)
-                                }
-                            }
-                            .padding(12.dp)
-                            .size(24.dp)
-                    )
-                }
+        onTargetSelected = { uiTarget ->
+            targetById[uiTarget.id]?.let { target ->
+                onDismiss()
+                launchQuataInvitation(context, contact, target, message, chooserTitle)
             }
-            HorizontalDivider(
-                color = template.colors.divider,
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
-            Text(
-                stringResource(R.string.conversations_invite_choose_app_for, contact.displayName),
-                fontSize = 14.sp,
-                color = template.colors.textSecondary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 10.dp)
-            )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
-            ) {
-                items(targets, key = { it.id }) { target ->
-                    InviteTargetItem(
-                        target = target,
-                        label = when (target.route) {
-                            InviteRoute.Sms -> target.label.ifBlank { smsLabel }
-                            else -> target.label
-                        },
-                        onClick = {
-                            onDismiss()
-                            launchQuataInvitation(context, contact, target, message, chooserTitle)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InviteTargetItem(target: InviteTarget, label: String, onClick: () -> Unit) {
-    val template = quataTheme()
-    Column(
-        modifier = Modifier
-            .width(86.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = template.colors.surface,
-            modifier = Modifier.size(58.dp)
-        ) {
-            when {
-                target.icon != null -> AsyncImage(
+        },
+        panelHost = { content ->
+            QuataFloatingPanel(
+                onDismiss = onDismiss,
+                template = template,
+                portraitHeightFraction = 0.50f,
+                landscapeWidthFraction = 0.74f,
+                landscapeHeightFraction = 0.78f,
+            ) { panelModifier, _ -> content(panelModifier) }
+        },
+        targetIcon = { uiTarget, modifier ->
+            val target = targetById[uiTarget.id]
+            if (target?.icon != null) {
+                AsyncImage(
                     model = target.icon,
-                    contentDescription = label,
+                    contentDescription = uiTarget.label,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.padding(7.dp)
+                    modifier = modifier.padding(7.dp),
                 )
-                else -> Icon(
+            } else {
+                Icon(
                     Icons.Default.ChatBubble,
-                    contentDescription = label,
+                    contentDescription = uiTarget.label,
                     tint = template.colors.accent,
-                    modifier = Modifier.padding(14.dp)
+                    modifier = modifier.padding(14.dp),
                 )
             }
-        }
-        Text(
-            label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = template.colors.textPrimary,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
+        },
+    )
 }
 
 internal fun filterInviteContacts(contacts: List<ChatInviteContact>, query: String): List<ChatInviteContact> {

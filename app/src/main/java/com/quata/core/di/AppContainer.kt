@@ -22,6 +22,7 @@ import com.quata.core.session.SessionManager
 import com.quata.core.platform.AndroidShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.platform.AndroidClipboardService
+import com.quata.core.platform.AndroidCameraCaptureService
 import com.quata.core.platform.AndroidAudioPlayerService
 import com.quata.core.platform.AndroidAudioRecorderService
 import com.quata.core.platform.AudioPlayerService
@@ -71,6 +72,7 @@ class AppContainer(context: Context) {
     val themePreferences = ThemePreferences(appContext)
     val shareService: ShareService = AndroidShareService(appContext)
     val clipboardService: ClipboardService = AndroidClipboardService(appContext)
+    val cameraCaptureService = AndroidCameraCaptureService(appContext)
     /** Android-owned media engines exposed for feature injection; no feature retains Context. */
     val audioRecorderService: AudioRecorderService = AndroidAudioRecorderService(appContext)
     val audioPlayerService: AudioPlayerService = AndroidAudioPlayerService(appContext)

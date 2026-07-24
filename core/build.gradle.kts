@@ -30,6 +30,8 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies {
+            implementation("androidx.activity:activity-ktx:1.13.0")
+            implementation("androidx.core:core-ktx:1.18.0")
             implementation("com.google.android.gms:play-services-location:21.3.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
             implementation("androidx.media3:media3-exoplayer:1.5.1")
