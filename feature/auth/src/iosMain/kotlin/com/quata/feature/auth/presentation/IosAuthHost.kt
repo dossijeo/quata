@@ -5,6 +5,8 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.presentation.login.LoginFormStrings
+import com.quata.feature.auth.presentation.recovery.ForgotPasswordFormStrings
+import com.quata.feature.auth.presentation.register.RegisterSecretQuestion
 import platform.UIKit.UIViewController
 
 /**
@@ -19,7 +21,11 @@ class IosAuthHostDependencies(
     val prefixes: List<CountryPrefix>,
     val strings: LoginFormStrings,
     val subtitle: String,
-    val recoveryUnavailableMessage: String,
+    val recoveryStrings: ForgotPasswordFormStrings,
+    val secretQuestions: List<RegisterSecretQuestion>,
+    val recoveryQuestionWaiting: String,
+    val recoveryQuestionLoading: String,
+    val passwordUpdatedMessage: String,
     val registerUnavailableMessage: String,
     val onLoginSuccess: suspend () -> Unit,
 )
@@ -32,7 +38,11 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             prefixes = dependencies.prefixes,
             strings = dependencies.strings,
             subtitle = dependencies.subtitle,
-            recoveryUnavailableMessage = dependencies.recoveryUnavailableMessage,
+            recoveryStrings = dependencies.recoveryStrings,
+            secretQuestions = dependencies.secretQuestions,
+            recoveryQuestionWaiting = dependencies.recoveryQuestionWaiting,
+            recoveryQuestionLoading = dependencies.recoveryQuestionLoading,
+            passwordUpdatedMessage = dependencies.passwordUpdatedMessage,
             registerUnavailableMessage = dependencies.registerUnavailableMessage,
             onLoginSuccess = dependencies.onLoginSuccess,
         )
