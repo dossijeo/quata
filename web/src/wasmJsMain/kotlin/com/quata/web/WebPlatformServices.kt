@@ -3,6 +3,7 @@ package com.quata.web
 import com.quata.core.platform.BrowserPreferenceStore
 import com.quata.core.platform.BrowserPermissionService
 import com.quata.core.platform.BrowserClipboardService
+import com.quata.core.platform.BrowserCameraCaptureService
 import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.BrowserFilePickerService
@@ -26,6 +27,8 @@ data class WebPlatformServices(
     override val filePicker: FilePickerService = BrowserFilePickerService(),
     override val location: LocationService = BrowserLocationService(),
     override val permissions: PermissionService = BrowserPermissionService(),
+    /** Real still capture via MediaDevices; callers release returned Blob URLs after consumption. */
+    val cameraCapture: BrowserCameraCaptureService = BrowserCameraCaptureService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
     val audioPlayer: AudioPlayerService = BrowserAudioPlayerService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
