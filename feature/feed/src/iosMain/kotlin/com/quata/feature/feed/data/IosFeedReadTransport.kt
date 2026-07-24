@@ -10,6 +10,7 @@ import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLRequest
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLResponse
@@ -109,22 +110,22 @@ class IosFeedReadTransport(
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
     val session = NSURLSession.sessionWithConfiguration(this)
-    val task = session.dataTaskWithURL(url) { data, response, error ->
+    val task = session.dataTaskWithRequest(NSURLRequest(URL = url)) { data, response, error ->
         session.finishTasksAndInvalidate()
-        if (!continuation.isActive) return@dataTaskWithURL
+        if (!continuation.isActive) return@dataTaskWithRequest
         if (error != null) {
             continuation.resumeWithException(IllegalStateException(error.localizedDescription))
-            return@dataTaskWithURL
+            return@dataTaskWithRequest
         }
         val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
             continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
-            return@dataTaskWithURL
+            return@dataTaskWithRequest
         }
         val payload = data
         if (payload == null || payload.length == 0uL) {
             continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
-            return@dataTaskWithURL
+            return@dataTaskWithRequest
         }
         continuation.resume(payload)
     }
