@@ -27,8 +27,10 @@ interface IosAudioPlayerHost {
  * Injectable iOS recorder boundary. Without a host it reports Unsupported, rather than
  * pretending recording succeeded; attaching an AVFoundation host immediately enables it.
  */
-class IosAudioRecorderService : AudioRecorderService {
-    private var host: IosAudioRecorderHost? = null
+class IosAudioRecorderService(
+    initialHost: IosAudioRecorderHost? = null,
+) : AudioRecorderService {
+    private var host: IosAudioRecorderHost? = initialHost
 
     fun attachHost(host: IosAudioRecorderHost) {
         this.host = host
@@ -49,8 +51,10 @@ class IosAudioRecorderService : AudioRecorderService {
 }
 
 /** Injectable iOS playback boundary paired with [IosAudioRecorderService]. */
-class IosAudioPlayerService : AudioPlayerService {
-    private var host: IosAudioPlayerHost? = null
+class IosAudioPlayerService(
+    initialHost: IosAudioPlayerHost? = null,
+) : AudioPlayerService {
+    private var host: IosAudioPlayerHost? = initialHost
 
     fun attachHost(host: IosAudioPlayerHost) {
         this.host = host
@@ -60,8 +64,10 @@ class IosAudioPlayerService : AudioPlayerService {
         if (this.host === host) this.host = null
     }
 
-    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> =
-        host?.load(file) ?: PlatformResult.Unsupported
+    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
+        if (file.reference.isBlank()) return PlatformResult.Failure("audio_file_reference_missing")
+        return host?.load(file) ?: PlatformResult.Unsupported
+    }
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> =
         host?.play() ?: PlatformResult.Unsupported
@@ -70,7 +76,7 @@ class IosAudioPlayerService : AudioPlayerService {
         host?.pause() ?: PlatformResult.Unsupported
 
     override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
-        host?.seekTo(positionMillis) ?: PlatformResult.Unsupported
+        host?.seekTo(positionMillis.coerceAtLeast(0L)) ?: PlatformResult.Unsupported
 
     override suspend fun stop(): PlatformResult<Unit> = host?.stop() ?: PlatformResult.Unsupported
 

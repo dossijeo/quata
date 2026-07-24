@@ -25,12 +25,8 @@ class IosPlatformServices(
     } ?: IosNotificationPermissionService(),
 ) : PlatformServices {
     /** Exposed alongside platform services because audio is a feature-level injectable contract. */
-    val audioRecorder: IosAudioRecorderService = IosAudioRecorderService().also { service ->
-        audioRecorderHost?.let(service::attachHost)
-    }
-    val audioPlayer: IosAudioPlayerService = IosAudioPlayerService().also { service ->
-        audioPlayerHost?.let(service::attachHost)
-    }
+    val audioRecorder: IosAudioRecorderService = IosAudioRecorderService(audioRecorderHost)
+    val audioPlayer: IosAudioPlayerService = IosAudioPlayerService(audioPlayerHost)
 }
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */

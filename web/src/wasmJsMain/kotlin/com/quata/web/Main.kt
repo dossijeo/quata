@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.navigation.quataChatDeepLinkOrNull
+import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.feature.auth.presentation.AuthSessionShellContent
@@ -161,7 +162,7 @@ private fun QuataWebApp(
                         filePicker = platformServices.filePicker,
                         conversationId = navigation.chatConversationId,
                         navigationMessage = navigation.message,
-                        onOpenConversation = { conversationId -> navigateWebFragment("chat/$conversationId") },
+                        onOpenConversation = ::navigateWebConversation,
                         onBackToList = { navigateWebFragment("chat") },
                     )
                 } else {
@@ -243,6 +244,11 @@ private fun String.toWebNavigationState(): WebNavigationState {
 private fun browserFragment(): String = js("globalThis.location?.hash?.replace(/^#/, '') || ''")
 
 private fun navigateWebFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+
+/** Emits the same encoded fragment consumed by the common chat deep-link parser. */
+private fun navigateWebConversation(conversationId: String) {
+    navigateWebFragment(quataChatUrl(conversationId).substringAfter('#'))
+}
 
 private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = js(
     """
