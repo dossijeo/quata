@@ -10,6 +10,11 @@ iOS que implemente `FeedRepository`. Conectar ese repositorio consiste en crear
 `IosFeedHostDependencies(repository: …)` y pasarlo a `QuataFeedViewController`; no existe un
 `FeedRootView` Swift separado.
 
+La pantalla de migración no es una vista Swift de sustitución: presenta directamente el
+`UIViewController` Compose exportado por `QuataFeed.framework`. Su vista raíz tiene el
+identificador de accesibilidad `quata-ios-migration-status`, para que un UI test del host pueda
+verificar esa frontera Swift/Kotlin sin requerir un repositorio ni sesión de ejemplo.
+
 Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`IosPreferenceStore`)
 ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
 un presenter/document picker UIKit activo antes de poder declararse disponibles.

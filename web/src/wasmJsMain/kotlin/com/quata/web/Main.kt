@@ -12,10 +12,14 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
+import com.quata.designsystem.effects.fluidTouchEffect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import com.quata.feature.auth.presentation.AuthSessionShellContent
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
@@ -95,10 +99,15 @@ private fun QuataWebApp(
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
         )
     }
+    val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
     var isSessionReady by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
+    var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
+    var touchFlowEnabled by remember { mutableStateOf(true) }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
+        themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
+        touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
     }
     LaunchedEffect(isSessionReady, sessionCoordinator) {
         if (isSessionReady) {
@@ -129,8 +138,9 @@ private fun QuataWebApp(
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
-    QuataTheme {
-        if (isSessionReady) {
+    QuataTheme(mode = themeMode) {
+        Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
+            if (isSessionReady) {
             AuthSessionShellContent(
                 isLoggingOut = isLoggingOut,
                 logoutLabel = "Cerrar sesión",
@@ -149,7 +159,26 @@ private fun QuataWebApp(
                     }
                 },
             ) {
-                if (navigation.officialPostId != null) {
+                if (navigation.route == "settings") {
+                    WebSettingsHost(
+                        touchFlowEnabled = touchFlowEnabled,
+                        themeMode = themeMode,
+                        onTouchFlowEnabledChange = { enabled ->
+                            touchFlowEnabled = enabled
+                            scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
+                        },
+                        onThemeModeChange = { mode ->
+                            themeMode = mode
+                            scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+                        },
+                    )
+                } else if (navigation.route == "notifications") {
+                    WebNotificationsHost(
+                        repository = notificationsRepository,
+                        onBack = { navigateWebFragment("") },
+                        onOpenConversation = ::navigateWebConversation,
+                    )
+                } else if (navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
                         officialPostId = navigation.officialPostId,
@@ -175,7 +204,7 @@ private fun QuataWebApp(
                     )
                 }
             }
-        } else {
+            } else {
             WebLoginHost(
                 platformServices = platformServices,
                 configuration = runtimeConfiguration,
@@ -183,6 +212,7 @@ private fun QuataWebApp(
                     isSessionReady = true
                 },
             )
+            }
         }
     }
 }
@@ -213,6 +243,12 @@ private fun rememberWebNavigation(): WebNavigationState {
 }
 
 private fun String.toWebNavigationState(): WebNavigationState {
+    if (trim('/').equals("settings", ignoreCase = true)) {
+        return WebNavigationState(route = "settings", message = "Apariencia de Quata Web.")
+    }
+    if (trim('/').equals("notifications", ignoreCase = true)) {
+        return WebNavigationState(route = "notifications", message = "Notificaciones de Quata Web.")
+    }
     if (trim('/').equals("chat", ignoreCase = true)) {
         return WebNavigationState(route = "chat", message = "Conversaciones de Quata Web.")
     }
@@ -256,3 +292,6 @@ private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = j
     globalThis.addEventListener?.('hashchange', listener);
     """,
 )
+
+private const val WebThemeModeKey = "quata_web_theme_mode"
+private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"

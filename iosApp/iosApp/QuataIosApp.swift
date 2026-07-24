@@ -18,7 +18,10 @@ struct QuataIosApp: App {
 /// the host look functional while bypassing the real backend/session boundary.
 private struct IosMigrationStatusView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
+        let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
+        // Stable smoke-test surface proving Swift is presenting the exported Compose framework.
+        controller.view.accessibilityIdentifier = "quata-ios-migration-status"
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
