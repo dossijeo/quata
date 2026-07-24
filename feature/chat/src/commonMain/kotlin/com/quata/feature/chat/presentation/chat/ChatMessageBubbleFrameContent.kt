@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,22 +34,18 @@ fun ChatMessageBubbleFrameContent(
     showSenderAvatar: Boolean,
     strings: ChatMessageBubbleFrameStrings,
     textColor: Color,
-    avatar: @Composable () -> Unit,
+    platformSlots: ChatMessageBubblePlatformSlots,
     bubbleModifier: Modifier = Modifier,
     deliveryIndicator: (@Composable () -> Unit)? = null,
     favoriteMarker: (@Composable () -> Unit)? = null,
-    richText: (@Composable ColumnScope.(Color) -> Unit)? = null,
-    attachment: (@Composable ColumnScope.(Color) -> Unit)? = null,
-    mapAction: (@Composable () -> Unit)? = null,
-    actions: (@Composable (Modifier) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
-        avatar = avatar,
-        bubbleModifier = bubbleModifier,
+        avatar = platformSlots.avatar,
+        bubbleModifier = platformSlots.translatedTextModifier(bubbleModifier),
         modifier = modifier,
     ) {
         ChatMessageBubbleContent(
@@ -81,15 +78,48 @@ fun ChatMessageBubbleFrameContent(
                 if (message.isDeleted) {
                     Text(strings.deletedMessage, color = textColor.copy(alpha = 0.72f))
                 } else {
-                    if (message.text.isNotBlank()) richText?.let { renderer -> renderer(textColor) }
-                    attachment?.let { renderer ->
-                        if (message.text.isNotBlank()) Spacer(Modifier.padding(4.dp))
-                        renderer(textColor)
+                    if (message.text.isNotBlank()) {
+                        Column {
+                            platformSlots.richText(this, textColor)
+                        }
                     }
+                    ChatMessageBubbleAttachmentSlotsContent(
+                        hasText = message.text.isNotBlank(),
+                        textColor = textColor,
+                        hasMediaAttachment = platformSlots.hasMediaAttachment,
+                        mediaAttachment = platformSlots.mediaAttachment,
+                        hasAudioAttachment = platformSlots.hasAudioAttachment,
+                        audioAttachment = platformSlots.audioAttachment,
+                        hasUriAttachment = platformSlots.hasUriAttachment,
+                        uriAttachment = platformSlots.uriAttachment,
+                    )
                 }
             },
-            mapAction = mapAction,
+            mapAction = platformSlots.mapAction.takeIf { platformSlots.hasMapAction },
         )
-        actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
+        if (platformSlots.hasActions) {
+            platformSlots.actions(Modifier.fillMaxWidth().padding(top = 6.dp))
+        }
+    }
+}
+
+@Composable
+private fun ChatMessageBubbleAttachmentSlotsContent(
+    hasText: Boolean,
+    textColor: Color,
+    hasMediaAttachment: Boolean,
+    mediaAttachment: @Composable ColumnScope.(Color) -> Unit,
+    hasAudioAttachment: Boolean,
+    audioAttachment: @Composable ColumnScope.(Color) -> Unit,
+    hasUriAttachment: Boolean,
+    uriAttachment: @Composable ColumnScope.(Color) -> Unit,
+) {
+    if (hasMediaAttachment || hasAudioAttachment || hasUriAttachment) {
+        Column {
+            if (hasText) Spacer(Modifier.padding(4.dp))
+            if (hasMediaAttachment) mediaAttachment(textColor)
+            if (hasAudioAttachment) audioAttachment(textColor)
+            if (hasUriAttachment) uriAttachment(textColor)
+        }
     }
 }
