@@ -57,6 +57,7 @@ private fun String.toCameraCaptureResult(): PlatformResult<PlatformFile> = when 
             ),
         )
     }.getOrElse { PlatformResult.Failure("camera_capture_invalid_result") }
+}
 
 private fun browserCaptureJpeg(displayName: String?, onResult: (String) -> Unit): Unit = js(
     """
@@ -119,7 +120,8 @@ private fun browserCaptureJpeg(displayName: String?, onResult: (String) -> Unit)
             canvas.toBlob((blob) => {
               if (!blob || !blob.size) { finish('failure:camera_capture_jpeg_failed'); return; }
               const safeName = String(displayName || '').trim().replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80) || `quata_camera_${'$'}{Date.now()}.jpg`;
-              const fileName = /\.jpe?g$/i.test(safeName) ? safeName : `${'$'}{safeName}.jpg`;
+              const lowerCaseName = safeName.toLowerCase();
+              const fileName = (lowerCaseName.endsWith('.jpg') || lowerCaseName.endsWith('.jpeg')) ? safeName : `${'$'}{safeName}.jpg`;
               finish(JSON.stringify({
                 reference: globalThis.URL.createObjectURL(blob),
                 displayName: fileName,
