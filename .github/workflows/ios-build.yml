@@ -77,26 +77,10 @@ jobs:
             xcodebuild -downloadPlatform iOS
           fi
           runtime_identifier="$(
-            xcrun simctl list runtimes available -j | python3 -c '
-import json
-import sys
-
-for runtime in json.load(sys.stdin)["runtimes"]:
-    if runtime.get("isAvailable") and runtime.get("name", "").startswith("iOS 18."):
-        print(runtime["identifier"])
-        break
-'
+            xcrun simctl list runtimes available -j | python3 -c 'import json,sys; print(next((runtime["identifier"] for runtime in json.load(sys.stdin)["runtimes"] if runtime.get("isAvailable") and runtime.get("name", "").startswith("iOS 18.")), ""))'
           )"
           device_type_identifier="$(
-            xcrun simctl list devicetypes -j | python3 -c '
-import json
-import sys
-
-for device_type in json.load(sys.stdin)["devicetypes"]:
-    if device_type.get("name") == "iPhone 16 Pro":
-        print(device_type["identifier"])
-        break
-'
+            xcrun simctl list devicetypes -j | python3 -c 'import json,sys; print(next((device_type["identifier"] for device_type in json.load(sys.stdin)["devicetypes"] if device_type.get("name") == "iPhone 16 Pro"), ""))'
           )"
           test -n "$runtime_identifier"
           test -n "$device_type_identifier"
