@@ -21,7 +21,9 @@ fun ReelPostLayoutContent(
     actionRail: @Composable BoxScope.() -> Unit,
     author: @Composable BoxScope.() -> Unit,
     modifier: Modifier = Modifier,
-    overflowAction: (@Composable BoxScope.() -> Unit)? = null
+    overflowAction: (@Composable BoxScope.() -> Unit)? = null,
+    navigation: (@Composable BoxScope.() -> Unit)? = null,
+    translation: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
@@ -31,8 +33,10 @@ fun ReelPostLayoutContent(
     ) {
         media()
         topOverlay()
+        navigation?.invoke(this)
         actionRail()
         overflowAction?.invoke(this)
+        translation?.invoke(this)
         author()
     }
 }
