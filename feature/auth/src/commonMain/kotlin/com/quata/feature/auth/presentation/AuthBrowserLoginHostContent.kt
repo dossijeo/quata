@@ -36,7 +36,7 @@ fun AuthBrowserLoginHostContent(
     recoveryQuestionWaiting: String,
     recoveryQuestionLoading: String,
     passwordUpdatedMessage: String,
-    registerUnavailableMessage: String,
+    registerUnavailableMessage: String?,
     onLoginSuccess: suspend () -> Unit,
 ) {
     val loginViewModel = remember(repository) { LoginViewModel(repository) }
@@ -68,6 +68,7 @@ fun AuthBrowserLoginHostContent(
                 strings = strings,
                 isLandscape = isLandscape,
                 showMockNotice = false,
+                showRegistration = registerUnavailableMessage != null,
                 onEvent = loginViewModel::onEvent,
                 onForgotPassword = { destination = AuthBrowserDestination.Recovery; notice = null },
                 onGoToRegister = { notice = registerUnavailableMessage },

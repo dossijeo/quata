@@ -34,6 +34,7 @@ fun LoginForm(
     strings: LoginFormStrings,
     isLandscape: Boolean,
     showMockNotice: Boolean,
+    showRegistration: Boolean = true,
     onEvent: (LoginUiEvent) -> Unit,
     onForgotPassword: () -> Unit,
     onGoToRegister: () -> Unit,
@@ -47,8 +48,10 @@ fun LoginForm(
     QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
     Spacer(Modifier.height(compactSpace))
     QuataSecondaryButton(strings.forgotPassword, enabled = !state.isLoading, onClick = onForgotPassword)
-    Spacer(Modifier.height(compactSpace))
-    QuataSecondaryButton(strings.createAccount, onClick = onGoToRegister)
+    if (showRegistration) {
+        Spacer(Modifier.height(compactSpace))
+        QuataSecondaryButton(strings.createAccount, onClick = onGoToRegister)
+    }
     if (state.isLoading) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); CircularProgressIndicator() }
     if (showMockNotice) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); Text(strings.mockNotice, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium) }
 }

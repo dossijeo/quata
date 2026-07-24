@@ -71,14 +71,14 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
 }
 
 /**
- * Honest launcher surface while iOS has no authenticated [FeedRepository] implementation yet.
- * It is intentionally separate from [QuataFeedViewController], so a caller cannot mistake the
- * migration status for a loaded feed.
+ * Honest launcher surface used only when the iOS host has no valid public runtime configuration.
+ * It is intentionally separate from [QuataFeedViewController], so a caller cannot mistake an
+ * unconfigured deployment for a loaded feed.
  */
 fun QuataIosMigrationStatusViewController(): UIViewController = ComposeUIViewController {
     QuataTheme {
         FeedStatusContent(
-            message = "El host Compose de iOS está preparado. Falta conectar el repositorio autenticado.",
+            message = "Quata para iOS necesita una configuración pública válida para iniciar.",
             retryLabel = "Entendido",
             onRetry = {},
         )

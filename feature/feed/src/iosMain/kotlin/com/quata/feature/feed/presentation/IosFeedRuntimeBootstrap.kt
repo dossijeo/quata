@@ -22,6 +22,13 @@ class IosFeedRuntimeBootstrap(
         ),
     ),
 ) {
+    /**
+     * Returns the one Keychain-backed session owner used by both interactive Auth and Feed.
+     * The launcher must not create another storage instance, otherwise a successful login would
+     * not be visible to the repository rendered immediately afterwards.
+     */
+    fun authSessionForInteractiveLogin(): IosRenewableAuthSession = authSession
+
     fun restoredDependencies(
         navigationMessage: String = "Quata para iOS",
         onOpenChats: () -> Unit = {},

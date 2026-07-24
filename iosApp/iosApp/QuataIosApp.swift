@@ -47,9 +47,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-/// Keeps UIKit-only state at the platform edge and exposes one injection point for the future
-/// authenticated session/repository bootstrap. Until that bootstrap exists, the already-exported
-/// Compose status surface remains visible instead of constructing fake Feed data.
+/// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
+/// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -59,8 +58,10 @@ private final class IosAppCompositionRoot {
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
+    private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
+        IosPublicRuntimeConfiguration.feedConfiguration()
     private lazy var runtimeBootstrap: IosFeedRuntimeBootstrap? = {
-        guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else { return nil }
+        guard let configuration = runtimeConfiguration else { return nil }
         return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
     }()
 
@@ -69,7 +70,9 @@ private final class IosAppCompositionRoot {
         window.rootViewController = feedHost
         window.makeKeyAndVisible()
         self.window = window
-        installRestoredFeedSessionIfAvailable()
+        if !installRestoredFeedSessionIfAvailable() {
+            installAuthenticationIfConfigured()
+        }
     }
 
     /// Called by the iOS authenticated bootstrap once it has a real `FeedRepository` wrapped in
@@ -78,14 +81,50 @@ private final class IosAppCompositionRoot {
         feedHost.installAuthenticatedFeed(dependencies)
     }
 
-    private func installRestoredFeedSessionIfAvailable() {
+    @discardableResult
+    private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let dependencies = runtimeBootstrap?.restoredDependencies(
             navigationMessage: "Quata para iOS",
             onOpenChats: { [weak self] in
                 self?.feedHost.presentChatsMigrationNotice()
             },
-        ) else { return }
+        ) else { return false }
         installAuthenticatedFeed(dependencies)
+        return true
+    }
+
+    private func installAuthenticationIfConfigured() {
+        guard
+            let runtimeConfiguration,
+            let runtimeBootstrap,
+            let repository = createAuthRepository(
+                configuration: runtimeConfiguration,
+                bootstrap: runtimeBootstrap,
+            )
+        else { return }
+        let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
+            repository: repository,
+            languageCode: Locale.current.languageCode ?? "en",
+            onLoginSuccess: { [weak self] in
+                DispatchQueue.main.async {
+                    _ = self?.installRestoredFeedSessionIfAvailable()
+                }
+            },
+        )
+        feedHost.installAuthentication(dependencies)
+    }
+
+    private func createAuthRepository(
+        configuration: IosFeedRuntimeConfiguration,
+        bootstrap: IosFeedRuntimeBootstrap,
+    ) -> AuthRepository? {
+        IosAuthRepositoryKt.createIosAuthRepository(
+            configuration: IosAuthRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            session: bootstrap.authSessionForInteractiveLogin(),
+        )
     }
 }
 
@@ -114,6 +153,14 @@ private final class IosFeedHostContainerViewController: UIViewController {
             QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies),
             accessibilityIdentifier: "quata-ios-feed-host",
             accessibilityLabel: "Quata iOS Feed",
+        )
+    }
+
+    func installAuthentication(_ dependencies: IosAuthHostDependencies) {
+        show(
+            IosAuthHostKt.QuataAuthViewController(dependencies: dependencies),
+            accessibilityIdentifier: "quata-ios-auth-host",
+            accessibilityLabel: "Quata iOS authentication",
         )
     }
 

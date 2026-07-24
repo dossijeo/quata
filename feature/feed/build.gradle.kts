@@ -16,6 +16,9 @@ kotlin {
             // Keep the Swift launcher to one embedded framework while exposing the iOS platform
             // service types needed by the eventual authenticated composition root.
             export(project(":core"))
+            // The UIKit launcher embeds a single framework. Re-export Auth only for iOS so its
+            // shared Compose login and iOS transport are available without a Swift duplicate.
+            export(project(":feature:auth"))
         }
     }
     sourceSets {
@@ -31,7 +34,7 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
+        iosMain.dependencies { api(project(":feature:auth")) }
         jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }

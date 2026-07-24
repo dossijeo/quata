@@ -73,6 +73,12 @@ fun iosAuthRepository(dependencies: IosAuthRepositoryDependencies): AuthReposito
     transport = dependencies.transport,
 )
 
+/** Swift-facing factory without Kotlin default-argument interop. */
+fun createIosAuthRepository(
+    configuration: IosAuthRuntimeConfiguration,
+    session: IosRenewableAuthSession,
+): AuthRepository = IosAuthRepository(configuration = configuration, session = session)
+
 /**
  * Real iOS implementation of the public Auth bridge protocol. It deliberately uses the same
  * unauthenticated bridge actions as Android (`login`, recovery and reset), not the Web Push-only
