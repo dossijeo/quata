@@ -1,5 +1,8 @@
 # Inventario de migración multiplataforma
 
+> El estado operativo, las dependencias, PRs y tareas despachables se mantienen en
+> `docs/MULTIPLATFORM_MIGRATION_BOARD.md`. Este documento conserva el detalle arquitectónico.
+
 Actualizado durante la FASE 6. Este documento separa lógica compartible de adaptadores de plataforma; no autoriza mover varias áreas a la vez.
 
 | Área actual | Estado | Trabajo pendiente |
