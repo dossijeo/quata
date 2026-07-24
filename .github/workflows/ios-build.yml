@@ -184,6 +184,11 @@ jobs:
         if: always()
         shell: bash
         run: |
+          if [[ -d build/reports/ios/QuataIos-tests.xcresult ]]; then
+            xcrun xcresulttool get test-results summary \
+              --path build/reports/ios/QuataIos-tests.xcresult \
+              > build/reports/ios/xctest-summary.json || true
+          fi
           {
             echo "## iOS compilation report"
             echo
@@ -204,6 +209,12 @@ jobs:
               echo "### Last UI test diagnostics"
               echo '```text'
               grep -E "error:|warning:|TEST (SUCCEEDED|FAILED)" build/reports/ios/xcodebuild-tests.log | tail -n 80 || true
+              echo '```'
+            fi
+            if [[ -f build/reports/ios/xctest-summary.json ]]; then
+              echo "### XCTest result summary"
+              echo '```json'
+              cat build/reports/ios/xctest-summary.json
               echo '```'
             fi
             if [[ ! -f build/reports/ios/xcodebuild.log && ! -f build/reports/ios/xcodebuild-tests.log && -f build/reports/ios/kotlin-ios.log ]]; then

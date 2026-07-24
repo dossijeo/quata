@@ -11,8 +11,10 @@ Multiplatform desde un equipo Windows. El workflow se encuentra en
 2. Enlaza `QuataFeed.framework` para un simulador Apple Silicon.
 3. Genera el proyecto Swift mediante XcodeGen.
 4. Compila la aplicacion host `QuataIos` con Xcode y sin firma.
-5. Conserva los logs, el framework, el proyecto generado y
-   `QuataIos.xcresult` durante 30 dias.
+5. Ejecuta `QuataIosUITests` en simulador: verifica que Swift presenta la superficie Compose
+   exportada por `QuataFeed.framework` mediante su identificador de accesibilidad.
+6. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
+   estructurado `xctest-summary.json` durante 30 dias.
 
 La compilacion usa `macos-15`, JDK 17 y Xcode 16.3. Esto evita que una
 actualizacion silenciosa de Xcode cambie el resultado de la migracion.
