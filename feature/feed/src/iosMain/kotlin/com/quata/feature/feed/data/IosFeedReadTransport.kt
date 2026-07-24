@@ -5,12 +5,14 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
+import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
+import platform.Foundation.NSURLSessionConfiguration
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
 data class IosFeedRuntimeConfiguration(
@@ -40,7 +42,6 @@ fun interface IosFeedSessionProvider {
 class IosFeedReadTransport(
     private val configuration: IosFeedRuntimeConfiguration,
     private val sessionProvider: IosFeedSessionProvider,
-    private val urlSession: NSURLSession = NSURLSession.sharedSession,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
         val query = buildMap {
@@ -94,36 +95,45 @@ class IosFeedReadTransport(
             ?: error("ios_feed_session_missing")
         val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosQueryString()}")
             ?: error("ios_feed_url_invalid")
-        val request = NSMutableURLRequest(URL = url).apply {
+        val request = NSMutableURLRequest(uRL = url).apply {
             HTTPMethod = "GET"
-            setValue(publishableKey, forHTTPHeaderField = "apikey")
-            setValue("Bearer ${session.accessToken}", forHTTPHeaderField = "Authorization")
-            setValue("application/json", forHTTPHeaderField = "Accept")
         }
-        return urlSession.iosData(request).toIosJsonRows()
+        val requestSession = NSURLSession.sessionWithConfiguration(
+            NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+                HTTPAdditionalHeaders = mapOf(
+                    "apikey" to publishableKey,
+                    "Authorization" to "Bearer ${session.accessToken}",
+                    "Accept" to "application/json",
+                )
+            },
+        )
+        return requestSession.iosData(request.URL ?: error("ios_feed_url_invalid")).toIosJsonRows()
     }
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSession.iosData(request: NSMutableURLRequest): NSData = suspendCancellableCoroutine { continuation ->
-    val task = dataTaskWithRequest(request) { data, response, error ->
-        if (!continuation.isActive) return@dataTaskWithRequest
+private suspend fun NSURLSession.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+    val task = dataTaskWithURL(url, completionHandler = { data, response, error ->
+        if (!continuation.isActive) return@dataTaskWithURL
         if (error != null) {
-            continuation.resumeWithException(IllegalStateException(error.localizedDescription ?: "ios_feed_network_failed"))
-            return@dataTaskWithRequest
+            continuation.resumeWithException(IllegalStateException(error.localizedDescription))
+            return@dataTaskWithURL
         }
         val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
             continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
-            return@dataTaskWithRequest
+            return@dataTaskWithURL
         }
         val responseData = data ?: run {
             continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
-            return@dataTaskWithRequest
+            return@dataTaskWithURL
         }
         continuation.resume(responseData)
+    })
+    continuation.invokeOnCancellation {
+        task.cancel()
+        invalidateAndCancel()
     }
-    continuation.invokeOnCancellation { task.cancel() }
     task.resume()
 }
 
