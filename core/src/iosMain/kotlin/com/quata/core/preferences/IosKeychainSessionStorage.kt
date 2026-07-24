@@ -12,7 +12,6 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryRef
-import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.NSData
 import platform.Security.SecItemAdd
@@ -85,17 +84,13 @@ class IosKeychainSessionStorage(
             lastStatus = IosKeychainPayloadMissing
             return@memScoped null
         }
-        try {
-            val payload = (value as? NSData)?.toByteArray()?.decodeToString()
-                ?: run {
-                    lastStatus = IosKeychainPayloadInvalid
-                    return@memScoped null
-                }
-            payload.toAuthSessionOrNull().also {
-                lastStatus = if (it == null) IosKeychainPayloadInvalid else null
+        val payload = (value as? NSData)?.toByteArray()?.decodeToString()
+            ?: run {
+                lastStatus = IosKeychainPayloadInvalid
+                return@memScoped null
             }
-        } finally {
-            CFRelease(value)
+        return@memScoped payload.toAuthSessionOrNull().also {
+            lastStatus = if (it == null) IosKeychainPayloadInvalid else null
         }
     }
 
@@ -121,7 +116,7 @@ private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictio
 private fun String.toNsData(): NSData {
     val payload = encodeToByteArray()
     return payload.usePinned { pinned ->
-        NSData(bytes = pinned.addressOf(0), length = payload.size.toULong())
+        NSData.create(bytes = pinned.addressOf(0), length = payload.size.toULong())
     }
 }
 
