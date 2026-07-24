@@ -8,11 +8,18 @@ import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
+import platform.Foundation.NSMutableData
 import platform.Foundation.NSNull
-import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
+import platform.Foundation.NSURLSessionDataDelegateProtocol
+import platform.Foundation.NSURLSessionDataTask
+import platform.Foundation.NSURLSessionResponseAllow
+import platform.Foundation.NSURLSessionResponseDisposition
+import platform.Foundation.NSURLSessionTask
+import platform.Foundation.NSURLResponse
+import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
 data class IosFeedRuntimeConfiguration(
@@ -95,46 +102,69 @@ class IosFeedReadTransport(
             ?: error("ios_feed_session_missing")
         val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosQueryString()}")
             ?: error("ios_feed_url_invalid")
-        val request = NSMutableURLRequest(uRL = url).apply {
-            HTTPMethod = "GET"
+        val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+            HTTPAdditionalHeaders = mapOf(
+                "apikey" to publishableKey,
+                "Authorization" to "Bearer ${session.accessToken}",
+                "Accept" to "application/json",
+            )
         }
-        val requestSession = NSURLSession.sessionWithConfiguration(
-            NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-                HTTPAdditionalHeaders = mapOf(
-                    "apikey" to publishableKey,
-                    "Authorization" to "Bearer ${session.accessToken}",
-                    "Accept" to "application/json",
-                )
-            },
-        )
-        return requestSession.iosData(request.URL ?: error("ios_feed_url_invalid")).toIosJsonRows()
+        return requestConfiguration.iosData(url).toIosJsonRows()
     }
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSession.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
-    val task = dataTaskWithURL(url, completionHandler = { data, response, error ->
-        if (!continuation.isActive) return@dataTaskWithURL
-        if (error != null) {
-            continuation.resumeWithException(IllegalStateException(error.localizedDescription))
-            return@dataTaskWithURL
+private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+    val delegate = IosFeedDataTaskDelegate(continuation)
+    val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
+    val task = session.dataTaskWithURL(url)
+    continuation.invokeOnCancellation {
+        task.cancel()
+        session.invalidateAndCancel()
+    }
+    task.resume()
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosFeedDataTaskDelegate(
+    private val continuation: kotlinx.coroutines.CancellableContinuation<NSData>,
+) : NSObject(), NSURLSessionDataDelegateProtocol {
+    private val bytes = NSMutableData()
+    private var response: NSURLResponse? = null
+
+    override fun URLSession(
+        session: NSURLSession,
+        dataTask: NSURLSessionDataTask,
+        didReceiveResponse: NSURLResponse,
+        completionHandler: (NSURLSessionResponseDisposition) -> Unit,
+    ) {
+        response = didReceiveResponse
+        completionHandler(NSURLSessionResponseAllow)
+    }
+
+    override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
+        bytes.appendData(didReceiveData)
+    }
+
+    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
+        if (!continuation.isActive) return
+        if (didCompleteWithError != null) {
+            continuation.resumeWithException(
+                IllegalStateException(didCompleteWithError.localizedDescription),
+            )
+            return
         }
         val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
             continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
-            return@dataTaskWithURL
+            return
         }
-        val responseData = data ?: run {
+        if (bytes.length == 0UL) {
             continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
-            return@dataTaskWithURL
+            return
         }
-        continuation.resume(responseData)
-    })
-    continuation.invokeOnCancellation {
-        task.cancel()
-        invalidateAndCancel()
+        continuation.resume(bytes)
     }
-    task.resume()
 }
 
 @OptIn(ExperimentalForeignApi::class)
