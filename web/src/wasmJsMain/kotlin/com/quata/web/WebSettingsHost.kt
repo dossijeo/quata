@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
 import com.quata.feature.profile.presentation.ProfileAccountManagementContent
@@ -19,7 +20,7 @@ import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import kotlinx.coroutines.launch
 
-internal interface WebAccountLifecycleActions {
+interface WebAccountLifecycleActions {
     suspend fun deactivateAccount(password: String): Result<Unit>
     suspend fun deleteAccountData(password: String): Result<Unit>
 }
@@ -83,7 +84,7 @@ fun WebSettingsHost(
         }
         successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
-    pendingAction?.let { action ->
+    pendingAction?.let { action -> accountLifecycleActions?.let { actions ->
         val isDeletion = action == WebAccountLifecycleAction.DeleteData
         QuataAccountLifecycleConfirmationDialogContent(
             title = if (isDeletion) "Eliminar datos de la cuenta" else "Desactivar cuenta",
@@ -98,7 +99,10 @@ fun WebSettingsHost(
             confirmLabel = if (isDeletion) "Eliminar" else "Desactivar",
             isWorking = isWorking,
             errorMessage = errorMessage,
-            onDismiss = { if (!isWorking) pendingAction = null },
+            onDismiss = {
+                if (!isWorking) pendingAction = null
+                Unit
+            },
             onConfirm = { password ->
                 scope.launch {
                     isWorking = true
@@ -112,10 +116,11 @@ fun WebSettingsHost(
                     }.onFailure { failure ->
                         errorMessage = failure.message ?: "No se pudo completar la operación."
                     }
+                    Unit
                 }
             },
-            confirmationPrompt = if (isDeletion) "Escribe ELIMINAR para confirmar.",
+            confirmationPrompt = if (isDeletion) "Escribe ELIMINAR para confirmar." else null,
             requiredConfirmation = if (isDeletion) "ELIMINAR" else null,
         )
-    }
+    } }
 }
