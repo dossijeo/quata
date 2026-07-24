@@ -1777,10 +1777,19 @@ private fun MessageBubble(
     val sosLocationMessage = remember(context, message.text) {
         context.localizedSosMessage(message.text) ?: message.text.parseSosLocationMessage()
     }
-    ChatMessageBubbleLayoutContent(
-        isMine = message.isMine,
+    val attachmentPreview = message.attachmentPreview(context)
+    val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
+    ChatMessageBubbleFrameContent(
+        message = message,
+        timestamp = message.chatTimestampLabel(context),
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
+        strings = ChatMessageBubbleFrameStrings(
+            edited = stringResource(R.string.conversation_edited),
+            deletedMessage = stringResource(R.string.conversation_deleted_message),
+            forwarded = stringResource(R.string.conversation_forwarded_from),
+        ),
+        textColor = textColor,
         avatar = {
             ClickableProfileAvatar(
                 name = sender?.displayName ?: message.senderName,
@@ -1823,122 +1832,81 @@ private fun MessageBubble(
                         Modifier
                     }
                 )
-                .clickable(onClick = onClick)
-    ) {
-            val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
-            ChatMessageBubbleContent(
-                header = {
-                    ChatMessageHeaderContent(
-                        senderName = message.senderName,
-                        timestamp = message.chatTimestampLabel(context),
-                        isMine = message.isMine,
-                        isEdited = message.isEdited,
-                        isFavorite = message.isFavorite,
-                        editedLabel = stringResource(R.string.conversation_edited),
-                        textColor = textColor,
-                        deliveryIndicator = {
-                            MessageDeliveryIndicator(
-                                state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
-                                tint = textColor.copy(alpha = 0.62f),
-                                readTint = template.colors.accent
-                            )
-                        },
-                        favoriteMarker = {
-                            CompactIcon(
-                                Icons.Filled.StarBorder,
-                                contentDescription = stringResource(R.string.conversation_favorite_marker),
-                                tint = textColor.copy(alpha = 0.62f),
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    )
-                },
-                forwardedMarker = if (message.forwardedFromSenderName != null) {
-                    {
-                        ChatForwardedMarkerContent(
-                            label = stringResource(R.string.conversation_forwarded_from),
-                            textColor = textColor,
-                        )
-                    }
-                } else null,
-                replyQuote = if (message.replyToText != null) {
-                    {
-                        ChatReplyQuoteContent(
-                            senderName = message.replyToSenderName.orEmpty(),
-                            text = message.replyToText.orEmpty(),
-                            textColor = textColor,
-                        )
-                    }
-                } else null,
-                body = {
-                    if (message.isDeleted) {
-                        Text(stringResource(R.string.conversation_deleted_message), color = textColor.copy(alpha = 0.72f))
-                    } else {
-                        if (message.text.isNotBlank()) {
-                            if (sosLocationMessage != null) {
-                                SosLocationMessageContent(
-                                    message = sosLocationMessage,
-                                    textColor = textColor,
-                                    accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
-                                    onOpenMaps = { url -> context.openMaps(url) }
-                                )
-                            } else {
-                                LinkifiedMessageText(
-                                    text = message.text,
-                                    color = textColor,
-                                    linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
-                                )
-                            }
-                        }
-                        message.attachmentPreview(context)?.let { attachment ->
-                            Spacer(Modifier.padding(4.dp))
-                            if (attachment.isAudio) {
-                                AudioAttachmentPlayer(
-                                    attachment = attachment,
-                                    textColor = textColor,
-                                    autoPlay = autoPlayVoiceNote,
-                                    pauseRequested = pauseVoiceNote,
-                                    onPlaybackStarted = onVoiceNoteStarted,
-                                    onPlaybackEnded = onVoiceNoteEnded
-                                )
-                            } else if (attachment.isMedia) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onOpenAttachment(attachment) }
-                                ) {
-                                    AttachmentThumbnail(
-                                        attachment = attachment,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                    )
-                                }
-                            } else {
-                                ChatDocumentAttachmentContent(
-                                    name = attachment.name,
-                                    textColor = textColor,
-                                    onOpen = { onOpenAttachment(attachment) },
-                                    icon = {
-                                        CompactIcon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
-                                    },
-                                )
-                            }
-                        }
-                    }
-                },
-                mapAction = if (mapsUrl != null && sosLocationMessage == null) {
-                    {
-                        Text(
-                            text = stringResource(R.string.conversation_open_maps),
-                            color = if (message.isMine) template.colors.accentContent else template.colors.accent,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.clickable { context.openMaps(mapsUrl) }
-                        )
-                    }
-                } else null,
+                .clickable(onClick = onClick),
+        deliveryIndicator = {
+            MessageDeliveryIndicator(
+                state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
+                tint = textColor.copy(alpha = 0.62f),
+                readTint = template.colors.accent,
             )
-        }
+        },
+        favoriteMarker = {
+            CompactIcon(
+                Icons.Filled.StarBorder,
+                contentDescription = stringResource(R.string.conversation_favorite_marker),
+                tint = textColor.copy(alpha = 0.62f),
+                modifier = Modifier.size(15.dp),
+            )
+        },
+        richText = {
+            if (sosLocationMessage != null) {
+                SosLocationMessageContent(
+                    message = sosLocationMessage,
+                    textColor = textColor,
+                    accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
+                    onOpenMaps = { url -> context.openMaps(url) },
+                )
+            } else {
+                LinkifiedMessageText(
+                    text = message.text,
+                    color = textColor,
+                    linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
+                )
+            }
+        },
+        attachment = attachmentPreview?.let { attachment ->
+            {
+                if (attachment.isAudio) {
+                    AudioAttachmentPlayer(
+                        attachment = attachment,
+                        textColor = textColor,
+                        autoPlay = autoPlayVoiceNote,
+                        pauseRequested = pauseVoiceNote,
+                        onPlaybackStarted = onVoiceNoteStarted,
+                        onPlaybackEnded = onVoiceNoteEnded,
+                    )
+                } else if (attachment.isMedia) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenAttachment(attachment) },
+                    ) {
+                        AttachmentThumbnail(
+                            attachment = attachment,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                        )
+                    }
+                } else {
+                    ChatDocumentAttachmentContent(
+                        name = attachment.name,
+                        textColor = textColor,
+                        onOpen = { onOpenAttachment(attachment) },
+                        icon = { CompactIcon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor) },
+                    )
+                }
+            }
+        },
+        mapAction = if (mapsUrl != null && sosLocationMessage == null) {
+            {
+                Text(
+                    text = stringResource(R.string.conversation_open_maps),
+                    color = if (message.isMine) template.colors.accentContent else template.colors.accent,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.clickable { context.openMaps(mapsUrl) },
+                )
+            }
+        } else null,
+    )
 }
 
 @Composable

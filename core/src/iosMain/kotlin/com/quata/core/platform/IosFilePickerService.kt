@@ -40,6 +40,10 @@ class IosFilePickerService : FilePickerService {
         if (this.host === host) this.host = null
     }
 
+    /** Attaches the real UIKit document picker while keeping the UIViewController host injected. */
+    fun attachDocumentPicker(presenterProvider: IosViewControllerProvider): IosDocumentPickerHost =
+        IosDocumentPickerHost(presenterProvider).also(::attachHost)
+
     override suspend fun pickFiles(
         acceptedMimeTypes: List<String>,
         allowMultiple: Boolean,

@@ -14,6 +14,13 @@ Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`Ios
 ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
 un presenter/document picker UIKit activo antes de poder declararse disponibles.
 
+Para el selector de documentos, `IosFilePickerService.attachDocumentPicker` recibe un
+`IosViewControllerProvider` y conecta el adaptador real `IosDocumentPickerHost`. Éste presenta
+`UIDocumentPickerViewController` en modo import, conserva su delegate hasta el callback y
+devuelve `PlatformFile` con URL, nombre y MIME conocido. El launcher no lo conecta todavía
+porque ninguna de sus pantallas de estado consume `PlatformServices`; se debe adjuntar al crear
+el host autenticado que vaya a usar una feature con archivos.
+
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:
 
