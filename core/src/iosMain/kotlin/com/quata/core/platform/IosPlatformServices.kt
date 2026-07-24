@@ -35,6 +35,8 @@ class IosPlatformServices(
     /** Exposed alongside platform services because audio is a feature-level injectable contract. */
     val audioRecorder: IosAudioRecorderService = IosAudioRecorderService(audioRecorderHost)
     val audioPlayer: IosAudioPlayerService = IosAudioPlayerService(audioPlayerHost)
+    /** Local audio cache; unlike playback/recording it needs no UIKit or AVFoundation host. */
+    val audioCache: AudioCacheService = IosAudioCacheService()
 }
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */
