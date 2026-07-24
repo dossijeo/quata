@@ -15,7 +15,7 @@ import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIImagePickerController
 import platform.UIKit.UIImagePickerControllerDelegateProtocol
 import platform.UIKit.UIImagePickerControllerOriginalImage
-import platform.UIKit.UIImagePickerControllerSourceTypeCamera
+import platform.UIKit.UIImagePickerControllerSourceType
 import platform.UIKit.UINavigationControllerDelegateProtocol
 import platform.darwin.NSObject
 
@@ -63,14 +63,14 @@ class IosImagePickerCameraHost(
 
     override suspend fun capturePhoto(request: CameraCaptureRequest): PlatformResult<PlatformFile> {
         if (!request.supportsIosJpeg()) return PlatformResult.Unsupported
-        if (!UIImagePickerController.isSourceTypeAvailable(UIImagePickerControllerSourceTypeCamera)) {
+        if (!UIImagePickerController.isSourceTypeAvailable(UIImagePickerControllerSourceType.UIImagePickerControllerSourceTypeCamera)) {
             return PlatformResult.Unsupported
         }
         if (activeDelegate != null) return PlatformResult.Failure("camera_capture_in_progress")
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
         return suspendCancellableCoroutine { continuation ->
             val picker = UIImagePickerController().apply {
-                sourceType = UIImagePickerControllerSourceTypeCamera
+                sourceType = UIImagePickerControllerSourceType.UIImagePickerControllerSourceTypeCamera
             }
             lateinit var delegate: IosImagePickerCameraDelegate
             delegate = IosImagePickerCameraDelegate(request) { result ->
@@ -130,7 +130,9 @@ private fun UIImage.toTemporaryPlatformFile(request: CameraCaptureRequest): Plat
         ?.let { name -> if (name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true)) name else "$name.jpg" }
         ?: "quata_camera_${Random.nextLong().toString(16)}.jpg"
     val destination = NSURL.fileURLWithPath(NSTemporaryDirectory() + displayName)
-    if (!jpeg.writeToURL(destination, atomically = true)) return PlatformResult.Failure("camera_capture_write_failed")
+    if (!jpeg.writeToFile(destination.path ?: return PlatformResult.Failure("camera_capture_path_missing"), atomically = true)) {
+        return PlatformResult.Failure("camera_capture_write_failed")
+    }
     return PlatformResult.Success(
         PlatformFile(
             reference = destination.absoluteString ?: destination.path.orEmpty(),
