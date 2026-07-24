@@ -65,7 +65,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import com.quata.core.ui.components.CommunityEmojiPanel
@@ -946,65 +945,38 @@ private fun VideoControls(
     showMuteButton: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val duration = durationMs.coerceAtLeast(1L)
-    val progress = (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-
     ReelVideoControlsContent(
-        durationText = "${formatVideoTime(positionMs)} / ${formatVideoTime(durationMs)}",
-        playPauseAction = {
-        CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
-            if (isBuffering) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(20.dp)
-                )
-            } else {
-                CompactIcon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) {
-                        stringResource(R.string.feed_pause)
-                    } else {
-                        stringResource(R.string.feed_play)
-                    },
-                    tint = Color.White
-                )
-            }
-        }
+        state = ReelVideoControlsState(
+            isPlaying = isPlaying,
+            isBuffering = isBuffering,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            isMuted = isMuted,
+            showMuteButton = showMuteButton,
+        ),
+        strings = ReelVideoControlsStrings(
+            play = stringResource(R.string.feed_play),
+            pause = stringResource(R.string.feed_pause),
+            mute = stringResource(R.string.feed_mute),
+            unmute = stringResource(R.string.feed_unmute),
+        ),
+        playPauseIcon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+        muteIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+        onPlayPause = onPlayPause,
+        onProgressChange = { progress ->
+            onSeek((progress * durationMs.coerceAtLeast(1L).toFloat()).toLong())
         },
-        timeline = {
+        onToggleMute = onToggleMute,
+        timeline = { progress, onProgressChange ->
             TimelineThumb(
-            progress = progress,
-            onProgressChange = { onSeek((it * duration).toLong()) },
-            modifier = Modifier
-                .weight(1f)
-                .height(30.dp)
+                progress = progress,
+                onProgressChange = onProgressChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(30.dp),
             )
         },
-        muteAction = if (showMuteButton) {
-            {
-            Box(contentAlignment = Alignment.Center) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onToggleMute),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CompactIcon(
-                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = if (isMuted) {
-                            stringResource(R.string.feed_unmute)
-                        } else {
-                            stringResource(R.string.feed_mute)
-                        },
-                        tint = Color.White
-                    )
-                }
-            }
-            }
-        } else null,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
@@ -1015,13 +987,6 @@ private fun TimelineThumb(
     modifier: Modifier = Modifier
 ) {
     ReelTimelineThumbContent(progress, onProgressChange, modifier)
-}
-
-private fun formatVideoTime(ms: Long): String {
-    val totalSeconds = (ms / 1000).coerceAtLeast(0)
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
 @Composable
