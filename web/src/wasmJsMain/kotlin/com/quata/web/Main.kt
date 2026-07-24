@@ -342,7 +342,7 @@ private fun WebPushSessionResult.diagnosticValue(): String = when (this) {
     is WebPushSessionResult.Failure -> "failure:$reason"
 }
 
-private data class WebNavigationState(
+internal data class WebNavigationState(
     val route: String,
     val message: String,
     val chatConversationId: String? = null,
@@ -360,7 +360,10 @@ private fun rememberWebNavigation(): WebNavigationState {
     return remember(fragment) { fragment.toWebNavigationState() }
 }
 
-private fun String.toWebNavigationState(): WebNavigationState {
+internal fun String.toWebNavigationState(): WebNavigationState {
+    if (trim('/').equals("auth", ignoreCase = true) || trim('/').equals("login", ignoreCase = true)) {
+        return WebNavigationState(route = "auth", message = "Inicio de sesi\u00f3n de Quata Web.")
+    }
     if (trim('/').equals("share-target", ignoreCase = true)) {
         return WebNavigationState(route = "share-target", message = "Contenido recibido para compartir.")
     }
