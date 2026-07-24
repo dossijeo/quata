@@ -86,6 +86,10 @@ jobs:
             test -n "$runtime_dmg"
             xcodebuild -importPlatform "$runtime_dmg"
           fi
+          # Xcode 16.3 can retain a stale CoreSimulator connection after importing a runtime.
+          # Restart before creating a device so simctl and xcodebuild use the same registry.
+          pkill -f 'CoreSimulatorService' || true
+          sleep 3
           runtime_identifier="$(
             xcrun simctl list runtimes available -j | python3 -c 'import json,sys; print(next((runtime["identifier"] for runtime in json.load(sys.stdin)["runtimes"] if runtime.get("isAvailable") and runtime.get("name", "") == "iOS 18.4"), ""))'
           )"
@@ -98,10 +102,6 @@ jobs:
           if ! xcrun simctl list devices "$runtime_identifier" | grep -Fq "$device_name"; then
             xcrun simctl create "$device_name" "$device_type_identifier" "$runtime_identifier"
           fi
-          # Xcode 16.3 can retain a stale CoreSimulator connection after importing a runtime.
-          # Restart the user service so xcodebuild observes the device created for iOS 18.4.
-          pkill -f 'CoreSimulatorService' || true
-          sleep 3
           echo "Selected iOS runtime: $runtime_identifier"
           echo "Selected simulator type: $device_type_identifier"
           xcrun simctl list devices "$runtime_identifier"
