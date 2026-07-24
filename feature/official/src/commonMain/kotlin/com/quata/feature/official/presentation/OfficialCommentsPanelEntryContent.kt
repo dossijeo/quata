@@ -37,20 +37,20 @@ fun OfficialCommentsPanelEntryContent(
     panel(
         currentPost,
         canParticipate,
-        onAddComment = { comment ->
+        { comment ->
             if (canParticipate) {
                 onAddComment(currentPost.id, comment)
             } else {
                 onAuthRequired()
             }
         },
-        onReportComment = { comment ->
+        { comment ->
             if (canParticipate) {
                 onReportComment(comment.id)
             } else {
                 onAuthRequired()
             }
         },
-        onDismiss = onDismiss,
+        onDismiss,
     )
 }
