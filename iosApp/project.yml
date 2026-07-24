@@ -18,6 +18,14 @@ targets:
       # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.
       - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
         embed: true
+  QuataIosUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosAppUITests
+    dependencies:
+      - target: QuataIos
 schemes:
   QuataIos:
     build:
@@ -25,3 +33,7 @@ schemes:
         QuataIos: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - QuataIosUITests

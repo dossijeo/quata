@@ -21,6 +21,8 @@ private struct IosMigrationStatusView: UIViewControllerRepresentable {
         let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
         // Stable smoke-test surface proving Swift is presenting the exported Compose framework.
         controller.view.accessibilityIdentifier = "quata-ios-migration-status"
+        controller.view.isAccessibilityElement = true
+        controller.view.accessibilityLabel = "Quata iOS migration status"
         return controller
     }
 

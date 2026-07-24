@@ -101,3 +101,15 @@ primero el framework `QuataFeed` para el simulador iOS:
 
 Windows no puede enlazar los targets nativos de iOS; la compilación Wasm y Android continúa
 siendo la verificación disponible en este entorno.
+
+## Prueba de frontera Swift/Kotlin
+
+XcodeGen crea `QuataIosUITests`. Su única prueba lanza la aplicación real y espera el identificador
+`quata-ios-migration-status` de la vista raíz del `UIViewController` Compose exportado por
+`QuataFeed.framework`; no usa repositorio, sesión ni contenido de ejemplo. En macOS, después de
+generar el proyecto y enlazar el framework, se puede ejecutar con un simulador arrancado:
+
+```sh
+xcodebuild -project QuataIos.xcodeproj -scheme QuataIos \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
+```

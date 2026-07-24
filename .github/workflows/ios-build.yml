@@ -157,6 +157,29 @@ jobs:
             build \
             2>&1 | tee build/reports/ios/xcodebuild.log
 
+      - name: Test Swift/Kotlin iOS host boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          test -n "$simulator_udid"
+          xcrun simctl boot "$simulator_udid" || true
+          xcrun simctl bootstatus "$simulator_udid" -b
+          rm -rf build/reports/ios/QuataIos-tests.xcresult
+          xcodebuild \
+            -project iosApp/QuataIos.xcodeproj \
+            -scheme QuataIos \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$simulator_udid" \
+            -derivedDataPath build/ios-derived-data \
+            -resultBundlePath build/reports/ios/QuataIos-tests.xcresult \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            test \
+            2>&1 | tee build/reports/ios/xcodebuild-tests.log
+
       - name: Write report summary
         if: always()
         shell: bash
@@ -168,14 +191,22 @@ jobs:
             echo "- Xcode: \`16.3\`"
             echo "- Kotlin targets: device ARM64 and simulator ARM64"
             echo "- Swift host: \`QuataIos\` for the iOS Simulator"
-            echo "- Result bundle: \`QuataIos.xcresult\`"
+            echo "- UI test: Swift host presents the exported Compose migration surface"
+            echo "- Result bundles: \`QuataIos.xcresult\`, \`QuataIos-tests.xcresult\`"
             echo
             if [[ -f build/reports/ios/xcodebuild.log ]]; then
               echo "### Last Xcode diagnostics"
               echo '```text'
               grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" build/reports/ios/xcodebuild.log | tail -n 80 || true
               echo '```'
-            elif [[ -f build/reports/ios/kotlin-ios.log ]]; then
+            fi
+            if [[ -f build/reports/ios/xcodebuild-tests.log ]]; then
+              echo "### Last UI test diagnostics"
+              echo '```text'
+              grep -E "error:|warning:|TEST (SUCCEEDED|FAILED)" build/reports/ios/xcodebuild-tests.log | tail -n 80 || true
+              echo '```'
+            fi
+            if [[ ! -f build/reports/ios/xcodebuild.log && ! -f build/reports/ios/xcodebuild-tests.log && -f build/reports/ios/kotlin-ios.log ]]; then
               echo "### Last Kotlin diagnostics"
               echo '```text'
               grep -E "^[ew]: |error:|warning:|FAILURE:" build/reports/ios/kotlin-ios.log | tail -n 80 || true
