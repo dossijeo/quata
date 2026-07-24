@@ -69,6 +69,14 @@ jobs:
         with:
           xcode-version: "16.3"
 
+      - name: Install Xcode-compatible iOS Simulator runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! xcrun simctl list runtimes available | grep -Eq 'iOS 18\.'; then
+            xcodebuild -downloadPlatform iOS
+          fi
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
