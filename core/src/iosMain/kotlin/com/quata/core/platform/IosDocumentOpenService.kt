@@ -4,6 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSURL
 import platform.QuickLook.QLPreviewController
 import platform.QuickLook.QLPreviewControllerDataSourceProtocol
+import platform.QuickLook.QLPreviewItemProtocol
 import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 
@@ -36,7 +37,7 @@ private class IosQuickLookDataSource(
     override fun previewController(
         controller: QLPreviewController,
         previewItemAtIndex: Long,
-    ): Any = url
+    ): QLPreviewItemProtocol = url as QLPreviewItemProtocol
 }
 
 @OptIn(ExperimentalForeignApi::class)
