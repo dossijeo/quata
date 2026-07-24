@@ -20,7 +20,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core"))
+            api(project(":core"))
             implementation(project(":designsystem"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             implementation(compose.foundation)
