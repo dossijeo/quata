@@ -117,7 +117,7 @@ class IosAuthRepository(
             ?.contentOrNull
             ?.trim()
             ?.takeIf(String::isNotBlank)
-            ?.let(::PasswordRecoveryQuestion)
+            ?.let { question -> PasswordRecoveryQuestion(secretQuestion = question) }
     }
 
     override suspend fun resetPassword(
