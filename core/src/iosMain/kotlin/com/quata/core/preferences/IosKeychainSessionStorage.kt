@@ -2,18 +2,19 @@ package com.quata.core.preferences
 
 import com.quata.core.model.AuthSession
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.NSData
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -117,8 +118,12 @@ class IosKeychainSessionStorage(
 private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictionaryRef
 
 @OptIn(ExperimentalForeignApi::class)
-private fun String.toNsData(): NSData = (this as NSString).dataUsingEncoding(NSUTF8StringEncoding)
-    ?: error("UTF-8 session payload encoding failed")
+private fun String.toNsData(): NSData {
+    val payload = encodeToByteArray()
+    return payload.usePinned { pinned ->
+        NSData(bytes = pinned.addressOf(0), length = payload.size.toULong())
+    }
+}
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toByteArray(): ByteArray {
