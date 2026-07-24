@@ -13,6 +13,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
+            implementation(project(":designsystem"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             implementation(compose.foundation)
             implementation(compose.material3)
