@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -82,67 +81,68 @@ fun WebProfileHost(
             ProfilePageLayoutContent(
                 isLandscapeLayout = false,
                 scrollState = rememberScrollState(),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Text("Mi perfil", fontWeight = FontWeight.ExtraBold)
-                ProfileOverviewAccountCardContent(
-                    avatar = {
-                        Text(
-                            text = profile.displayName.take(1).uppercase().ifBlank { "Q" },
-                            modifier = Modifier.size(56.dp).padding(16.dp),
-                            fontWeight = FontWeight.ExtraBold,
-                        )
-                    },
-                    actions = {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(profile.displayName, fontWeight = FontWeight.ExtraBold)
-                            Text(profile.neighborhood.ifBlank { "Sin barrio configurado" })
-                            OutlinedButton(onClick = { isSosOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Configurar contactos SOS")
-                            }
-                        }
-                    },
-                )
-                QuataTextField(
-                    value = profile.displayName,
-                    onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
-                    label = "Nombre",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                QuataTextField(
-                    value = profile.neighborhood,
-                    onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
-                    label = "Barrio",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                QuataTextField(
-                    value = profile.phone,
-                    onValueChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
-                    label = "Teléfono",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                QuataSavingButton(
-                    isSaving = state.isSaving,
-                    savingText = "Guardando…",
-                    actionText = "Guardar cambios",
-                    onClick = { viewModel.onEvent(ProfileUiEvent.Save) },
-                )
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            contactPickerMessage = repository.importBrowserContacts().fold(
-                                onSuccess = { count -> if (count == 0) "No se seleccionaron contactos." else "$count contactos disponibles para SOS." },
-                                onFailure = { it.message ?: "No se pudieron importar los contactos." },
+                content = {
+                    Text("Mi perfil", fontWeight = FontWeight.ExtraBold)
+                    ProfileOverviewAccountCardContent(
+                        avatar = {
+                            Text(
+                                text = profile.displayName.take(1).uppercase().ifBlank { "Q" },
+                                modifier = Modifier.size(56.dp).padding(16.dp),
+                                fontWeight = FontWeight.ExtraBold,
                             )
-                            isSosOpen = true
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Importar contactos del dispositivo") }
-                contactPickerMessage?.let { Text(it) }
-                state.successMessage?.let { Text(it) }
-                state.errorMessage?.let { Text(it) }
-            }
+                        },
+                        actions = {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(profile.displayName, fontWeight = FontWeight.ExtraBold)
+                                Text(profile.neighborhood.ifBlank { "Sin barrio configurado" })
+                                OutlinedButton(onClick = { isSosOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Configurar contactos SOS")
+                                }
+                            }
+                        },
+                    )
+                    QuataTextField(
+                        value = profile.displayName,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
+                        label = "Nombre",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    QuataTextField(
+                        value = profile.neighborhood,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
+                        label = "Barrio",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    QuataTextField(
+                        value = profile.phone,
+                        onValueChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
+                        label = "Teléfono",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    QuataSavingButton(
+                        isSaving = state.isSaving,
+                        savingText = "Guardando…",
+                        actionText = "Guardar cambios",
+                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) },
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                contactPickerMessage = repository.importBrowserContacts().fold(
+                                    onSuccess = { count -> if (count == 0) "No se seleccionaron contactos." else "$count contactos disponibles para SOS." },
+                                    onFailure = { it.message ?: "No se pudieron importar los contactos." },
+                                )
+                                isSosOpen = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Importar contactos del dispositivo") }
+                    contactPickerMessage?.let { Text(it) }
+                    state.successMessage?.let { Text(it) }
+                    state.errorMessage?.let { Text(it) }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         if (isSosOpen && profile != null) {
             EmergencyContactsDialogContent(
