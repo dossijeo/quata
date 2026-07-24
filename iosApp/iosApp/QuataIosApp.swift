@@ -2,6 +2,33 @@ import CoreLocation
 import UIKit
 import QuataFeed
 
+enum IosPublicRuntimeConfiguration {
+    private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
+    private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
+
+    /// Values are injected as build settings. The Supabase publishable key is client-safe;
+    /// service-role credentials must never be added to an iOS bundle.
+    static func feedConfiguration(bundle: Bundle = .main) -> IosFeedRuntimeConfiguration? {
+        feedConfiguration(infoDictionary: bundle.infoDictionary ?? [:])
+    }
+
+    /// Kept separate from Bundle access so XCTest can validate unconfigured/expanded settings
+    /// without a deployment bundle, network request or a client credential.
+    static func feedConfiguration(infoDictionary: [String: Any]) -> IosFeedRuntimeConfiguration? {
+        guard
+            let url = configuredValue(for: supabaseUrlKey, infoDictionary: infoDictionary),
+            let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
+        else { return nil }
+        return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
+    }
+
+    private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
+        guard let value = infoDictionary[key] as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.contains("$(") ? nil : trimmed
+    }
+}
+
 /// UIKit launcher and composition boundary for the iOS application.
 ///
 /// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
@@ -32,18 +59,33 @@ private final class IosAppCompositionRoot {
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
+    private lazy var runtimeBootstrap: IosFeedRuntimeBootstrap? = {
+        guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else { return nil }
+        return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = feedHost
         window.makeKeyAndVisible()
         self.window = window
+        installRestoredFeedSessionIfAvailable()
     }
 
     /// Called by the iOS authenticated bootstrap once it has a real `FeedRepository` wrapped in
     /// the Kotlin dependency object. No Android repository, URL or token is created by Swift.
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
         feedHost.installAuthenticatedFeed(dependencies)
+    }
+
+    private func installRestoredFeedSessionIfAvailable() {
+        guard let dependencies = runtimeBootstrap?.restoredDependencies(
+            navigationMessage: "Quata para iOS",
+            onOpenChats: { [weak self] in
+                self?.feedHost.presentChatsMigrationNotice()
+            },
+        ) else { return }
+        installAuthenticatedFeed(dependencies)
     }
 }
 
@@ -73,6 +115,23 @@ private final class IosFeedHostContainerViewController: UIViewController {
             accessibilityIdentifier: "quata-ios-feed-host",
             accessibilityLabel: "Quata iOS Feed",
         )
+    }
+
+    /// The shared Feed can already expose its Conversations affordance, but the authenticated
+    /// iOS Chat repository/navigation host is not wired yet. Keep that action explicit rather
+    /// than routing to an invented screen or silently swallowing the tap.
+    func presentChatsMigrationNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_host_pending_title", value: "Conversaciones", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_host_pending_message",
+                value: "Las conversaciones estarÃ¡n disponibles cuando se complete el host autenticado de iOS.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
     }
 
     private func showMigrationStatus() {
