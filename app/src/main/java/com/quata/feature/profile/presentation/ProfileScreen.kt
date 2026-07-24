@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -203,18 +202,10 @@ fun ProfileScreen(
                 return@QuataScreen
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(accountScrollState)
-                    .padding(
-                        start = if (isLandscapeLayout) 8.dp else 14.dp,
-                        top = if (isLandscapeLayout) 10.dp else 12.dp,
-                        end = 14.dp,
-                        bottom = 12.dp
-                    ),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            ProfilePageLayoutContent(
+                isLandscapeLayout = isLandscapeLayout,
+                scrollState = accountScrollState,
+                content = {
                 when (accountPage) {
                     ProfileAccountPage.Overview -> {
                     QuataPanel(contentPadding = PaddingValues(14.dp)) {
@@ -233,9 +224,9 @@ fun ProfileScreen(
                         )
                     }
 
-                    QuataPanel(contentPadding = PaddingValues(12.dp)) {
-                        val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    ProfileOverviewAccountCardContent(
+                        avatar = {
+                            val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
                             AvatarImage(
                                 name = profile.displayName.ifBlank { "Q" },
                                 avatarUrl = profileAvatarUri,
@@ -251,7 +242,8 @@ fun ProfileScreen(
                                         )
                                     }
                             )
-                            Spacer(Modifier.width(12.dp))
+                        },
+                        actions = {
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(7.dp)
@@ -317,7 +309,7 @@ fun ProfileScreen(
                                 }
                             }
                         }
-                    }
+                    )
 
                     OutlinedButton(
                         onClick = { isEmergencyDialogOpen = true },
@@ -353,21 +345,15 @@ fun ProfileScreen(
                     }
 
                     ProfileAccountPage.Details -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    ProfileDetailsFormContent(
+                        title = stringResource(R.string.profile_my_data),
+                        bottomSpacing = if (isLandscapeLayout) 2.dp else 10.dp,
+                        backAction = {
                         CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
                             CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.profile_my_data),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                        },
+                        fields = {
                     QuataTextField(
                         value = profile.displayName,
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
@@ -405,53 +391,37 @@ fun ProfileScreen(
                         onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
                         label = stringResource(R.string.profile_new_secret_answer)
                     )
-                    Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
+                        },
+                        saveAction = {
                     QuataSavingButton(
                         isSaving = state.isSaving,
                         savingText = stringResource(R.string.common_saving),
                         actionText = stringResource(R.string.common_save_changes),
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
                     )
+                        }
+                    )
                     }
 
                     ProfileAccountPage.Management -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
-                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    ProfileAccountManagementContent(
+                        title = stringResource(R.string.profile_account_management),
+                        description = stringResource(R.string.profile_account_management_description),
+                        descriptionColor = template.colors.textSecondary,
+                        actions = listOf(
+                            ProfileManagementAction(stringResource(R.string.legal_account_deletion), onDeactivateAccount),
+                            ProfileManagementAction(stringResource(R.string.legal_data_deletion), onDeleteAccountData)
+                        ),
+                        backButton = {
+                            CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
+                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                            }
                         }
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.profile_account_management),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.profile_account_management_description),
-                        color = template.colors.textSecondary
                     )
-                    OutlinedButton(
-                        onClick = onDeactivateAccount,
-                        modifier = Modifier.fillMaxWidth().compactButtonMinSize(),
-                        shape = RoundedCornerShape(9.dp),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.legal_account_deletion))
-                    }
-                    OutlinedButton(
-                        onClick = onDeleteAccountData,
-                        modifier = Modifier.fillMaxWidth().compactButtonMinSize(),
-                        shape = RoundedCornerShape(9.dp),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.legal_data_deletion))
-                    }
                     }
                 }
-            }
+                },
+            )
         }
 
         val profile = state.profile
@@ -523,7 +493,6 @@ fun EmergencyContactsDialog(
         messageTab = stringResource(R.string.emergency_message_tab)
     )
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val bottomActionHeight = 54.dp
     val bottomActionOffset = if (isLandscapeLayout) 0.dp else 12.dp
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyContactsTab.Contacts) }
@@ -544,64 +513,38 @@ fun EmergencyContactsDialog(
             contactsListState.scrollToItem(0)
         }
     }
+    // Landscape keeps both tabs visible and consumes the filtered list directly.
     val visibleUsers = filterEmergencyContactCandidates(
         candidates = candidates,
         selectedIds = selectedIds.toSet(),
         query = query
     )
-
     BackHandler(enabled = true, onBack = onDismiss)
-    QuataScreen(padding = layoutPadding) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    start = if (isLandscapeLayout) 16.dp else 18.dp,
-                    end = if (isLandscapeLayout) 16.dp else 18.dp
-                )
-                .padding(top = if (isLandscapeLayout) 10.dp else 14.dp, bottom = if (isLandscapeLayout) 10.dp else 0.dp)
-        ) {
+    EmergencyContactsDialogFrameContent(
+        layoutPadding = layoutPadding,
+        isLandscapeLayout = isLandscapeLayout
+    ) {
                 if (isLandscapeLayout) {
-                    Column(Modifier.fillMaxSize()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CompactIconButton(onClick = onDismiss) {
-                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                            }
-                            Spacer(Modifier.width(6.dp))
-                            Surface(color = template.colors.sosSurface, shape = RoundedCornerShape(16.dp)) {
-                                Text(stringResource(R.string.common_sos), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.ExtraBold)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Text(stringResource(R.string.emergency_contacts_title), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                            Spacer(Modifier.width(12.dp))
-                            Button(
-                                onClick = onSave,
-                                enabled = !isSaving,
-                                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier
-                                    .height(42.dp)
-                                    .width(196.dp)
-                            ) {
-                                Text(
-                                    stringResource(
-                                        if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short
-                                    ),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Column(Modifier.weight(1.08f)) {
-                                Text(stringResource(R.string.emergency_contacts_tab), fontWeight = FontWeight.ExtraBold)
-                                Spacer(Modifier.height(6.dp))
+                    EmergencyContactsLandscapeEditorLayoutContent(
+                        topBar = {
+                            EmergencyContactsLandscapeTopBarContent(
+                                backLabel = stringResource(R.string.common_back),
+                                sosLabel = stringResource(R.string.common_sos),
+                                title = stringResource(R.string.emergency_contacts_title),
+                                saveLabel = stringResource(
+                                    if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short
+                                ),
+                                isSaving = isSaving,
+                                onDismiss = onDismiss,
+                                onSave = onSave
+                            )
+                        },
+                        contacts = { modifier ->
+                            EmergencyContactsLandscapeContactsSectionContent(
+                                title = stringResource(R.string.emergency_contacts_tab),
+                                selectedCountLabel = stringResource(R.string.emergency_selected_count, selectedIds.size),
+                                modifier = modifier,
+                                searchInput = {
                                 OutlinedTextField(
                                     value = query,
                                     onValueChange = { query = it },
@@ -610,11 +553,10 @@ fun EmergencyContactsDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(18.dp)
                                 )
-                                Spacer(Modifier.height(8.dp))
-                                Text(stringResource(R.string.emergency_selected_count, selectedIds.size), color = template.colors.accent, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
+                                },
+                                users = { usersModifier ->
                                 LazyColumn(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = usersModifier,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     items(visibleUsers) { user ->
@@ -625,36 +567,22 @@ fun EmergencyContactsDialog(
                                         )
                                     }
                                 }
-                            }
+                                }
+                            )
+                        },
+                        message = { modifier ->
                             Column(
-                                Modifier
-                                    .weight(0.92f)
+                                modifier
                                     .verticalScroll(messageScrollState)
                             ) {
-                                Text(stringResource(R.string.emergency_message_tab), fontWeight = FontWeight.ExtraBold)
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    stringResource(R.string.emergency_contacts_description),
-                                    color = template.colors.textSecondary,
-                                    lineHeight = 18.sp,
-                                    fontSize = 13.sp,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                                EmergencyContactsLandscapeMessageIntroContent(
+                                    tabLabel = stringResource(R.string.emergency_message_tab),
+                                    description = stringResource(R.string.emergency_contacts_description)
                                 )
-                                Spacer(Modifier.height(8.dp))
-                                QuataPanel(contentPadding = PaddingValues(12.dp)) {
-                                    Column {
-                                        Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
-                                        Spacer(Modifier.height(6.dp))
-                                        Text(
-                                            stringResource(R.string.emergency_message_hint),
-                                            color = template.colors.textSecondary,
-                                            fontSize = 13.sp,
-                                            lineHeight = 18.sp,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(Modifier.height(8.dp))
+                                EmergencyContactsLandscapeMessagePanelContent(
+                                    title = stringResource(R.string.emergency_message_title),
+                                    hint = stringResource(R.string.emergency_message_hint),
+                                    input = {
                                         OutlinedTextField(
                                             value = message,
                                             onValueChange = onMessageChange,
@@ -667,114 +595,75 @@ fun EmergencyContactsDialog(
                                             shape = RoundedCornerShape(18.dp)
                                         )
                                     }
-                                }
+                                )
                             }
                         }
-                    }
+                    )
                 } else {
-                    Column(Modifier.fillMaxSize()) {
-                    when (selectedTab) {
-                        EmergencyContactsTab.Contacts -> LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            state = contactsListState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            item {
-                                if (imeBottom == 0) {
-                                    EmergencyContactsHeaderContent(
-                                        selectedTab = selectedTab,
-                                        strings = headerStrings,
-                                        onTabSelected = { selectedTab = it },
-                                        onDismiss = onDismiss
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                }
-                                OutlinedTextField(
-                                    value = query,
-                                    onValueChange = { query = it },
-                                    placeholder = { Text(stringResource(R.string.emergency_search_placeholder)) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    stringResource(R.string.emergency_selected_count, selectedIds.size),
-                                    color = template.colors.accent,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.height(14.dp))
-                                Text(stringResource(R.string.emergency_network_users), fontWeight = FontWeight.ExtraBold)
-                            }
-                            items(visibleUsers, key = { it.id }) { user ->
+                    EmergencyContactsPortraitEditorLayoutContent(
+                        body = { modifier ->
+                            when (selectedTab) {
+                                EmergencyContactsTab.Contacts -> EmergencyContactsSelectionContent(
+                            candidates = candidates,
+                            selectedIds = selectedIds.toSet(),
+                            query = query,
+                            onQueryChange = { query = it },
+                            listState = contactsListState,
+                            showHeader = imeBottom == 0,
+                            headerStrings = headerStrings,
+                            searchPlaceholder = stringResource(R.string.emergency_search_placeholder),
+                            selectedCountLabel = stringResource(R.string.emergency_selected_count, selectedIds.size),
+                            networkUsersLabel = stringResource(R.string.emergency_network_users),
+                            onTabSelected = { selectedTab = it },
+                            onDismiss = onDismiss,
+                            userRow = { user, selected ->
                                 EmergencyUserRow(
                                     user = user,
-                                    selected = user.id in selectedIds,
+                                    selected = selected,
                                     onToggle = { onToggleContact(user) }
                                 )
-                            }
-                        }
-                        EmergencyContactsTab.Message -> Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .verticalScroll(messageScrollState)
-                        ) {
-                            if (imeBottom == 0) {
-                                EmergencyContactsHeaderContent(
-                                    selectedTab = selectedTab,
-                                    strings = headerStrings,
-                                    onTabSelected = { selectedTab = it },
-                                    onDismiss = onDismiss
+                            },
+                            modifier = modifier
                                 )
-                                Spacer(Modifier.height(10.dp))
+                                EmergencyContactsTab.Message -> EmergencyContactsMessageContent(
+                            scrollState = messageScrollState,
+                            showHeader = imeBottom == 0,
+                            headerStrings = headerStrings,
+                            title = stringResource(R.string.emergency_message_title),
+                            hint = stringResource(R.string.emergency_message_hint),
+                            onTabSelected = { selectedTab = it },
+                            onDismiss = onDismiss,
+                            messageInput = {
+                                OutlinedTextField(
+                                    value = message,
+                                    onValueChange = onMessageChange,
+                                    minLines = 8,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(messageBringIntoViewRequester)
+                                        .onFocusChanged { isMessageFocused = it.isFocused },
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                            },
+                            modifier = modifier
+                                )
                             }
-                            QuataPanel {
-                                Column {
-                                    Text(stringResource(R.string.emergency_message_title), fontWeight = FontWeight.ExtraBold)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        stringResource(R.string.emergency_message_hint),
-                                        color = template.colors.textSecondary
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                    OutlinedTextField(
-                                        value = message,
-                                        onValueChange = onMessageChange,
-                                        minLines = 8,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .bringIntoViewRequester(messageBringIntoViewRequester)
-                                            .onFocusChanged { isMessageFocused = it.isFocused },
-                                        shape = RoundedCornerShape(18.dp)
-                                    )
-                                }
+                        },
+                        saveAction = {
+                            if (imeBottom == 0) {
+                                Spacer(Modifier.height(18.dp))
+                                EmergencyContactsPortraitSaveButtonContent(
+                                    label = stringResource(
+                                        if (isSaving) R.string.common_saving else R.string.emergency_save_contacts
+                                    ),
+                                    isSaving = isSaving,
+                                    onSave = onSave
+                                )
+                                Spacer(Modifier.height(bottomActionOffset))
                             }
                         }
-                    }
-                    if (imeBottom == 0) {
-                        Spacer(Modifier.height(18.dp))
-                        Button(
-                            onClick = onSave,
-                            enabled = !isSaving,
-                            colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(bottomActionHeight)
-                        ) {
-                            Text(
-                                stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        Spacer(Modifier.height(bottomActionOffset))
-                    }
-                    }
+                    )
                 }
-        }
     }
 }
 

@@ -17,6 +17,9 @@ kotlin {
     js(IR) {
         browser()
     }
+    wasmJs {
+        browser()
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -32,5 +35,6 @@ kotlin {
         androidMain.dependencies { }
         iosMain.dependencies { }
         jsMain.dependencies { }
+        wasmJsMain.dependencies { }
     }
 }

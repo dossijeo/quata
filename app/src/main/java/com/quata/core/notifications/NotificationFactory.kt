@@ -37,6 +37,7 @@ class NotificationFactory(private val context: Context) {
             ?: context.localizedSosPreview(body)
             ?: body
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
             data = Uri.parse(quataChatUrl(conversationId, messageId))
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -75,6 +76,7 @@ class NotificationFactory(private val context: Context) {
             .takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_message)
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
             data = Uri.parse(quataChatUrl(conversation.id))
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -106,6 +108,7 @@ class NotificationFactory(private val context: Context) {
         if (!hasNotificationPermission()) return
         val notificationId = chatNotificationId(conversationId)
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
             data = Uri.parse(quataChatUrl(conversationId))
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }

@@ -359,28 +359,14 @@ private fun QuataCommentsPanelHeader(
     onTranslatorClick: (View) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(R.string.comments_title),
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 15.sp,
-            color = template.colors.textSecondary
-        )
-        Spacer(Modifier.width(10.dp))
-        Text("\uD83D\uDCAC", fontSize = 16.sp)
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = commentsCount.toString(),
-            color = template.colors.textSecondary,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.weight(1f))
-        FangTranslatorIconButton(onClick = onTranslatorClick)
-    }
+    QuataCommentsPanelHeaderContent(
+        title = stringResource(R.string.comments_title),
+        commentsCount = commentsCount,
+        trailingAction = { actionModifier ->
+            FangTranslatorIconButton(onClick = onTranslatorClick, modifier = actionModifier)
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable

@@ -16,6 +16,9 @@ kotlin {
     js(IR) {
         browser()
     }
+    wasmJs {
+        browser()
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -29,8 +32,10 @@ kotlin {
         androidMain.dependencies {
             implementation("com.google.android.gms:play-services-location:21.3.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+            implementation("androidx.media3:media3-exoplayer:1.5.1")
         }
         iosMain.dependencies { }
         jsMain.dependencies { }
+        wasmJsMain.dependencies { }
     }
 }

@@ -1264,34 +1264,10 @@ private fun VideoTimeline(
 
 @Composable
 private fun VideoMaxDurationWarningBanner(modifier: Modifier = Modifier) {
-    val template = quataTheme()
-    val shape = RoundedCornerShape(8.dp)
-    Row(
-        modifier = modifier
-            .clip(shape)
-            .background(template.colors.surface.copy(alpha = 0.92f))
-            .border(1.dp, QuataOrange, shape)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Info,
-            contentDescription = null,
-            tint = QuataOrange,
-            modifier = Modifier.size(24.dp)
-        )
-        Text(
-            text = stringResource(R.string.video_editor_max_duration_warning),
-            color = template.colors.textSecondary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    VideoMaxDurationWarningContent(
+        message = stringResource(R.string.video_editor_max_duration_warning),
+        modifier = modifier,
+    )
 }
 
 @Composable

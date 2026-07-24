@@ -19,6 +19,21 @@ import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.core.presence.UserPresenceRepository
 import com.quata.core.presence.UserPresenceRepositoryImpl
 import com.quata.core.session.SessionManager
+import com.quata.core.platform.AndroidShareService
+import com.quata.core.platform.ShareService
+import com.quata.core.platform.AndroidClipboardService
+import com.quata.core.platform.AndroidAudioPlayerService
+import com.quata.core.platform.AndroidAudioRecorderService
+import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.AndroidLocationService
+import com.quata.core.platform.LocationService
+import com.quata.core.platform.AndroidFilePickerService
+import com.quata.core.platform.AndroidPermissionService
+import com.quata.core.platform.AndroidPlatformServices
+import com.quata.core.platform.AndroidPreferenceStore
+import com.quata.core.platform.PlatformServices
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.chat.data.ChatMessageStateAckManager
@@ -54,6 +69,23 @@ class AppContainer(context: Context) {
 
     val touchFlowPreferences = TouchFlowPreferences(appContext)
     val themePreferences = ThemePreferences(appContext)
+    val shareService: ShareService = AndroidShareService(appContext)
+    val clipboardService: ClipboardService = AndroidClipboardService(appContext)
+    /** Android-owned media engines exposed for feature injection; no feature retains Context. */
+    val audioRecorderService: AudioRecorderService = AndroidAudioRecorderService(appContext)
+    val audioPlayerService: AudioPlayerService = AndroidAudioPlayerService(appContext)
+    val locationService: LocationService = AndroidLocationService(appContext)
+    /** Bound by MainActivity to its Activity Result registry; features still receive only FilePickerService. */
+    val filePickerService = AndroidFilePickerService(appContext)
+    val permissionService = AndroidPermissionService(appContext)
+    val platformServices: PlatformServices = AndroidPlatformServices(
+        preferences = AndroidPreferenceStore(appContext),
+        clipboard = clipboardService,
+        share = shareService,
+        filePicker = filePickerService,
+        location = locationService,
+        permissions = permissionService,
+    )
 
     val imagePickerManager = ImagePickerManager()
     val cameraCaptureManager = CameraCaptureManager()

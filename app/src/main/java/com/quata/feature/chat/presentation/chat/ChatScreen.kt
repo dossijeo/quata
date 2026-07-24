@@ -155,6 +155,12 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
 import com.quata.core.model.User
+import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.PlatformResult
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.text.localizedSosMessage
 import androidx.core.content.ContextCompat
@@ -202,6 +208,9 @@ fun ChatScreen(
     padding: PaddingValues,
     conversationId: String,
     repository: ChatRepository,
+    clipboardService: ClipboardService,
+    filePickerService: FilePickerService,
+    audioRecorderService: AudioRecorderService,
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null,
     onOpenConversation: (String) -> Unit = {},
@@ -220,7 +229,6 @@ fun ChatScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val isAppForeground by repository.isAppForeground.collectAsState()
     val context = LocalContext.current
-    val clipboard = LocalClipboard.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val screenScope = rememberCoroutineScope()
@@ -359,9 +367,6 @@ fun ChatScreen(
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
-    }
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.toString(), context.displayNameForUri(it), context.contentResolver.getType(it))) }
     }
@@ -479,6 +484,7 @@ fun ChatScreen(
 
     if (isAudioRecorderVisible) {
         QuataAudioRecorderDialog(
+            recorderService = audioRecorderService,
             onDismiss = { isAudioRecorderVisible = false },
             onAudioRecorded = { uri, name, mimeType ->
                 isAudioRecorderVisible = false
@@ -560,9 +566,7 @@ fun ChatScreen(
                             onCopySelected = {
                                 selectedMessage?.let { message ->
                                     screenScope.launch {
-                                        clipboard.setClipEntry(
-                                            ClipEntry(ClipData.newPlainText("Qüata", message.text))
-                                        )
+                                        clipboardService.writeText(message.text)
                                     }
                                 }
                                 Toast.makeText(context, context.getString(R.string.conversation_text_copied), Toast.LENGTH_SHORT).show()
@@ -764,7 +768,27 @@ fun ChatScreen(
                         ChatAttachmentQuickPanel(
                             onPickFile = {
                                 attachmentMenuExpanded = false
-                                filePicker.launch("*/*")
+                                screenScope.launch {
+                                    when (
+                                        val result = filePickerService.pick(
+                                            FilePickerRequest(source = FilePickerSource.Documents),
+                                        )
+                                    ) {
+                                        is PlatformResult.Success -> result.value.firstOrNull()?.let { file ->
+                                            viewModel.onEvent(
+                                                ChatUiEvent.AttachmentSelected(
+                                                    uri = file.reference,
+                                                    name = file.displayName
+                                                        ?: file.reference.substringAfterLast('/'),
+                                                    mimeType = file.mimeType,
+                                                )
+                                            )
+                                        }
+                                        is PlatformResult.Failure,
+                                        PlatformResult.Cancelled,
+                                        PlatformResult.Unsupported -> Unit
+                                    }
+                                }
                             },
                             onPickGallery = {
                                 attachmentMenuExpanded = false
@@ -774,13 +798,10 @@ fun ChatScreen(
                         )
                     }
                     if (!isFavoritesConversation) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .requiredHeightIn(min = 78.dp)
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        val canSend = messageFieldValue.text.isNotBlank() || state.attachmentUri != null
+                        ChatComposerInputRowContent(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            textInput = { inputModifier ->
                             OutlinedTextField(
                                 value = messageFieldValue,
                                 onValueChange = {
@@ -788,9 +809,7 @@ fun ChatScreen(
                                     viewModel.onEvent(ChatUiEvent.MessageChanged(it.text))
                                 },
                                 placeholder = { Text(stringResource(R.string.conversation_message)) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .requiredHeightIn(min = 62.dp)
+                                modifier = inputModifier
                                     .onFocusChanged { focusState ->
                                         if (focusState.isFocused) {
                                             attachmentMenuExpanded = false
@@ -835,25 +854,22 @@ fun ChatScreen(
                                 },
                                 shape = RoundedCornerShape(24.dp)
                             )
-                            Spacer(Modifier.width(8.dp))
+                            },
+                            cameraAction = { cameraModifier ->
                             CompactIconButton(
                                 onClick = {
                                     isEmojiPickerVisible = false
                                     attachmentMenuExpanded = false
                                     launchCameraAttachment()
                                 },
-                                modifier = Modifier.size(48.dp)
+                                modifier = cameraModifier.size(48.dp)
                             ) {
                                 CompactIcon(Icons.Filled.PhotoCamera, contentDescription = stringResource(R.string.conversation_attach_camera))
                             }
-                            Spacer(Modifier.width(6.dp))
-                            val canSend = messageFieldValue.text.isNotBlank() || state.attachmentUri != null
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(QuataOrange)
-                                    .clickable {
+                            },
+                            primaryAction = {
+                            ChatComposerPrimaryActionContent(
+                                onClick = {
                                         if (canSend) {
                                             context.playChatSound(R.raw.sent)
                                             isEmojiPickerVisible = false
@@ -864,16 +880,17 @@ fun ChatScreen(
                                             attachmentMenuExpanded = false
                                             launchAudioRecorder()
                                         }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
+                                },
+                                icon = {
                                 CompactIcon(
                                     imageVector = if (canSend) Icons.AutoMirrored.Filled.Send else Icons.Filled.Mic,
                                     contentDescription = stringResource(if (canSend) R.string.common_send else R.string.conversation_attach_audio),
                                     tint = Color.White
                                 )
-                            }
-                        }
+                                },
+                            )
+                            },
+                        )
                     }
                 }
             if (!isFavoritesConversation && isEmojiPickerVisible && isLandscapeLayout) {
@@ -994,6 +1011,7 @@ fun ChatScreen(
                 openingCandidateProfileId = state.addingCandidateProfileId,
                 candidateError = state.participantCandidateError
             ),
+            clipboardService = clipboardService,
             onSearchChange = viewModel::onParticipantCandidateQueryChanged,
             onLoadMore = viewModel::loadMoreParticipantCandidates,
             onOpenCandidate = { candidate -> viewModel.addConversationCandidateParticipant(candidate.profileId) },
@@ -1022,6 +1040,7 @@ fun ChatScreen(
                 candidateActorNeighborhood = state.forwardCandidateActorNeighborhood,
                 candidateError = state.forwardCandidateError
             ),
+            clipboardService = clipboardService,
             onSearchChange = viewModel::onForwardCandidateQueryChanged,
             onLoadMore = viewModel::loadMoreForwardConversationCandidates,
             onOpenCandidate = { candidate -> viewModel.onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) },
@@ -1152,21 +1171,12 @@ private fun PendingChatAttachmentOverlay(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = template.colors.surface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 8.dp,
-        modifier = modifier
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(onClick = onOpen)
-                    .padding(18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+    ChatPendingAttachmentOverlayContent(
+        name = attachment.name,
+        surfaceColor = template.colors.surface.copy(alpha = 0.96f),
+        textColor = template.colors.textPrimary,
+        onOpen = onOpen,
+        preview = {
                 when {
                     attachment.isAudio -> AudioAttachmentPlayer(
                         attachment = attachment,
@@ -1186,27 +1196,19 @@ private fun PendingChatAttachmentOverlay(
                             .heightIn(min = 180.dp, max = 360.dp)
                     )
                 }
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    attachment.name,
-                    color = template.colors.textPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        },
+        clearAction = { clearModifier ->
             CompactIconButton(
                 onClick = onClear,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                modifier = clearModifier
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.12f))
             ) {
                 CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_cancel))
             }
-        }
-    }
+        },
+        modifier = modifier,
+    )
 }
 
 private fun ChatUiState.pendingAttachmentPreview(): AttachmentPreview? {
@@ -1220,30 +1222,11 @@ private fun ChatUiState.pendingAttachmentPreview(): AttachmentPreview? {
 
 @Composable
 private fun FavoriteMessagesHeader(onBack: () -> Unit) {
-    val template = quataTheme()
-    Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CompactIconButton(onClick = onBack) {
-                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-            }
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.accent.copy(alpha = 0.22f)),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIcon(Icons.Filled.Star, contentDescription = null, tint = template.colors.accent)
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.conversation_favorites_title), fontWeight = FontWeight.ExtraBold)
-        }
-    }
+    FavoriteMessagesHeaderContent(
+        title = stringResource(R.string.conversation_favorites_title),
+        backLabel = stringResource(R.string.common_back),
+        onBack = onBack
+    )
 }
 
 @Composable
@@ -1774,75 +1757,7 @@ private fun MutedConversationBadge(modifier: Modifier = Modifier) {
 private fun ChatMessageSkeleton(
     isMine: Boolean,
     pulseDelayMillis: Int
-) {
-    val template = quataTheme()
-    val transition = rememberInfiniteTransition(label = "chat_message_skeleton")
-    val pulse by transition.animateFloat(
-        initialValue = 0.48f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 860, delayMillis = pulseDelayMillis),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "chat_message_skeleton_alpha"
-    )
-    val bubbleColor = if (isMine) template.colors.accent.copy(alpha = 0.12f + 0.12f * pulse) else template.colors.surface.copy(alpha = 0.28f + 0.20f * pulse)
-    val lineColor = template.colors.textPrimary.copy(alpha = 0.07f + 0.13f * pulse)
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
-    ) {
-        if (!isMine) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 4.dp, end = 8.dp)
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surface.copy(alpha = 0.28f + 0.20f * pulse))
-            )
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.76f)
-                .clip(RoundedCornerShape(22.dp))
-                .background(bubbleColor)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.42f)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(lineColor)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(lineColor)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.68f)
-                    .height(18.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(lineColor.copy(alpha = lineColor.alpha * 0.82f))
-            )
-        }
-        if (isMine) {
-            Box(
-                modifier = Modifier
-                    .padding(start = 8.dp, top = 4.dp)
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.accent.copy(alpha = 0.08f + 0.10f * pulse))
-            )
-        }
-    }
-}
+) = ChatMessageSkeletonContent(isMine, pulseDelayMillis)
 
 @Composable
 private fun MessageBubble(
@@ -1867,12 +1782,11 @@ private fun MessageBubble(
     val sosLocationMessage = remember(context, message.text) {
         context.localizedSosMessage(message.text) ?: message.text.parseSosLocationMessage()
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Top
-    ) {
-        if (showSenderAvatar) {
+    ChatMessageBubbleLayoutContent(
+        isMine = message.isMine,
+        isSelected = isSelected,
+        showSenderAvatar = showSenderAvatar,
+        avatar = {
             ClickableProfileAvatar(
                 name = sender?.displayName ?: message.senderName,
                 avatarUrl = sender?.avatarUrl,
@@ -1883,28 +1797,8 @@ private fun MessageBubble(
                     .size(34.dp)
                     .border(1.dp, template.colors.divider, CircleShape)
             )
-            Spacer(Modifier.width(8.dp))
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(if (showSenderAvatar) 0.72f else 0.78f)
-                .background(
-                    when {
-                        isSelected -> template.colors.chatSelected
-                        message.isMine -> template.colors.chatMine
-                        else -> template.colors.chatOther
-                    },
-                    RoundedCornerShape(20.dp)
-                )
-                .border(
-                    width = 1.dp,
-                    color = when {
-                        isSelected -> template.colors.accent.copy(alpha = 0.45f)
-                        message.isMine -> Color.Transparent
-                        else -> template.colors.divider
-                    },
-                    shape = RoundedCornerShape(20.dp)
-                )
+        },
+        bubbleModifier = Modifier
                 .pointerInput(composeKey) {
                     var totalDrag = 0f
                     detectHorizontalDragGestures(
@@ -1935,153 +1829,121 @@ private fun MessageBubble(
                     }
                 )
                 .clickable(onClick = onClick)
-                .padding(14.dp)
-        ) {
+    ) {
             val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(message.senderName, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.weight(1f))
-                Box(
-                    modifier = Modifier
-                        .width(104.dp)
-                        .height(16.dp),
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    Row(
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Text(
-                            message.chatTimestampLabel(context),
-                            color = textColor.copy(alpha = 0.56f),
-                            fontSize = 12.sp
-                        )
-                        if (message.isMine) {
-                            Spacer(Modifier.width(4.dp))
+            ChatMessageBubbleContent(
+                header = {
+                    ChatMessageHeaderContent(
+                        senderName = message.senderName,
+                        timestamp = message.chatTimestampLabel(context),
+                        isMine = message.isMine,
+                        isEdited = message.isEdited,
+                        isFavorite = message.isFavorite,
+                        editedLabel = stringResource(R.string.conversation_edited),
+                        textColor = textColor,
+                        deliveryIndicator = {
                             MessageDeliveryIndicator(
                                 state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
                                 tint = textColor.copy(alpha = 0.62f),
                                 readTint = template.colors.accent
                             )
-                        }
-                    }
-                    if (message.isEdited || message.isFavorite) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(y = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (message.isEdited) {
-                                Text(
-                                    stringResource(R.string.conversation_edited),
-                                    color = textColor.copy(alpha = 0.62f),
-                                    fontSize = 11.sp
-                                )
-                            }
-                            if (message.isFavorite) {
-                                CompactIcon(
-                                    Icons.Filled.StarBorder,
-                                    contentDescription = stringResource(R.string.conversation_favorite_marker),
-                                    tint = textColor.copy(alpha = 0.62f),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.padding(2.dp))
-            if (message.forwardedFromSenderName != null) {
-                Text(
-                    stringResource(R.string.conversation_forwarded_from),
-                    color = textColor.copy(alpha = 0.72f),
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 12.sp
-                )
-                Spacer(Modifier.padding(2.dp))
-            }
-            if (message.replyToText != null) {
-                Surface(
-                    color = Color.Black.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(8.dp)) {
-                        Text(message.replyToSenderName.orEmpty(), fontWeight = FontWeight.Bold, color = textColor, fontSize = 12.sp)
-                        Text(message.replyToText.orEmpty(), color = textColor.copy(alpha = 0.72f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                Spacer(Modifier.padding(4.dp))
-            }
-            if (message.isDeleted) {
-                Text(stringResource(R.string.conversation_deleted_message), color = textColor.copy(alpha = 0.72f))
-            } else {
-                if (message.text.isNotBlank()) {
-                    if (sosLocationMessage != null) {
-                        SosLocationMessageContent(
-                            message = sosLocationMessage,
-                            textColor = textColor,
-                            accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
-                            onOpenMaps = { url -> context.openMaps(url) }
-                        )
-                    } else {
-                        LinkifiedMessageText(
-                            text = message.text,
-                            color = textColor,
-                            linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
-                        )
-                    }
-                }
-                message.attachmentPreview(context)?.let { attachment ->
-                    Spacer(Modifier.padding(4.dp))
-                    if (attachment.isAudio) {
-                        AudioAttachmentPlayer(
-                            attachment = attachment,
-                            textColor = textColor,
-                            autoPlay = autoPlayVoiceNote,
-                            pauseRequested = pauseVoiceNote,
-                            onPlaybackStarted = onVoiceNoteStarted,
-                            onPlaybackEnded = onVoiceNoteEnded
-                        )
-                    } else if (attachment.isMedia) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onOpenAttachment(attachment) }
-                        ) {
-                            AttachmentThumbnail(
-                                attachment = attachment,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
+                        },
+                        favoriteMarker = {
+                            CompactIcon(
+                                Icons.Filled.StarBorder,
+                                contentDescription = stringResource(R.string.conversation_favorite_marker),
+                                tint = textColor.copy(alpha = 0.62f),
+                                modifier = Modifier.size(15.dp)
                             )
                         }
+                    )
+                },
+                forwardedMarker = if (message.forwardedFromSenderName != null) {
+                    {
+                        ChatForwardedMarkerContent(
+                            label = stringResource(R.string.conversation_forwarded_from),
+                            textColor = textColor,
+                        )
+                    }
+                } else null,
+                replyQuote = if (message.replyToText != null) {
+                    {
+                        ChatReplyQuoteContent(
+                            senderName = message.replyToSenderName.orEmpty(),
+                            text = message.replyToText.orEmpty(),
+                            textColor = textColor,
+                        )
+                    }
+                } else null,
+                body = {
+                    if (message.isDeleted) {
+                        Text(stringResource(R.string.conversation_deleted_message), color = textColor.copy(alpha = 0.72f))
                     } else {
-                        Surface(
-                            color = Color.Black.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.clickable { onOpenAttachment(attachment) }
-                        ) {
-                            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                CompactIcon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
-                                Spacer(Modifier.width(8.dp))
-                                Text(attachment.name, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (message.text.isNotBlank()) {
+                            if (sosLocationMessage != null) {
+                                SosLocationMessageContent(
+                                    message = sosLocationMessage,
+                                    textColor = textColor,
+                                    accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
+                                    onOpenMaps = { url -> context.openMaps(url) }
+                                )
+                            } else {
+                                LinkifiedMessageText(
+                                    text = message.text,
+                                    color = textColor,
+                                    linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
+                                )
+                            }
+                        }
+                        message.attachmentPreview(context)?.let { attachment ->
+                            Spacer(Modifier.padding(4.dp))
+                            if (attachment.isAudio) {
+                                AudioAttachmentPlayer(
+                                    attachment = attachment,
+                                    textColor = textColor,
+                                    autoPlay = autoPlayVoiceNote,
+                                    pauseRequested = pauseVoiceNote,
+                                    onPlaybackStarted = onVoiceNoteStarted,
+                                    onPlaybackEnded = onVoiceNoteEnded
+                                )
+                            } else if (attachment.isMedia) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onOpenAttachment(attachment) }
+                                ) {
+                                    AttachmentThumbnail(
+                                        attachment = attachment,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                    )
+                                }
+                            } else {
+                                ChatDocumentAttachmentContent(
+                                    name = attachment.name,
+                                    textColor = textColor,
+                                    onOpen = { onOpenAttachment(attachment) },
+                                    icon = {
+                                        CompactIcon(Icons.Filled.AttachFile, contentDescription = null, tint = textColor)
+                                    },
+                                )
                             }
                         }
                     }
-                }
-            }
-            if (mapsUrl != null && sosLocationMessage == null) {
-                Spacer(Modifier.padding(4.dp))
-                Text(
-                    text = stringResource(R.string.conversation_open_maps),
-                    color = if (message.isMine) template.colors.accentContent else template.colors.accent,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.clickable { context.openMaps(mapsUrl) }
-                )
-            }
+                },
+                mapAction = if (mapsUrl != null && sosLocationMessage == null) {
+                    {
+                        Text(
+                            text = stringResource(R.string.conversation_open_maps),
+                            color = if (message.isMine) template.colors.accentContent else template.colors.accent,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable { context.openMaps(mapsUrl) }
+                        )
+                    }
+                } else null,
+            )
         }
-    }
 }
 
 @Composable
@@ -2105,128 +1967,30 @@ private fun SosLocationMessageContent(
     accentColor: Color,
     onOpenMaps: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = message.title,
-            color = textColor,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 15.sp
-        )
-        message.body?.let { body ->
-            Text(text = body, color = textColor, fontSize = 14.sp)
-        }
-        message.locationLabel?.let { label ->
-            Text(
-                text = label,
-                color = textColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
+    ChatSosLocationContent(
+        title = message.title,
+        body = message.body,
+        locationLabel = message.locationLabel,
+        mapsUrl = message.mapsUrl,
+        age = message.age?.let { stringResource(R.string.sos_location_age, it) },
+        accuracy = message.accuracy?.let { stringResource(R.string.sos_location_accuracy, it) },
+        speed = message.speed?.let { stringResource(R.string.sos_location_speed, it) },
+        isUpdate = message.isUpdate,
+        isUnavailable = message.isUnavailable,
+        unavailableLabel = stringResource(R.string.sos_location_unavailable),
+        openMapsLabel = stringResource(R.string.conversation_open_maps),
+        textColor = textColor,
+        accentColor = accentColor,
+        onOpenMaps = onOpenMaps,
+        mapPreviewIcon = {
+            CompactIcon(
+                imageVector = Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(42.dp),
             )
-        }
-        if (message.mapsUrl != null && message.isUpdate) {
-            SosLocationMapPreview(accentColor = accentColor)
-        }
-        if (message.age != null || message.accuracy != null || message.speed != null) {
-            Surface(
-                color = Color.White.copy(alpha = 0.30f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    message.age?.let {
-                        Text(
-                            text = stringResource(R.string.sos_location_age, it),
-                            color = textColor,
-                            fontSize = 13.sp
-                        )
-                    }
-                    message.accuracy?.let {
-                        Text(
-                            text = stringResource(R.string.sos_location_accuracy, it),
-                            color = textColor,
-                            fontSize = 13.sp
-                        )
-                    }
-                    message.speed?.let {
-                        Text(
-                            text = stringResource(R.string.sos_location_speed, it),
-                            color = textColor,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-            }
-        } else if (message.isUnavailable) {
-            Surface(
-                color = Color.White.copy(alpha = 0.24f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.sos_location_unavailable),
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                )
-            }
-        }
-        message.mapsUrl?.let { url ->
-            Text(
-                text = stringResource(R.string.conversation_open_maps),
-                color = accentColor,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.clickable { onOpenMaps(url) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun SosLocationMapPreview(accentColor: Color) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(92.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFFE8F0EA),
-                        Color(0xFFF6EFE5),
-                        Color(0xFFDDECF7)
-                    )
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        repeat(4) { index ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .offset(y = ((index - 1) * 18).dp)
-                    .background(Color.White.copy(alpha = 0.72f))
-            )
-        }
-        repeat(3) { index ->
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(92.dp)
-                    .offset(x = ((index - 1) * 42).dp)
-                    .background(Color.White.copy(alpha = 0.62f))
-            )
-        }
-        CompactIcon(
-            imageVector = Icons.Filled.LocationOn,
-            contentDescription = null,
-            tint = accentColor,
-            modifier = Modifier.size(42.dp)
-        )
-    }
+        },
+    )
 }
 
 @Composable

@@ -114,6 +114,7 @@ import com.quata.core.media.QuataMediaCache
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.documentreader.QuataDocumentPreviewRenderer
 import com.quata.documentreader.QuataDocumentReader
+import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentPlayerContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -234,19 +235,21 @@ fun AudioAttachmentPlayer(
         }
     }
     val player = remember(attachment.uri) {
-        ExoPlayer.Builder(context, VoiceNoteRenderersFactory(context)).build().apply {
-            setAudioAttributes(VoiceNoteSpeakerAudioAttributes, true)
-            setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
-            repeatMode = Player.REPEAT_MODE_OFF
-            prepare()
-        }
+        ExoPlayer.Builder(context, VoiceNoteRenderersFactory(context))
+            .setMediaSourceFactory(QuataMediaCache.audioMediaSourceFactory(context))
+            .build()
+            .apply {
+                setAudioAttributes(VoiceNoteSpeakerAudioAttributes, true)
+                setMediaItem(MediaItem.fromUri(Uri.parse(attachment.uri)))
+                repeatMode = Player.REPEAT_MODE_OFF
+                prepare()
+            }
     }
     var isPlaying by remember(attachment.uri) { mutableStateOf(false) }
     var durationMillis by remember(attachment.uri) { mutableStateOf(0L) }
     var positionMillis by remember(attachment.uri) { mutableStateOf(0L) }
     var hasError by remember(attachment.uri) { mutableStateOf(false) }
     var hasAutoPlayedCurrentAttachment by remember(attachment.uri) { mutableStateOf(false) }
-    var scrubberSize by remember { mutableStateOf(IntSize.Zero) }
     val progress = if (durationMillis > 0) {
         (positionMillis.toFloat() / durationMillis.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -260,10 +263,6 @@ fun AudioAttachmentPlayer(
             .coerceIn(0L, durationMillis)
         positionMillis = target
         player.seekTo(target)
-    }
-    fun seekToX(x: Float) {
-        val width = scrubberSize.width.toFloat().coerceAtLeast(1f)
-        seekToFraction(x / width)
     }
 
     DisposableEffect(player) {
@@ -364,113 +363,27 @@ fun AudioAttachmentPlayer(
         }
     }
 
-    Surface(
-        color = Color.Black.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(QuataOrange),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIconButton(
-                    enabled = !hasError,
-                    onClick = {
-                        if (isPlaying) {
-                            player.pause()
-                            isPlaying = false
-                        } else {
-                            if (player.playbackState == Player.STATE_ENDED) {
-                                player.seekTo(0L)
-                            }
-                            player.play()
-                        }
-                    }
-                ) {
-                    CompactIcon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.video_editor_play_pause),
-                        tint = Color.White
-                    )
-                }
+    ChatAudioAttachmentPlayerContent(
+        isPlaying = isPlaying,
+        hasError = hasError,
+        progress = progress,
+        displayText = if (hasError) attachment.name else formatAudioAttachmentMillis(
+            if (isPlaying) positionMillis else durationMillis
+        ),
+        textColor = textColor,
+        playPauseDescription = stringResource(R.string.video_editor_play_pause),
+        onTogglePlayback = {
+            if (isPlaying) {
+                player.pause()
+                isPlaying = false
+            } else {
+                if (player.playbackState == Player.STATE_ENDED) player.seekTo(0L)
+                player.play()
             }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(26.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(24) { index ->
-                        val barHeight = (8 + ((index * 7) % 18)).dp
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(barHeight)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(textColor.copy(alpha = if (index / 24f <= progress) 0.82f else 0.28f))
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(14.dp)
-                        .onSizeChanged { scrubberSize = it }
-                        .pointerInput(durationMillis, scrubberSize) {
-                            detectTapGestures { offset -> seekToX(offset.x) }
-                        }
-                        .pointerInput(durationMillis, scrubberSize) {
-                            detectHorizontalDragGestures(
-                                onDragStart = { offset -> seekToX(offset.x) },
-                                onHorizontalDrag = { change, _ -> seekToX(change.position.x) }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(999.dp)),
-                        color = textColor.copy(alpha = 0.78f),
-                        trackColor = textColor.copy(alpha = 0.18f)
-                    )
-                }
-                Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CompactIcon(
-                        Icons.Filled.Mic,
-                        contentDescription = null,
-                        tint = textColor.copy(alpha = 0.68f),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = if (hasError) {
-                            attachment.name
-                        } else {
-                            formatAudioAttachmentMillis(if (isPlaying) positionMillis else durationMillis)
-                        },
-                        color = textColor.copy(alpha = 0.68f),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
+        },
+        onSeekToFraction = ::seekToFraction,
+        modifier = modifier,
+    )
 }
 
 @Composable

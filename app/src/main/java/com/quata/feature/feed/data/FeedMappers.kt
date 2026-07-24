@@ -93,3 +93,39 @@ fun CommunityProfile.toDomainUser(): User =
         isAdmin = is_admin == true,
         isOfficial = is_official == true
     )
+
+fun CommunityPost.toFeedRemote(): FeedRemotePost = FeedRemotePost(
+    id = id,
+    profileId = profile_id,
+    authorId = author_id,
+    body = body,
+    content = content,
+    imageUrl = image_url,
+    videoUrl = video_url,
+    createdAt = created_at,
+)
+
+fun CommunityComment.toFeedRemote(): FeedRemoteComment = FeedRemoteComment(
+    id = id,
+    postId = post_id,
+    profileId = profile_id,
+    body = body,
+    createdAt = created_at,
+)
+
+fun com.quata.data.supabase.CommunityPostLike.toFeedRemote(): FeedRemoteLike =
+    FeedRemoteLike(postId = post_id, profileId = profile_id)
+
+fun CommunityProfile.toFeedRemote(): FeedRemoteProfile = FeedRemoteProfile(
+    id = id,
+    displayName = display_name,
+    fallbackName = nombre,
+    countryCode = country_code,
+    phoneLocal = phone_local,
+    neighborhood = neighborhood,
+    barrio = barrio,
+    avatarUrl = avatar_url,
+    avatar = avatar,
+    isAdmin = is_admin == true,
+    isOfficial = is_official == true,
+)

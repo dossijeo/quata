@@ -47,7 +47,7 @@ fun NotificationsContent(
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onMarkRead: (NotificationItem) -> Unit,
-    onDismiss: (NotificationItem) -> Unit
+    onDismiss: (NotificationItem) -> Unit,
 ) {
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {

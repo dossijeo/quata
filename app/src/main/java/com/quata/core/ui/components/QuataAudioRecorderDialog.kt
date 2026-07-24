@@ -1,9 +1,6 @@
 package com.quata.core.ui.components
 
-import android.content.Context
-import android.media.MediaRecorder
 import android.net.Uri
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,26 +39,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.FileProvider
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import kotlinx.coroutines.Dispatchers
+import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.PlatformResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun QuataAudioRecorderDialog(
+    recorderService: AudioRecorderService,
     onDismiss: () -> Unit,
     onAudioRecorded: (Uri, String, String) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val recorder = remember(context) { QuataCompressedAudioRecorder(context) }
     var isRecording by remember { mutableStateOf(false) }
     var startedAtMillis by remember { mutableStateOf<Long?>(null) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
@@ -79,42 +71,48 @@ fun QuataAudioRecorderDialog(
         }
     }
 
-    DisposableEffect(recorder) {
+    DisposableEffect(recorderService) {
         onDispose {
-            scope.launch { recorder.discard() }
+            scope.launch { recorderService.cancel() }
         }
     }
 
     fun startRecording() {
         errorText = null
-        runCatching {
-            recorder.start()
-        }.onSuccess {
-            isRecording = true
-            startedAtMillis = System.currentTimeMillis()
-        }.onFailure {
-            errorText = context.getString(R.string.conversation_audio_record_error)
+        scope.launch {
+            when (recorderService.start()) {
+                is PlatformResult.Success -> {
+                    isRecording = true
+                    startedAtMillis = System.currentTimeMillis()
+                }
+                else -> errorText = context.getString(R.string.conversation_audio_record_error)
+            }
         }
     }
 
     fun stopAndAttach() {
         scope.launch {
-            val recording = runCatching { recorder.finish() }.getOrNull()
+            val recording = when (val result = recorderService.stop()) {
+                is PlatformResult.Success -> result.value
+                else -> null
+            }
             isRecording = false
             startedAtMillis = null
-            val file = recording?.file
-            if (file == null || file.length() < MIN_COMPRESSED_AUDIO_BYTES) {
+            if (recording == null || (recording.file.sizeBytes ?: 0L) < MIN_COMPRESSED_AUDIO_BYTES) {
                 errorText = context.getString(R.string.conversation_audio_record_error)
                 return@launch
             }
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            onAudioRecorded(uri, file.name, recording.mimeType)
+            onAudioRecorded(
+                Uri.parse(recording.file.reference),
+                recording.file.displayName ?: "audio.m4a",
+                recording.mimeType,
+            )
         }
     }
 
     fun cancel() {
         scope.launch {
-            recorder.discard()
+            recorderService.cancel()
             onDismiss()
         }
     }
@@ -203,129 +201,7 @@ private fun QuataAudioRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(92.dp)
-            .clip(CircleShape)
-            .background(Color.White)
-            .border(4.dp, QuataOrange.copy(alpha = 0.18f), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(if (isRecording) 34.dp else 58.dp)
-                .clip(if (isRecording) RoundedCornerShape(8.dp) else CircleShape)
-                .background(if (isRecording) Color(0xFFE53935) else QuataOrange)
-        )
-    }
-}
-
-private class QuataCompressedAudioRecorder(
-    private val context: Context
-) {
-    private var outputFile: File? = null
-    private var mediaRecorder: MediaRecorder? = null
-    private var recordingFormat: QuataAudioRecordingFormat? = null
-
-    fun start(): File {
-        discardBlocking()
-        val format = selectQuataAudioRecordingFormat()
-        val file = context.createQuataAudioFile(format.extension)
-        val recorder = newQuataMediaRecorder(context).apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(format.outputFormat)
-            setAudioEncoder(format.audioEncoder)
-            setAudioSamplingRate(format.sampleRate)
-            setAudioEncodingBitRate(format.bitRate)
-            setOutputFile(file.absolutePath)
-            prepare()
-            start()
-        }
-        outputFile = file
-        mediaRecorder = recorder
-        recordingFormat = format
-        return file
-    }
-
-    suspend fun finish(): QuataRecordedAudioFile? =
-        stopInternal(deleteFile = false)
-
-    suspend fun discard() {
-        stopInternal(deleteFile = true)
-    }
-
-    private suspend fun stopInternal(deleteFile: Boolean): QuataRecordedAudioFile? = withContext(Dispatchers.IO) {
-        val recorder = mediaRecorder
-        val file = outputFile
-        val format = recordingFormat
-        var completed = false
-        try {
-            if (recorder != null) {
-                recorder.stop()
-                completed = true
-            }
-        } finally {
-            runCatching { recorder?.release() }
-            mediaRecorder = null
-            outputFile = null
-            recordingFormat = null
-        }
-        if (deleteFile || !completed || file == null || format == null || file.length() < MIN_COMPRESSED_AUDIO_BYTES) {
-            runCatching { file?.delete() }
-            null
-        } else {
-            QuataRecordedAudioFile(file = file, mimeType = format.mimeType)
-        }
-    }
-
-    private fun discardBlocking() {
-        runCatching { mediaRecorder?.stop() }
-        runCatching { mediaRecorder?.release() }
-        runCatching { outputFile?.delete() }
-        mediaRecorder = null
-        outputFile = null
-        recordingFormat = null
-    }
-}
-
-private data class QuataRecordedAudioFile(
-    val file: File,
-    val mimeType: String
-)
-
-private data class QuataAudioRecordingFormat(
-    val extension: String,
-    val mimeType: String,
-    val outputFormat: Int,
-    val audioEncoder: Int,
-    val sampleRate: Int,
-    val bitRate: Int
-)
-
-private fun selectQuataAudioRecordingFormat(): QuataAudioRecordingFormat =
-    QuataAudioRecordingFormat(
-        extension = "m4a",
-        mimeType = "audio/mp4",
-        outputFormat = MediaRecorder.OutputFormat.MPEG_4,
-        audioEncoder = MediaRecorder.AudioEncoder.AAC,
-        sampleRate = 44_100,
-        bitRate = 64_000
-    )
-
-private fun newQuataMediaRecorder(context: Context): MediaRecorder =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        MediaRecorder(context)
-    } else {
-        MediaRecorder::class.java.getDeclaredConstructor().newInstance()
-    }
-
-private fun Context.createQuataAudioFile(extension: String): File {
-    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
-    return File(cacheDir, "quata_audio_$timestamp.$extension").apply {
-        parentFile?.mkdirs()
-        if (!exists()) createNewFile()
-    }
+    QuataAudioRecordButtonContent(isRecording = isRecording, onClick = onClick)
 }
 
 private fun formatQuataAudioDuration(seconds: Long): String {

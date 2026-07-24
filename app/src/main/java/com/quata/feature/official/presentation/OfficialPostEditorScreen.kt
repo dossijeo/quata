@@ -5,12 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,7 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -68,10 +61,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -265,78 +256,48 @@ fun OfficialPostEditorScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OfficialEditorCard {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(
-                                        if (editorMode == OfficialEditorMode.Quick) {
-                                            R.string.official_form_mode_quick
-                                        } else {
-                                            R.string.official_form_mode_advanced
-                                        }
-                                    ),
-                                    color = template.colors.textPrimary,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = stringResource(
-                                        if (editorMode == OfficialEditorMode.Quick) {
-                                            R.string.official_form_mode_description_quick
-                                        } else {
-                                            R.string.official_form_mode_description_advanced
-                                        }
-                                    ),
-                                    color = template.colors.textSecondary,
-                                    fontSize = 13.sp,
-                                    lineHeight = 17.sp
-                                )
+                    OfficialEditorModeSelectorContent(
+                        title = stringResource(
+                            if (editorMode == OfficialEditorMode.Quick) {
+                                R.string.official_form_mode_quick
+                            } else {
+                                R.string.official_form_mode_advanced
                             }
-                            Switch(
-                                checked = editorMode == OfficialEditorMode.Advanced,
-                                onCheckedChange = { checked ->
-                                    editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
-                                }
-                            )
-                        }
-                    }
+                        ),
+                        description = stringResource(
+                            if (editorMode == OfficialEditorMode.Quick) {
+                                R.string.official_form_mode_description_quick
+                            } else {
+                                R.string.official_form_mode_description_advanced
+                            }
+                        ),
+                        isAdvanced = editorMode == OfficialEditorMode.Advanced,
+                        onAdvancedChange = { checked ->
+                            editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
+                        },
+                    )
 
-                    OfficialEditorCard {
-                        OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
-                        Box(Modifier.fillMaxWidth()) {
-                            OutlinedButton(onClick = { typeMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                                Text(postType.editorLabel())
-                            }
-                            DropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
-                                OfficialPostType.entries.forEach { type ->
-                                    DropdownMenuItem(
-                                        text = { Text(type.editorLabel()) },
-                                        onClick = {
-                                            postType = type
-                                            typeMenuOpen = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        OfficialEditorCard {
+                            OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
+                        OfficialEditorDropdownFieldContent(
+                            selectedLabel = postType.editorLabel(),
+                            options = OfficialPostType.entries.map { type ->
+                                OfficialEditorSelectionOption(type.name, type.editorLabel())
+                            },
+                            expanded = typeMenuOpen,
+                            onExpandedChange = { typeMenuOpen = it },
+                            onOptionSelected = { selectedId ->
+                                postType = OfficialPostType.entries.first { it.name == selectedId }
+                            },
+                        )
                         if (editorMode == OfficialEditorMode.Advanced) {
-                            OutlinedTextField(
-                                value = title,
-                                onValueChange = { title = it },
-                                label = { Text(stringResource(R.string.official_form_title)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            OutlinedTextField(
-                                value = summary,
-                                onValueChange = { summary = it },
-                                label = { Text(stringResource(R.string.official_form_summary)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                minLines = 3
+                            OfficialAdvancedTextFieldsContent(
+                                title = title,
+                                summary = summary,
+                                titleLabel = stringResource(R.string.official_form_title),
+                                summaryLabel = stringResource(R.string.official_form_summary),
+                                onTitleChange = { title = it },
+                                onSummaryChange = { summary = it },
                             )
                         }
                     }
@@ -391,28 +352,17 @@ fun OfficialPostEditorScreen(
                             )
                         )
                         if (editorMode == OfficialEditorMode.Advanced) {
-                            Box(Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { readMoreMenuOpen = true },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(localizedOfficialReadMoreLabel(readMoreOption.shortcode))
-                                }
-                                DropdownMenu(
-                                    expanded = readMoreMenuOpen,
-                                    onDismissRequest = { readMoreMenuOpen = false }
-                                ) {
-                                    officialReadMoreUiOptions.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(option.labelRes)) },
-                                            onClick = {
-                                                readMoreOption = option.option
-                                                readMoreMenuOpen = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+                            OfficialEditorDropdownFieldContent(
+                                selectedLabel = localizedOfficialReadMoreLabel(readMoreOption.shortcode),
+                                options = officialReadMoreUiOptions.map { option ->
+                                    OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
+                                },
+                                expanded = readMoreMenuOpen,
+                                onExpandedChange = { readMoreMenuOpen = it },
+                                onOptionSelected = { selectedId ->
+                                    readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId }
+                                },
+                            )
                         }
                         OutlinedButton(
                             onClick = {
@@ -435,12 +385,10 @@ fun OfficialPostEditorScreen(
                             )
                         }
                         if (editorMode == OfficialEditorMode.Advanced) {
-                            OutlinedTextField(
+                            OfficialEditorLinkFieldContent(
                                 value = linkUrl,
                                 onValueChange = { linkUrl = it },
-                                label = { Text(stringResource(R.string.official_form_link)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
+                                label = stringResource(R.string.official_form_link),
                             )
                         }
                     }
@@ -555,122 +503,22 @@ private fun OfficialTranslationPromptDialog(
         OfficialPostLanguage.French -> frenchName
     }
     val targets = pending.targetLanguages.joinToString(", ") { languageName(it) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.official_translation_title), fontWeight = FontWeight.Black) },
-        text = {
-            if (pending.isTranslating) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OfficialTranslationLoader()
-                    Text(stringResource(R.string.official_translation_progress), fontWeight = FontWeight.Bold)
-                }
-            } else {
-                Text(
-                    stringResource(
-                        R.string.official_translation_message,
-                        languageName(pending.sourceLanguage),
-                        targets
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !pending.isTranslating, onClick = onGenerate) {
-                Text(stringResource(R.string.official_translation_confirm), fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(enabled = !pending.isTranslating, onClick = onSkip) {
-                Text(stringResource(R.string.official_translation_skip))
-            }
-        }
-    )
-}
-
-@Composable
-private fun OfficialTranslationLoader() {
-    val transition = rememberInfiniteTransition(label = "official_translation_loader")
-    val step by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+    OfficialTranslationPromptContent(
+        title = stringResource(R.string.official_translation_title),
+        message = stringResource(
+            R.string.official_translation_message,
+            languageName(pending.sourceLanguage),
+            targets,
         ),
-        label = "official_translation_loader_step"
+        progressLabel = stringResource(R.string.official_translation_progress),
+        confirmLabel = stringResource(R.string.official_translation_confirm),
+        skipLabel = stringResource(R.string.official_translation_skip),
+        isTranslating = pending.isTranslating,
+        loader = { OfficialTranslationLoaderContent() },
+        onDismiss = onDismiss,
+        onSkip = onSkip,
+        onGenerate = onGenerate,
     )
-    val flip by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "official_translation_loader_flip"
-    )
-    val isSecondPhase = step >= 0.5f
-    val containerRotation = if (isSecondPhase) -90f else 0f
-    val containerScale = if (isSecondPhase) -1f else 1f
-    val halfColor = if (isSecondPhase) Color(0xFF25B09B) else Color(0xFF514B82)
-    val halfTravel = when {
-        flip <= 0.05f -> 0.dp
-        flip <= 0.33f -> ((flip - 0.05f) / 0.28f * -10f).dp
-        flip <= 0.66f -> (-10).dp
-        flip <= 0.95f -> (-10f + ((flip - 0.66f) / 0.29f * 10f)).dp
-        else -> 0.dp
-    }
-    val halfRotationX = when {
-        flip <= 0.33f -> 0f
-        flip <= 0.66f -> ((flip - 0.33f) / 0.33f) * -180f
-        else -> -180f
-    }
-    val leftShape = if (isSecondPhase) {
-        RoundedCornerShape(topStart = 30.dp, bottomStart = 30.dp)
-    } else {
-        RoundedCornerShape(0.dp)
-    }
-    val rightShape = if (isSecondPhase) {
-        RoundedCornerShape(topEnd = 30.dp, bottomEnd = 30.dp)
-    } else {
-        RoundedCornerShape(0.dp)
-    }
-    Row(
-        modifier = Modifier
-            .size(60.dp)
-            .rotate(containerRotation)
-            .graphicsLayer {
-                scaleX = containerScale
-            },
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(30.dp)
-                .graphicsLayer {
-                    translationX = halfTravel.toPx()
-                    rotationX = halfRotationX
-                    cameraDistance = 12f * density
-                }
-                .background(halfColor, leftShape)
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(30.dp)
-                .graphicsLayer {
-                    translationX = -halfTravel.toPx()
-                    rotationX = -halfRotationX
-                    cameraDistance = 12f * density
-                }
-                .background(halfColor, rightShape)
-        )
-    }
 }
 
 @Composable
@@ -681,72 +529,34 @@ private fun OfficialLongContentEditor(
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
-    val template = quataTheme()
-    QuataEditorScaffold(
+    OfficialLongTextEditorContent(
         title = title,
-        showTitle = true,
         onBack = onBack,
         backContentDescription = stringResource(R.string.video_editor_back),
-        actions = {
-            QuataEditorToolButton(
-                label = stringResource(R.string.common_save_changes),
-                enabled = true,
-                onClick = onSave
-            ) {
-                Icon(Icons.Filled.Save, contentDescription = null)
-            }
-        }
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 10.dp)
-        ) {
+        saveLabel = stringResource(R.string.common_save_changes),
+        onSave = onSave,
+        saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
+        editorContent = { editorModifier ->
             QuataRichTextEditorBox(
                 initialHtml = html,
                 placeholder = title,
                 onHtmlChange = onHtmlChange,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .fillMaxWidth()
-                    .border(1.dp, template.colors.divider, RoundedCornerShape(8.dp))
-                    .padding(top = 6.dp, bottom = 2.dp)
+                modifier = editorModifier,
             )
-        }
-    }
+        },
+    )
 }
 
 @Composable
 private fun OfficialEditorCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        contentColor = template.colors.textPrimary,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, template.colors.divider.copy(alpha = 0.55f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content
-        )
-    }
+    OfficialEditorSectionCardContent(content = content)
 }
 
 @Composable
 private fun OfficialEditorSectionTitle(text: String) {
-    Text(
-        text = text,
-        color = quataTheme().colors.textPrimary,
-        fontWeight = FontWeight.Black,
-        fontSize = 16.sp
-    )
+    OfficialEditorSectionTitleContent(text)
 }
 
 @Composable
@@ -756,24 +566,12 @@ private fun OfficialEditorMediaPreview(
     onEdit: () -> Unit,
     onRemove: () -> Unit
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surfaceAlt,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 120.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+    OfficialEditorMediaPreviewContent(
+        removeLabel = stringResource(R.string.common_remove),
+        onRemove = onRemove,
+        mediaContent = { mediaModifier ->
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
+                modifier = mediaModifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
@@ -809,27 +607,24 @@ private fun OfficialEditorMediaPreview(
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(
-                        stringResource(
-                            if (mediaType == OfficialMediaType.Image) {
-                                R.string.composer_edit_image
-                            } else {
-                                R.string.video_editor_edit_video
-                            }
-                        ),
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-                TextButton(onClick = onRemove) {
-                    Text(stringResource(R.string.common_remove), fontWeight = FontWeight.ExtraBold)
-                }
+        },
+        editAction = { editModifier ->
+            OutlinedButton(onClick = onEdit, modifier = editModifier) {
+                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    stringResource(
+                        if (mediaType == OfficialMediaType.Image) {
+                            R.string.composer_edit_image
+                        } else {
+                            R.string.video_editor_edit_video
+                        }
+                    ),
+                    fontWeight = FontWeight.ExtraBold,
+                )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -844,7 +639,6 @@ private fun OfficialPostPreview(
     mediaType: OfficialMediaType?,
     linkUrl: String
 ) {
-    val template = quataTheme()
     var readMorePost by remember { mutableStateOf<OfficialPostItem?>(null) }
     val authorName = author?.displayName?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.official_account_fallback)
@@ -882,22 +676,7 @@ private fun OfficialPostPreview(
         likesCount = 0,
         commentsCount = 0
     )
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val proportionalHeight = maxWidth * 1.45f
-        val previewHeight = when {
-            proportionalHeight < 420.dp -> 420.dp
-            proportionalHeight > 560.dp -> 560.dp
-            else -> proportionalHeight
-        }
-        Surface(
-            color = template.colors.surfaceAlt,
-            contentColor = template.colors.textPrimary,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(previewHeight)
-                .border(1.dp, template.colors.divider.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
-        ) {
+    OfficialPostPreviewFrameContent { cardModifier ->
             OfficialPostCard(
                 post = previewPost,
                 rank = 1,
@@ -912,10 +691,9 @@ private fun OfficialPostPreview(
                 onComment = {},
                 onShare = {},
                 onDelete = {},
-                modifier = Modifier.fillMaxSize(),
+                modifier = cardModifier,
                 forcePortraitLayout = true
             )
-        }
     }
     readMorePost?.let { post ->
         OfficialPostDetailPanel(
@@ -932,31 +710,14 @@ private fun OfficialPublishButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Button(
-        enabled = enabled && !isPublishing,
-        colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.White),
+    OfficialPublishButtonContent(
+        enabled = enabled,
+        isPublishing = isPublishing,
+        publishLabel = stringResource(R.string.official_publish),
+        publishingLabel = stringResource(R.string.composer_publishing),
         onClick = onClick,
-        modifier = modifier
-            .height(52.dp)
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (isPublishing) {
-                LinearProgressIndicator(
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.25f),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
-                    Text(stringResource(R.string.composer_publishing), fontWeight = FontWeight.Bold)
-                }
-            } else {
-                Text(stringResource(R.string.official_publish), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
+        modifier = modifier,
+    )
 }
 
 @Composable

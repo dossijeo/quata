@@ -9,6 +9,10 @@ kotlin {
     androidLibrary { namespace = "com.quata.feature.feed"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
     js(IR) { browser() }
+    wasmJs { browser() }
+    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
+        binaries.framework { baseName = "QuataFeed" }
+    }
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
@@ -17,8 +21,12 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies { }
         iosMain.dependencies { }
         jsMain.dependencies { }
+        wasmJsMain.dependencies { }
     }
 }

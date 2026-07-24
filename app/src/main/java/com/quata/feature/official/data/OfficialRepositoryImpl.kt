@@ -12,8 +12,6 @@ import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
-import com.quata.core.text.decodeHtmlEntities
-import com.quata.core.text.parsePostCommentBody
 import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.core.text.toRemoteCommentBody
 import com.quata.data.supabase.CommunityProfile
@@ -70,7 +68,7 @@ class OfficialRepositoryImpl(
                     }
                 }
                 .flatMapLatest { snapshot ->
-                    val profileIds = snapshot.profileIds()
+                    val profileIds = officialProfileIds(snapshot)
                     if (profileIds.isEmpty()) {
                         flowOf(buildPosts(snapshot, emptyList()))
                     } else {
@@ -323,7 +321,7 @@ class OfficialRepositoryImpl(
         val likes = supabaseApi.getOfficialLikes(postIds, cacheMode)
         val comments = supabaseApi.getOfficialComments(postIds, cacheMode)
         val snapshot = OfficialSnapshot(posts = posts, likes = likes, comments = comments)
-        val profiles = snapshot.profileIds().takeIf { it.isNotEmpty() }
+        val profiles = officialProfileIds(snapshot).takeIf { it.isNotEmpty() }
             ?.let { supabaseApi.getProfiles(it, cacheMode = cacheMode) }
             .orEmpty()
         return buildPosts(snapshot, profiles)
@@ -338,7 +336,7 @@ class OfficialRepositoryImpl(
         val likes = supabaseApi.getOfficialLikes(listOf(postId), cacheMode)
         val comments = supabaseApi.getOfficialComments(listOf(postId), cacheMode)
         val snapshot = OfficialSnapshot(posts = listOf(post), likes = likes, comments = comments)
-        val profiles = supabaseApi.getProfiles(snapshot.profileIds(), cacheMode = cacheMode)
+        val profiles = supabaseApi.getProfiles(officialProfileIds(snapshot), cacheMode = cacheMode)
         return buildPosts(snapshot, profiles).firstOrNull()
     }
 
@@ -346,93 +344,71 @@ class OfficialRepositoryImpl(
         snapshot: OfficialSnapshot,
         profiles: List<CommunityProfile>
     ): List<OfficialPostItem> {
-        val currentUserId = sessionManager.currentSession()?.userId
-        val profilesById = profiles.associateBy { it.id }
-        val likesByPostId = snapshot.likes.groupBy { it.official_post_id }
-        val commentsByPostId = snapshot.comments.groupBy { it.official_post_id }
-        return snapshot.posts.map { post ->
-            val author = profilesById[post.profile_id]?.toDomainUser()
-                ?: User(post.profile_id.orEmpty().ifBlank { "official" }, "", appContext.getString(R.string.official_account_fallback), isOfficial = true)
-            val postLikes = likesByPostId[post.id].orEmpty()
-            val remoteComments = commentsByPostId[post.id].orEmpty()
-            val parsedById = remoteComments.associate { comment ->
-                comment.id to comment.body.orEmpty().decodeHtmlEntities().parsePostCommentBody()
-            }
-            val postComments = remoteComments.map { comment ->
-                val parsed = parsedById.getValue(comment.id)
-                val target = parsed.commentId?.let { targetId -> remoteComments.firstOrNull { it.id == targetId } }
-                val targetParsed = target?.let { parsedById[it.id] }
-                PostComment(
-                    id = comment.id,
-                    authorName = profilesById[comment.profile_id]?.display_name
-                        ?: profilesById[comment.profile_id]?.nombre
-                        ?: appContext.getString(R.string.comments_you),
-                    message = parsed.message,
-                    timestamp = comment.created_at.orEmpty(),
-                    authorId = comment.profile_id,
-                    replyToAuthorName = parsed.authorName ?: target?.let { targetComment ->
-                        profilesById[targetComment.profile_id]?.display_name
-                            ?: profilesById[targetComment.profile_id]?.nombre
-                    },
-                    replyToMessage = targetParsed?.message,
-                    replyToCommentId = parsed.commentId
-                )
-            }
-            post.toDomain(
-                author = author.copy(isOfficial = true),
-                likesCount = postLikes.size,
-                likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId },
-                comments = postComments
-            )
-        }
+        return buildOfficialDomainPosts(
+            posts = snapshot.posts.map { it.toOfficialRemote() },
+            comments = snapshot.comments.map { it.toOfficialRemote() },
+            likes = snapshot.likes.map { it.toOfficialRemote() },
+            profiles = profiles.map { it.toOfficialRemote() },
+            currentUserId = sessionManager.currentSession()?.userId,
+            defaultTitle = appContext.getString(R.string.official_post_default_title),
+            defaultCommentAuthor = appContext.getString(R.string.comments_you),
+        )
     }
+
+    private fun officialProfileIds(snapshot: OfficialSnapshot): List<String> = officialRemoteProfileIds(
+        posts = snapshot.posts.map { it.toOfficialRemote() },
+        comments = snapshot.comments.map { it.toOfficialRemote() },
+        likes = snapshot.likes.map { it.toOfficialRemote() },
+    )
 
     private data class OfficialSnapshot(
         val posts: List<OfficialPost>,
         val likes: List<OfficialPostLike> = emptyList(),
         val comments: List<OfficialPostComment> = emptyList()
-    ) {
-        fun profileIds(): List<String> = (
-            posts.mapNotNull { it.profile_id } +
-                comments.mapNotNull { it.profile_id } +
-                likes.mapNotNull { it.profile_id }
-            ).distinct()
-    }
+    )
 
-    private fun OfficialPost.toDomain(
-        author: User,
-        likesCount: Int,
-        likedByCurrentUser: Boolean,
-        comments: List<PostComment>
-    ): OfficialPostItem {
-        val safeTitle = title?.decodeHtmlEntities()?.takeIf { it.isNotBlank() }
-            ?: content_html.orEmpty().stripHtmlTagsAndDecode().lineSequence().firstOrNull().orEmpty()
-            ?: appContext.getString(R.string.official_post_default_title)
-        val safeHtml = content_html.orEmpty()
-        val safePlain = safeHtml.stripHtmlTagsAndDecode()
-        return OfficialPostItem(
-            id = id,
-            author = author,
-            title = safeTitle.ifBlank { appContext.getString(R.string.official_post_default_title) },
-            summary = summary?.decodeHtmlEntities()?.takeIf { it.isNotBlank() }
-                ?: safePlain.take(180),
-            contentHtml = safeHtml,
-            contentPlain = safePlain,
-            readMoreLabel = read_more_label?.decodeHtmlEntities().orEmpty(),
-            language = OfficialPostLanguage.fromRemote(language),
-            translationGroupId = translation_group_id,
-            type = OfficialPostType.fromRemote(post_type),
-            mediaUrl = media_url,
-            mediaType = OfficialMediaType.fromRemote(media_type),
-            linkUrl = link_url,
-            isLive = is_live == true,
-            createdAt = published_at ?: created_at.orEmpty(),
-            likesCount = likesCount,
-            commentsCount = comments.size,
-            isLikedByCurrentUser = likedByCurrentUser,
-            comments = comments
-        )
-    }
+    private fun OfficialPost.toOfficialRemote(): OfficialRemotePost = OfficialRemotePost(
+        id = id,
+        profileId = profile_id,
+        title = title,
+        summary = summary,
+        postType = post_type,
+        contentHtml = content_html,
+        readMoreLabel = read_more_label,
+        language = language,
+        translationGroupId = translation_group_id,
+        mediaUrl = media_url,
+        mediaType = media_type,
+        linkUrl = link_url,
+        isLive = is_live == true,
+        publishedAt = published_at,
+        createdAt = created_at,
+    )
+
+    private fun OfficialPostLike.toOfficialRemote(): OfficialRemoteLike =
+        OfficialRemoteLike(postId = official_post_id, profileId = profile_id)
+
+    private fun OfficialPostComment.toOfficialRemote(): OfficialRemoteComment = OfficialRemoteComment(
+        id = id,
+        postId = official_post_id,
+        profileId = profile_id,
+        body = body,
+        createdAt = created_at,
+    )
+
+    private fun CommunityProfile.toOfficialRemote(): OfficialRemoteProfile = OfficialRemoteProfile(
+        id = id,
+        displayName = display_name,
+        fallbackName = nombre,
+        countryCode = country_code,
+        phoneLocal = phone_local,
+        neighborhood = neighborhood,
+        barrio = barrio,
+        avatarUrl = avatar_url,
+        avatar = avatar,
+        isAdmin = is_admin == true,
+        isOfficial = is_official == true,
+    )
 
     private fun <T> Flow<List<T>>.emptyOnFailure(): Flow<List<T>> =
         catch { emit(emptyList()) }

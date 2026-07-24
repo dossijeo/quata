@@ -53,7 +53,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
@@ -138,9 +137,12 @@ import com.quata.R
 import com.quata.core.config.AppConfig
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
-import com.quata.core.location.hasQuataLocationPermission
-import com.quata.core.location.quataLastLocation
 import com.quata.core.media.copyImageToFileNormalizingOrientation
+import com.quata.core.platform.LocationService
+import com.quata.core.platform.PermissionService
+import com.quata.core.platform.PermissionStatus
+import com.quata.core.platform.PlatformPermission
+import com.quata.core.platform.PlatformResult
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataCameraDialog
@@ -194,6 +196,8 @@ private enum class CaptureTarget {
 fun CreatePostScreen(
     padding: PaddingValues,
     repository: PostComposerRepository,
+    locationService: LocationService,
+    permissionService: PermissionService,
     resetToken: Int,
     cancelUploadToken: Int = 0,
     canPublish: Boolean,
@@ -300,10 +304,18 @@ fun CreatePostScreen(
         }
     }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true || result[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            scope.launch {
-                context.quataLastLocation()?.let { resolveLocation(it) }
+    fun resolveLocation(latitude: Double, longitude: Double) {
+        resolveLocation(Location("platform").apply {
+            this.latitude = latitude
+            this.longitude = longitude
+        })
+    }
+
+    fun requestCurrentLocation() {
+        scope.launch {
+            when (val result = locationService.currentLocation()) {
+                is PlatformResult.Success -> resolveLocation(result.value.latitude, result.value.longitude)
+                else -> Unit
             }
         }
     }
@@ -336,12 +348,12 @@ fun CreatePostScreen(
             val exifLocation = context.exifLocationFromUri(preparedUri)
             if (exifLocation != null) {
                 resolveLocation(exifLocation)
-            } else if (context.hasQuataLocationPermission()) {
-                scope.launch {
-                    context.quataLastLocation()?.let { resolveLocation(it) }
-                }
+            } else if (permissionService.status(PlatformPermission.Location) == PermissionStatus.Granted) {
+                requestCurrentLocation()
             } else {
-                locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                if (permissionService.request(PlatformPermission.Location) == PermissionStatus.Granted) {
+                    requestCurrentLocation()
+                }
             }
             imageEditorUri = preparedUri
         }
@@ -468,21 +480,11 @@ fun CreatePostScreen(
                 ComposerStep.Image -> stringResource(R.string.composer_image_post_title)
                 ComposerStep.Video -> stringResource(R.string.composer_video_post_title)
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(composerScrollState)
-                    .padding(composerContentPadding),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = screenTitle,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 24.sp,
-                    color = template.colors.textPrimary
-                )
-                Spacer(Modifier.height(28.dp))
-
+            ComposerScreenLayoutContent(
+                title = screenTitle,
+                scrollState = composerScrollState,
+                modifier = Modifier.padding(composerContentPadding),
+                form = {
                 when (step) {
                     ComposerStep.TypePicker -> ComposerTypePickerContent(
                         isLandscapeLayout = isLandscapeLayout,
@@ -600,15 +602,18 @@ fun CreatePostScreen(
                     )
                 }
 
-                state.error?.let {
+                },
+                feedback = {
+                    state.error?.let {
                     Spacer(Modifier.height(14.dp))
                     Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
-                state.successMessage?.let {
+                    }
+                    state.successMessage?.let {
                     Spacer(Modifier.height(14.dp))
                     Text(it, color = template.colors.accent, fontWeight = FontWeight.Bold)
-                }
-            }
+                    }
+                },
+            )
         }
 
         imageEditorUri?.let { sourceUri ->
@@ -717,104 +722,53 @@ private fun TextPostForm(
     onSubmit: () -> Unit
 ) {
     val emojiDismissState = rememberCommunityEmojiPanelDismissState(onDismissEmojiPanel)
-    val template = quataTheme()
-
-    @Composable
-    fun TextInputPanels() {
-        ComposerPanel(stringResource(R.string.composer_content), highlighted = true) {
-            OutlinedTextField(
-                value = textValue,
-                onValueChange = onTextChange,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences
-                ),
-                placeholder = {
-                    Text(
-                        stringResource(R.string.composer_text_placeholder),
-                        color = template.colors.textSecondary
-                    )
-                },
-                minLines = if (isLandscapeLayout) 4 else 5,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = template.colors.textPrimary,
-                    unfocusedTextColor = template.colors.textPrimary,
-                    focusedBorderColor = template.colors.accent,
-                    unfocusedBorderColor = template.colors.divider,
-                    cursorColor = template.colors.accent
-                ),
-                trailingIcon = {
-                    CompactIconButton(
-                        onClick = onToggleEmojiPanel,
-                        modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
-                    ) {
-                        CompactIcon(
-                            Icons.Filled.InsertEmoticon,
-                            contentDescription = stringResource(R.string.comments_show_emojis),
-                            tint = Color(0xFFFFC55C)
-                        )
-                    }
-                }
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text(stringResource(R.string.composer_word_count, state.text.length), color = template.colors.textSecondary)
+    ComposerTextPostFormContent(
+        isLandscapeLayout = isLandscapeLayout,
+        textValue = textValue,
+        contentTitle = stringResource(R.string.composer_content),
+        placeholder = stringResource(R.string.composer_text_placeholder),
+        wordCountText = stringResource(R.string.composer_word_count, state.text.length),
+        minLines = if (isLandscapeLayout) 4 else 5,
+        onTextChange = onTextChange,
+        trailingInputAction = {
+            CompactIconButton(
+                onClick = onToggleEmojiPanel,
+                modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
+            ) {
+                CompactIcon(
+                    Icons.Filled.InsertEmoticon,
+                    contentDescription = stringResource(R.string.comments_show_emojis),
+                    tint = Color(0xFFFFC55C)
+                )
             }
-        }
-        if (isEmojiPanelOpen) {
-            Spacer(Modifier.height(10.dp))
-            CommunityEmojiPanel(
-                onEmojiClick = onEmoji,
-                modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
-            )
-            Spacer(Modifier.height(18.dp))
-        }
-    }
-
-    @Composable
-    fun TextPreviewPanel() {
-        Column {
-                    TextPatternSelectorContent(
-                        selectedPatternId = state.textPatternId,
-                        title = stringResource(R.string.composer_text_background),
-                        onPatternSelected = onTextPatternSelected
+        },
+        emojiPanel = {
+            if (isEmojiPanelOpen) {
+                Spacer(Modifier.height(10.dp))
+                CommunityEmojiPanel(
+                    onEmojiClick = onEmoji,
+                    modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
+                )
+                Spacer(Modifier.height(18.dp))
+            }
+        },
+        preview = {
+            TextPatternSelectorContent(
+                selectedPatternId = state.textPatternId,
+                title = stringResource(R.string.composer_text_background),
+                onPatternSelected = onTextPatternSelected
             )
             Spacer(Modifier.height(10.dp))
             PreviewPanel(stringResource(R.string.composer_preview)) {
-                TextReelPreview(
-                    text = state.text,
-                    patternId = state.textPatternId,
-                    compact = isLandscapeLayout
-                )
+                TextReelPreview(text = state.text, patternId = state.textPatternId, compact = isLandscapeLayout)
             }
-        }
-    }
-
-    Column(
+        },
+        publish = { PublishButton(state.isLoading, onSubmit) },
         modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(
             isVisible = isEmojiPanelOpen,
             state = emojiDismissState
         )
-    ) {
-        if (isLandscapeLayout) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(Modifier.weight(1f)) {
-                    TextInputPanels()
-                    PublishButton(state.isLoading, onSubmit)
-                }
-                Column(Modifier.weight(1f)) {
-                    TextPreviewPanel()
-                }
-            }
-        } else {
-            TextInputPanels()
-            TextPreviewPanel()
-            PublishButton(state.isLoading, onSubmit)
-        }
-    }
+    )
 }
 
 @Composable
@@ -860,33 +814,28 @@ private fun ImagePostForm(
                         onLocationPositioned(coordinates.positionInRoot().y.roundToInt())
                     }
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.composer_location),
-                            color = template.colors.textPrimary,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp
+                val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
+                ComposerLocationSectionContent(
+                    title = stringResource(R.string.composer_location),
+                    locationText = state.locationLabel ?: stringResource(R.string.composer_no_location),
+                    helperText = stringResource(
+                        if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
+                    ),
+                    isHighlighted = shouldEmphasizeLocation,
+                    leadingIcon = {
+                        CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
+                    },
+                    editAction = { actionModifier ->
+                        LocationEditButton(
+                            isEditing = isLocationEditorOpen,
+                            highlighted = highlightLocationEditor,
+                            onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) },
+                            modifier = actionModifier
                         )
-                        Text(
-                            text = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                            color = template.colors.textSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    LocationEditButton(
-                        isEditing = isLocationEditorOpen,
-                        highlighted = highlightLocationEditor,
-                        onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) }
-                    )
-                }
-                if (isLocationEditorOpen) {
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
+                    },
+                    editor = if (isLocationEditorOpen) {
+                        {
+                            OutlinedTextField(
                         value = state.locationLabel.orEmpty(),
                         onValueChange = onLocationChange,
                         placeholder = { Text(stringResource(R.string.composer_location_placeholder)) },
@@ -900,24 +849,8 @@ private fun ImagePostForm(
                             cursorColor = template.colors.accent
                         )
                     )
-                }
-                val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
-                Text(
-                    text = stringResource(
-                        if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
-                    ),
-                    color = if (shouldEmphasizeLocation) {
-                        template.colors.accent
-                    } else {
-                        template.colors.textSecondary
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = if (shouldEmphasizeLocation) {
-                        FontWeight.ExtraBold
-                    } else {
-                        FontWeight.Medium
-                    },
-                    modifier = Modifier.padding(top = 8.dp)
+                        }
+                    } else null
                 )
             }
         }
@@ -957,25 +890,12 @@ private fun ImagePostForm(
         }
     }
 
-    if (isLandscapeLayout) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(Modifier.weight(1f)) {
-                ImageControlsPanel()
-                PublishButton(state.isLoading, onSubmit)
-            }
-            Column(Modifier.weight(1f)) {
-                ImagePreviewPanel()
-            }
-        }
-    } else {
-        ImageControlsPanel()
-        ImagePreviewPanel()
-        PublishButton(state.isLoading, onSubmit)
-    }
+    ComposerMediaPostFormLayoutContent(
+        isLandscapeLayout = isLandscapeLayout,
+        controls = { ImageControlsPanel() },
+        preview = { ImagePreviewPanel() },
+        publish = { PublishButton(state.isLoading, onSubmit) }
+    )
 }
 
 @Composable
@@ -1057,25 +977,12 @@ private fun VideoPostForm(
         }
     }
 
-    if (isLandscapeLayout) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(Modifier.weight(1f)) {
-                VideoControlsPanel()
-                PublishButton(state.isLoading, onSubmit)
-            }
-            Column(Modifier.weight(1f)) {
-                VideoPreviewPanel()
-            }
-        }
-    } else {
-        VideoControlsPanel()
-        VideoPreviewPanel()
-        PublishButton(state.isLoading, onSubmit)
-    }
+    ComposerMediaPostFormLayoutContent(
+        isLandscapeLayout = isLandscapeLayout,
+        controls = { VideoControlsPanel() },
+        preview = { VideoPreviewPanel() },
+        publish = { PublishButton(state.isLoading, onSubmit) }
+    )
 }
 
 @Composable
@@ -1088,51 +995,44 @@ private fun ComposerFeedPreviewFrame(
     backgroundSeed: String? = null,
     media: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .then(if (compact) Modifier.widthIn(max = 280.dp) else Modifier)
-                .fillMaxWidth()
-                .aspectRatio(mediaAspectRatio.coerceIn(0.35f, 2.4f))
-                .clip(RoundedCornerShape(24.dp))
-                .background(textCanvasBrush(backgroundSeed ?: description.ifBlank { locationLabel.orEmpty() }))
-                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
-        ) {
-            media()
-            ComposerPreviewScrims()
+    ComposerFeedPreviewFrameContent(
+        compact = compact,
+        mediaAspectRatio = mediaAspectRatio,
+        backgroundSeed = backgroundSeed ?: description.ifBlank { locationLabel.orEmpty() },
+        media = media,
+        scrim = { ComposerPreviewScrims() },
+        topOverlay = {
             ComposerPreviewTopChips(
                 isVideo = isVideo,
                 locationLabel = locationLabel,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 14.dp, top = 14.dp)
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 14.dp)
             )
-            ComposerPreviewActions(
+        },
+        actionRail = {
+            ComposerPreviewActionsContent(
                 showRankLiveActions = !compact,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 14.dp, bottom = 18.dp)
+                labels = composerPreviewActionLabels(),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 18.dp)
             )
+        },
+        compactLeadingActions = {
             if (compact) {
-                ComposerPreviewRankLiveActions(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
+                ComposerPreviewRankLiveActionsContent(
+                    labels = composerPreviewActionLabels(),
+                    modifier = Modifier.align(Alignment.BottomStart)
                         .padding(start = 14.dp, bottom = if (isVideo) 132.dp else 88.dp)
                 )
             }
+        },
+        authorOverlay = {
             ComposerPreviewAuthor(
                 description = description,
                 locationLabel = locationLabel,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
+                modifier = Modifier.align(Alignment.BottomStart)
                     .padding(start = 14.dp, end = 76.dp, bottom = if (isVideo) 78.dp else 18.dp)
             )
         }
-    }
+    )
 }
 
 @Composable
@@ -1391,19 +1291,7 @@ private fun ComposerPreviewVideoControls(
 
 @Composable
 private fun ComposerPreviewScrims() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.64f),
-                    0.14f to Color.Black.copy(alpha = 0.42f),
-                    0.34f to Color.Transparent,
-                    0.58f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.7f)
-                )
-            )
-    )
+    ComposerPreviewScrimContent()
 }
 
 @Composable
@@ -1412,21 +1300,10 @@ private fun ComposerPreviewTopChips(
     locationLabel: String?,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        locationLabel?.takeIf { it.isNotBlank() }?.let { label ->
-            Text(
-                text = if (isVideo) "\uD83D\uDCDD $label" else stringResource(R.string.feed_location_chip, label),
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
+    val chips = locationLabel?.takeIf { it.isNotBlank() }?.let { label ->
+        listOf(if (isVideo) "\uD83D\uDCDD $label" else stringResource(R.string.feed_location_chip, label))
+    }.orEmpty()
+    ComposerPreviewTopChipsContent(chips = chips, modifier = modifier)
 }
 
 @Composable
@@ -1453,116 +1330,14 @@ private fun ComposerPreviewChip(
 }
 
 @Composable
-private fun ComposerPreviewActions(
-    showRankLiveActions: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (showRankLiveActions) {
-            ComposerPreviewRankLiveActions()
-        }
-        ComposerPreviewActionButton(Icons.Filled.FavoriteBorder, stringResource(R.string.feed_like), "0")
-        ComposerPreviewActionButton(Icons.Filled.ChatBubble, stringResource(R.string.feed_comments), "0")
-        ComposerPreviewActionButton(Icons.Filled.Share, stringResource(R.string.feed_share))
-        ComposerPreviewActionButton(Icons.Filled.Flag, stringResource(R.string.feed_report))
-    }
-}
-
-@Composable
-private fun ComposerPreviewRankLiveActions(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        ComposerPreviewTextActionButton(
-            text = "\uD83D\uDD25",
-            contentDescription = stringResource(R.string.feed_rank),
-            count = "3"
-        )
-        ComposerPreviewTextActionButton(
-            text = stringResource(R.string.common_live),
-            contentDescription = stringResource(R.string.common_live)
-        )
-    }
-}
-
-@Composable
-private fun ComposerPreviewTextActionButton(
-    text: String,
-    contentDescription: String,
-    count: String? = null
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.42f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = text,
-                    color = Color.White,
-                    fontSize = if (text.length <= 2) 18.sp else 10.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    lineHeight = if (text.length <= 2) 19.sp else 11.sp,
-                    modifier = Modifier.padding(horizontal = 5.dp)
-                )
-                count?.let {
-                    Text(
-                        text = it,
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        lineHeight = 9.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ComposerPreviewActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    count: String? = null
-) {
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.42f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CompactIcon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
-            )
-            count?.let {
-                Text(
-                    text = it,
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = 10.sp
-                )
-            }
-        }
-    }
-}
+private fun composerPreviewActionLabels() = ComposerPreviewActionLabels(
+    like = stringResource(R.string.feed_like),
+    comments = stringResource(R.string.feed_comments),
+    share = stringResource(R.string.feed_share),
+    report = stringResource(R.string.feed_report),
+    rank = stringResource(R.string.feed_rank),
+    live = stringResource(R.string.common_live)
+)
 
 @Composable
 private fun ComposerPreviewAuthor(
@@ -1570,22 +1345,11 @@ private fun ComposerPreviewAuthor(
     locationLabel: String?,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        description.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                color = Color.White.copy(alpha = 0.92f),
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-            )
-            Spacer(Modifier.height(9.dp))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    ComposerPreviewAuthorContent(
+        description = description,
+        authorName = "Q\u00FCata",
+        subtitle = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
+        avatar = {
             Box(
                 modifier = Modifier
                     .size(50.dp)
@@ -1596,27 +1360,9 @@ private fun ComposerPreviewAuthor(
             ) {
                 Text("Q\u0308", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
             }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "Q\u00FCata",
-                    color = Color.White,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
-                    color = QuataOrange,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
+        },
+        modifier = modifier
+    )
 }
 
 private fun formatComposerVideoTime(ms: Long): String {
@@ -2065,25 +1811,11 @@ private fun ComposerPanel(
     highlighted: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val template = quataTheme()
-    val panelColor = if (highlighted) template.colors.surfaceRaised else template.colors.surface
-    val contentColor = template.colors.textPrimary
-    val borderColor = template.colors.divider
-    Surface(
-        color = panelColor,
-        contentColor = contentColor,
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
-    ) {
-        Column(Modifier.padding(20.dp)) {
-            Text(title.uppercase(), color = contentColor.copy(alpha = 0.75f), fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(18.dp))
-            content()
-        }
-    }
-    Spacer(Modifier.height(18.dp))
+    ComposerSectionPanelContent(
+        title = title,
+        highlighted = highlighted,
+        content = content,
+    )
 }
 
 @Composable
@@ -2098,250 +1830,74 @@ private fun ComposerActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedButton(
+    ComposerActionButtonContent(
+        label = text,
+        icon = { CompactIcon(icon, contentDescription = null) },
         onClick = onClick,
         modifier = modifier
-            .height(44.dp)
-            .compactButtonMinSize(),
-        shape = RoundedCornerShape(9.dp),
-        contentPadding = CompactButtonContentPadding
-    ) {
-        CompactIcon(icon, contentDescription = null)
-        Spacer(Modifier.width(4.dp))
-        Text(text, fontWeight = FontWeight.ExtraBold)
-    }
+    )
 }
 
 @Composable
 private fun LocationEditButton(
     isEditing: Boolean,
     highlighted: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    val backgroundColor by animateColorAsState(
-        targetValue = if (highlighted) template.colors.accent.copy(alpha = 0.22f) else Color.Transparent
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (highlighted) template.colors.accent else template.colors.divider
-    )
-    Surface(
-        color = backgroundColor,
-        contentColor = if (highlighted) template.colors.accent else template.colors.textPrimary,
-        shape = RoundedCornerShape(9.dp),
-        modifier = Modifier
-            .height(40.dp)
-            .compactButtonMinSize()
-            .border(1.dp, borderColor, RoundedCornerShape(9.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    ComposerLocationEditButtonContent(
+        highlighted = highlighted,
+        label = stringResource(if (isEditing) R.string.composer_save_location else R.string.composer_edit_location),
+        icon = {
             CompactIcon(
                 if (isEditing) Icons.Filled.Check else Icons.Filled.Edit,
                 contentDescription = null,
                 tint = if (highlighted) template.colors.accent else template.colors.textPrimary
             )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                stringResource(if (isEditing) R.string.composer_save_location else R.string.composer_edit_location),
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-    }
+        },
+        onClick = onClick,
+        modifier = modifier
+    )
 }
 
 @Composable
 private fun TextReelPreview(text: String, patternId: String? = null, compact: Boolean = false) {
-    val seedText = if (patternId == null) {
-        remember(text) { text.cleanTextCanvasSeedBody() }
-    } else {
-        null
-    }
     ComposerFeedPreviewFrame(
         isVideo = false,
         description = "",
         locationLabel = null,
         compact = compact,
-        backgroundSeed = seedText ?: text
+        backgroundSeed = text
     ) {
-        ComposerTextFeedCanvas(
+        ComposerTextCanvasContent(
             text = text,
-            seedText = seedText,
             patternId = patternId,
-            compact = compact
+            compact = compact,
+            emptyText = stringResource(R.string.composer_text_preview_empty),
+            readMoreText = stringResource(R.string.feed_read_more),
+            readerDismissButton = { modifier, onDismiss ->
+                CompactIconButton(onClick = onDismiss, modifier = modifier) {
+                    CompactIcon(Icons.Filled.Close, stringResource(R.string.common_close), tint = Color.White)
+                }
+            }
         )
-    }
-}
-
-@Composable
-private fun ComposerTextFeedCanvas(
-    text: String,
-    seedText: String?,
-    patternId: String?,
-    compact: Boolean
-) {
-    val displayText = text.ifBlank { stringResource(R.string.composer_text_preview_empty) }
-    val typography = remember(displayText) { textCanvasTypography(displayText, compact = true) }
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var hasOverflow by remember(text, compact) { mutableStateOf(false) }
-    var isReaderOpen by rememberSaveable(text) { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(textCanvasBrush(seedText, patternId))
-            .padding(horizontal = ComposerTextPreviewActionRailSafePadding),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = displayText,
-                color = Color.White,
-                fontSize = typography.fontSize,
-                lineHeight = typography.lineHeight,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center,
-                maxLines = typography.maxLines,
-                overflow = TextOverflow.Ellipsis,
-                onTextLayout = { hasOverflow = it.hasVisualOverflow }
-            )
-            if (text.isNotBlank() && hasOverflow) {
-                Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
-                Surface(
-                    color = Color.Black.copy(alpha = 0.36f),
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.clickable {
-                        keyboardController?.hide()
-                        focusManager.clearFocus(force = true)
-                        isReaderOpen = true
-                    }
-                ) {
-                    Text(
-                        text = stringResource(R.string.feed_read_more),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (compact) 12.sp else 14.sp,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
-                    )
-                }
-            }
-        }
-    }
-
-    if (isReaderOpen) {
-        Dialog(
-            onDismissRequest = { isReaderOpen = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(textCanvasBrush(seedText, patternId))
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(top = 56.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = displayText,
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        lineHeight = 31.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                CompactIconButton(
-                    onClick = { isReaderOpen = false },
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    CompactIcon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.common_close),
-                        tint = Color.White
-                    )
-                }
-            }
-        }
     }
 }
 
 @Composable
 private fun EmptyPreview(title: String, tag: String, body: String, compact: Boolean = false) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (compact) 280.dp else 360.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF101827))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
-            .padding(if (compact) 20.dp else 28.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            title,
-            color = Color.White,
-            fontSize = if (compact) 32.sp else 44.sp,
-            lineHeight = if (compact) 38.sp else 50.sp,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(if (compact) 18.dp else 26.dp))
-        Surface(color = Color.Transparent, shape = RoundedCornerShape(16.dp), modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))) {
-            Text(tag, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-        }
-        Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
-        Text(body, color = Color.White.copy(alpha = 0.72f), textAlign = TextAlign.Center)
-    }
+    ComposerEmptyPreviewContent(title = title, tag = tag, body = body, compact = compact)
 }
 
 @Composable
 private fun PublishButton(isLoading: Boolean, onSubmit: () -> Unit) {
-    var progress by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isLoading) {
-        progress = 0f
-        while (isLoading) {
-            delay(180L)
-            progress = (progress + 0.018f).coerceAtMost(0.92f)
-        }
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .compactButtonMinSize()
-            .clip(RoundedCornerShape(9.dp))
-            .background(if (isLoading) Color(0xFFFFB45E) else QuataOrange)
-            .clickable(enabled = !isLoading, onClick = onSubmit),
-        contentAlignment = Alignment.Center
-    ) {
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(progress)
-                    .align(Alignment.CenterStart)
-                    .background(Color(0xFFE86F12))
-            )
-        }
-        Text(
-            if (isLoading) stringResource(R.string.composer_publishing) else stringResource(R.string.nav_publish),
-            color = Color.Black,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        )
-    }
+    ComposerPublishButtonContent(
+        isLoading = isLoading,
+        publishLabel = stringResource(R.string.nav_publish),
+        publishingLabel = stringResource(R.string.composer_publishing),
+        onSubmit = onSubmit
+    )
 }
 
 private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
@@ -2560,7 +2116,6 @@ private const val QuataEditedVideoFilePrefix = "quata-edited-video-"
 private const val ComposerImageLogTag = "QuataComposerImage"
 private const val ComposerVideoLogTag = "QuataComposerVideo"
 private const val ComposerPreviewPosterMaxDimension = 720
-private val ComposerTextPreviewActionRailSafePadding = 78.dp
 private const val ComposerVideoRemuxDefaultBufferSize = 1024 * 1024
 private const val ComposerVideoRemuxFallbackFrameRate = 30
 private const val ComposerVideoRemuxMaxTrustedSampleDeltaUs = 1_000_000L

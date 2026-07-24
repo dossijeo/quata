@@ -1,7 +1,5 @@
 package com.quata.feature.official.presentation
 
-import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -94,6 +92,8 @@ import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataOfficialPostUrl
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
@@ -104,7 +104,6 @@ import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanel
-import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.VideoAttachmentThumbnail
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
@@ -123,6 +122,7 @@ import kotlinx.coroutines.launch
 fun OfficialFeedScreen(
     padding: PaddingValues,
     repository: OfficialRepository,
+    shareService: ShareService,
     currentUserId: String?,
     focusedPostId: String? = null,
     onFocusedPostHandled: () -> Unit = {},
@@ -238,12 +238,10 @@ fun OfficialFeedScreen(
         }
     }
 
-    QuataScreen(padding = padding, applyLandscapeSafeDrawing = false) {
-        Box(
-            modifier
-                .fillMaxSize()
-                .nestedScroll(pullRefreshState.nestedScrollConnection)
-        ) {
+    OfficialFeedViewportContent(
+        padding = padding,
+        modifier = modifier.nestedScroll(pullRefreshState.nestedScrollConnection)
+    ) {
             when {
                 state.isLoading && state.posts.isEmpty() -> {
                     OfficialLoadingContent(
@@ -282,7 +280,16 @@ fun OfficialFeedScreen(
                                 if (currentUserId == null) onAuthRequired() else viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id))
                             },
                             onComment = { commentsPost = post },
-                            onShare = { shareOfficialPost(context, post) },
+                            onShare = {
+                                scope.launch {
+                                    shareService.share(
+                                        SharePayload(
+                                            text = officialPostShareText(post),
+                                            title = post.title
+                                        )
+                                    )
+                                }
+                            },
                             onDelete = { postPendingDelete = post },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -298,15 +305,10 @@ fun OfficialFeedScreen(
                     .zIndex(4f)
             )
             if (state.isLoadingOlder) {
-                CircularProgressIndicator(
-                    color = QuataOrange.copy(alpha = 0.72f),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 18.dp)
-                        .size(22.dp)
+                OfficialOlderPostsLoadingContent(
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-        }
     }
 
     readMorePost?.let { post ->
@@ -379,25 +381,16 @@ fun OfficialFeedScreen(
     }
 
     postPendingDelete?.let { post ->
-        AlertDialog(
-            onDismissRequest = { postPendingDelete = null },
-            title = { Text(stringResource(R.string.official_delete_confirm_title)) },
-            text = { Text(stringResource(R.string.official_delete_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id))
-                        postPendingDelete = null
-                    }
-                ) {
-                    Text(stringResource(R.string.common_confirm))
-                }
+        OfficialDeleteConfirmationDialogContent(
+            title = stringResource(R.string.official_delete_confirm_title),
+            message = stringResource(R.string.official_delete_confirm_message),
+            confirmLabel = stringResource(R.string.common_confirm),
+            cancelLabel = stringResource(R.string.common_cancel),
+            onDismiss = { postPendingDelete = null },
+            onConfirm = {
+                viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id))
+                postPendingDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { postPendingDelete = null }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            }
         )
     }
 }
@@ -419,10 +412,9 @@ private fun OfficialPostPage(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .padding(horizontal = 14.dp)
-    ) {
+    OfficialPagerPostPageContent(
+        modifier = modifier,
+        card = { cardModifier ->
         OfficialPostCard(
             post = post,
             rank = rank,
@@ -437,11 +429,10 @@ private fun OfficialPostPage(
             onComment = onComment,
             onShare = onShare,
             onDelete = onDelete,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 10.dp)
+            modifier = cardModifier,
         )
-    }
+        },
+    )
 }
 
 
@@ -463,234 +454,40 @@ internal fun OfficialPostCard(
     modifier: Modifier = Modifier,
     forcePortraitLayout: Boolean = false
 ) {
-    val template = quataTheme()
     val windowInfo = rememberQuataWindowLayoutInfo()
     val isLandscape = !forcePortraitLayout && windowInfo.isLandscape
-    Card(
-        colors = CardDefaults.cardColors(containerColor = template.colors.surface),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.divider.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            template.colors.surface.copy(alpha = 0.98f),
-                            template.colors.surfaceRaised.copy(alpha = 0.78f)
-                        )
-                    )
-                )
-        ) {
-            if (isLandscape) {
-                OfficialPostLandscapeContent(
-                    post = post,
-                    onOpenAuthor = onOpenAuthor,
-                    onReadMore = onReadMore,
-                    onOpenMedia = onOpenMedia,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 18.dp, top = 18.dp, end = 76.dp, bottom = 18.dp)
-                )
-                OfficialPostActionRail(
-                    post = post,
-                    rank = rank,
-                    isLandscape = true,
-                    canPublish = canPublish,
-                    canModerate = canModerate,
-                    onCreate = onCreate,
-                    onOpenLive = onOpenLive,
-                    onLike = onLike,
-                    onComment = onComment,
-                    onShare = onShare,
-                    onDelete = onDelete,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 10.dp, bottom = 16.dp)
-                )
-                OfficialTypePill(
-                    label = post.type.label(),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 28.dp, end = 14.dp)
-                )
-                QuataFeedOverflowActionButton(
-                    postRank = rank,
-                    rankLabel = stringResource(R.string.feed_rank),
-                    liveLabel = stringResource(R.string.common_live),
-                    reportLabel = null,
-                    showReport = false,
-                    onOpenLive = onOpenLive,
-                    onReport = {},
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 28.dp, bottom = 28.dp)
-                )
-            } else {
-                OfficialPostPortraitContent(
-                    post = post,
-                    onOpenAuthor = onOpenAuthor,
-                    onReadMore = onReadMore,
-                    onOpenMedia = onOpenMedia,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 16.dp, top = 20.dp, end = 76.dp, bottom = 18.dp)
-                )
-                OfficialPostActionRail(
-                    post = post,
-                    rank = rank,
-                    isLandscape = false,
-                    canPublish = canPublish,
-                    canModerate = canModerate,
-                    onCreate = onCreate,
-                    onOpenLive = onOpenLive,
-                    onLike = onLike,
-                    onComment = onComment,
-                    onShare = onShare,
-                    onDelete = onDelete,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 10.dp, bottom = 16.dp)
-                )
-                OfficialTypePill(
-                    label = post.type.label(),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 38.dp, end = 8.dp)
-                )
-            }
+    val mediaSlot: (@Composable (Modifier) -> Unit)? =
+        if (post.mediaUrl.isNullOrBlank()) null else { slotModifier ->
+            OfficialPostMedia(post, onOpenMedia, slotModifier)
         }
-    }
-}
-
-@Composable
-private fun OfficialPostPortraitContent(
-    post: OfficialPostItem,
-    onOpenAuthor: () -> Unit,
-    onReadMore: () -> Unit,
-    onOpenMedia: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        OfficialAuthorHeader(
-            post = post,
-            onOpenAuthor = onOpenAuthor
-        )
-        Spacer(Modifier.height(16.dp))
-        if (post.mediaUrl.isNullOrBlank()) {
-            OfficialPostTextOnlyBlock(
-                post = post,
-                onReadMore = onReadMore,
-                modifier = Modifier.weight(1f)
+    OfficialPostCardContent(
+        post = post,
+        typeLabel = post.type.label(),
+        readMoreLabel = localizedOfficialReadMoreLabel(post.readMoreLabel),
+        isLandscape = isLandscape,
+        author = { slotModifier -> OfficialAuthorHeader(post, onOpenAuthor, slotModifier) },
+        media = mediaSlot,
+        actionRail = { landscape, slotModifier ->
+            OfficialPostActionRail(
+                post, rank, landscape, canPublish, canModerate, onCreate, onOpenLive,
+                onLike, onComment, onShare, onDelete, slotModifier,
             )
-        } else {
-            OfficialPostMedia(
-                post = post,
-                onOpenMedia = onOpenMedia,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = true)
+        },
+        overflowAction = { slotModifier ->
+            QuataFeedOverflowActionButton(
+                postRank = rank,
+                rankLabel = stringResource(R.string.feed_rank),
+                liveLabel = stringResource(R.string.common_live),
+                reportLabel = null,
+                showReport = false,
+                onOpenLive = onOpenLive,
+                onReport = {},
+                modifier = slotModifier,
             )
-            Spacer(Modifier.height(12.dp))
-            OfficialPostTextBlock(post, titleSize = 17, compact = true)
-            OfficialReadMoreLink(post = post, label = localizedOfficialReadMoreLabel(post.readMoreLabel), onReadMore = onReadMore)
-        }
-    }
-}
-
-@Composable
-private fun OfficialPostLandscapeContent(
-    post: OfficialPostItem,
-    onOpenAuthor: () -> Unit,
-    onReadMore: () -> Unit,
-    onOpenMedia: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (post.mediaUrl.isNullOrBlank()) {
-        Column(modifier = modifier) {
-            OfficialAuthorHeader(
-                post = post,
-                onOpenAuthor = onOpenAuthor,
-                modifier = Modifier.padding(end = 96.dp)
-            )
-            Spacer(Modifier.height(16.dp))
-            OfficialPostTextOnlyBlock(
-                post = post,
-                onReadMore = onReadMore,
-                alignReadMoreEnd = true,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        return
-    }
-
-    Row(
+        },
+        onReadMore = onReadMore,
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        OfficialPostMedia(
-            post = post,
-            onOpenMedia = onOpenMedia,
-            modifier = Modifier
-                .weight(1.08f)
-                .fillMaxHeight()
-        )
-        Column(
-            modifier = Modifier
-                .weight(0.92f)
-                .fillMaxHeight()
-        ) {
-            OfficialAuthorHeader(
-                post = post,
-                onOpenAuthor = onOpenAuthor,
-                modifier = Modifier.padding(end = 96.dp)
-            )
-            Spacer(Modifier.height(18.dp))
-            OfficialPostTextBlock(post, titleSize = 22, compact = false, modifier = Modifier.weight(1f, fill = false))
-            OfficialReadMoreLink(post = post, label = localizedOfficialReadMoreLabel(post.readMoreLabel), onReadMore = onReadMore)
-        }
-    }
-}
-
-@Composable
-private fun OfficialPostTextOnlyBlock(
-    post: OfficialPostItem,
-    onReadMore: () -> Unit,
-    alignReadMoreEnd: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.Center
-            ) {
-                OfficialPostTextBlock(
-                    post = post,
-                    titleSize = 26,
-                    compact = false
-                )
-            }
-        }
-        OfficialReadMoreLink(
-            post = post,
-            label = localizedOfficialReadMoreLabel(post.readMoreLabel),
-            onReadMore = onReadMore,
-            alignEnd = alignReadMoreEnd
-        )
-    }
+    )
 }
 
 @Composable
@@ -725,29 +522,27 @@ private fun OfficialPostMedia(
     modifier: Modifier = Modifier
 ) {
     val mediaUrl = post.mediaUrl?.takeIf { it.isNotBlank() } ?: return
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onOpenMedia),
-        contentAlignment = Alignment.Center
-    ) {
-        if (post.mediaType == OfficialMediaType.Image) {
-            AsyncImage(
-                model = mediaUrl,
-                contentDescription = post.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            VideoAttachmentThumbnail(
-                uri = mediaUrl,
-                name = post.title,
-                showPlayButton = true,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
+    OfficialPostMediaFrameContent(
+        onOpenMedia = onOpenMedia,
+        media = { mediaModifier ->
+            if (post.mediaType == OfficialMediaType.Image) {
+                AsyncImage(
+                    model = mediaUrl,
+                    contentDescription = post.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = mediaModifier,
+                )
+            } else {
+                VideoAttachmentThumbnail(
+                    uri = mediaUrl,
+                    name = post.title,
+                    showPlayButton = true,
+                    modifier = mediaModifier,
+                )
+            }
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -797,51 +592,19 @@ internal fun OfficialPostDetailPanel(
     post: OfficialPostItem,
     onDismiss: () -> Unit
 ) {
-    val template = quataTheme()
-    QuataStandardFloatingPanel(onDismiss = onDismiss, template = template) { panelModifier, isLandscape ->
-        Column(
-            modifier = panelModifier.padding(
-                start = 18.dp,
-                top = if (isLandscape) 18.dp else 10.dp,
-                end = 18.dp,
-                bottom = if (isLandscape) 18.dp else 48.dp
+    OfficialPostDetailPanelContent(
+        title = localizedOfficialReadMoreLabel(post.readMoreLabel),
+        closeLabel = stringResource(R.string.common_close),
+        link = post.linkUrl,
+        onDismiss = onDismiss,
+        articleContent = { slotModifier ->
+            QuataRichTextRenderer(
+                html = post.contentHtml,
+                modifier = slotModifier,
+                placeholder = post.contentPlain,
             )
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    localizedOfficialReadMoreLabel(post.readMoreLabel),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.common_close))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                item {
-                    QuataRichTextRenderer(
-                        html = post.contentHtml,
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = post.contentPlain
-                    )
-                }
-                post.linkUrl?.takeIf { it.isNotBlank() }?.let { link ->
-                    item {
-                        Text(
-                            link,
-                            color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -875,17 +638,10 @@ private fun OfficialPostType.label(): String = when (this) {
     OfficialPostType.Urgent -> stringResource(R.string.official_type_urgent)
 }
 
-private fun shareOfficialPost(context: Context, post: OfficialPostItem) {
-    val body = buildString {
+private fun officialPostShareText(post: OfficialPostItem): String = buildString {
         append(post.title)
         append("\n\n")
         append(post.summary.ifBlank { post.contentPlain })
         append("\n\n")
         append(quataOfficialPostUrl(post.id))
     }
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, body)
-    }
-    context.startActivity(Intent.createChooser(intent, post.title))
-}

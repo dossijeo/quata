@@ -9,6 +9,7 @@ kotlin {
     androidLibrary { namespace = "com.quata.feature.auth"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
     js(IR) { browser() }
+    wasmJs { browser() }
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
@@ -20,5 +21,6 @@ kotlin {
         androidMain.dependencies { }
         iosMain.dependencies { }
         jsMain.dependencies { }
+        wasmJsMain.dependencies { }
     }
 }

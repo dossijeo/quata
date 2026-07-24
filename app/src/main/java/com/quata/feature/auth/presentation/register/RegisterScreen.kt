@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.feature.auth.domain.AuthRepository
-import com.quata.feature.auth.presentation.AuthResponsiveLayout
+import com.quata.feature.auth.presentation.AuthScreenLayoutContent
 import com.quata.feature.auth.presentation.register.RegisterForm
 import com.quata.feature.auth.presentation.register.RegisterFormStrings
 import com.quata.feature.auth.presentation.register.RegisterSecretQuestion
@@ -36,7 +36,7 @@ fun RegisterScreen(
         viewModel.effects.collect { if (it is RegisterEffect.Success) onRegisterSuccess() }
     }
 
-    AuthResponsiveLayout(
+    AuthScreenLayoutContent(
         padding = padding,
         subtitle = stringResource(R.string.auth_create_account_title),
         portraitLogoSpacing = 14.dp

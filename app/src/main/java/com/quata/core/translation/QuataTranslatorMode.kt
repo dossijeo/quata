@@ -85,6 +85,7 @@ import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.FangOverlayTranslationUseCase
+import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.core.language.QuataLanguageIdentifier
 import com.quata.core.language.QuataTranslationLanguage
 import com.quata.core.language.QuataTranslator
@@ -237,60 +238,14 @@ fun FangTranslatorIconButton(
     enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
     val description = stringResource(R.string.translator_button_content_description)
     val view = androidx.compose.ui.platform.LocalView.current
-    Box(
-        modifier = modifier
-            .size(width = 58.dp, height = 38.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .graphicsLayer { alpha = if (enabled) 1f else 0.42f }
-            .clickable(enabled = enabled) { onClick(view) }
-            .semantics {
-                contentDescription = description
-                role = Role.Button
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = 2.dp, y = 2.dp)
-                .size(width = 31.dp, height = 25.dp)
-                .background(
-                    brush = Brush.linearGradient(listOf(QuataOrange, Color(0xFFFF8A20))),
-                    shape = RoundedCornerShape(13.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Public,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = (-1).dp, y = (-1).dp)
-                .size(width = 39.dp, height = 22.dp)
-                .background(
-                    color = template.colors.surface.copy(alpha = 0.92f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .border(1.dp, template.colors.accent.copy(alpha = 0.58f), RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "fang",
-                color = template.colors.accent,
-                fontWeight = FontWeight.Black,
-                fontSize = 10.sp,
-                lineHeight = 10.sp
-            )
-        }
-    }
+    FangTranslatorTriggerContent(
+        contentDescription = description,
+        onClick = { onClick(view) },
+        enabled = enabled,
+        modifier = modifier,
+    )
 }
 
 @Composable

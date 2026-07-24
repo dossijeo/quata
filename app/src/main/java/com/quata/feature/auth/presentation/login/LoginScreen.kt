@@ -24,7 +24,7 @@ import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataPrimaryButton
 import com.quata.core.ui.components.QuataSecondaryButton
 import com.quata.core.ui.components.QuataTextField
-import com.quata.feature.auth.presentation.AuthResponsiveLayout
+import com.quata.feature.auth.presentation.AuthScreenLayoutContent
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.profile.data.countryPrefixOptions
 
@@ -47,7 +47,7 @@ fun LoginScreen(
         }
     }
 
-    AuthResponsiveLayout(
+    AuthScreenLayoutContent(
         padding = padding,
         subtitle = stringResource(R.string.auth_tagline),
         portraitLogoSpacing = 22.dp

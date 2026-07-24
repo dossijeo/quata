@@ -1,7 +1,6 @@
 package com.quata.feature.chat.presentation.conversations
 
 import android.Manifest
-import android.content.ClipData
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,7 +43,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.quata.core.ui.components.CompactButtonContentPadding
@@ -75,8 +73,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +87,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.platform.ClipboardService
 import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.AvatarLetter
@@ -98,6 +95,7 @@ import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.QuataFloatingPanel
 import com.quata.core.ui.components.QuataCard
+import com.quata.core.ui.components.QuataPermissionPromptCardContent
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -113,6 +111,7 @@ import kotlinx.coroutines.launch
 fun ConversationsScreen(
     padding: PaddingValues,
     repository: ChatRepository,
+    clipboardService: ClipboardService,
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null,
@@ -169,19 +168,16 @@ fun ConversationsScreen(
                     .fillMaxSize()
                     .padding(contentPadding)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.conversations_title), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    CompactIconButton(onClick = onOpenFavorites) {
-                        CompactIcon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
+                ConversationsListHeaderContent(
+                    title = stringResource(R.string.conversations_title),
+                    query = query,
+                    searchPlaceholder = stringResource(R.string.conversations_search_placeholder),
+                    onQueryChange = { query = it },
+                    trailingAction = {
+                        CompactIconButton(onClick = onOpenFavorites) {
+                            CompactIcon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
+                        }
                     }
-                }
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text(stringResource(R.string.conversations_search_placeholder)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
                 )
                 Spacer(Modifier.padding(8.dp))
                 LazyColumn(
@@ -190,7 +186,7 @@ fun ConversationsScreen(
                 ) {
                     if (state.isLoading && state.conversations.isEmpty()) {
                         items(6) { index ->
-                            ConversationCardSkeleton(pulseDelayMillis = index * 85)
+                            ConversationListLoadingSkeletonContent(pulseDelayMillis = index * 85)
                         }
                     } else {
                         items(visibleConversations) { item ->
@@ -230,6 +226,7 @@ fun ConversationsScreen(
     if (state.isNewConversationPickerOpen) {
         ConversationCandidatePickerDialog(
             state = state,
+            clipboardService = clipboardService,
             onSearchChange = viewModel::onCandidateQueryChanged,
             onLoadMore = viewModel::loadMoreConversationCandidates,
             onOpenCandidate = { candidate ->
@@ -274,99 +271,17 @@ fun ConversationsScreen(
 }
 
 @Composable
-private fun ConversationCardSkeleton(pulseDelayMillis: Int) {
-    val transition = rememberInfiniteTransition(label = "conversation_skeleton")
-    val pulse by transition.animateFloat(
-        initialValue = 0.42f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 880, delayMillis = pulseDelayMillis),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "conversation_skeleton_alpha"
-    )
-    val surface = Color.White.copy(alpha = 0.055f + 0.055f * pulse)
-    val line = Color.White.copy(alpha = 0.08f + 0.12f * pulse)
-    QuataCard {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(QuataOrange.copy(alpha = 0.12f + 0.10f * pulse))
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.52f)
-                        .height(16.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(line)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.86f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(surface)
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(width = 54.dp, height = 14.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(line.copy(alpha = line.alpha * 0.75f))
-            )
-        }
-    }
-}
-
-@Composable
 private fun UndoDeleteButton(
     title: String,
     onUndo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surfaceRaised,
-        shape = RoundedCornerShape(18.dp),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Spacer(Modifier.size(8.dp))
-            Button(
-                onClick = onUndo,
-                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .height(32.dp)
-                    .compactButtonMinSize(),
-                contentPadding = CompactButtonContentPadding
-            ) {
-                Text(stringResource(R.string.conversation_undo_delete), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
+    ConversationDeleteUndoContent(
+        title = title,
+        undoLabel = stringResource(R.string.conversation_undo_delete),
+        onUndo = onUndo,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -415,6 +330,7 @@ private fun NewConversationFab(
 @Composable
 fun ConversationCandidatePickerDialog(
     state: ConversationsUiState,
+    clipboardService: ClipboardService,
     onSearchChange: (String) -> Unit,
     onLoadMore: () -> Unit,
     onOpenCandidate: (ChatConversationCandidate) -> Unit,
@@ -482,6 +398,7 @@ fun ConversationCandidatePickerDialog(
     ) { panelModifier, isLandscape ->
         NewConversationPanelContent(
                 state = state,
+                clipboardService = clipboardService,
                 displayItems = displayItems,
                 listState = listState,
                 title = title,
@@ -513,6 +430,7 @@ fun ConversationCandidatePickerDialog(
 @Composable
 private fun NewConversationPanelContent(
     state: ConversationsUiState,
+    clipboardService: ClipboardService,
     displayItems: List<CandidateDisplayItem>,
     listState: LazyListState,
     title: String,
@@ -694,6 +612,7 @@ private fun NewConversationPanelContent(
     pendingInviteContact?.let { contact ->
         InviteChannelSheet(
             contact = contact,
+            clipboardService = clipboardService,
             onDismiss = { pendingInviteContact = null }
         )
     }
@@ -701,27 +620,12 @@ private fun NewConversationPanelContent(
 
 @Composable
 private fun InviteContactsPermissionCard(onRequestPermission: (() -> Unit)?) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                stringResource(R.string.conversations_invite_contacts_permission),
-                color = template.colors.textSecondary,
-                modifier = Modifier.weight(1f)
-            )
-            Button(onClick = { onRequestPermission?.invoke() }, enabled = onRequestPermission != null) {
-                Text(stringResource(R.string.conversations_invite_allow))
-            }
-        }
-    }
+    QuataPermissionPromptCardContent(
+        message = stringResource(R.string.conversations_invite_contacts_permission),
+        actionLabel = stringResource(R.string.conversations_invite_allow),
+        actionAvailable = onRequestPermission != null,
+        onRequestPermission = { onRequestPermission?.invoke() },
+    )
 }
 
 @Composable
@@ -753,14 +657,17 @@ private fun InviteContactCard(contact: ChatInviteContact, onInvite: () -> Unit) 
 }
 
 @Composable
-private fun InviteChannelSheet(contact: ChatInviteContact, onDismiss: () -> Unit) {
+private fun InviteChannelSheet(
+    contact: ChatInviteContact,
+    clipboardService: ClipboardService,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
     val targets = remember(contact) { availableInviteTargets(context, contact) }
     val message = stringResource(R.string.conversations_invite_message)
     val chooserTitle = stringResource(R.string.conversations_invite_chooser_title)
     val smsLabel = stringResource(R.string.conversations_invite_channel_sms)
     val template = quataTheme()
-    val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     QuataFloatingPanel(
         onDismiss = onDismiss,
@@ -800,9 +707,12 @@ private fun InviteChannelSheet(contact: ChatInviteContact, onDismiss: () -> Unit
                             .clip(CircleShape)
                             .clickable {
                                 scope.launch {
+                                    /* Superseded by the platform-neutral service below.
                                     clipboard.setClipEntry(
                                         ClipEntry(ClipData.newPlainText("Qüata", message))
                                     )
+                                    */
+                                    clipboardService.writeText(message)
                                 }
                             }
                             .padding(12.dp)
@@ -934,68 +844,24 @@ private fun CandidateUserCard(
     onToggleSelection: (() -> Unit)? = null,
     onOpen: () -> Unit
 ) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .clickable(enabled = onToggleSelection != null) { onToggleSelection?.invoke() }
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            onToggleSelection?.let { toggle ->
-                Checkbox(
-                    checked = isSelected,
-                    onCheckedChange = { toggle() }
-                )
-                Spacer(Modifier.size(8.dp))
-            }
+    ConversationCandidateCardContent(
+        title = candidate.displayName,
+        subtitle = candidate.neighborhood,
+        isOpening = isOpening,
+        actionIcon = actionIcon,
+        actionContentDescription = actionContentDescription,
+        isSelected = isSelected,
+        onToggleSelection = onToggleSelection,
+        onOpen = onOpen,
+        avatar = {
             AvatarImage(
                 name = candidate.displayName,
                 avatarUrl = candidate.avatarUrl,
                 profileId = candidate.profileId,
                 modifier = Modifier.size(48.dp)
             )
-            Spacer(Modifier.size(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(candidate.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val subtitle = candidate.neighborhood
-                if (subtitle.isNotBlank()) {
-                    Text(
-                        subtitle,
-                        color = template.colors.textSecondary,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Spacer(Modifier.size(8.dp))
-            if (onToggleSelection == null) {
-                Button(
-                    onClick = onOpen,
-                    enabled = !isOpening,
-                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .compactButtonMinSize(),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    if (isOpening) {
-                        CircularProgressIndicator(color = template.colors.accentContent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                    } else {
-                        CompactIcon(actionIcon, contentDescription = actionContentDescription, tint = template.colors.accentContent)
-                    }
-                }
-            }
         }
-    }
+    )
 }
 
 @Composable
@@ -1012,29 +878,17 @@ private fun ConversationCard(
     val context = LocalContext.current
     val rawPreview = messages.lastOrNull()?.text ?: item.lastMessagePreview
     val preview = context.localizedChatPreview(rawPreview)
-    QuataCard(modifier = Modifier.clickable { onOpenConversation(item.id) }) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    ConversationListItemContent(
+        title = item.chatDisplayTitle(),
+        preview = preview,
+        updatedAt = item.relativeUpdatedAt(context, timestampNowMillis),
+        unreadCount = item.unreadCount,
+        showUnreadBadge = !item.isMuted,
+        avatar = {
             ConversationAvatar(item, currentUser, usersById, openingProfileUserId, onOpenUserProfile)
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(item.chatDisplayTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(item.relativeUpdatedAt(context, timestampNowMillis), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                if (!item.isMuted && item.unreadCount > 0) {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    ) {
-                        Text(item.unreadCount.toString(), fontSize = 9.sp)
-                    }
-                }
-            }
-        }
-    }
+        },
+        onOpen = { onOpenConversation(item.id) }
+    )
 }
 
 @Composable

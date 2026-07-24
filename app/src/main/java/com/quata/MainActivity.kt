@@ -43,6 +43,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.quata.core.di.AppContainer
+import com.quata.core.platform.MainActivityFilePickerHost
+import com.quata.core.platform.MainActivityPermissionHost
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
@@ -58,6 +60,8 @@ class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
     private val incomingShare = mutableStateOf<ExternalSharePayload?>(null)
     private lateinit var appContainer: AppContainer
+    private var filePickerHost: MainActivityFilePickerHost? = null
+    private var permissionHost: MainActivityPermissionHost? = null
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(QuataLanguageManager.wrap(newBase))
@@ -70,6 +74,10 @@ class MainActivity : ComponentActivity() {
             .show(WindowInsetsCompat.Type.navigationBars())
 
         appContainer = (application as QuataApp).container
+        filePickerHost = MainActivityFilePickerHost(this).also(appContainer.filePickerService::attachHost)
+        permissionHost = MainActivityPermissionHost(this).also { host ->
+            appContainer.permissionService.attachHost(host::request)
+        }
         ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
         val launchedFromShare = intent?.action in SHARE_ACTIONS
         handleIncomingIntent(intent)
@@ -121,6 +129,18 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         QuataProximityState.stop()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        filePickerHost?.let { host ->
+            appContainer.filePickerService.detachHost(host)
+            host.close()
+        }
+        filePickerHost = null
+        appContainer.permissionService.detachHost()
+        permissionHost?.close()
+        permissionHost = null
+        super.onDestroy()
     }
 
     private fun handleIncomingIntent(sourceIntent: Intent?) {

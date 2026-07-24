@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,9 +38,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,7 +47,6 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -62,7 +58,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -291,7 +286,7 @@ fun CommunityProfileScreen(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(showPosts) {
-        if (showPosts) listState.animateScrollToItem(1)
+        if (showPosts) listState.animateScrollToItem(2)
     }
     ProfileModerationConfirmation(
         action = pendingProfileAction,
@@ -339,20 +334,14 @@ fun CommunityProfileScreen(
                 followingUserId = followingUserId
             )
         } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 780.dp),
-                contentPadding = PaddingValues(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 28.dp)
-            ) {
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(profile.user.displayName, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
-                            Text(profile.user.neighborhood, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
-                        }
-                    }
-                    Spacer(Modifier.height(18.dp))
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            CommunityProfileDetailsContent(
+                listState = listState,
+                modifier = Modifier.heightIn(max = 780.dp),
+                header = {
+                    CommunityProfileHeaderContent(
+                        displayName = profile.user.displayName,
+                        neighborhood = profile.user.neighborhood,
+                        avatar = {
                         ProfileAvatar(
                             profile.user,
                             Modifier
@@ -367,9 +356,9 @@ fun CommunityProfileScreen(
                                 },
                             isLoading = isRefreshingProfile
                         )
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        },
+                        kpis = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { showPosts = true })
                         ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
                             userListTitle = "followers"
@@ -377,9 +366,10 @@ fun CommunityProfileScreen(
                         ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
                             userListTitle = "following"
                         })
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    ProfilePrimaryActions(
+                            }
+                        },
+                        primaryActions = {
+                            ProfilePrimaryActions(
                         isOwnProfile = isOwnProfile,
                         isFollowing = profile.user.isFollowing,
                         isFollowingLoading = isFollowingLoading,
@@ -391,8 +381,10 @@ fun CommunityProfileScreen(
                         ),
                         onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },
                         onChat = { if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id) }
-                    )
-                    ProfileModerationActions(
+                            )
+                        },
+                        moderationActions = {
+                            ProfileModerationActions(
                         visible = !isOwnProfile,
                         strings = ProfileModerationStrings(
                             report = stringResource(R.string.moderation_report),
@@ -404,10 +396,12 @@ fun CommunityProfileScreen(
                         onBlock = {
                             if (currentUserId == null) onAuthRequired() else pendingProfileAction = ProfileModerationAction.Block
                         }
-                    )
-                    if (currentUserIsAdmin && !isOwnProfile) {
-                        Spacer(Modifier.height(14.dp))
-                        ProfileRoleControlsContent(
+                            )
+                        },
+                        adminControls = if (currentUserIsAdmin && !isOwnProfile) {
+                            {
+                                Spacer(Modifier.height(14.dp))
+                                ProfileRoleControlsContent(
                             user = profile.user,
                             isUpdating = roleUpdatingUserId == profile.user.id,
                             strings = ProfileRoleStrings(
@@ -418,13 +412,18 @@ fun CommunityProfileScreen(
                             onSetRoles = { isAdmin, isOfficial ->
                                 onSetUserRoles(profile.user.id, isAdmin, isOfficial)
                             }
-                        )
-                    }
-                    chatError?.let { error ->
-                        Spacer(Modifier.height(10.dp))
-                        Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(18.dp))
+                                )
+                            }
+                        } else null,
+                        errorMessage = chatError?.let { error ->
+                            {
+                                Spacer(Modifier.height(10.dp))
+                                Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                },
+                attachments = {
                     ProfileAttachmentsSection(
                         attachments = profile.attachments,
                         onOpenAttachment = { attachment ->
@@ -440,9 +439,9 @@ fun CommunityProfileScreen(
                         }
                     )
                     Spacer(Modifier.height(18.dp))
-                }
-                if (showPosts) {
-                    item {
+                },
+                gallery = if (showPosts) {
+                    {
                         val pagerState = rememberPagerState(pageCount = { profile.posts.size })
                         ProfileGalleryHeader(
                             title = stringResource(R.string.neighborhoods_photos_videos),
@@ -460,8 +459,8 @@ fun CommunityProfileScreen(
                             )
                         }
                     }
-                }
-            }
+                } else null,
+            )
         }
     }
     selectedAttachment?.let { attachment ->
@@ -498,24 +497,12 @@ private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Un
         )
         return
     }
-    val cardModifier = Modifier
-        .fillMaxWidth()
-        .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp))
-        .background(template.colors.surface, RoundedCornerShape(16.dp))
-    Column(
-        modifier = Modifier
-            .then(cardModifier.clickable(onClick = onOpen))
-            .padding(10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AttachmentThumbnail(preview, modifier = Modifier.size(58.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(attachment.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(attachment.senderName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
-            }
-        }
-    }
+    ProfileAttachmentCardContent(
+        name = attachment.name,
+        senderName = attachment.senderName,
+        thumbnail = { AttachmentThumbnail(preview, modifier = Modifier.size(58.dp)) },
+        onClick = onOpen
+    )
 }
 
 private fun ProfileAttachment.toAttachmentPreview(): AttachmentPreview =
@@ -600,16 +587,15 @@ private fun ProfilePostsPager(
     onReportPost: (String) -> Unit
 ) {
     val context = LocalContext.current
-    var commentsPost by remember { mutableStateOf<Post?>(null) }
-    val localComments = remember { mutableStateMapOf<String, List<PostComment>>() }
-    Column {
-        HorizontalPager(state = pagerState, modifier = Modifier.height(440.dp)) { page ->
-            val post = posts[page]
+    ProfilePostsPagerContent(
+        posts = posts,
+        pagerState = pagerState,
+        postPreview = { post, commentsCount, onOpenComments ->
             ProfilePostPreview(
                 post = post,
-                commentsCount = post.comments.size + localComments[post.id].orEmpty().size,
+                commentsCount = commentsCount,
                 canParticipate = canParticipate,
-                onOpenComments = { commentsPost = post },
+                onOpenComments = onOpenComments,
                 onAuthRequired = onAuthRequired,
                 onShare = { context.shareProfilePost(post) },
                 onReport = {
@@ -621,23 +607,20 @@ private fun ProfilePostsPager(
                             onAuthRequired()
                         }
                     }
-                }
+                },
             )
-        }
-    }
-
-    commentsPost?.let { post ->
-        ProfileCommentsDialog(
-            post = post,
-            localComments = localComments[post.id].orEmpty(),
-            canParticipate = canParticipate,
-            onAuthRequired = onAuthRequired,
-            onAddComment = { comment ->
-                localComments[post.id] = localComments[post.id].orEmpty() + comment
-            },
-            onDismiss = { commentsPost = null }
-        )
-    }
+        },
+        commentsDialog = { post, localComments, onAddComment, onDismiss ->
+            ProfileCommentsDialog(
+                post = post,
+                localComments = localComments,
+                canParticipate = canParticipate,
+                onAuthRequired = onAuthRequired,
+                onAddComment = onAddComment,
+                onDismiss = onDismiss,
+            )
+        },
+    )
 }
 
 @Composable
@@ -661,13 +644,9 @@ private fun ProfilePostPreview(
     val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
     val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
     val mediaSeed = post.imageUrl ?: post.videoUrl ?: seedText
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(430.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(textCanvasBrush(mediaSeed))
-    ) {
+    ProfilePostPreviewFrameContent(
+        backgroundSeed = mediaSeed,
+        media = {
         when {
             post.imageUrl != null -> AsyncImage(
                 model = post.imageUrl,
@@ -704,15 +683,8 @@ private fun ProfilePostPreview(
                 Text(cleanPostText, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
             }
         }
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f))))
-                .padding(16.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Column(Modifier.weight(1f)) {
+        },
+        metadata = {
                 Text(post.author.displayName, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 val subtitle = when {
                     post.imageUrl != null && post.videoUrl == null -> post.placeName.orEmpty()
@@ -722,7 +694,8 @@ private fun ProfilePostPreview(
                 if (subtitle.isNotBlank()) {
                     Text(subtitle, color = Color.White.copy(alpha = 0.82f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-            }
+        },
+        actionRail = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MiniFeedAction(
                     icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -745,7 +718,7 @@ private fun ProfilePostPreview(
                 )
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -754,21 +727,7 @@ private fun MiniFeedAction(
     count: String?,
     tint: Color = Color.White,
     onClick: () -> Unit
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.42f))
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            CompactIcon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        }
-        if (count != null) Text(count, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
+) = ProfilePostActionContent(icon, count, tint, onClick)
 
 @Composable
 private fun ProfileVideoPlayer(videoUrl: String) {
@@ -840,24 +799,12 @@ private fun ProfileCommentsDialog(
     val comments = post.comments + localComments
     val currentUserName = stringResource(R.string.comments_you)
     val nowLabel = stringResource(R.string.common_now)
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = template.colors.surfaceRaised),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.feed_comments), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-                    CompactIconButton(onClick = onDismiss) {
-                        CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close))
-                    }
-                }
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 320.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(comments, key = { it.id }) { comment ->
+    CommunityProfileCommentsPanelContent(
+        comments = comments,
+        title = stringResource(R.string.feed_comments),
+        closeContentDescription = stringResource(R.string.common_close),
+        onDismiss = onDismiss,
+        commentRow = { comment ->
                         Card(
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
@@ -871,23 +818,14 @@ private fun ProfileCommentsDialog(
                                 Text(comment.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it },
-                        placeholder = { Text(stringResource(R.string.comments_placeholder)) },
-                        singleLine = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 58.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        enabled = draft.isNotBlank(),
-                        onClick = {
+        },
+        input = {
+            CommunityProfileCommentInputContent(
+                value = draft,
+                placeholder = stringResource(R.string.comments_placeholder),
+                sendLabel = stringResource(R.string.common_send),
+                onValueChange = { draft = it },
+                onSend = {
                             if (canParticipate) {
                                 onAddComment(
                                     PostComment(
@@ -901,15 +839,10 @@ private fun ProfileCommentsDialog(
                             } else {
                                 onAuthRequired()
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
-                    ) {
-                        Text(stringResource(R.string.common_send))
-                    }
                 }
-            }
+            )
         }
-    }
+    )
 }
 
 private fun android.content.Context.shareProfilePost(post: Post) {

@@ -1363,32 +1363,15 @@ private fun QuataRichTextHeadingMenu(
     onDismiss: () -> Unit,
     onSelect: (Int) -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nivel de titulo") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (level in 1..6) {
-                    DropdownMenuItem(
-                        text = { Text("H$level") },
-                        onClick = { onSelect(level) },
-                    )
-                }
-                DropdownMenuItem(
-                    text = {
-                        val label = if (current == 0) "Texto normal" else "Texto normal (actual: H$current)"
-                        Text(label)
-                    },
-                    onClick = { onSelect(0) },
-                )
-            }
+    QuataRichTextHeadingDialogContent(
+        current = current,
+        title = "Nivel de titulo",
+        normalTextLabel = { level ->
+            if (level == 0) "Texto normal" else "Texto normal (actual: H$level)"
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cerrar")
-            }
-        },
-        dismissButton = {},
+        closeLabel = "Cerrar",
+        onSelect = onSelect,
+        onDismiss = onDismiss,
     )
 }
 
@@ -1478,30 +1461,14 @@ private fun QuataRichTextLinkDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var url by remember { mutableStateOf(initialUrl) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Anadir enlace") },
-        text = {
-            OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                placeholder = { Text("https://dominio.com") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(url) }) {
-                Text("Guardar")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        },
+    QuataRichTextLinkDialogContent(
+        initialUrl = initialUrl,
+        title = "Anadir enlace",
+        placeholder = "https://dominio.com",
+        confirmLabel = "Guardar",
+        dismissLabel = "Cancelar",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
     )
 }
 

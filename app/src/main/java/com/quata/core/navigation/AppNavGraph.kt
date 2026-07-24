@@ -63,6 +63,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataAboutDialogContent
+import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -121,7 +123,6 @@ import androidx.navigation.navArgument
 import com.quata.core.common.toUserFacingMessage
 import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
-import com.quata.core.location.hasQuataLocationPermission
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.SosLocationRecoveryService
 import com.quata.core.moderation.LegalDocument
@@ -129,11 +130,14 @@ import com.quata.core.moderation.LegalDocuments
 import com.quata.core.moderation.ModerationTarget
 import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.presence.LocalUserPresence
+import com.quata.core.platform.PermissionStatus
+import com.quata.core.platform.PlatformPermission
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
@@ -669,6 +673,7 @@ fun AppNavGraph(
                     FeedScreen(
                         padding = padding,
                         feedRepository = container.feedRepository,
+                        shareService = container.shareService,
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },
@@ -699,6 +704,7 @@ fun AppNavGraph(
                     OfficialFeedScreen(
                         padding = padding,
                         repository = container.officialRepository,
+                        shareService = container.shareService,
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         focusedPostId = officialFocusedPostId,
                         onFocusedPostHandled = { officialFocusedPostId = null },
@@ -765,6 +771,8 @@ fun AppNavGraph(
                     CreatePostScreen(
                         padding = padding,
                         repository = container.postComposerRepository,
+                        locationService = container.locationService,
+                        permissionService = container.permissionService,
                         resetToken = createPostResetToken,
                         cancelUploadToken = createPostCancelUploadToken,
                         canPublish = isAuthenticated,
@@ -798,6 +806,7 @@ fun AppNavGraph(
                         ConversationsScreen(
                             padding = padding,
                             repository = container.chatRepository,
+                            clipboardService = container.clipboardService,
                             openingProfileUserId = globalProfileState.openingProfileUserId,
                             onOpenUserProfile = { userId ->
                                 globalProfileViewModel.openUserProfile(userId)
@@ -827,6 +836,9 @@ fun AppNavGraph(
                             padding = padding,
                             conversationId = conversationId,
                             repository = container.chatRepository,
+                            clipboardService = container.clipboardService,
+                            filePickerService = container.filePickerService,
+                            audioRecorderService = container.audioRecorderService,
                             openingProfileUserId = globalProfileState.openingProfileUserId,
                             onOpenUserProfile = { userId ->
                                 globalProfileViewModel.openUserProfile(userId)
@@ -1062,6 +1074,7 @@ fun AppNavGraph(
             ShareToQuataDialog(
                 payload = incomingShare,
                 repository = container.chatRepository,
+                clipboardService = container.clipboardService,
                 onDismiss = onIncomingShareHandled,
                 onSent = { conversationId ->
                     Toast.makeText(appContext, R.string.share_to_quata_sent, Toast.LENGTH_SHORT).show()
@@ -1385,49 +1398,19 @@ private fun AboutQuataDialog(
     onOpenReleaseHistory: () -> Unit
 ) {
     val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(R.string.about_title),
-                fontWeight = FontWeight.ExtraBold
-            )
+    QuataAboutDialogContent(
+        title = stringResource(R.string.about_title),
+        version = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+        versionDate = stringResource(R.string.about_version_date, BuildConfig.APP_VERSION_DATE),
+        body = stringResource(R.string.about_body),
+        releaseHistoryLabel = stringResource(R.string.release_history_short),
+        closeLabel = stringResource(R.string.common_close),
+        onDismiss = onDismiss,
+        onOpenReleaseHistory = onOpenReleaseHistory,
+        legalLinks = {
+            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
+            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
         },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    text = stringResource(
-                        R.string.about_version,
-                        BuildConfig.VERSION_NAME
-                    )
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(
-                        R.string.about_version_date,
-                        BuildConfig.APP_VERSION_DATE
-                    )
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.about_body))
-                Spacer(Modifier.height(12.dp))
-                LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
-                LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
-            }
-        },
-        confirmButton = {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = onOpenReleaseHistory) {
-                    Text(stringResource(R.string.release_history_short))
-                }
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.common_close))
-                }
-            }
-        }
     )
 }
 
@@ -1441,86 +1424,21 @@ private fun AccountLifecycleConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var confirmation by remember(action) { mutableStateOf("") }
-    var password by remember(action) { mutableStateOf("") }
     val isDeletion = action == AccountLifecycleAction.DeleteData
     val requiredConfirmation = stringResource(R.string.account_delete_confirmation_word)
-    val canConfirm = !isWorking && password.isNotBlank() &&
-        (!isDeletion || confirmation.trim().equals(requiredConfirmation, ignoreCase = true))
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = !isWorking,
-            dismissOnClickOutside = !isWorking
-        ),
-        title = {
-            Text(
-                stringResource(
-                    if (isDeletion) R.string.account_delete_confirm_title
-                    else R.string.account_deactivate_confirm_title
-                ),
-                fontWeight = FontWeight.ExtraBold
-            )
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    stringResource(
-                        if (isDeletion) R.string.account_delete_confirm_body
-                        else R.string.account_deactivate_confirm_body
-                    )
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.account_password_prompt))
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    enabled = !isWorking,
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.auth_password)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (isDeletion) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(stringResource(R.string.account_delete_type_confirmation, requiredConfirmation))
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = confirmation,
-                        onValueChange = { confirmation = it },
-                        enabled = !isWorking,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                errorMessage?.let {
-                    Spacer(Modifier.height(12.dp))
-                    Text(it, color = Color.Red)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(enabled = !isWorking, onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = canConfirm, onClick = { onConfirm(password) }) {
-                if (isWorking) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(
-                        stringResource(
-                            if (isDeletion) R.string.account_delete_confirm_action
-                            else R.string.account_deactivate_confirm_action
-                        )
-                    )
-                }
-            }
-        }
+    QuataAccountLifecycleConfirmationDialogContent(
+        title = stringResource(if (isDeletion) R.string.account_delete_confirm_title else R.string.account_deactivate_confirm_title),
+        body = stringResource(if (isDeletion) R.string.account_delete_confirm_body else R.string.account_deactivate_confirm_body),
+        passwordPrompt = stringResource(R.string.account_password_prompt),
+        passwordLabel = stringResource(R.string.auth_password),
+        cancelLabel = stringResource(R.string.common_cancel),
+        confirmLabel = stringResource(if (isDeletion) R.string.account_delete_confirm_action else R.string.account_deactivate_confirm_action),
+        isWorking = isWorking,
+        errorMessage = errorMessage,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+        confirmationPrompt = if (isDeletion) stringResource(R.string.account_delete_type_confirmation, requiredConfirmation) else null,
+        requiredConfirmation = requiredConfirmation.takeIf { isDeletion },
     )
 }
 
@@ -1585,37 +1503,22 @@ private fun AuthRequiredDialog(
     onCreateAccount: () -> Unit,
     onLogin: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(R.string.auth_required_title),
-                fontWeight = FontWeight.ExtraBold
-            )
-        },
-        text = {
-            Column {
-                Text(stringResource(R.string.auth_required_intro))
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.auth_required_send_messages))
-                Text(stringResource(R.string.auth_required_comment_posts))
-                Text(stringResource(R.string.auth_required_create_content))
-                Text(stringResource(R.string.auth_required_follow_communities))
-                Text(stringResource(R.string.auth_required_configure_sos))
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.auth_required_outro))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCreateAccount) {
-                Text(stringResource(R.string.auth_required_create_account))
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onLogin) {
-                Text(stringResource(R.string.auth_required_login))
-            }
-        }
+    QuataAuthRequiredDialogContent(
+        title = stringResource(R.string.auth_required_title),
+        intro = stringResource(R.string.auth_required_intro),
+        requirements = listOf(
+            stringResource(R.string.auth_required_send_messages),
+            stringResource(R.string.auth_required_comment_posts),
+            stringResource(R.string.auth_required_create_content),
+            stringResource(R.string.auth_required_follow_communities),
+            stringResource(R.string.auth_required_configure_sos),
+        ),
+        outro = stringResource(R.string.auth_required_outro),
+        createAccountLabel = stringResource(R.string.auth_required_create_account),
+        loginLabel = stringResource(R.string.auth_required_login),
+        onDismiss = onDismiss,
+        onCreateAccount = onCreateAccount,
+        onLogin = onLogin,
     )
 }
 
@@ -1968,34 +1871,20 @@ private fun AuthenticatedGlobalSosButton(
         }
     }
 
-    lateinit var locationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
     fun requestLocation(profile: UserProfile) {
         pendingProfile = profile
-        if (context.hasQuataLocationPermission()) {
-            scope.launch {
-                sendSos(profile, context.quataLastLocation())
-            }
-        } else {
-            locationPermissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
+        scope.launch {
+            val locationGranted =
+                container.permissionService.status(PlatformPermission.Location) == PermissionStatus.Granted ||
+                    container.permissionService.request(PlatformPermission.Location) == PermissionStatus.Granted
+            sendSos(profile, if (locationGranted) context.quataLastLocation() else null)
+            pendingProfile = null
         }
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         pendingProfile?.let { requestLocation(it) }
     }
-    locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        pendingProfile?.let { profile ->
-            scope.launch {
-                sendSos(profile, if (granted) context.quataLastLocation() else null)
-            }
-            pendingProfile = null
-        }
-    }
-
     fun openSosConfig(profile: UserProfile, candidates: List<EmergencyContactCandidate>) {
         configProfile = profile
         configContactIds = profile.emergencyContactIds.distinct().take(5)

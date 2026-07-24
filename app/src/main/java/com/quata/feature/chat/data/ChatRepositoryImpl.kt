@@ -339,9 +339,9 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val knownIds = messagesState(conversationId).value.mapNotNull { it.id.toLongOrNull() }
         val payload = remote.getChatThread(session.userId, conversationId.requireThreadId(), limit, knownIds)
-        val parsed = parseChatPayload(payload)
+        val parsed = parseChatPayload(payload, session.userId)
         parsed.profiles.forEach { profilesById[it.id] = it }
-        val older = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }
+        val older = parsed.messages
         if (older.isNotEmpty()) {
             val merged = reconcileChatMessages(older, messagesState(conversationId).value)
             messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, merged)
@@ -1020,10 +1020,9 @@ class ChatRepositoryImpl(
                 val previous = _conversations.value.associateBy { it.id }
                 val payload = remote.getChatInbox(profileId)
                 if (sessionManager.currentSession()?.userId != profileId) return@runCatching
-                val parsed = parseChatPayload(payload)
+                val parsed = parseChatPayload(payload, profileId)
                 parsed.profiles.forEach { profilesById[it.id] = it }
-                val conversations = parsed.threads
-                    .map { it.toConversation(profileId, parsed.profilesById) }
+                val conversations = parsed.conversations
                     .sortedByDescending { it.updatedAtMillis ?: 0L }
                 _conversations.value = conversations
                 cacheStore.replaceConversations(profileId, conversations)
@@ -1091,13 +1090,13 @@ class ChatRepositoryImpl(
         runCatching {
             val payload = remote.getChatThread(session.userId, threadId)
             if (sessionManager.currentSession()?.userId != session.userId) return@runCatching
-            val parsed = parseChatPayload(payload)
+            val parsed = parseChatPayload(payload, session.userId)
             parsed.profiles.forEach { profilesById[it.id] = it }
-            val conversation = parsed.threads.firstOrNull()?.toConversation(session.userId, parsed.profilesById)
+            val conversation = parsed.conversations.firstOrNull()
             if (conversation != null) {
                 upsertConversation(session.userId, conversation)
             }
-            val incomingMessages = parsed.messages.map { it.toMessage(session.userId, parsed.profilesById) }
+            val incomingMessages = parsed.messages
             val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
             val messages = reconcileChatMessages(incomingMessages, cachedMessages)
             val displayMessages = attachmentFileCache.resolveCached(session.userId, messages)
@@ -1123,11 +1122,11 @@ class ChatRepositoryImpl(
         lastFavoritesRefreshAtMillis = now
         runCatching {
             val payload = remote.getChatFavorites(profileId)
-            val parsed = parseChatPayload(payload)
+            val parsed = parseChatPayload(payload, profileId)
             parsed.profiles.forEach { profilesById[it.id] = it }
             val cachedMessages = cacheStore.cachedFavoriteMessages(profileId)
             val messages = reconcileChatMessages(
-                incoming = parsed.messages.map { it.toMessage(profileId, parsed.profilesById) },
+                incoming = parsed.messages,
                 existing = cachedMessages,
                 retainUnmatchedExisting = false
             )
@@ -1402,10 +1401,9 @@ class ChatRepositoryImpl(
         confirmedOutgoing: PendingOutgoingMessage? = null
     ) {
         val session = sessionManager.currentSession()?.takeIf { it.userId == expectedProfileId } ?: return
-        val parsed = parseChatPayload(payload)
+        val parsed = parseChatPayload(payload, session.userId)
         parsed.profiles.forEach { profilesById[it.id] = it }
-        parsed.threads
-            .map { it.toConversation(session.userId, parsed.profilesById) }
+        parsed.conversations
             .forEach {
                 if (sessionManager.currentSession()?.userId != expectedProfileId) return
                 upsertConversation(session.userId, it)
@@ -1457,118 +1455,20 @@ class ChatRepositoryImpl(
         }
     }
 
-    private fun parseChatPayload(payload: JsonElement): ParsedChatPayload {
-        val root = payload.obj
-        val payloadRoots = listOf(root) + listOfNotNull(root.obj("update"))
-        val threads = payloadRoots
-            .flatMap { rootObject ->
-                rootObject.array("threads").mapNotNull { it.objOrNull } + listOfNotNull(rootObject.obj("thread"))
-            }
-            .distinctBy { it.long("thread_id") ?: it.long("id") }
-        val messages = payloadRoots
-            .flatMap { rootObject ->
-                rootObject.array("messages").mapNotNull { it.objOrNull } + listOfNotNull(rootObject.obj("message"))
-            }
-            .distinctBy { it.long("id") }
-        val profiles = (
-            payloadRoots
-                .flatMap { it.array("profiles") }
-                .mapNotNull { it.objOrNull?.toProfile() } +
-                messages.mapNotNull { it.obj("sender")?.toProfile() }
-            )
-            .distinctBy { it.id }
-        val profilesById = profiles.associateBy { it.id }
+    private fun parseChatPayload(payload: JsonElement, currentProfileId: String): ParsedChatPayload {
+        val envelope = parseChatRpcPayloadEnvelope(payload)
+        val profiles = envelope.profileRecords().map { it.toCommunityProfile() }
+        val conversations = envelope.toChatRpcConversations(currentProfileId)
+        val messages = envelope.toChatRpcMessages(currentProfileId)
         val messagesByConversation = reconcileChatMessages(
-            incoming = messages.map { it.toMessage(sessionManager.currentSession()?.userId.orEmpty(), profilesById) }
+            incoming = messages
         )
             .groupBy { it.conversationId }
         return ParsedChatPayload(
-            threads = threads,
+            conversations = conversations,
             messages = messages,
             profiles = profiles,
-            profilesById = profilesById,
             messagesByConversation = messagesByConversation
-        )
-    }
-
-    private fun JsonObject.toConversation(currentProfileId: String, profiles: Map<String, CommunityProfile>): Conversation {
-        val threadId = long("thread_id") ?: long("id") ?: 0L
-        val type = string("type").orEmpty()
-        val participantIds = array("participants").mapNotNull { it.stringOrNull() }.distinct()
-        val otherIds = participantIds.filterNot { it == currentProfileId }
-        val otherProfiles = otherIds.mapNotNull { profiles[it] ?: profilesById[it] }
-        val participantTitle = otherProfiles
-            .map { it.displayName() }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .joinToString(", ")
-        val backendTitle = string("title")?.takeIf { it.isNotBlank() }
-        val explicitGroupTitle = string("subject")?.takeIf { it.isNotBlank() }
-            ?: backendTitle?.takeUnless { it == "Chat $threadId" }
-        val title = when (type) {
-            "private" -> otherProfiles.firstOrNull()?.displayName().orEmpty().ifBlank { backendTitle ?: "Chat" }
-            "group" -> explicitGroupTitle ?: participantTitle.ifBlank { "Chat" }
-            else -> backendTitle ?: string("subject") ?: "Chat"
-        }
-        val avatarUrl = if (type == "private") otherProfiles.firstOrNull()?.avatar_url else string("image")
-        return Conversation(
-            id = supabaseChatConversationId(threadId),
-            title = title,
-            avatarUrl = avatarUrl,
-            lastMessagePreview = string("last_message_preview").orEmpty(),
-            unreadCount = int("unread") ?: 0,
-            updatedAt = string("last_message_at") ?: string("updated_at").orEmpty(),
-            updatedAtMillis = long("last_time_millis") ?: long("updated_at_millis"),
-            participantIds = participantIds,
-            participantNames = otherProfiles.map { it.displayName() },
-            participantAvatarUrls = otherProfiles.map { it.avatar_url ?: it.avatar },
-            isGroup = type != "private" || participantIds.size > 2,
-            isEmergency = type == "sos",
-            communityName = if (type == "wall") title else null,
-            isMuted = boolean("is_muted") == true,
-            isVisible = boolean("is_hidden") != true && boolean("is_deleted") != true,
-            moderatorIds = array("moderators").mapNotNull { it.stringOrNull() },
-            canMembersInvite = obj("meta")?.boolean("allowInvite") == true,
-            blockedUserIds = emptyList()
-        )
-    }
-
-    private fun JsonObject.toMessage(currentProfileId: String, profiles: Map<String, CommunityProfile>): Message {
-        val messageId = long("id") ?: 0L
-        val threadId = long("thread_id") ?: 0L
-        val senderId = string("sender_profile_id").orEmpty()
-        val senderProfile = obj("sender")?.toProfile() ?: profiles[senderId] ?: profilesById[senderId]
-        val firstAttachment = array("attachments").firstOrNull()?.objOrNull
-        val deliveryState = when (string("delivery_state")?.uppercase(Locale.ROOT)) {
-            "READ" -> MessageDeliveryState.Read
-            "DELIVERED" -> MessageDeliveryState.Delivered
-            else -> MessageDeliveryState.Sent
-        }
-        return Message(
-            id = messageId.toString(),
-            conversationId = supabaseChatConversationId(threadId),
-            senderId = senderId,
-            senderName = senderProfile?.displayName() ?: "Usuario",
-            text = string("body").orEmpty(),
-            sentAt = string("created_at").orEmpty(),
-            sentAtMillis = long("created_at_millis") ?: string("created_at")?.toEpochMillisOrNull(),
-            isMine = senderId == currentProfileId,
-            isRead = true,
-            isEdited = boolean("is_edited") == true,
-            isDeleted = boolean("is_deleted") == true,
-            isFavorite = boolean("favorited") == true,
-            replyToMessageId = long("reply_to_message_id")?.toString(),
-            replyToSenderName = string("reply_to_sender_name")
-                ?: obj("reply_to_sender")?.let { sender ->
-                    sender.string("display_name") ?: sender.string("name") ?: sender.string("phone_local")
-                },
-            replyToText = string("reply_to_body"),
-            forwardedFromSenderId = string("forwarded_from_profile_id"),
-            attachmentUri = firstAttachment?.string("url"),
-            attachmentName = firstAttachment?.string("name"),
-            attachmentMimeType = firstAttachment?.string("mime_type"),
-            clientMessageId = string("client_message_id"),
-            deliveryState = if (senderId == currentProfileId) deliveryState else MessageDeliveryState.Sent
         )
     }
 
@@ -1586,18 +1486,15 @@ class ChatRepositoryImpl(
         }
     }
 
-    private fun JsonObject.toProfile(): CommunityProfile? {
-        val id = string("id") ?: return null
-        return CommunityProfile(
+    private fun ChatRpcProfile.toCommunityProfile(): CommunityProfile = CommunityProfile(
             id = id,
-            display_name = string("display_name") ?: string("name"),
-            nombre = string("name"),
-            avatar_url = string("avatar_url"),
-            neighborhood = string("neighborhood"),
-            phone_local = string("phone_local"),
-            country_code = string("country_code")
+            display_name = displayName ?: name,
+            nombre = name,
+            avatar_url = avatarUrl,
+            neighborhood = neighborhood,
+            phone_local = phoneLocal,
+            country_code = countryCode,
         )
-    }
 
     private fun JsonObject.toConversationCandidate(): ChatConversationCandidate? {
         val profileId = string("profile_id") ?: string("id") ?: return null
@@ -1669,10 +1566,9 @@ class ChatRepositoryImpl(
     }
 
     private data class ParsedChatPayload(
-        val threads: List<JsonObject>,
-        val messages: List<JsonObject>,
+        val conversations: List<Conversation>,
+        val messages: List<Message>,
         val profiles: List<CommunityProfile>,
-        val profilesById: Map<String, CommunityProfile>,
         val messagesByConversation: Map<String, List<Message>>
     )
 

@@ -9,6 +9,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.IntentCompat
+import com.quata.core.platform.DocumentPreviewKind
 import com.quata.documentreader.DocumentReaderChrome
 import com.quata.documentreader.QuataDocumentReader
 import com.quata.documentreader.QuataDocumentReaderTheme
@@ -156,13 +157,13 @@ class All_Document_Reader_Activity : AppCompatActivity() {
     private fun openLocalFile(path: String, generation: Int) {
         if (generation != prepareGeneration || isFinishing || isDestroyed) return
         val resolvedName = fileName?.takeIf { it.isNotBlank() } ?: File(path).name
-        val lowerPath = path.lowercase(Locale.US)
+        val descriptor = QuataDocumentReader.previewDescriptor(Uri.fromFile(File(path)), resolvedName, mimeType)
         val targetActivity = when {
-            lowerPath.endsWith(".pdf") -> PDF_Reader_Activity::class.java
-            lowerPath.endsWith(".rtf") -> ViewRtf_Activity::class.java
-            lowerPath.endsWith(".csv") -> CSVViewer_Activity::class.java
-            QuataDocumentReader.isTextLike(resolvedName, mimeType) -> QuataTextDocumentActivity::class.java
-            QuataDocumentReader.canOpen(Uri.fromFile(File(path)), resolvedName, mimeType) -> ViewFiles_Activity::class.java
+            descriptor.kind == DocumentPreviewKind.Pdf -> PDF_Reader_Activity::class.java
+            descriptor.kind == DocumentPreviewKind.RichText -> ViewRtf_Activity::class.java
+            descriptor.extension == "csv" -> CSVViewer_Activity::class.java
+            descriptor.isTextLike -> QuataTextDocumentActivity::class.java
+            descriptor.isPreviewable -> ViewFiles_Activity::class.java
             else -> null
         }
 

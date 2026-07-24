@@ -1,12 +1,5 @@
 package com.quata.core.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,9 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -105,10 +96,10 @@ fun AvatarImage(
             )
         }
         if (isOfficial) {
-            OfficialAccountBadge(Modifier.align(Alignment.BottomEnd))
+            QuataOfficialBadge(Modifier.align(Alignment.BottomEnd))
         }
         if (profileId != null && presenceRepository != null) {
-            AvatarPresenceBadge(
+            QuataAvatarPresenceBadgeContent(
                 isOnline = profileId in onlineProfileIds,
                 modifier = Modifier.align(Alignment.BottomStart)
             )
@@ -160,107 +151,13 @@ fun ProfileAvatarWithLoadingHalo(
     isLoading: Boolean,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
-    val rotation = if (isLoading) {
-        val transition = rememberInfiniteTransition(label = "profile_avatar_loading")
-        val animatedRotation = transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 900, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "profile_avatar_loading_rotation"
-        )
-        animatedRotation.value
-    } else {
-        0f
-    }
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        val template = quataTheme()
-        if (isLoading) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = 1.16f,
-                        scaleY = 1.16f,
-                        rotationZ = rotation
-                    )
-            ) {
-                val radius = size.minDimension / 2f
-                drawCircle(
-                    brush = Brush.sweepGradient(
-                        colors = listOf(
-                            Color(0xFFE5D45C),
-                            Color(0xFFE5D45C).copy(alpha = 0.72f),
-                            Color.Transparent,
-                            Color(0xFFE5D45C).copy(alpha = 0.18f),
-                            Color.Transparent,
-                            Color(0xFFE5D45C)
-                        ),
-                        center = center
-                    ),
-                    radius = radius,
-                    center = center
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0xFFE5D45C).copy(alpha = 0.24f), Color.Transparent),
-                        center = center,
-                        radius = radius * 0.42f
-                    ),
-                    radius = radius,
-                    center = center
-                )
-            }
-        }
+    QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = modifier) {
         AvatarImage(
             name = name,
             avatarUrl = avatarUrl,
             isOfficial = isOfficial,
             profileId = profileId,
             modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-@Composable
-private fun AvatarPresenceBadge(isOnline: Boolean, modifier: Modifier = Modifier) {
-    val template = quataTheme()
-    Box(
-        modifier = modifier
-            .size(15.dp)
-            .clip(CircleShape)
-            .background(if (isOnline) Color(0xFF25B56A) else template.colors.surface.copy(alpha = 0.96f))
-            .border(1.5.dp, template.colors.surface, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!isOnline) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = null,
-                tint = template.colors.textSecondary.copy(alpha = 0.72f),
-                modifier = Modifier.size(10.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun OfficialAccountBadge(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(18.dp)
-            .clip(CircleShape)
-            .background(Color(0xFF2F80ED))
-            .border(1.dp, Color.White, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Check,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(12.dp)
         )
     }
 }

@@ -33,7 +33,13 @@ object QuataMediaCache {
 
     private val videoCacheLock = Any()
 
-    fun videoMediaSourceFactory(context: Context): DefaultMediaSourceFactory {
+    /** Shared disk-backed source factory for video playback. */
+    fun videoMediaSourceFactory(context: Context): DefaultMediaSourceFactory = cachedMediaSourceFactory(context)
+
+    /** Shared disk-backed source factory for voice-note playback. */
+    fun audioMediaSourceFactory(context: Context): DefaultMediaSourceFactory = cachedMediaSourceFactory(context)
+
+    private fun cachedMediaSourceFactory(context: Context): DefaultMediaSourceFactory {
         val appContext = context.applicationContext
         val upstreamFactory = DefaultDataSource.Factory(
             appContext,

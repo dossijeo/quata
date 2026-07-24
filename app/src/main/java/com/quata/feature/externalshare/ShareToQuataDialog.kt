@@ -2,10 +2,6 @@ package com.quata.feature.externalshare
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
+import com.quata.core.platform.ClipboardService
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerDialog
 import com.quata.feature.chat.presentation.conversations.ConversationsUiState
@@ -22,6 +19,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsUiState
 fun ShareToQuataDialog(
     payload: ExternalSharePayload,
     repository: ChatRepository,
+    clipboardService: ClipboardService,
     onDismiss: () -> Unit,
     onSent: (String?) -> Unit
 ) {
@@ -42,23 +40,12 @@ fun ShareToQuataDialog(
     }
 
     if (payload.directConversationId != null) {
-        AlertDialog(
-            onDismissRequest = { if (!state.isSending) onDismiss() },
-            title = {
-                Text(
-                    state.error ?: stringResource(R.string.share_to_quata_sending)
-                )
-            },
-            text = {
-                if (state.isSending) CircularProgressIndicator()
-            },
-            confirmButton = {
-                if (!state.isSending && state.error != null) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.common_close))
-                    }
-                }
-            }
+        ExternalShareSendingStateContent(
+            message = stringResource(R.string.share_to_quata_sending),
+            isSending = state.isSending,
+            error = state.error,
+            closeLabel = stringResource(R.string.common_close),
+            onDismiss = onDismiss
         )
         return
     }
@@ -75,6 +62,7 @@ fun ShareToQuataDialog(
             candidateActorNeighborhood = state.actorNeighborhood,
             candidateError = state.error
         ),
+        clipboardService = clipboardService,
         onSearchChange = viewModel::onQueryChanged,
         onLoadMore = viewModel::loadMore,
         onOpenCandidate = { viewModel.toggle(it.profileId) },

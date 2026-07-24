@@ -11,6 +11,7 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityPost
+import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.profile.data.ProfileRemoteDataSource
@@ -197,31 +198,13 @@ class FeedRepositoryImpl(
         comments: List<com.quata.data.supabase.CommunityComment>,
         likes: List<com.quata.data.supabase.CommunityPostLike>,
         profiles: List<com.quata.data.supabase.CommunityProfile>
-    ): List<Post> {
-        val currentUserId = sessionManager.currentSession()?.userId
-        val profilesById = profiles.associateBy { it.id }
-        val commentsByPostId = comments.groupBy { it.post_id }
-        val likesByPostId = likes.groupBy { it.post_id }
-
-        return posts.map { post ->
-            val authorId = post.profile_id ?: post.author_id.orEmpty()
-            val author = profilesById[authorId]?.toDomainUser()
-                ?: User(authorId.ifBlank { "unknown" }, "", "Usuario")
-            val postComments = commentsByPostId[post.id].orEmpty()
-                .toDomainComments { comment ->
-                    profilesById[comment.profile_id]?.display_name
-                        ?: profilesById[comment.profile_id]?.nombre
-                        ?: "Usuario"
-                }
-            val postLikes = likesByPostId[post.id].orEmpty()
-            post.toDomain(
-                author = author,
-                comments = postComments,
-                likesCount = postLikes.size,
-                likedByCurrentUser = currentUserId != null && postLikes.any { it.profile_id == currentUserId }
-            )
-        }
-    }
+    ): List<Post> = buildFeedDomainPosts(
+        posts = posts.map(CommunityPost::toFeedRemote),
+        comments = comments.map(com.quata.data.supabase.CommunityComment::toFeedRemote),
+        likes = likes.map(com.quata.data.supabase.CommunityPostLike::toFeedRemote),
+        profiles = profiles.map(CommunityProfile::toFeedRemote),
+        currentUserId = sessionManager.currentSession()?.userId,
+    )
 
     private suspend fun loadPost(
         postId: String,

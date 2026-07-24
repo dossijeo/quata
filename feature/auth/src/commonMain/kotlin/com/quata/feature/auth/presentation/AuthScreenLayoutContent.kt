@@ -6,12 +6,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import com.quata.core.ui.components.QuataScreen
 
+/** Shared screen shell for all authentication forms. */
 @Composable
-internal fun AuthResponsiveLayout(
+fun AuthScreenLayoutContent(
     padding: PaddingValues,
     subtitle: String,
     portraitLogoSpacing: Dp,
-    content: @Composable ColumnScope.(isLandscape: Boolean) -> Unit
+    content: @Composable ColumnScope.(isLandscape: Boolean) -> Unit,
 ) {
     QuataScreen(padding) {
         AuthResponsiveContent(

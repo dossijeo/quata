@@ -1,6 +1,8 @@
 plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.multiplatform")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
 }
 
 kotlin {
@@ -12,6 +14,8 @@ kotlin {
             implementation(project(":core"))
             implementation(project(":feature:chat"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+            implementation(compose.foundation)
+            implementation(compose.material3)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
