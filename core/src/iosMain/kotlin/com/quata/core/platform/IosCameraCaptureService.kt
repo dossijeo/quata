@@ -8,6 +8,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSTemporaryDirectory
 import platform.UIKit.UIImage
@@ -130,7 +131,12 @@ private fun UIImage.toTemporaryPlatformFile(request: CameraCaptureRequest): Plat
         ?.let { name -> if (name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true)) name else "$name.jpg" }
         ?: "quata_camera_${Random.nextLong().toString(16)}.jpg"
     val destination = NSURL.fileURLWithPath(NSTemporaryDirectory() + displayName)
-    if (!jpeg.writeToFile(destination.path ?: return PlatformResult.Failure("camera_capture_path_missing"), atomically = true)) {
+    if (!NSFileManager.defaultManager.createFileAtPath(
+            destination.path ?: return PlatformResult.Failure("camera_capture_path_missing"),
+            jpeg,
+            null,
+        )
+    ) {
         return PlatformResult.Failure("camera_capture_write_failed")
     }
     return PlatformResult.Success(
