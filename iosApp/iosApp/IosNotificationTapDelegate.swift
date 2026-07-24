@@ -6,7 +6,8 @@ import QuataFeed
 /// It parses an already-delivered notification tap but deliberately does not register APNs or request
 /// notification permission. Future navigation injects `setChatDestination` after its route host is ready.
 final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelegate {
-    private let bridge = IosNotificationResponseBridge()
+    // Kotlin default constructor arguments are not exported as a zero-argument Swift initializer.
+    private let bridge = IosNotificationResponseBridge(adapter: IosNotificationDeepLinkAdapter())
     private var destinationHost: IosNotificationDestinationHost?
 
     func install(on center: UNUserNotificationCenter = .current()) {
