@@ -76,6 +76,20 @@ jobs:
           if ! xcrun simctl list runtimes available | grep -Eq 'iOS 18\.'; then
             xcodebuild -downloadPlatform iOS
           fi
+          runtime_identifier="$(
+            xcrun simctl list runtimes available \
+              | awk -F ' - ' '/^iOS 18\./ { print $2; exit }'
+          )"
+          device_type_identifier="$(
+            xcrun simctl list devicetypes \
+              | sed -nE 's/^iPhone 16 Pro \(([^)]+)\)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "$runtime_identifier"
+          test -n "$device_type_identifier"
+          if ! xcrun simctl list devices available | grep -q 'Quata CI iPhone'; then
+            xcrun simctl create 'Quata CI iPhone' "$device_type_identifier" "$runtime_identifier"
+          fi
 
       - name: Install XcodeGen
         run: brew install xcodegen
