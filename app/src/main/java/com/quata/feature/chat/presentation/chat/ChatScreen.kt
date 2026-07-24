@@ -1258,7 +1258,6 @@ private fun ChatHeader(
     val isModerator = currentUser?.id != null && currentUser.id in conversation?.moderatorIds.orEmpty()
     val canInvite = isModerator || conversation?.canMembersInvite == true
     val template = quataTheme()
-    val headerVerticalPadding = if (compact) 6.dp else 10.dp
     Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
         Column {
             if (selectedMessage != null) {
@@ -1304,44 +1303,38 @@ private fun ChatHeader(
                 )
             } else {
                 val translatorModeController = LocalQuataTranslatorModeController.current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = isGroup) { expanded = !expanded }
-                        .padding(horizontal = 8.dp, vertical = headerVerticalPadding),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CompactIconButton(onClick = onBack) {
-                        CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                    ChatAvatar(
-                        conversation = conversation,
-                        currentUser = currentUser,
-                        usersById = usersById,
-                        openingProfileUserId = openingProfileUserId,
-                        onOpenUserProfile = onOpenUserProfile,
-                        compact = compact
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (isGroup) {
-                            Text(
-                                stringResource(R.string.conversation_member_count, members.size),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
+                ChatConversationTitleBarContent(
+                    title = title,
+                    subtitle = if (isGroup) stringResource(R.string.conversation_member_count, members.size) else null,
+                    expandable = isGroup,
+                    compact = compact,
+                    onToggleExpanded = { expanded = !expanded },
+                    showSurface = false,
+                    navigationAction = {
+                        CompactIconButton(onClick = onBack) {
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
-                    }
-                    appHeaderActions?.invoke(this)
-                    FangTranslatorIconButton(
-                        onClick = { view ->
-                            translatorModeController.activate(view, QuataTranslatorOverlaySource.Chat)
-                        },
-                        enabled = isTranslatorAvailable,
-                        modifier = Modifier.padding(end = 2.dp)
-                    )
-                    Box {
+                    },
+                    avatar = {
+                        ChatAvatar(
+                            conversation = conversation,
+                            currentUser = currentUser,
+                            usersById = usersById,
+                            openingProfileUserId = openingProfileUserId,
+                            onOpenUserProfile = onOpenUserProfile,
+                            compact = compact
+                        )
+                    },
+                    trailingActions = {
+                        appHeaderActions?.invoke(this)
+                        FangTranslatorIconButton(
+                            onClick = { view ->
+                                translatorModeController.activate(view, QuataTranslatorOverlaySource.Chat)
+                            },
+                            enabled = isTranslatorAvailable,
+                            modifier = Modifier.padding(end = 2.dp)
+                        )
+                        Box {
                         CompactIconButton(onClick = { menuExpanded = true }) {
                             CompactIcon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
                         }
@@ -1402,11 +1395,9 @@ private fun ChatHeader(
                                 }
                             )
                         }
+                        }
                     }
-                    if (compact) {
-                        Spacer(Modifier.width(120.dp))
-                    }
-                }
+                )
             }
             if (expanded && conversation != null) {
                 LazyColumn(
