@@ -162,7 +162,6 @@ import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.DocumentAttachmentPreview
 import com.quata.core.ui.components.AvatarImage
-import com.quata.core.ui.components.AvatarLetter
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataAudioRecorderDialog

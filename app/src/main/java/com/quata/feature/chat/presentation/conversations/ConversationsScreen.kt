@@ -89,7 +89,7 @@ import com.quata.core.model.User
 import com.quata.core.platform.ClipboardService
 import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.AvatarImage
-import com.quata.core.ui.components.AvatarLetter
+import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.QuataFloatingPanel
@@ -337,7 +337,7 @@ fun ConversationCandidatePickerDialog(
         candidateAvatar = { candidate, modifier ->
             AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier)
         },
-        inviteAvatar = { contact, modifier -> AvatarLetter(name = contact.displayName, modifier = modifier, stableId = contact.id) },
+        inviteAvatar = { contact, modifier -> QuataAvatarFallback(name = contact.displayName, modifier = modifier, stableId = contact.id) },
         inviteSheet = if (onInviteContact != null) { { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) } } else null,
         inviteContactsEnabled = inviteContactsEnabled,
         onRequestInviteContactsPermission = onRequestInviteContactsPermission,
@@ -565,7 +565,7 @@ private fun InviteContactCard(contact: ChatInviteContact, onInvite: () -> Unit) 
         modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AvatarLetter(contact.displayName, modifier = Modifier.size(48.dp), stableId = contact.id)
+            QuataAvatarFallback(contact.displayName, modifier = Modifier.size(48.dp), stableId = contact.id)
             Spacer(Modifier.size(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(contact.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -861,7 +861,7 @@ private fun ConversationAvatar(
                     modifier = Modifier.size(46.dp)
                 )
             } else {
-                AvatarLetter(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
+                QuataAvatarFallback(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
             }
         }
         if (item.isMuted) {

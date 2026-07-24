@@ -1,11 +1,9 @@
 package com.quata.core.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,42 +26,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataSurface
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.User
 import com.quata.core.presence.LocalUserPresence
-
-@Composable
-fun AvatarLetter(
-    name: String,
-    modifier: Modifier = Modifier.size(44.dp),
-    stableId: String = name
-) {
-    val initials = avatarInitials(name)
-    BoxWithConstraints(
-        modifier = modifier
-            .background(Color(avatarFallbackColorArgb(stableId)), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        val relativeFontSize = with(LocalDensity.current) {
-            (minOf(maxWidth, maxHeight) * if (initials.length > 1) 0.34f else 0.46f).toSp()
-        }
-        Text(
-            initials,
-            fontWeight = FontWeight.Black,
-            fontSize = relativeFontSize,
-            color = Color.White
-        )
-    }
-}
 
 @Composable
 fun AvatarImage(
@@ -83,7 +54,11 @@ fun AvatarImage(
     }
     Box(modifier = modifier) {
         if (avatarUrl.isNullOrBlank()) {
-            AvatarLetter(name, Modifier.fillMaxSize(), stableId = profileId ?: name)
+            QuataAvatarFallback(
+                name = name,
+                stableId = profileId ?: name,
+                modifier = Modifier.fillMaxSize(),
+            )
         } else {
             AsyncImage(
                 model = imageModel,
@@ -166,7 +141,7 @@ fun ProfileAvatarWithLoadingHalo(
 fun UserHeader(name: String, meta: String, modifier: Modifier = Modifier) {
     val template = quataTheme()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        AvatarLetter(name)
+        QuataAvatarFallback(name)
         Spacer(Modifier.width(12.dp))
         androidx.compose.foundation.layout.Column {
             Text(name, fontWeight = FontWeight.Bold)
