@@ -112,6 +112,13 @@ private fun List<String>.toDocumentContentTypes(): List<UTType> {
 
 private fun String.toMimeType(): String? = when (lowercase()) {
     "pdf" -> "application/pdf"
+    "doc" -> "application/msword"
+    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "xls" -> "application/vnd.ms-excel"
+    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "ppt" -> "application/vnd.ms-powerpoint"
+    "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    "rtf" -> "application/rtf"
     "jpg", "jpeg" -> "image/jpeg"
     "png" -> "image/png"
     "gif" -> "image/gif"
@@ -122,6 +129,15 @@ private fun String.toMimeType(): String? = when (lowercase()) {
     "mp3" -> "audio/mpeg"
     "wav" -> "audio/wav"
     "txt" -> "text/plain"
+    "csv" -> "text/csv"
+    "html", "htm" -> "text/html"
+    "xml" -> "application/xml"
+    "xhtml" -> "application/xhtml+xml"
+    "css" -> "text/css"
+    "js", "mjs", "cjs" -> "application/javascript"
+    "md", "markdown" -> "text/markdown"
+    "yaml", "yml" -> "text/yaml"
     "json" -> "application/json"
+    "svg" -> "image/svg+xml"
     else -> null
 }
