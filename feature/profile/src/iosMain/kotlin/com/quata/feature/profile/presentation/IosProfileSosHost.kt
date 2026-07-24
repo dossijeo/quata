@@ -44,7 +44,7 @@ fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): 
             slots = EmergencyContactsDialogSlots(
                 contactRow = { contact: EmergencyContactCandidate, selected, toggle ->
                     Text(
-                        text = "${if (selected) "✓ " else ""}${contact.name}",
+                        text = "${if (selected) "✓ " else ""}${contact.displayName}",
                         modifier = Modifier.clickable(onClick = toggle),
                     )
                 },
