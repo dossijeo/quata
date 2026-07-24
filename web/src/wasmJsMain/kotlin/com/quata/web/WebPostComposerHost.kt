@@ -104,7 +104,7 @@ fun WebPostComposerHost(
                                     if (isVideo) mediaSlots.videoCamera(slotModifier) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) }
                                     else mediaSlots.imageCamera(slotModifier) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) }
                                 },
-                                afterEdit = { mediaSlots.export(uri, isVideo) },
+                                afterEdit = { mediaSlots.export(this, uri, isVideo) },
                             )
                         },
                         preview = { mediaSlots.preview(uri, isVideo, Modifier.fillMaxWidth()) },
