@@ -487,18 +487,16 @@ private fun ProfileAttachmentsSection(
 private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Unit) {
     val template = quataTheme()
     val preview = attachment.toAttachmentPreview()
-    if (preview.isAudio) {
-        AudioAttachmentPlayer(
-            attachment = preview,
-            textColor = template.colors.textPrimary
-        )
-        return
-    }
-    ProfileAttachmentCardContent(
-        name = attachment.name,
-        senderName = attachment.senderName,
+    ProfileAttachmentRowContent(
+        attachment = attachment,
+        audioPlayer = {
+            AudioAttachmentPlayer(
+                attachment = preview,
+                textColor = template.colors.textPrimary
+            )
+        },
         thumbnail = { AttachmentThumbnail(preview, modifier = Modifier.size(58.dp)) },
-        onClick = onOpen
+        onOpen = onOpen,
     )
 }
 
