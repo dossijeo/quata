@@ -81,7 +81,6 @@ jobs:
             xcodebuild \
               -downloadPlatform iOS \
               -buildVersion "$runtime_version" \
-              -architectureVariant arm64 \
               -exportPath "$runtime_download_dir"
             runtime_dmg="$(find "$runtime_download_dir" -name '*.dmg' -type f -print -quit)"
             test -n "$runtime_dmg"
