@@ -17,6 +17,7 @@ fun EmergencyContactsLandscapeContactsSectionContent(
     selectedCountLabel: String,
     searchInput: @Composable () -> Unit,
     users: @Composable (Modifier) -> Unit,
+    contactActions: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
@@ -26,6 +27,10 @@ fun EmergencyContactsLandscapeContactsSectionContent(
         searchInput()
         Spacer(Modifier.height(8.dp))
         Text(selectedCountLabel, color = template.colors.accent, fontWeight = FontWeight.Bold)
+        contactActions?.let { actions ->
+            Spacer(Modifier.height(8.dp))
+            actions()
+        }
         Spacer(Modifier.height(8.dp))
         users(Modifier.weight(1f))
     }

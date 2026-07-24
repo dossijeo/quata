@@ -66,6 +66,7 @@ fun EmergencyContactsEditorContent(
     onSave: () -> Unit,
     userRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     messageInput: @Composable (Modifier, String, (String) -> Unit, Int, Int?) -> Unit,
+    contactActions: (@Composable () -> Unit)? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyContactsTab.Contacts) }
@@ -106,6 +107,7 @@ fun EmergencyContactsEditorContent(
                     EmergencyContactsLandscapeContactsSectionContent(
                         title = strings.header.contactsTab,
                         selectedCountLabel = strings.selectedCount(selectedIds.size),
+                        contactActions = contactActions,
                         modifier = modifier,
                         searchInput = {
                             OutlinedTextField(
@@ -171,6 +173,7 @@ fun EmergencyContactsEditorContent(
                             networkUsersLabel = strings.networkUsers,
                             onTabSelected = { selectedTab = it },
                             onDismiss = onDismiss,
+                            contactActions = contactActions,
                             userRow = { user, selected ->
                                 userRow(user, selected) { onToggleContact(user) }
                             },

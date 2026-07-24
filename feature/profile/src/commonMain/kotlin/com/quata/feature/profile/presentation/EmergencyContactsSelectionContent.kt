@@ -36,6 +36,7 @@ fun EmergencyContactsSelectionContent(
     onTabSelected: (EmergencyContactsTab) -> Unit,
     onDismiss: () -> Unit,
     userRow: @Composable (EmergencyContactCandidate, Boolean) -> Unit,
+    contactActions: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
@@ -70,6 +71,10 @@ fun EmergencyContactsSelectionContent(
             )
             Spacer(Modifier.height(14.dp))
             Text(networkUsersLabel, fontWeight = FontWeight.ExtraBold)
+            contactActions?.let { actions ->
+                Spacer(Modifier.height(8.dp))
+                actions()
+            }
         }
         items(visibleUsers, key = { it.id }) { user ->
             userRow(user, user.id in selectedIds)

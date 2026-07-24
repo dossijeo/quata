@@ -11,6 +11,13 @@ import com.quata.feature.profile.domain.EmergencyContactCandidate
 class EmergencyContactsDialogSlots(
     val contactRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     val messageInput: @Composable (Modifier, String, (String) -> Unit, Int, Int?) -> Unit,
+    /**
+     * Host-owned actions for acquiring candidates or resolving platform permissions.
+     *
+     * The portable editor deliberately does not know how contacts are selected. A host may leave
+     * this empty (as Android does while it uses its existing source) or expose a native picker.
+     */
+    val contactActions: (@Composable () -> Unit)? = null,
 )
 
 /**
@@ -51,5 +58,6 @@ fun EmergencyContactsDialogContent(
         onSave = onSave,
         userRow = slots.contactRow,
         messageInput = slots.messageInput,
+        contactActions = slots.contactActions,
     )
 }
