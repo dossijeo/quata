@@ -30,6 +30,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import com.quata.feature.auth.presentation.AuthSessionShellContent
+import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
+import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
+import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
@@ -109,6 +112,12 @@ private fun QuataWebApp(
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
         )
     }
+    val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {
+        WebNeighborhoodsRepository(
+            client = WebPostgrestClient(runtimeConfiguration, authRepository),
+            authRepository = authRepository,
+        )
+    }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
     val profileRepository = remember(platformServices.preferences, platformServices.contacts) {
         WebProfileRepository(
@@ -122,11 +131,13 @@ private fun QuataWebApp(
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }
+    var currentUserId by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
+        currentUserId = authRepository.sessionForAuthenticatedRequest()?.userId
         themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
         touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
     }
@@ -231,6 +242,19 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         authRepository = authRepository,
                     )
+                } else if (navigation.route == "communities") {
+                    WebNeighborhoodsHost(
+                        repository = neighborhoodsRepository,
+                        currentUserId = currentUserId,
+                        strings = webNeighborhoodsStrings,
+                        slots = webNeighborhoodsSlots,
+                        rankingItems = emptyList(),
+                        onOpenConversation = ::navigateWebConversation,
+                        onOpenUserRoute = { navigateWebFragment("communities") },
+                        onOpenRankingItem = { },
+                        onSubmitComment = { },
+                        commentsEnabled = false,
+                    )
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
@@ -320,6 +344,9 @@ private fun String.toWebNavigationState(): WebNavigationState {
     if (trim('/').equals("composer", ignoreCase = true)) {
         return WebNavigationState(route = "composer", message = "Crear una publicaciÃ³n en Quata Web.")
     }
+    if (trim('/').equals("communities", ignoreCase = true)) {
+        return WebNavigationState(route = "communities", message = "Comunidades y barrios de Quata Web.")
+    }
     if (trim('/').equals("official", ignoreCase = true)) {
         return WebNavigationState(route = "official", message = "Comunicados oficiales de Quata Web.")
     }
@@ -369,3 +396,55 @@ private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = j
 
 private const val WebThemeModeKey = "quata_web_theme_mode"
 private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
+
+private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
+    list = NeighborhoodListStrings(
+        title = "Comunidades",
+        searchPlaceholder = "Buscar barrio",
+        loading = "Cargando comunidades…",
+        oneUser = "1 miembro",
+        users = { "$it miembros" },
+        oneMessage = "1 mensaje",
+        messages = { "$it mensajes" },
+        viewUsers = "Ver miembros",
+        openChat = "Abrir conversación",
+        timeLabel = { "Actividad reciente" },
+    ),
+    members = NeighborhoodUsersStrings(
+        title = { "Miembros de $it" },
+        subtitle = "Directorio de la comunidad",
+        backContentDescription = "Volver a comunidades",
+        memberCount = { "$it miembros" },
+        row = NeighborhoodUserRowStrings(follow = "Seguir", following = "Siguiendo", chat = "Chat"),
+    ),
+    commentsTitle = "Comentarios",
+    commentsClose = "Cerrar comentarios",
+    commentPlaceholder = "Escribe un comentario",
+    sendComment = "Enviar",
+    profilePosts = "Publicaciones",
+    profileFollowers = "Seguidores",
+    profileFollowing = "Siguiendo",
+    back = "Volver",
+    ranking = com.quata.core.ui.components.QuataLiveRankingStrings(
+        title = "Ranking",
+        subtitle = "Actividad de la comunidad",
+        monitoredPosts = "Publicaciones seguidas",
+        updated = "Actualizado recientemente",
+        live = "EN DIRECTO",
+        close = "Cerrar ranking",
+        openPost = "Abrir publicación",
+    ),
+)
+
+private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
+    avatar = { user, _, onClick -> androidx.compose.material3.TextButton(onClick = onClick) {
+        androidx.compose.material3.Text(user.displayName.take(1).uppercase())
+    } },
+    profileMedia = { profile ->
+        if (profile.posts.isEmpty()) androidx.compose.material3.Text("No hay publicaciones públicas.")
+    },
+    profileAttachments = { profile ->
+        if (profile.attachments.isEmpty()) androidx.compose.material3.Text("No hay adjuntos compartidos.")
+    },
+    rankingAvatar = { item -> androidx.compose.material3.Text(item.title.take(1).uppercase()) },
+)

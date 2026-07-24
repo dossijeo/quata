@@ -70,6 +70,7 @@ fun WebNeighborhoodsHost(
     onOpenUserRoute: (String) -> Unit,
     onOpenRankingItem: (String) -> Unit,
     onSubmitComment: (String) -> Unit,
+    commentsEnabled: Boolean = true,
     padding: PaddingValues = PaddingValues(),
 ) {
     val viewModel = remember(repository) { NeighborhoodsViewModel(repository) }
@@ -108,7 +109,7 @@ fun WebNeighborhoodsHost(
             slots = slots,
             onBack = viewModel::closeUserProfile,
             onOpenUserRoute = onOpenUserRoute,
-            onShowComments = { showComments = true },
+            onShowComments = if (commentsEnabled) ({ showComments = true }) else null,
             onShowRanking = { showRanking = true },
         )
         if (showComments) {
@@ -181,7 +182,7 @@ private fun WebCommunityProfileContent(
     slots: WebNeighborhoodsSlots,
     onBack: () -> Unit,
     onOpenUserRoute: (String) -> Unit,
-    onShowComments: () -> Unit,
+    onShowComments: (() -> Unit)?,
     onShowRanking: () -> Unit,
 ) {
     val listState = rememberLazyListState()
