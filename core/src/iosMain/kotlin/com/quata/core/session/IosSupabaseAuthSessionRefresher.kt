@@ -50,13 +50,15 @@ class IosSupabaseAuthSessionRefresher(
             ?: error("ios_auth_supabase_publishable_key_missing")
         val endpoint = NSURL(string = "$baseUrl/auth/v1/token?grant_type=refresh_token")
             ?: error("ios_auth_refresh_url_invalid")
-        val request = NSMutableURLRequest(endpoint).apply {
+        // Kotlin/Native's Foundation binding exposes the mutable request through this factory
+        // (rather than the Objective-C initializer), with positional header arguments.
+        val request = NSMutableURLRequest.requestWithURL(endpoint).apply {
             setHTTPMethod("POST")
             setHTTPBody("{\"refresh_token\":${refreshToken.toIosJsonString()}}".toIosData())
-            setValue(publishableKey, forHTTPHeaderField = "apikey")
-            setValue("Bearer $publishableKey", forHTTPHeaderField = "Authorization")
-            setValue("application/json", forHTTPHeaderField = "Accept")
-            setValue("application/json", forHTTPHeaderField = "Content-Type")
+            setValue(publishableKey, "apikey")
+            setValue("Bearer $publishableKey", "Authorization")
+            setValue("application/json", "Accept")
+            setValue("application/json", "Content-Type")
         }
         request.iosData().toRefreshedAuthSession(session)
     }.getOrNull()
