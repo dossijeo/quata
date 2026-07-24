@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,8 +22,33 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.ui.components.QuataPanel
 
 data class AppearanceSettingsStrings(val touchFlow: String, val theme: String, val system: String, val dark: String, val light: String)
+
+/** Shared settings-card shell; the host supplies only localized strings and persisted values. */
+@Composable
+fun AppearanceSettingsSectionContent(
+    touchFlowEnabled: Boolean,
+    themeMode: QuataThemeMode,
+    strings: AppearanceSettingsStrings,
+    onTouchFlowEnabledChange: (Boolean) -> Unit,
+    onThemeModeChange: (QuataThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    QuataPanel(
+        modifier = modifier,
+        contentPadding = PaddingValues(14.dp),
+    ) {
+        AppearanceSettingsControls(
+            touchFlowEnabled = touchFlowEnabled,
+            themeMode = themeMode,
+            strings = strings,
+            onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+            onThemeModeChange = onThemeModeChange,
+        )
+    }
+}
 
 @Composable
 fun AppearanceSettingsControls(

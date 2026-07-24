@@ -89,7 +89,6 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.PhoneInputSection
 import com.quata.core.ui.components.QuataDropdownField
-import com.quata.core.ui.components.QuataPanel
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataSavingButton
@@ -101,7 +100,7 @@ import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
-import com.quata.feature.settings.presentation.AppearanceSettingsControls
+import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 
 private enum class ProfileAccountPage {
@@ -208,21 +207,19 @@ fun ProfileScreen(
                 content = {
                 when (accountPage) {
                     ProfileAccountPage.Overview -> {
-                    QuataPanel(contentPadding = PaddingValues(14.dp)) {
-                        AppearanceSettingsControls(
-                            touchFlowEnabled = touchFlowEnabled,
-                            themeMode = themeMode,
-                            strings = AppearanceSettingsStrings(
-                                touchFlow = stringResource(R.string.profile_touch_flow_setting),
-                                theme = stringResource(R.string.profile_theme_setting),
-                                system = stringResource(R.string.theme_mode_system),
-                                dark = stringResource(R.string.theme_mode_dark),
-                                light = stringResource(R.string.theme_mode_light)
-                            ),
-                            onTouchFlowEnabledChange = onTouchFlowEnabledChange,
-                            onThemeModeChange = onThemeModeChange
-                        )
-                    }
+                    AppearanceSettingsSectionContent(
+                        touchFlowEnabled = touchFlowEnabled,
+                        themeMode = themeMode,
+                        strings = AppearanceSettingsStrings(
+                            touchFlow = stringResource(R.string.profile_touch_flow_setting),
+                            theme = stringResource(R.string.profile_theme_setting),
+                            system = stringResource(R.string.theme_mode_system),
+                            dark = stringResource(R.string.theme_mode_dark),
+                            light = stringResource(R.string.theme_mode_light),
+                        ),
+                        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+                        onThemeModeChange = onThemeModeChange,
+                    )
 
                     ProfileOverviewAccountCardContent(
                         avatar = {
