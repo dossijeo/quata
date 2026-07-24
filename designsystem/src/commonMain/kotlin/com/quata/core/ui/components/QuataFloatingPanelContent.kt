@@ -79,3 +79,31 @@ fun QuataFloatingPanelContent(
         }
     }
 }
+
+/**
+ * Shared geometry for the standard floating panel used by feature overlays.
+ *
+ * Platform hosts can provide window or system-bar decoration through [platformDecor],
+ * while the panel's Compose layout remains available to every target.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QuataStandardFloatingPanelContent(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    template: QuataThemeTemplate = quataTheme(),
+    isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
+    platformDecor: @Composable (fullscreen: Boolean) -> Unit = {},
+    content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit,
+) {
+    QuataFloatingPanelContent(
+        onDismiss = onDismiss,
+        modifier = modifier,
+        template = template,
+        isLandscape = isLandscape,
+        landscapeHeightFraction = 0.86f,
+        landscapeVerticalOffset = (-24).dp,
+        platformDecor = platformDecor,
+        content = content,
+    )
+}
