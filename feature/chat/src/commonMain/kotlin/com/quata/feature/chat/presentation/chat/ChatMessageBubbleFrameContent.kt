@@ -80,7 +80,7 @@ fun ChatMessageBubbleFrameContent(
                 } else {
                     if (message.text.isNotBlank()) {
                         Column {
-                            platformSlots.richText(textColor)
+                            platformSlots.richText(this, textColor)
                         }
                     }
                     ChatMessageBubbleAttachmentSlotsContent(
