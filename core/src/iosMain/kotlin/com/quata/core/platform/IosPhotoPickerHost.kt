@@ -98,7 +98,7 @@ private class IosPhotoPickerDelegate(
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSItemProvider.copyGalleryFile(complete: (PlatformResult<PlatformFile>) -> Unit) {
-    val typeIdentifier = registeredTypeIdentifiers.firstOrNull()
+    val typeIdentifier = registeredTypeIdentifiers.firstOrNull() as? String
         ?: return complete(PlatformResult.Unsupported)
     loadFileRepresentationForTypeIdentifier(typeIdentifier) { source, error ->
         if (source == null || error != null) return@loadFileRepresentationForTypeIdentifier complete(PlatformResult.Failure(error?.localizedDescription))
