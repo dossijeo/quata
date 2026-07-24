@@ -66,7 +66,7 @@ private fun PlatformFile.localFileUrlOrNull(): NSURL? {
         reference.startsWith("/") -> NSURL.fileURLWithPath(reference)
         else -> null
     }
-    return url?.takeIf { it.isFileURL }
+    return url?.takeIf { it.isFileURL() }
 }
 
 @OptIn(ExperimentalForeignApi::class)
