@@ -5,9 +5,9 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSURL
 import platform.UIKit.UIDocumentPickerDelegateProtocol
-import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
+import platform.UniformTypeIdentifiers.UTType
 import platform.darwin.NSObject
 
 /** Supplies the active UIKit presenter without leaking it into common feature code. */
@@ -31,8 +31,8 @@ class IosDocumentPickerHost(
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
         return suspendCancellableCoroutine { continuation ->
             val picker = UIDocumentPickerViewController(
-                documentTypes = request.acceptedMimeTypes.toDocumentTypeIdentifiers(),
-                inMode = UIDocumentPickerMode.`import`,
+                forOpeningContentTypes = request.acceptedMimeTypes.toDocumentContentTypes(),
+                asCopy = true,
             ).apply {
                 allowsMultipleSelection = request.allowMultiple
             }
@@ -86,9 +86,8 @@ private fun NSURL.toPlatformFile(): PlatformFile = PlatformFile(
 )
 
 /** UIDocumentPicker's legacy initializer receives UTI identifiers, not browser MIME strings. */
-private fun List<String>.toDocumentTypeIdentifiers(): List<String> {
-    if (isEmpty()) return listOf("public.item")
-    return mapNotNull { mimeType ->
+private fun List<String>.toDocumentContentTypes(): List<UTType> {
+    val identifiers = if (isEmpty()) listOf("public.item") else mapNotNull { mimeType ->
         when (mimeType.trim().lowercase()) {
             "*/*" -> "public.item"
             "image/*" -> "public.image"
@@ -102,6 +101,7 @@ private fun List<String>.toDocumentTypeIdentifiers(): List<String> {
                 ?: "public.data"
         }
     }.distinct().ifEmpty { listOf("public.item") }
+    return identifiers.mapNotNull(UTType::typeWithIdentifier)
 }
 
 private fun String.toMimeType(): String? = when (lowercase()) {
