@@ -1,6 +1,7 @@
 package com.quata.core.session
 
 import com.quata.core.model.AuthSession
+import com.quata.core.model.currentEpochSeconds
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
@@ -50,8 +51,8 @@ class IosSupabaseAuthSessionRefresher(
         val endpoint = NSURL(string = "$baseUrl/auth/v1/token?grant_type=refresh_token")
             ?: error("ios_auth_refresh_url_invalid")
         val request = NSMutableURLRequest(endpoint).apply {
-            HTTPMethod = "POST"
-            HTTPBody = "{\"refresh_token\":${refreshToken.toIosJsonString()}}".toIosData()
+            setHTTPMethod("POST")
+            setHTTPBody("{\"refresh_token\":${refreshToken.toIosJsonString()}}".toIosData())
             setValue(publishableKey, forHTTPHeaderField = "apikey")
             setValue("Bearer $publishableKey", forHTTPHeaderField = "Authorization")
             setValue("application/json", forHTTPHeaderField = "Accept")
