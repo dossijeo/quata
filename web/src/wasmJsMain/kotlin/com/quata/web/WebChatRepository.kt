@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
@@ -36,8 +38,9 @@ import kotlinx.serialization.json.put
 /**
  * Browser chat repository backed by the same RLS-protected inbox/thread RPCs as Android.
  *
- * Snapshots are obtained by polling. Text/reply and browser-selected attachment writes use the
- * matching RPCs; cache, Realtime and the remaining mutations stay explicitly unavailable.
+ * Snapshots are obtained by visibility-aware polling. Text/reply and browser-selected attachment
+ * writes use the matching RPCs; there is no configured Supabase Realtime client in the Web target,
+ * so this repository deliberately does not hand-roll a WebSocket protocol.
  */
 class WebChatRepository(
     private val rpcClient: WebPostgrestRpcClient,
@@ -91,6 +94,7 @@ class WebChatRepository(
 
     override fun observeConversations(): Flow<List<Conversation>> = flow {
         while (currentCoroutineContext().isActive) {
+            awaitForeground()
             refreshInbox()
             emit(conversations.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
@@ -100,6 +104,8 @@ class WebChatRepository(
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
         val state = messagesState(conversationId)
         while (currentCoroutineContext().isActive) {
+            awaitForeground()
+            awaitActiveConversation(conversationId)
             refreshThread(conversationId, ThreadPageSize)
             emit(state.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
@@ -379,6 +385,17 @@ class WebChatRepository(
 
     private fun messagesState(conversationId: String): MutableStateFlow<List<Message>> =
         messagesByConversation.getOrPut(conversationId) { MutableStateFlow(emptyList()) }
+
+    /** Avoid network polling while the page is hidden, and only poll the visible conversation. */
+    private suspend fun awaitForeground() {
+        if (!_isAppForeground.value) _isAppForeground.filter { it }.first()
+    }
+
+    private suspend fun awaitActiveConversation(conversationId: String) {
+        if (_activeConversationId.value != conversationId) {
+            _activeConversationId.filter { it == conversationId }.first()
+        }
+    }
 
     private fun updateReadFailure() {
         _syncStatus.value = if (networkAvailable) ChatSyncStatus.Error else ChatSyncStatus.Offline
