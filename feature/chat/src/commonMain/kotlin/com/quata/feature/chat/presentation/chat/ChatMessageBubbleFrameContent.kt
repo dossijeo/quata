@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,7 +78,11 @@ fun ChatMessageBubbleFrameContent(
                 if (message.isDeleted) {
                     Text(strings.deletedMessage, color = textColor.copy(alpha = 0.72f))
                 } else {
-                    if (message.text.isNotBlank()) platformSlots.richText(textColor)
+                    if (message.text.isNotBlank()) {
+                        Column {
+                            platformSlots.richText(textColor)
+                        }
+                    }
                     ChatMessageBubbleAttachmentSlotsContent(
                         hasText = message.text.isNotBlank(),
                         textColor = textColor,
