@@ -12,6 +12,8 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFDataCreate
+import platform.CoreFoundation.CFDataRef
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.NSData
 import platform.Security.SecItemAdd
@@ -48,7 +50,7 @@ class IosKeychainSessionStorage(
         private set
 
     override fun saveSession(session: AuthSession) {
-        val data = session.toKeychainPayload().toNsData()
+        val data = session.toKeychainPayload().toKeychainData()
         val update = mapOf<Any?, Any?>(kSecValueData to data)
         val updated = SecItemUpdate(baseQuery().asCfDictionary(), update.asCfDictionary())
         lastStatus = when (updated) {
@@ -113,10 +115,14 @@ class IosKeychainSessionStorage(
 private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictionaryRef
 
 @OptIn(ExperimentalForeignApi::class)
-private fun String.toNsData(): NSData {
+private fun String.toKeychainData(): CFDataRef {
     val payload = encodeToByteArray()
     return payload.usePinned { pinned ->
-        NSData.create(bytes = pinned.addressOf(0), length = payload.size.toULong())
+        CFDataCreate(
+            allocator = null,
+            bytes = pinned.addressOf(0).reinterpret(),
+            length = payload.size.toLong(),
+        )!!
     }
 }
 
