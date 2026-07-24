@@ -3,8 +3,8 @@ package com.quata.feature.externalshare
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -57,7 +57,7 @@ fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependenc
                         label = { Text("Buscar destinos") },
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                     )
-                    LazyColumn(Modifier.weight(1f)) {
+                    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
                         items((state.recentCandidates + state.candidates).distinctBy { it.profileId }) { candidate ->
                             Button(onClick = { dependencies.viewModel.toggle(candidate.profileId) }, modifier = Modifier.fillMaxWidth()) {
                                 Text(if (candidate.profileId in state.selectedProfileIds) "✓ ${candidate.displayName}" else candidate.displayName)
