@@ -3,9 +3,6 @@ package com.quata.feature.feed.data
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -15,13 +12,7 @@ import platform.Foundation.NSNull
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
-import platform.Foundation.NSURLSessionDataDelegateProtocol
-import platform.Foundation.NSURLSessionDataTask
-import platform.Foundation.NSURLSessionResponseAllow
-import platform.Foundation.NSURLSessionResponseDisposition
-import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSURLResponse
-import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
 data class IosFeedRuntimeConfiguration(
@@ -117,63 +108,31 @@ class IosFeedReadTransport(
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
-    val delegate = IosFeedDataTaskDelegate(continuation)
-    val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
-    val task = session.dataTaskWithURL(url)
+    val session = NSURLSession.sessionWithConfiguration(this)
+    val task = session.dataTaskWithURL(url) { data, response, error ->
+        session.finishTasksAndInvalidate()
+        if (!continuation.isActive) return@dataTaskWithURL
+        if (error != null) {
+            continuation.resumeWithException(IllegalStateException(error.localizedDescription))
+            return@dataTaskWithURL
+        }
+        val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
+        if (status == null || status !in 200..299) {
+            continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
+            return@dataTaskWithURL
+        }
+        val payload = data
+        if (payload == null || payload.length == 0uL) {
+            continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
+            return@dataTaskWithURL
+        }
+        continuation.resume(payload)
+    }
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()
     }
     task.resume()
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private class IosFeedDataTaskDelegate(
-    private val continuation: kotlinx.coroutines.CancellableContinuation<NSData>,
-) : NSObject(), NSURLSessionDataDelegateProtocol {
-    private val chunks = mutableListOf<ByteArray>()
-    private var response: NSURLResponse? = null
-
-    override fun URLSession(
-        session: NSURLSession,
-        dataTask: NSURLSessionDataTask,
-        didReceiveResponse: NSURLResponse,
-        completionHandler: (NSURLSessionResponseDisposition) -> Unit,
-    ) {
-        response = didReceiveResponse
-        completionHandler(NSURLSessionResponseAllow)
-    }
-
-    override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
-        val nativeBytes = didReceiveData.bytes ?: return
-        chunks += nativeBytes.readBytes(didReceiveData.length.toInt())
-    }
-
-    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
-        if (!continuation.isActive) return
-        if (didCompleteWithError != null) {
-            continuation.resumeWithException(
-                IllegalStateException(didCompleteWithError.localizedDescription),
-            )
-            return
-        }
-        val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
-        if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
-            return
-        }
-        val payload = chunks.fold(ByteArray(0)) { all, chunk -> all + chunk }
-        if (payload.isEmpty()) {
-            continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
-            return
-        }
-        continuation.resume(payload.toNsData())
-    }
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
-    NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
 }
 
 @OptIn(ExperimentalForeignApi::class)
