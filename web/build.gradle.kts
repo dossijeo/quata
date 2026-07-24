@@ -41,5 +41,8 @@ kotlin {
         }
         androidMain.dependencies { }
         wasmJsMain.dependencies { }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }

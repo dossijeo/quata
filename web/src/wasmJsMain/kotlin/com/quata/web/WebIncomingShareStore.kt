@@ -1,6 +1,5 @@
 package com.quata.web
 
-import com.quata.feature.externalshare.ExternalShareAttachment
 import com.quata.feature.externalshare.ExternalSharePayload
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -35,7 +34,7 @@ class WebIncomingShareStore {
             payloadId = payload.id,
             referencesJson = Json.encodeToString(
                 ListSerializer(String.serializer()),
-                payload.attachments.map(ExternalShareAttachment::uri),
+                WebIncomingShareTargetContract.blobUrlsToRevoke(payload),
             ),
             onSuccess = { continuation.resume(Result.success(Unit)) },
             onFailure = { reason -> continuation.resume(Result.failure(IllegalStateException(reason))) },
@@ -50,16 +49,19 @@ private fun String.toExternalSharePayloadOrNull(): ExternalSharePayload? {
     val attachments = root["attachments"]?.jsonArray.orEmpty().mapNotNull { item ->
         val objectValue = item.jsonObject
         val uri = objectValue["uri"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-        ExternalShareAttachment(
+        WebPersistedIncomingShareAttachment(
             uri = uri,
             name = objectValue["name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { "attachment" },
             mimeType = objectValue["mimeType"]?.jsonPrimitive?.contentOrNull,
         )
     }
-    val text = root["text"]?.jsonPrimitive?.contentOrNull.orEmpty()
-    return ExternalSharePayload(id = id, text = text, attachments = attachments).takeIf {
-        it.text.isNotBlank() || it.attachments.isNotEmpty()
-    }
+    return WebIncomingShareTargetContract.payloadOrNull(
+        WebPersistedIncomingShare(
+            id = id,
+            text = root["text"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            attachments = attachments,
+        ),
+    )
 }
 
 private fun browserReadIncomingShare(
