@@ -70,7 +70,6 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.AlertDialog
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
@@ -81,7 +80,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -145,6 +143,7 @@ import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
+import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.compactButtonMinSize
@@ -678,25 +677,16 @@ fun CreatePostScreen(
         }
 
         if (isCancelUploadDialogOpen) {
-            AlertDialog(
-                onDismissRequest = { isCancelUploadDialogOpen = false },
-                title = { Text(stringResource(R.string.composer_cancel_upload_title)) },
-                text = { Text(stringResource(R.string.composer_cancel_upload_body)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.cancelSubmit()
-                            isCancelUploadDialogOpen = false
-                        }
-                    ) {
-                        Text(stringResource(R.string.composer_cancel_upload_confirm))
-                    }
+            QuataConfirmationDialogContent(
+                title = stringResource(R.string.composer_cancel_upload_title),
+                message = stringResource(R.string.composer_cancel_upload_body),
+                confirmLabel = stringResource(R.string.composer_cancel_upload_confirm),
+                dismissLabel = stringResource(R.string.composer_cancel_upload_keep),
+                onConfirm = {
+                    viewModel.cancelSubmit()
+                    isCancelUploadDialogOpen = false
                 },
-                dismissButton = {
-                    TextButton(onClick = { isCancelUploadDialogOpen = false }) {
-                        Text(stringResource(R.string.composer_cancel_upload_keep))
-                    }
-                }
+                onDismiss = { isCancelUploadDialogOpen = false },
             )
         }
     }

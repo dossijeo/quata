@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -214,7 +213,8 @@ fun ConversationsScreen(
                         .padding(18.dp)
                 )
             }
-            NewConversationFab(
+            NewConversationFabContent(
+                contentDescription = stringResource(R.string.conversations_new_chat),
                 onClick = { viewModel.openNewConversationPicker() },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -282,48 +282,6 @@ private fun UndoDeleteButton(
         onUndo = onUndo,
         modifier = modifier,
     )
-}
-
-@Composable
-private fun NewConversationFab(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.accent,
-        shape = CircleShape,
-        shadowElevation = 8.dp,
-        modifier = modifier
-            .size(64.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            CompactIcon(
-                imageVector = Icons.Filled.ChatBubble,
-                contentDescription = stringResource(R.string.conversations_new_chat),
-                tint = template.colors.accentContent,
-                modifier = Modifier.size(34.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surfaceRaised)
-                    .border(1.dp, template.colors.accent.copy(alpha = 0.65f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                CompactIcon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = null,
-                    tint = template.colors.accent,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
