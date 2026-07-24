@@ -40,7 +40,7 @@ fun BrowserFeedMediaContent(post: Post, unavailableMessage: String) {
             factory = {
                 (document.createElement("img") as HTMLImageElement).apply {
                     alt = post.text.take(120)
-                    loading = "lazy"
+                    setAttribute("loading", "lazy")
                     style.width = "100%"
                     style.height = "100%"
                     style.objectFit = "cover"
