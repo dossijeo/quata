@@ -26,6 +26,12 @@ El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construi
 controlador activo y devuelve `Unsupported` si el host no puede presentar. Sin provider, los
 servicios conservan el comportamiento seguro de no disponibilidad.
 
+Para taps APNs, el delegate UIKit debe pasar `UNNotificationResponse` a
+`IosNotificationDeepLinkAdapter.handleApnsTap(userInfo:)` y adjuntar un
+`IosNotificationDeepLinkHost` cuando exista navegación Chat. El adaptador normaliza IDs de
+`NSString`/`NSNumber` y payloads anidados `data`/`quata`/`payload`, y reutiliza el parser común
+de deep links. El launcher actual no adjunta ese host porque aún no contiene navegación Chat.
+
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:
 

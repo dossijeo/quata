@@ -10,6 +10,8 @@ package com.quata.core.platform
  */
 class IosPlatformServices(
     presenterProvider: IosViewControllerProvider? = null,
+    audioRecorderHost: IosAudioRecorderHost? = null,
+    audioPlayerHost: IosAudioPlayerHost? = null,
     override val preferences: PreferenceStore = IosPreferenceStore(),
     override val clipboard: ClipboardService = IosClipboardService(),
     override val share: ShareService = presenterProvider?.let { provider -> IosShareService(provider) } ?: IosShareService(),
@@ -18,7 +20,15 @@ class IosPlatformServices(
     },
     override val location: LocationService = UnsupportedIosLocationService,
     override val permissions: PermissionService = IosNotificationPermissionService(),
-) : PlatformServices
+) : PlatformServices {
+    /** Exposed alongside platform services because audio is a feature-level injectable contract. */
+    val audioRecorder: IosAudioRecorderService = IosAudioRecorderService().also { service ->
+        audioRecorderHost?.let(service::attachHost)
+    }
+    val audioPlayer: IosAudioPlayerService = IosAudioPlayerService().also { service ->
+        audioPlayerHost?.let(service::attachHost)
+    }
+}
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */
 object UnsupportedIosLocationService : LocationService {

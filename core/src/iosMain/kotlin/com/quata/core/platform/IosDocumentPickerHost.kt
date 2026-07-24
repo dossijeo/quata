@@ -32,7 +32,7 @@ class IosDocumentPickerHost(
         return suspendCancellableCoroutine { continuation ->
             val picker = UIDocumentPickerViewController(
                 documentTypes = request.acceptedMimeTypes.toDocumentTypeIdentifiers(),
-                inMode = UIDocumentPickerMode.Import,
+                inMode = UIDocumentPickerMode.`import`,
             ).apply {
                 allowsMultipleSelection = request.allowMultiple
             }

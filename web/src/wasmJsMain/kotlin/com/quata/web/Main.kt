@@ -1,10 +1,5 @@
 package com.quata.web
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -14,14 +9,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
+import com.quata.feature.auth.presentation.AuthSessionShellContent
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 
@@ -136,7 +130,24 @@ private fun QuataWebApp(
     }
     QuataTheme {
         if (isSessionReady) {
-            Box(Modifier.fillMaxSize()) {
+            AuthSessionShellContent(
+                isLoggingOut = isLoggingOut,
+                logoutLabel = "Cerrar sesión",
+                loggingOutLabel = "Cerrando sesión...",
+                onLogout = {
+                    scope.launch {
+                        isLoggingOut = true
+                        val result = sessionCoordinator.logoutCurrentSession()
+                        platformServices.preferences.remove(WebSessionReadyKey)
+                        platformServices.preferences.putString(
+                            "web.auth.logout_status",
+                            result.diagnosticValue(),
+                        )
+                        isSessionReady = false
+                        isLoggingOut = false
+                    }
+                },
+            ) {
                 if (navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
@@ -161,27 +172,6 @@ private fun QuataWebApp(
                         sharedPostId = navigation.postId,
                         onBackToFeed = { navigateWebFragment("") },
                     )
-                }
-                Button(
-                    enabled = !isLoggingOut,
-                    onClick = {
-                        scope.launch {
-                            isLoggingOut = true
-                            val result = sessionCoordinator.logoutCurrentSession()
-                            platformServices.preferences.remove(WebSessionReadyKey)
-                            platformServices.preferences.putString(
-                                "web.auth.logout_status",
-                                result.diagnosticValue(),
-                            )
-                            isSessionReady = false
-                            isLoggingOut = false
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(24.dp),
-                ) {
-                    Text(if (isLoggingOut) "Cerrando sesi\u00f3n..." else "Cerrar sesi\u00f3n")
                 }
             }
         } else {
