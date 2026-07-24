@@ -13,6 +13,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Quata necesita acceso a la cámara para capturar fotos que quieras compartir."
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.

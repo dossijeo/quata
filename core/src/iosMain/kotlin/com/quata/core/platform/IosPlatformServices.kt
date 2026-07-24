@@ -10,6 +10,7 @@ package com.quata.core.platform
  */
 class IosPlatformServices(
     presenterProvider: IosViewControllerProvider? = null,
+    cameraCaptureHost: IosCameraCaptureHost? = null,
     audioRecorderHost: IosAudioRecorderHost? = null,
     audioPlayerHost: IosAudioPlayerHost? = null,
     locationHost: IosCoreLocationHost? = null,
@@ -27,6 +28,10 @@ class IosPlatformServices(
         IosCompositePermissionService(location = host)
     } ?: IosNotificationPermissionService(),
 ) : PlatformServices {
+    /** Feature-level boundary, injected by the UIKit launcher when camera capture is consumed. */
+    val cameraCapture: IosCameraCaptureService = IosCameraCaptureService(
+        cameraCaptureHost ?: presenterProvider?.let(::IosImagePickerCameraHost),
+    )
     /** Exposed alongside platform services because audio is a feature-level injectable contract. */
     val audioRecorder: IosAudioRecorderService = IosAudioRecorderService(audioRecorderHost)
     val audioPlayer: IosAudioPlayerService = IosAudioPlayerService(audioPlayerHost)

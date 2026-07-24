@@ -1,6 +1,7 @@
 package com.quata.core.platform
 
-actual class PlatformCamera actual constructor() { actual fun isAvailable() = false }
+/** UIKit camera capture is available through [IosImagePickerCameraHost] injected by the launcher. */
+actual class PlatformCamera actual constructor() { actual fun isAvailable() = true }
 actual class PlatformClipboard actual constructor() { actual fun isAvailable() = true }
 /** UIKit provides sharing; [IosShareService] still requires an injected active presenter. */
 actual class PlatformShare actual constructor() { actual fun isAvailable() = true }

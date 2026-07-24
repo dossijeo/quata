@@ -23,10 +23,12 @@ Para archivos, `IosFilePickerService` recibe un `IosViewControllerProvider` y co
 adaptadores reales `IosDocumentPickerHost` e `IosPhotoPickerHost`: el primero importa documentos
 con `UIDocumentPickerViewController` y el segundo abre la galería con `PHPickerViewController`.
 Ambos conservan sus delegates y devuelven `PlatformFile` con URL, nombre y MIME; PhotosUI copia
-la representación temporal al sandbox antes de devolverla. Cámara continúa explícitamente no
-disponible hasta un adaptador AVFoundation. El launcher no adjunta estos servicios todavía porque
-ninguna de sus pantallas de estado consume `PlatformServices`; se deben adjuntar al crear el host
-autenticado que vaya a usar una feature con archivos.
+la representación temporal al sandbox antes de devolverla. `IosImagePickerCameraHost` presenta
+`UIImagePickerController` para cámara, conserva su delegate, devuelve cancelación/error reales y
+copia JPEG al temporal; `IosPlatformServices(presenterProvider: …)` lo conecta automáticamente,
+y `project.yml` declara `NSCameraUsageDescription`. El launcher no construye estos servicios todavía
+porque ninguna de sus pantallas de estado consume `PlatformServices`; se deben adjuntar al crear el
+host autenticado que vaya a usar una feature con archivos o cámara.
 
 El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construir
 `IosPlatformServices`: `ShareService` presenta el `UIActivityViewController` real en el
