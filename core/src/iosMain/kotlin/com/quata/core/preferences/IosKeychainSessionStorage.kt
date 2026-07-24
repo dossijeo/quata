@@ -6,6 +6,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.usePinned
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFRelease
@@ -78,7 +79,7 @@ class IosKeychainSessionStorage(
             lastStatus = status.takeUnless { it == errSecItemNotFound }
             return@memScoped null
         }
-        val value = result.value ?: run {
+        val value = result.ptr.pointed.value ?: run {
             lastStatus = IosKeychainPayloadMissing
             return@memScoped null
         }
@@ -116,14 +117,13 @@ private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictio
 
 @OptIn(ExperimentalForeignApi::class)
 private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
-    NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
+    NSData(bytes = pinned.addressOf(0), length = size.toULong())
 }
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toByteArray(): ByteArray {
-    val bytes = ByteArray(length.toInt())
-    bytes.usePinned { pinned -> getBytes(pinned.addressOf(0), length) }
-    return bytes
+    if (length == 0uL) return ByteArray(0)
+    return bytes?.readBytes(length.toInt()) ?: ByteArray(0)
 }
 
 /** Stable, versioned and delimiter-safe representation of every [AuthSession] field. */
