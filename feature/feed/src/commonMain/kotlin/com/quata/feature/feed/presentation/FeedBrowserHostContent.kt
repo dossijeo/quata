@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.feature.feed.domain.FeedRepository
@@ -134,33 +134,44 @@ fun FeedBrowserPostContent(
     post: Post,
     strings: FeedBrowserHostStrings,
     mediaContent: @Composable (Post) -> Unit = { item -> FeedBrowserMediaUnavailableContent(item, strings) },
+    author: @Composable (Post, Modifier) -> Unit = { item, modifier ->
+        FeedPostMetadataContent(
+            displayName = item.author.displayName,
+            publishedAt = item.createdAt,
+            modifier = modifier,
+        )
+    },
+    navigation: @Composable BoxScope.(Post) -> Unit = {},
+    actionRail: @Composable BoxScope.(Post) -> Unit = {},
 ) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = post.author.displayName,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        Text(
-            text = post.createdAt,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        Spacer(Modifier.height(8.dp))
-        TextOnlyReelContent(
-            stableId = post.id,
-            displayText = post.text.ifBlank { strings.noText },
-            seedText = post.id,
-            patternId = null,
-            readMoreText = strings.readMore,
-            readerDismissButton = { buttonModifier, onDismiss ->
-                Button(onClick = onDismiss, modifier = buttonModifier) { Text(strings.close) }
-            },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
-        )
-        mediaContent(post)
-    }
+    val hasPlatformMedia = post.imageUrl != null || post.videoUrl != null
+    FeedPostPreviewCardContent(
+        author = { modifier -> author(post, modifier) },
+        media = {
+            if (hasPlatformMedia) {
+                mediaContent(post)
+            } else {
+                TextOnlyReelContent(
+                    stableId = post.id,
+                    displayText = post.text.ifBlank { strings.noText },
+                    seedText = post.id,
+                    patternId = null,
+                    readMoreText = strings.readMore,
+                    readerDismissButton = { buttonModifier, onDismiss ->
+                        Button(onClick = onDismiss, modifier = buttonModifier) { Text(strings.close) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        actionRail = { actionRail(post) },
+        navigation = { navigation(post) },
+        body = {
+            if (hasPlatformMedia && post.text.isNotBlank()) {
+                Text(post.text, style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+    )
 }
 
 @Composable
