@@ -9,6 +9,7 @@ import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.BrowserFilePickerService
 import com.quata.core.platform.BrowserLocationService
 import com.quata.core.platform.BrowserShareService
+import com.quata.core.platform.BrowserVideoThumbnailService
 import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -17,6 +18,7 @@ import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.VideoThumbnailService
 import com.quata.core.platform.PlatformServices
 
 /** Services constructed by the browser launcher and passed to shared feature composition. */
@@ -29,6 +31,8 @@ data class WebPlatformServices(
     override val permissions: PermissionService = BrowserPermissionService(),
     /** Real still capture via MediaDevices; callers release returned Blob URLs after consumption. */
     val cameraCapture: BrowserCameraCaptureService = BrowserCameraCaptureService(),
+    /** Browser decoder/canvas thumbnail boundary; unsupported codecs return an explicit result. */
+    val videoThumbnails: VideoThumbnailService = BrowserVideoThumbnailService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
     val audioPlayer: AudioPlayerService = BrowserAudioPlayerService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
