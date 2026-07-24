@@ -161,7 +161,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          simulator_udid="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          simulator_udid="$(
+            xcodebuild \
+              -project iosApp/QuataIos.xcodeproj \
+              -scheme QuataIos \
+              -showdestinations \
+              | sed -nE 's/.*platform:iOS Simulator,.*id:([^,} ]+).*/\1/p' \
+              | head -n 1
+          )"
           test -n "$simulator_udid"
           xcrun simctl boot "$simulator_udid" || true
           xcrun simctl bootstatus "$simulator_udid" -b
