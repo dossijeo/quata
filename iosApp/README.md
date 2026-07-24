@@ -35,11 +35,32 @@ El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construi
 controlador activo y devuelve `Unsupported` si el host no puede presentar. Sin provider, los
 servicios conservan el comportamiento seguro de no disponibilidad.
 
-Para taps APNs, el delegate UIKit debe pasar `UNNotificationResponse` a
-`IosNotificationDeepLinkAdapter.handleApnsTap(userInfo:)` y adjuntar un
-`IosNotificationDeepLinkHost` cuando exista navegación Chat. El adaptador normaliza IDs de
-`NSString`/`NSNumber` y payloads anidados `data`/`quata`/`payload`, y reutiliza el parser común
-de deep links. El launcher actual no adjunta ese host porque aún no contiene navegación Chat.
+Para taps de una notificación ya entregada, `IosNotificationTapDelegate` usa
+`IosNotificationResponseBridge` para pasar `UNNotificationResponse.userInfo` a
+`IosNotificationDeepLinkAdapter`. El adaptador normaliza IDs de `NSString`/`NSNumber` y payloads
+anidados `data`/`quata`/`payload`, y reutiliza el parser común de deep links. El delegado no
+registra APNs ni pide permisos: una futura raíz de navegación debe retenerlo fuertemente (el
+delegate de `UNUserNotificationCenter` es débil), instalarlo y aportar el callback Chat real:
+
+```swift
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    let notificationTapDelegate = IosNotificationTapDelegate()
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        notificationTapDelegate.install()
+        notificationTapDelegate.setChatDestination { target in
+            // Enviar target al host de navegación Chat autenticado.
+        }
+        return true
+    }
+}
+```
+
+El launcher actual no crea ese `AppDelegate` porque aún no contiene navegación Chat; sin callback,
+el bridge responde `Unsupported` y nunca finge haber abierto una conversación.
 
 `IosCoreLocationHost` es el adaptador real de ubicación: se inyecta como `locationHost` al
 construir `IosPlatformServices`, solicita únicamente permiso *When In Use* y usa
