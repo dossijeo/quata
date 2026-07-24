@@ -2,6 +2,7 @@ package com.quata.feature.feed.data
 
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
@@ -13,7 +14,12 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
+import platform.Foundation.NSURLSessionDataDelegateProtocol
+import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLResponse
+import platform.Foundation.NSURLSessionTask
+import platform.Foundation.NSMutableData
+import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
 data class IosFeedRuntimeConfiguration(
@@ -109,31 +115,60 @@ class IosFeedReadTransport(
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
-    val session = NSURLSession.sessionWithConfiguration(this)
-    val task = session.dataTaskWithRequest(NSURLRequest(URL = url)) { data, response, error ->
-        session.finishTasksAndInvalidate()
-        if (!continuation.isActive) return@dataTaskWithRequest
-        if (error != null) {
-            continuation.resumeWithException(IllegalStateException(error.localizedDescription))
-            return@dataTaskWithRequest
-        }
-        val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
-        if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
-            return@dataTaskWithRequest
-        }
-        val payload = data
-        if (payload == null || payload.length == 0uL) {
-            continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
-            return@dataTaskWithRequest
-        }
-        continuation.resume(payload)
-    }
+    val delegate = IosFeedDataTaskDelegate(continuation)
+    val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
+    val task = session.dataTaskWithRequest(NSURLRequest(URL = url))
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()
     }
     task.resume()
+}
+
+/**
+ * Kotlin/Native does not expose the convenient completion-handler overload reliably across the
+ * currently supported Apple targets. Keep the response lifecycle in the native delegate API: the
+ * data delegate accumulates every chunk and its inherited task-delegate callback finishes the
+ * suspending request exactly once.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class IosFeedDataTaskDelegate(
+    private val continuation: CancellableContinuation<NSData>,
+) : NSObject(), NSURLSessionDataDelegateProtocol {
+    private val payload = NSMutableData()
+
+    override fun URLSession(
+        session: NSURLSession,
+        dataTask: NSURLSessionDataTask,
+        didReceiveData: NSData,
+    ) {
+        if (continuation.isActive) payload.appendData(didReceiveData)
+    }
+
+    override fun URLSession(
+        session: NSURLSession,
+        task: NSURLSessionTask,
+        didCompleteWithError: NSError?,
+    ) {
+        session.finishTasksAndInvalidate()
+        if (!continuation.isActive) return
+        if (didCompleteWithError != null) {
+            continuation.resumeWithException(
+                IllegalStateException(didCompleteWithError.localizedDescription),
+            )
+            return
+        }
+        val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
+        if (status == null || status !in 200..299) {
+            continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
+            return
+        }
+        if (payload.length == 0uL) {
+            continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
+            return
+        }
+        continuation.resume(payload)
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
