@@ -16,6 +16,10 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "Quata necesita acceso a la cámara para capturar fotos que quieras compartir."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Quata necesita acceso al micrófono para grabar mensajes de audio."
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Quata necesita tu ubicación para las funciones de proximidad y SOS."
+        # Configured by Xcode build settings or CI secrets. Do not store a Supabase service-role
+        # key in this project; only the client-safe URL and publishable key are consumed at runtime.
+        INFOPLIST_KEY_QUATA_SUPABASE_URL: "$(QUATA_SUPABASE_URL)"
+        INFOPLIST_KEY_QUATA_SUPABASE_PUBLISHABLE_KEY: "$(QUATA_SUPABASE_PUBLISHABLE_KEY)"
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.

@@ -2,6 +2,27 @@ import CoreLocation
 import UIKit
 import QuataFeed
 
+private enum IosPublicRuntimeConfiguration {
+    private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
+    private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
+
+    /// Values are injected as build settings. The Supabase publishable key is client-safe;
+    /// service-role credentials must never be added to an iOS bundle.
+    static func feedConfiguration(bundle: Bundle = .main) -> IosFeedRuntimeConfiguration? {
+        guard
+            let url = configuredValue(for: supabaseUrlKey, bundle: bundle),
+            let publishableKey = configuredValue(for: supabasePublishableKeyKey, bundle: bundle)
+        else { return nil }
+        return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
+    }
+
+    private static func configuredValue(for key: String, bundle: Bundle) -> String? {
+        guard let value = bundle.object(forInfoDictionaryKey: key) as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.contains("$(") ? nil : trimmed
+    }
+}
+
 /// UIKit launcher and composition boundary for the iOS application.
 ///
 /// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
@@ -32,18 +53,26 @@ private final class IosAppCompositionRoot {
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
+    private lazy var runtimeBootstrap = IosPublicRuntimeConfiguration.feedConfiguration()
+        .map(IosFeedRuntimeBootstrap.init(configuration:))
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = feedHost
         window.makeKeyAndVisible()
         self.window = window
+        installRestoredFeedSessionIfAvailable()
     }
 
     /// Called by the iOS authenticated bootstrap once it has a real `FeedRepository` wrapped in
     /// the Kotlin dependency object. No Android repository, URL or token is created by Swift.
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
         feedHost.installAuthenticatedFeed(dependencies)
+    }
+
+    private func installRestoredFeedSessionIfAvailable() {
+        guard let dependencies = runtimeBootstrap?.restoredDependencies() else { return }
+        installAuthenticatedFeed(dependencies)
     }
 }
 
