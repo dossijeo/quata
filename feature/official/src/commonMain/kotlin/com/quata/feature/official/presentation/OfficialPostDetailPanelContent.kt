@@ -22,8 +22,9 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.QuataFloatingPanelContent
 
 /**
- * Shared detail panel shell. The host owns HTML rendering and any platform link/navigation
- * behavior, while the panel, responsive spacing and header stay portable.
+ * Shared detail panel shell. Hosts inject avatar/author, media, external resources and
+ * navigation actions; HTML rendering and platform link behavior remain platform-owned.
+ * The responsive panel hierarchy itself stays portable.
  */
 @Composable
 fun OfficialPostDetailPanelContent(
@@ -32,6 +33,10 @@ fun OfficialPostDetailPanelContent(
     link: String?,
     onDismiss: () -> Unit,
     articleContent: @Composable (Modifier) -> Unit,
+    author: (@Composable (Modifier) -> Unit)? = null,
+    media: (@Composable (Modifier) -> Unit)? = null,
+    resourceContent: (@Composable (Modifier) -> Unit)? = null,
+    navigationContent: (@Composable (Modifier) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
@@ -59,14 +64,26 @@ fun OfficialPostDetailPanelContent(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                author?.let { authorSlot ->
+                    item { authorSlot(Modifier.fillMaxWidth()) }
+                }
+                media?.let { mediaSlot ->
+                    item { mediaSlot(Modifier.fillMaxWidth().height(224.dp)) }
+                }
                 item { articleContent(Modifier.fillMaxWidth()) }
-                link?.takeIf { it.isNotBlank() }?.let { nonBlankLink ->
-                    item {
+                when {
+                    resourceContent != null -> item { resourceContent(Modifier.fillMaxWidth()) }
+                    link?.isNotBlank() == true -> item {
                         Text(
-                            nonBlankLink,
+                            link,
                             color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
                             fontWeight = FontWeight.ExtraBold,
                         )
+                    }
+                }
+                navigationContent?.let { navigationSlot ->
+                    item {
+                        navigationSlot(Modifier.fillMaxWidth())
                     }
                 }
             }

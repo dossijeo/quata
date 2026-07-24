@@ -1,5 +1,7 @@
 package com.quata.feature.official.presentation
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -313,6 +315,9 @@ fun OfficialFeedScreen(
     readMorePost?.let { post ->
         OfficialPostDetailPanel(
             post = post,
+            onOpenAuthor = { onOpenUserProfile(post.author.id) },
+            onOpenMedia = { mediaPost = post },
+            onOpenLink = context::openOfficialPostLink,
             onDismiss = { readMorePost = null }
         )
     }
@@ -588,6 +593,9 @@ internal fun OfficialPostActionRail(
 @Composable
 internal fun OfficialPostDetailPanel(
     post: OfficialPostItem,
+    onOpenAuthor: () -> Unit,
+    onOpenMedia: () -> Unit,
+    onOpenLink: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     OfficialPostDetailPanelContent(
@@ -602,7 +610,31 @@ internal fun OfficialPostDetailPanel(
                 placeholder = post.contentPlain,
             )
         },
+        author = { slotModifier ->
+            OfficialAuthorHeader(post = post, onOpenAuthor = onOpenAuthor, modifier = slotModifier)
+        },
+        media = post.mediaUrl?.takeIf { it.isNotBlank() }?.let {
+            { slotModifier -> OfficialPostMedia(post = post, onOpenMedia = onOpenMedia, modifier = slotModifier) }
+        },
+        resourceContent = post.linkUrl?.takeIf { it.isNotBlank() }?.let { link ->
+            { slotModifier ->
+                TextButton(onClick = { onOpenLink(link) }, modifier = slotModifier) {
+                    Text(link)
+                }
+            }
+        },
+        navigationContent = { slotModifier ->
+            TextButton(onClick = onOpenAuthor, modifier = slotModifier) {
+                Text(stringResource(R.string.common_profile))
+            }
+        },
     )
+}
+
+private fun android.content.Context.openOfficialPostLink(url: String) {
+    runCatching {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
 }
 
 @Composable
