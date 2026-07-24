@@ -322,29 +322,25 @@ fun OfficialFeedScreen(
         )
     }
 
-    commentsPost?.let { post ->
-        val currentPost = state.posts.firstOrNull { it.id == post.id } ?: post
+    OfficialCommentsPanelEntryContent(
+        selectedPost = commentsPost,
+        posts = state.posts,
+        currentUserId = currentUserId,
+        onAuthRequired = onAuthRequired,
+        onAddComment = { postId, comment ->
+            viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment))
+        },
+        onReportComment = onReportComment,
+        onDismiss = { commentsPost = null },
+    ) { post, canParticipate, onAddComment, onReportComment, onDismiss ->
         QuataCommentsPanel(
-            postId = currentPost.id,
-            comments = currentPost.comments,
-            canParticipate = currentUserId != null,
+            postId = post.id,
+            comments = post.comments,
+            canParticipate = canParticipate,
             onAuthRequired = onAuthRequired,
-            onAddComment = { comment ->
-                if (currentUserId == null) {
-                    onAuthRequired()
-                } else {
-                    viewModel.onEvent(
-                        OfficialFeedUiEvent.AddComment(
-                            currentPost.id,
-                            comment
-                        )
-                    )
-                }
-            },
-            onReportComment = { comment ->
-                if (currentUserId != null) onReportComment(comment.id) else onAuthRequired()
-            },
-            onDismiss = { commentsPost = null }
+            onAddComment = onAddComment,
+            onReportComment = onReportComment,
+            onDismiss = onDismiss,
         )
     }
 
