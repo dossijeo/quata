@@ -73,7 +73,9 @@ class WebNeighborhoodsRepository(
         val profile = loadProfiles(ids = listOf(userId)).firstOrNull()
             ?: error("web_community_profile_not_found")
         val enriched = profile.copy(isFollowing = false)
-        CommunityUserProfile(user = enriched).also { profileCache[userId] = it }
+        // This read adapter has not yet enabled the posts endpoint; an empty collection is an
+        // explicit snapshot of that endpoint rather than a fabricated profile timeline.
+        CommunityUserProfile(user = enriched, posts = emptyList()).also { profileCache[userId] = it }
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
@@ -188,7 +190,7 @@ private fun String.normalizedCommunityKey(): String = trim().lowercase().replace
 private fun List<String>.toPostgrestInFilter(): String = "in.(${joinToString(",")})"
 
 private fun String.toWebCommunityEpochMillis(): Long? = browserDateParse(this)
-    .takeIf { !it.isNaN() }
-    .toLong()
+    ?.takeIf { !it.isNaN() }
+    ?.toLong()
 
-private fun browserDateParse(value: String): Double = js("Date.parse(value)")
+private fun browserDateParse(value: String): Double? = js("Date.parse(value)")
