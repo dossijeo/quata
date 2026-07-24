@@ -3,12 +3,14 @@ package com.quata.feature.feed.data
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
-import platform.Foundation.NSMutableData
 import platform.Foundation.NSNull
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
@@ -129,7 +131,7 @@ private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = susp
 private class IosFeedDataTaskDelegate(
     private val continuation: kotlinx.coroutines.CancellableContinuation<NSData>,
 ) : NSObject(), NSURLSessionDataDelegateProtocol {
-    private val bytes = NSMutableData()
+    private val chunks = mutableListOf<ByteArray>()
     private var response: NSURLResponse? = null
 
     override fun URLSession(
@@ -143,7 +145,8 @@ private class IosFeedDataTaskDelegate(
     }
 
     override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
-        bytes.appendData(didReceiveData)
+        val nativeBytes = didReceiveData.bytes ?: return
+        chunks += nativeBytes.readBytes(didReceiveData.length.toInt())
     }
 
     override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
@@ -159,12 +162,18 @@ private class IosFeedDataTaskDelegate(
             continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
             return
         }
-        if (bytes.length == 0UL) {
+        val payload = chunks.fold(ByteArray(0)) { all, chunk -> all + chunk }
+        if (payload.isEmpty()) {
             continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
             return
         }
-        continuation.resume(bytes)
+        continuation.resume(payload.toNsData())
     }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
+    NSData.dataWithBytes(bytes = pinned.addressOf(0), length = size.toULong())
 }
 
 @OptIn(ExperimentalForeignApi::class)
