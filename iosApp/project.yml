@@ -15,6 +15,7 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_NSCameraUsageDescription: "Quata necesita acceso a la cámara para capturar fotos que quieras compartir."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Quata necesita acceso al micrófono para grabar mensajes de audio."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Quata necesita tu ubicación para las funciones de proximidad y SOS."
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.

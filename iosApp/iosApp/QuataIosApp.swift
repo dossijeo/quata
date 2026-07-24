@@ -1,9 +1,10 @@
+import CoreLocation
 import UIKit
 import QuataFeed
 
 /// UIKit launcher and composition boundary for the iOS application.
 ///
-/// Swift owns the window, lifecycle and the authenticated dependency hand-off. The shared Feed
+/// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
 /// screen is always created by `QuataFeedViewController`; this target deliberately has no Swift
 /// Feed view or sample repository.
 @main
@@ -21,10 +22,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
 /// Keeps UIKit-only state at the platform edge and exposes one injection point for the future
 /// authenticated session/repository bootstrap. Until that bootstrap exists, the already-exported
-/// Compose migration surface remains visible instead of constructing fake Feed data.
+/// Compose status surface remains visible instead of constructing fake Feed data.
 private final class IosAppCompositionRoot {
     private var window: UIWindow?
-    private let feedHost = IosFeedHostContainerViewController()
+    // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
+    // real Core Location host explicitly at the UIKit boundary instead of falling back to a
+    // placeholder composition.
+    private let platformServices = IosPlatformServiceComposition(
+        coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+    )
+    private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -43,7 +50,17 @@ private final class IosAppCompositionRoot {
 /// A UIKit container rather than a SwiftUI replacement screen. It can atomically replace the
 /// explicit unauthenticated Compose status controller with the shared Feed Compose controller.
 private final class IosFeedHostContainerViewController: UIViewController {
+    private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
+
+    init(platformServices: IosPlatformServiceComposition) {
+        self.platformServices = platformServices
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -80,6 +97,7 @@ private final class IosFeedHostContainerViewController: UIViewController {
         controller.view.accessibilityLabel = accessibilityLabel
         view.addSubview(controller.view)
         controller.didMove(toParent: self)
+        platformServices.attachPresenter(controller: controller)
 
         previous?.willMove(toParent: nil)
         previous?.view.removeFromSuperview()

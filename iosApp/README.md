@@ -74,13 +74,13 @@ disponible.
 
 `iosApp/project.yml` enlaza únicamente `QuataFeed.framework`. Éste reexporta `:core` para que
 Swift pueda acceder a `IosPlatformServices` y sus contratos desde el mismo framework, sin
-embebir un segundo framework Core. Eso sólo habilita la composición: `QuataFeed` todavía no
-consume `IosPlatformServices` hasta recibir un `FeedRepository` real. Por ello el launcher no
-debe crear un `IosViewControllerProvider` todavía: compartir, selector, audio y APNs quedarían
-construidos sin consumidor. La primera fase que añada repositorio autenticado/navegación debe
-construir `IosPlatformServices(presenterProvider: …)` desde el controlador Compose activo y
-entregarlo a una feature que lo use; así los adaptadores reales se conectarán a una superficie
-efectiva.
+embebir un segundo framework Core. `IosPlatformServiceComposition` es la raíz Kotlin retenida por
+SwiftUI: el launcher le adjunta el `UIViewController` Compose activo y conserva servicios reales
+de compartir, documentos, galería, cámara, ubicación, permisos, preferencias y portapapeles.
+La composición no crea repositorios, sesiones ni datos de ejemplo, y `QuataFeed` todavía no la
+consume hasta recibir un `FeedRepository` iOS real. La primera feature autenticada debe recibir
+`composition.services` por su borde de inyección; audio continúa `Unsupported` hasta que se aporte
+un host AVFoundation real. El target declara además los textos de privacidad de cámara y ubicación.
 
 ## Bloqueo verificable para una composición Swift real
 

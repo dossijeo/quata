@@ -23,6 +23,7 @@ kotlin {
             implementation(project(":feature:auth"))
             implementation(project(":feature:feed"))
             implementation(project(":feature:chat"))
+            implementation(project(":feature:externalshare"))
             implementation(project(":feature:official"))
             implementation(project(":feature:postcomposer"))
             implementation(project(":feature:notifications"))

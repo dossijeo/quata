@@ -5,6 +5,10 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
+import com.quata.feature.feed.data.IosFeedReadTransport
+import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.feature.feed.data.IosFeedSessionProvider
+import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
 /**
@@ -30,6 +34,22 @@ fun iosReadOnlyFeedHostDependencies(
     onOpenChats: () -> Unit = {},
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
+    navigationMessage = navigationMessage,
+    onOpenChats = onOpenChats,
+)
+
+/**
+ * Authenticated iOS composition path for the shared read-only browser. The caller supplies public
+ * deployment configuration and a provider that refreshes/returns the current user session; no
+ * token, URL or sample repository is retained by this module.
+ */
+fun iosPostgrestReadOnlyFeedHostDependencies(
+    configuration: IosFeedRuntimeConfiguration,
+    sessionProvider: IosFeedSessionProvider,
+    navigationMessage: String = "Quata para iOS",
+    onOpenChats: () -> Unit = {},
+): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
+    readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration, sessionProvider)),
     navigationMessage = navigationMessage,
     onOpenChats = onOpenChats,
 )
