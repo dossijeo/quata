@@ -11,9 +11,6 @@ kotlin {
         compileSdk = 36
         minSdk = 26
     }
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
     wasmJs {
         browser()
         binaries.executable()
@@ -27,12 +24,12 @@ kotlin {
             implementation(project(":feature:feed"))
             implementation(project(":feature:chat"))
             implementation(project(":feature:official"))
+            implementation(project(":feature:notifications"))
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
             implementation(compose.foundation)
             implementation(compose.material3)
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

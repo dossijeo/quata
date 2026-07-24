@@ -95,8 +95,6 @@ jobs:
             :core:compileKotlinIosSimulatorArm64 \
             :designsystem:compileKotlinIosArm64 \
             :designsystem:compileKotlinIosSimulatorArm64 \
-            :web:compileKotlinIosArm64 \
-            :web:compileKotlinIosSimulatorArm64 \
             :feature:auth:compileKotlinIosArm64 \
             :feature:auth:compileKotlinIosSimulatorArm64 \
             :feature:chat:compileKotlinIosArm64 \

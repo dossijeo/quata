@@ -12,6 +12,8 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.notifications.domain.NotificationsRepository
+import com.quata.feature.notifications.domain.ConversationNotificationPrefix
+import com.quata.feature.notifications.domain.toConversationNotificationItems
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -26,11 +28,11 @@ class NotificationsRepositoryImpl(
     override suspend fun getNotifications(): Result<List<NotificationItem>> =
         if (AppConfig.USE_MOCK_BACKEND) {
             chatRepository.getConversations().map { conversations ->
-                conversations.toNotificationItems(chatRepository.activeConversationId.value)
+                conversations.toConversationNotificationItems(chatRepository.activeConversationId.value)
             }
         } else {
             chatRepository.getConversations()
-                .map { conversations -> conversations.toNotificationItems(chatRepository.activeConversationId.value) }
+                .map { conversations -> conversations.toConversationNotificationItems(chatRepository.activeConversationId.value) }
                 .mapFailureToUserFacing(appContext, R.string.error_load_notifications)
         }
 
@@ -43,14 +45,14 @@ class NotificationsRepositoryImpl(
                 chatRepository.observeConversations(),
                 chatRepository.activeConversationId
             ) { conversations, activeConversationId ->
-                conversations.toNotificationItems(activeConversationId)
+                conversations.toConversationNotificationItems(activeConversationId)
             }
         } else {
             combine(
                 chatRepository.observeConversations(),
                 chatRepository.activeConversationId
             ) { conversations, activeConversationId ->
-                conversations.toNotificationItems(activeConversationId)
+                conversations.toConversationNotificationItems(activeConversationId)
             }
         }
 
@@ -60,7 +62,7 @@ class NotificationsRepositoryImpl(
             .catch { emit(0) }
 
     override suspend fun markNotificationRead(notification: NotificationItem): Result<Unit> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND || notification.id.startsWith(CONVERSATION_NOTIFICATION_PREFIX)) {
+        if (AppConfig.USE_MOCK_BACKEND || notification.id.startsWith(ConversationNotificationPrefix)) {
             chatRepository.markConversationRead(notification.conversationId).getOrThrow()
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -94,30 +96,6 @@ private fun CommunityNotification.toNotificationItem(): NotificationItem {
     )
 }
 
-private fun List<Conversation>.toNotificationItems(activeConversationId: String?): List<NotificationItem> =
-    filter { conversation ->
-        conversation.id != activeConversationId &&
-            conversation.isVisible &&
-            !conversation.isMuted &&
-            conversation.unreadCount > 0
-    }.map { conversation ->
-        NotificationItem(
-            id = "$CONVERSATION_NOTIFICATION_PREFIX${conversation.id}",
-            conversationId = conversation.id,
-            title = conversation.notificationTitle(),
-            body = conversation.lastMessagePreview.ifBlank { conversation.title },
-            createdAt = conversation.updatedAt.ifBlank { "Ahora" },
-            unreadCount = conversation.unreadCount
-        )
-    }
-
-private fun Conversation.notificationTitle(): String = when {
-    isEmergency -> title.ifBlank { "SOS" }
-    communityName?.isNotBlank() == true -> communityName
-    title.isNotBlank() -> title
-    isGroup -> participantNames.take(3).joinToString(", ")
-    else -> ""
-}.orEmpty()
 
 private fun supabaseNotificationKey(id: String, type: String?, wallId: String?): String =
     listOf(id, type.orEmpty(), wallId.orEmpty()).joinToString("|")
@@ -126,5 +104,3 @@ private fun String.parseSupabaseNotificationKey(): Pair<String?, String?> {
     val parts = split("|")
     return parts.getOrNull(1)?.takeIf { it.isNotBlank() } to parts.getOrNull(2)?.takeIf { it.isNotBlank() }
 }
-
-private const val CONVERSATION_NOTIFICATION_PREFIX = "notification_"
