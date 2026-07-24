@@ -49,7 +49,7 @@ class IosDocumentPickerHost(
                 if (activeDelegate === delegate) {
                     activeDelegate = null
                     // A cancelled Compose/host scope must not leave a UIKit picker orphaned.
-                    picker.dismissViewControllerAnimated(animated = true, completion = null)
+                    picker.dismissViewControllerAnimated(flag = true, completion = null)
                 }
             }
             presenter.presentViewController(picker, animated = true, completion = null)
