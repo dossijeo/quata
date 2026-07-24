@@ -194,7 +194,7 @@ private fun QuataWebApp(
                         onBack = { navigateWebFragment("") },
                         onOpenConversation = ::navigateWebConversation,
                     )
-                } else if (navigation.officialPostId != null) {
+                } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
                         officialPostId = navigation.officialPostId,
@@ -271,6 +271,9 @@ private fun String.toWebNavigationState(): WebNavigationState {
     }
     if (trim('/').equals("notifications", ignoreCase = true)) {
         return WebNavigationState(route = "notifications", message = "Notificaciones de Quata Web.")
+    }
+    if (trim('/').equals("official", ignoreCase = true)) {
+        return WebNavigationState(route = "official", message = "Comunicados oficiales de Quata Web.")
     }
     if (trim('/').equals("chat", ignoreCase = true)) {
         return WebNavigationState(route = "chat", message = "Conversaciones de Quata Web.")

@@ -38,7 +38,9 @@ class IosShareService(
     override suspend fun share(payload: SharePayload): PlatformResult<Unit> = runCatching {
         val activePresenter = presenter ?: return PlatformResult.Unsupported
         val fileUrls = payload.files.map { file ->
-            NSURL.URLWithString(file.reference) ?: return PlatformResult.Unsupported
+            NSURL.URLWithString(file.reference)
+                ?.takeIf { !it.scheme.isNullOrBlank() }
+                ?: return PlatformResult.Unsupported
         }
         val items = buildList<Any> {
             payload.text?.takeIf(String::isNotBlank)?.let(::add)
