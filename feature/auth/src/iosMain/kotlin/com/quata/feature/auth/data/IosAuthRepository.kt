@@ -36,6 +36,9 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.setHTTPBody
+import platform.Foundation.setHTTPMethod
+import platform.Foundation.setValue
 import platform.darwin.NSObject
 
 /**
@@ -223,7 +226,7 @@ fun iosSupabaseSessionRefresher(
 class IosUrlSessionAuthHttpTransport : IosAuthHttpTransport {
     override suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse {
         val url = NSURL(string = endpoint) ?: error("ios_auth_url_invalid")
-        val request = NSMutableURLRequest(url = url).apply {
+        val request = NSMutableURLRequest.requestWithURL(url).apply {
             HTTPMethod = "POST"
             HTTPBody = body.encodeToByteArray().toIosAuthData()
             headers.forEach { (name, value) -> setValue(value, forHTTPHeaderField = name) }
