@@ -155,80 +155,71 @@ fun QuataCommentsPanel(
                 modifier = panelModifier
             )
         } else {
-            Column(
-                modifier = panelModifier
-                    .dismissCommunityEmojiPanelOnOutsideTap(
-                        isVisible = isEmojiPickerVisible,
-                        state = emojiDismissState
+            QuataCommentsPanelPortraitContent(
+                modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(
+                    isVisible = isEmojiPickerVisible,
+                    state = emojiDismissState,
+                ),
+                header = {
+                    QuataCommentsPanelHeader(
+                        commentsCount = comments.size,
+                        onTranslatorClick = { view ->
+                            translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                        },
                     )
-                    .padding(start = 20.dp, end = 20.dp, bottom = 48.dp)
-            ) {
-                QuataCommentsPanelHeader(
-                    commentsCount = comments.size,
-                    onTranslatorClick = { view ->
-                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                },
+                comments = { commentsModifier ->
+                    LazyColumn(
+                        state = commentsListState,
+                        modifier = commentsModifier,
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                    ) {
+                        items(comments) { comment ->
+                            QuataCommentRow(
+                                comment = comment,
+                                onReply = { replyTarget = comment },
+                                onReport = { onReportComment(comment) },
+                            )
+                        }
+                        item(key = "comments-end") { Spacer(Modifier.height(24.dp)) }
                     }
-                )
-                Spacer(Modifier.height(16.dp))
-                LazyColumn(
-                    state = commentsListState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .heightIn(min = 180.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    items(comments) { comment ->
-                        QuataCommentRow(
-                            comment = comment,
-                            onReply = { replyTarget = comment },
-                            onReport = { onReportComment(comment) }
+                },
+                emojiPanel = if (isEmojiPickerVisible) {
+                    {
+                        CommunityEmojiPanel(
+                            onEmojiClick = { emoji -> draft = draft.insertAtSelection(emoji) },
+                            gridMaxHeight = emojiGridMaxHeight,
+                            modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState),
                         )
                     }
-                    item(key = "comments-end") {
-                        Spacer(Modifier.height(24.dp))
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                if (isEmojiPickerVisible) {
-                    CommunityEmojiPanel(
-                        onEmojiClick = { emoji ->
-                            draft = draft.insertAtSelection(emoji)
+                } else null,
+                replyTarget = replyTarget?.let { target ->
+                    { QuataReplyTargetBanner(comment = target, onClear = { replyTarget = null }) }
+                },
+                input = { inputModifier ->
+                    QuataCommentInput(
+                        postId = postId,
+                        draft = draft,
+                        onDraftChange = { draft = it },
+                        replyTarget = replyTarget,
+                        isEmojiPickerVisible = isEmojiPickerVisible,
+                        onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
+                        emojiDismissState = emojiDismissState,
+                        canParticipate = canParticipate,
+                        onAuthRequired = onAuthRequired,
+                        onAddComment = onAddComment,
+                        onCommentAdded = {
+                            shouldScrollToCommentsEnd = true
+                            draft = TextFieldValue("")
+                            replyTarget = null
+                            isEmojiPickerVisible = false
                         },
-                        gridMaxHeight = emojiGridMaxHeight,
-                        modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
+                        currentUserLabel = context.getString(R.string.comments_you),
+                        modifier = inputModifier,
                     )
-                    Spacer(Modifier.height(18.dp))
-                }
-                replyTarget?.let { target ->
-                    QuataReplyTargetBanner(
-                        comment = target,
-                        onClear = { replyTarget = null }
-                    )
-                    Spacer(Modifier.height(14.dp))
-                }
-                QuataCommentInput(
-                    postId = postId,
-                    draft = draft,
-                    onDraftChange = { draft = it },
-                    replyTarget = replyTarget,
-                    isEmojiPickerVisible = isEmojiPickerVisible,
-                    onEmojiPickerVisibleChange = ::setEmojiPickerVisible,
-                    emojiDismissState = emojiDismissState,
-                    canParticipate = canParticipate,
-                    onAuthRequired = onAuthRequired,
-                    onAddComment = onAddComment,
-                    onCommentAdded = {
-                        shouldScrollToCommentsEnd = true
-                        draft = TextFieldValue("")
-                        replyTarget = null
-                        isEmojiPickerVisible = false
-                    },
-                    currentUserLabel = context.getString(R.string.comments_you),
-                    modifier = Modifier.requiredHeightIn(min = 82.dp)
-                )
-            }
+                },
+            )
         }
     }
 }
