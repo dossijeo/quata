@@ -99,7 +99,6 @@ import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.QuataCommentsPanel
-import com.quata.core.ui.components.QuataFeedActionRail
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.QuataLiveRankingItem
@@ -560,29 +559,28 @@ internal fun OfficialPostActionRail(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    QuataFeedActionRail(
-        likes = post.likesCount,
-        isLiked = post.isLikedByCurrentUser,
-        comments = post.commentsCount,
-        postRank = rank,
+    OfficialPostActionRailContent(
+        post = post,
+        rank = rank,
         isLandscape = isLandscape,
-        likeLabel = stringResource(R.string.feed_like),
-        commentsLabel = stringResource(R.string.feed_comments),
-        shareLabel = stringResource(R.string.feed_share),
-        rankLabel = stringResource(R.string.feed_rank),
-        liveLabel = stringResource(R.string.common_live),
-        publishLabel = stringResource(R.string.official_create),
-        deleteLabel = stringResource(R.string.feed_delete_post),
-        showReport = false,
-        showDelete = canModerate,
-        showPublish = canPublish,
-        onLike = onLike,
-        onOpenComments = onComment,
-        onShare = onShare,
+        canPublish = canPublish,
+        canModerate = canModerate,
+        strings = OfficialPostActionRailStrings(
+            like = stringResource(R.string.feed_like),
+            comments = stringResource(R.string.feed_comments),
+            share = stringResource(R.string.feed_share),
+            rank = stringResource(R.string.feed_rank),
+            live = stringResource(R.string.common_live),
+            publish = stringResource(R.string.official_create),
+            delete = stringResource(R.string.feed_delete_post),
+        ),
+        onCreate = onCreate,
         onOpenLive = onOpenLive,
+        onLike = onLike,
+        onComment = onComment,
+        onShare = onShare,
         onDelete = onDelete,
-        onPublish = onCreate,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 

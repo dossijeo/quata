@@ -7,8 +7,8 @@ código Compose de `commonMain`; el adaptador iOS se limita a crear un `UIViewCo
 El launcher SwiftUI no fabrica un repositorio de ejemplo ni reutiliza el repositorio Android. Por
 ahora muestra de forma explícita el estado de migración, hasta que exista un cliente autenticado
 iOS que implemente `FeedRepository`. Conectar ese repositorio consiste en crear
-`IosFeedHostDependencies(repository: …)` y pasarlo al `FeedRootView` documentado en el entry
-point Swift.
+`IosFeedHostDependencies(repository: …)` y pasarlo a `QuataFeedViewController`; no existe un
+`FeedRootView` Swift separado.
 
 Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`IosPreferenceStore`)
 ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
@@ -51,6 +51,23 @@ construidos sin consumidor. La primera fase que añada repositorio autenticado/n
 construir `IosPlatformServices(presenterProvider: …)` desde el controlador Compose activo y
 entregarlo a una feature que lo use; así los adaptadores reales se conectarán a una superficie
 efectiva.
+
+## Bloqueo verificable para una composición Swift real
+
+La única entrada de Feed que puede mostrar contenido real es
+`QuataFeedViewController(dependencies:)`; sus dependencias exigen una implementación completa de
+`FeedRepository`. No basta con cargar una lista inicial: el contrato incluye observación continua,
+carga/recarga/paginación, perfil actual y autor, detalle de post y las mutaciones de like, reporte,
+comentario y borrado. En el árbol actual sólo existen `FeedRepositoryImpl` de Android (depende de
+`Context`, sesión, Supabase, WordPress y caché Android) y `WebFeedRepository` en `wasmJsMain`.
+No hay implementación bajo `feature/feed/src/iosMain` ni un cliente de sesión/HTTP iOS que pueda
+satisfacer ese contrato.
+
+Además, `IosFeedHostDependencies` no recibe `PlatformServices`; por tanto construir
+`IosPlatformServices` desde Swift ahora no puede llegar a Feed. El siguiente cambio con consumidor
+real debe introducir un repositorio iOS autenticado y, únicamente si esa feature necesita servicios
+del sistema, ampliar su composition root para recibir los contratos concretos que use. Hasta ese
+momento el estado de migración evita una UI aparentemente funcional con datos o adaptadores falsos.
 
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:
