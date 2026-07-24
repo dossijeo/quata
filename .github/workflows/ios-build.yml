@@ -99,12 +99,18 @@ jobs:
           test -n "$runtime_identifier"
           test -n "$device_type_identifier"
           device_name="Quata CI iPhone iOS ${runtime_version}"
-          if ! xcrun simctl list devices "$runtime_identifier" | grep -Fq "$device_name"; then
-            xcrun simctl create "$device_name" "$device_type_identifier" "$runtime_identifier"
+          simulator_udid="$(
+            xcrun simctl list devices -j | python3 -c 'import json,sys; expected=sys.argv[1]; print(next((device["udid"] for devices in json.load(sys.stdin)["devices"].values() for device in devices if device.get("name") == expected), ""))' "$device_name"
+          )"
+          if [[ ! "$simulator_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+            simulator_udid="$(xcrun simctl create "$device_name" "$device_type_identifier" "$runtime_identifier")"
           fi
+          test "$simulator_udid" = "$(xcrun simctl list devices -j | python3 -c 'import json,sys; expected=sys.argv[1]; print(next((device["udid"] for devices in json.load(sys.stdin)["devices"].values() for device in devices if device.get("udid") == expected), ""))' "$simulator_udid")"
+          echo "QUATA_IOS_SIMULATOR_UDID=$simulator_udid" >> "$GITHUB_ENV"
           echo "Selected iOS runtime: $runtime_identifier"
           echo "Selected simulator type: $device_type_identifier"
-          xcrun simctl list devices "$runtime_identifier"
+          echo "Selected simulator UUID: $simulator_udid"
+          xcrun simctl list devices -j
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -198,42 +204,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! available_destinations="$(
-            xcodebuild \
-              -project iosApp/QuataIos.xcodeproj \
-              -scheme QuataIos \
-              -sdk iphonesimulator \
-              -showdestinations \
-              2>&1
-          )"; then
-            echo "Unable to enumerate Xcode destinations for QuataIos:" >&2
-            printf '%s\n' "$available_destinations" >&2
-            exit 1
-          fi
-          simulator_udid="$(
-            printf '%s\n' "$available_destinations" \
-              | awk '
-                  /platform:iOS Simulator/ {
-                    if (match($0, /id:[[:space:]]*[0-9A-Fa-f-]+/)) {
-                      identifier = substr($0, RSTART, RLENGTH)
-                      sub(/^id:[[:space:]]*/, "", identifier)
-                      print identifier
-                      exit
-                    }
-                  }
-                '
-          )"
-          if [[ "$simulator_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
-            destination="platform=iOS Simulator,id=$simulator_udid"
-            echo "Selected Xcode-eligible iOS Simulator: $simulator_udid"
-            xcrun simctl boot "$simulator_udid" || true
-            xcrun simctl bootstatus "$simulator_udid" -b
-          else
-            # Xcode 16.3 occasionally exposes only the compatible Apple-Silicon destination
-            # after a runtime import. It still runs the iOS host and XCTest bundle natively.
-            destination="platform=macOS,arch=arm64"
-            echo "No simulator UUID was reported; using Xcode's iOS-compatible Mac destination."
-          fi
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          destination="platform=iOS Simulator,id=$simulator_udid"
+          echo "Testing on the simulator created for this job: $simulator_udid"
+          xcrun simctl boot "$simulator_udid" || true
+          xcrun simctl bootstatus "$simulator_udid" -b
           rm -rf build/reports/ios/QuataIos-tests.xcresult
           xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
