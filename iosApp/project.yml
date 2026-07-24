@@ -27,6 +27,15 @@ targets:
       - path: iosAppUITests
     dependencies:
       - target: QuataIos
+  QuataIosTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosAppTests
+    dependencies:
+      - target: QuataIos
+      - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
 schemes:
   QuataIos:
     build:
@@ -37,4 +46,5 @@ schemes:
     test:
       config: Debug
       targets:
+        - QuataIosTests
         - QuataIosUITests
