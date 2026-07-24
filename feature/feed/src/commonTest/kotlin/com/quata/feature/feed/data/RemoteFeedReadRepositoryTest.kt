@@ -1,6 +1,6 @@
 package com.quata.feature.feed.data
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 
 class RemoteFeedReadRepositoryTest {
     @Test
-    fun mapsPostsCommentsLikesAndProfilesThroughTransport() = runBlocking {
+    fun mapsPostsCommentsLikesAndProfilesThroughTransport() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; Quata")),
             comments = listOf(FeedRemoteComment(id = "comment-1", postId = "post-1", profileId = "commenter", body = "Buen dÃ­a")),
@@ -37,7 +37,7 @@ class RemoteFeedReadRepositoryTest {
     }
 
     @Test
-    fun refreshPostUsesIdRequestAndReturnsOnlyRequestedDetail() = runBlocking {
+    fun refreshPostUsesIdRequestAndReturnsOnlyRequestedDetail() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(
                 FeedRemotePost(id = "first", profileId = "author"),
@@ -55,7 +55,7 @@ class RemoteFeedReadRepositoryTest {
     }
 
     @Test
-    fun requestsOlderPageWithCursorAndMinimumLimit() = runBlocking {
+    fun requestsOlderPageWithCursorAndMinimumLimit() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(FeedRemotePost(id = "older", profileId = "author")),
             profiles = listOf(FeedRemoteProfile(id = "author")),
@@ -70,7 +70,7 @@ class RemoteFeedReadRepositoryTest {
     }
 
     @Test
-    fun refreshesCurrentUserAndAuthorFromProfiles() = runBlocking {
+    fun refreshesCurrentUserAndAuthorFromProfiles() = runTest {
         val transport = FakeFeedReadTransport(
             profiles = listOf(
                 FeedRemoteProfile(id = "viewer", fallbackName = "Cuenta actual", phoneLocal = "600123123"),
@@ -88,7 +88,7 @@ class RemoteFeedReadRepositoryTest {
     }
 
     @Test
-    fun propagatesTransportFailuresForEveryReadStage() = runBlocking {
+    fun propagatesTransportFailuresForEveryReadStage() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(FeedRemotePost(id = "post", profileId = "author")),
             profiles = listOf(FeedRemoteProfile(id = "author")),
