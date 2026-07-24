@@ -326,57 +326,65 @@ fun OfficialPostEditorScreen(
                         },
                     )
 
-                    OfficialEditorCard {
-                        OfficialEditorSectionTitle(
-                            stringResource(
-                                if (editorMode == OfficialEditorMode.Quick) {
-                                    R.string.official_form_body_quick
-                                } else {
-                                    R.string.official_form_read_more_section
-                                }
-                            )
-                        )
-                        if (editorMode == OfficialEditorMode.Advanced) {
-                            OfficialEditorDropdownFieldContent(
-                                selectedLabel = localizedOfficialReadMoreLabel(readMoreOption.shortcode),
-                                options = officialReadMoreUiOptions.map { option ->
-                                    OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
+                    OfficialEditorBodySectionContent(
+                        title = stringResource(
+                            if (editorMode == OfficialEditorMode.Quick) {
+                                R.string.official_form_body_quick
+                            } else {
+                                R.string.official_form_read_more_section
+                            }
+                        ),
+                        readMoreControl = if (editorMode == OfficialEditorMode.Advanced) {
+                            {
+                                OfficialEditorDropdownFieldContent(
+                                    selectedLabel = localizedOfficialReadMoreLabel(readMoreOption.shortcode),
+                                    options = officialReadMoreUiOptions.map { option ->
+                                        OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
+                                    },
+                                    expanded = readMoreMenuOpen,
+                                    onExpandedChange = { readMoreMenuOpen = it },
+                                    onOptionSelected = { selectedId ->
+                                        readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId }
+                                    },
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        editorAction = {
+                            OutlinedButton(
+                                onClick = {
+                                    longEditorHtml = contentHtml
+                                    isLongEditorOpen = true
                                 },
-                                expanded = readMoreMenuOpen,
-                                onExpandedChange = { readMoreMenuOpen = it },
-                                onOptionSelected = { selectedId ->
-                                    readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId }
-                                },
-                            )
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.size(8.dp))
+                                Text(
+                                    stringResource(
+                                        if (editorMode == OfficialEditorMode.Quick) {
+                                            R.string.official_form_edit_body_quick
+                                        } else {
+                                            R.string.official_form_edit_body
+                                        }
+                                    ),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        },
+                        linkControl = if (editorMode == OfficialEditorMode.Advanced) {
+                            {
+                                OfficialEditorLinkFieldContent(
+                                    value = linkUrl,
+                                    onValueChange = { linkUrl = it },
+                                    label = stringResource(R.string.official_form_link),
+                                )
+                            }
+                        } else {
+                            null
                         }
-                        OutlinedButton(
-                            onClick = {
-                                longEditorHtml = contentHtml
-                                isLongEditorOpen = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                stringResource(
-                                    if (editorMode == OfficialEditorMode.Quick) {
-                                        R.string.official_form_edit_body_quick
-                                    } else {
-                                        R.string.official_form_edit_body
-                                    }
-                                ),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        if (editorMode == OfficialEditorMode.Advanced) {
-                            OfficialEditorLinkFieldContent(
-                                value = linkUrl,
-                                onValueChange = { linkUrl = it },
-                                label = stringResource(R.string.official_form_link),
-                            )
-                        }
-                    }
+                    )
 
                     OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
                     OfficialPostPreview(
