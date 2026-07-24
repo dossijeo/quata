@@ -970,43 +970,40 @@ private fun ComposerFeedPreviewFrame(
     backgroundSeed: String? = null,
     media: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
 ) {
-    ComposerFeedPreviewFrameContent(
+    ComposerPostPreviewContent(
+        isVideo = isVideo,
         compact = compact,
         mediaAspectRatio = mediaAspectRatio,
         backgroundSeed = backgroundSeed ?: description.ifBlank { locationLabel.orEmpty() },
         media = media,
         scrim = { ComposerPreviewScrims() },
-        topOverlay = {
+        topOverlay = { modifier ->
             ComposerPreviewTopChips(
                 isVideo = isVideo,
                 locationLabel = locationLabel,
-                modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 14.dp)
+                modifier = modifier,
             )
         },
-        actionRail = {
+        actionRail = { modifier ->
             ComposerPreviewActionsContent(
                 showRankLiveActions = !compact,
                 labels = composerPreviewActionLabels(),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 18.dp)
+                modifier = modifier,
             )
         },
-        compactLeadingActions = {
-            if (compact) {
-                ComposerPreviewRankLiveActionsContent(
-                    labels = composerPreviewActionLabels(),
-                    modifier = Modifier.align(Alignment.BottomStart)
-                        .padding(start = 14.dp, bottom = if (isVideo) 132.dp else 88.dp)
-                )
-            }
+        compactLeadingActions = { modifier ->
+            ComposerPreviewRankLiveActionsContent(
+                labels = composerPreviewActionLabels(),
+                modifier = modifier,
+            )
         },
-        authorOverlay = {
+        authorOverlay = { modifier ->
             ComposerPreviewAuthor(
                 description = description,
                 locationLabel = locationLabel,
-                modifier = Modifier.align(Alignment.BottomStart)
-                    .padding(start = 14.dp, end = 76.dp, bottom = if (isVideo) 78.dp else 18.dp)
+                modifier = modifier,
             )
-        }
+        },
     )
 }
 
