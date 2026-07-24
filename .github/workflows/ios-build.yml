@@ -73,11 +73,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! xcrun simctl list runtimes available | grep -Eq 'iOS 18\.'; then
-            xcodebuild -downloadPlatform iOS
+          runtime_version="18.4"
+          if ! xcrun simctl list runtimes available | grep -Fq "iOS ${runtime_version}"; then
+            runtime_download_dir="$RUNNER_TEMP/quata-ios-${runtime_version}-runtime"
+            rm -rf "$runtime_download_dir"
+            mkdir -p "$runtime_download_dir"
+            xcodebuild \
+              -downloadPlatform iOS \
+              -buildVersion "$runtime_version" \
+              -architectureVariant arm64 \
+              -exportPath "$runtime_download_dir"
+            runtime_dmg="$(find "$runtime_download_dir" -name '*.dmg' -type f -print -quit)"
+            test -n "$runtime_dmg"
+            xcodebuild -importPlatform "$runtime_dmg"
           fi
           runtime_identifier="$(
-            xcrun simctl list runtimes available -j | python3 -c 'import json,sys; print(next((runtime["identifier"] for runtime in json.load(sys.stdin)["runtimes"] if runtime.get("isAvailable") and runtime.get("name", "").startswith("iOS 18.")), ""))'
+            xcrun simctl list runtimes available -j | python3 -c 'import json,sys; print(next((runtime["identifier"] for runtime in json.load(sys.stdin)["runtimes"] if runtime.get("isAvailable") and runtime.get("name", "") == "iOS 18.4"), ""))'
           )"
           device_type_identifier="$(
             xcrun simctl list devicetypes -j | python3 -c 'import json,sys; print(next((device_type["identifier"] for device_type in json.load(sys.stdin)["devicetypes"] if device_type.get("name") == "iPhone 16 Pro"), ""))'
