@@ -491,7 +491,7 @@ internal fun OfficialPostCard(
 }
 
 @Composable
-private fun OfficialAuthorHeader(
+internal fun OfficialAuthorHeader(
     post: OfficialPostItem,
     onOpenAuthor: () -> Unit,
     modifier: Modifier = Modifier
@@ -516,7 +516,7 @@ private fun OfficialAuthorHeader(
 }
 
 @Composable
-private fun OfficialPostMedia(
+internal fun OfficialPostMedia(
     post: OfficialPostItem,
     onOpenMedia: () -> Unit,
     modifier: Modifier = Modifier
@@ -546,7 +546,7 @@ private fun OfficialPostMedia(
 }
 
 @Composable
-private fun OfficialPostActionRail(
+internal fun OfficialPostActionRail(
     post: OfficialPostItem,
     rank: Int,
     isLandscape: Boolean,
@@ -631,7 +631,7 @@ private fun OfficialMediaViewerDialog(
 private const val OfficialOlderPostsPrefetchDistance = 8
 
 @Composable
-private fun OfficialPostType.label(): String = when (this) {
+internal fun OfficialPostType.label(): String = when (this) {
     OfficialPostType.Announcement -> stringResource(R.string.official_type_announcement)
     OfficialPostType.News -> stringResource(R.string.official_type_news)
     OfficialPostType.Event -> stringResource(R.string.official_type_event)

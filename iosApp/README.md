@@ -21,6 +21,11 @@ devuelve `PlatformFile` con URL, nombre y MIME conocido. El launcher no lo conec
 porque ninguna de sus pantallas de estado consume `PlatformServices`; se debe adjuntar al crear
 el host autenticado que vaya a usar una feature con archivos.
 
+El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construir
+`IosPlatformServices`: `ShareService` presenta el `UIActivityViewController` real en el
+controlador activo y devuelve `Unsupported` si el host no puede presentar. Sin provider, los
+servicios conservan el comportamiento seguro de no disponibilidad.
+
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:
 

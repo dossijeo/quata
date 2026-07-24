@@ -81,8 +81,10 @@ import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
+import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
+import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
 import com.quata.core.translation.QuataOfficialDeepLTranslator
 import com.quata.feature.official.domain.OfficialMediaType
@@ -642,7 +644,6 @@ private fun OfficialPostPreview(
     mediaType: OfficialMediaType?,
     linkUrl: String
 ) {
-    var readMorePost by remember { mutableStateOf<OfficialPostItem?>(null) }
     val authorName = author?.displayName?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.official_account_fallback)
     val authorSubtitle = author?.neighborhood?.takeIf { it.isNotBlank() }
@@ -679,31 +680,54 @@ private fun OfficialPostPreview(
         likesCount = 0,
         commentsCount = 0
     )
-    OfficialPostPreviewFrameContent { cardModifier ->
-            OfficialPostCard(
+    val previewMedia: (@Composable (Modifier) -> Unit)? = if (previewPost.mediaUrl.isNullOrBlank()) {
+        null
+    } else {
+        { mediaModifier -> OfficialPostMedia(previewPost, onOpenMedia = {}, modifier = mediaModifier) }
+    }
+    OfficialEditorPostPreviewContent(
+        post = previewPost,
+        typeLabel = postType.label(),
+        readMoreLabel = localizedOfficialReadMoreLabel(readMoreLabel),
+        closeLabel = stringResource(R.string.common_close),
+        author = { authorModifier -> OfficialAuthorHeader(previewPost, onOpenAuthor = {}, modifier = authorModifier) },
+        media = previewMedia,
+        actionRail = { isLandscape, railModifier ->
+            OfficialPostActionRail(
                 post = previewPost,
                 rank = 1,
+                isLandscape = isLandscape,
                 canPublish = false,
                 canModerate = false,
                 onCreate = {},
-                onOpenAuthor = {},
-                onReadMore = { readMorePost = previewPost },
-                onOpenMedia = {},
                 onOpenLive = {},
                 onLike = {},
                 onComment = {},
                 onShare = {},
                 onDelete = {},
-                modifier = cardModifier,
-                forcePortraitLayout = true
+                modifier = railModifier,
             )
-    }
-    readMorePost?.let { post ->
-        OfficialPostDetailPanel(
-            post = post,
-            onDismiss = { readMorePost = null }
-        )
-    }
+        },
+        overflowAction = { overflowModifier ->
+            QuataFeedOverflowActionButton(
+                postRank = 1,
+                rankLabel = stringResource(R.string.feed_rank),
+                liveLabel = stringResource(R.string.common_live),
+                reportLabel = null,
+                showReport = false,
+                onOpenLive = {},
+                onReport = {},
+                modifier = overflowModifier,
+            )
+        },
+        articleContent = { selectedPost, articleModifier ->
+            QuataRichTextRenderer(
+                html = selectedPost.contentHtml,
+                modifier = articleModifier,
+                placeholder = selectedPost.contentPlain,
+            )
+        },
+    )
 }
 
 @Composable

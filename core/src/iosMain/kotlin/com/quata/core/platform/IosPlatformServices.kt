@@ -9,10 +9,13 @@ package com.quata.core.platform
  * other permission remains explicitly unavailable until its iOS host is implemented.
  */
 class IosPlatformServices(
+    presenterProvider: IosViewControllerProvider? = null,
     override val preferences: PreferenceStore = IosPreferenceStore(),
     override val clipboard: ClipboardService = IosClipboardService(),
-    override val share: ShareService = IosShareService(),
-    override val filePicker: FilePickerService = IosFilePickerService(),
+    override val share: ShareService = presenterProvider?.let { provider -> IosShareService(provider) } ?: IosShareService(),
+    override val filePicker: FilePickerService = IosFilePickerService().apply {
+        presenterProvider?.let { provider -> attachDocumentPicker(provider) }
+    },
     override val location: LocationService = UnsupportedIosLocationService,
     override val permissions: PermissionService = IosNotificationPermissionService(),
 ) : PlatformServices

@@ -2,13 +2,28 @@ package com.quata.core.platform
 
 import platform.Foundation.NSURL
 import platform.UIKit.UIActivityViewController
+import platform.UIKit.UIViewController
 
 /**
  * Activity-sheet presenter owned by the UIKit/SwiftUI host. Keeping it injected means shared
  * features can request sharing without retaining a UIViewController.
  */
 fun interface IosSharePresenter {
-    fun present(activityController: UIActivityViewController)
+    fun present(activityController: UIActivityViewController): PlatformResult<Unit>
+}
+
+/** Real UIKit sheet presenter backed by the active host controller supplied by the launcher. */
+class IosUIKitSharePresenter(
+    private val presenterProvider: IosViewControllerProvider,
+) : IosSharePresenter {
+    override fun present(activityController: UIActivityViewController): PlatformResult<Unit> {
+        val presenter: UIViewController = presenterProvider.activeViewController()
+            ?: return PlatformResult.Unsupported
+        return runCatching {
+            presenter.presentViewController(activityController, animated = true, completion = null)
+            PlatformResult.Success(Unit)
+        }.getOrElse { PlatformResult.Failure(it.message) }
+    }
 }
 
 /**
@@ -18,6 +33,8 @@ fun interface IosSharePresenter {
 class IosShareService(
     private val presenter: IosSharePresenter? = null,
 ) : ShareService {
+    constructor(presenterProvider: IosViewControllerProvider) : this(IosUIKitSharePresenter(presenterProvider))
+
     override suspend fun share(payload: SharePayload): PlatformResult<Unit> = runCatching {
         val activePresenter = presenter ?: return PlatformResult.Unsupported
         val fileUrls = payload.files.map { file ->
@@ -34,6 +51,5 @@ class IosShareService(
                 applicationActivities = null,
             )
         )
-        PlatformResult.Success(Unit)
     }.getOrElse { PlatformResult.Failure(it.message) }
 }

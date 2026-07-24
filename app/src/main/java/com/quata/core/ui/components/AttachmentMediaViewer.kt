@@ -112,6 +112,7 @@ import com.quata.core.designsystem.theme.QuataSurfaceAlt
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.media.withQuataMediaMetadataRetriever
+import com.quata.core.platform.DocumentSupport
 import com.quata.documentreader.QuataDocumentPreviewRenderer
 import com.quata.documentreader.QuataDocumentReader
 import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentPlayerContent
@@ -394,44 +395,56 @@ fun DocumentAttachmentPreview(
 ) {
     val context = LocalContext.current
     var bitmap by remember(attachment.uri, attachment.name, attachment.mimeType) { mutableStateOf<Bitmap?>(null) }
+    var renderState by remember(attachment.uri, attachment.name, attachment.mimeType) {
+        mutableStateOf<DocumentPreviewRenderState>(DocumentPreviewRenderState.Loading)
+    }
     val uri = remember(attachment.uri) { Uri.parse(attachment.uri) }
-
-    LaunchedEffect(uri, attachment.name, attachment.mimeType) {
-        bitmap = withContext(Dispatchers.IO) {
-            QuataDocumentPreviewRenderer.renderFirstPage(
-                context = context,
-                uri = uri,
-                fileName = attachment.name,
-                mimeType = attachment.mimeType
-            )
-        }
+    val descriptor = remember(attachment.uri, attachment.name, attachment.mimeType) {
+        DocumentSupport.describe(attachment.uri, attachment.name, attachment.mimeType)
     }
 
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(QuataSurfaceAlt),
-        contentAlignment = Alignment.Center
-    ) {
-        val previewBitmap = bitmap
-        if (previewBitmap != null) {
-            Image(
-                bitmap = previewBitmap.asImageBitmap(),
-                contentDescription = attachment.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp),
-                contentScale = ContentScale.Fit
-            )
-        } else {
+    LaunchedEffect(uri, attachment.name, attachment.mimeType) {
+        renderState = DocumentPreviewRenderState.Loading
+        bitmap = runCatching {
+            withContext(Dispatchers.IO) {
+                QuataDocumentPreviewRenderer.renderFirstPage(
+                    context = context,
+                    uri = uri,
+                    fileName = attachment.name,
+                    mimeType = attachment.mimeType
+                )
+            }
+        }.getOrNull()
+        renderState = if (bitmap != null) DocumentPreviewRenderState.Ready else DocumentPreviewRenderState.Unavailable
+    }
+
+    DocumentPreviewFrameContent(
+        descriptor = descriptor,
+        renderState = renderState,
+        modifier = modifier,
+        backgroundColor = QuataSurfaceAlt,
+        preview = {
+            val previewBitmap = bitmap
+            if (previewBitmap != null) {
+                Image(
+                    bitmap = previewBitmap.asImageBitmap(),
+                    contentDescription = attachment.name,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        },
+        placeholder = {
             CompactIcon(
                 Icons.AutoMirrored.Filled.InsertDriveFile,
                 contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier.size(42.dp)
             )
-        }
-    }
+        },
+    )
 }
 
 @Composable
