@@ -173,7 +173,7 @@ private class IosFeedDataTaskDelegate(
 
 @OptIn(ExperimentalForeignApi::class)
 private fun ByteArray.toNsData(): NSData = usePinned { pinned ->
-    NSData(bytes = pinned.addressOf(0), length = size.toULong())
+    NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
 }
 
 @OptIn(ExperimentalForeignApi::class)
