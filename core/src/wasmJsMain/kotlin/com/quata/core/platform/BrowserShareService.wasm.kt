@@ -14,10 +14,12 @@ class BrowserShareService : ShareService {
         }
         if (!browserShareIsAvailable()) return PlatformResult.Unsupported
 
+        val url = payload.text.asWebShareUrlOrNull()
         return suspendCoroutine { continuation ->
             browserShare(
                 title = payload.title,
-                text = payload.text,
+                text = payload.text.takeUnless { url != null },
+                url = url,
                 fileReferences = encodeStrings(payload.files.map { it.reference }),
                 fileNames = encodeStrings(payload.files.map { it.displayName.orEmpty() }),
                 fileMimeTypes = encodeStrings(payload.files.map { it.mimeType.orEmpty() }),
@@ -30,6 +32,14 @@ class BrowserShareService : ShareService {
     }
 }
 
+/** Web Share exposes URLs separately; only promote a single, unambiguous HTTP(S) value. */
+private fun String?.asWebShareUrlOrNull(): String? {
+    val candidate = this?.trim().orEmpty()
+    return candidate.takeIf {
+        (it.startsWith("https://") || it.startsWith("http://")) && it.none(Char::isWhitespace)
+    }
+}
+
 private fun encodeStrings(values: List<String>): String =
     Json.encodeToString(ListSerializer(String.serializer()), values)
 
@@ -39,6 +49,7 @@ private fun browserShareIsAvailable(): Boolean =
 private fun browserShare(
     title: String?,
     text: String?,
+    url: String?,
     fileReferences: String,
     fileNames: String,
     fileMimeTypes: String,
@@ -60,6 +71,7 @@ private fun browserShare(
       const data = {};
       if (title != null && title.length > 0) data.title = title;
       if (text != null && text.length > 0) data.text = text;
+      if (url != null && url.length > 0) data.url = url;
       if (files.length > 0) {
         if (typeof globalThis.File !== 'function') {
           onUnsupported();

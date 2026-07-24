@@ -28,6 +28,7 @@ class IosDocumentPickerHost(
     private var activeDelegate: IosDocumentPickerDelegate? = null
 
     override suspend fun pick(request: IosFilePickerRequest): PlatformResult<List<PlatformFile>> {
+        if (request.source != FilePickerSource.Documents) return PlatformResult.Unsupported
         // IosFilePickerService serializes requests, but keep this UIKit host safe when injected
         // directly by another composition root.
         if (activeDelegate != null) return PlatformResult.Failure("file_picker_in_progress")

@@ -86,8 +86,27 @@ class WebAuthRepository(
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
         Result.failure(UnsupportedOperationException("web_auth_register_not_implemented"))
 
-    override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> =
-        Result.failure(UnsupportedOperationException("web_auth_recovery_not_implemented"))
+    override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> = runCatching {
+        require(countryCode.any(Char::isDigit)) { "web_auth_country_code_required" }
+        require(phone.any(Char::isDigit)) { "web_auth_phone_required" }
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val response = webPostJson(
+            endpoint = configuration.authBridgeEndpoint(),
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("action", "recovery_question")
+                put("country_code", countryCode.filter(Char::isDigit).toString())
+                put("phone_local", phone.filter(Char::isDigit).toString())
+            }.toString(),
+        )
+        Json.parseToJsonElement(response)
+            .jsonObject["secret_question"]
+            ?.jsonPrimitive
+            ?.contentOrNull
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?.let { PasswordRecoveryQuestion(secretQuestion = it) }
+    }
 
     override suspend fun resetPassword(
         countryCode: String,

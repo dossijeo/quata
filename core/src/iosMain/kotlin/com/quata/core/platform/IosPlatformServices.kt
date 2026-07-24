@@ -17,7 +17,10 @@ class IosPlatformServices(
     override val clipboard: ClipboardService = IosClipboardService(),
     override val share: ShareService = presenterProvider?.let { provider -> IosShareService(provider) } ?: IosShareService(),
     override val filePicker: FilePickerService = IosFilePickerService().apply {
-        presenterProvider?.let { provider -> attachDocumentPicker(provider) }
+        presenterProvider?.let { provider ->
+            attachDocumentPicker(provider)
+            attachGalleryPicker(provider)
+        }
     },
     override val location: LocationService = locationHost ?: UnsupportedIosLocationService,
     override val permissions: PermissionService = locationHost?.let { host ->

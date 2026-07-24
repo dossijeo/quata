@@ -23,6 +23,7 @@ data class RegisterAccountRequest(
 )
 
 data class PasswordRecoveryQuestion(
-    val userId: String,
+    /** Android may know the profile id; the public recovery bridge intentionally returns only the question. */
+    val userId: String? = null,
     val secretQuestion: String
 )
