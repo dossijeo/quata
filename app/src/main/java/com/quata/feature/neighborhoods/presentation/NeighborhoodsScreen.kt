@@ -633,101 +633,45 @@ private fun ProfilePostPreview(
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
-    var liked by rememberSaveable(post.id, post.isLikedByCurrentUser) { mutableStateOf(post.isLikedByCurrentUser) }
-    var isVideoLoaded by rememberSaveable(post.id) { mutableStateOf(false) }
-    val likeDelta = when {
-        liked && !post.isLikedByCurrentUser -> 1
-        !liked && post.isLikedByCurrentUser -> -1
-        else -> 0
-    }
-    val likes = (post.likesCount + likeDelta).coerceAtLeast(0)
-    val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
-    val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
-    val mediaSeed = post.imageUrl ?: post.videoUrl ?: seedText
-    ProfilePostPreviewFrameContent(
-        backgroundSeed = mediaSeed,
-        media = {
-        when {
+    CommunityProfilePostPreviewContent(
+        post = post,
+        commentsCount = commentsCount,
+        canParticipate = canParticipate,
+        onOpenComments = onOpenComments,
+        onAuthRequired = onAuthRequired,
+        onShare = onShare,
+        onReport = onReport,
+        media = { isVideoLoaded, onLoadVideo ->
+            when {
             post.imageUrl != null -> AsyncImage(
                 model = post.imageUrl,
                 contentDescription = post.imageTitle(),
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(430.dp)
+                modifier = Modifier.fillMaxWidth().height(430.dp),
             )
             post.videoUrl != null && isVideoLoaded -> ProfileVideoPlayer(post.videoUrl.orEmpty())
             post.videoUrl != null -> Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(430.dp)
-                    .clickable { isVideoLoaded = true },
-                contentAlignment = Alignment.Center
+                    .clickable(onClick = onLoadVideo),
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
                         .size(86.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.42f)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     CompactIcon(Icons.Filled.Pause, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
                 }
             }
-            else -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(430.dp)
-                    .background(textCanvasBrush(seedText))
-                    .padding(22.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(cleanPostText, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
-            }
+            else -> Unit
         }
         },
-        metadata = {
-                Text(post.author.displayName, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                val subtitle = when {
-                    post.imageUrl != null && post.videoUrl == null -> post.placeName.orEmpty()
-                    post.videoUrl != null -> cleanPostText
-                    else -> ""
-                }
-                if (subtitle.isNotBlank()) {
-                    Text(subtitle, color = Color.White.copy(alpha = 0.82f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-        },
-        actionRail = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                MiniFeedAction(
-                    icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    count = likes.toString(),
-                    onClick = {
-                        if (canParticipate) {
-                            liked = !liked
-                        } else {
-                            onAuthRequired()
-                        }
-                    }
-                )
-                MiniFeedAction(Icons.Filled.ChatBubble, commentsCount.toString(), onClick = onOpenComments)
-                MiniFeedAction(Icons.Filled.Share, null, onClick = onShare)
-                MiniFeedAction(
-                    icon = Icons.Filled.Flag,
-                    count = null,
-                    tint = if (post.isReportedByCurrentUser) QuataOrange else Color.White,
-                    onClick = onReport
-                )
-            }
-        }
     )
 }
-
-@Composable
-private fun MiniFeedAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    count: String?,
-    tint: Color = Color.White,
-    onClick: () -> Unit
-) = ProfilePostActionContent(icon, count, tint, onClick)
 
 @Composable
 private fun ProfileVideoPlayer(videoUrl: String) {

@@ -21,9 +21,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +47,7 @@ import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
+import com.quata.core.ui.components.QuataSettingsPromptDialogContent
 import com.quata.feature.externalshare.ExternalShareIntentParser
 import com.quata.feature.externalshare.ExternalShareParseResult
 import com.quata.feature.externalshare.ExternalSharePayload
@@ -279,20 +277,13 @@ private fun AppLinksPrompt(
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.app_links_title)) },
-        text = { Text(stringResource(R.string.app_links_body)) },
-        confirmButton = {
-            TextButton(onClick = onOpenSettings) {
-                Text(stringResource(R.string.background_access_open_settings))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.background_access_not_now))
-            }
-        }
+    QuataSettingsPromptDialogContent(
+        title = stringResource(R.string.app_links_title),
+        body = stringResource(R.string.app_links_body),
+        openSettingsLabel = stringResource(R.string.background_access_open_settings),
+        dismissLabel = stringResource(R.string.background_access_not_now),
+        onDismiss = onDismiss,
+        onOpenSettings = onOpenSettings,
     )
 }
 
