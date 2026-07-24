@@ -21,7 +21,9 @@ import com.quata.core.ui.components.QuataCard
  *
  * Media decoding, avatars, navigation and translation engines remain host-owned slots. The
  * common layer only fixes their relative structure so Android, Web and iOS do not duplicate the
- * visual card shell while retaining platform-specific media/action implementations.
+ * visual card shell while retaining platform-specific media/action implementations. In
+ * particular, [author] can use [FeedPostMetadataContent] with host-provided avatar and author
+ * action slots.
  */
 @Composable
 fun FeedPostPreviewCardContent(
