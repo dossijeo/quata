@@ -12,7 +12,7 @@ import com.quata.core.model.Conversation
 
 /**
  * Host-neutral conversation-list structure. Hosts localize row text and own platform avatar,
- * navigation and contextual actions; this layer only arranges the shared list components.
+ * navigation, gestures and contextual actions; this layer only arranges the shared list components.
  */
 data class ConversationListRow(
     val conversation: Conversation,
@@ -28,15 +28,18 @@ fun ConversationsListContent(
     avatar: @Composable (ConversationListRow) -> Unit,
     onOpenConversation: (ConversationListRow) -> Unit,
     modifier: Modifier = Modifier,
-    header: @Composable () -> Unit = {},
+    header: (@Composable () -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
+    rowModifier: (ConversationListRow) -> Modifier = { Modifier },
     rowActions: @Composable RowScope.(ConversationListRow) -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "conversation-list-header") { header() }
+        header?.let { content ->
+            item(key = "conversation-list-header") { content() }
+        }
         if (isLoading && rows.isEmpty()) {
             items(6, key = { index -> "conversation-list-skeleton-$index" }) { index ->
                 ConversationListLoadingSkeletonContent(pulseDelayMillis = index * 85)
@@ -54,6 +57,7 @@ fun ConversationsListContent(
                     avatar = { avatar(row) },
                     onOpen = { onOpenConversation(row) },
                     trailingAction = { rowActions(row) },
+                    modifier = rowModifier(row),
                 )
             }
         }

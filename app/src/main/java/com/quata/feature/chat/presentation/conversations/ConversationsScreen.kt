@@ -80,7 +80,6 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
-import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.platform.ClipboardService
 import com.quata.core.text.localizedChatPreview
@@ -149,6 +148,27 @@ fun ConversationsScreen(
         }
     }
 
+    val visibleConversationRows = remember(
+        context,
+        visibleConversations,
+        state.messagesByConversation,
+        timestampNowMillis,
+    ) {
+        visibleConversations.map { conversation ->
+            val rawPreview = state.messagesByConversation[conversation.id]
+                .orEmpty()
+                .lastOrNull()
+                ?.text
+                ?: conversation.lastMessagePreview
+            ConversationListRow(
+                conversation = conversation,
+                title = conversation.chatDisplayTitle(),
+                preview = context.localizedChatPreview(rawPreview),
+                updatedAt = conversation.relativeUpdatedAt(context, timestampNowMillis),
+            )
+        }
+    }
+
     val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
     val contentPadding = if (isLandscapeLayout) {
         PaddingValues(start = 8.dp, top = 18.dp, end = 18.dp, bottom = 18.dp)
@@ -175,29 +195,21 @@ fun ConversationsScreen(
                     }
                 )
                 Spacer(Modifier.padding(8.dp))
-                LazyColumn(
+                ConversationsListContent(
+                    rows = visibleConversationRows,
+                    isLoading = state.isLoading && state.conversations.isEmpty(),
+                    avatar = { row ->
+                        ConversationAvatar(
+                            item = row.conversation,
+                            currentUser = state.currentUser,
+                            usersById = state.usersById,
+                            openingProfileUserId = openingProfileUserId,
+                            onOpenUserProfile = onOpenUserProfile,
+                        )
+                    },
+                    onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (state.isLoading && state.conversations.isEmpty()) {
-                        items(6) { index ->
-                            ConversationListLoadingSkeletonContent(pulseDelayMillis = index * 85)
-                        }
-                    } else {
-                        items(visibleConversations) { item ->
-                            ConversationCard(
-                                item = item,
-                                messages = state.messagesByConversation[item.id].orEmpty(),
-                                currentUser = state.currentUser,
-                                usersById = state.usersById,
-                                openingProfileUserId = openingProfileUserId,
-                                timestampNowMillis = timestampNowMillis,
-                                onOpenUserProfile = onOpenUserProfile,
-                                onOpenConversation = onOpenConversation
-                            )
-                        }
-                    }
-                }
+                )
             }
             state.pendingDeletedConversation?.let { conversation ->
                 UndoDeleteButton(
@@ -706,33 +718,6 @@ private fun CandidateUserCard(
                 modifier = Modifier.size(48.dp)
             )
         }
-    )
-}
-
-@Composable
-private fun ConversationCard(
-    item: Conversation,
-    messages: List<Message>,
-    currentUser: User?,
-    usersById: Map<String, User>,
-    openingProfileUserId: String?,
-    timestampNowMillis: Long,
-    onOpenUserProfile: (String) -> Unit,
-    onOpenConversation: (String) -> Unit
-) {
-    val context = LocalContext.current
-    val rawPreview = messages.lastOrNull()?.text ?: item.lastMessagePreview
-    val preview = context.localizedChatPreview(rawPreview)
-    ConversationListItemContent(
-        title = item.chatDisplayTitle(),
-        preview = preview,
-        updatedAt = item.relativeUpdatedAt(context, timestampNowMillis),
-        unreadCount = item.unreadCount,
-        showUnreadBadge = !item.isMuted,
-        avatar = {
-            ConversationAvatar(item, currentUser, usersById, openingProfileUserId, onOpenUserProfile)
-        },
-        onOpen = { onOpenConversation(item.id) }
     )
 }
 
