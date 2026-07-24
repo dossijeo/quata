@@ -73,7 +73,6 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.QuataCommentsPanel
-import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanel
 import com.quata.core.ui.components.QuataFeedActionRail
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
@@ -485,26 +484,19 @@ private fun LiveRankingDialog(
     onDismiss: () -> Unit,
     onOpenPost: (Post) -> Unit
 ) {
-    val rankedPosts = remember(posts) {
-        posts.sortedWith(postRankingComparator())
-    }
-    val postsById = remember(posts) { posts.associateBy { it.id } }
-    QuataLiveRankingPanel(
-        items = rankedPosts.mapIndexed { index, post ->
-            QuataLiveRankingItem(
-                id = post.id,
-                profileId = post.author.id,
-                rank = postRanks[post.id]?.position ?: (index + 1),
-                title = post.author.displayName,
-                subtitle = postTypeLabel(post),
-                avatarName = post.author.displayName,
-                avatarUrl = post.author.avatarUrl,
-                isOfficial = post.author.isOfficial,
-                likesCount = post.likesCount
+    FeedLiveRankingDialogContent(
+        posts = posts,
+        rankForPost = { post -> postRanks[post.id]?.position ?: Int.MAX_VALUE },
+        postTypeLabel = ::postTypeLabel,
+        panel = { items, dismiss, openItem ->
+            QuataLiveRankingPanel(
+                items = items,
+                onDismiss = dismiss,
+                onOpenItem = openItem,
             )
         },
         onDismiss = onDismiss,
-        onOpenItem = { postId -> postsById[postId]?.let(onOpenPost) }
+        onOpenPost = onOpenPost,
     )
 }
 

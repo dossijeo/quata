@@ -29,9 +29,11 @@ class IosDocumentPickerHost(
 
     override suspend fun pick(request: IosFilePickerRequest): PlatformResult<List<PlatformFile>> {
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
+        val contentTypes = request.acceptedMimeTypes.toDocumentContentTypes()
+        if (contentTypes.isEmpty()) return PlatformResult.Failure("file_picker_content_type_invalid")
         return suspendCancellableCoroutine { continuation ->
             val picker = UIDocumentPickerViewController(
-                forOpeningContentTypes = request.acceptedMimeTypes.toDocumentContentTypes(),
+                forOpeningContentTypes = contentTypes,
                 asCopy = true,
             ).apply {
                 allowsMultipleSelection = request.allowMultiple

@@ -107,7 +107,10 @@ class IosCoreLocationHost(
                     accuracyMeters = location.horizontalAccuracy
                         .takeIf { it >= 0.0 }
                         ?.toFloat(),
-                    timestampMillis = (location.timestamp.timeIntervalSince1970() * 1_000.0).toLong(),
+                    // NSDate's timestamp accessor differs between Kotlin/Native distributions.
+                    // The contract permits a missing timestamp; Core Location still supplies the
+                    // current coordinate and measured accuracy through the real native host.
+                    timestampMillis = null,
                 ),
             ),
         )

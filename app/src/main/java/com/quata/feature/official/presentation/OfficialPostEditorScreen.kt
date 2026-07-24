@@ -8,10 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -23,9 +21,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -68,12 +64,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.QuataLanguageIdentifier
 import com.quata.core.localization.QuataLanguageManager
@@ -82,7 +76,6 @@ import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
-import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
@@ -136,7 +129,6 @@ fun OfficialPostEditorScreen(
     onSubmit: (List<OfficialPostDraft>) -> Unit,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {}
 ) {
-    val template = quataTheme()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var editorMode by rememberSaveable { mutableStateOf(OfficialEditorMode.Quick) }
@@ -240,22 +232,10 @@ fun OfficialPostEditorScreen(
             }
         )
     } else {
-        QuataScreen(padding = padding) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.official_create),
-                        color = template.colors.textPrimary,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 23.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+        OfficialEditorScreenContent(
+            padding = padding,
+            title = stringResource(R.string.official_create),
+        ) {
 
                     OfficialEditorModeSelectorContent(
                         title = stringResource(
@@ -422,8 +402,6 @@ fun OfficialPostEditorScreen(
                         onClick = { requestPublication() },
                     )
                     Spacer(Modifier.height(96.dp))
-                }
-            }
         }
     }
 
