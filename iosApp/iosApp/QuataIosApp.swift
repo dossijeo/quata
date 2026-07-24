@@ -1,3 +1,4 @@
+import CoreLocation
 import UIKit
 import QuataFeed
 
@@ -28,7 +29,7 @@ private final class IosAppCompositionRoot {
     // real Core Location host explicitly at the UIKit boundary instead of falling back to a
     // placeholder composition.
     private let platformServices = IosPlatformServiceComposition(
-        coreLocationHost: IosCoreLocationHost(),
+        coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
 
