@@ -1594,7 +1594,6 @@ private fun ChatAvatar(
     onOpenUserProfile: (String) -> Unit,
     compact: Boolean = false
 ) {
-    val template = quataTheme()
     val privateUserIndex = conversation?.participantIds
         ?.indexOfFirst { it != currentUser?.id }
         ?: -1
@@ -1609,46 +1608,42 @@ private fun ChatAvatar(
     val resolvedPrivateUser = privateUser ?: usersById.findUserByDisplayIdentity(privateUserName, privateAvatarUrl)
     val resolvedPrivateUserId = resolvedPrivateUser?.id ?: privateUserId?.takeUnless { it.startsWith("wp:") }
     val canOpenPrivateProfile = !resolvedPrivateUserId.isNullOrBlank()
-    val containerSize = if (compact) 44.dp else 52.dp
     val avatarSize = if (compact) 38.dp else 46.dp
-    Box(modifier = Modifier.size(containerSize), contentAlignment = Alignment.Center) {
-        if (conversation?.isGroup == true || conversation?.isEmergency == true) {
-            Box(
-                modifier = Modifier
-                    .size(avatarSize)
-                    .clip(CircleShape)
-                    .background(if (conversation?.isEmergency == true) template.colors.sosSurface else template.colors.accent.copy(alpha = 0.22f))
-                    .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (conversation?.isEmergency == true) {
-                    Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold)
-                } else {
-                    CompactIcon(Icons.Filled.Group, contentDescription = null, tint = template.colors.textPrimary)
-                }
+    ChatConversationAvatarContent(
+        isGroup = conversation?.isGroup == true,
+        isEmergency = conversation?.isEmergency == true,
+        isMuted = conversation?.isMuted == true,
+        emergencyLabel = stringResource(R.string.common_sos),
+        privateAvatar = {
+            if (canOpenPrivateProfile) {
+                val profileId = resolvedPrivateUserId.orEmpty()
+                ClickableProfileAvatar(
+                    name = resolvedPrivateUser?.displayName ?: privateUserName,
+                    avatarUrl = resolvedPrivateUser?.avatarUrl ?: privateAvatarUrl,
+                    profileId = profileId,
+                    isLoading = openingProfileUserId == profileId,
+                    onClick = { onOpenUserProfile(profileId) },
+                    modifier = Modifier.size(avatarSize),
+                )
+            } else {
+                AvatarImage(
+                    name = privateUserName,
+                    avatarUrl = privateAvatarUrl,
+                    profileId = resolvedPrivateUserId,
+                    modifier = Modifier.size(avatarSize),
+                )
             }
-        } else if (canOpenPrivateProfile) {
-            val profileId = resolvedPrivateUserId.orEmpty()
-            ClickableProfileAvatar(
-                name = resolvedPrivateUser?.displayName ?: privateUserName,
-                avatarUrl = resolvedPrivateUser?.avatarUrl ?: privateAvatarUrl,
-                profileId = profileId,
-                isLoading = openingProfileUserId == profileId,
-                onClick = { onOpenUserProfile(profileId) },
-                modifier = Modifier.size(avatarSize)
+        },
+        groupIcon = {
+            CompactIcon(
+                Icons.Filled.Group,
+                contentDescription = null,
+                tint = quataTheme().colors.textPrimary,
             )
-        } else {
-            AvatarImage(
-                name = privateUserName,
-                avatarUrl = privateAvatarUrl,
-                profileId = resolvedPrivateUserId,
-                modifier = Modifier.size(avatarSize)
-            )
-        }
-        if (conversation?.isMuted == true) {
-            MutedConversationBadge(Modifier.align(Alignment.TopEnd))
-        }
-    }
+        },
+        mutedBadge = { ChatMutedConversationBadgeContent() },
+        compact = compact,
+    )
 }
 
 private fun Map<String, User>.findUserByDisplayIdentity(name: String, avatarUrl: String?): User? {
@@ -1670,21 +1665,6 @@ private fun String.normalizedParticipantName(): String =
     trim()
         .lowercase()
         .replace(Regex("\\s+"), " ")
-
-@Composable
-private fun MutedConversationBadge(modifier: Modifier = Modifier) {
-    val template = quataTheme()
-    Box(
-        modifier = modifier
-            .size(16.dp)
-            .clip(CircleShape)
-            .background(template.colors.surfaceRaised)
-            .border(1.dp, template.colors.divider, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("\uD83D\uDD15", fontSize = 9.sp)
-    }
-}
 
 @Composable
 private fun ChatMessageSkeleton(
