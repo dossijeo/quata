@@ -77,13 +77,26 @@ jobs:
             xcodebuild -downloadPlatform iOS
           fi
           runtime_identifier="$(
-            xcrun simctl list runtimes available \
-              | awk -F ' - ' '/^iOS 18\./ { print $2; exit }'
+            xcrun simctl list runtimes available -j | python3 -c '
+import json
+import sys
+
+for runtime in json.load(sys.stdin)["runtimes"]:
+    if runtime.get("isAvailable") and runtime.get("name", "").startswith("iOS 18."):
+        print(runtime["identifier"])
+        break
+'
           )"
           device_type_identifier="$(
-            xcrun simctl list devicetypes \
-              | sed -nE 's/^iPhone 16 Pro \(([^)]+)\)$/\1/p' \
-              | head -n 1
+            xcrun simctl list devicetypes -j | python3 -c '
+import json
+import sys
+
+for device_type in json.load(sys.stdin)["devicetypes"]:
+    if device_type.get("name") == "iPhone 16 Pro":
+        print(device_type["identifier"])
+        break
+'
           )"
           test -n "$runtime_identifier"
           test -n "$device_type_identifier"
