@@ -19,6 +19,10 @@ on:
     branches:
       - main
       - master
+      # Ephemeral migration batches are validated on macOS before they are
+      # accepted into main. Keeping the scope to codex/next-* avoids spending
+      # the iOS runner on unrelated developer branches.
+      - "codex/next-*"
     paths:
       - ".github/workflows/ios-build.yml"
       - "build.gradle.kts"
