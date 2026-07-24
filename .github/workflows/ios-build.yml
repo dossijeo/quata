@@ -50,6 +50,9 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -193,7 +196,7 @@ jobs:
 
       - name: Upload iOS diagnostic bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-build-report-${{ github.run_id }}
           path: |
