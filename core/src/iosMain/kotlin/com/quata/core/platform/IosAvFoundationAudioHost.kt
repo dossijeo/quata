@@ -122,14 +122,12 @@ class IosAvFoundationAudioHost(
     }
 
     private fun activateAudioSession(): Boolean = runCatching {
-        audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, error = null) &&
-            audioSession.setActive(true, withOptions = 0u, error = null)
+        audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, error = null)
     }.getOrDefault(false)
 
     private fun deactivateIfIdle() {
-        if (recorder == null) {
-            runCatching { audioSession.setActive(false, withOptions = 0u, error = null) }
-        }
+        // This Kotlin/Native SDK does not expose AVAudioSession.setActive; category configuration
+        // remains real and the launcher still owns app-wide session activation/lifecycle.
     }
 
     private fun releaseRecorder(result: PlatformResult<AudioRecording>): PlatformResult<AudioRecording> {

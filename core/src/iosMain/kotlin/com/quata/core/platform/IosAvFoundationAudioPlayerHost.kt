@@ -40,8 +40,7 @@ class IosAvFoundationAudioPlayerHost(
     override suspend fun stop(): PlatformResult<Unit> { player?.stop(); player = null; return PlatformResult.Success(Unit) }
     override suspend fun state(): AudioPlaybackState = stateValue()
 
-    private fun activate(): Boolean = audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, error = null) &&
-        audioSession.setActive(true, withOptions = 0u, error = null)
+    private fun activate(): Boolean = audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, error = null)
 
     private fun playerOrFailure(block: (AVAudioPlayer) -> PlatformResult<AudioPlaybackState>): PlatformResult<AudioPlaybackState> =
         player?.let(block) ?: PlatformResult.Failure("audio_player_not_loaded")
