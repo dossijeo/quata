@@ -143,7 +143,7 @@ private class IosFeedDataTaskDelegate(
     }
 
     override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
-        bytes.appendData(didReceiveData)
+        bytes.appendBytes(didReceiveData.bytes, didReceiveData.length)
     }
 
     override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
