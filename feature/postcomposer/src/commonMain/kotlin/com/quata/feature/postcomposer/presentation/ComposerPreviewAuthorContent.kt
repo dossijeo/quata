@@ -1,32 +1,38 @@
 package com.quata.feature.postcomposer.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 
-/** Shared author/description overlay. Avatar rendering is injected by the platform host. */
+/** Shared author/description overlay with a portable fallback avatar. */
 @Composable
 fun ComposerPreviewAuthorContent(
     description: String,
     authorName: String,
     subtitle: String,
-    avatar: @Composable () -> Unit,
+    avatar: @Composable () -> Unit = { ComposerPreviewDefaultAvatarContent() },
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
@@ -67,5 +73,20 @@ fun ComposerPreviewAuthorContent(
                 )
             }
         }
+    }
+}
+
+/** Portable fallback identity shown by composer previews until a host injects a real avatar. */
+@Composable
+fun ComposerPreviewDefaultAvatarContent(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(QuataOrange)
+            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("Q\u0308", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
     }
 }

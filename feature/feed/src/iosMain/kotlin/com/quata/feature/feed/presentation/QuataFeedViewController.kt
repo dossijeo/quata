@@ -2,7 +2,9 @@ package com.quata.feature.feed.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
+import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import platform.UIKit.UIViewController
 
 /**
@@ -16,6 +18,20 @@ class IosFeedHostDependencies(
     val repository: FeedRepository,
     val navigationMessage: String = "Quata para iOS",
     val onOpenChats: () -> Unit = {},
+)
+
+/**
+ * Read-only iOS launchers use the shared browser safely while their mutation backend is not
+ * available yet. A full [FeedRepository] remains required for mutation-capable surfaces.
+ */
+fun iosReadOnlyFeedHostDependencies(
+    readRepository: FeedReadRepository,
+    navigationMessage: String = "Quata para iOS",
+    onOpenChats: () -> Unit = {},
+): IosFeedHostDependencies = IosFeedHostDependencies(
+    repository = ReadOnlyFeedRepository(readRepository),
+    navigationMessage = navigationMessage,
+    onOpenChats = onOpenChats,
 )
 
 /**

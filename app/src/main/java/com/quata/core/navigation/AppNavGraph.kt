@@ -56,7 +56,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
@@ -138,6 +137,7 @@ import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
+import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
@@ -1086,27 +1086,18 @@ fun AppNavGraph(
         }
 
         pendingCreatePostUploadRoute?.let { targetRoute ->
-            AlertDialog(
-                onDismissRequest = { pendingCreatePostUploadRoute = null },
-                title = { Text(stringResource(R.string.composer_cancel_upload_title)) },
-                text = { Text(stringResource(R.string.composer_cancel_upload_body)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            pendingCreatePostUploadRoute = null
-                            createPostCancelUploadToken += 1
-                            isCreatePostUploadInProgress = false
-                            navigateBottomRoute(targetRoute)
-                        }
-                    ) {
-                        Text(stringResource(R.string.composer_cancel_upload_confirm))
-                    }
+            QuataConfirmationDialogContent(
+                title = stringResource(R.string.composer_cancel_upload_title),
+                message = stringResource(R.string.composer_cancel_upload_body),
+                confirmLabel = stringResource(R.string.composer_cancel_upload_confirm),
+                dismissLabel = stringResource(R.string.composer_cancel_upload_keep),
+                onConfirm = {
+                    pendingCreatePostUploadRoute = null
+                    createPostCancelUploadToken += 1
+                    isCreatePostUploadInProgress = false
+                    navigateBottomRoute(targetRoute)
                 },
-                dismissButton = {
-                    TextButton(onClick = { pendingCreatePostUploadRoute = null }) {
-                        Text(stringResource(R.string.composer_cancel_upload_keep))
-                    }
-                }
+                onDismiss = { pendingCreatePostUploadRoute = null },
             )
         }
 

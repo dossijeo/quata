@@ -56,12 +56,16 @@ efectiva.
 
 La única entrada de Feed que puede mostrar contenido real es
 `QuataFeedViewController(dependencies:)`; sus dependencias exigen una implementación completa de
-`FeedRepository`. No basta con cargar una lista inicial: el contrato incluye observación continua,
-carga/recarga/paginación, perfil actual y autor, detalle de post y las mutaciones de like, reporte,
-comentario y borrado. En el árbol actual sólo existen `FeedRepositoryImpl` de Android (depende de
+`FeedRepository`. No basta con cargar una lista inicial: `FeedReadRepository` exige observación
+continua, carga/recarga/paginación, perfil actual y autor y detalle de post. Las mutaciones de
+like, reporte, comentario y borrado forman `FeedMutationRepository`; `FeedRepository` compone
+ambos. `iosReadOnlyFeedHostDependencies` envuelve un backend de lectura con
+`ReadOnlyFeedRepository`, que devuelve explícitamente `Unsupported` para mutaciones. Esto permite
+que un backend iOS real y revisado habilite primero el navegador compartido, pero no sustituye su
+implementación: en el árbol actual sólo existen `FeedRepositoryImpl` de Android (depende de
 `Context`, sesión, Supabase, WordPress y caché Android) y `WebFeedRepository` en `wasmJsMain`.
 No hay implementación bajo `feature/feed/src/iosMain` ni un cliente de sesión/HTTP iOS que pueda
-satisfacer ese contrato.
+satisfacer siquiera el contrato de lectura.
 
 Además, `IosFeedHostDependencies` no recibe `PlatformServices`; por tanto construir
 `IosPlatformServices` desde Swift ahora no puede llegar a Feed. El siguiente cambio con consumidor

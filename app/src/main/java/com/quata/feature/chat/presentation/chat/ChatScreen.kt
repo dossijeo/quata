@@ -78,7 +78,6 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -92,7 +91,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -170,6 +168,7 @@ import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataAudioRecorderDialog
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
+import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -1536,20 +1535,13 @@ private fun ConfirmDialog(
             stringResource(R.string.conversation_promote_moderator_confirm)
         }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(body) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.common_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
-            }
-        }
+    QuataConfirmationDialogContent(
+        title = title,
+        message = body,
+        confirmLabel = stringResource(R.string.common_confirm),
+        dismissLabel = stringResource(R.string.common_cancel),
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
     )
 }
 

@@ -51,7 +51,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -135,7 +134,6 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.config.AppConfig
-import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.copyImageToFileNormalizingOrientation
 import com.quata.core.platform.LocationService
@@ -1349,19 +1347,7 @@ private fun ComposerPreviewAuthor(
         description = description,
         authorName = "Q\u00FCata",
         subtitle = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
-        avatar = {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(QuataOrange)
-                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Q\u0308", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 15.sp)
-            }
-        },
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
