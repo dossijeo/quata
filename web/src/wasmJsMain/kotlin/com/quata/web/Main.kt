@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import com.quata.feature.auth.presentation.AuthSessionShellContent
@@ -108,6 +109,12 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
+    val profileRepository = remember(platformServices.preferences, platformServices.contacts) {
+        WebProfileRepository(
+            preferences = platformServices.preferences,
+            contactPicker = platformServices.contacts,
+        )
+    }
     var isSessionReady by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
@@ -204,6 +211,8 @@ private fun QuataWebApp(
                         onBack = { navigateWebFragment("") },
                         onOpenConversation = ::navigateWebConversation,
                     )
+                } else if (navigation.route == "profile") {
+                    WebProfileHost(repository = profileRepository)
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebOfficialHost(
                         repository = officialRepository,
@@ -248,6 +257,7 @@ private val webNavigationItems = listOf(
     QuataNavigationItem("", "Inicio", Icons.Filled.Home),
     QuataNavigationItem("chat", "Chats", Icons.Filled.Chat),
     QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
+    QuataNavigationItem("profile", "Perfil", Icons.Filled.Person),
     QuataNavigationItem("settings", "Ajustes", Icons.Filled.Settings),
 )
 
@@ -282,6 +292,9 @@ private fun String.toWebNavigationState(): WebNavigationState {
     }
     if (trim('/').equals("notifications", ignoreCase = true)) {
         return WebNavigationState(route = "notifications", message = "Notificaciones de Quata Web.")
+    }
+    if (trim('/').equals("profile", ignoreCase = true)) {
+        return WebNavigationState(route = "profile", message = "Perfil y contactos SOS de Quata Web.")
     }
     if (trim('/').equals("official", ignoreCase = true)) {
         return WebNavigationState(route = "official", message = "Comunicados oficiales de Quata Web.")
