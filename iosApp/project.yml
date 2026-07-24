@@ -12,6 +12,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios
         SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
         embed: true
+schemes:
+  QuataIos:
+    build:
+      targets:
+        QuataIos: all
+    run:
+      config: Debug
