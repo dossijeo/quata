@@ -24,7 +24,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 /// Compose status surface remains visible instead of constructing fake Feed data.
 private final class IosAppCompositionRoot {
     private var window: UIWindow?
-    private let platformServices = IosPlatformServiceComposition()
+    // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
+    // real Core Location host explicitly at the UIKit boundary instead of falling back to a
+    // placeholder composition.
+    private let platformServices = IosPlatformServiceComposition(
+        coreLocationHost: IosCoreLocationHost(),
+    )
     private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
 
     func start() {
