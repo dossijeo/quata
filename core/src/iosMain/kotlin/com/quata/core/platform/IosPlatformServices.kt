@@ -12,14 +12,17 @@ class IosPlatformServices(
     presenterProvider: IosViewControllerProvider? = null,
     audioRecorderHost: IosAudioRecorderHost? = null,
     audioPlayerHost: IosAudioPlayerHost? = null,
+    locationHost: IosCoreLocationHost? = null,
     override val preferences: PreferenceStore = IosPreferenceStore(),
     override val clipboard: ClipboardService = IosClipboardService(),
     override val share: ShareService = presenterProvider?.let { provider -> IosShareService(provider) } ?: IosShareService(),
     override val filePicker: FilePickerService = IosFilePickerService().apply {
         presenterProvider?.let { provider -> attachDocumentPicker(provider) }
     },
-    override val location: LocationService = UnsupportedIosLocationService,
-    override val permissions: PermissionService = IosNotificationPermissionService(),
+    override val location: LocationService = locationHost ?: UnsupportedIosLocationService,
+    override val permissions: PermissionService = locationHost?.let { host ->
+        IosCompositePermissionService(location = host)
+    } ?: IosNotificationPermissionService(),
 ) : PlatformServices {
     /** Exposed alongside platform services because audio is a feature-level injectable contract. */
     val audioRecorder: IosAudioRecorderService = IosAudioRecorderService().also { service ->

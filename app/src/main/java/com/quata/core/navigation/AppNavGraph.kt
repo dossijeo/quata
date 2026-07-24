@@ -138,6 +138,7 @@ import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
+import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
@@ -1449,28 +1450,19 @@ private fun UgcTermsDialog(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-        title = { Text(stringResource(R.string.ugc_terms_title), fontWeight = FontWeight.ExtraBold) },
-        text = {
-            Column {
-                Text(stringResource(R.string.ugc_terms_body))
-                Spacer(Modifier.height(8.dp))
-                LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
-                LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
-            }
+    QuataTermsAcceptanceDialogContent(
+        title = stringResource(R.string.ugc_terms_title),
+        body = stringResource(R.string.ugc_terms_body),
+        acceptLabel = stringResource(R.string.ugc_terms_accept),
+        acceptingLabel = stringResource(R.string.ugc_terms_accepting),
+        logoutLabel = stringResource(R.string.ugc_terms_logout),
+        isAccepting = isAccepting,
+        onAccept = onAccept,
+        onLogout = onLogout,
+        legalLinks = {
+            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
+            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
         },
-        dismissButton = {
-            TextButton(enabled = !isAccepting, onClick = onLogout) {
-                Text(stringResource(R.string.ugc_terms_logout))
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !isAccepting, onClick = onAccept) {
-                Text(stringResource(if (isAccepting) R.string.ugc_terms_accepting else R.string.ugc_terms_accept))
-            }
-        }
     )
 }
 

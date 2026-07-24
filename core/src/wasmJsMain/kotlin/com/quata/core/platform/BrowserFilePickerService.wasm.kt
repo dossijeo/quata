@@ -24,8 +24,9 @@ class BrowserFilePickerService : FilePickerService {
 
     /** Uses the browser's real file/gallery chooser or capture control when the UA supports it. */
     override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> = suspendCoroutine { continuation ->
+        val acceptedMimeTypes = request.browserAcceptedMimeTypes()
         browserPickFiles(
-            accept = request.acceptedMimeTypes.filter { it.isNotBlank() }.joinToString(","),
+            accept = acceptedMimeTypes.joinToString(","),
             allowMultiple = request.allowMultiple && request.source != FilePickerSource.Camera,
             capture = request.source == FilePickerSource.Camera,
         ) { result ->
@@ -37,6 +38,17 @@ class BrowserFilePickerService : FilePickerService {
                 }
             )
         }
+    }
+}
+
+/** Keeps browser gallery/camera defaults aligned with Android's visual-media request. */
+private fun FilePickerRequest.browserAcceptedMimeTypes(): List<String> {
+    val explicit = acceptedMimeTypes.filter { it.isNotBlank() }.distinct()
+    if (explicit.isNotEmpty()) return explicit
+    return when (source) {
+        FilePickerSource.Gallery,
+        FilePickerSource.Camera -> listOf("image/*")
+        FilePickerSource.Documents -> emptyList()
     }
 }
 
@@ -73,9 +85,17 @@ private fun browserPickFiles(
             if (capture) input.setAttribute('capture', 'environment');
             input.style.display = 'none';
             let completed = false;
+            const onWindowFocus = () => {
+              // Some desktop browsers do not dispatch `cancel` for a file input. Once their
+              // chooser returns focus, an empty selection is the only reliable cancellation cue.
+              globalThis.setTimeout(() => {
+                if (!completed && !(input.files && input.files.length)) finish(null);
+              }, 0);
+            };
             const finish = (value) => {
               if (completed) return;
               completed = true;
+              globalThis.removeEventListener?.('focus', onWindowFocus);
               input.remove();
               onResult(value);
             };
@@ -94,6 +114,7 @@ private fun browserPickFiles(
             }, { once: true });
             input.addEventListener('cancel', () => finish(null), { once: true });
             document.body?.appendChild(input);
+            globalThis.addEventListener?.('focus', onWindowFocus, { once: true });
             input.click();
           }
         } catch (_) {

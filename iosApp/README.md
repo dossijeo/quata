@@ -32,6 +32,24 @@ Para taps APNs, el delegate UIKit debe pasar `UNNotificationResponse` a
 `NSString`/`NSNumber` y payloads anidados `data`/`quata`/`payload`, y reutiliza el parser común
 de deep links. El launcher actual no adjunta ese host porque aún no contiene navegación Chat.
 
+`IosCoreLocationHost` es el adaptador real de ubicación: se inyecta como `locationHost` al
+construir `IosPlatformServices`, solicita únicamente permiso *When In Use* y usa
+`CLLocationManager.requestLocation()` para devolver una coordenada real. También enruta
+`PlatformPermission.Location` mediante `IosCompositePermissionService`, sin sustituir el
+permiso de notificaciones. El target iOS debe declarar
+`NSLocationWhenInUseUsageDescription`; sin host inyectado, ubicación continúa explícitamente no
+disponible.
+
+## Límite actual de inyección del launcher
+
+`iosApp/project.yml` enlaza únicamente `QuataFeed.framework`. Aunque `:core` declara targets
+iOS, no genera ni exporta un framework Swift propio y `QuataFeed` no consume
+`IosPlatformServices` hasta recibir un `FeedRepository` real. Por ello el launcher no debe crear
+un `IosViewControllerProvider` todavía: compartir, selector, audio y APNs quedarían construidos
+sin consumidor. La primera fase que añada repositorio autenticado/navegación debe enlazar o
+exportar el framework Core y construir `IosPlatformServices(presenterProvider: …)` desde el
+controlador Compose activo; así los adaptadores reales se conectarán a una feature efectiva.
+
 En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
 primero el framework `QuataFeed` para el simulador iOS:
 

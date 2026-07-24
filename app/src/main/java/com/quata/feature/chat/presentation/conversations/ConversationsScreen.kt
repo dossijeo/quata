@@ -350,81 +350,51 @@ fun ConversationCandidatePickerDialog(
     confirmIcon: ImageVector = Icons.AutoMirrored.Filled.Send,
     confirmContentDescription: String = stringResource(R.string.common_send)
 ) {
-    val template = quataTheme()
-    val listState = rememberLazyListState()
-    val contactsTitle = stringResource(R.string.conversations_new_chat_contacts)
-    val followingTitle = stringResource(R.string.conversations_new_chat_following)
-    val followersTitle = stringResource(R.string.conversations_new_chat_followers)
-    val recentTitle = stringResource(R.string.share_to_quata_recent_conversations)
-    val otherTitle = stringResource(R.string.conversations_new_chat_other_neighborhoods)
-    val unknownNeighborhood = stringResource(R.string.conversations_new_chat_unknown_neighborhood)
-    val displayItems = remember(
-        state.conversationCandidates,
-        state.candidateActorNeighborhood,
-        excludedProfileIds,
-        contactsTitle,
-        followingTitle,
-        followersTitle,
-        recentTitle,
-        otherTitle,
-        unknownNeighborhood
-    ) {
-        buildCandidateDisplayItems(
-            candidates = state.conversationCandidates.filterNot { it.profileId in excludedProfileIds },
-            actorNeighborhood = state.candidateActorNeighborhood,
-            labels = CandidateDisplayLabels(
-                contacts = contactsTitle,
-                following = followingTitle,
-                followers = followersTitle,
-                recent = recentTitle,
-                otherNeighborhoods = otherTitle,
-                unknownNeighborhood = unknownNeighborhood
-            )
-        )
-    }
-
-    LaunchedEffect(listState, displayItems.size, state.candidateHasMore, state.isCandidatePageLoading) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
-            .collect { lastVisible ->
-                if (displayItems.isNotEmpty() && lastVisible >= displayItems.lastIndex - 5) {
-                    onLoadMore()
-                }
-            }
-    }
-
-    QuataStandardFloatingPanel(
+    ConversationCandidatePickerDialogContent(
+        state = state,
+        clipboardService = clipboardService,
+        strings = ConversationCandidatePickerStrings(
+            searchPlaceholder = stringResource(R.string.conversations_new_chat_search_placeholder),
+            noResults = stringResource(R.string.conversations_new_chat_no_results),
+            cancel = stringResource(R.string.common_cancel),
+            contacts = stringResource(R.string.conversations_new_chat_contacts),
+            following = stringResource(R.string.conversations_new_chat_following),
+            followers = stringResource(R.string.conversations_new_chat_followers),
+            recent = stringResource(R.string.share_to_quata_recent_conversations),
+            otherNeighborhoods = stringResource(R.string.conversations_new_chat_other_neighborhoods),
+            unknownNeighborhood = stringResource(R.string.conversations_new_chat_unknown_neighborhood),
+            inviteTitle = stringResource(R.string.conversations_invite_to_quata),
+            invitePermission = stringResource(R.string.conversations_invite_contacts_permission),
+            inviteAllow = stringResource(R.string.conversations_invite_allow),
+            inviteAction = stringResource(R.string.conversations_invite_action),
+            noneSelected = stringResource(R.string.conversation_forward_none_selected),
+        ),
+        onSearchChange = onSearchChange,
+        onLoadMore = onLoadMore,
+        onOpenCandidate = onOpenCandidate,
         onDismiss = onDismiss,
-        template = template
-    ) { panelModifier, isLandscape ->
-        NewConversationPanelContent(
-                state = state,
-                clipboardService = clipboardService,
-                displayItems = displayItems,
-                listState = listState,
-                title = title,
-                actionIcon = actionIcon,
-                actionContentDescription = actionContentDescription,
-                selectedCandidateIds = selectedCandidateIds,
-                onToggleCandidate = onToggleCandidate,
-                onConfirmSelection = onConfirmSelection,
-                confirmEnabled = confirmEnabled,
-                selectionSummary = selectionSummary,
-                confirmIcon = confirmIcon,
-                confirmContentDescription = confirmContentDescription,
-                onSearchChange = onSearchChange,
-                onOpenCandidate = onOpenCandidate,
-                inviteContactsEnabled = inviteContactsEnabled,
-                onRequestInviteContactsPermission = onRequestInviteContactsPermission,
-                onInviteContact = onInviteContact,
-                onDismiss = onDismiss,
-                modifier = panelModifier.padding(
-                    start = 20.dp,
-                    top = if (isLandscape) 18.dp else 10.dp,
-                    end = 20.dp,
-                    bottom = if (isLandscape) 18.dp else 24.dp
-                )
-        )
-    }
+        panelHost = { content ->
+            QuataStandardFloatingPanel(onDismiss = onDismiss, template = quataTheme()) { modifier, landscape -> content(modifier, landscape) }
+        },
+        candidateAvatar = { candidate, modifier ->
+            AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier)
+        },
+        inviteAvatar = { contact, modifier -> AvatarLetter(name = contact.displayName, modifier = modifier, stableId = contact.id) },
+        inviteSheet = if (onInviteContact != null) { { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) } } else null,
+        inviteContactsEnabled = inviteContactsEnabled,
+        onRequestInviteContactsPermission = onRequestInviteContactsPermission,
+        title = title,
+        actionIcon = actionIcon,
+        actionContentDescription = actionContentDescription,
+        excludedProfileIds = excludedProfileIds,
+        selectedCandidateIds = selectedCandidateIds,
+        onToggleCandidate = onToggleCandidate,
+        onConfirmSelection = onConfirmSelection,
+        confirmEnabled = confirmEnabled,
+        selectionSummary = selectionSummary,
+        confirmIcon = confirmIcon,
+        confirmContentDescription = confirmContentDescription,
+    )
 }
 
 @Composable
