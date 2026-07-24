@@ -73,6 +73,14 @@ pública de despliegue y el token de la sesión del usuario inyectados por su la
 `FeedRemote*` y el repositorio común hace el mapeo, perfilado y polling. No hay URL, clave ni
 fallback de datos en ese contrato, y las mutaciones siguen bloqueadas por `ReadOnlyFeedRepository`.
 
+La especificación de lectura sí está fijada por el host Web: `GET {base}/rest/v1` sobre
+`community_posts`, `community_comments`, `community_post_likes` y `community_profiles`, con
+cabeceras `apikey`, `Authorization: Bearer <access-token>` y `Accept: application/json`; los
+campos y filtros PostgREST están definidos por `WebFeedRepository`. El bloqueo restante no es el
+endpoint: iOS aún no tiene un flujo que inyecte de forma segura la URL pública, la publishable key
+y un access token renovable. Hasta que exista ese proveedor de sesión, un `URLSession` real sólo
+devolvería errores de configuración/autorización y no debe montarse en el launcher.
+
 Además, `IosFeedHostDependencies` no recibe `PlatformServices`; por tanto construir
 `IosPlatformServices` desde Swift ahora no puede llegar a Feed. El siguiente cambio con consumidor
 real debe introducir un repositorio iOS autenticado y, únicamente si esa feature necesita servicios
