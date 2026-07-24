@@ -142,7 +142,9 @@ private class IosFeedDataTaskDelegate(
         dataTask: NSURLSessionDataTask,
         didReceiveData: NSData,
     ) {
-        if (continuation.isActive) payload.append(didReceiveData)
+        if (continuation.isActive) {
+            payload.appendBytes(didReceiveData.bytes, didReceiveData.length)
+        }
     }
 
     override fun URLSession(
