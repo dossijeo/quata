@@ -3,8 +3,13 @@ package com.quata.feature.feed.data
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.cinterop.usePinned
+import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -18,7 +23,6 @@ import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLResponse
 import platform.Foundation.NSURLSessionTask
-import platform.Foundation.NSMutableData
 import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
@@ -135,16 +139,14 @@ private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = susp
 private class IosFeedDataTaskDelegate(
     private val continuation: CancellableContinuation<NSData>,
 ) : NSObject(), NSURLSessionDataDelegateProtocol {
-    private val payload = NSMutableData()
+    private val chunks = mutableListOf<ByteArray>()
 
     override fun URLSession(
         session: NSURLSession,
         dataTask: NSURLSessionDataTask,
         didReceiveData: NSData,
     ) {
-        if (continuation.isActive) {
-            payload.appendBytes(didReceiveData.bytes, didReceiveData.length)
-        }
+        if (continuation.isActive) chunks += didReceiveData.toIosByteArray()
     }
 
     override fun URLSession(
@@ -165,11 +167,35 @@ private class IosFeedDataTaskDelegate(
             continuation.resumeWithException(IllegalStateException("ios_feed_http_${status ?: "unknown"}"))
             return
         }
-        if (payload.length == 0uL) {
+        val payload = chunks.toIosDataOrNull()
+        if (payload == null || payload.length == 0uL) {
             continuation.resumeWithException(IllegalStateException("ios_feed_response_empty"))
             return
         }
         continuation.resume(payload)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.toIosByteArray(): ByteArray =
+    if (length == 0uL) ByteArray(0) else bytes?.readBytes(length.toInt()) ?: ByteArray(0)
+
+@OptIn(ExperimentalForeignApi::class)
+private fun List<ByteArray>.toIosDataOrNull(): NSData? {
+    val totalSize = sumOf { it.size }
+    if (totalSize == 0) return null
+    val merged = ByteArray(totalSize)
+    var offset = 0
+    forEach { chunk ->
+        chunk.copyInto(merged, destinationOffset = offset)
+        offset += chunk.size
+    }
+    return merged.usePinned { pinned ->
+        CFDataCreate(
+            allocator = null,
+            bytes = pinned.addressOf(0).reinterpret(),
+            length = merged.size.toLong(),
+        )!! as NSData
     }
 }
 
