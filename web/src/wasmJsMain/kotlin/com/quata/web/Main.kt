@@ -205,6 +205,7 @@ private fun QuataWebApp(
                         repository = chatRepository,
                         audioPlayer = platformServices.audioPlayer,
                         filePicker = platformServices.filePicker,
+                        documentOpener = platformServices.documentOpener,
                         conversationId = navigation.chatConversationId,
                         navigationMessage = navigation.message,
                         onOpenConversation = ::navigateWebConversation,

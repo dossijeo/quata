@@ -3,12 +3,18 @@ package com.quata.web
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.BrowserAudioRecorderService
+import com.quata.core.platform.DocumentPreviewKind
+import com.quata.core.platform.DocumentSupport
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
 @Composable
@@ -17,6 +23,7 @@ fun WebChatHost(
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService? = null,
     filePicker: FilePickerService,
+    documentOpener: DocumentOpenService,
     conversationId: String?,
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
@@ -24,6 +31,7 @@ fun WebChatHost(
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
+    val scope = rememberCoroutineScope()
     DisposableEffect(repository) {
         repository.setAppForeground(browserDocumentIsVisible())
         val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
@@ -41,7 +49,7 @@ fun WebChatHost(
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = { url -> url.safeWebAttachmentUrl()?.let(::openWebExternalLink) },
+        onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
         modifier = modifier,
     )
 }
@@ -60,6 +68,15 @@ private fun observeBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -
     return () => document.removeEventListener('visibilitychange', listener);
     """,
 )
+
+private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService) {
+    when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
+        DocumentPreviewKind.Pdf,
+        DocumentPreviewKind.RichText,
+        DocumentPreviewKind.Office -> documentOpener.open(this)
+        else -> reference.safeWebAttachmentUrl()?.let(::openWebExternalLink)
+    }
+}
 
 private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
 
