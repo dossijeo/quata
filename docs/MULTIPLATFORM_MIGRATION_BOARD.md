@@ -22,36 +22,41 @@ este archivo mantiene estado, evidencia y dependencias.
 | Bloqueado externo | Falta backend, credencial o contrato verificable. |
 | Ya compartido | Auditado; extraer de nuevo duplicaría UI. |
 
-## Foto de control — 2026-07-24
+## Foto de control — 2026-07-24 (main `0791ce5`)
 
 | Área/lote | Estado | Evidencia y siguiente acción |
 | --- | --- | --- |
 | CI iOS base | Integrado | `main` `67336fd`: 14 targets Kotlin/Native, framework, host Swift y 1 XCTest verdes. |
-| Web Share Target, External Share común, Feed iOS y composición iOS | En revisión | PR #4 `codex/web-share-ios-feed`; Android/Wasm locales verdes. URLSession iOS corregido en `22efc2d`; esperar CI automática. |
+| Web Share Target, External Share común, Feed iOS y composición iOS | En revisión | PR #4 `codex/web-share-ios-feed` (`c9c6747`); integra Share Target Web y host Feed iOS. CI automática pendiente; no cuenta como terminado. |
 | Cámara Web, audio Chat y lifecycle polling | Integrado | Merge #5 `63a8f2f`; MediaDevices, grabación Chat y pausa de polling con pestaña oculta. |
-| Audio AVFoundation y taps de notificación iOS | En revisión | PR #6 `codex/next-ios`; imports nativos corregidos en `d60d11f`. |
+| Audio AVFoundation y taps de notificación iOS | En revisión | PR #6 `codex/next-ios` (`efce7cb`); host AVFoundation y deep links, con CI automática pendiente. |
 | Dedupe de CI iOS | Integrado | Merge #7 `1967578`; elimina trigger `push` para `codex/**`. |
-| Tests KMP Feed | En revisión | PR #8 `codex/next-tests`; fuentes JS/Wasm compilan; ejecución bloqueada por ICE JS conocido y aviso stdlib/compiler Wasm. |
+| Tablero de migración inicial | Integrado | Merge #26 `de81460`; este documento queda sincronizado en esta actualización con el estado de main y de las PR activas. |
+| Tests KMP Feed | Integrado | Merge #8 `309afd1`; cobertura de `RemoteFeedReadRepository` en `commonTest`. El ICE Compose JS conocido sigue siendo una limitación de ejecución, no de la compilación equivalente. |
 | SOS/Profile diálogo público | Integrado | Merge #9 `a958985`; layout portable con slots, manteniendo permisos y contactos en Android. |
 | Composer preview estructural | Integrado | Merge #11 `4a488cf`; validado localmente con Wasm y Android antes de integración. |
 | Chat residual | Integrado | Merge #12 `08c9d9c`; title bar común con slots de navegación, avatar y acciones de plataforma. |
-| Sesión segura Keychain iOS | En revisión | PR #13 `codex/next-platform`; Keychain y sesión renovable; pendiente validación/merge. |
-| Contact picker browser | En revisión (conflicto) | PR #15 `codex/next-web-profile`; toca contratos de plataforma y `WebPlatformServices`; rebase sobre main antes de merge. |
-| Documentos Web | En revisión | PR #17 `codex/next-web-documents`; reader/open service y host Chat/Web. |
+| Sesión segura Keychain iOS | En revisión | PR #13 `codex/next-platform` (`e4aa82d`); Keychain y sesión renovable. CI automática pendiente; no integrar sin verde. |
+| Contact picker browser | En revisión | PR #15 `codex/next-web-profile` (`b3f0457`); modifica contratos de plataforma y `WebPlatformServices`. CI automática en curso tras su SHA vigente. |
+| Documentos Web | Integrado | Merge #17 `74af755`; reader/open service y host Chat/Web. |
 | Caché IndexedDB Web | Integrado | Merge #20 `ecfc730`; `FileCacheService`, IndexedDB Blob cache y liberación segura de URLs propias. |
-| Metadata de imágenes Web | En revisión (conflicto) | PR #22 `codex/next-web-gallery`; `ImageMetadataService` y `WebPlatformServices`; requiere rebase. |
-| Recovery Auth Web | En revisión | PR #23 `codex/next-web-auth`; formularios comunes y `WebLoginHost`. |
-| Lifecycle de cuenta Web | En revisión | PR #24 `codex/next-web-account-lifecycle`; bearer y limpieza local sólo tras respuesta `ok`. |
-| Caché de audio iOS | En revisión | PR #18 `codex/next-ios-audio`; `AudioCacheService` e `IosPlatformServices`. |
-| Ajustes Web: lifecycle de cuenta | En curso (dependencia interna) | `codex/next-web-settings-account` `ee0a4b5`; UI común, diálogo y callbacks listos. No abrir PR ni validar hasta que PR #24 esté integrado; después rebase y validación. |
+| Metadata de imágenes Web | En revisión (requiere rebase) | PR #22 `codex/next-web-gallery` (`01bcb0e`); `ImageMetadataService` y `WebPlatformServices`; rebasear sobre main antes de CI final. |
+| Recovery Auth Web | En revisión | PR #23 `codex/next-web-auth` (`c872e79`); recuperación de contraseña y host Web. CI automática pendiente. |
+| Lifecycle de cuenta Web | Integrado | Merge #24 `7765503`; endpoint autenticado y limpieza local sólo tras respuesta `ok`. |
+| Caché de audio iOS | Integrado | Merge #18 `7811ffa`; `AudioCacheService` e `IosPlatformServices`. |
+| Infraestructura de pruebas iOS | Integrado | Merge #25 `0fcdd16`; target XCTest que valida el enlace del framework KMP Feed. |
+| Ajustes Web: lifecycle de cuenta | En revisión | PR #28 `codex/next-web-settings-account` (`26ee0bf`); UI común, diálogo y callbacks sobre lifecycle ya integrado. Reintentar CI automática tras el fallo de infraestructura actual, sin cambiar código sin evidencia. |
+| Media Feed Web | Integrado | Merge #27 `0791ce5`; renderer de media compatible para Feed Web. |
+| Host Auth Compose iOS | En revisión | PR #29 `codex/next-ios-auth-host` (`878714a`); host inyectable, dependiente del contrato Keychain/Auth de #13. |
+| Apertura de documentos iOS | En revisión | PR #30 `codex/next-ios-document-open` (`79c2a6d`); Quick Look para archivos locales, validar tras la composición de documentos ya integrada. |
 
 ## Dependencias de integración activas
 
 | Grupo | Ramas/PR | Orden seguro |
 | --- | --- | --- |
-| Servicios de plataforma Web | PR #15, #17 y #22 | #20 ya está integrado. Las tres ramas restantes modifican `WebPlatformServices.kt`; rebasar #15 sobre la caché integrada, integrar de forma serial y después rebasar las restantes. |
-| Launcher Web | PR #4, #17 y ajustes retenidos | PR #4 y #17 modifican `web/Main.kt`. La rama de Ajustes debe esperar a PR #24 y rebasarse después de los merges que afecten `Main.kt`; no duplicar routing, worker o host de documentos. |
-| Servicios iOS | PR #6 y #18 | Ambas ramas modifican `IosPlatformServices`; integrar una y rebasar la otra antes de merge. |
+| Servicios de plataforma Web | PR #15 y #22 | #17 y #20 ya están integrados. Rebasear #15 y #22 de forma serial sobre main porque ambas tocan composición/servicios Web. |
+| Launcher Web | PR #4, #23 y #28 | #17/#24/#27 ya están integrados. Integrar sólo en orden de rebase sobre main para conservar una única composición, routing y host por capacidad. |
+| Servicios iOS | PR #6, #13, #29 y #30 | #18/#25 ya están integrados. Resolver primero #13 (sesión) antes de #29; rebasar los demás si `IosPlatformServices` o el host cambian. |
 
 ## Auditoría de features
 
@@ -69,23 +74,23 @@ este archivo mantiene estado, evidencia y dependencias.
 
 | Capacidad | Android | Web | iOS | Siguiente acción |
 | --- | --- | --- | --- | --- |
-| Cámara | Real | En revisión MediaDevices | En revisión UIKit/composición | Validar PR #4/#5; no usar FilePicker como cámara. |
-| Audio | Real | En revisión recorder Chat | En revisión AVFoundation | Validar PR #5/#6; luego routing/caché. |
-| Sesión | Existente | localStorage actual | En curso Keychain | Proveedor Auth iOS renovable, sin datos de ejemplo. |
+| Cámara | Real | MediaDevices integrado | En revisión UIKit/composición | No usar FilePicker como cámara; queda host iOS real. |
+| Audio | Real | Recorder Chat integrado | En revisión AVFoundation | #18 ya integra caché iOS; #6 sigue pendiente para host AVFoundation/deep links. |
+| Sesión | Existente | localStorage y lifecycle integrado | En revisión Keychain | Resolver #13 antes de conectar el host Auth iOS #29. |
 | Notificaciones | FCM/canales por auditar | Web Push entrega | Tap bridge en revisión | APNs requiere credenciales/navegación real. |
-| Feed iOS | N/A | Lectura PostgREST | En revisión URLSession | Configuración pública + sesión Auth iOS. |
+| Feed iOS | N/A | Lectura PostgREST | En revisión URLSession | PR #4 requiere CI verde y depende de la sesión Auth iOS para composición real. |
 
 ## Backlog válido
 
 | Prioridad | Unidad | Estado | Criterio de salida |
 | --- | --- | --- | --- |
-| P0 | Resolver CI iOS de PR #4/#6 | En curso | Una CI automática verde por SHA, sin workflow dispatch duplicado. |
-| P0 | Validar/PR Composer, Chat y Keychain | En curso | JS/Wasm/Android o iOS CI según alcance. |
+| P0 | Resolver CI iOS de PR #4/#6/#13 | En curso | Una CI automática verde por SHA, sin workflow dispatch duplicado. |
+| P0 | Rebasear servicios Web #15/#22 y validar #23/#27/#28 | En curso | Integración serial sobre main y CI verde por SHA. |
 | P1 | Host iOS Auth + Feed de lectura | Pendiente | Sesión renovable y configuración inyectada, sin repositorio falso. |
 | P1 | Contactos/permisos Profile Web/iOS | Pendiente | Adaptadores reales y navegación de host. |
 | P1 | Web Chat Realtime/typing | Bloqueado externo | Cliente y configuración oficial Realtime; no Phoenix manual. |
 | P1 | Mutaciones Feed/Official Web | Bloqueado externo | RPC/RLS/identity mapping verificables. |
-| P2 | APNs/FCM, documentos, foto/vídeo y cachés | Pendiente | Adaptadores concretos por plataforma. |
+| P2 | APNs/FCM, foto/vídeo y cachés restantes | Pendiente | Adaptadores concretos por plataforma; documentos Web/iOS y caché audio iOS ya tienen entregas integradas/en revisión. |
 | P3 | Auditoría final | Pendiente | Imports Android commonMain, JS, Android emulador, CI iOS y evidencia por requisito. |
 
 ## Política de ramas
