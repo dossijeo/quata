@@ -161,15 +161,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          simulator_udid="$(
+          if ! available_destinations="$(
             xcodebuild \
               -project iosApp/QuataIos.xcodeproj \
               -scheme QuataIos \
               -showdestinations \
-              | sed -nE 's/.*platform:iOS Simulator,.*id:([^,} ]+).*/\1/p' \
-              | head -n 1
+              2>&1
+          )"; then
+            echo "Unable to enumerate Xcode destinations for QuataIos:" >&2
+            printf '%s\n' "$available_destinations" >&2
+            exit 1
+          fi
+          simulator_udid="$(
+            printf '%s\n' "$available_destinations" \
+              | awk '
+                  /platform:iOS Simulator/ {
+                    if (match($0, /id:[[:space:]]*[0-9A-Fa-f-]+/)) {
+                      identifier = substr($0, RSTART, RLENGTH)
+                      sub(/^id:[[:space:]]*/, "", identifier)
+                      print identifier
+                      exit
+                    }
+                  }
+                '
           )"
-          test -n "$simulator_udid"
+          if [[ ! "$simulator_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+            echo "No eligible iOS Simulator UUID was reported by Xcode 16.3:" >&2
+            printf '%s\n' "$available_destinations" >&2
+            exit 1
+          fi
+          echo "Selected Xcode-eligible iOS Simulator: $simulator_udid"
           xcrun simctl boot "$simulator_udid" || true
           xcrun simctl bootstatus "$simulator_udid" -b
           rm -rf build/reports/ios/QuataIos-tests.xcresult
