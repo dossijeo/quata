@@ -227,9 +227,9 @@ class IosUrlSessionAuthHttpTransport : IosAuthHttpTransport {
     override suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse {
         val url = NSURL(string = endpoint) ?: error("ios_auth_url_invalid")
         val request = NSMutableURLRequest.requestWithURL(url).apply {
-            HTTPMethod = "POST"
-            HTTPBody = body.encodeToByteArray().toIosAuthData()
-            headers.forEach { (name, value) -> setValue(value, forHTTPHeaderField = name) }
+            setHTTPMethod("POST")
+            setHTTPBody(body.encodeToByteArray().toIosAuthData())
+            headers.forEach { (name, value) -> setValue(value, name) }
         }
         return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosAuthData(request)
     }
