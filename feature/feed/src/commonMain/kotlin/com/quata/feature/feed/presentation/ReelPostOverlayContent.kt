@@ -21,7 +21,9 @@ fun ReelPostOverlayContent(
     actionRail: @Composable () -> Unit,
     author: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    overflowAction: (@Composable () -> Unit)? = null
+    overflowAction: (@Composable () -> Unit)? = null,
+    navigation: (@Composable BoxScope.() -> Unit)? = null,
+    translation: (@Composable () -> Unit)? = null,
 ) {
     ReelPostLayoutContent(
         media = media,
@@ -53,6 +55,18 @@ fun ReelPostOverlayContent(
                     .padding(start = 20.dp, end = 96.dp, bottom = if (isVideo) 82.dp else 20.dp)
             ) {
                 author()
+            }
+        },
+        navigation = navigation,
+        translation = translation?.let { content ->
+            {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 20.dp, end = 96.dp, bottom = if (isVideo) 154.dp else 92.dp)
+                ) {
+                    content()
+                }
             }
         },
         modifier = modifier

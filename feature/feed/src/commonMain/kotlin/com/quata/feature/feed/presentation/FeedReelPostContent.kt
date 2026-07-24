@@ -31,7 +31,9 @@ data class FeedReelStrings(
  *
  * Video/image decoding and avatar rendering are explicit slots. Navigation, share and mutation
  * policy is delegated to callbacks, while the common layer owns shortcode parsing, description
- * expansion, overlay placement and the complete action hierarchy.
+ * expansion, overlay placement and the complete action hierarchy. Hosts may additionally inject
+ * navigation, translation and an alternative action rail without pulling platform APIs into the
+ * shared reel body.
  */
 @Composable
 fun FeedReelPostContent(
@@ -49,6 +51,9 @@ fun FeedReelPostContent(
     onShare: () -> Unit,
     onReport: () -> Unit,
     onCreatePost: () -> Unit,
+    navigation: (@Composable BoxScope.() -> Unit)? = null,
+    translation: (@Composable () -> Unit)? = null,
+    actionRail: (@Composable () -> Unit)? = null,
 ) {
     val isVideo = post.videoUrl != null
     val shortcodeContent = remember(post.text) { post.text.parsePostShortcodeContent() }
@@ -76,7 +81,7 @@ fun FeedReelPostContent(
                 locationLabel = strings.locationLabel,
             )
         },
-        actionRail = {
+        actionRail = actionRail ?: {
             QuataFeedActionRail(
                 likes = post.likesCount,
                 isLiked = post.isLikedByCurrentUser,
@@ -126,5 +131,7 @@ fun FeedReelPostContent(
                 avatar = avatar,
             )
         },
+        navigation = navigation,
+        translation = translation,
     )
 }
