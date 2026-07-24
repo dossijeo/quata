@@ -2,22 +2,28 @@ import CoreLocation
 import UIKit
 import QuataFeed
 
-private enum IosPublicRuntimeConfiguration {
+enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
     static func feedConfiguration(bundle: Bundle = .main) -> IosFeedRuntimeConfiguration? {
+        feedConfiguration(infoDictionary: bundle.infoDictionary ?? [:])
+    }
+
+    /// Kept separate from Bundle access so XCTest can validate unconfigured/expanded settings
+    /// without a deployment bundle, network request or a client credential.
+    static func feedConfiguration(infoDictionary: [String: Any]) -> IosFeedRuntimeConfiguration? {
         guard
-            let url = configuredValue(for: supabaseUrlKey, bundle: bundle),
-            let publishableKey = configuredValue(for: supabasePublishableKeyKey, bundle: bundle)
+            let url = configuredValue(for: supabaseUrlKey, infoDictionary: infoDictionary),
+            let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
     }
 
-    private static func configuredValue(for key: String, bundle: Bundle) -> String? {
-        guard let value = bundle.object(forInfoDictionaryKey: key) as? String else { return nil }
+    private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
+        guard let value = infoDictionary[key] as? String else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty || trimmed.contains("$(") ? nil : trimmed
     }
