@@ -98,7 +98,8 @@ private class IosPhotoPickerDelegate(
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSItemProvider.copyGalleryFile(complete: (PlatformResult<PlatformFile>) -> Unit) {
-    val typeIdentifier = registeredTypeIdentifiers.firstOrNull() as? String
+    val typeIdentifiers = registeredTypeIdentifiers.filterIsInstance<String>()
+    val typeIdentifier = typeIdentifiers.firstOrNull()
         ?: return complete(PlatformResult.Unsupported)
     loadFileRepresentationForTypeIdentifier(typeIdentifier) { source, error ->
         if (source == null || error != null) return@loadFileRepresentationForTypeIdentifier complete(PlatformResult.Failure(error?.localizedDescription))
@@ -113,7 +114,10 @@ private fun NSItemProvider.copyGalleryFile(complete: (PlatformResult<PlatformFil
                 PlatformFile(
                     reference = destination.absoluteString ?: destination.path.orEmpty(),
                     displayName = destination.lastPathComponent,
-                    mimeType = extension?.galleryMimeType(),
+                    // Providers may return a temporary representation without a filename extension.
+                    // Retain the PhotosUI UTI fallback so the common MIME filter does not reject a
+                    // valid image/video solely because that temporary URL has no suffix.
+                    mimeType = extension?.galleryMimeType() ?: typeIdentifiers.galleryMimeType(),
                 ),
             ),
         )
@@ -136,3 +140,18 @@ private fun String.galleryMimeType(): String? = when (lowercase()) {
     "mov" -> "video/quicktime"
     else -> null
 }
+
+private fun List<String>.galleryMimeType(): String? = asSequence()
+    .map(String::lowercase)
+    .mapNotNull { identifier ->
+        when (identifier) {
+            "public.jpeg" -> "image/jpeg"
+            "public.png" -> "image/png"
+            "com.compuserve.gif" -> "image/gif"
+            "public.heic", "public.heif" -> "image/heic"
+            "public.mpeg-4", "public.mpeg-4-video" -> "video/mp4"
+            "com.apple.quicktime-movie" -> "video/quicktime"
+            else -> null
+        }
+    }
+    .firstOrNull()
