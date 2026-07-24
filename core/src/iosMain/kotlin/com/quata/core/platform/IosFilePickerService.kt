@@ -51,4 +51,14 @@ class IosFilePickerService : FilePickerService {
         val activeHost = host ?: return@withLock PlatformResult.Unsupported
         activeHost.pick(IosFilePickerRequest(acceptedMimeTypes, allowMultiple))
     }
+
+    /**
+     * The injected UIKit adapter is a document importer, not a PhotosUI/camera implementation.
+     * Do not report gallery support merely because image MIME types can be selected as documents.
+     */
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> = when (request.source) {
+        FilePickerSource.Documents -> pickFiles(request.acceptedMimeTypes, request.allowMultiple)
+        FilePickerSource.Gallery,
+        FilePickerSource.Camera -> PlatformResult.Unsupported
+    }
 }

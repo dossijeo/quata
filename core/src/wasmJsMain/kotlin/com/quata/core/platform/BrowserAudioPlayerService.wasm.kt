@@ -95,6 +95,14 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
         if (typeof element.play !== 'function' || typeof element.pause !== 'function') return onResult('unsupported');
         const store = globalThis.__quataAudioPlayers || (globalThis.__quataAudioPlayers = new Map());
         store.set(id, element);
+        const cleanup = () => {
+          element.onloadedmetadata = null;
+          element.onerror = null;
+          element.pause();
+          element.removeAttribute('src');
+          element.load();
+          store.delete(id);
+        };
         const state = () => JSON.stringify({
           isLoaded: element.readyState > 0,
           isPlaying: !element.paused && !element.ended,
@@ -103,7 +111,10 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
         });
         element.preload = 'metadata';
         element.onloadedmetadata = () => onResult(state());
-        element.onerror = () => onResult('failure:web_audio_load_failed');
+        element.onerror = () => {
+          cleanup();
+          onResult('failure:web_audio_load_failed');
+        };
         element.src = source;
         element.load();
       } catch (_) { onResult('unsupported'); }
