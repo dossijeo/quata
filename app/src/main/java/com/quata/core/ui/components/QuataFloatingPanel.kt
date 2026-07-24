@@ -78,12 +78,11 @@ fun QuataStandardFloatingPanel(
     template: QuataThemeTemplate = quataTheme(),
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
-    QuataFloatingPanel(
+    QuataStandardFloatingPanelContent(
         onDismiss = onDismiss,
         modifier = modifier,
         template = template,
-        landscapeHeightFraction = 0.86f,
-        landscapeVerticalOffset = (-24).dp,
+        platformDecor = { fullscreen -> ConfigureQuataFloatingPanelSystemBars(template, fullscreen) },
         content = content
     )
 }
