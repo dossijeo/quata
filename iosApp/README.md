@@ -19,12 +19,14 @@ Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`Ios
 ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
 un presenter/document picker UIKit activo antes de poder declararse disponibles.
 
-Para el selector de documentos, `IosFilePickerService.attachDocumentPicker` recibe un
-`IosViewControllerProvider` y conecta el adaptador real `IosDocumentPickerHost`. Éste presenta
-`UIDocumentPickerViewController` en modo import, conserva su delegate hasta el callback y
-devuelve `PlatformFile` con URL, nombre y MIME conocido. El launcher no lo conecta todavía
-porque ninguna de sus pantallas de estado consume `PlatformServices`; se debe adjuntar al crear
-el host autenticado que vaya a usar una feature con archivos.
+Para archivos, `IosFilePickerService` recibe un `IosViewControllerProvider` y conecta los
+adaptadores reales `IosDocumentPickerHost` e `IosPhotoPickerHost`: el primero importa documentos
+con `UIDocumentPickerViewController` y el segundo abre la galería con `PHPickerViewController`.
+Ambos conservan sus delegates y devuelven `PlatformFile` con URL, nombre y MIME; PhotosUI copia
+la representación temporal al sandbox antes de devolverla. Cámara continúa explícitamente no
+disponible hasta un adaptador AVFoundation. El launcher no adjunta estos servicios todavía porque
+ninguna de sus pantallas de estado consume `PlatformServices`; se deben adjuntar al crear el host
+autenticado que vaya a usar una feature con archivos.
 
 El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construir
 `IosPlatformServices`: `ShareService` presenta el `UIActivityViewController` real en el
