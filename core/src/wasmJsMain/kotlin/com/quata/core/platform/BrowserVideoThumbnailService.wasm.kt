@@ -8,16 +8,36 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-/** Uses the browser decoder and canvas API to create a JPEG thumbnail without Media3 or bitmaps. */
+/**
+ * Uses the browser decoder and canvas API to create a JPEG thumbnail without Media3 or bitmaps.
+ * Blob URLs returned by [createThumbnail] are owned by this instance and may be released with
+ * [release] after their host stops rendering or uploading the thumbnail.
+ */
 class BrowserVideoThumbnailService : VideoThumbnailService {
+    private val issuedReferences = mutableSetOf<String>()
+
     override suspend fun createThumbnail(video: PlatformFile, maxWidth: Int): PlatformResult<PlatformFile> {
         if (maxWidth <= 0) return PlatformResult.Failure("invalid_thumbnail_width")
         if (!video.isBrowserVideo()) return PlatformResult.Unsupported
         return suspendCoroutine { continuation ->
             browserCreateVideoThumbnail(video.reference, maxWidth) { state, payload ->
-                continuation.resume(state.toVideoThumbnailResult(payload))
+                continuation.resume(state.toVideoThumbnailResult(payload).also(::trackIssuedReference))
             }
         }
+    }
+
+    /** Revokes only a Blob URL emitted by this service instance; external references are ignored. */
+    fun release(file: PlatformFile) {
+        val reference = file.reference
+        if (reference.startsWith("blob:", ignoreCase = true) && issuedReferences.remove(reference)) {
+            browserRevokeObjectUrl(reference)
+        }
+    }
+
+    private fun trackIssuedReference(result: PlatformResult<PlatformFile>) {
+        (result as? PlatformResult.Success<PlatformFile>)?.value?.reference
+            ?.takeIf { it.startsWith("blob:", ignoreCase = true) }
+            ?.let(issuedReferences::add)
     }
 }
 
@@ -40,6 +60,12 @@ private fun String?.toVideoThumbnailFile(): PlatformFile? = runCatching {
         sizeBytes = value["sizeBytes"]?.jsonPrimitive?.longOrNull,
     )
 }.getOrNull()
+
+private fun browserRevokeObjectUrl(reference: String): Unit = js(
+    """
+    if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference);
+    """,
+)
 
 private fun browserCreateVideoThumbnail(
     reference: String,
