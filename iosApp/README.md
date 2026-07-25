@@ -1,140 +1,95 @@
-# Host iOS mínimo
+# Host iOS
 
-`feature:feed/iosMain` expone `QuataFeedViewController(dependencies:)`. Al recibir un
-`FeedRepository` iOS real, presenta `FeedBrowserHostContent`, cuyo ViewModel, estado y UI son
-código Compose de `commonMain`; el adaptador iOS se limita a crear un `UIViewController`.
+`iosApp` es el borde UIKit de Quata para iOS. No contiene pantallas Swift de
+sustitución ni repositorios de ejemplo: el estado, ViewModels y UI de Auth y
+Feed proceden de los módulos Compose/Kotlin compartidos exportados por
+`QuataFeed.framework`.
 
-El launcher SwiftUI no fabrica un repositorio de ejemplo ni reutiliza el repositorio Android. Por
-ahora muestra de forma explícita el estado de migración, hasta que exista un cliente autenticado
-iOS que implemente `FeedRepository`. Conectar ese repositorio consiste en crear
-`IosFeedHostDependencies(repository: …)` y pasarlo a `QuataFeedViewController`; no existe un
-`FeedRootView` Swift separado.
+## Estado actual
 
-La pantalla de migración no es una vista Swift de sustitución: presenta directamente el
-`UIViewController` Compose exportado por `QuataFeed.framework`. Su vista raíz tiene el
-identificador de accesibilidad `quata-ios-migration-status`, para que un UI test del host pueda
-verificar esa frontera Swift/Kotlin sin requerir un repositorio ni sesión de ejemplo.
+`AppDelegate` crea una raíz UIKit que instala una de estas superficies Compose:
 
-Los adaptadores iOS de portapapeles (`IosClipboardService`) y preferencias (`IosPreferenceStore`)
-ya existen. `IosPlatformServices` también agrupa compartir y selector de archivos, que necesitan
-un presenter/document picker UIKit activo antes de poder declararse disponibles.
+- Feed cuando `IosFeedRuntimeBootstrap` restaura una sesión válida de Keychain.
+- Auth cuando existen la configuración pública de runtime y no hay una sesión
+  restaurable; tras el login, el host vuelve a instalar Feed.
+- Un estado explícito de configuración/sesión pendiente cuando falta runtime.
 
-Para archivos, `IosFilePickerService` recibe un `IosViewControllerProvider` y conecta los
-adaptadores reales `IosDocumentPickerHost` e `IosPhotoPickerHost`: el primero importa documentos
-con `UIDocumentPickerViewController` y el segundo abre la galería con `PHPickerViewController`.
-Ambos conservan sus delegates y devuelven `PlatformFile` con URL, nombre y MIME; PhotosUI copia
-la representación temporal al sandbox antes de devolverla. `IosImagePickerCameraHost` presenta
-`UIImagePickerController` para cámara, conserva su delegate, devuelve cancelación/error reales y
-copia JPEG al temporal; `IosPlatformServices(presenterProvider: …)` lo conecta automáticamente,
-y `project.yml` declara `NSCameraUsageDescription`. El launcher no construye estos servicios todavía
-porque ninguna de sus pantallas de estado consume `PlatformServices`; se deben adjuntar al crear el
-host autenticado que vaya a usar una feature con archivos o cámara.
+El host retiene `IosPlatformServiceComposition` y conecta los adaptadores iOS
+reales que ya están disponibles en el borde de plataforma (portapapeles,
+preferencias, compartir, selector de documentos/galería, cámara, ubicación y
+permisos). Cada feature debe recibir únicamente los contratos que consume. Las
+rutas autenticadas de Chat y el resto de hosts siguen pendientes de composición;
+la acción de conversaciones muestra un aviso explícito en vez de simular una
+navegación inexistente.
 
-El mismo `IosViewControllerProvider` activa `IosUIKitSharePresenter` al construir
-`IosPlatformServices`: `ShareService` presenta el `UIActivityViewController` real en el
-controlador activo y devuelve `Unsupported` si el host no puede presentar. Sin provider, los
-servicios conservan el comportamiento seguro de no disponibilidad.
+La aplicación **no está terminada para iOS**. Faltan recorridos autenticados de
+extremo a extremo, navegación completa, pruebas funcionales de permisos y
+adaptadores, y composición de las demás features. El estado detallado y los
+límites verificables están en [el tablero de migración](../docs/MULTIPLATFORM_MIGRATION_BOARD.md)
+y [la auditoría de evidencia](../docs/MULTIPLATFORM_EVIDENCE_AUDIT.md).
 
-Para taps de una notificación ya entregada, `IosNotificationTapDelegate` usa
-`IosNotificationResponseBridge` para pasar `UNNotificationResponse.userInfo` a
-`IosNotificationDeepLinkAdapter`. El adaptador normaliza IDs de `NSString`/`NSNumber` y payloads
-anidados `data`/`quata`/`payload`, y reutiliza el parser común de deep links. El delegado no
-registra APNs ni pide permisos: una futura raíz de navegación debe retenerlo fuertemente (el
-delegate de `UNUserNotificationCenter` es débil), instalarlo y aportar el callback Chat real:
+## Configuración pública de runtime
 
-```swift
-final class AppDelegate: NSObject, UIApplicationDelegate {
-    let notificationTapDelegate = IosNotificationTapDelegate()
+Para mostrar Auth o restaurar/cargar Feed, el bundle necesita estos *build
+settings* públicos:
 
-    func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
-    ) -> Bool {
-        notificationTapDelegate.install()
-        notificationTapDelegate.setChatDestination { target in
-            // Enviar target al host de navegación Chat autenticado.
-        }
-        return true
-    }
-}
+```text
+QUATA_SUPABASE_URL
+QUATA_SUPABASE_PUBLISHABLE_KEY
 ```
 
-El launcher actual no crea ese `AppDelegate` porque aún no contiene navegación Chat; sin callback,
-el bridge responde `Unsupported` y nunca finge haber abierto una conversación.
+`project.yml` los transfiere al `Info.plist` generado. Configúralos en el
+esquema, en la configuración de CI o desde el entorno de tu integración; el
+launcher rechaza valores vacíos o literales `$(...)` sin expandir. Nunca añadas
+una service-role key, token de usuario, certificado ni VAPID privada al
+repositorio, al bundle o a este archivo.
 
-`IosCoreLocationHost` es el adaptador real de ubicación: se inyecta como `locationHost` al
-construir `IosPlatformServices`, solicita únicamente permiso *When In Use* y usa
-`CLLocationManager.requestLocation()` para devolver una coordenada real. También enruta
-`PlatformPermission.Location` mediante `IosCompositePermissionService`, sin sustituir el
-permiso de notificaciones. El target iOS debe declarar
-`NSLocationWhenInUseUsageDescription`; sin host inyectado, ubicación continúa explícitamente no
-disponible.
+Sin esos valores, el host conserva una pantalla Compose honesta de configuración
+pendiente. No fabrica datos, URL ni sesiones Swift para aparentar funcionalidad.
 
-## Límite actual de inyección del launcher
+## Construcción local en macOS
 
-`iosApp/project.yml` enlaza únicamente `QuataFeed.framework`. Éste reexporta `:core` para que
-Swift pueda acceder a `IosPlatformServices` y sus contratos desde el mismo framework, sin
-embebir un segundo framework Core. `IosPlatformServiceComposition` es la raíz Kotlin retenida por
-SwiftUI: el launcher le adjunta el `UIViewController` Compose activo y conserva servicios reales
-de compartir, documentos, galería, cámara, ubicación, permisos, preferencias y portapapeles.
-La composición no crea repositorios, sesiones ni datos de ejemplo, y `QuataFeed` todavía no la
-consume hasta recibir un `FeedRepository` iOS real. La primera feature autenticada debe recibir
-`composition.services` por su borde de inyección; audio continúa `Unsupported` hasta que se aporte
-un host AVFoundation real. El target declara además los textos de privacidad de cámara y ubicación.
+Se requiere Xcode 16.3, JDK 17 y XcodeGen. Este flujo local enlaza el
+framework que consume el host; la comprobación reproducible de todos los
+módulos Kotlin/Native se ejecuta en la CI macOS descrita más abajo. Desde la
+raíz del repositorio:
 
-## Bloqueo verificable para una composición Swift real
-
-La única entrada de Feed que puede mostrar contenido real es
-`QuataFeedViewController(dependencies:)`; sus dependencias exigen una implementación completa de
-`FeedRepository`. No basta con cargar una lista inicial: `FeedReadRepository` exige observación
-continua, carga/recarga/paginación, perfil actual y autor y detalle de post. Las mutaciones de
-like, reporte, comentario y borrado forman `FeedMutationRepository`; `FeedRepository` compone
-ambos. `iosReadOnlyFeedHostDependencies` envuelve un backend de lectura con
-`ReadOnlyFeedRepository`, que devuelve explícitamente `Unsupported` para mutaciones. Esto permite
-que un backend iOS real y revisado habilite primero el navegador compartido, pero no sustituye su
-implementación: en el árbol actual sólo existen `FeedRepositoryImpl` de Android (depende de
-`Context`, sesión, Supabase, WordPress y caché Android) y `WebFeedRepository` en `wasmJsMain`.
-No hay implementación bajo `feature/feed/src/iosMain` ni un cliente de sesión/HTTP iOS que pueda
-satisfacer siquiera el contrato de lectura.
-
-La ruta mínima ya está definida sin secretos: `RemoteFeedReadRepository` en `commonMain` recibe
-un `FeedReadTransport`. El adaptador iOS debe implementar ese transporte con URLSession, la URL
-pública de despliegue y el token de la sesión del usuario inyectados por su launcher; devuelve DTOs
-`FeedRemote*` y el repositorio común hace el mapeo, perfilado y polling. No hay URL, clave ni
-fallback de datos en ese contrato, y las mutaciones siguen bloqueadas por `ReadOnlyFeedRepository`.
-
-La especificación de lectura sí está fijada por el host Web: `GET {base}/rest/v1` sobre
-`community_posts`, `community_comments`, `community_post_likes` y `community_profiles`, con
-cabeceras `apikey`, `Authorization: Bearer <access-token>` y `Accept: application/json`; los
-campos y filtros PostgREST están definidos por `WebFeedRepository`. El bloqueo restante no es el
-endpoint: iOS aún no tiene un flujo que inyecte de forma segura la URL pública, la publishable key
-y un access token renovable. Hasta que exista ese proveedor de sesión, un `URLSession` real sólo
-devolvería errores de configuración/autorización y no debe montarse en el launcher.
-
-Además, `IosFeedHostDependencies` no recibe `PlatformServices`; por tanto construir
-`IosPlatformServices` desde Swift ahora no puede llegar a Feed. El siguiente cambio con consumidor
-real debe introducir un repositorio iOS autenticado y, únicamente si esa feature necesita servicios
-del sistema, ampliar su composition root para recibir los contratos concretos que use. Hasta ese
-momento el estado de migración evita una UI aparentemente funcional con datos o adaptadores falsos.
-
-En macOS, genera el proyecto con XcodeGen (`xcodegen generate`) desde esta carpeta y construye
-primero el framework `QuataFeed` para el simulador iOS:
-
-```sh
+```bash
 ./gradlew :feature:feed:linkDebugFrameworkIosSimulatorArm64
+brew install xcodegen
+cd iosApp
+xcodegen generate
+cd ..
+xcodebuild \
+  -project iosApp/QuataIos.xcodeproj \
+  -scheme QuataIos \
+  -sdk iphonesimulator \
+  -destination "generic/platform=iOS Simulator" \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=YES \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 ```
 
-Windows no puede enlazar los targets nativos de iOS; la compilación Wasm y Android continúa
-siendo la verificación disponible en este entorno.
+El esquema `QuataIos` incluye `QuataIosTests` y `QuataIosUITests`. Las pruebas
+actuales cubren la frontera Swift/Kotlin y el arranque seguro del host; no
+constituyen una validación funcional completa de Auth, Feed, permisos o media.
 
-## Prueba de frontera Swift/Kotlin
+## CI macOS
 
-XcodeGen crea `QuataIosUITests`. Su única prueba lanza la aplicación real y espera el identificador
-`quata-ios-migration-status` de la vista raíz del `UIViewController` Compose exportado por
-`QuataFeed.framework`; no usa repositorio, sesión ni contenido de ejemplo. En macOS, después de
-generar el proyecto y enlazar el framework, se puede ejecutar con un simulador arrancado:
+El workflow [ios-build.yml](../.github/workflows/ios-build.yml) compila los
+targets Kotlin/Native, enlaza `QuataFeed.framework`, genera el proyecto Xcode,
+construye el host Swift y ejecuta XCTest en simulador. Desde PowerShell, con la
+rama publicada y `gh auth login` hecho:
 
-```sh
-xcodebuild -project QuataIos.xcodeproj -scheme QuataIos \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
+```powershell
+.\scripts\run-ios-ci.ps1 -Ref NOMBRE_DE_RAMA
 ```
+
+El script espera el resultado y descarga los informes en
+`build-reports/ios/<run-id>`. Para comandos equivalentes, artefactos, logs y
+restricciones de la toolchain, consulta [la guía de CI iOS](../docs/IOS_CI.md).
+
+Windows no puede enlazar ni ejecutar los targets nativos de iOS; usa esa CI
+macOS para la verificación iOS y conserva la compilación Android/Wasm como gates
+locales correspondientes.
