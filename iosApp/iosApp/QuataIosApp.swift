@@ -47,8 +47,22 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
     ) -> Bool {
         notificationTapDelegate.install()
+        notificationTapDelegate.setChatDestination { [weak self] target in
+            self?.compositionRoot.openChat(
+                conversationId: target.conversationId,
+                messageId: target.messageId,
+            )
+        }
         compositionRoot.start()
         return true
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:],
+    ) -> Bool {
+        compositionRoot.handleDeepLink(url)
     }
 }
 
@@ -62,7 +76,9 @@ private final class IosAppCompositionRoot {
     private let platformServices = IosPlatformServiceComposition(
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
-    private lazy var feedHost = IosFeedHostContainerViewController(platformServices: platformServices)
+    private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
+    private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
+    private let deepLinkDispatcher = IosDeepLinkDispatcher()
     private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
         IosPublicRuntimeConfiguration.feedConfiguration()
     private lazy var runtimeBootstrap: IosFeedRuntimeBootstrap? = {
@@ -72,18 +88,28 @@ private final class IosAppCompositionRoot {
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = feedHost
+        window.rootViewController = authenticatedHost
         window.makeKeyAndVisible()
         self.window = window
+        deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
     }
 
+    func handleDeepLink(_ url: URL) -> Bool {
+        _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
+        return true
+    }
+
+    func openChat(conversationId: String, messageId: String?) {
+        authenticatedHost.showChat(conversationId: conversationId, messageId: messageId)
+    }
+
     /// Called by the iOS authenticated bootstrap once it has a real `FeedRepository` wrapped in
     /// the Kotlin dependency object. No Android repository, URL or token is created by Swift.
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
-        feedHost.installAuthenticatedFeed(dependencies)
+        authenticatedHost.installAuthenticatedFeed(dependencies)
     }
 
     @discardableResult
@@ -91,7 +117,7 @@ private final class IosAppCompositionRoot {
         guard let dependencies = runtimeBootstrap?.restoredDependencies(
             navigationMessage: "Quata para iOS",
             onOpenChats: { [weak self] in
-                self?.feedHost.presentChatsMigrationNotice()
+                self?.authenticatedHost.openChatList()
             },
         ) else { return false }
         installAuthenticatedFeed(dependencies)
@@ -116,7 +142,7 @@ private final class IosAppCompositionRoot {
                 }
             },
         )
-        feedHost.installAuthentication(dependencies)
+        authenticatedHost.installAuthentication(dependencies)
     }
 
     private func createAuthRepository(
@@ -133,11 +159,25 @@ private final class IosAppCompositionRoot {
     }
 }
 
-/// A UIKit container rather than a SwiftUI replacement screen. It can atomically replace the
-/// explicit unauthenticated Compose status controller with the shared Feed Compose controller.
-private final class IosFeedHostContainerViewController: UIViewController {
+/// Authenticated UIKit router for shared Compose feature hosts.
+///
+/// It contains no Swift screen and creates no feature repository. Factories arrive only when the
+/// launcher has real dependencies; a deep link received earlier remains pending.
+private final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
+    private var feedFactory: ((String?) -> UIViewController)?
+    private var chatFactory: ((String?, String?) -> UIViewController)?
+    private var officialFactory: ((String?) -> UIViewController)?
+    private var notificationsFactory: (() -> UIViewController)?
+    private var pendingRoute: PendingRoute?
+
+    private enum PendingRoute {
+        case feed(postId: String?)
+        case chat(conversationId: String?, messageId: String?)
+        case official(postId: String?)
+        case notifications
+    }
 
     init(platformServices: IosPlatformServiceComposition) {
         self.platformServices = platformServices
@@ -154,11 +194,15 @@ private final class IosFeedHostContainerViewController: UIViewController {
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
-        show(
-            QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies),
-            accessibilityIdentifier: "quata-ios-feed-host",
-            accessibilityLabel: "Quata iOS Feed",
-        )
+        feedFactory = { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+        renderPendingRouteIfPossible()
+        if pendingRoute == nil {
+            showFeed(postId: nil)
+        } else if let feedController = feedFactory?(nil) {
+            // A Chat/Official route can legitimately wait for its own real repository. Keep that
+            // pending identifier while returning the authenticated user to the real Feed surface.
+            showRouteController(feedController, route: .feed(postId: nil))
+        }
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
@@ -186,12 +230,84 @@ private final class IosFeedHostContainerViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    /// These factories are injected by a future real iOS repository composition. They activate
+    /// exported KMP UIViewControllers without adding a Swift replacement screen.
+    func installChatFactory(_ factory: @escaping (String?, String?) -> UIViewController) {
+        chatFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    func installOfficialFactory(_ factory: @escaping (String?) -> UIViewController) {
+        officialFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    func installNotificationsFactory(_ factory: @escaping () -> UIViewController) {
+        notificationsFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    func showFeed(postId: String?) { route(.feed(postId: postId)) }
+
+    func showChat(conversationId: String, messageId: String?) {
+        route(.chat(conversationId: conversationId, messageId: messageId))
+    }
+
+    func showOfficial(postId: String?) { route(.official(postId: postId)) }
+
+    func showNotifications() { route(.notifications) }
+
+    func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
+
     private func showMigrationStatus() {
         show(
             QuataFeedViewControllerKt.QuataIosMigrationStatusViewController(),
             accessibilityIdentifier: "quata-ios-compose-root",
             accessibilityLabel: "Quata iOS requires an authenticated Feed session",
         )
+    }
+
+    private func route(_ route: PendingRoute) {
+        guard let controller = controller(for: route) else {
+            pendingRoute = route
+            return
+        }
+        pendingRoute = nil
+        showRouteController(controller, route: route)
+    }
+
+    private func renderPendingRouteIfPossible() {
+        guard let pendingRoute, let controller = controller(for: pendingRoute) else { return }
+        self.pendingRoute = nil
+        showRouteController(controller, route: pendingRoute)
+    }
+
+    private func controller(for route: PendingRoute) -> UIViewController? {
+        switch route {
+        case let .feed(postId):
+            return feedFactory?(postId)
+        case let .chat(conversationId, messageId):
+            return chatFactory?(conversationId, messageId)
+        case let .official(postId):
+            return officialFactory?(postId)
+        case .notifications:
+            return notificationsFactory?()
+        }
+    }
+
+    private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        let presentation: (identifier: String, label: String)
+        switch route {
+        case .feed:
+            presentation = ("quata-ios-feed-host", "Quata iOS Feed")
+        case .chat:
+            presentation = ("quata-ios-chat-host", "Quata iOS Chat")
+        case .official:
+            presentation = ("quata-ios-official-host", "Quata iOS Official")
+        case .notifications:
+            presentation = ("quata-ios-notifications-host", "Quata iOS Notifications")
+        }
+        show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }
 
     private func show(
