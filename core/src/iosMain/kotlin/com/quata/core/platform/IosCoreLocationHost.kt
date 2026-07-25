@@ -154,16 +154,19 @@ private fun CLAuthorizationStatus.toLocationPermissionStatus(): PermissionStatus
 class IosCompositePermissionService(
     private val location: PermissionService,
     private val notifications: PermissionService = IosNotificationPermissionService(),
+    private val contacts: PermissionService = IosContactsPermissionService(),
 ) : PermissionService {
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.status(permission)
         PlatformPermission.Notifications -> notifications.status(permission)
+        PlatformPermission.Contacts -> contacts.status(permission)
         else -> PermissionStatus.Unavailable
     }
 
     override suspend fun request(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.request(permission)
         PlatformPermission.Notifications -> notifications.request(permission)
+        PlatformPermission.Contacts -> contacts.request(permission)
         else -> PermissionStatus.Unavailable
     }
 }
