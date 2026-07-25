@@ -19,7 +19,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # The umbrella owns Kotlin/Native exports; do not embed feature frameworks separately.
-      - framework: ../ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework
+      - framework: ../ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
         embed: true
   QuataIosUITests:
     type: bundle.ui-testing
@@ -37,7 +37,7 @@ targets:
       - path: iosAppTests
     dependencies:
       - target: QuataIos
-      - framework: ../ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework
+      - framework: ../ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
 schemes:
   QuataIos:
     build:

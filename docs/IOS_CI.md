@@ -8,12 +8,14 @@ Multiplatform desde un equipo Windows. El workflow se encuentra en
 
 1. Compila los source sets `iosArm64` e `iosSimulatorArm64` de todos los
    modulos KMP.
-2. Enlaza `QuataShared.framework` para un simulador Apple Silicon.
+2. Ensambla `QuataShared.xcframework` con slices de simulador y dispositivo.
 3. Genera el proyecto Swift mediante XcodeGen.
 4. Compila la aplicacion host `QuataIos` con Xcode y sin firma.
 5. Ejecuta `QuataIosUITests` en simulador: verifica que Swift presenta la superficie Compose
    exportada por `QuataShared.framework` mediante su identificador de accesibilidad.
-6. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
+6. Crea un archive genérico de dispositivo sin firma, separado de XCTest, y
+   comprueba que embebe `QuataShared.framework`.
+7. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
    estructurado `xctest-summary.json` durante 30 dias.
 
 La fase de simulador tiene watchdogs independientes del límite global del
@@ -134,6 +136,8 @@ xcodebuild \
   build
 ```
 
-La Action compila, pero no firma ni publica una aplicacion. Para generar un
-IPA distribuible sera necesario configurar el equipo de Apple Developer,
-certificados y perfiles de aprovisionamiento como una fase independiente.
+La Action compila y crea un `.xcarchive` estructural sin firma; no firma ni
+publica una aplicacion y no genera IPA. Para generar un IPA distribuible sera
+necesario configurar el equipo de Apple Developer, certificados y perfiles de
+aprovisionamiento como una fase independiente. Vease
+[`IOS_UNSIGNED_ARCHIVE.md`](IOS_UNSIGNED_ARCHIVE.md) para alcance y comandos.

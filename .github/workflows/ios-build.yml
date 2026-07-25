@@ -189,6 +189,17 @@ jobs:
             --console=plain \
             2>&1 | tee build/reports/ios/framework-link.log
 
+      - name: Assemble QuataShared XCFramework
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :ios-shared:assembleQuataSharedDebugXCFramework \
+            --stacktrace \
+            --warning-mode all \
+            --console=plain \
+            2>&1 | tee build/reports/ios/xcframework.log
+
       - name: Generate Xcode project
         working-directory: iosApp
         run: xcodegen generate
@@ -311,6 +322,16 @@ jobs:
               > build/reports/ios/simulator-name-after-test.log 2>&1 || true
           fi
 
+      # Archive is deliberately after XCTest: an archive problem must not hide
+      # the independent simulator boundary result in this same CI run.
+      - name: Validate unsigned generic-device archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/reports/ios/QuataIos-unsigned.xcarchive build/ios-archive-derived-data
+          bash scripts/archive-ios-unsigned.sh \
+            2>&1 | tee build/reports/ios/xcodebuild-archive-unsigned.log
+
       - name: Write report summary
         if: always()
         shell: bash
@@ -327,6 +348,7 @@ jobs:
             echo "- Xcode: \`26.3\`"
             echo "- Kotlin targets: device ARM64 and simulator ARM64"
             echo "- Swift host: \`QuataIos\` for the iOS Simulator"
+            echo "- Generic-device archive: unsigned structural validation only (not IPA/export/distribution)"
             echo "- UI test: Swift host presents the exported Compose migration surface"
             echo "- Result bundles: \`QuataIos.xcresult\`, \`QuataIos-tests.xcresult\`"
             echo
@@ -340,6 +362,12 @@ jobs:
               echo "### Last UI test diagnostics"
               echo '```text'
               grep -E "error:|warning:|TEST (SUCCEEDED|FAILED)" build/reports/ios/xcodebuild-tests.log | tail -n 80 || true
+              echo '```'
+            fi
+            if [[ -f build/reports/ios/xcodebuild-archive-unsigned.log ]]; then
+              echo "### Unsigned generic-device archive diagnostics"
+              echo '```text'
+              grep -E "error:|warning:|ARCHIVE (SUCCEEDED|FAILED)|BUILD (SUCCEEDED|FAILED)" build/reports/ios/xcodebuild-archive-unsigned.log | tail -n 80 || true
               echo '```'
             fi
             if [[ -f build/reports/ios/xctest-summary.json ]]; then
@@ -373,6 +401,7 @@ jobs:
           path: |
             build/reports/ios/
             iosApp/QuataIos.xcodeproj/
-            ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework/
+            ios-shared/build/XCFrameworks/debug/QuataShared.xcframework/
+            build/reports/ios/QuataIos-unsigned.xcarchive/
           if-no-files-found: warn
           retention-days: 30

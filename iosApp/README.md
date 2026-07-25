@@ -3,11 +3,11 @@
 `iosApp` es el borde UIKit de Quata para iOS. No contiene pantallas Swift de
 sustitución ni repositorios de ejemplo: el estado, ViewModels y UI de Auth y
 Feed proceden de los módulos Compose/Kotlin compartidos exportados por
-`QuataShared.framework`.
+`QuataShared.xcframework`.
 
 ## Frontera de framework
 
-`iosApp` embebe exclusivamente `QuataShared.framework`, producido por
+`iosApp` embebe exclusivamente `QuataShared.xcframework`, producido por
 `:ios-shared`. El módulo paraguas exporta las superficies Kotlin que el host
 usa hoy (`:core`, Auth, Feed, Chat y Notifications) y no contiene pantallas,
 navegación ni repositorios. Los nombres de las fachadas Kotlin, como
@@ -68,7 +68,7 @@ módulos Kotlin/Native se ejecuta en la CI macOS descrita más abajo. Desde la
 raíz del repositorio:
 
 ```bash
-./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
+./gradlew :ios-shared:assembleQuataSharedDebugXCFramework
 brew install xcodegen
 cd iosApp
 xcodegen generate
@@ -93,7 +93,7 @@ validación funcional completa de Auth, Feed, permisos o media.
 ## CI macOS
 
 El workflow [ios-build.yml](../.github/workflows/ios-build.yml) compila los
-targets Kotlin/Native, enlaza `QuataShared.framework`, genera el proyecto Xcode,
+targets Kotlin/Native, ensambla `QuataShared.xcframework`, genera el proyecto Xcode,
 construye el host Swift y ejecuta XCTest en simulador. Desde PowerShell, con la
 rama publicada y `gh auth login` hecho:
 
@@ -108,3 +108,12 @@ restricciones de la toolchain, consulta [la guía de CI iOS](../docs/IOS_CI.md).
 Windows no puede enlazar ni ejecutar los targets nativos de iOS; usa esa CI
 macOS para la verificación iOS y conserva la compilación Android/Wasm como gates
 locales correspondientes.
+
+## Archive genérico sin firma
+
+En macOS, `bash scripts/archive-ios-unsigned.sh` valida por separado que el
+host y la slice `iosArm64` de `QuataShared.xcframework` forman un
+`.xcarchive` para `generic/platform=iOS`. No ejecuta XCTest, no genera un IPA
+y no firma ni distribuye una aplicación. Consulta
+[`IOS_UNSIGNED_ARCHIVE.md`](../docs/IOS_UNSIGNED_ARCHIVE.md) para los límites
+de firma, provisioning y dispositivo físico que siguen pendientes.
