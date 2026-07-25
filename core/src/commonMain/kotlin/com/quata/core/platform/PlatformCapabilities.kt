@@ -2,6 +2,12 @@ package com.quata.core.platform
 
 /** Platform capabilities injected into shared presentation and use cases. */
 expect class PlatformCamera() { fun isAvailable(): Boolean }
+
+/**
+ * Reports whether this platform exposes a potential clipboard implementation, not whether a
+ * particular read or write is currently permitted. Browser clipboard access can still require a
+ * secure context, an active user gesture, or an approval granted by the browser.
+ */
 expect class PlatformClipboard() { fun isAvailable(): Boolean }
 expect class PlatformShare() { fun isAvailable(): Boolean }
 expect class PlatformNotifications() { fun isAvailable(): Boolean }

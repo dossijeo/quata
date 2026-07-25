@@ -16,7 +16,11 @@ private fun browserCameraAvailable(): Boolean =
     js("typeof globalThis.navigator?.mediaDevices?.getUserMedia === 'function'")
 
 private fun browserClipboardAvailable(): Boolean =
-    js("typeof globalThis.navigator?.clipboard?.writeText === 'function'")
+    js(
+        "typeof globalThis.navigator?.clipboard?.writeText === 'function' || " +
+            "(typeof globalThis.document?.createElement === 'function' && " +
+            "typeof globalThis.document?.execCommand === 'function')"
+    )
 
 private fun browserShareAvailable(): Boolean =
     js("typeof globalThis.navigator?.share === 'function'")
