@@ -49,8 +49,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -142,10 +140,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataResolvedTheme
-import com.quata.core.designsystem.theme.QuataThemeTemplate
-import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
@@ -904,49 +898,6 @@ private fun ExoPlayer.setFeedAudioEnabled(enabled: Boolean) {
         .buildUpon()
         .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
         .build()
-}
-
-@Composable
-private fun ReelScrims(showTopScrim: Boolean) {
-    ReelScrimContent(showTopScrim, Modifier.fillMaxSize())
-}
-
-@Composable
-private fun ReelTopChips(
-    documentText: String?,
-    mediaBadgeText: String,
-    isVideo: Boolean
-) {
-    ReelTopChipsContent(documentText, mediaBadgeText, isVideo, locationLabel = { stringResource(R.string.feed_location_chip, it) })
-}
-
-@Composable
-private fun ReelRoundChip(
-    isMuted: Boolean,
-    onClick: () -> Unit
-) {
-    val template = quataTheme()
-    ReelRoundActionContent(onClick = onClick, icon = {
-        CompactIcon(
-            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-            contentDescription = if (isMuted) {
-                stringResource(R.string.feed_unmute)
-            } else {
-                stringResource(R.string.feed_mute)
-            },
-            tint = template.colors.live,
-            modifier = Modifier.size(24.dp)
-        )
-    })
-}
-
-@Composable
-private fun ReelChip(
-    text: String,
-    highlighted: Boolean = false,
-    onClick: (() -> Unit)? = null
-) {
-    ReelChipContent(text, highlighted, onClick)
 }
 
 private data class PostRankingInfo(

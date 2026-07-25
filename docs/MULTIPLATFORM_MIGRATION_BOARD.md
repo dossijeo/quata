@@ -122,45 +122,21 @@ el inventario sólo con evidencia del SHA validado.
 
 | ID | Prioridad | Entrega acotada | Dependencia | Estado | Salida verificable |
 | --- | --- | --- | --- | --- | --- |
-| MP-A10 | P1 | Reducir duplicación Android en una única vertical ya adoptada (Feed o Profile): inventariar UI/estado común realmente consumido por `:app`, retirar sólo la implementación desplazada y añadir regresión. | MP-A09 métricas; compile/assemble y emulador API-37. | Pausada por bloqueo de arranque | Bajo presión de CPU en API-37, el baseline `0fc97b1` y el candidato MP-A10 `3ec11c7` reproducen un ANR antes de que haya evidencia de ciclo de vida de `MainActivity`. No se atribuye a esta migración: afecta también al baseline. La siguiente unidad segura es instrumentar el arranque sin cambio funcional; no retirar adaptadores ni continuar eliminando UI hasta aislarlo. |
+| MP-A10 | P1 | Reducir duplicación Android en una única vertical ya adoptada (Feed o Profile): inventariar UI/estado común realmente consumido por `:app`, retirar sólo la implementación desplazada y añadir regresión. | MP-A09 métricas; compile/assemble y emulador API-37. | Integrada | `ac9f6e0`: Feed retiró cuatro wrappers privados sin llamadas (`ReelScrims`, `ReelTopChips`, `ReelRoundChip`, `ReelChip`) que sólo redirigían a componentes comunes. Media3, Coil, recursos, navegación y Lifecycle permanecen Android. `:app:compileDebugKotlin` y `:app:assembleDebug` pasaron; tras reiniciar API-37, instalación/arranque frío tardó 3,04 s, mantuvo PID y el buffer crash quedó vacío. El ANR previo se reprodujo también en baseline bajo presión de CPU y no se atribuye a esta migración. |
 | MP-A11 | P1 | Convergencia de transporte en una vertical remota (Feed u Official): mover wire models, mapping, errores, paginación y caso de uso a `commonMain`; mantener HTTP/fetch/URLSession y secretos en adaptadores. | SB-01 confirma contratos; no cambios RLS/DDL. | Parcial integrada | `2dbd309`: el mapeo escalar Feed a DTO es común en `FEED_TRANSPORT_CONVERGENCE.md`, preservando los errores de respuesta incompleta propios de Web/iOS. `:feature:feed:compileKotlinWasmJs`, `:web:compileKotlinWasmJs`, `:feature:feed:wasmJsTest` y `:app:compileDebugKotlin` pasaron; CI iOS exacta #30165185499 pasó (Kotlin, framework, Xcode, XCTest). Los `select` y errores HTTP/RLS no equivalentes esperan SB-01/SB-03; E2E sigue pendiente de entorno. |
 | MP-A12 | P1 | Cerrar la vertical iOS siguiente a Official/Notifications: Profile/SOS, con ruta autenticada, back/deep link y estados de error desde el shell; sin datos Swift de ejemplo. | MP-A04 Official/Notifications integrado; permisos/contactos reales se prueban aparte. | Integrado, límites explícitos | `4e18882`: Profile/SOS se exporta por `QuataShared`, reutiliza Keychain y el gateway PostgREST de lectura, y la factory queda diferida hasta haber sesión/configuración. CI iOS exacta #30166431406 verde (Kotlin, framework, Xcode, XCTest/UI); XCTest cubre cola/factory de ruta. No existe deep link público Profile/SOS; las mutaciones, RLS/E2E, avatar y resolución agenda→perfil continúan fuera del alcance verificado. |
 | MP-A13 | P1 | Cerrar la fase 2 Web Wasm: aplicar presupuesto revisable de bundle, medir arranque/memoria en navegador y resolver deprecaciones restantes sin suprimir warnings globalmente. | MP-A07 fase 1 integrada; no retirar DocMentis por tamaño sin decisión de producto. | Parcial, evidencia local | En `eb41be9`, `:web:wasmJsBrowserDistribution --no-daemon --console=plain` y el smoke Chrome real con DocMentis pasaron. El inventario emitido fue 35,29 MiB (13,55 MiB gzip; DocMentis 18,77 MiB, Skiko 8,24 MiB, app 5,58 MiB). El informe local del mismo SHA mide Auth frío 1.026 ms y heap JS 7,94 MiB en Chrome 150; no es SLO móvil. `wasm-bundle-budget.json` sigue `proposed`, sin baseline versionado ni gate activo. Siguen pendientes runner controlado, baseline aprobado y los avisos Gradle de resolución durante configuración. |
 | MP-A14 | P1 | Reconciliar documentación operativa con checks: generar/actualizar evidencia de SHA para iOS, Wasm y hosts, y marcar explícitamente qué es smoke frente a E2E. | MP-A05 y cada CI exacta. | Pendiente | No queda documento que declare verde un SHA distinto del acreditado; enlaces a run/artefacto/commit y límites funcionales visibles. |
 
-### Bloqueo operativo Android de arranque (API-37)
+### Validación Android de arranque (API-37)
 
-La reducción de duplicación de Feed queda pausada, no revertida. En el ejercicio
-controlado del emulador API-37 bajo presión de CPU se observó el mismo ANR durante
-el arranque de proceso tanto en el baseline `0fc97b1` como en el candidato
-`3ec11c7`. El log disponible sitúa el fallo antes de evidencia de que
-`com.quata/.MainActivity` haya iniciado su ciclo de vida; por ello no prueba una
-regresión de MP-A10 ni de la modularización.
-
-Comandos de la parte registrada de la comprobación (la presión de CPU es estado
-controlado del emulador y debe anotarse explícitamente en la próxima captura):
-
-```powershell
-$adb='C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe'
-& $adb logcat -c
-& $adb shell am force-stop com.quata
-& $adb shell am start -W -n com.quata/.MainActivity
-Start-Sleep -Seconds 4
-& $adb logcat -d -b all
-& $adb shell pidof com.quata
-```
-
-Hipótesis aún no demostradas: el `androidx.startup` automatic initializer de
-WorkManager bajo presión de CPU y construcción DI eager de proceso. La variante
-de inicialización manual de WorkManager se descartó como solución: dejaría sin
-soporte los trabajos headless. No se debe convertir ninguna de esas hipótesis en
-cambio funcional ni en atribución causal sin trazas de arranque.
-
-**Siguiente unidad segura:** añadir instrumentación acotada de fases de arranque
-(proceso, inicializadores, DI y entrada de `MainActivity`) y capturar logcat/ANR
-para ambos SHAs bajo la misma carga. Debe conservar WorkManager automático y los
-jobs headless, no eliminar código migrado y cerrar con assemble + instalación y
-arranque API-37 antes de retomar MP-A10.
+El ANR observado antes de integrar MP-A10 se reprodujo también sobre el baseline
+cuando el emulador estaba bajo presión de CPU; no hubo evidencia que lo atribuyera
+a los wrappers Feed. Tras reiniciar API-37, la validación exacta de `ac9f6e0`
+instaló el APK, inició `com.quata/.MainActivity` en frío en 3,04 s, conservó el
+PID tras diez segundos y dejó vacío el buffer `crash`. Esta evidencia valida el
+corte; no convierte la observación previa de rendimiento del emulador en un
+problema funcional ni elimina WorkManager o DI.
 
 ## Unidades pendientes verificables
 
