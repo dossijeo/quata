@@ -107,3 +107,27 @@ en vez de reutilizar sus ramas efímeras.
 3. Publicación: PR a `main`; CI iOS se dispara por `pull_request`, no por `push` de `codex/**`.
 4. Merge: sólo después de checks verdes o del ICE conocido documentado con compilación equivalente verde.
 5. Limpieza: tras merge verde, eliminar branch remota y worktree; una rama nunca se reutiliza para otra feature.
+
+## Carril de validación Supabase
+
+La validación contra Supabase es un trabajo independiente de la extracción de
+código: puede ejecutarse en paralelo y no autoriza cambios de esquema,
+migraciones, tablas, funciones ni `db push`. Usa exclusivamente usuarios y datos
+efímeros identificables, una transacción de limpieza y una comprobación final de
+que no quedan filas creadas por el lote. No registrar secretos, URLs de conexión
+ni tokens en este repositorio, logs o informes.
+
+| Área de prueba | Estado | Alcance y evidencia requerida |
+| --- | --- | --- |
+| Conectividad y catálogo de contratos | Pendiente | Consulta de solo lectura para confirmar tablas, RPC y políticas que consumen los repositorios KMP; registrar nombres de contrato y resultado, nunca credenciales. |
+| Auth y restauración de sesión | Pendiente | Crear usuario de prueba, login/logout/restauración desde los adaptadores Web/iOS cuando el runtime esté configurado y borrar el usuario/datos dependientes. |
+| Feed y Official de lectura | Pendiente | Crear post efímero por la ruta permitida, leerlo con los repositorios compartidos y eliminarlo; verificar RLS tanto autenticado como anónimo cuando aplique. |
+| Chat y adjuntos | Pendiente | Dos usuarios efímeros, conversación, mensaje y adjunto permitido; comprobar transporte KMP, descarga sin cabeceras privilegiadas y limpieza de objeto/filas. |
+| Profile/SOS | Pendiente | Perfil y hasta cinco contactos SOS efímeros, prueba de patch/normalización y restauración del estado previo o borrado completo. |
+| Communities/comentarios | Pendiente | Validar el contrato por `postId`, RLS y mutación antes de habilitar Web; crear y eliminar comentario de prueba en la misma transacción lógica. |
+| Notificaciones/push | Bloqueado externo | Las credenciales de APNs/Web Push/FCM y el dispositivo registrado son necesarios; mientras falten, sólo validar el repositorio y deep links con datos efímeros. |
+
+Al cerrar una fila se debe anotar: commit validado, fecha, adaptador/plataforma,
+casos ejecutados, identificadores efímeros ya eliminados y resultado de la
+verificación de limpieza. Un fallo abre una unidad de corrección separada; no se
+oculta como una prueba satisfactoria.
