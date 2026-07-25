@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import shlex
 import signal
 import subprocess
 import sys
@@ -69,20 +70,26 @@ def main() -> int:
     with args.log.open("w", encoding="utf-8") as log:
         log.write(
             "Watchdog command (timeout={}s): {}\n".format(
-                args.timeout_seconds, " ".join(command)
+                args.timeout_seconds, shlex.join(command)
             )
         )
         log.flush()
         # start_new_session gives the command a distinct PGID.  The timeout
         # handling below can therefore never signal the Actions shell.
-        process = subprocess.Popen(
-            command,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
         try:
-            return process.wait(timeout=args.timeout_seconds)
+            process = subprocess.Popen(
+                command,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        except OSError as error:
+            log.write(f"WATCHDOG LAUNCH FAILURE: {error}\n")
+            return 125
+        try:
+            exit_code = process.wait(timeout=args.timeout_seconds)
+            log.write(f"Watchdog command completed with exit code {exit_code}.\n")
+            return exit_code
         except subprocess.TimeoutExpired:
             log.write(
                 "\nWATCHDOG TIMEOUT: command exceeded {} seconds; "

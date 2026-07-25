@@ -16,12 +16,13 @@ Multiplatform desde un equipo Windows. El workflow se encuentra en
 6. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
    estructurado `xctest-summary.json` durante 30 dias.
 
-La fase de simulador tiene dos watchdogs independientes del límite global del
-job: tres minutos para `simctl bootstatus` y veinte para `xcodebuild test`.
+La fase de simulador tiene watchdogs independientes del límite global del
+job: un minuto para `simctl boot`, tres minutos para `simctl bootstatus` y
+veinte para `xcodebuild test`.
 El watchdog inicia cada comando en una sesión de procesos propia; al vencer el
 límite registra `ps` en su log, envía `SIGTERM` a ese grupo y, sólo tras 30
-segundos, `SIGKILL`. El artefacto conserva `simctl-bootstatus.log`,
-`xcodebuild-tests.log` y cualquier `.xcresult` ya creado. El código 124
+segundos, `SIGKILL`. El artefacto conserva `simctl-boot.log`,
+`simctl-bootstatus.log`, `xcodebuild-tests.log` y cualquier `.xcresult` ya creado. El código 124
 identifica explícitamente un timeout, sin convertirlo en éxito ni ocultar un
 fallo de XCTest.
 

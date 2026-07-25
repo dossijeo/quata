@@ -213,27 +213,74 @@ jobs:
             build \
             2>&1 | tee build/reports/ios/xcodebuild.log
 
+      # Keep simulator boot separate from XCTest. The first iOS 26.2 boot performs data
+      # migrations; watchdog logs distinguish that failure from a test failure.
+      - name: Boot test simulator
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          echo "Booting the simulator created for this job: $simulator_udid"
+          # A non-zero boot commonly means the device is already booted. A
+          # watchdog timeout is different: fail with its process snapshot.
+          if run_watchdog 60 build/reports/ios/simctl-boot.log \
+            xcrun simctl boot "$simulator_udid"; then
+            :
+          else
+            boot_status=$?
+            if [[ "$boot_status" -eq 124 ]]; then
+              exit "$boot_status"
+            fi
+            echo "simctl boot exited $boot_status; verifying its current boot status."
+          fi
+          run_watchdog 180 build/reports/ios/simctl-bootstatus.log \
+            xcrun simctl bootstatus "$simulator_udid" -b
+          xcrun simctl list devices -j > build/reports/ios/simulator-devices-after-boot.json
+
       - name: Test Swift/Kotlin iOS host boundary
+        # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
+        timeout-minutes: 22
         shell: bash
         run: |
           set -euo pipefail
           simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
           destination="platform=iOS Simulator,id=$simulator_udid"
-          echo "Testing on the simulator created for this job: $simulator_udid"
-          xcrun simctl boot "$simulator_udid" || true
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          echo "Testing on the booted simulator: $simulator_udid"
           rm -rf build/reports/ios/QuataIos-tests.xcresult
-          # The job timeout is a final guard only. Booting and XCTest use
-          # individual watchdogs so a CoreSimulator or xcodebuild deadlock
-          # yields a log and retained .xcresult instead of consuming 60 min.
-          python3 scripts/run-ios-command-watchdog.py \
-            --timeout-seconds 180 \
-            --log build/reports/ios/simctl-bootstatus.log \
-            -- xcrun simctl bootstatus "$simulator_udid" -b
-          cat build/reports/ios/simctl-bootstatus.log
-          python3 scripts/run-ios-command-watchdog.py \
-            --timeout-seconds 1200 \
-            --log build/reports/ios/xcodebuild-tests.log \
-            -- xcodebuild \
+          run_watchdog 1200 build/reports/ios/xcodebuild-tests.log xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
             -configuration Debug \
@@ -245,8 +292,24 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 \
+            -maximum-test-execution-time-allowance 180 \
             test
-          cat build/reports/ios/xcodebuild-tests.log
+
+      - name: Capture simulator diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/ios
+          xcrun simctl list devices -j > build/reports/ios/simulator-devices-after-test.json || true
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:-}"
+          if [[ -n "$simulator_udid" ]]; then
+            xcrun simctl getenv "$simulator_udid" SIMULATOR_DEVICE_NAME \
+              > build/reports/ios/simulator-name-after-test.log 2>&1 || true
+          fi
 
       - name: Write report summary
         if: always()
