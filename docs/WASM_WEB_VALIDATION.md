@@ -15,6 +15,13 @@ JavaScript al empaquetar Wasm.
 
 ## Smoke de navegador
 
+El lote integrado `a0d77ab` ejecutó esta secuencia con resultado verde: bundle
+`wasmJsBrowserDistribution`, smoke de Chrome para rutas no autenticadas y
+ensamblado Android. El mismo lote alineó el CI iOS con Kotlin/Native `2.2.21` y
+Xcode `26.3`; la compilación/enlace/host Swift/XCTest de macOS fue verde. Esta
+evidencia es de arquitectura y lanzamiento local: no cubre login ni Supabase
+remoto y no autoriza declarar Web o iOS completos.
+
 Compose 1.10 monta su canvas bajo `#quata-root.shadowRoot`; por eso el smoke
 debe aceptar tanto el arbol ligero como el Shadow DOM. El script tambien
 recoge excepciones, errores de red y logs de Chrome, ignora solo el aviso WebGL

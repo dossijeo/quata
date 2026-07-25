@@ -16,14 +16,15 @@ Multiplatform desde un equipo Windows. El workflow se encuentra en
 6. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
    estructurado `xctest-summary.json` durante 30 dias.
 
-La compilacion usa `macos-15`, JDK 17 y Xcode 16.3. Esto evita que una
-actualizacion silenciosa de Xcode cambie el resultado de la migracion.
+La compilacion usa `macos-15`, JDK 17 y Xcode 26.3. Kotlin/Native `2.2.21`
+incluye bibliotecas de plataforma generadas para Xcode 26; usar Xcode 16.3
+haría fallar el enlace al no resolver `_LocationEssentials`. El workflow fija
+además el runtime iOS 26.2 para que el resultado sea reproducible.
 
-> Kotlin `2.2.10` declara compatibilidad con Xcode 16.3, Gradle hasta 8.14
-> y AGP hasta 8.10. El proyecto usa actualmente Gradle 9.3.1 y AGP 9.1.0.
-> La Action conserva esas versiones reales para detectar si la diferencia
-> ya supone un bloqueo, en vez de ocultarla con una toolchain distinta a la
-> utilizada por Android.
+> El proyecto usa Kotlin/Compose Compiler/serialization `2.2.21`, Compose
+> Multiplatform `1.10.0`, Gradle 9.3.1 y AGP 9.1.0. La Action conserva esas
+> versiones reales para detectar incompatibilidades de toolchain sin ocultarlas
+> con una configuración distinta a la utilizada por Android.
 
 ## Lanzar y descargar el informe desde PowerShell
 
