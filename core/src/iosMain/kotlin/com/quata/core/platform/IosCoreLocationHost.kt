@@ -154,6 +154,7 @@ private fun CLAuthorizationStatus.toLocationPermissionStatus(): PermissionStatus
 class IosCompositePermissionService(
     private val location: PermissionService,
     private val camera: PermissionService = IosCameraPermissionService(),
+    private val photos: PermissionService = IosPhotosPermissionService(),
     private val notifications: PermissionService = IosNotificationPermissionService(),
     private val contacts: PermissionService = IosContactsPermissionService(),
     private val microphone: PermissionService = IosMicrophonePermissionService(),
@@ -161,6 +162,7 @@ class IosCompositePermissionService(
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.status(permission)
         PlatformPermission.Camera -> camera.status(permission)
+        PlatformPermission.Photos -> photos.status(permission)
         PlatformPermission.Notifications -> notifications.status(permission)
         PlatformPermission.Contacts -> contacts.status(permission)
         PlatformPermission.Microphone -> microphone.status(permission)
@@ -170,6 +172,7 @@ class IosCompositePermissionService(
     override suspend fun request(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.request(permission)
         PlatformPermission.Camera -> camera.request(permission)
+        PlatformPermission.Photos -> photos.request(permission)
         PlatformPermission.Notifications -> notifications.request(permission)
         PlatformPermission.Contacts -> contacts.request(permission)
         PlatformPermission.Microphone -> microphone.request(permission)

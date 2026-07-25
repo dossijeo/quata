@@ -5,8 +5,8 @@ package com.quata.core.platform
  *
  * The UIKit/SwiftUI launcher may replace any service with a host-backed implementation while
  * keeping common features independent from UIKit. Location remains unsupported until a Core
- * Location host is attached. Camera, notifications, contacts, and microphone use real system
- * permission adapters; microphone authorization is provided by AVAudioSession while audio
+ * Location host is attached. Camera, Photos, notifications, contacts, and microphone use real
+ * system permission adapters; microphone authorization is provided by AVAudioSession while audio
  * recording remains a separate host. Every other permission remains explicitly unavailable until
  * its iOS policy/host is implemented.
  */
