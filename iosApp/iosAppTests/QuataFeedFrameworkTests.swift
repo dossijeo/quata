@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 import QuataFeed
 @testable import QuataIos
 import QuickLookThumbnailing
@@ -7,6 +8,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testExportsComposeMigrationViewController() {
         let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
 
+        controller.loadViewIfNeeded()
+
+        XCTAssertTrue(controller.isViewLoaded)
         XCTAssertNotNil(controller.view)
     }
 
@@ -65,5 +69,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // Do not generate an asset in XCTest: Quick Look's decoding varies with simulator files.
         // This still proves that the real system API used by IosDocumentThumbnailService is linked.
         XCTAssertNotNil(QLThumbnailGenerator.shared)
+    }
+
+    func testExportedComposeControllerSupportsUIKitContainment() {
+        let host = UIViewController()
+        host.loadViewIfNeeded()
+        let composeController = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
+
+        host.addChild(composeController)
+        composeController.view.frame = host.view.bounds
+        host.view.addSubview(composeController.view)
+        composeController.didMove(toParent: host)
+
+        XCTAssertTrue(host.children.contains { $0 === composeController })
+        XCTAssertTrue(composeController.parent === host)
+        XCTAssertTrue(composeController.view.superview === host.view)
+
+        composeController.willMove(toParent: nil)
+        composeController.view.removeFromSuperview()
+        composeController.removeFromParent()
+
+        XCTAssertFalse(host.children.contains { $0 === composeController })
+        XCTAssertNil(composeController.parent)
     }
 }
