@@ -30,7 +30,7 @@ data class ExternalShareDestinationStrings(
     val sending: String,
     val close: String,
     val payloadTextLabel: String,
-    val attachmentsLabel: (Int) -> String,
+    val attachmentsLabel: @Composable (Int) -> String,
     val picker: ConversationCandidatePickerStrings,
     val sendContentDescription: String,
 )
@@ -53,8 +53,13 @@ fun ExternalShareDestinationHostContent(
     onOpenAttachment: (ExternalShareAttachment) -> Unit,
     modifier: Modifier = Modifier,
     inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit = { _, _ -> },
+    viewModelFactory: (ExternalSharePayload, ChatRepository) -> ShareToQuataViewModel = { sharePayload, chatRepository ->
+        ShareToQuataViewModel(chatRepository, sharePayload)
+    },
 ) {
-    val viewModel = remember(payload.id, repository) { ShareToQuataViewModel(repository, payload) }
+    // The host may supply localized presentation transforms while the lifecycle and state remain
+    // portable. This keeps Context and platform ViewModel types outside commonMain.
+    val viewModel = remember(payload.id, repository) { viewModelFactory(payload, repository) }
     val state by viewModel.uiState.collectAsState()
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
     LaunchedEffect(state.isComplete) {
@@ -133,7 +138,7 @@ fun ExternalShareDestinationHostContent(
 fun ExternalSharePayloadPreviewContent(
     payload: ExternalSharePayload,
     textLabel: String,
-    attachmentsLabel: (Int) -> String,
+    attachmentsLabel: @Composable (Int) -> String,
     attachmentContent: @Composable (ExternalShareAttachment, Modifier, () -> Unit) -> Unit,
     onOpenAttachment: (ExternalShareAttachment) -> Unit,
     modifier: Modifier = Modifier,
