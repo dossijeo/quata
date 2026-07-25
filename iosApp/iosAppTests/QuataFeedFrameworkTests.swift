@@ -1,4 +1,5 @@
 import XCTest
+import Foundation
 import UIKit
 import QuickLook
 import QuataFeed
@@ -6,8 +7,27 @@ import QuataFeed
 import QuickLookThumbnailing
 import AVFoundation
 import CoreLocation
+import Security
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
+        // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
+        // A unique namespace avoids observing or modifying the authenticated app session.
+        let storage = IosKeychainSessionStorage(
+            service: "com.quata.tests.keychain-bridge.\(UUID().uuidString)",
+            account: "missing-session",
+        )
+        defer { storage.clear() }
+
+        XCTAssertNil(storage.getSession())
+        // The CI simulator test bundle has no Keychain entitlement. A real signed host returns
+        // errSecItemNotFound for this namespace; both outcomes prove that the Kotlin/CF bridge
+        // handed Security a valid CFDictionary instead of dereferencing Kotlin heap memory.
+        if let status = storage.lastStatus {
+            XCTAssertEqual(OSStatus(status.intValue), errSecMissingEntitlement)
+        }
+    }
+
     func testExportsComposeMigrationViewController() {
         let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
 

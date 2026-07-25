@@ -1,7 +1,9 @@
 package com.quata.core.preferences
 
 import com.quata.core.model.AuthSession
+import kotlinx.cinterop.COpaque
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -11,10 +13,16 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
+import platform.CoreFoundation.CFDataRef
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFDataCreate
-import platform.CoreFoundation.CFDataRef
+import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFStringCreateWithCString
+import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFStringEncodingUTF8
 import platform.Foundation.NSData
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
@@ -51,33 +59,42 @@ class IosKeychainSessionStorage(
 
     override fun saveSession(session: AuthSession) {
         val data = session.toKeychainPayload().toKeychainData()
-        val update = mapOf<Any?, Any?>(kSecValueData to data)
-        val updated = SecItemUpdate(baseQuery().asCfDictionary(), update.asCfDictionary())
-        lastStatus = when (updated) {
-            errSecSuccess -> null
-            errSecItemNotFound -> {
-                val added = SecItemAdd(
-                    (baseQuery() + mapOf(
-                        kSecValueData to data,
-                        kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                    )).asCfDictionary(),
-                    null,
-                )
-                added.takeUnless { it == errSecSuccess }
+        try {
+            lastStatus = withBaseQuery { query ->
+                withKeychainDictionary(listOf(keychainEntry(kSecValueData, data))) { attributes ->
+                    when (val updated = SecItemUpdate(query, attributes)) {
+                        errSecSuccess -> null
+                        errSecItemNotFound -> withBaseQuery(
+                            listOf(
+                                keychainEntry(kSecValueData, data),
+                                keychainEntry(
+                                    kSecAttrAccessible,
+                                    kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                                ),
+                            ),
+                        ) { addAttributes ->
+                            SecItemAdd(addAttributes, null).takeUnless { it == errSecSuccess }
+                        }
+                        else -> updated
+                    }
+                }
             }
-            else -> updated
+        } finally {
+            // CFDataCreate follows Create Rule; Security has synchronously consumed it now.
+            CFRelease(data)
         }
     }
 
     override fun getSession(): AuthSession? = memScoped {
         val result = alloc<ObjCObjectVar<Any?>>()
-        val status = SecItemCopyMatching(
-            (baseQuery() + mapOf(
-                kSecReturnData to kCFBooleanTrue,
-                kSecMatchLimit to kSecMatchLimitOne,
-            )).asCfDictionary(),
-            result.ptr.reinterpret(),
-        )
+        val status = withBaseQuery(
+            listOf(
+                keychainEntry(kSecReturnData, kCFBooleanTrue),
+                keychainEntry(kSecMatchLimit, kSecMatchLimitOne),
+            ),
+        ) { query ->
+            SecItemCopyMatching(query, result.ptr.reinterpret())
+        }
         if (status != errSecSuccess) {
             lastStatus = status.takeUnless { it == errSecItemNotFound }
             return@memScoped null
@@ -97,32 +114,96 @@ class IosKeychainSessionStorage(
     }
 
     override fun clear() {
-        val status = SecItemDelete(baseQuery().asCfDictionary())
+        val status = withBaseQuery { query ->
+            SecItemDelete(query)
+        }
         lastStatus = when (status) {
             errSecSuccess, errSecItemNotFound -> null
             else -> status
         }
     }
 
-    private fun baseQuery(): Map<Any?, Any?> = mapOf(
-        kSecClass to kSecClassGenericPassword,
-        kSecAttrService to service,
-        kSecAttrAccount to account,
-    )
+    private inline fun <T> withBaseQuery(
+        extraEntries: List<KeychainDictionaryEntry> = emptyList(),
+        block: (CFDictionaryRef) -> T,
+    ): T = memScoped {
+        val serviceRef = service.toKeychainString()
+        val accountRef = account.toKeychainString()
+        try {
+            withKeychainDictionary(
+                listOf(
+                    keychainEntry(kSecClass, kSecClassGenericPassword),
+                    keychainEntry(kSecAttrService, serviceRef),
+                    keychainEntry(kSecAttrAccount, accountRef),
+                ) + extraEntries,
+                block,
+            )
+        } finally {
+            CFRelease(serviceRef)
+            CFRelease(accountRef)
+        }
+    }
 }
 
+/**
+ * Creates a real Core Foundation dictionary for exactly one synchronous Security call.
+ *
+ * A Kotlin [Map] is not a `CFDictionaryRef`: casting it to a native pointer leaves Security
+ * dereferencing Kotlin heap memory. This uses `CFDictionaryCreateMutable` and inserts only Core
+ * Foundation objects through `CFDictionaryAddValue`. The dictionary has no callbacks because all
+ * inserted objects are held explicitly until the synchronous Security call has returned.
+ */
 @OptIn(ExperimentalForeignApi::class)
-private fun Map<Any?, Any?>.asCfDictionary(): CFDictionaryRef = this as CFDictionaryRef
+private inline fun <T> withKeychainDictionary(
+    entries: List<KeychainDictionaryEntry>,
+    block: (CFDictionaryRef) -> T,
+): T {
+    val dictionary = CFDictionaryCreateMutable(null, entries.size.toLong(), null, null)
+        ?: error("Core Foundation could not create a Keychain dictionary")
+    return try {
+        entries.forEach { entry ->
+            CFDictionaryAddValue(dictionary, entry.key, entry.value)
+        }
+        block(dictionary)
+    } finally {
+        CFRelease(dictionary)
+    }
+}
+
+/**
+ * `CFDictionaryAddValue` accepts opaque CF object pointers. Security constants, CFString and
+ * CFData all satisfy that contract; Kotlin objects never cross this boundary.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private data class KeychainDictionaryEntry(
+    val key: CPointer<COpaque>,
+    val value: CPointer<COpaque>,
+)
+
+@OptIn(ExperimentalForeignApi::class)
+private fun keychainEntry(key: Any?, value: Any?): KeychainDictionaryEntry = KeychainDictionaryEntry(
+    key = key.toKeychainPointer(),
+    value = value.toKeychainPointer(),
+)
+
+@OptIn(ExperimentalForeignApi::class)
+private fun Any?.toKeychainPointer(): CPointer<COpaque> = (this as? CPointer<*>)
+    ?.reinterpret()
+    ?: error("Keychain attributes must be Core Foundation objects")
+
+@OptIn(ExperimentalForeignApi::class)
+private fun String.toKeychainString(): CFStringRef =
+    CFStringCreateWithCString(
+        null,
+        this,
+        kCFStringEncodingUTF8,
+    ) ?: error("Core Foundation could not create a Keychain string")
 
 @OptIn(ExperimentalForeignApi::class)
 private fun String.toKeychainData(): CFDataRef {
     val payload = encodeToByteArray()
     return payload.usePinned { pinned ->
-        CFDataCreate(
-            allocator = null,
-            bytes = pinned.addressOf(0).reinterpret(),
-            length = payload.size.toLong(),
-        )!!
+        CFDataCreate(null, pinned.addressOf(0).reinterpret(), payload.size.toLong())!!
     }
 }
 
