@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.runtime.Composable
@@ -24,7 +26,7 @@ import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -362,7 +364,7 @@ private fun QuataWebApp(
 
 private val webNavigationItems = listOf(
     QuataNavigationItem("", "Inicio", Icons.Filled.Home),
-    QuataNavigationItem("chat", "Chats", Icons.Filled.Chat),
+    QuataNavigationItem("chat", "Chats", Icons.AutoMirrored.Filled.Chat),
     QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
     QuataNavigationItem("profile", "Perfil", Icons.Filled.Person),
     QuataNavigationItem("settings", "Ajustes", Icons.Filled.Settings),

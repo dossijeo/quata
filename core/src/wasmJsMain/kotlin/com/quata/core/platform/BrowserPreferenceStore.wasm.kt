@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.core.platform
 
 /** Browser-backed [PreferenceStore] for WebAssembly hosts. */

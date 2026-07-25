@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.core.platform
 
 /** Runtime browser capability probes used by shared UI before requesting an injected service. */
