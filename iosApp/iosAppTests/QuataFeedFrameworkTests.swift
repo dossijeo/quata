@@ -434,6 +434,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Composer")
     }
 
+    func testAuthenticatedRouterPresentsQueuedSettingsOnlyAfterItsLocalFactoryIsInstalled() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        // Settings has no public URL contract. Its factory persists only local iOS preferences.
+        router.showSettings()
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let exportedFeatureController = UIViewController()
+        router.installSettingsFactory {
+            exportedFeatureController
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-settings-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Settings")
+    }
+
     func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)

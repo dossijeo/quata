@@ -18,6 +18,7 @@ interface IosAuthenticatedRouteHost {
     fun showProfileSos()
     fun showCommunities()
     fun showComposer()
+    fun showSettings()
 }
 
 /**
@@ -60,5 +61,10 @@ class IosAuthenticatedRouteDispatcher(
     /** Composer is an authenticated in-app route; there is intentionally no public URL parser. */
     fun openComposer() {
         host.showComposer()
+    }
+
+    /** Appearance preferences are local iOS settings and have no public URL contract. */
+    fun openSettings() {
+        host.showSettings()
     }
 }

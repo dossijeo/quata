@@ -1,7 +1,10 @@
 package com.quata.feature.settings.presentation
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -14,20 +17,48 @@ class IosSettingsHostDependencies(
     val strings: AppearanceSettingsStrings,
     val onTouchFlowEnabledChange: (Boolean) -> Unit,
     val onThemeModeChange: (QuataThemeMode) -> Unit,
-    val onNavigate: (String) -> Unit,
-    val onPlatformAction: (String) -> Unit,
-    val onClose: () -> Unit,
+)
+
+/**
+ * Swift-facing factory which keeps Kotlin enum construction and localized labels at the shared
+ * boundary. Persistence stays with the UIKit launcher through the supplied callbacks.
+ */
+fun createIosSettingsHostDependencies(
+    touchFlowEnabled: Boolean,
+    themeModeStorageValue: String?,
+    onTouchFlowEnabledChange: (Boolean) -> Unit,
+    onThemeModeStorageValueChange: (String) -> Unit,
+): IosSettingsHostDependencies = IosSettingsHostDependencies(
+    touchFlowEnabled = touchFlowEnabled,
+    themeMode = QuataThemeMode.fromStorageValue(themeModeStorageValue),
+    strings = AppearanceSettingsStrings(
+        touchFlow = "Touch Flow",
+        theme = "Theme",
+        system = "System",
+        dark = "Dark",
+        light = "Light",
+    ),
+    onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+    onThemeModeChange = { mode -> onThemeModeStorageValueChange(mode.storageValue) },
 )
 
 fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIViewController = ComposeUIViewController {
-    QuataTheme(mode = dependencies.themeMode) {
+    var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
+    var themeMode by remember { mutableStateOf(dependencies.themeMode) }
+    QuataTheme(mode = themeMode) {
         Column {
             AppearanceSettingsSectionContent(
-                touchFlowEnabled = dependencies.touchFlowEnabled,
-                themeMode = dependencies.themeMode,
+                touchFlowEnabled = touchFlowEnabled,
+                themeMode = themeMode,
                 strings = dependencies.strings,
-                onTouchFlowEnabledChange = dependencies.onTouchFlowEnabledChange,
-                onThemeModeChange = dependencies.onThemeModeChange,
+                onTouchFlowEnabledChange = { enabled ->
+                    touchFlowEnabled = enabled
+                    dependencies.onTouchFlowEnabledChange(enabled)
+                },
+                onThemeModeChange = { mode ->
+                    themeMode = mode
+                    dependencies.onThemeModeChange(mode)
+                },
             )
         }
     }

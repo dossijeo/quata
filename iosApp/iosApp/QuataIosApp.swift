@@ -70,6 +70,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
+    private enum SettingsPreferenceKey {
+        static let themeMode = "quata_ios_theme_mode"
+        static let touchFlowEnabled = "quata_ios_touch_flow_enabled"
+    }
+
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
     // real Core Location host explicitly at the UIKit boundary instead of falling back to a
@@ -144,6 +149,7 @@ private final class IosAppCompositionRoot {
         window.makeKeyAndVisible()
         self.window = window
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
+        installSettings()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -305,6 +311,29 @@ private final class IosAppCompositionRoot {
         }
     }
 
+    /// Settings owns only device-local appearance preferences. It does not create remote data or
+    /// pretend that a server profile setting was saved.
+    private func installSettings() {
+        authenticatedHost.installSettingsFactory {
+            IosSettingsHostKt.QuataSettingsViewController(
+                dependencies: IosSettingsHostKt.createIosSettingsHostDependencies(
+                    touchFlowEnabled: UserDefaults.standard.object(
+                        forKey: SettingsPreferenceKey.touchFlowEnabled
+                    ) as? Bool ?? true,
+                    themeModeStorageValue: UserDefaults.standard.string(
+                        forKey: SettingsPreferenceKey.themeMode
+                    ),
+                    onTouchFlowEnabledChange: { enabled in
+                        UserDefaults.standard.set(enabled, forKey: SettingsPreferenceKey.touchFlowEnabled)
+                    },
+                    onThemeModeStorageValueChange: { value in
+                        UserDefaults.standard.set(value, forKey: SettingsPreferenceKey.themeMode)
+                    },
+                ),
+            )
+        }
+    }
+
     private func presentProfileSosCapabilityNotice(_ message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
@@ -374,6 +403,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var profileSosFactory: (() -> UIViewController)?
     private var communitiesFactory: (() -> UIViewController)?
     private var composerFactory: (() -> UIViewController)?
+    private var settingsFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
 
     private enum PendingRoute {
@@ -384,6 +414,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case profileSos
         case communities
         case composer
+        case settings
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -512,6 +543,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installSettingsFactory(_ factory: @escaping () -> UIViewController) {
+        settingsFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -529,6 +565,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Composer deliberately has no public deep-link contract. The launcher opens it only after
     /// a Keychain-backed authenticated session has supplied its real platform adapters.
     func showComposer() { route(.composer) }
+
+    func showSettings() { route(.settings) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
@@ -571,6 +609,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return communitiesFactory?()
         case .composer:
             return composerFactory?()
+        case .settings:
+            return settingsFactory?()
         }
     }
 
@@ -591,6 +631,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-communities-host", "Quata iOS Communities")
         case .composer:
             presentation = ("quata-ios-composer-host", "Quata iOS Composer")
+        case .settings:
+            presentation = ("quata-ios-settings-host", "Quata iOS Settings")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }
