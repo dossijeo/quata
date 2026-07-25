@@ -15,15 +15,21 @@ class IosPlatformServiceComposition(
     private val coreLocationHost: IosCoreLocationHost = IosCoreLocationHost(),
 ) : IosViewControllerProvider {
     private var presenter: UIViewController? = null
+    // Keep AVFoundation at the iOS composition boundary. The portable services still accept
+    // injected hosts for tests or a launcher that needs to coordinate a different audio policy.
+    private val audioRecorderHost: IosAudioRecorderHost = IosAvFoundationAudioHost()
+    private val audioPlayerHost: IosAudioPlayerHost = IosAvFoundationAudioPlayerHost()
 
     /**
      * Real adapters: UIKit share/document/gallery/camera, Core Location, notification permission,
-     * NSUserDefaults and UIPasteboard. Audio remains explicitly unsupported until an AV host is
-     * injected through [IosPlatformServices] by the consuming feature.
+     * NSUserDefaults, UIPasteboard and AVFoundation audio. AVFoundation is installed here rather
+     * than in common code: microphone authorization and the app-wide audio session stay on iOS.
      */
     val services: IosPlatformServices = IosPlatformServices(
         presenterProvider = this,
         locationHost = coreLocationHost,
+        audioRecorderHost = audioRecorderHost,
+        audioPlayerHost = audioPlayerHost,
     )
 
     /** Attaches the visible UIKit controller that may present system sheets and pickers. */

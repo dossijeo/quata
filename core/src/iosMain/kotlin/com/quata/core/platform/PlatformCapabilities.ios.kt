@@ -15,4 +15,5 @@ actual class PlatformPermissions actual constructor() { actual fun isAvailable()
 /** Core Location is available through [IosCoreLocationHost] injected by the launcher. */
 actual class PlatformLocation actual constructor() { actual fun isAvailable() = true }
 actual class PlatformVideoPlayer actual constructor() { actual fun isAvailable() = false }
-actual class PlatformAudioPlayer actual constructor() { actual fun isAvailable() = false }
+/** AVFoundation audio is installed by [IosPlatformServiceComposition]. */
+actual class PlatformAudioPlayer actual constructor() { actual fun isAvailable() = true }
