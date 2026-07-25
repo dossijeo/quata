@@ -1,6 +1,6 @@
 # Auditoría de evidencia de migración KMP
 
-**Base auditada:** `8da5bad90bd1c786931bee133a902f675e57a3ae` (`main` en el momento de abrir el lote).
+**Base auditada:** `e950f045ab9d985883aa7c44dcc00489a989ab65` (`main` al reconciliar este documento).
 **Método:** inspección de fuentes y configuración solamente; no se ejecutaron Gradle, emulador ni CI en este lote. Por tanto, este documento no convierte compilaciones previas en evidencia nueva.
 
 ## Requisitos con evidencia integrada
@@ -18,7 +18,7 @@
 
 | Área | Evidencia actual | Criterio para cerrarla |
 | --- | --- | --- |
-| Composition roots iOS | El launcher sólo instala Auth/Feed; su propia acción de Chat muestra aviso de migración. `IosPlatformServices` necesita consumidores autenticados para cámara, archivos, audio, contactos y ubicación. | Conectar cada host iOS autenticado a repositorios y contratos concretos; cubrir rutas reales, no pantallas Swift de sustitución. |
+| Composition roots iOS | El launcher instala Auth/Feed y bootstrap Chat autenticado; otros hosts exportados siguen requiriendo composición y recorridos configurados. `IosPlatformServices` necesita cobertura funcional de cámara, archivos, audio, contactos y ubicación. | Conectar cada host iOS autenticado que falte a repositorios y contratos concretos; cubrir rutas reales, no pantallas Swift de sustitución. |
 | Cobertura funcional iOS | CI prueba compilación, enlace, host Swift y XCTest de frontera; no prueba permisos, selección de contactos, Quick Look, audio o navegación autenticada. | XCTest/UI y pruebas de adaptadores con simulador, permisos y archivos locales reales. |
 | Capacidades de media/documentos | Los contratos y algunos adaptadores existen, pero siguen Android la edición/exportación, renderers integrados, MediaStore/Media3 y varias rutas de caché/URI. | Extraer sólo lógica portable restante y conectar adaptadores reales desde hosts consumidores. |
 | Estructura objetivo del host Android | El proyecto conserva el módulo `:app`, no `androidApp/`. Es compatible con la validación solicitada (`:app`), pero no coincide literalmente con el árbol objetivo. | Decidir una migración de nombre/host separada y de bajo riesgo; no renombrar masivamente durante la extracción de features. |
@@ -28,7 +28,7 @@
 
 | Bloqueo | Evidencia | Lo necesario |
 | --- | --- | --- |
-| Distribución Web de producción | `docs/WASM_PRODUCTION_ICE.md` documenta el ICE `Function throwLinkageError not found` de Compose 1.10/Kotlin 2.2.10 y que impide `:web:wasmJsBrowserDistribution` y el smoke de navegador. | Lote explícito de actualización de toolchain compatible, seguido de distribución y smoke reales. |
+| E2E Web autenticado | La distribución Wasm y el smoke no autenticado ya están verificados con Kotlin `2.2.21`/Compose `1.10.0`; no prueban Supabase ni sesión. | Configuración pública, usuario/datos efímeros y recorrido browser autenticado con limpieza verificable. |
 | Runtime y recorrido Auth/Feed iOS | `QuataIosApp.swift` sólo crea bootstrap con `QUATA_SUPABASE_URL` y `QUATA_SUPABASE_PUBLISHABLE_KEY`; sin ellas no instala Auth/Feed configurado. | Build settings públicos reales y una sesión de prueba autorizada, sin secretos de servicio. |
 | Mutaciones/realtime Web | `WebFeedRepository`, `WebOfficialRepository`, `WebChatRepository` y `WebNeighborhoodsRepository` contienen rutas `*_not_implemented`; el tablero exige RLS/RPC/identidad verificables. | Contratos backend, RLS y endpoints aprobados; implementar los transportes browser contra esos contratos. |
 | Push entregado | Existen service worker Web y bridge APNs iOS, pero faltan credenciales/registro y prueba de entrega real. | Configuración Web Push/APNs autorizada y pruebas extremo a extremo. |
@@ -36,7 +36,7 @@
 ## Validaciones aún necesarias para una auditoría final
 
 1. Repetir la búsqueda de imports Android en `commonMain` sobre el commit final.
-2. Compilar los módulos Wasm relevantes; no presentar tests/distribución de producción como verdes mientras persista el ICE documentado.
+2. Compilar los módulos Wasm relevantes y regenerar distribución/smoke cuando un lote toque el host; no presentar ese smoke no autenticado como E2E remoto.
 3. Ejecutar CI macOS completa y conservar el resultado de Kotlin/Native, framework, Xcode y XCTest.
 4. En Windows: `:app:assembleDebug`, instalación en API-37, arranque, `logcat -b crash` y `pidof`.
 5. Ejecutar flujos configurados Web/iOS sólo después de disponer de runtime, permisos y contratos backend reales. Hasta entonces Web e iOS permanecen **parciales**, no listos para declarar la migración terminada.
