@@ -49,6 +49,32 @@ class FeatureCapabilityRegistryTest {
         assertFalse(registry(QuataFeature.Auth, localCapability()).projection(QuataFeature.Chat, FeatureCapabilityAction.View).visible)
     }
 
+    @Test
+    fun spanishFallbackTextIsUsedForCapabilityNotices() {
+        assertEquals("Funci\u00f3n no disponible", DefaultFeatureCapabilityText.title(CapabilityStateOrigin.Unsupported))
+        assertEquals(
+            "Esta acci\u00f3n a\u00fan no est\u00e1 disponible en esta plataforma.",
+            DefaultFeatureCapabilityText.message(CapabilityStateOrigin.Unsupported, e2eVerified = false),
+        )
+    }
+
+    @Test
+    fun registryUsesInjectedCapabilityText() {
+        val text = object : FeatureCapabilityText {
+            override fun title(origin: CapabilityStateOrigin) = "custom-title"
+            override fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean) = "custom-message"
+        }
+        val registry = StaticFeatureCapabilityRegistry(
+            manifest = FeatureCapabilityManifest(
+                platform = QuataPlatform.Web,
+                capabilities = mapOf(QuataFeature.Feed to localCapability()),
+            ),
+            text = text,
+        )
+
+        assertEquals("custom-message", registry.projection(QuataFeature.Feed, FeatureCapabilityAction.View).message)
+    }
+
     private fun registry(feature: QuataFeature, capability: FeatureCapability) = StaticFeatureCapabilityRegistry(
         FeatureCapabilityManifest(platform = QuataPlatform.Web, capabilities = mapOf(feature to capability)),
     )

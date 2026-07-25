@@ -29,6 +29,35 @@ enum class CapabilityStateOrigin { Real, Local, Unsupported }
 enum class FeatureCapabilityAction { View, Mutate }
 
 /**
+ * Small, injectable text contract for capability notices. Platform launchers may replace this
+ * later with localized resources; the Spanish implementation is the explicit shared fallback.
+ */
+interface FeatureCapabilityText {
+    fun title(origin: CapabilityStateOrigin): String
+    fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean): String?
+}
+
+object SpanishFeatureCapabilityText : FeatureCapabilityText {
+    override fun title(origin: CapabilityStateOrigin): String = when (origin) {
+        CapabilityStateOrigin.Real -> "Estado de integraci\u00f3n"
+        CapabilityStateOrigin.Local -> "Datos locales"
+        CapabilityStateOrigin.Unsupported -> "Funci\u00f3n no disponible"
+    }
+
+    override fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean): String? = when (origin) {
+        CapabilityStateOrigin.Real -> if (e2eVerified) null else
+            "La ruta remota est\u00e1 configurada; el recorrido E2E a\u00fan no est\u00e1 verificado."
+        CapabilityStateOrigin.Local ->
+            "Los cambios se guardan s\u00f3lo en este dispositivo; no se sincronizan con el servidor."
+        CapabilityStateOrigin.Unsupported ->
+            "Esta acci\u00f3n a\u00fan no est\u00e1 disponible en esta plataforma."
+    }
+}
+
+/** Default retained until a platform composition root installs localized capability text. */
+val DefaultFeatureCapabilityText: FeatureCapabilityText = SpanishFeatureCapabilityText
+
+/**
  * Versioned, evidence-oriented capability cell. `backendReal` and `e2e` must never be inferred
  * from the other booleans: compiling a host is not evidence of a working remote flow.
  */
@@ -59,6 +88,11 @@ data class FeatureCapabilityManifest(
 /** Injectable at platform composition roots; common feature code remains platform-agnostic. */
 interface FeatureCapabilityRegistry {
     val manifest: FeatureCapabilityManifest
+    /**
+     * Platform composition roots can supply their own resource-backed implementation without
+     * making the common capability model depend on a platform resource system.
+     */
+    val text: FeatureCapabilityText get() = DefaultFeatureCapabilityText
 
     fun capability(feature: QuataFeature): FeatureCapability =
         manifest.capabilities[feature] ?: UnsupportedFeatureCapability
@@ -76,11 +110,7 @@ interface FeatureCapabilityRegistry {
             origin = origin,
             backendReal = capability.backendReal,
             e2e = capability.e2e,
-            message = when (origin) {
-                CapabilityStateOrigin.Real -> if (capability.e2e) null else "La ruta remota est\u00e1 configurada; el recorrido E2E a\u00fan no est\u00e1 verificado."
-                CapabilityStateOrigin.Local -> "Los cambios se guardan s\u00f3lo en este dispositivo; no se sincronizan con el servidor."
-                CapabilityStateOrigin.Unsupported -> "Esta acci\u00f3n a\u00fan no est\u00e1 disponible en esta plataforma."
-            },
+            message = text.message(origin, capability.e2e),
         )
     }
 }
@@ -96,6 +126,7 @@ data class FeatureCapabilityProjection(
 
 class StaticFeatureCapabilityRegistry(
     override val manifest: FeatureCapabilityManifest,
+    override val text: FeatureCapabilityText = DefaultFeatureCapabilityText,
 ) : FeatureCapabilityRegistry
 
 val UnsupportedFeatureCapability = FeatureCapability(

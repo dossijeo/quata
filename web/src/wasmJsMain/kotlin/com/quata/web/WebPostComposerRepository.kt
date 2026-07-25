@@ -94,9 +94,9 @@ class WebPostComposerRepository(
 }
 
 private fun validate(draft: PostComposerDraft) = when (draft.type) {
-    PostComposerType.Text -> require(draft.text.isNotBlank()) { "La publicaciÃ³n de texto no puede estar vacÃ­a" }
+    PostComposerType.Text -> require(draft.text.isNotBlank()) { "La publicaci\u00f3n de texto no puede estar vac\u00eda" }
     PostComposerType.Image -> require(!draft.imageUri.isNullOrBlank()) { "Selecciona una imagen" }
-    PostComposerType.Video -> require(!draft.videoUri.isNullOrBlank()) { "Selecciona o graba un vÃ­deo" }
+    PostComposerType.Video -> require(!draft.videoUri.isNullOrBlank()) { "Selecciona o graba un v\u00eddeo" }
 }
 
 private fun PostComposerDraft.toRemoteBody(): String = when (type) {

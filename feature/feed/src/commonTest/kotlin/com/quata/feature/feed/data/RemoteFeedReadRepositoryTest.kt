@@ -12,7 +12,7 @@ class RemoteFeedReadRepositoryTest {
     fun mapsPostsCommentsLikesAndProfilesThroughTransport() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; Quata")),
-            comments = listOf(FeedRemoteComment(id = "comment-1", postId = "post-1", profileId = "commenter", body = "Buen dÃ­a")),
+            comments = listOf(FeedRemoteComment(id = "comment-1", postId = "post-1", profileId = "commenter", body = "Buen d\u00eda")),
             likes = listOf(FeedRemoteLike(postId = "post-1", profileId = "viewer")),
             profiles = listOf(
                 FeedRemoteProfile(id = "author", displayName = "Autora", neighborhood = "Centro", isOfficial = true),

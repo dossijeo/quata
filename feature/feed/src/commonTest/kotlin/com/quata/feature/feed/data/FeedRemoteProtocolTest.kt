@@ -9,7 +9,7 @@ class FeedRemoteProtocolTest {
     @Test
     fun buildsPostWithFallbackProfileAndCurrentUserLike() {
         val posts = buildFeedDomainPosts(
-            posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; adiÃ³s")),
+            posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; adi\u00f3s")),
             comments = emptyList(),
             likes = listOf(FeedRemoteLike(postId = "post-1", profileId = "viewer")),
             profiles = listOf(FeedRemoteProfile(id = "author", fallbackName = "Nombre alternativo", phoneLocal = "123")),
@@ -17,7 +17,7 @@ class FeedRemoteProtocolTest {
         )
 
         assertEquals("Nombre alternativo", posts.single().author.displayName)
-        assertEquals("Hola & adiÃ³s", posts.single().text)
+        assertEquals("Hola & adi\u00f3s", posts.single().text)
         assertEquals(1, posts.single().likesCount)
         assertTrue(posts.single().isLikedByCurrentUser)
     }

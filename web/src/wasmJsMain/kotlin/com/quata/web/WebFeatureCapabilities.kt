@@ -69,13 +69,7 @@ fun WebFeatureCapabilityNotice(
     val message = projection.message ?: return
     QuataCard(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Column(Modifier.padding(12.dp)) {
-            Text(
-                when (projection.origin) {
-                    CapabilityStateOrigin.Real -> "Estado de integraci\u00f3n"
-                    CapabilityStateOrigin.Local -> "Datos locales"
-                    CapabilityStateOrigin.Unsupported -> "Funci\u00f3n no disponible"
-                },
-            )
+            Text(registry.text.title(projection.origin))
             Text(message)
         }
     }

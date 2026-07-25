@@ -248,7 +248,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             title: NSLocalizedString("ios_chat_host_pending_title", value: "Conversaciones", comment: ""),
             message: NSLocalizedString(
                 "ios_chat_host_pending_message",
-                value: "Las conversaciones estarÃ¡n disponibles cuando se complete el host autenticado de iOS.",
+                value: "Las conversaciones estar\u{00E1}n disponibles cuando se complete el host autenticado de iOS.",
                 comment: "",
             ),
             preferredStyle: .alert,

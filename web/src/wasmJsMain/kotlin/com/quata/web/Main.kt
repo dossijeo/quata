@@ -416,7 +416,7 @@ internal fun String.toWebNavigationState(): WebNavigationState {
         return WebNavigationState(route = "profile", message = "Perfil y contactos SOS de Quata Web.")
     }
     if (trim('/').equals("composer", ignoreCase = true)) {
-        return WebNavigationState(route = "composer", message = "Crear una publicaciÃ³n en Quata Web.")
+        return WebNavigationState(route = "composer", message = "Crear una publicaci\u00f3n en Quata Web.")
     }
     if (trim('/').equals("communities", ignoreCase = true)) {
         return WebNavigationState(route = "communities", message = "Comunidades y barrios de Quata Web.")

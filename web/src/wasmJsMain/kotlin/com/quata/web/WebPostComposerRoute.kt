@@ -55,14 +55,14 @@ fun WebPostComposerRoute(
                 }
             },
             videoGallery = { modifier, onSelected ->
-                BrowserPickerButton("Elegir vÃ­deo", modifier) {
+                BrowserPickerButton("Elegir v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
                     ).firstReferenceOrNull()?.let(onSelected)
                 }
             },
             videoCamera = { modifier, onSelected ->
-                BrowserPickerButton("Grabar vÃ­deo", modifier) {
+                BrowserPickerButton("Grabar v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
                     ).firstReferenceOrNull()?.let(onSelected)
