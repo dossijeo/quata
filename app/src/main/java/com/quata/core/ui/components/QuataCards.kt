@@ -3,7 +3,6 @@ package com.quata.core.ui.components
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,34 +51,26 @@ fun AvatarImage(
     LaunchedEffect(profileId) {
         profileId?.let { presenceRepository?.observeProfiles(listOf(it)) }
     }
-    Box(modifier = modifier) {
-        if (avatarUrl.isNullOrBlank()) {
-            QuataAvatarFallback(
-                name = name,
-                stableId = profileId ?: name,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            AsyncImage(
-                model = imageModel,
-                contentDescription = name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
-            )
+    QuataAvatarFrameContent(
+        name = name,
+        stableId = profileId ?: name,
+        isOfficial = isOfficial,
+        isOnline = profileId?.takeIf { presenceRepository != null }?.let { it in onlineProfileIds },
+        modifier = modifier,
+        avatar = if (avatarUrl.isNullOrBlank()) null else {
+            {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
+                )
+            }
         }
-        if (isOfficial) {
-            QuataOfficialBadge(Modifier.align(Alignment.BottomEnd))
-        }
-        if (profileId != null && presenceRepository != null) {
-            QuataAvatarPresenceBadgeContent(
-                isOnline = profileId in onlineProfileIds,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
-        }
-    }
+    )
 }
 
 @Composable
