@@ -12,6 +12,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
@@ -97,7 +98,9 @@ class IosChatAttachmentUploader(
         val cleanProfileId = profileId.trim().takeIf { it.matches(IosStorageSegment) }
             ?: error("ios_chat_attachment_profile_id_invalid")
         val localUrl = file.localFileUrlOrNull() ?: error("ios_chat_attachment_local_file_required")
-        val data = NSData(contentsOfURL = localUrl) ?: error("ios_chat_attachment_read_failed")
+        val localPath = localUrl.path ?: error("ios_chat_attachment_local_path_missing")
+        val data = NSFileManager.defaultManager.contentsAtPath(localPath)
+            ?: error("ios_chat_attachment_read_failed")
         if (data.length == 0uL) error("ios_chat_attachment_empty")
 
         val name = file.displayName.safeFileName()
