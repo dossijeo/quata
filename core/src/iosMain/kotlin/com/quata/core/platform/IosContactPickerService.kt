@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Contacts.CNContact
+import platform.Contacts.CNLabeledValue
 import platform.Contacts.CNPhoneNumber
 import platform.ContactsUI.CNContactPickerDelegateProtocol
 import platform.ContactsUI.CNContactPickerViewController
@@ -123,10 +124,12 @@ private fun CNContact.toIosPickedContactFields(): IosPickedContactFields = IosPi
     middleName = middleName,
     familyName = familyName,
     organizationName = organizationName,
-    phones = phoneNumbers.mapNotNull { item ->
+    // Kotlin/Native exposes these Contacts collections as `List<*>`; narrow each entry before
+    // reading the Obj-C `value` property instead of relying on a member on `Any?`.
+    phones = phoneNumbers.filterIsInstance<CNLabeledValue<*>>().mapNotNull { item ->
         (item.value as? CNPhoneNumber)?.stringValue
     },
-    emails = emailAddresses.mapNotNull { item ->
+    emails = emailAddresses.filterIsInstance<CNLabeledValue<*>>().mapNotNull { item ->
         (item.value as? NSString)?.toString()
     },
 )
