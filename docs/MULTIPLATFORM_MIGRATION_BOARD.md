@@ -131,3 +131,28 @@ Al cerrar una fila se debe anotar: commit validado, fecha, adaptador/plataforma,
 casos ejecutados, identificadores efímeros ya eliminados y resultado de la
 verificación de limpieza. Un fallo abre una unidad de corrección separada; no se
 oculta como una prueba satisfactoria.
+
+### Cola E2E delegable
+
+Cada lote se ejecuta en una rama o commit ya compilado y usa un prefijo único
+`e2e-<fecha>-<lote>` para usuario, post, mensaje, objeto de Storage y cualquier
+otro dato creado. Un agente de pruebas no cambia DDL, migraciones, funciones,
+políticas ni configuración remota; su único permiso mutante es crear y borrar
+los datos de su propio prefijo. Antes de cerrar el lote debe consultar que no
+quedan filas ni objetos con ese prefijo.
+
+| ID | Prerrequisito | Recorrido E2E concreto | Estado | Evidencia de cierre |
+| --- | --- | --- | --- | --- |
+| SB-01 | URL de pooler presente en el entorno del proceso | Conectar en modo lectura, descubrir versión, tablas, buckets y RPC que usan los repositorios sin exponer secretos | Pendiente de entorno | Commit, lista de contratos comprobados y consulta de limpieza no sensible |
+| SB-02 | Usuario efímero autorizado por el flujo permitido | Registro/login Web, persistencia, refresh, logout y login posterior; borrar usuario y sesión | Pendiente de entorno | Plataforma, respuestas normalizadas y confirmación de borrado |
+| SB-03 | SB-02 y post efímero permitido | Feed/Official: lectura autenticada y pública donde proceda, deep link de post y comprobación RLS negativa | Pendiente de entorno | IDs eliminados, rutas y resultado de ambas identidades |
+| SB-04 | Dos usuarios efímeros y contrato Chat disponible | Crear/recuperar hilo, enviar reply, marcar leído/silenciar y comprobar inbox/detail desde los repositorios comunes | Pendiente de entorno | IDs de hilo/mensajes eliminados y resultado de RPC/RLS |
+| SB-05 | SB-04 y bucket `chat-attachments` permitido | Seleccionar Blob/archivo, subir, registrar `file_ids`, descargar con permisos de usuario y eliminar objeto/fila | Pendiente de entorno | Ruta de objeto borrada, IDs eliminados y verificación sin credencial privilegiada |
+| SB-06 | Perfil de prueba aislado | Leer/actualizar perfil y contactos SOS, comprobar normalización y restaurar o borrar los datos del lote | Pendiente de entorno | Estado previo restaurado o IDs eliminados |
+| SB-07 | Comunidad/post de prueba autorizado | Crear/listar/borrar comentario, emoji y ranking; comprobar la denegación de una identidad sin permiso | Pendiente de entorno | IDs eliminados y resultados RLS positivo/negativo |
+| SB-08 | Credenciales push y cliente/dispositivo real | Registrar y revocar suscripción; entregar notificación y comprobar deep link de Chat normalizado | Bloqueado externo | Identificador de suscripción revocado y evidencia de entrega, sin tokens en el repo |
+
+La asignación respeta dependencias: SB-01 abre SB-02; SB-02 abre SB-03 y
+SB-04; SB-04 abre SB-05. SB-06 y SB-07 pueden ejecutarse en paralelo una vez
+confirmado el catálogo. Ningún resultado de compilación sustituye estas pruebas
+de integración real.
