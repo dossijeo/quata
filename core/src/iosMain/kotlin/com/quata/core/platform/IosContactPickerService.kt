@@ -126,10 +126,10 @@ private fun CNContact.toIosPickedContactFields(): IosPickedContactFields = IosPi
     organizationName = organizationName,
     // Kotlin/Native exposes these Contacts collections as `List<*>`; narrow each entry before
     // reading the Obj-C `value` property instead of relying on a member on `Any?`.
-    phones = phoneNumbers.filterIsInstance<CNLabeledValue<*>>().mapNotNull { item ->
+    phones = phoneNumbers.filterIsInstance<CNLabeledValue>().mapNotNull { item ->
         (item.value as? CNPhoneNumber)?.stringValue
     },
-    emails = emailAddresses.filterIsInstance<CNLabeledValue<*>>().mapNotNull { item ->
+    emails = emailAddresses.filterIsInstance<CNLabeledValue>().mapNotNull { item ->
         (item.value as? NSString)?.toString()
     },
 )
