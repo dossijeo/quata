@@ -4,6 +4,7 @@ import QuataFeed
 @testable import QuataIos
 import QuickLookThumbnailing
 import AVFoundation
+import CoreLocation
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testExportsComposeMigrationViewController() {
@@ -101,5 +102,65 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertFalse(host.children.contains { $0 === composeController })
         XCTAssertNil(composeController.parent)
+    }
+
+    func testPlatformServiceCompositionTracksOnlyItsAttachedPresenter() {
+        let composition = makePlatformServiceComposition()
+        let first = UIViewController()
+        let unrelated = UIViewController()
+
+        composition.attachPresenter(controller: first)
+        XCTAssertTrue(composition.activeViewController() === first)
+
+        composition.detachPresenter(controller: unrelated)
+        XCTAssertTrue(composition.activeViewController() === first)
+
+        composition.detachPresenter(controller: first)
+        XCTAssertNil(composition.activeViewController())
+    }
+
+    func testHostContainerAtomicallyReplacesTheComposeSurface() {
+        let composition = makePlatformServiceComposition()
+        let host = IosFeedHostContainerViewController(platformServices: composition)
+        host.loadViewIfNeeded()
+
+        let initialController = try XCTUnwrap(host.children.first)
+        XCTAssertEqual(host.children.count, 1)
+        XCTAssertEqual(initialController.view.accessibilityIdentifier, "quata-ios-compose-root")
+        XCTAssertTrue(composition.activeViewController() === initialController)
+
+        let authSurface = UIViewController()
+        host.show(
+            authSurface,
+            accessibilityIdentifier: "quata-ios-auth-host",
+            accessibilityLabel: "Quata iOS authentication",
+        )
+
+        XCTAssertEqual(host.children.count, 1)
+        XCTAssertTrue(host.children.first === authSurface)
+        XCTAssertNil(initialController.parent)
+        XCTAssertNil(initialController.view.superview)
+        XCTAssertEqual(authSurface.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertEqual(authSurface.view.accessibilityLabel, "Quata iOS authentication")
+        XCTAssertTrue(composition.activeViewController() === authSurface)
+
+        let feedSurface = UIViewController()
+        host.show(
+            feedSurface,
+            accessibilityIdentifier: "quata-ios-feed-host",
+            accessibilityLabel: "Quata iOS Feed",
+        )
+
+        XCTAssertEqual(host.children.count, 1)
+        XCTAssertTrue(host.children.first === feedSurface)
+        XCTAssertNil(authSurface.parent)
+        XCTAssertNil(authSurface.view.superview)
+        XCTAssertEqual(feedSurface.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertEqual(feedSurface.view.accessibilityLabel, "Quata iOS Feed")
+        XCTAssertTrue(composition.activeViewController() === feedSurface)
+    }
+
+    private func makePlatformServiceComposition() -> IosPlatformServiceComposition {
+        IosPlatformServiceComposition(coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()))
     }
 }

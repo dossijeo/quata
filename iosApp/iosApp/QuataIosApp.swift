@@ -130,7 +130,9 @@ private final class IosAppCompositionRoot {
 
 /// A UIKit container rather than a SwiftUI replacement screen. It can atomically replace the
 /// explicit unauthenticated Compose status controller with the shared Feed Compose controller.
-private final class IosFeedHostContainerViewController: UIViewController {
+/// Internal so the host target's XCTest suite can exercise the real UIKit containment contract.
+/// It remains an iOS-only composition detail and is not exposed to shared feature code.
+final class IosFeedHostContainerViewController: UIViewController {
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
 
@@ -189,7 +191,12 @@ private final class IosFeedHostContainerViewController: UIViewController {
         )
     }
 
-    private func show(
+    /// Replaces the visible shared Compose controller atomically.
+    ///
+    /// Kept internal for the host XCTest target: Auth and Feed both use this same transition,
+    /// and a deterministic containment test catches regressions without creating credentials or
+    /// invoking either backend.
+    func show(
         _ controller: UIViewController,
         accessibilityIdentifier: String,
         accessibilityLabel: String,
