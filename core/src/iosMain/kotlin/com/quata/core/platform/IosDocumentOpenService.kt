@@ -2,7 +2,6 @@ package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
-import platform.Foundation.NSURL
 import platform.QuickLook.QLPreviewController
 import platform.QuickLook.QLPreviewControllerDataSourceProtocol
 import platform.QuickLook.QLPreviewItemProtocol
@@ -20,7 +19,7 @@ class IosDocumentOpenService(
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
         if (!file.isQuickLookDocument()) return PlatformResult.Unsupported
-        val url = file.localFileUrlOrNull() ?: return PlatformResult.Unsupported
+        val url = iosDocumentLocalUrlOrNull(file.reference) ?: return PlatformResult.Unsupported
         val path = url.path ?: return PlatformResult.Failure("document_open_source_path_missing")
         if (!NSFileManager.defaultManager.fileExistsAtPath(path)) {
             return PlatformResult.Failure("document_open_source_missing")
@@ -61,15 +60,4 @@ private class IosQuickLookDataSource(
         controller: QLPreviewController,
         previewItemAtIndex: Long,
     ): QLPreviewItemProtocol = url as QLPreviewItemProtocol
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun PlatformFile.localFileUrlOrNull(): NSURL? {
-    val value = reference.trim()
-    val url = when {
-        value.startsWith("file://") -> NSURL(string = value)
-        value.startsWith("/") -> NSURL.fileURLWithPath(value)
-        else -> null
-    }
-    return url?.takeIf { it.isFileURL() }
 }

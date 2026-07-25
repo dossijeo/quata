@@ -85,8 +85,10 @@ xcodebuild \
 ```
 
 El esquema `QuataIos` incluye `QuataIosTests` y `QuataIosUITests`. Las pruebas
-actuales cubren la frontera Swift/Kotlin y el arranque seguro del host; no
-constituyen una validación funcional completa de Auth, Feed, permisos o media.
+actuales cubren la frontera Swift/Kotlin, el arranque seguro del host y las
+políticas deterministas del adaptador de documentos (MIME→UTI para PDF/RTF/Office
+y rechazo de referencias no locales antes de Quick Look); no constituyen una
+validación funcional completa de Auth, Feed, permisos o media.
 
 ## CI macOS
 

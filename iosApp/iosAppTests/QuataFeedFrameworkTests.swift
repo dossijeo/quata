@@ -8,6 +8,7 @@ import QuickLookThumbnailing
 import AVFoundation
 import CoreLocation
 import Security
+import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
@@ -98,6 +99,61 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // The Kotlin adapter creates this controller and retains its data source while presented.
         // Constructing it here is deterministic and verifies the host links QuickLook itself.
         XCTAssertNotNil(QLPreviewController())
+    }
+
+    func testDocumentPickerMapsPdfRtfAndOfficeMimesToUtiIdentifiers() {
+        let identifiers = IosDocumentPickerHostKt.iosDocumentContentTypeIdentifiers(
+            acceptedMimeTypes: [
+                "application/pdf",
+                "text/rtf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ],
+        )
+
+        XCTAssertEqual(identifiers, [
+            "com.adobe.pdf",
+            "public.rtf",
+            "org.openxmlformats.wordprocessingml.document",
+            "com.microsoft.excel.xls",
+            "org.openxmlformats.presentationml.presentation",
+        ])
+        // The mapper's output is consumed by UTType.typeWithIdentifier before presentation.
+        // Check representative system declarations too, rather than constructing a picker UI.
+        XCTAssertEqual(UTType.pdf.identifier, "com.adobe.pdf")
+        XCTAssertEqual(UTType.rtf.identifier, "public.rtf")
+    }
+
+    func testDocumentAdaptersAdmitOnlySafeLocalFileReferences() {
+        XCTAssertEqual(
+            IosDocumentLocalReferenceKt.iosDocumentLocalReferenceOrNull(
+                reference: " file:///private/var/mobile/Documents/report%20final.pdf ",
+            ),
+            "file:///private/var/mobile/Documents/report%20final.pdf",
+        )
+        XCTAssertEqual(
+            IosDocumentLocalReferenceKt.iosDocumentLocalReferenceOrNull(
+                reference: "/private/var/mobile/Documents/brief.rtf",
+            ),
+            "file:///private/var/mobile/Documents/brief.rtf",
+        )
+        XCTAssertEqual(
+            IosDocumentLocalReferenceKt.iosDocumentLocalReferenceOrNull(
+                reference: "file://localhost/private/var/mobile/Documents/local.pdf",
+            ),
+            "file://localhost/private/var/mobile/Documents/local.pdf",
+        )
+
+        [
+            "https://cdn.example.test/report.pdf",
+            "content://documents/report.pdf",
+            "file://fileserver.example.test/share/report.pdf",
+            "file://",
+            "relative/report.docx",
+        ].forEach { reference in
+            XCTAssertNil(IosDocumentLocalReferenceKt.iosDocumentLocalReferenceOrNull(reference: reference))
+        }
     }
 
     func testAvFoundationVideoThumbnailGeneratorIsAvailableOnTheIosHost() {
