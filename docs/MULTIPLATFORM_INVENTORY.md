@@ -43,6 +43,14 @@ Actualizado durante la FASE 6. Este documento separa lógica compartible de adap
 - **Evidencia de hosts:** el bundle Web Wasm de producción y smoke de Chrome no autenticado están verificados tras `a0d77ab`; adicionalmente, el SHA `eb41be9` produjo 35,29 MiB (13,55 MiB gzip) y pasó el smoke con DocMentis y métricas de arranque/heap locales. El candidato de baseline de ese mismo SHA queda sólo en `build/reports`; el presupuesto versionado permanece `proposed` y no bloquea CI. El CI macOS con Kotlin `2.2.21`/Xcode `26.3` compila, enlaza y ejecuta XCTest del host iOS. Son verificaciones de arquitectura y host real, no E2E autenticado ni una declaración de Web/iOS completos.
 - **E2E remoto:** los runners Supabase SB-01 a SB-07 están preparados pero no ejecutados contra entorno configurado; SB-08 sigue bloqueado por credenciales/dispositivo de push. El detalle y los criterios de limpieza viven en `MULTIPLATFORM_MIGRATION_BOARD.md`.
 
+- **Bloqueo Android API-37:** el baseline `0fc97b1` y el candidato de reducción
+  Feed `3ec11c7` reproducen un ANR de proceso bajo presión de CPU antes de que
+  haya evidencia de ciclo de vida de `MainActivity`. No se considera regresión
+  de la migración. WorkManager `androidx.startup` y DI eager son hipótesis, no
+  causas demostradas; se descartó la inicialización manual de WorkManager porque
+  rompería trabajos headless. MP-A10 queda pausada hasta instrumentar fases de
+  arranque y repetir la captura de ambos SHAs bajo carga equivalente.
+
 - Post Composer: `ComposerMediaPostPreviewContent` concentra en `feature:postcomposer/commonMain` la jerarquÃ­a de preview de imagen/vÃ­deo (frame, scrim, chips, rail y autor), dejando al host Ãºnicamente el slot de media nativa/navegador, textos localizados y avatar opcional.
 - iOS dispone de `IosAudioCacheService` para copiar, recuperar y eliminar ficheros de audio locales en el temporal de la app. El contrato `AudioCacheService` rechaza claves inseguras y referencias no locales; no descarga media ni sustituye el host AVFoundation.
 
