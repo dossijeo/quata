@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Quata necesita acceso a la cámara para capturar fotos que quieras compartir.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Quata necesita acceso al micrófono para grabar mensajes de audio.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Quata necesita tu ubicación para las funciones de proximidad y SOS.</string>
+    <key>QUATA_SUPABASE_URL</key>
+    <string>$(QUATA_SUPABASE_URL)</string>
+    <key>QUATA_SUPABASE_PUBLISHABLE_KEY</key>
+    <string>$(QUATA_SUPABASE_PUBLISHABLE_KEY)</string>
+</dict>
+</plist>
