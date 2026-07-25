@@ -1,10 +1,15 @@
 pluginManagement {
+    // Build conventions are intentionally introduced through one feature pilot.
+    // Other modules keep their current scripts until the pilot has been validated
+    // on Android, Wasm and iOS.
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }

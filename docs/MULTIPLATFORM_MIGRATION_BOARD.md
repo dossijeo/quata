@@ -104,6 +104,14 @@ Cada fila distingue que un target compile de que la capacidad llegue al usuario.
 | MP-A08 | P2 | Decidir `js(IR)` frente a Wasm: producto soportado con host/pruebas/publicación propios, o retirada gradual de targets/adaptadores JS sin afectar Wasm. Superficie: Gradle, `jsMain`, CI e inventario. | MP-A07 aporta coste; decisión de producto si JS se conserva. | Decisión: retirada gradual pendiente | Inventario 2026-07-25: JS no tiene host, binario, smoke, publicación, `jsTest` ni CI; 13 módulos declaran `js(IR)` y hay seis ficheros `actual` específicos. Se decide target redundante y se programa rama de retirada reversible. Ver [JS_IR_TARGET_DECISION.md](JS_IR_TARGET_DECISION.md); su cierre exige bundle/smoke Wasm, Android e iOS verdes. |
 | MP-A09 | P2 | Convention plugins y métricas: extraer configuración KMP/Compose repetida a `build-logic`; automatizar source sets, imports Android en `commonMain`, `not_implemented`, features conectadas y Android desplazado. | MP-A01 y MP-A08 estabilizan grafo/targets. No contar lector Office vendorizado como código propio migrable. | Pendiente | Piloto incremental sin drift; informe por SHA vinculado al tablero; métrica distingue extraído de adoptado/eliminado y no declara completitud por líneas. |
 
+### Nota de avance MP-A09: piloto de convencion
+
+La rama `codex/next-kmp-convention-plugin-scaffold` incorpora `build-logic` y
+aplica `quata.kmp-compose-feature` solamente a `:feature:settings`. La
+convencion conserva JS IR, Wasm y los tres targets iOS; el modulo conserva su
+target Android, source sets y dependencias. Antes de ampliar el rollout requiere
+comparacion de targets/dependencias y gates Android, Wasm e iOS.
+
 ## Cola reconciliada de la auditoría 2026-07-25
 
 Las tareas MP-A01, MP-A02 y la parte arquitectónica de MP-A03 ya se cerraron
