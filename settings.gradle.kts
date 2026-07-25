@@ -31,6 +31,9 @@ include(":vosk_model_fr")
 // until their first contents have been migrated and verified on Android.
 include(":core")
 include(":designsystem")
+// The only Kotlin/Native framework embedded by iosApp. It is deliberately an
+// iOS composition/export boundary, not a cross-feature implementation module.
+include(":ios-shared")
 include(":web")
 include(":feature:feed")
 include(":feature:chat")

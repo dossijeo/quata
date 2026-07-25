@@ -18,8 +18,8 @@ targets:
         INFOPLIST_FILE: iosApp/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
-      # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.
-      - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
+      # The umbrella owns Kotlin/Native exports; do not embed feature frameworks separately.
+      - framework: ../ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework
         embed: true
   QuataIosUITests:
     type: bundle.ui-testing
@@ -37,7 +37,7 @@ targets:
       - path: iosAppTests
     dependencies:
       - target: QuataIos
-      - framework: ../feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework
+      - framework: ../ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework
 schemes:
   QuataIos:
     build:

@@ -3,7 +3,20 @@
 `iosApp` es el borde UIKit de Quata para iOS. No contiene pantallas Swift de
 sustitución ni repositorios de ejemplo: el estado, ViewModels y UI de Auth y
 Feed proceden de los módulos Compose/Kotlin compartidos exportados por
-`QuataFeed.framework`.
+`QuataShared.framework`.
+
+## Frontera de framework
+
+`iosApp` embebe exclusivamente `QuataShared.framework`, producido por
+`:ios-shared`. El módulo paraguas exporta las superficies Kotlin que el host
+usa hoy (`:core`, Auth, Feed, Chat y Notifications) y no contiene pantallas,
+navegación ni repositorios. Los nombres de las fachadas Kotlin, como
+`QuataFeedViewControllerKt`, se conservan para evitar una ruptura de la API
+Swift; lo que cambia es sólo el módulo Swift importado (`QuataShared`).
+
+`feature:feed` ya no fabrica ni exporta el framework de la aplicación y no
+depende de features hermanas. Las futuras features iOS se añaden al paraguas
+únicamente cuando una ruta UIKit real requiera su API pública.
 
 ## Estado actual
 
@@ -55,7 +68,7 @@ módulos Kotlin/Native se ejecuta en la CI macOS descrita más abajo. Desde la
 raíz del repositorio:
 
 ```bash
-./gradlew :feature:feed:linkDebugFrameworkIosSimulatorArm64
+./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
 brew install xcodegen
 cd iosApp
 xcodegen generate
@@ -78,7 +91,7 @@ constituyen una validación funcional completa de Auth, Feed, permisos o media.
 ## CI macOS
 
 El workflow [ios-build.yml](../.github/workflows/ios-build.yml) compila los
-targets Kotlin/Native, enlaza `QuataFeed.framework`, genera el proyecto Xcode,
+targets Kotlin/Native, enlaza `QuataShared.framework`, genera el proyecto Xcode,
 construye el host Swift y ejecuta XCTest en simulador. Desde PowerShell, con la
 rama publicada y `gh auth login` hecho:
 

@@ -8,11 +8,11 @@ Multiplatform desde un equipo Windows. El workflow se encuentra en
 
 1. Compila los source sets `iosArm64` e `iosSimulatorArm64` de todos los
    modulos KMP.
-2. Enlaza `QuataFeed.framework` para un simulador Apple Silicon.
+2. Enlaza `QuataShared.framework` para un simulador Apple Silicon.
 3. Genera el proyecto Swift mediante XcodeGen.
 4. Compila la aplicacion host `QuataIos` con Xcode y sin firma.
 5. Ejecuta `QuataIosUITests` en simulador: verifica que Swift presenta la superficie Compose
-   exportada por `QuataFeed.framework` mediante su identificador de accesibilidad.
+   exportada por `QuataShared.framework` mediante su identificador de accesibilidad.
 6. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
    estructurado `xctest-summary.json` durante 30 dias.
 
@@ -20,6 +20,11 @@ La compilacion usa `macos-15`, JDK 17 y Xcode 26.3. Kotlin/Native `2.2.21`
 incluye bibliotecas de plataforma generadas para Xcode 26; usar Xcode 16.3
 haría fallar el enlace al no resolver `_LocationEssentials`. El workflow fija
 además el runtime iOS 26.2 para que el resultado sea reproducible.
+
+`QuataShared.framework` es el único framework Kotlin/Native embebido por el
+host. Lo produce `:ios-shared`, que concentra las exportaciones de Core, Auth,
+Feed, Chat y Notifications. No convierte `feature:feed` en un composition root
+ni le añade dependencias hacia features hermanas.
 
 > El proyecto usa Kotlin/Compose Compiler/serialization `2.2.21`, Compose
 > Multiplatform `1.10.0`, Gradle 9.3.1 y AGP 9.1.0. La Action conserva esas
@@ -89,7 +94,7 @@ framework en `framework-link.log` y los de Swift/Xcode en `xcodebuild.log`.
 
 ```bash
 ./gradlew compileKotlinIosArm64 compileKotlinIosSimulatorArm64
-./gradlew :feature:feed:linkDebugFrameworkIosSimulatorArm64
+./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
 brew install xcodegen
 cd iosApp
 xcodegen generate

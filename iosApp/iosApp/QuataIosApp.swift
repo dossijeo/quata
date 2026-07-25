@@ -1,6 +1,6 @@
 import CoreLocation
 import UIKit
-import QuataFeed
+import QuataShared
 
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"

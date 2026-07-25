@@ -10,7 +10,7 @@ final class QuataIosHostUITests: XCTestCase {
         let migrationSurface = migrationSurfaces.firstMatch
         XCTAssertTrue(
             migrationSurface.waitForExistence(timeout: 10),
-            "The UIKit composition root must present the Compose UIViewController exported by QuataFeed.",
+            "The UIKit composition root must present the Compose UIViewController exported by QuataShared.",
         )
         XCTAssertEqual(migrationSurfaces.count, 1)
         XCTAssertEqual(
