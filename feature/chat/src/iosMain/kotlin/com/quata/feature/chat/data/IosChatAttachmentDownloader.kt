@@ -51,7 +51,7 @@ class IosChatAttachmentDownloader(
             publicUrl = publicUrl,
         ) ?: return PlatformResult.Failure("ios_chat_attachment_url_invalid")
 
-        return runCatching {
+        val localFile = runCatching {
             val response = canonicalUrl.downloadPublicChatAttachment()
             val mimeType = response.mimeType?.normalisedChatMimeType()
                 ?.takeIf(::isAllowedChatAttachmentMimeType)
@@ -64,7 +64,7 @@ class IosChatAttachmentDownloader(
                 ?: "attachment"
             val destination = cacheDestination(sourceName)
             val destinationPath = destination.path ?: error("ios_chat_attachment_cache_path_missing")
-            if (!response.data.writeToFile(destinationPath, atomically = true)) {
+            if (!NSFileManager.defaultManager.createFileAtPath(destinationPath, response.data, null)) {
                 error("ios_chat_attachment_cache_write_failed")
             }
             PlatformFile(
@@ -73,10 +73,10 @@ class IosChatAttachmentDownloader(
                 mimeType = mimeType,
                 sizeBytes = response.data.length.toLong(),
             )
-        }.fold(
-            onSuccess = PlatformResult::Success,
-            onFailure = { PlatformResult.Failure(it.message ?: "ios_chat_attachment_download_failed") },
-        )
+        }.getOrElse { failure ->
+            return PlatformResult.Failure(failure.message ?: "ios_chat_attachment_download_failed")
+        }
+        return PlatformResult.Success(localFile)
     }
 
     private fun cacheDestination(sourceName: String): NSURL {
