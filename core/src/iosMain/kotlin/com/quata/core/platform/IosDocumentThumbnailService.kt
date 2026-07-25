@@ -9,6 +9,7 @@ import platform.Foundation.NSTemporaryDirectory
 import platform.QuickLookThumbnailing.QLThumbnailGenerationRequest
 import platform.QuickLookThumbnailing.QLThumbnailGenerationRequestRepresentationTypeThumbnail
 import platform.QuickLookThumbnailing.QLThumbnailGenerator
+import platform.UIKit.UIImage
 import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIScreen
 import kotlin.coroutines.resume
@@ -49,8 +50,10 @@ class IosDocumentThumbnailService : DocumentThumbnailService {
             continuation.invokeOnCancellation { generator.cancelRequest(request) }
             generator.generateBestRepresentationForRequest(request) { representation, error ->
                 if (!continuation.isActive) return@generateBestRepresentationForRequest
-                val image = representation?.uiImage
-                val png = image?.let(::UIImagePNGRepresentation)
+                // Kotlin/Native exposes Quick Look's Objective-C `CGImage` getter verbatim.
+                // `uiImage` is a Swift-only spelling and is not part of the generated bindings.
+                val png = representation?.CGImage
+                    ?.let { image -> UIImagePNGRepresentation(UIImage.imageWithCGImage(image)) }
                 val result = when {
                     error != null -> PlatformResult.Failure(error.localizedDescription)
                     png == null -> PlatformResult.Failure("document_thumbnail_generation_failed")
