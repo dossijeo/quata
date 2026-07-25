@@ -37,11 +37,16 @@ enum IosPublicRuntimeConfiguration {
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     private let compositionRoot = IosAppCompositionRoot()
+    // `UNUserNotificationCenter` retains its delegate weakly. Keep the bridge at the UIKit
+    // composition boundary so an APNs tap is normalized even before a future authenticated
+    // navigation host chooses to attach a destination callback.
+    private let notificationTapDelegate = IosNotificationTapDelegate()
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
     ) -> Bool {
+        notificationTapDelegate.install()
         compositionRoot.start()
         return true
     }
