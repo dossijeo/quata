@@ -846,10 +846,16 @@ private fun ImagePostForm(
                         state.imageUri?.let { context.mediaHashSeed(Uri.parse(it)) }
                     } ?: state.imageUri.orEmpty()
                 }
-                ComposerFeedPreviewFrame(
+                ComposerMediaPostPreviewContent(
                     isVideo = false,
                     description = "",
-                    locationLabel = state.locationLabel,
+                    subtitle = state.locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
+                    topChips = state.locationLabel
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { listOf(stringResource(R.string.feed_location_chip, it)) }
+                        .orEmpty(),
+                    actionLabels = composerPreviewActionLabels(),
+                    authorName = "Q\u00fcata",
                     compact = isLandscapeLayout,
                     backgroundSeed = imageBackgroundSeed
                 ) {
@@ -943,10 +949,13 @@ private fun VideoPostForm(
         PreviewPanel(stringResource(R.string.composer_preview)) {
             val videoUri = state.videoUri
             if (videoUri != null) {
-                ComposerFeedPreviewFrame(
+                ComposerMediaPostPreviewContent(
                     isVideo = true,
                     description = state.text,
-                    locationLabel = null,
+                    subtitle = "Feed",
+                    topChips = emptyList(),
+                    actionLabels = composerPreviewActionLabels(),
+                    authorName = "Q\u00fcata",
                     compact = isLandscapeLayout,
                     backgroundSeed = videoUri
                 ) {
@@ -972,53 +981,6 @@ private fun VideoPostForm(
         controls = { VideoDescriptionControl() },
         preview = { VideoPreviewPanel() },
         publish = { PublishButton(state.isLoading, onSubmit) }
-    )
-}
-
-@Composable
-private fun ComposerFeedPreviewFrame(
-    isVideo: Boolean,
-    description: String,
-    locationLabel: String?,
-    compact: Boolean = false,
-    mediaAspectRatio: Float = 9f / 16f,
-    backgroundSeed: String? = null,
-    media: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
-) {
-    ComposerPostPreviewContent(
-        isVideo = isVideo,
-        compact = compact,
-        mediaAspectRatio = mediaAspectRatio,
-        backgroundSeed = backgroundSeed ?: description.ifBlank { locationLabel.orEmpty() },
-        media = media,
-        scrim = { ComposerPreviewScrims() },
-        topOverlay = { modifier ->
-            ComposerPreviewTopChips(
-                isVideo = isVideo,
-                locationLabel = locationLabel,
-                modifier = modifier,
-            )
-        },
-        actionRail = { modifier ->
-            ComposerPreviewActionsContent(
-                showRankLiveActions = !compact,
-                labels = composerPreviewActionLabels(),
-                modifier = modifier,
-            )
-        },
-        compactLeadingActions = { modifier ->
-            ComposerPreviewRankLiveActionsContent(
-                labels = composerPreviewActionLabels(),
-                modifier = modifier,
-            )
-        },
-        authorOverlay = { modifier ->
-            ComposerPreviewAuthor(
-                description = description,
-                locationLabel = locationLabel,
-                modifier = modifier,
-            )
-        },
     )
 }
 
@@ -1227,23 +1189,6 @@ private fun ComposerPreviewVideoPlayer(
 }
 
 @Composable
-private fun ComposerPreviewScrims() {
-    ComposerPreviewScrimContent()
-}
-
-@Composable
-private fun ComposerPreviewTopChips(
-    isVideo: Boolean,
-    locationLabel: String?,
-    modifier: Modifier = Modifier
-) {
-    val chips = locationLabel?.takeIf { it.isNotBlank() }?.let { label ->
-        listOf(if (isVideo) "\uD83D\uDCDD $label" else stringResource(R.string.feed_location_chip, label))
-    }.orEmpty()
-    ComposerPreviewTopChipsContent(chips = chips, modifier = modifier)
-}
-
-@Composable
 private fun ComposerPreviewChip(
     text: String,
     highlighted: Boolean = false
@@ -1275,20 +1220,6 @@ private fun composerPreviewActionLabels() = ComposerPreviewActionLabels(
     rank = stringResource(R.string.feed_rank),
     live = stringResource(R.string.common_live)
 )
-
-@Composable
-private fun ComposerPreviewAuthor(
-    description: String,
-    locationLabel: String?,
-    modifier: Modifier = Modifier
-) {
-    ComposerPreviewAuthorContent(
-        description = description,
-        authorName = "Q\u00FCata",
-        subtitle = locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
-        modifier = modifier,
-    )
-}
 
 private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? =
     runCatching {
