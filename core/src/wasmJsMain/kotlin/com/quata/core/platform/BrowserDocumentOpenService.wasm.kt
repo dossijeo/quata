@@ -15,10 +15,12 @@ import kotlin.coroutines.suspendCoroutine
  */
 class BrowserDocumentOpenService : DocumentOpenService {
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        val safeReference = browserDocumentReferenceOrNull(file.reference, browserCurrentOrigin())
+            ?: return PlatformResult.Failure("web_document_url_scheme_not_allowed")
         val kind = DocumentSupport.describe(file.reference, file.displayName, file.mimeType).kind
         val mode = BrowserDocumentOpenPolicy.actionFor(kind, file.reference) ?: return PlatformResult.Unsupported
         return suspendCoroutine { continuation ->
-            browserOpenDocument(file.reference, BrowserDocumentOpenPolicy.downloadName(file.displayName), mode) { state, reason ->
+            browserOpenDocument(safeReference, BrowserDocumentOpenPolicy.downloadName(file.displayName), mode) { state, reason ->
                 continuation.resume(
                     when (state) {
                         "success" -> PlatformResult.Success(Unit)
@@ -32,9 +34,38 @@ class BrowserDocumentOpenService : DocumentOpenService {
 }
 
 /**
+ * Normalizes the only document references that may reach browser navigation/download APIs.
+ *
+ * The browser URL parser is the source of truth here, rather than a Kotlin URL implementation
+ * that could diverge from the browser. [expectedOrigin] is supplied explicitly so the same
+ * policy can be exercised under the Wasm test runner without changing its location.
+ */
+internal fun browserDocumentReferenceOrNull(reference: String, expectedOrigin: String?): String? = js(
+    """
+    (() => {
+      const rawReference = typeof reference === 'string' ? reference.trim() : '';
+      if (!rawReference || /[\u0000-\u001F\u007F]/.test(rawReference)) return null;
+      try {
+        const parsed = new URL(rawReference, globalThis.location?.href);
+        if (!['https:', 'http:', 'blob:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+        const origin = typeof expectedOrigin === 'string' && expectedOrigin
+          ? expectedOrigin
+          : globalThis.location?.origin;
+        if (parsed.protocol === 'blob:' && origin && parsed.origin !== origin) return null;
+        return parsed.href;
+      } catch (_) {
+        return null;
+      }
+    })()
+    """,
+)
+
+private fun browserCurrentOrigin(): String? = js("globalThis.location?.origin ?? null")
+
+/**
  * Browser-specific values kept deterministic so hosts never pass path-like or control characters
- * to the download attribute. URL validation itself remains in [browserOpenDocument], where the
- * standards-compliant browser URL parser is available.
+ * to the download attribute. URL validation remains in [browserDocumentReferenceOrNull], where
+ * the standards-compliant browser URL parser is available.
  */
 object BrowserDocumentOpenPolicy {
     /**
@@ -72,26 +103,9 @@ private fun browserOpenDocument(
     """
     (() => {
     try {
-      const rawReference = typeof reference === 'string' ? reference.trim() : '';
-      if (!rawReference || /[\u0000-\u001F\u007F]/.test(rawReference)) {
-        onResult('failure', 'web_document_invalid_url');
-        return;
-      }
-      const locationHref = globalThis.location?.href;
-      const parsed = new URL(rawReference, locationHref);
-      const allowedProtocols = new Set(['https:', 'http:', 'blob:']);
-      if (!allowedProtocols.has(parsed.protocol) || parsed.username || parsed.password) {
-        onResult('failure', 'web_document_url_scheme_not_allowed');
-        return;
-      }
-      // Blob URLs are capability references created by this browser origin. Never dereference a
-      // Blob capability minted by another origin even if a caller supplied one as text. PDF Blobs
-      // are also routed to download by BrowserDocumentOpenPolicy, never to window.open.
-      if (parsed.protocol === 'blob:' && globalThis.location?.origin && parsed.origin !== globalThis.location.origin) {
-        onResult('failure', 'web_document_blob_origin_not_allowed');
-        return;
-      }
-      const href = parsed.href;
+      // [reference] was normalized through browserDocumentReferenceOrNull immediately before
+      // this private bridge is called. Keep it as a URL parser result, never raw caller input.
+      const href = reference;
       const download = () => {
         const document = globalThis.document;
         if (!document || typeof document.createElement !== 'function' || !document.body) return false;

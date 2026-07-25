@@ -2,6 +2,7 @@ package com.quata.core.platform
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class BrowserDocumentOpenPolicyTest {
     @Test
@@ -26,5 +27,24 @@ class BrowserDocumentOpenPolicyTest {
     @Test
     fun downloadNameHasBoundedLength() {
         assertEquals(180, BrowserDocumentOpenPolicy.downloadName("x".repeat(200)).length)
+    }
+
+    @Test
+    fun documentReferenceNormalizerAllowsHttpAndSameOriginBlobCapabilities() {
+        assertEquals(
+            "https://cdn.quata.example/files/report.pdf",
+            browserDocumentReferenceOrNull(" https://cdn.quata.example/files/report.pdf ", "https://web.quata.example"),
+        )
+        assertEquals(
+            "blob:https://web.quata.example/document-id",
+            browserDocumentReferenceOrNull("blob:https://web.quata.example/document-id", "https://web.quata.example"),
+        )
+    }
+
+    @Test
+    fun documentReferenceNormalizerRejectsExecutableSchemesAndForeignBlobCapabilities() {
+        assertNull(browserDocumentReferenceOrNull("javascript:alert(1)", "https://web.quata.example"))
+        assertNull(browserDocumentReferenceOrNull("data:application/pdf;base64,ZmFrZQ==", "https://web.quata.example"))
+        assertNull(browserDocumentReferenceOrNull("blob:https://other.example/document-id", "https://web.quata.example"))
     }
 }
