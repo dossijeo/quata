@@ -1,4 +1,5 @@
 import XCTest
+import Foundation
 import UIKit
 import QuickLook
 import QuataFeed
@@ -8,6 +9,19 @@ import AVFoundation
 import CoreLocation
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
+        // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
+        // A unique namespace avoids observing or modifying the authenticated app session.
+        let storage = IosKeychainSessionStorage(
+            service: "com.quata.tests.keychain-bridge.\(UUID().uuidString)",
+            account: "missing-session",
+        )
+        defer { storage.clear() }
+
+        XCTAssertNil(storage.getSession())
+        XCTAssertNil(storage.lastStatus)
+    }
+
     func testExportsComposeMigrationViewController() {
         let controller = QuataFeedViewControllerKt.QuataIosMigrationStatusViewController()
 
