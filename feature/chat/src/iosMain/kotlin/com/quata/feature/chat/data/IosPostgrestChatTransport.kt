@@ -50,7 +50,7 @@ class IosChatPostgrestTransport(
         require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
         val request = authenticatedRequest("${configuration.restBaseUrl()}/rpc/$functionName").apply {
             setHTTPMethod("POST")
-            setHTTPBody(body.toIosData())
+            setHTTPBody(body.encodeToByteArray().toIosData())
             setValue("application/json", "Content-Type")
         }
         request.execute().body.toIosString()
@@ -97,7 +97,7 @@ class IosChatAttachmentUploader(
         val cleanProfileId = profileId.trim().takeIf { it.matches(IosStorageSegment) }
             ?: error("ios_chat_attachment_profile_id_invalid")
         val localUrl = file.localFileUrlOrNull() ?: error("ios_chat_attachment_local_file_required")
-        val data = NSData.dataWithContentsOfURL(localUrl) ?: error("ios_chat_attachment_read_failed")
+        val data = NSData(contentsOfURL = localUrl) ?: error("ios_chat_attachment_read_failed")
         if (data.length == 0uL) error("ios_chat_attachment_empty")
 
         val name = file.displayName.safeFileName()
