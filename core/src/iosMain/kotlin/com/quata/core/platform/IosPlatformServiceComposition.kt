@@ -39,7 +39,10 @@ class IosPlatformServiceComposition(
 
     /** Allows a future navigation host to release a controller when its scene is discarded. */
     fun detachPresenter(controller: UIViewController) {
-        if (presenter === controller) presenter = null
+        // Swift can bridge the same Objective-C UIViewController through a different Kotlin
+        // wrapper. `==` delegates to Objective-C equality, while `===` only compares wrappers.
+        // Keep the guard so an unrelated scene/controller cannot detach the active presenter.
+        if (presenter == controller) presenter = null
     }
 
     override fun activeViewController(): UIViewController? = presenter
