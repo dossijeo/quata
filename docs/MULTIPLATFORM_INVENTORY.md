@@ -39,6 +39,7 @@ Actualizado durante la FASE 6. Este documento separa lógica compartible de adap
 
 ## Actualizaciones recientes
 
+- Post Composer: `ComposerMediaPostPreviewContent` concentra en `feature:postcomposer/commonMain` la jerarquÃ­a de preview de imagen/vÃ­deo (frame, scrim, chips, rail y autor), dejando al host Ãºnicamente el slot de media nativa/navegador, textos localizados y avatar opcional.
 - iOS dispone de `IosAudioCacheService` para copiar, recuperar y eliminar ficheros de audio locales en el temporal de la app. El contrato `AudioCacheService` rechaza claves inseguras y referencias no locales; no descarga media ni sustituye el host AVFoundation.
 
 ## Orden de ejecución
