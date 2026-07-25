@@ -303,6 +303,8 @@ private fun QuataWebApp(
                     WebChatHost(
                         repository = chatRepository,
                         audioPlayer = platformServices.audioPlayer,
+                        audioRecorder = platformServices.audioRecorder,
+                        audioRecordingReferences = platformServices.audioRecordingReferences,
                         filePicker = platformServices.filePicker,
                         documentOpener = platformServices.documentOpener,
                         conversationId = navigation.chatConversationId,
