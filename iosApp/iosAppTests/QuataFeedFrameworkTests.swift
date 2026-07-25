@@ -248,4 +248,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-chat-host")
     }
+
+    func testAuthenticatedRouterPresentsQueuedNotificationsOnlyAfterItsRealFactoryIsInstalled() {
+        let services = IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+        )
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        router.showNotifications()
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let exportedFeatureController = UIViewController()
+        router.installNotificationsFactory {
+            exportedFeatureController
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-notifications-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Notifications")
+    }
 }

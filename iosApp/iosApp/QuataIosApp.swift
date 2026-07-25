@@ -112,6 +112,15 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installAuthenticatedFeed(dependencies)
     }
 
+    /// Installs the shared notification inbox only after a real authenticated repository has
+    /// been composed by Kotlin. APNs delivery and the existing tap delegate stay independent of
+    /// this screen factory, so the launcher never fabricates notification data for navigation.
+    func installAuthenticatedNotifications(_ dependencies: IosNotificationsHostDependencies) {
+        authenticatedHost.installNotificationsFactory {
+            QuataNotificationsViewControllerKt.QuataNotificationsViewController(dependencies: dependencies)
+        }
+    }
+
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let dependencies = runtimeBootstrap?.restoredDependencies(

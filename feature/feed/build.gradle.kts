@@ -23,6 +23,9 @@ kotlin {
             // Swift router decides when real chat dependencies are available; it does not own
             // a duplicate Chat UI or audio implementation.
             export(project(":feature:chat"))
+            // The authenticated UIKit router also installs the shared in-app notifications
+            // host through this single framework; keep its KMP entry point visible to Swift.
+            export(project(":feature:notifications"))
         }
     }
     sourceSets {
@@ -41,6 +44,7 @@ kotlin {
         iosMain.dependencies {
             api(project(":feature:auth"))
             api(project(":feature:chat"))
+            api(project(":feature:notifications"))
         }
         jsMain.dependencies { }
         wasmJsMain.dependencies { }
