@@ -857,15 +857,16 @@ private fun ImagePostForm(
                     actionLabels = composerPreviewActionLabels(),
                     authorName = "Q\u00fcata",
                     compact = isLandscapeLayout,
-                    backgroundSeed = imageBackgroundSeed
-                ) {
-                    AsyncImage(
-                        model = state.imageUri,
-                        contentDescription = stringResource(R.string.composer_selected_image),
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                    backgroundSeed = imageBackgroundSeed,
+                    media = {
+                        AsyncImage(
+                            model = state.imageUri,
+                            contentDescription = stringResource(R.string.composer_selected_image),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    },
+                )
             } else {
                 EmptyPreview(
                     stringResource(R.string.composer_image_preview_title),
@@ -957,13 +958,14 @@ private fun VideoPostForm(
                     actionLabels = composerPreviewActionLabels(),
                     authorName = "Q\u00fcata",
                     compact = isLandscapeLayout,
-                    backgroundSeed = videoUri
-                ) {
-                    ComposerPreviewVideoPlayer(
-                        videoUri = videoUri,
-                        useContainLayout = isLandscapeLayout
-                    )
-                }
+                    backgroundSeed = videoUri,
+                    media = {
+                        ComposerPreviewVideoPlayer(
+                            videoUri = videoUri,
+                            useContainLayout = isLandscapeLayout
+                        )
+                    },
+                )
             } else {
                 EmptyPreview(
                     title = stringResource(R.string.composer_video_preview_empty),
