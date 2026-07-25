@@ -119,7 +119,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(composition.activeViewController())
     }
 
-    func testHostContainerAtomicallyReplacesTheComposeSurface() {
+    func testHostContainerAtomicallyReplacesTheComposeSurface() throws {
         let composition = makePlatformServiceComposition()
         let host = IosFeedHostContainerViewController(platformServices: composition)
         host.loadViewIfNeeded()
