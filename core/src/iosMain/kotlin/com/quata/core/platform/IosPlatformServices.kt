@@ -43,6 +43,8 @@ class IosPlatformServices(
     /** Quick Look document opener; unavailable until the composition root supplies a presenter. */
     val documentOpener: DocumentOpenService = presenterProvider?.let(::IosDocumentOpenService)
         ?: UnsupportedDocumentOpenService
+    /** Quick Look Thumbnailing works without a visible presenter and returns portable PNG files. */
+    val documentThumbnails: DocumentThumbnailService = IosDocumentThumbnailService()
 }
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */

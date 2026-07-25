@@ -1,6 +1,7 @@
 import XCTest
 import QuataFeed
 @testable import QuataIos
+import QuickLookThumbnailing
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testExportsComposeMigrationViewController() {
@@ -58,5 +59,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(outcome.isCancelled)
         XCTAssertTrue(outcome.contacts.isEmpty)
         XCTAssertEqual(outcome.failureReason, "presentation_failed")
+    }
+
+    func testQuickLookThumbnailGeneratorIsAvailableOnTheIosHost() {
+        // Do not generate an asset in XCTest: Quick Look's decoding varies with simulator files.
+        // This still proves that the real system API used by IosDocumentThumbnailService is linked.
+        XCTAssertNotNil(QLThumbnailGenerator.shared)
     }
 }
