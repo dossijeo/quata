@@ -48,6 +48,13 @@ class PlatformServiceContractsTest {
     }
 
     @Test
+    fun platformServicesExposeAnExplicitUnsupportedDocumentDefault() = runTest {
+        val services = FakePlatformServices()
+
+        assertSame(PlatformResult.Unsupported, services.documentOpener.open(sampleFile))
+    }
+
+    @Test
     fun platformServicesCanBeDrivenByCommonFakesWithoutPlatformState() = runTest {
         val services = FakePlatformServices()
 

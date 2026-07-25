@@ -41,7 +41,7 @@ class IosPlatformServices(
     /** Local audio cache; unlike playback/recording it needs no UIKit or AVFoundation host. */
     val audioCache: AudioCacheService = IosAudioCacheService()
     /** Quick Look document opener; unavailable until the composition root supplies a presenter. */
-    val documentOpener: DocumentOpenService = presenterProvider?.let(::IosDocumentOpenService)
+    override val documentOpener: DocumentOpenService = presenterProvider?.let(::IosDocumentOpenService)
         ?: UnsupportedDocumentOpenService
     /** Quick Look Thumbnailing works without a visible presenter and returns portable PNG files. */
     val documentThumbnails: DocumentThumbnailService = IosDocumentThumbnailService()
