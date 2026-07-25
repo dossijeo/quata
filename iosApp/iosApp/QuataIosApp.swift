@@ -187,6 +187,7 @@ private final class IosAppCompositionRoot {
         installAuthenticatedNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
         installAuthenticatedCommunitiesIfAvailable()
+        installAuthenticatedComposerIfAvailable()
         return true
     }
 
@@ -286,6 +287,24 @@ private final class IosAppCompositionRoot {
         }
     }
 
+    /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still
+    /// camera adapters already owned by `IosPlatformServiceComposition`; publication remains an
+    /// explicit capability error until the iOS write/storage path has RLS and E2E evidence.
+    private func installAuthenticatedComposerIfAvailable() {
+        guard runtimeBootstrap != nil else { return }
+        let services = platformServices.services
+        authenticatedHost.installComposerFactory { [weak self] in
+            IosComposerHostKt.QuataComposerViewController(
+                dependencies: IosComposerHostKt.createIosComposerHostDependencies(
+                    repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
+                    filePicker: services.filePicker,
+                    cameraCapture: services.cameraCapture,
+                    onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                ),
+            )
+        }
+    }
+
     private func presentProfileSosCapabilityNotice(_ message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
@@ -354,6 +373,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var notificationsFactory: (() -> UIViewController)?
     private var profileSosFactory: (() -> UIViewController)?
     private var communitiesFactory: (() -> UIViewController)?
+    private var composerFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
 
     private enum PendingRoute {
@@ -363,6 +383,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case notifications
         case profileSos
         case communities
+        case composer
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -486,6 +507,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installComposerFactory(_ factory: @escaping () -> UIViewController) {
+        composerFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -499,6 +525,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showProfileSos() { route(.profileSos) }
 
     func showCommunities() { route(.communities) }
+
+    /// Composer deliberately has no public deep-link contract. The launcher opens it only after
+    /// a Keychain-backed authenticated session has supplied its real platform adapters.
+    func showComposer() { route(.composer) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
@@ -539,6 +569,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return profileSosFactory?()
         case .communities:
             return communitiesFactory?()
+        case .composer:
+            return composerFactory?()
         }
     }
 
@@ -557,6 +589,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-profile-sos-host", "Quata iOS Profile SOS")
         case .communities:
             presentation = ("quata-ios-communities-host", "Quata iOS Communities")
+        case .composer:
+            presentation = ("quata-ios-composer-host", "Quata iOS Composer")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }

@@ -35,6 +35,7 @@ kotlin {
             api(project(":feature:official"))
             api(project(":feature:profile"))
             api(project(":feature:neighborhoods"))
+            api(project(":feature:postcomposer"))
         }
     }
 
@@ -50,6 +51,7 @@ kotlin {
             export(project(":feature:official"))
             export(project(":feature:profile"))
             export(project(":feature:neighborhoods"))
+            export(project(":feature:postcomposer"))
         }
     }
 }

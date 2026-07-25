@@ -413,6 +413,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Communities")
     }
 
+    func testAuthenticatedRouterPresentsQueuedComposerOnlyAfterItsRealFactoryIsInstalled() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        // Composer has no public URL contract. It remains an internal authenticated route until
+        // the launcher supplies the exported KMP factory and actual UIKit platform services.
+        IosAuthenticatedRouteDispatcher(host: router).openComposer()
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let exportedFeatureController = UIViewController()
+        router.installComposerFactory {
+            exportedFeatureController
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-composer-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Composer")
+    }
+
     func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
@@ -507,6 +528,29 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(router.children.count, 1)
         XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertTrue(services.activeViewController() === router.children.first)
+    }
+
+    func testAuthenticatedRouterBuildsTheExportedComposerHostWithRealPlatformAdapters() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+
+        router.installComposerFactory {
+            IosComposerHostKt.QuataComposerViewController(
+                dependencies: IosComposerHostKt.createIosComposerHostDependencies(
+                    repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
+                    filePicker: services.services.filePicker,
+                    cameraCapture: services.services.cameraCapture,
+                    onClose: {},
+                ),
+            )
+        }
+        router.showComposer()
+
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-composer-host")
+        XCTAssertTrue(router.children.first?.isViewLoaded == true)
         XCTAssertTrue(services.activeViewController() === router.children.first)
     }
 }

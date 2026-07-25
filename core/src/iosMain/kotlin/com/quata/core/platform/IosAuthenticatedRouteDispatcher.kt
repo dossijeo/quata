@@ -17,6 +17,7 @@ interface IosAuthenticatedRouteHost {
     fun showNotifications()
     fun showProfileSos()
     fun showCommunities()
+    fun showComposer()
 }
 
 /**
@@ -54,5 +55,10 @@ class IosAuthenticatedRouteDispatcher(
     /** Communities has no public deep-link contract yet; this is an authenticated in-app route. */
     fun openCommunities() {
         host.showCommunities()
+    }
+
+    /** Composer is an authenticated in-app route; there is intentionally no public URL parser. */
+    fun openComposer() {
+        host.showComposer()
     }
 }
