@@ -12,6 +12,12 @@ class BrowserPermissionService : PermissionService {
         if (permission == PlatformPermission.Notifications) {
             return browserNotificationStatus().toPermissionStatus()
         }
+        // `Permissions.query({ name: "geolocation" })` must never be used to imply that an
+        // insecure origin can request location. It does not prompt, but can report a stale state
+        // inconsistent with the API the LocationService is actually able to call.
+        if (permission == PlatformPermission.Location && !browserGeolocationIsAvailable()) {
+            return PermissionStatus.Unavailable
+        }
         val browserName = permission.browserPermissionName() ?: return PermissionStatus.Unavailable
         return browserPermissionStatus(browserName).toPermissionStatus()
     }
@@ -20,7 +26,11 @@ class BrowserPermissionService : PermissionService {
         PlatformPermission.Notifications -> browserRequestNotificationPermission().toPermissionStatus()
         PlatformPermission.Camera -> browserRequestMediaPermission(video = true).toPermissionStatus()
         PlatformPermission.Microphone -> browserRequestMediaPermission(video = false).toPermissionStatus()
-        PlatformPermission.Location -> browserRequestLocationPermission().toPermissionStatus()
+        PlatformPermission.Location -> if (browserGeolocationIsAvailable()) {
+            browserRequestLocationPermission().toPermissionStatus()
+        } else {
+            PermissionStatus.Unavailable
+        }
         PlatformPermission.Photos,
         PlatformPermission.Files,
         PlatformPermission.Contacts -> PermissionStatus.Unavailable
@@ -99,10 +109,25 @@ private fun browserRequestLocation(callback: (String?) -> Unit): Unit = js("""
     (() => {
     const geolocation = globalThis.navigator?.geolocation;
     if (!geolocation?.getCurrentPosition) { callback(null); return; }
-    geolocation.getCurrentPosition(
-        () => callback("granted"),
-        error => callback(error?.code === 1 ? "denied" : null),
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
-    );
+    const timeoutMillis = 10000;
+    let settled = false;
+    const finish = value => {
+        if (settled) return;
+        settled = true;
+        globalThis.clearTimeout(fallbackTimeout);
+        callback(value);
+    };
+    // The Geolocation timeout is not guaranteed to fire when a page is suspended. Finalise the
+    // one-shot permission request ourselves so its coroutine cannot be retained indefinitely.
+    const fallbackTimeout = globalThis.setTimeout(() => finish(null), timeoutMillis + 1000);
+    try {
+        geolocation.getCurrentPosition(
+            () => finish("granted"),
+            error => finish(error?.code === 1 ? "denied" : null),
+            { enableHighAccuracy: false, timeout: timeoutMillis, maximumAge: 0 }
+        );
+    } catch (_) {
+        finish(null);
+    }
     })()
 """)
