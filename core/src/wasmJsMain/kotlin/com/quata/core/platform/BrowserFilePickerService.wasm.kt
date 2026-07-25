@@ -9,8 +9,16 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-/** Browser file picker backed by a transient `<input type="file">`. */
-class BrowserFilePickerService : FilePickerService {
+/**
+ * Browser file picker backed by a transient `<input type="file">`.
+ *
+ * Successful results own Blob URLs until the host has finished uploading and rendering them.
+ * [release] only revokes URLs issued by this picker instance, so it is safe to expose to a
+ * composition root without granting it the ability to invalidate remote or another service's URL.
+ */
+class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser {
+    private val issuedReferences = mutableSetOf<String>()
+
     override suspend fun pickFiles(
         acceptedMimeTypes: List<String>,
         allowMultiple: Boolean
@@ -34,10 +42,27 @@ class BrowserFilePickerService : FilePickerService {
                 when (result) {
                     BrowserPickerUnsupported -> PlatformResult.Unsupported
                     null -> PlatformResult.Cancelled
-                    else -> PlatformResult.Success(result.toPlatformFiles())
+                    else -> PlatformResult.Success(result.toPlatformFiles()).also(::trackIssuedReferences)
                 }
             )
         }
+    }
+
+    override suspend fun release(file: PlatformFile): PlatformResult<Unit> {
+        val reference = file.reference
+        if (!reference.startsWith("blob:", ignoreCase = true) || !issuedReferences.remove(reference)) {
+            return PlatformResult.Failure("web_picker_file_not_owned")
+        }
+        browserRevokePickedFileUrl(reference)
+        return PlatformResult.Success(Unit)
+    }
+
+    private fun trackIssuedReferences(result: PlatformResult<List<PlatformFile>>) {
+        (result as? PlatformResult.Success<List<PlatformFile>>)?.value
+            ?.asSequence()
+            ?.map(PlatformFile::reference)
+            ?.filter { it.startsWith("blob:", ignoreCase = true) }
+            ?.forEach(issuedReferences::add)
     }
 }
 
@@ -64,6 +89,12 @@ private fun String.toPlatformFiles(): List<PlatformFile> = runCatching {
         )
     }
 }.getOrElse { emptyList() }
+
+private fun browserRevokePickedFileUrl(reference: String): Unit = js(
+    """
+    (() => { if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference); })()
+    """,
+)
 
 private fun browserPickFiles(
     accept: String,
