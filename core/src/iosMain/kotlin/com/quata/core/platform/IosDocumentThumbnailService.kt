@@ -4,6 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.CoreGraphics.CGSizeMake
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSURL
 import platform.Foundation.NSTemporaryDirectory
 import platform.QuickLookThumbnailing.QLThumbnailGenerationRequest
 import platform.QuickLookThumbnailing.QLThumbnailGenerationRequestRepresentationTypeThumbnail

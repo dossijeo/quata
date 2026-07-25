@@ -2,6 +2,7 @@ package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSURL
 import platform.QuickLook.QLPreviewController
 import platform.QuickLook.QLPreviewControllerDataSourceProtocol
 import platform.QuickLook.QLPreviewItemProtocol
