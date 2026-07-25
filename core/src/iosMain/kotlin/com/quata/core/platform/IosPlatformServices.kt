@@ -5,8 +5,9 @@ package com.quata.core.platform
  *
  * The UIKit/SwiftUI launcher may replace any service with a host-backed implementation while
  * keeping common features independent from UIKit. Location remains unsupported until a Core
- * Location host is attached; notifications use the real system permission adapter while every
- * other permission remains explicitly unavailable until its iOS host is implemented.
+ * Location host is attached. Camera, notifications and contacts use real system permission
+ * adapters; every other permission remains explicitly unavailable until its iOS policy/host is
+ * implemented.
  */
 class IosPlatformServices(
     presenterProvider: IosViewControllerProvider? = null,
