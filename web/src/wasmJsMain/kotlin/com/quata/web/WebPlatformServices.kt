@@ -9,6 +9,7 @@ import com.quata.core.platform.BrowserDocumentOpenService
 import com.quata.core.platform.BrowserContactPickerService
 import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
+import com.quata.core.platform.BrowserAudioCacheService
 import com.quata.core.platform.BrowserFilePickerService
 import com.quata.core.platform.BrowserFileCacheService
 import com.quata.core.platform.BrowserLocationService
@@ -21,6 +22,8 @@ import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.AudioCacheService
+import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FileCacheService
 import com.quata.core.platform.LocationService
@@ -38,7 +41,8 @@ data class WebPlatformServices(
     override val share: ShareService = BrowserShareService(),
     override val filePicker: FilePickerService = BrowserFilePickerService(),
     /** IndexedDB binary cache, kept separate from the small key/value [PreferenceStore] boundary. */
-    val fileCache: FileCacheService = BrowserFileCacheService(),
+    private val browserFileCache: BrowserFileCacheService = BrowserFileCacheService(),
+    val fileCache: FileCacheService = browserFileCache,
     override val contacts: ContactPickerService = BrowserContactPickerService(),
     override val location: LocationService = BrowserLocationService(),
     override val permissions: PermissionService = BrowserPermissionService(),
@@ -52,8 +56,15 @@ data class WebPlatformServices(
       override val documentOpener: DocumentOpenService = BrowserDocumentOpenService(),
       /** Read-only metadata for files returned by the browser gallery picker. */
       val imageMetadata: ImageMetadataService = BrowserImageMetadataService(),
-    /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
+    /**
+     * IndexedDB-backed audio cache with explicit release of its issued Blob URLs.
+     * Browser storage quotas and eviction still apply; callers must tolerate cache misses.
+     */
+    val audioCache: AudioCacheService = BrowserAudioCacheService(browserFileCache),
+    /** Not part of PlatformServices yet; exposed for Web Chat host injection. */
     val audioPlayer: AudioPlayerService = BrowserAudioPlayerService(),
-    /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */
-    val audioRecorder: AudioRecorderService = BrowserAudioRecorderService(),
+    private val browserAudioRecorder: BrowserAudioRecorderService = BrowserAudioRecorderService(),
+    /** Real MediaRecorder adapter; its returned Blob URLs are released through [audioRecordingReferences]. */
+    val audioRecorder: AudioRecorderService = browserAudioRecorder,
+    val audioRecordingReferences: AudioRecordingReferenceReleaser = browserAudioRecorder,
 ) : PlatformServices

@@ -13,9 +13,10 @@ import kotlin.coroutines.suspendCoroutine
  * Browser objects remain in a small JS registry keyed by id so the Kotlin/Wasm boundary only
  * carries primitive values and the resulting Blob URL.
  */
-class BrowserAudioRecorderService : AudioRecorderService {
+class BrowserAudioRecorderService : AudioRecorderService, AudioRecordingReferenceReleaser {
     private var recordingId: String? = null
     private var nextId = 0L
+    private val issuedReferences = mutableSetOf<String>()
 
     override suspend fun start(options: AudioRecordingOptions): PlatformResult<Unit> {
         cancel()
@@ -33,7 +34,11 @@ class BrowserAudioRecorderService : AudioRecorderService {
         val id = recordingId ?: return PlatformResult.Failure("recorder_not_started")
         recordingId = null
         return suspendCoroutine { continuation ->
-            browserRecorderStop(id) { result -> continuation.resume(result.toRecordingResult()) }
+            browserRecorderStop(id) { result ->
+                val recording = result.toRecordingResult()
+                trackIssuedReference(recording)
+                continuation.resume(recording)
+            }
         }
     }
 
@@ -43,6 +48,22 @@ class BrowserAudioRecorderService : AudioRecorderService {
         return suspendCoroutine { continuation ->
             browserRecorderCancel(id) { result -> continuation.resume(result.toRecorderUnitResult()) }
         }
+    }
+
+    /** Revokes only a completed recording Blob URL created by this recorder instance. */
+    override suspend fun release(recording: AudioRecording): PlatformResult<Unit> {
+        val reference = recording.file.reference
+        if (!reference.startsWith("blob:", ignoreCase = true) || !issuedReferences.remove(reference)) {
+            return PlatformResult.Failure("web_audio_recording_not_owned")
+        }
+        browserRecorderRevokeObjectUrl(reference)
+        return PlatformResult.Success(Unit)
+    }
+
+    private fun trackIssuedReference(result: PlatformResult<AudioRecording>) {
+        (result as? PlatformResult.Success<AudioRecording>)?.value?.file?.reference
+            ?.takeIf { it.startsWith("blob:", ignoreCase = true) }
+            ?.let(issuedReferences::add)
     }
 }
 
@@ -172,6 +193,10 @@ private fun browserRecorderCancel(id: String, onResult: (String) -> Unit): Unit 
       };
       if (record.recorder.state === 'inactive') record.recorder.onstop(); else record.recorder.stop();
     })()""",
+)
+
+private fun browserRecorderRevokeObjectUrl(reference: String): Unit = js(
+    """(() => { if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference); })()""",
 )
 
 private const val BrowserRecorderUnsupported = "unsupported"

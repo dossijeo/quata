@@ -25,6 +25,17 @@ interface AudioRecorderService {
     suspend fun cancel(): PlatformResult<Unit>
 }
 
+/**
+ * Optional owner of temporary recording references returned by an [AudioRecorderService].
+ *
+ * A recording can outlive the active recorder while a composer uploads it. The composition root
+ * may inject this boundary to release a discarded recording only after no UI or upload still uses
+ * its [PlatformFile.reference]. Implementations must never release an arbitrary caller reference.
+ */
+interface AudioRecordingReferenceReleaser {
+    suspend fun release(recording: AudioRecording): PlatformResult<Unit>
+}
+
 interface AudioPlayerService {
     suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState>
     suspend fun play(): PlatformResult<AudioPlaybackState>

@@ -29,6 +29,8 @@ import com.quata.core.model.Message
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.AudioRecording
+import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.AudioRecordingOptions
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
@@ -75,6 +77,7 @@ fun ChatBrowserHostContent(
     onOpenAttachment: (PlatformFile) -> Unit,
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
+    audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
 ) {
     if (conversationId == null) {
         ChatBrowserConversationList(
@@ -88,6 +91,7 @@ fun ChatBrowserHostContent(
             repository = repository,
             audioPlayer = audioPlayer,
             audioRecorder = audioRecorder,
+            audioRecordingReferences = audioRecordingReferences,
             filePicker = filePicker,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
@@ -250,6 +254,7 @@ private fun ChatBrowserConversationDetail(
     repository: ChatRepository,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService,
+    audioRecordingReferences: AudioRecordingReferenceReleaser?,
     filePicker: FilePickerService,
     conversationId: String,
     navigationMessage: String,
@@ -273,6 +278,7 @@ private fun ChatBrowserConversationDetail(
     var isRecordingAudio by remember { mutableStateOf(false) }
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
+    var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     LaunchedEffect(isRecordingAudio) {
         if (!isRecordingAudio) return@LaunchedEffect
         while (isRecordingAudio) {
@@ -332,6 +338,10 @@ private fun ChatBrowserConversationDetail(
                                             isRecordingAudio = false
                                             recordingElapsedSeconds = result.value.durationMillis / 1_000L
                                             recordingError = null
+                                            pendingAudioRecording?.let { previous ->
+                                                audioRecordingReferences?.release(previous)
+                                            }
+                                            pendingAudioRecording = result.value
                                             viewModel.onEvent(
                                                 ChatUiEvent.AttachmentSelected(
                                                     uri = result.value.file.reference,
@@ -390,6 +400,10 @@ private fun ChatBrowserConversationDetail(
                                         ),
                                     )) {
                                         is PlatformResult.Success -> result.value.firstOrNull()?.let { file ->
+                                            pendingAudioRecording?.let { recording ->
+                                                audioRecordingReferences?.release(recording)
+                                            }
+                                            pendingAudioRecording = null
                                             viewModel.onEvent(
                                                 ChatUiEvent.AttachmentSelected(
                                                     uri = file.reference,
@@ -406,7 +420,14 @@ private fun ChatBrowserConversationDetail(
                             },
                         ) { Text("Adjuntar archivo") }
                         if (state.attachmentUri != null) {
-                            Button(onClick = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }) {
+                            Button(onClick = {
+                                val recording = pendingAudioRecording
+                                pendingAudioRecording = null
+                                viewModel.onEvent(ChatUiEvent.ClearAttachment)
+                                if (recording != null) {
+                                    scope.launch { audioRecordingReferences?.release(recording) }
+                                }
+                            }) {
                                 Text("Quitar adjunto")
                             }
                         }

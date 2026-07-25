@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
@@ -22,6 +23,7 @@ fun WebChatHost(
     repository: WebChatRepository,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService? = null,
+    audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
     conversationId: String?,
@@ -31,6 +33,9 @@ fun WebChatHost(
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
+    val resolvedRecordingReferences = remember(audioRecorder, audioRecordingReferences) {
+        audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
+    }
     val scope = rememberCoroutineScope()
     DisposableEffect(repository) {
         repository.setAppForeground(browserDocumentIsVisible())
@@ -44,6 +49,7 @@ fun WebChatHost(
         repository = repository,
         audioPlayer = audioPlayer,
         audioRecorder = resolvedAudioRecorder,
+        audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
         conversationId = conversationId,
         navigationMessage = navigationMessage,
