@@ -1,6 +1,6 @@
 # Auditoría de evidencia de migración KMP
 
-**Base auditada:** `8da5bad90bd1c786931bee133a902f675e57a3ae` (`main` en el momento de abrir el lote).  
+**Base auditada:** `8da5bad90bd1c786931bee133a902f675e57a3ae` (`main` en el momento de abrir el lote).
 **Método:** inspección de fuentes y configuración solamente; no se ejecutaron Gradle, emulador ni CI en este lote. Por tanto, este documento no convierte compilaciones previas en evidencia nueva.
 
 ## Requisitos con evidencia integrada
@@ -40,4 +40,3 @@
 3. Ejecutar CI macOS completa y conservar el resultado de Kotlin/Native, framework, Xcode y XCTest.
 4. En Windows: `:app:assembleDebug`, instalación en API-37, arranque, `logcat -b crash` y `pidof`.
 5. Ejecutar flujos configurados Web/iOS sólo después de disponer de runtime, permisos y contratos backend reales. Hasta entonces Web e iOS permanecen **parciales**, no listos para declarar la migración terminada.
-
