@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -223,93 +222,75 @@ fun OfficialFeedScreen(
         }
     }
 
-    LaunchedEffect(
-        pagerState.currentPage,
-        state.posts.size,
-        state.hasMoreOlderPosts,
-        state.isLoadingOlder
-    ) {
-        val shouldLoadOlder =
-            state.posts.isNotEmpty() &&
-                state.hasMoreOlderPosts &&
-                !state.isLoadingOlder &&
-                pagerState.currentPage >= state.posts.lastIndex - OfficialOlderPostsPrefetchDistance
-        if (shouldLoadOlder) {
-            viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage)
-        }
-    }
-
-    OfficialFeedViewportContent(
+    OfficialFeedPagerContent(
         padding = padding,
-        modifier = modifier.nestedScroll(pullRefreshState.nestedScrollConnection)
-    ) {
-            when {
-                state.isLoading && state.posts.isEmpty() -> {
-                    OfficialLoadingContent(
-                        canPublish = canPublish,
-                        strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
-                        onCreate = { requestCreateOfficialPost() },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                state.posts.isEmpty() -> {
-                    OfficialEmptyContent(
-                        canPublish = canPublish,
-                        strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
-                        onCreate = { requestCreateOfficialPost() },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                else -> {
-                    VerticalPager(
-                        state = pagerState,
-                        beyondViewportPageCount = 1,
-                        modifier = Modifier.fillMaxSize()
-                    ) { page ->
-                        val post = state.posts[page]
-                        OfficialPostPage(
-                            post = post,
-                            rank = postRanks[post.id]?.position ?: (page + 1),
-                            canPublish = canPublish,
-                            canModerate = canModerateAll || post.author.id == currentUserId,
-                            onCreate = { requestCreateOfficialPost() },
-                            onOpenAuthor = { onOpenUserProfile(post.author.id) },
-                            onReadMore = { readMorePost = post },
-                            onOpenMedia = { mediaPost = post },
-                            onOpenLive = { isLiveOpen = true },
-                            onLike = {
-                                if (currentUserId == null) onAuthRequired() else viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id))
-                            },
-                            onComment = { commentsPost = post },
-                            onShare = {
-                                scope.launch {
-                                    shareService.share(
-                                        SharePayload(
-                                            text = officialPostShareText(post),
-                                            title = post.title
-                                        )
-                                    )
-                                }
-                            },
-                            onDelete = { postPendingDelete = post },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-            }
-                QuataFeedPullRefreshIndicator(
-                    state = pullRefreshState,
-                    isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
-                    refreshContentDescription = stringResource(R.string.common_refresh),
-                    modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .zIndex(4f)
-            )
-            if (state.isLoadingOlder) {
-                OfficialOlderPostsLoadingContent(
-                    modifier = Modifier.align(Alignment.BottomCenter),
+        pagerState = pagerState,
+        posts = state.posts,
+        hasMoreOlderPosts = state.hasMoreOlderPosts,
+        isLoadingOlder = state.isLoadingOlder,
+        isInitialLoading = state.isLoading,
+        onLoadOlder = { viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
+        emptyContent = { isInitialLoading ->
+            if (isInitialLoading) {
+                OfficialLoadingContent(
+                    canPublish = canPublish,
+                    strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
+                    onCreate = { requestCreateOfficialPost() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                OfficialEmptyContent(
+                    canPublish = canPublish,
+                    strings = OfficialStatusStrings(stringResource(R.string.official_empty), stringResource(R.string.official_create)),
+                    onCreate = { requestCreateOfficialPost() },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
+        },
+        pageContent = { page, post, _ ->
+            OfficialPostPage(
+                post = post,
+                rank = postRanks[post.id]?.position ?: (page + 1),
+                canPublish = canPublish,
+                canModerate = canModerateAll || post.author.id == currentUserId,
+                onCreate = { requestCreateOfficialPost() },
+                onOpenAuthor = { onOpenUserProfile(post.author.id) },
+                onReadMore = { readMorePost = post },
+                onOpenMedia = { mediaPost = post },
+                onOpenLive = { isLiveOpen = true },
+                onLike = {
+                    if (currentUserId == null) onAuthRequired() else viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id))
+                },
+                onComment = { commentsPost = post },
+                onShare = {
+                    scope.launch {
+                        shareService.share(
+                            SharePayload(
+                                text = officialPostShareText(post),
+                                title = post.title,
+                            )
+                        )
+                    }
+                },
+                onDelete = { postPendingDelete = post },
+                modifier = Modifier.fillMaxSize(),
+            )
+        },
+        modifier = modifier.nestedScroll(pullRefreshState.nestedScrollConnection)
+    ) {
+        QuataFeedPullRefreshIndicator(
+            state = pullRefreshState,
+            isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+            refreshContentDescription = stringResource(R.string.common_refresh),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(4f),
+        )
+        if (state.isLoadingOlder) {
+            OfficialOlderPostsLoadingContent(
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 
     readMorePost?.let { post ->
@@ -653,8 +634,6 @@ private fun OfficialMediaViewerDialog(
         onDismiss = onDismiss
     )
 }
-
-private const val OfficialOlderPostsPrefetchDistance = 8
 
 @Composable
 internal fun OfficialPostType.label(): String = when (this) {
