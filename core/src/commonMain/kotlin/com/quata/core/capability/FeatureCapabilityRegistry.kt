@@ -37,6 +37,15 @@ interface FeatureCapabilityText {
     fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean): String?
 }
 
+/**
+ * Deliberately small locale set for capability notices.  Feature-specific catalogues can grow
+ * independently; this contract must not depend on an Android or browser resource API.
+ */
+enum class FeatureCapabilityLocale {
+    Spanish,
+    English,
+}
+
 object SpanishFeatureCapabilityText : FeatureCapabilityText {
     override fun title(origin: CapabilityStateOrigin): String = when (origin) {
         CapabilityStateOrigin.Real -> "Estado de integraci\u00f3n"
@@ -51,6 +60,42 @@ object SpanishFeatureCapabilityText : FeatureCapabilityText {
             "Los cambios se guardan s\u00f3lo en este dispositivo; no se sincronizan con el servidor."
         CapabilityStateOrigin.Unsupported ->
             "Esta acci\u00f3n a\u00fan no est\u00e1 disponible en esta plataforma."
+    }
+}
+
+object EnglishFeatureCapabilityText : FeatureCapabilityText {
+    override fun title(origin: CapabilityStateOrigin): String = when (origin) {
+        CapabilityStateOrigin.Real -> "Integration status"
+        CapabilityStateOrigin.Local -> "Local data"
+        CapabilityStateOrigin.Unsupported -> "Feature unavailable"
+    }
+
+    override fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean): String? = when (origin) {
+        CapabilityStateOrigin.Real -> if (e2eVerified) null else
+            "The remote route is configured; the E2E journey has not been verified yet."
+        CapabilityStateOrigin.Local ->
+            "Changes are stored only on this device and are not synchronized with the server."
+        CapabilityStateOrigin.Unsupported ->
+            "This action is not available on this platform yet."
+    }
+}
+
+/**
+ * Common catalogue for the capability-notice surface. Unknown or absent language tags retain
+ * the established Spanish fallback until a launcher deliberately supplies another catalogue.
+ */
+object FeatureCapabilityTextCatalog {
+    fun forLocale(locale: FeatureCapabilityLocale): FeatureCapabilityText = when (locale) {
+        FeatureCapabilityLocale.Spanish -> SpanishFeatureCapabilityText
+        FeatureCapabilityLocale.English -> EnglishFeatureCapabilityText
+    }
+
+    fun forLanguageTag(languageTag: String?): FeatureCapabilityText = when (
+        languageTag?.trim()?.substringBefore('-')?.lowercase()
+    ) {
+        "en" -> EnglishFeatureCapabilityText
+        "es" -> SpanishFeatureCapabilityText
+        else -> SpanishFeatureCapabilityText
     }
 }
 

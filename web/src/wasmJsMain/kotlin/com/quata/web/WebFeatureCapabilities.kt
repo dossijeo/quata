@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import com.quata.core.capability.FeatureCapability
 import com.quata.core.capability.FeatureCapabilityAction
 import com.quata.core.capability.FeatureCapabilityManifest
 import com.quata.core.capability.FeatureCapabilityRegistry
+import com.quata.core.capability.FeatureCapabilityTextCatalog
 import com.quata.core.capability.QuataFeature
 import com.quata.core.capability.QuataPlatform
 import com.quata.core.capability.StaticFeatureCapabilityRegistry
@@ -42,7 +45,7 @@ fun webFeatureCapabilityRegistry(configuration: WebRuntimeConfiguration): Featur
         evidence = "docs/MULTIPLATFORM_MIGRATION_BOARD.md",
     )
     return StaticFeatureCapabilityRegistry(
-        FeatureCapabilityManifest(
+        manifest = FeatureCapabilityManifest(
             platform = QuataPlatform.Web,
             capabilities = mapOf(
                 QuataFeature.Auth to capability(mutation = remoteOrigin),
@@ -54,8 +57,13 @@ fun webFeatureCapabilityRegistry(configuration: WebRuntimeConfiguration): Featur
                 QuataFeature.Composer to capability(mutation = remoteOrigin),
             ),
         ),
+        text = FeatureCapabilityTextCatalog.forLanguageTag(browserCapabilityLanguageTag()),
     )
 }
+
+private fun browserCapabilityLanguageTag(): String? = js(
+    "globalThis.navigator?.language || globalThis.document?.documentElement?.lang || null",
+)
 
 /** Small design-system card used by Web routes so local/unsupported state is never mistaken for sync. */
 @Composable

@@ -59,6 +59,30 @@ class FeatureCapabilityRegistryTest {
     }
 
     @Test
+    fun capabilityTextCatalogueSelectsSpanishAndEnglishFromLanguageTags() {
+        assertEquals(
+            "Datos locales",
+            FeatureCapabilityTextCatalog.forLanguageTag("es-ES").title(CapabilityStateOrigin.Local),
+        )
+        assertEquals(
+            "Local data",
+            FeatureCapabilityTextCatalog.forLanguageTag("EN-us").title(CapabilityStateOrigin.Local),
+        )
+    }
+
+    @Test
+    fun capabilityTextCatalogueKeepsSpanishForUnknownOrMissingLanguageTags() {
+        assertEquals(
+            "Funci\u00f3n no disponible",
+            FeatureCapabilityTextCatalog.forLanguageTag("fr-FR").title(CapabilityStateOrigin.Unsupported),
+        )
+        assertEquals(
+            "Funci\u00f3n no disponible",
+            FeatureCapabilityTextCatalog.forLanguageTag(null).title(CapabilityStateOrigin.Unsupported),
+        )
+    }
+
+    @Test
     fun registryUsesInjectedCapabilityText() {
         val text = object : FeatureCapabilityText {
             override fun title(origin: CapabilityStateOrigin) = "custom-title"
