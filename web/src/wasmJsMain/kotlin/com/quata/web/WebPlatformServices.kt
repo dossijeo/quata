@@ -24,6 +24,7 @@ import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioCacheService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerReferenceReleaser
 import com.quata.core.platform.FileCacheService
 import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
@@ -38,7 +39,13 @@ data class WebPlatformServices(
     override val preferences: PreferenceStore = BrowserPreferenceStore(),
     override val clipboard: ClipboardService = BrowserClipboardService(),
     override val share: ShareService = BrowserShareService(),
-    override val filePicker: FilePickerService = BrowserFilePickerService(),
+    private val browserFilePicker: BrowserFilePickerService = BrowserFilePickerService(),
+    override val filePicker: FilePickerService = browserFilePicker,
+    /**
+     * Releases only Blob URLs issued by [filePicker], after a host has discarded the file or its
+     * upload has completed. It must not be called while a preview, upload or viewer still reads it.
+     */
+    val filePickerReferences: FilePickerReferenceReleaser = browserFilePicker,
     /** IndexedDB binary cache, kept separate from the small key/value [PreferenceStore] boundary. */
     private val browserFileCache: BrowserFileCacheService = BrowserFileCacheService(),
     val fileCache: FileCacheService = browserFileCache,

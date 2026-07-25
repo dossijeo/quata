@@ -37,6 +37,18 @@ interface FilePickerService {
         FilePickerSource.Documents, FilePickerSource.Gallery -> pickFiles(request.acceptedMimeTypes, request.allowMultiple)
     }
 }
+
+/**
+ * Optional owner of temporary references returned by a [FilePickerService].
+ *
+ * A picked file can outlive the browser input while a feature renders a preview or uploads its
+ * bytes. The composition root may inject this boundary to release a discarded file only after no
+ * UI, upload or document viewer still reads [PlatformFile.reference]. Implementations must never
+ * release an arbitrary caller reference.
+ */
+interface FilePickerReferenceReleaser {
+    suspend fun release(file: PlatformFile): PlatformResult<Unit>
+}
 /**
  * User-gesture contact selection boundary. This deliberately does not imply address-book access:
  * platforms without a native picker return [PlatformResult.Unsupported].
