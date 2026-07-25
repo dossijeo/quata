@@ -3,6 +3,7 @@
 import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { buildSb01TlsConnection, loadSb01CertificateAuthority } from "./supabase-e2e-sb01-tls.mjs";
 
 const require = createRequire(import.meta.url);
 let Client;
@@ -55,16 +56,18 @@ function expected(found, contracts) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const connectionString = process.env.SUPABASE_DB_URL;
-  if (!connectionString) throw new Error("SUPABASE_DB_URL is required");
-  if (!/^postgres(?:ql)?:\/\//i.test(connectionString)) throw new Error("SUPABASE_DB_URL must be a PostgreSQL URL");
-  const client = new Client({
-    connectionString, application_name: "quata-sb01-readonly", connectionTimeoutMillis: 15_000, query_timeout: 15_000,
-    // PostgreSQL enforces this before the first statement; BEGIN READ ONLY is a second guard.
-    options: "-c default_transaction_read_only=on -c statement_timeout=15000",
-  });
   const startedAt = new Date().toISOString();
+  let client;
   try {
+    const connectionString = process.env.SUPABASE_DB_URL;
+    if (!connectionString) throw new Error("missing_database_url");
+    const certificateAuthority = await loadSb01CertificateAuthority();
+    const tlsConnection = buildSb01TlsConnection(connectionString, certificateAuthority);
+    client = new Client({
+      ...tlsConnection, application_name: "quata-sb01-readonly", connectionTimeoutMillis: 15_000, query_timeout: 15_000,
+      // PostgreSQL enforces this before the first statement; BEGIN READ ONLY is a second guard.
+      options: "-c default_transaction_read_only=on -c statement_timeout=15000",
+    });
     await client.connect();
     await client.query(query("BEGIN TRANSACTION READ ONLY"));
     await client.query(query("SET LOCAL TRANSACTION READ ONLY"));
@@ -99,7 +102,7 @@ async function main() {
   } catch (error) {
     console.error(JSON.stringify({ check: "SB-01", startedAt, finishedAt: new Date().toISOString(), ...safeFailure(error) }));
     process.exitCode = 1;
-  } finally { await client.end().catch(() => undefined); }
+  } finally { await client?.end().catch(() => undefined); }
 }
 
 main();

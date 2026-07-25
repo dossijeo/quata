@@ -11,7 +11,26 @@ tokens, parámetros ni datos de usuarios.
 
 ## Ejecución en Windows
 
-En una consola cuyo entorno ya tenga la cadena del pooler:
+En una consola cuyo entorno ya tenga la cadena del pooler y una CA de confianza
+entregada por Supabase o por el entorno. SB-01 no usa una CA implícita para este
+pooler ni rebaja la verificación TLS. Configure **exactamente una** de estas dos
+fuentes inyectadas, que nunca se guardan en el repositorio:
+
+```powershell
+# Recomendado: ruta local protegida a un PEM de CA confiable.
+$env:SUPABASE_DB_TLS_CA_FILE = 'C:\ruta\segura\supabase-pooler-ca.pem'
+
+# Alternativa para un secret manager que inyecte el PEM directamente.
+# $env:SUPABASE_DB_TLS_CA_PEM = '<PEM completo de CA>'
+```
+
+No configure ambas fuentes. El runner aborta antes de abrir red si falta la CA,
+si el PEM no tiene formato de certificado, si se intenta `sslmode=no-verify` o
+si la URL aporta parámetros SSL que podrían sustituir la configuración estricta.
+La conexión se crea con CA explícita, `rejectUnauthorized: true` y TLS 1.2 o
+superior; no existe ningún modo de desactivar esta verificación.
+
+Con esa configuración, ejecute:
 
 ```powershell
 $env:SUPABASE_DB_URL = '<cadena configurada fuera del repositorio>'
@@ -19,7 +38,8 @@ $env:SUPABASE_DB_URL = '<cadena configurada fuera del repositorio>'
 ```
 
 El wrapper descarga temporalmente `pg@8.16.3` fuera del repositorio, con scripts
-de instalación desactivados, y lo elimina al terminar. Para elegir un destino
+de instalación desactivados, valida antes la configuración TLS sin conectar y lo
+elimina al terminar. Para elegir un destino
 local de informe:
 
 ```powershell
@@ -29,6 +49,13 @@ local de informe:
 Un código `0` significa que todas las relaciones, RPC y buckets declarados por
 los adaptadores actuales están presentes. `1` indica catálogo incompleto o fallo
 de conexión; el error se normaliza para no mostrar detalles de la conexión.
+
+Para validar sólo el guard de configuración local, sin instalar `pg` ni abrir
+una conexión, usar:
+
+```powershell
+node --test scripts/supabase-e2e-sb01-tls.test.mjs
+```
 
 ## Registro de evidencia
 
