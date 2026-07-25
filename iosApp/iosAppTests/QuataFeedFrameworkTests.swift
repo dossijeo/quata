@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import QuickLook
 import QuataFeed
 @testable import QuataIos
 import QuickLookThumbnailing
@@ -70,6 +71,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // Do not generate an asset in XCTest: Quick Look's decoding varies with simulator files.
         // This still proves that the real system API used by IosDocumentThumbnailService is linked.
         XCTAssertNotNil(QLThumbnailGenerator.shared)
+    }
+
+    func testQuickLookPreviewControllerIsAvailableOnTheIosHost() {
+        // The Kotlin adapter creates this controller and retains its data source while presented.
+        // Constructing it here is deterministic and verifies the host links QuickLook itself.
+        XCTAssertNotNil(QLPreviewController())
     }
 
     func testAvFoundationVideoThumbnailGeneratorIsAvailableOnTheIosHost() {
