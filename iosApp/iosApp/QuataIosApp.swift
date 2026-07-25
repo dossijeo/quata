@@ -163,7 +163,7 @@ private final class IosAppCompositionRoot {
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
 /// launcher has real dependencies; a deep link received earlier remains pending.
-private final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
+final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
     private var feedFactory: ((String?) -> UIViewController)?
@@ -332,3 +332,7 @@ private final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticat
         displayedController = controller
     }
 }
+
+/// Kept as an internal source-compatible name for the UIKit host boundary tests while the
+/// implementation evolves from Feed-only containment into authenticated route containment.
+typealias IosFeedHostContainerViewController = IosAuthenticatedHostRouter

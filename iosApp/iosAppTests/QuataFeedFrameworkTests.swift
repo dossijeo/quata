@@ -5,6 +5,7 @@ import QuataFeed
 @testable import QuataIos
 import QuickLookThumbnailing
 import AVFoundation
+import CoreLocation
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testExportsComposeMigrationViewController() {
@@ -108,5 +109,31 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertFalse(host.children.contains { $0 === composeController })
         XCTAssertNil(composeController.parent)
+    }
+
+    func testAuthenticatedRouterPresentsAQueuedChatOnlyAfterItsRealFactoryIsInstalled() {
+        let services = IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+        )
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        router.showChat(conversationId: "conversation-7", messageId: "message-4")
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        var receivedConversationId: String?
+        var receivedMessageId: String?
+        let exportedFeatureController = UIViewController()
+        router.installChatFactory { conversationId, messageId in
+            receivedConversationId = conversationId
+            receivedMessageId = messageId
+            return exportedFeatureController
+        }
+
+        XCTAssertEqual(receivedConversationId, "conversation-7")
+        XCTAssertEqual(receivedMessageId, "message-4")
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-chat-host")
     }
 }
