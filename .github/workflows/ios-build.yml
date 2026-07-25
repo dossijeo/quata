@@ -221,9 +221,19 @@ jobs:
           destination="platform=iOS Simulator,id=$simulator_udid"
           echo "Testing on the simulator created for this job: $simulator_udid"
           xcrun simctl boot "$simulator_udid" || true
-          xcrun simctl bootstatus "$simulator_udid" -b
           rm -rf build/reports/ios/QuataIos-tests.xcresult
-          xcodebuild \
+          # The job timeout is a final guard only. Booting and XCTest use
+          # individual watchdogs so a CoreSimulator or xcodebuild deadlock
+          # yields a log and retained .xcresult instead of consuming 60 min.
+          python3 scripts/run-ios-command-watchdog.py \
+            --timeout-seconds 180 \
+            --log build/reports/ios/simctl-bootstatus.log \
+            -- xcrun simctl bootstatus "$simulator_udid" -b
+          cat build/reports/ios/simctl-bootstatus.log
+          python3 scripts/run-ios-command-watchdog.py \
+            --timeout-seconds 1200 \
+            --log build/reports/ios/xcodebuild-tests.log \
+            -- xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
             -configuration Debug \
@@ -235,8 +245,8 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            test \
-            2>&1 | tee build/reports/ios/xcodebuild-tests.log
+            test
+          cat build/reports/ios/xcodebuild-tests.log
 
       - name: Write report summary
         if: always()
