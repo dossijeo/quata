@@ -78,6 +78,11 @@
     <string name="share_to_quata_read_error">Qüata could not read the shared file.</string>
     <string name="share_to_quata_too_many_files">You can share up to 10 files at a time.</string>
     <string name="share_to_quata_recent_conversations">Recent conversations</string>
+    <string name="share_to_quata_shared_text">Shared text</string>
+    <plurals name="share_to_quata_attachments">
+        <item quantity="one">%d attachment</item>
+        <item quantity="other">%d attachments</item>
+    </plurals>
     <string name="error_conversation_leave_moderator">You are a moderator of this conversation. Assign another moderator before leaving.</string>
     <string name="error_conversation_add_participant_forbidden">Could not add that participant. Check that they are not already in the conversation and that you have permission to invite.</string>
     <string name="error_conversation_add_participant_forbidden_details">Could not add that participant: %1$s</string>
