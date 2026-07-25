@@ -157,7 +157,12 @@ private fun docmentisOpen(
         globalThis.__quataDocmentisActive = { close };
 
         import('@docmentis/udoc-viewer')
-          .then(({ UDocClient }) => UDocClient.create())
+          .then(({ UDocClient }) => UDocClient.create({
+            // Keep browser document opening local to the supplied attachment and bundled WASM.
+            // The free SDK otherwise checks npm for updates and may fetch missing Google fonts.
+            disableUpdateCheck: true,
+            googleFonts: false,
+          }))
           .then((createdClient) => {
             if (!active) { createdClient.destroy?.(); return null; }
             client = createdClient;
@@ -186,18 +191,45 @@ private fun docmentisOpen(
     """,
 )
 
-/** Installs a test-only dynamic-import probe when an explicit smoke query flag is present. */
+/** Installs a test-only load probe when an explicit smoke query flag is present. */
 internal fun installDocmentisSmokeProbe(): Unit = js(
     """
     (() => {
       if (!new URLSearchParams(globalThis.location?.search ?? '').has('quata-docmentis-smoke')) return;
-      globalThis.__quataDocmentisProbe = async () => {
+      // This hook is intentionally unavailable outside the local browser smoke. In particular,
+      // never expose an arbitrary URL loader from a deployed application merely for testing.
+      if (!['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname)) return;
+      const fixturePath = '/__quata-smoke-fixtures/legal.docx';
+      globalThis.__quataDocmentisProbe = {
+        async load() {
         const { UDocClient } = await import('@docmentis/udoc-viewer');
-        const client = await UDocClient.create();
+        const host = globalThis.document?.createElement?.('div');
+        if (!host || !globalThis.document?.body) throw new Error('DocMentis smoke DOM unavailable');
+        host.dataset.quataDocmentisSmoke = 'true';
+        host.style.cssText = 'position:fixed;inset:0;opacity:0;pointer-events:none;z-index:-1;';
+        globalThis.document.body.appendChild(host);
+        let client = null;
+        let viewer = null;
         try {
-          return { package: '@docmentis/udoc-viewer', version: UDocClient.version, clientCreated: true };
+          client = await UDocClient.create({ disableUpdateCheck: true, googleFonts: false });
+          viewer = await client.createViewer({ container: host });
+          await viewer.load(globalThis.location.origin + fixturePath);
+          // Loading resolves only after the SDK accepts the document. Wait for two frames so
+          // this probe also proves that it mounted a render surface, not merely that a fetch
+          // started successfully.
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          return {
+            package: '@docmentis/udoc-viewer',
+            version: UDocClient.version,
+            clientCreated: true,
+            loadSucceeded: true,
+            rendered: host.childElementCount > 0 || host.querySelectorAll('*').length > 0,
+          };
         } finally {
-          client.destroy();
+          try { viewer?.destroy?.(); } catch (_) {}
+          try { client?.destroy?.(); } catch (_) {}
+          host.remove();
+        }
         }
       };
     })()
