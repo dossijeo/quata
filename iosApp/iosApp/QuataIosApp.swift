@@ -123,6 +123,20 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
+    /// Communities reuses the authenticated Chat repository for actual conversation creation and
+    /// obtains directory snapshots through its own URLSession/PostgREST read adapter. No Swift
+    /// sample directory or local substitute is created when runtime configuration is absent.
+    private lazy var communitiesRuntimeBootstrap: IosNeighborhoodsRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let runtimeBootstrap, let chatRuntimeBootstrap else { return nil }
+        return IosNeighborhoodsRuntimeBootstrap(
+            configuration: IosNeighborhoodsRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            chatRepository: chatRuntimeBootstrap.repository(),
+        )
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -172,6 +186,7 @@ private final class IosAppCompositionRoot {
         installAuthenticatedOfficialIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
+        installAuthenticatedCommunitiesIfAvailable()
         return true
     }
 
@@ -251,9 +266,39 @@ private final class IosAppCompositionRoot {
         }
     }
 
+    private func installAuthenticatedCommunitiesIfAvailable() {
+        guard let communitiesRuntimeBootstrap else { return }
+        authenticatedHost.installCommunitiesFactory { [weak self] in
+            IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
+                dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
+                    repository: communitiesRuntimeBootstrap.repository,
+                    currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
+                    onOpenConversation: { [weak self] conversationId in
+                        self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                    },
+                    onNavigateToProfile: { [weak self] _ in
+                        self?.presentCommunitiesCapabilityNotice(
+                            "Community member profiles are not yet an iOS route."
+                        )
+                    },
+                ),
+            )
+        }
+    }
+
     private func presentProfileSosCapabilityNotice(_ message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
+            message: message,
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))
+        authenticatedHost.present(alert, animated: true)
+    }
+
+    private func presentCommunitiesCapabilityNotice(_ message: String) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_communities_capability_title", value: "Communities", comment: ""),
             message: message,
             preferredStyle: .alert,
         )
@@ -308,6 +353,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var officialFactory: ((String?) -> UIViewController)?
     private var notificationsFactory: (() -> UIViewController)?
     private var profileSosFactory: (() -> UIViewController)?
+    private var communitiesFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
 
     private enum PendingRoute {
@@ -316,6 +362,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case official(postId: String?)
         case notifications
         case profileSos
+        case communities
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -434,6 +481,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installCommunitiesFactory(_ factory: @escaping () -> UIViewController) {
+        communitiesFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -445,6 +497,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showNotifications() { route(.notifications) }
 
     func showProfileSos() { route(.profileSos) }
+
+    func showCommunities() { route(.communities) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
@@ -483,6 +537,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return notificationsFactory?()
         case .profileSos:
             return profileSosFactory?()
+        case .communities:
+            return communitiesFactory?()
         }
     }
 
@@ -499,6 +555,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-notifications-host", "Quata iOS Notifications")
         case .profileSos:
             presentation = ("quata-ios-profile-sos-host", "Quata iOS Profile SOS")
+        case .communities:
+            presentation = ("quata-ios-communities-host", "Quata iOS Communities")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }

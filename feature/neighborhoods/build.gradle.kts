@@ -20,7 +20,11 @@ kotlin {
             implementation(compose.materialIconsExtended)
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
+        // The iOS Communities adapter opens only through the established Chat domain contract.
+        // Keeping this dependency platform-scoped avoids coupling the shared Communities domain
+        // or presentation code to Chat while allowing the UIKit composition root to reuse its
+        // authenticated repository.
+        iosMain.dependencies { implementation(project(":feature:chat")) }
         jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }

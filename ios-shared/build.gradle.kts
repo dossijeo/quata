@@ -26,6 +26,7 @@ kotlin {
             api(project(":feature:notifications"))
             api(project(":feature:official"))
             api(project(":feature:profile"))
+            api(project(":feature:neighborhoods"))
         }
     }
 
@@ -39,6 +40,7 @@ kotlin {
             export(project(":feature:notifications"))
             export(project(":feature:official"))
             export(project(":feature:profile"))
+            export(project(":feature:neighborhoods"))
         }
     }
 }

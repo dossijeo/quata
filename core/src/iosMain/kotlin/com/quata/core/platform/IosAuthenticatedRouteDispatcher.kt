@@ -16,6 +16,7 @@ interface IosAuthenticatedRouteHost {
     fun showOfficial(postId: String?)
     fun showNotifications()
     fun showProfileSos()
+    fun showCommunities()
 }
 
 /**
@@ -48,5 +49,10 @@ class IosAuthenticatedRouteDispatcher(
     /** Profile/SOS has no public URL contract yet, but remains a first-class authenticated route. */
     fun openProfileSos() {
         host.showProfileSos()
+    }
+
+    /** Communities has no public deep-link contract yet; this is an authenticated in-app route. */
+    fun openCommunities() {
+        host.showCommunities()
     }
 }

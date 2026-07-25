@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
+import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
@@ -39,6 +40,34 @@ class IosNeighborhoodsHostDependencies(
     val onOpenConversation: (String) -> Unit,
     val onNavigateToProfile: (String) -> Unit,
     val onOpenAttachment: (ProfileAttachment) -> Unit,
+)
+
+/**
+ * Swift-facing composition factory for the portable Communities surface.
+ *
+ * The UIKit launcher supplies only real navigation callbacks and the authenticated repository;
+ * common strings and the offline-safe avatar fallback remain in Kotlin so Swift never needs to
+ * manufacture Compose lambdas or example data.
+ */
+fun createIosNeighborhoodsHostDependencies(
+    repository: NeighborhoodRepository,
+    currentUserId: String?,
+    onOpenConversation: (String) -> Unit,
+    onNavigateToProfile: (String) -> Unit,
+): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
+    repository = repository,
+    viewModel = NeighborhoodsViewModel(repository),
+    currentUserId = currentUserId,
+    listStrings = IosNeighborhoodListStrings,
+    usersStrings = IosNeighborhoodUsersStrings,
+    avatar = { user, _, _ ->
+        // Remote image loading belongs to a separately verified platform media adapter. A
+        // deterministic common fallback keeps this host usable without inventing a URL loader.
+        QuataAvatarFallback(name = user.displayName, stableId = user.id)
+    },
+    onOpenConversation = onOpenConversation,
+    onNavigateToProfile = onNavigateToProfile,
+    onOpenAttachment = {},
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
@@ -162,3 +191,28 @@ fun IosNeighborhoodRankingPanelContent(
         onOpenItem = onOpenPost,
     )
 }
+
+private val IosNeighborhoodListStrings = NeighborhoodListStrings(
+    title = "Communities",
+    searchPlaceholder = "Search communities",
+    loading = "Loading communities…",
+    oneUser = "1 member",
+    users = { "$it members" },
+    oneMessage = "1 message",
+    messages = { "$it messages" },
+    viewUsers = "View members",
+    openChat = "Open chat",
+    timeLabel = { "No recent activity" },
+)
+
+private val IosNeighborhoodUsersStrings = NeighborhoodUsersStrings(
+    title = { "$it members" },
+    subtitle = "Community members",
+    backContentDescription = "Back",
+    memberCount = { "$it members" },
+    row = NeighborhoodUserRowStrings(
+        follow = "Follow",
+        following = "Following",
+        chat = "Chat",
+    ),
+)

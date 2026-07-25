@@ -345,6 +345,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Profile SOS")
     }
 
+    func testAuthenticatedRouterPresentsQueuedCommunitiesOnlyAfterItsRealFactoryIsInstalled() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        // Communities has no public URL contract. It remains an authenticated, deferred route
+        // until the launcher has real session/configuration-backed dependencies.
+        router.showCommunities()
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let exportedFeatureController = UIViewController()
+        router.installCommunitiesFactory {
+            exportedFeatureController
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Communities")
+    }
+
     func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
@@ -395,6 +416,50 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(router.children.count, 1)
         XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertTrue(services.activeViewController() === router.children.first)
+    }
+
+    func testAuthenticatedRouterBuildsTheExportedCommunitiesHostFromSharedRuntime() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+
+        let feedBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
+            configuration: IosFeedRuntimeConfiguration(
+                supabaseUrl: "https://deployment.invalid",
+                supabasePublishableKey: "client-key",
+            ),
+        )
+        let chatBootstrap = IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
+            configuration: IosChatRuntimeConfiguration(
+                supabaseUrl: "https://deployment.invalid",
+                supabasePublishableKey: "client-key",
+            ),
+            authSession: feedBootstrap.authSessionForInteractiveLogin(),
+        )
+        let communitiesBootstrap = IosNeighborhoodsRuntimeBootstrap(
+            configuration: IosNeighborhoodsRuntimeConfiguration(
+                supabaseUrl: "https://deployment.invalid",
+                supabasePublishableKey: "client-key",
+            ),
+            authSession: feedBootstrap.authSessionForInteractiveLogin(),
+            chatRepository: chatBootstrap.repository(),
+        )
+
+        router.installCommunitiesFactory {
+            IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
+                dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
+                    repository: communitiesBootstrap.repository,
+                    currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+                    onOpenConversation: { _ in },
+                    onNavigateToProfile: { _ in },
+                ),
+            )
+        }
+        router.showCommunities()
+
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-communities-host")
         XCTAssertTrue(services.activeViewController() === router.children.first)
     }
 }
