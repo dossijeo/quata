@@ -80,6 +80,10 @@ try {
         // Auth compose shell without requiring a Supabase instance.
         await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors);
 
+        if (options.docmentis) {
+            await navigateAndAssertDocmentisBridge(cdp, staticServer.origin);
+        }
+
         // The remaining hosts are rendered behind the session shell. A session-ready flag is
         // enough for this visual/browser smoke; no token is invented and repositories still see
         // an unauthenticated configuration. This verifies route construction and crash safety,
@@ -124,13 +128,25 @@ function parseArguments(args) {
             parsed[argument.slice(2)] = value;
             index += 1;
         } else if (argument === '--help' || argument === '-h') {
-            console.log('Usage: node scripts/web-browser-smoke.mjs [--dist DIR] [--chrome PATH]');
+            console.log('Usage: node scripts/web-browser-smoke.mjs [--dist DIR] [--chrome PATH] [--docmentis]');
             process.exit(0);
+        } else if (argument === '--docmentis') {
+            parsed.docmentis = true;
         } else {
             throw new Error(`Unknown argument: ${argument}`);
         }
     }
     return parsed;
+}
+
+async function navigateAndAssertDocmentisBridge(cdp, origin) {
+    await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
+    await waitForShell(cdp, 'auth');
+    const probe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.()');
+    const result = probe?.result?.value;
+    if (result?.package !== '@docmentis/udoc-viewer' || result?.clientCreated !== true || !result?.version) {
+        throw new Error(`DocMentis dynamic import/client lifecycle probe failed: ${JSON.stringify(result)}`);
+    }
 }
 
 async function requireDirectory(path, message) {

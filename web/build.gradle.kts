@@ -40,7 +40,11 @@ kotlin {
             implementation(kotlin("test"))
         }
         androidMain.dependencies { }
-        wasmJsMain.dependencies { }
+        wasmJsMain.dependencies {
+            // Web-only dynamic import. Keep DocMentis and its WASM runtime out of commonMain so
+            // Android/iOS never resolve a browser package.
+            implementation(npm("@docmentis/udoc-viewer", "0.7.9"))
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

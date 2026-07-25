@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@docmentis/udoc-viewer@0.7.9":
+  version "0.7.9"
+  resolved "https://registry.yarnpkg.com/@docmentis/udoc-viewer/-/udoc-viewer-0.7.9.tgz#f2721cc864556d8b9bea56b89bd1f82cd899c1f2"
+  integrity sha512-GwVW3jps7+B6vKSEJieV1XIEwgAntXGoiE7ejOJ3F4/HYgnaW3hzrOxNzSq2mEq/Fl/qTOfrpLDWWv2wo6bp8w==
+
 "@js-joda/core@3.2.0":
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/@js-joda/core/-/core-3.2.0.tgz#3e61e21b7b2b8a6be746df1335cf91d70db2a273"
