@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
+
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
 }
@@ -10,6 +12,12 @@ plugins {
  * navigation, repositories, or Compose screens.
  */
 kotlin {
+    // A single binary artifact is required by both the simulator test host and
+    // the unsigned generic-device archive.  Keeping the variants together
+    // prevents the archive lane from accidentally embedding a simulator-only
+    // framework.
+    val quataSharedXcFramework = XCFrameworkConfig(project, "QuataShared")
+
     iosX64()
     iosArm64()
     iosSimulatorArm64()
@@ -33,6 +41,7 @@ kotlin {
     targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
         binaries.framework {
             baseName = "QuataShared"
+            quataSharedXcFramework.add(this)
             export(project(":core"))
             export(project(":feature:auth"))
             export(project(":feature:feed"))
