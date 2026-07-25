@@ -117,7 +117,7 @@ private final class IosAppCompositionRoot {
     /// this screen factory, so the launcher never fabricates notification data for navigation.
     func installAuthenticatedNotifications(_ dependencies: IosNotificationsHostDependencies) {
         authenticatedHost.installNotificationsFactory {
-            QuataNotificationsViewControllerKt.QuataNotificationsViewController(dependencies: dependencies)
+            IosNotificationsHostKt.QuataNotificationsViewController(dependencies: dependencies)
         }
     }
 
