@@ -77,6 +77,7 @@ private fun browserPostgrestRpcPostRequest(
     onFailure: (String?, Int?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') {
       onFailure('postgrest_fetch_unsupported', null);
       return;
@@ -95,5 +96,6 @@ private fun browserPostgrestRpcPostRequest(
       if (response.ok) onSuccess(responseBody, response.status, response.headers.get('content-range'));
       else onFailure(`postgrest_rpc_http_${'$'}{response.status}`, response.status);
     }).catch((error) => onFailure(error?.message ?? error?.name ?? 'postgrest_rpc_network_error', null));
+    })()
     """,
 )

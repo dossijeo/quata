@@ -43,6 +43,7 @@ private fun String.toPlatformContacts(): List<PlatformContact> = runCatching {
 
 private fun browserPickContacts(onResult: (String, String?) -> Unit): Unit = js(
     """
+    (() => {
     try {
       const picker = globalThis.navigator?.contacts?.select;
       if (typeof picker !== 'function') { onResult('unsupported', null); return; }
@@ -56,5 +57,6 @@ private fun browserPickContacts(onResult: (String, String?) -> Unit): Unit = js(
     } catch (error) {
       onResult('failure', error?.message || null);
     }
+    })()
     """
 )

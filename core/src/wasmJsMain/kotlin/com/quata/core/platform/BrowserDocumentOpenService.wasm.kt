@@ -38,6 +38,7 @@ private fun browserOpenDocument(
     onResult: (String, String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     try {
       if (mode === 'view') {
         const opened = globalThis.open?.(reference, '_blank', 'noopener,noreferrer');
@@ -61,5 +62,6 @@ private fun browserOpenDocument(
     } catch (error) {
       onResult('failure', error?.message ?? error?.name ?? 'web_document_open_failed');
     }
+    })()
     """,
 )

@@ -133,7 +133,7 @@ private fun browserRecorderStart(
           }
         }).catch((error) => onResult('failure:' + (error?.name || 'microphone_permission_denied')));
       } catch (_) { onResult('unsupported'); }
-    })();
+    })()
     """,
 )
 
@@ -155,7 +155,7 @@ private fun browserRecorderStop(id: String, onResult: (String) -> Unit): Unit = 
       };
       record.recorder.onstop = finish;
       if (record.recorder.state === 'inactive') finish(); else record.recorder.stop();
-    })();""",
+    })()""",
 )
 
 private fun browserRecorderCancel(id: String, onResult: (String) -> Unit): Unit = js(
@@ -171,7 +171,7 @@ private fun browserRecorderCancel(id: String, onResult: (String) -> Unit): Unit 
         onResult('success');
       };
       if (record.recorder.state === 'inactive') record.recorder.onstop(); else record.recorder.stop();
-    })();""",
+    })()""",
 )
 
 private const val BrowserRecorderUnsupported = "unsupported"

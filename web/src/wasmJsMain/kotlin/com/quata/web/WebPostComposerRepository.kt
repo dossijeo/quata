@@ -130,6 +130,7 @@ private data class ComposerUploadResult(val extension: String)
 
 private fun browserUploadComposerMediaRequest(reference: String, uploadUrl: String, apiKey: String, accessToken: String, onSuccess: (String) -> Unit, onFailure: (String) -> Unit): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') { onFailure('web_composer_fetch_unsupported'); return; }
     globalThis.fetch(reference).then(async (source) => {
       if (!source.ok) throw new Error(`web_composer_media_source_${'$'}{source.status}`);
@@ -139,6 +140,7 @@ private fun browserUploadComposerMediaRequest(reference: String, uploadUrl: Stri
       if (!response.ok) throw new Error(`web_composer_media_upload_${'$'}{response.status}`);
       onSuccess(extension);
     }).catch((error) => onFailure(error?.message || error?.name || 'web_composer_media_upload_failed'));
+    })()
     """,
 )
 
@@ -147,10 +149,12 @@ private suspend fun browserCreateComposerPost(url: String, apiKey: String, acces
 
 private fun browserCreateComposerPostRequest(url: String, apiKey: String, accessToken: String, payload: String, onSuccess: (String) -> Unit, onFailure: (String) -> Unit): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') { onFailure('web_composer_fetch_unsupported'); return; }
     globalThis.fetch(url, { method: 'POST', headers: { apikey: apiKey, Authorization: `Bearer ${'$'}{accessToken}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: payload })
       .then(async (response) => { const body = await response.text(); if (response.ok) onSuccess(body); else onFailure(`web_composer_create_${'$'}{response.status}`); })
       .catch((error) => onFailure(error?.message || error?.name || 'web_composer_create_failed'));
+    })()
     """,
 )
 

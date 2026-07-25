@@ -50,6 +50,7 @@ fun main() {
 
 private fun registerWebPushWorker(): Unit = js(
     """
+    (() => {
     if ('serviceWorker' in globalThis.navigator) {
       const locale = globalThis.navigator.language || globalThis.document?.documentElement?.lang || 'en';
       globalThis.navigator.serviceWorker.register('/quata-sw.js')
@@ -57,6 +58,7 @@ private fun registerWebPushWorker(): Unit = js(
         .then((registration) => registration.active?.postMessage({ type: 'quata:set-notification-locale', locale }))
         .catch(() => {});
     }
+    })()
     """,
 )
 
@@ -67,6 +69,7 @@ private fun registerWebPushWorker(): Unit = js(
  */
 private fun observeWebPushSubscriptionChanges(onChanged: () -> Unit): () -> Unit = js(
     """
+    (() => {
     const container = globalThis.navigator?.serviceWorker;
     if (!container?.addEventListener) return () => {};
     const listener = (event) => {
@@ -74,12 +77,14 @@ private fun observeWebPushSubscriptionChanges(onChanged: () -> Unit): () -> Unit
     };
     container.addEventListener('message', listener);
     return () => container.removeEventListener('message', listener);
+    })()
     """,
 )
 
 /** Delivers a persisted Web Share Target payload to an already-open launcher. */
 private fun observeIncomingWebShares(onReceived: () -> Unit): () -> Unit = js(
     """
+    (() => {
     const container = globalThis.navigator?.serviceWorker;
     if (!container?.addEventListener) return () => {};
     const listener = (event) => {
@@ -87,6 +92,7 @@ private fun observeIncomingWebShares(onReceived: () -> Unit): () -> Unit = js(
     };
     container.addEventListener('message', listener);
     return () => container.removeEventListener('message', listener);
+    })()
     """,
 )
 
@@ -430,8 +436,10 @@ private fun navigateWebConversation(conversationId: String) {
 
 private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = js(
     """
+    (() => {
     const listener = () => onChanged(globalThis.location?.hash?.replace(/^#/, '') || '');
     globalThis.addEventListener?.('hashchange', listener);
+    })()
     """,
 )
 

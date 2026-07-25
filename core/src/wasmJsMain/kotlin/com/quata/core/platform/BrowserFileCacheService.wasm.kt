@@ -92,7 +92,7 @@ private fun String.isSafeFileCacheKey(): Boolean = matches(Regex("[A-Za-z0-9][A-
 
 private fun browserRevokeObjectUrl(reference: String): Unit = js(
     """
-    if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference);
+    (() => { if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference); })()
     """,
 )
 

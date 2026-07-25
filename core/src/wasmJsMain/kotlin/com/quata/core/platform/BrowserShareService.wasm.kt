@@ -59,6 +59,7 @@ private fun browserShare(
     onFailure: (String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     const references = JSON.parse(fileReferences);
     const names = JSON.parse(fileNames);
     const mimeTypes = JSON.parse(fileMimeTypes);
@@ -102,5 +103,6 @@ private fun browserShare(
         ))
       )).then(share, finishError);
     }
+    })()
     """,
 )

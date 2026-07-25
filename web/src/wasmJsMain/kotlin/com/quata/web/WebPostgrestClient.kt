@@ -112,6 +112,7 @@ private fun browserPostgrestGetRequest(
     onFailure: (String?, Int?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') {
       onFailure('postgrest_fetch_unsupported', null);
       return;
@@ -128,5 +129,6 @@ private fun browserPostgrestGetRequest(
       if (response.ok) onSuccess(body, response.status, response.headers.get('content-range'));
       else onFailure(`postgrest_http_${'$'}{response.status}`, response.status);
     }).catch((error) => onFailure(error?.message ?? error?.name ?? 'postgrest_network_error', null));
+    })()
     """,
 )

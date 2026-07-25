@@ -43,10 +43,12 @@ private fun browserGetCurrentPosition(
     onError: (Int, String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     globalThis.navigator.geolocation.getCurrentPosition(
         (position) => onSuccess(position.coords.latitude, position.coords.longitude, position.coords.accuracy ?? null, position.timestamp ?? null),
         (error) => onError(error?.code ?? 0, error?.message ?? null),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
+    })()
     """,
 )
