@@ -143,7 +143,7 @@ quedan filas ni objetos con ese prefijo.
 
 | ID | Prerrequisito | Recorrido E2E concreto | Estado | Evidencia de cierre |
 | --- | --- | --- | --- | --- |
-| SB-01 | URL de pooler presente en el entorno del proceso | Conectar en modo lectura, descubrir versión, tablas, buckets y RPC que usan los repositorios sin exponer secretos | Pendiente de entorno | Commit, lista de contratos comprobados y consulta de limpieza no sensible |
+| SB-01 | URL de pooler presente en el entorno del proceso | Ejecutar `scripts/run-supabase-e2e-sb01.ps1`: catálogo PostgreSQL/Storage y RPC de adaptadores KMP, en transacción `READ ONLY`, sin datos de negocio ni secretos | Pendiente de entorno | Informe local sin secretos, listas `missing` vacías, commit y fecha; guía en `docs/SUPABASE_E2E_SB01.md` |
 | SB-02 | Usuario efímero autorizado por el flujo permitido | Registro/login Web, persistencia, refresh, logout y login posterior; borrar usuario y sesión | Pendiente de entorno | Plataforma, respuestas normalizadas y confirmación de borrado |
 | SB-03 | SB-02 y post efímero permitido | Feed/Official: lectura autenticada y pública donde proceda, deep link de post y comprobación RLS negativa | Pendiente de entorno | IDs eliminados, rutas y resultado de ambas identidades |
 | SB-04 | Dos usuarios efímeros y contrato Chat disponible | Crear/recuperar hilo, enviar reply, marcar leído/silenciar y comprobar inbox/detail desde los repositorios comunes | Pendiente de entorno | IDs de hilo/mensajes eliminados y resultado de RPC/RLS |
