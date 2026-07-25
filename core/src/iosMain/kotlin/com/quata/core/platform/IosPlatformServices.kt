@@ -45,6 +45,8 @@ class IosPlatformServices(
         ?: UnsupportedDocumentOpenService
     /** Quick Look Thumbnailing works without a visible presenter and returns portable PNG files. */
     val documentThumbnails: DocumentThumbnailService = IosDocumentThumbnailService()
+    /** AVFoundation extracts a portable PNG from an existing local video without a UIKit host. */
+    val videoThumbnails: VideoThumbnailService = IosVideoThumbnailService()
 }
 
 /** Explicit placeholder until a Core Location host is provided by iosApp. */

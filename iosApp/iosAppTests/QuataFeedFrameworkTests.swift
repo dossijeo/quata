@@ -3,6 +3,7 @@ import UIKit
 import QuataFeed
 @testable import QuataIos
 import QuickLookThumbnailing
+import AVFoundation
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testExportsComposeMigrationViewController() {
@@ -69,6 +70,15 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // Do not generate an asset in XCTest: Quick Look's decoding varies with simulator files.
         // This still proves that the real system API used by IosDocumentThumbnailService is linked.
         XCTAssertNotNil(QLThumbnailGenerator.shared)
+    }
+
+    func testAvFoundationVideoThumbnailGeneratorIsAvailableOnTheIosHost() {
+        // No media fixture is used here: simulator codec support can vary. Constructing the real
+        // generator proves the API linked by IosVideoThumbnailService is present in the host.
+        let asset = AVURLAsset(url: URL(fileURLWithPath: NSTemporaryDirectory()))
+        let generator = AVAssetImageGenerator(asset: asset)
+
+        XCTAssertNotNil(generator)
     }
 
     func testExportedComposeControllerSupportsUIKitContainment() {

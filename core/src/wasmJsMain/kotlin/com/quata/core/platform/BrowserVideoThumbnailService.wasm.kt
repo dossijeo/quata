@@ -41,8 +41,7 @@ class BrowserVideoThumbnailService : VideoThumbnailService {
     }
 }
 
-private fun PlatformFile.isBrowserVideo(): Boolean = mimeType?.startsWith("video/", ignoreCase = true) == true ||
-    displayName?.substringAfterLast('.', "")?.lowercase().orEmpty() in setOf("mp4", "m4v", "webm", "ogv", "mov")
+private fun PlatformFile.isBrowserVideo(): Boolean = VideoThumbnailSupport.isVideo(this)
 
 private fun String.toVideoThumbnailResult(payload: String?): PlatformResult<PlatformFile> = when (this) {
     "success" -> payload.toVideoThumbnailFile()?.let { PlatformResult.Success(it) }
