@@ -33,6 +33,18 @@ object VideoThumbnailSupport {
         }
     }
 
+    /**
+     * Browser thumbnailing is deliberately limited to an existing browser-owned Blob URL.
+     *
+     * Accepting arbitrary HTTP(S), data, or provider URLs here would make thumbnail rendering an
+     * implicit cross-origin fetch/decoder request. Callers that receive remote media must first
+     * obtain it through the explicit cache/download flow, which returns a Blob URL.
+     */
+    fun hasBrowserReadableReference(video: PlatformFile): Boolean =
+        video.reference.trim().let { reference ->
+            reference.startsWith("blob:", ignoreCase = true) && reference.length > "blob:".length
+        }
+
     private val supportedExtensions = setOf("mp4", "m4v", "mov", "webm", "ogv")
 }
 

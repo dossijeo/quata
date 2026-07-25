@@ -19,8 +19,9 @@ class BrowserVideoThumbnailService : VideoThumbnailService {
     override suspend fun createThumbnail(video: PlatformFile, maxWidth: Int): PlatformResult<PlatformFile> {
         if (maxWidth <= 0) return PlatformResult.Failure("invalid_thumbnail_width")
         if (!video.isBrowserVideo()) return PlatformResult.Unsupported
+        if (!VideoThumbnailSupport.hasBrowserReadableReference(video)) return PlatformResult.Unsupported
         return suspendCoroutine { continuation ->
-            browserCreateVideoThumbnail(video.reference, maxWidth) { state, payload ->
+            browserCreateVideoThumbnail(video.reference.trim(), maxWidth) { state, payload ->
                 continuation.resume(state.toVideoThumbnailResult(payload).also(::trackIssuedReference))
             }
         }
@@ -76,14 +77,28 @@ private fun browserCreateVideoThumbnail(
     try {
       const document = globalThis.document;
       if (!document?.createElement || !globalThis.URL?.createObjectURL) { onResult('unsupported', null); return; }
+      const source = new globalThis.URL(reference);
+      // A Blob URL is usable only in the origin that created it. Do not turn this
+      // adapter into a cross-origin media fetcher merely because the string has a
+      // blob: prefix.
+      if (source.protocol !== 'blob:' || !globalThis.location?.origin || source.origin !== globalThis.location.origin) {
+        onResult('unsupported', null);
+        return;
+      }
       const video = document.createElement('video');
       video.preload = 'auto';
       video.muted = true;
       video.playsInline = true;
       let finished = false;
+      let timeoutId = null;
       const finish = (state, value) => {
         if (finished) return;
         finished = true;
+        if (timeoutId !== null) globalThis.clearTimeout?.(timeoutId);
+        video.onerror = null;
+        video.onloadeddata = null;
+        video.onseeked = null;
+        video.pause?.();
         video.removeAttribute('src');
         video.load?.();
         onResult(state, value);
@@ -101,6 +116,7 @@ private fun browserCreateVideoThumbnail(
           if (!context) { finish('unsupported', null); return; }
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           canvas.toBlob((blob) => {
+            if (finished) return;
             if (!blob) { finish('failure', 'video_thumbnail_encode_failed'); return; }
             finish('success', JSON.stringify({
               reference: globalThis.URL.createObjectURL(blob),
@@ -123,6 +139,7 @@ private fun browserCreateVideoThumbnail(
           render();
         }
       };
+      timeoutId = globalThis.setTimeout?.(() => finish('failure', 'video_thumbnail_timeout'), 15000) ?? null;
       video.src = reference;
       video.load();
     } catch (error) {
