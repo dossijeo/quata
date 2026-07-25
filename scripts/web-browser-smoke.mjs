@@ -39,17 +39,27 @@ const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-t
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
 const chromeExecutable = options.chrome ?? defaultChrome;
+// Keep this fixture in the repository instead of downloading a document during the smoke. The
+// document remains the source asset; the temporary server exposes it read-only under one fixed
+// route and never copies it into the distribution.
+const docmentisFixture = resolve('app/src/main/assets/legal/privacy_en.docx');
 
 await requireDirectory(distribution, `Wasm distribution not found: ${distribution}`);
 await requireFile(join(distribution, 'index.html'), 'The distribution must contain index.html.');
+if (options.docmentis) {
+    await requireFile(docmentisFixture, `DocMentis fixture not found: ${docmentisFixture}`);
+}
 
 async function runSmoke() {
 const failures = [];
-const staticServer = await startStaticServer(distribution);
+const staticServer = await startStaticServer(distribution, options.docmentis
+    ? new Map([['/__quata-smoke-fixtures/legal.docx', docmentisFixture]])
+    : new Map());
 const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'));
 let chrome;
 const browserLogs = [];
 const networkFailures = [];
+const unexpectedDocmentisNetworkRequests = [];
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory, staticServer.port);
@@ -64,12 +74,23 @@ try {
             const isChromeWebGlProbe = entry.level === 'warning' && entry.text.startsWith(
                 'WebGL: INVALID_ENUM: getParameter: invalid parameter name, WEBGL_debug_renderer_info not enabled',
             );
-            if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe) {
+            // The SDK emits this notice even on localhost, where its own message says free
+            // development usage is exempt from verification. The network assertion below proves
+            // that this smoke did not contact an external service.
+            const isLocalDocmentisLicenseNotice = entry.level === 'warning' && entry.text.startsWith(
+                '[@docMentis/udoc-viewer] This document is opened with free/unlicensed docMentis usage.',
+            );
+            if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe && !isLocalDocmentisLicenseNotice) {
                 browserLogs.push(`${entry.level}: ${entry.text}`);
             }
         });
         cdp.on('Network.responseReceived', ({ response }) => {
             if (response.status >= 400) networkFailures.push(`${response.status} ${response.url}`);
+        });
+        cdp.on('Network.requestWillBeSent', ({ request }) => {
+            if (options.docmentis && isUnexpectedDocmentisNetworkRequest(request.url, staticServer.origin)) {
+                unexpectedDocmentisNetworkRequests.push(request.url);
+            }
         });
         await cdp.send('Runtime.enable');
         await cdp.send('Log.enable');
@@ -97,6 +118,9 @@ try {
             failures.push(`Uncaught browser exception(s):\n${pageErrors.join('\n')}`);
         }
         if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
+        if (unexpectedDocmentisNetworkRequests.length > 0) {
+            failures.push(`DocMentis smoke made an external network request(s):\n${unexpectedDocmentisNetworkRequests.join('\n')}`);
+        }
     } finally {
         cdp.close();
     }
@@ -108,6 +132,15 @@ try {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
     await removeChromeProfile(profileDirectory);
+}
+
+function isUnexpectedDocmentisNetworkRequest(url, localOrigin) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin;
+    } catch {
+        return true;
+    }
 }
 
 if (failures.length > 0) {
@@ -142,10 +175,20 @@ function parseArguments(args) {
 async function navigateAndAssertDocmentisBridge(cdp, origin) {
     await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
     await waitForShell(cdp, 'auth');
-    const probe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.()');
+    const probe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.load()');
     const result = probe?.result?.value;
-    if (result?.package !== '@docmentis/udoc-viewer' || result?.clientCreated !== true || !result?.version) {
-        throw new Error(`DocMentis dynamic import/client lifecycle probe failed: ${JSON.stringify(result)}`);
+    if (
+        result?.package !== '@docmentis/udoc-viewer' ||
+        result?.clientCreated !== true ||
+        result?.loadSucceeded !== true ||
+        result?.rendered !== true ||
+        !result?.version
+    ) {
+        throw new Error(`DocMentis load/render/cleanup probe failed: ${JSON.stringify(result)}`);
+    }
+    const cleanup = await cdp.evaluate("document.querySelector('[data-quata-docmentis-smoke]') === null");
+    if (cleanup?.result?.value !== true) {
+        throw new Error('DocMentis smoke probe leaked its temporary viewer host after load.');
     }
 }
 
@@ -159,7 +202,7 @@ async function requireFile(path, message) {
     if (!information?.isFile()) throw new Error(message);
 }
 
-async function startStaticServer(rootDirectory) {
+async function startStaticServer(rootDirectory, extraFiles) {
     const root = resolve(rootDirectory);
     const server = createServer(async (request, response) => {
         try {
@@ -171,7 +214,26 @@ async function startStaticServer(rootDirectory) {
                 response.writeHead(204).end();
                 return;
             }
-            const candidate = resolve(root, `.${requestPath === '/' ? '/index.html' : requestPath}`);
+            const fixture = extraFiles.get(requestPath);
+            const candidate = fixture ?? resolve(root, `.${requestPath === '/' ? '/index.html' : requestPath}`);
+            if (fixture) {
+                // Fixture routes are an explicit immutable allowlist. Do not turn this server
+                // into a general filesystem endpoint merely to support an integration smoke.
+                const information = await stat(candidate).catch(() => null);
+                if (!information?.isFile()) {
+                    response.writeHead(404).end();
+                    return;
+                }
+                const bytes = await readFile(candidate);
+                response.writeHead(200, {
+                    'Content-Type': contentType(candidate),
+                    'Cross-Origin-Opener-Policy': 'same-origin',
+                    'Cross-Origin-Embedder-Policy': 'require-corp',
+                    'Cache-Control': 'no-store',
+                });
+                response.end(bytes);
+                return;
+            }
             if (!candidate.startsWith(`${root}\\`) && candidate !== root) {
                 response.writeHead(403).end();
                 return;
