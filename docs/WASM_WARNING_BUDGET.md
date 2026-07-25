@@ -35,3 +35,18 @@ Los avisos Beta de `expect`/`actual` se conservan en el informe para seguimiento
 La captura inicial de `:core:compileKotlinWasmJs --rerun-tasks` encontró 46 avisos de interop repartidos entre 16 adaptadores de `core/wasmJsMain`; el origen era cada llamada `js(...)`, no `commonMain`. Tras el opt-in por archivo, la misma compilación dejó **0** avisos `ExperimentalWasmJsInterop`, 20 avisos Beta de `expect`/`actual` y 0 deprecaciones. `:web:compileKotlinWasmJs` también terminó con 0 avisos de interop.
 
 Una captura Web previa expuso dos deprecaciones: `Icons.Filled.Chat` se sustituyó por el equivalente semántico `Icons.AutoMirrored.Filled.Chat`; `rememberSwipeToDismissBoxState(confirmValueChange = ...)` requiere rediseñar anclas y queda fuera de esta fase para evitar cambiar el comportamiento de notificaciones sólo por silenciar un aviso.
+
+## Corte MP-A07: deprecaciones Compose/Wasm
+
+En el corte de 2026-07-25 se revisaron las superficies propias `web/wasmJsMain` y
+`commonMain` que entran en el target Wasm. La línea base versionada sigue teniendo
+0 deprecaciones y 0 avisos de `ExperimentalWasmJsInterop`; los opt-ins existentes
+están acotados a adaptadores de navegador por archivo.
+
+No se aplicó un cambio de API a `rememberSwipeToDismissBoxState(confirmValueChange =
+...)`: la API sustituta exige modelar explícitamente las anclas y su migración
+cambiaría el contrato de gesto de descarte de notificaciones. Se mantiene como
+trabajo funcional independiente, no como una supresión ni como una modificación
+cosmética del target Wasm. Cualquier nuevo slice debe partir de una captura de
+compilador reproducible que identifique una deprecación concreta antes de editar
+código.
