@@ -26,4 +26,37 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabaseUrl, "https://deployment.invalid")
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
+
+    func testIosContactPickerNormalizesExplicitlySelectedContact() {
+        let fields = IosPickedContactFields(
+            givenName: "Ada",
+            middleName: "",
+            familyName: "Lovelace",
+            organizationName: "Analytical Engines",
+            phones: [" +34 600 123 123 ", "+34 600 123 123", ""],
+            emails: [" ada@example.com ", "ada@example.com", ""]
+        )
+
+        let contact = IosContactPickerMappingKt.iosPickedContactToPlatformContact(fields: fields)
+
+        XCTAssertEqual(contact.displayName, "Ada Lovelace")
+        XCTAssertEqual(contact.phones, ["+34 600 123 123"])
+        XCTAssertEqual(contact.emails, ["ada@example.com"])
+    }
+
+    func testIosContactPickerExposesCancellationForEmptySelection() {
+        let outcome = IosContactPickerMappingKt.iosPickedContactsOutcome(fields: [])
+
+        XCTAssertTrue(outcome.isCancelled)
+        XCTAssertTrue(outcome.contacts.isEmpty)
+        XCTAssertNil(outcome.failureReason)
+    }
+
+    func testIosContactPickerExposesAdapterFailureWithoutContactsAccess() {
+        let outcome = IosContactPickerMappingKt.iosContactPickerFailureOutcome(reason: "presentation_failed")
+
+        XCTAssertFalse(outcome.isCancelled)
+        XCTAssertTrue(outcome.contacts.isEmpty)
+        XCTAssertEqual(outcome.failureReason, "presentation_failed")
+    }
 }
