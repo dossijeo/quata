@@ -49,7 +49,7 @@ data class WebPlatformServices(
       /** Browser text reader exposed for a future shared document-preview host; Office/PDF remain unsupported. */
       val documentTextReader: DocumentTextReader = BrowserDocumentTextReader(),
       /** Native PDF viewing and browser download boundary for RTF/Office attachments. */
-      val documentOpener: DocumentOpenService = BrowserDocumentOpenService(),
+      override val documentOpener: DocumentOpenService = BrowserDocumentOpenService(),
       /** Read-only metadata for files returned by the browser gallery picker. */
       val imageMetadata: ImageMetadataService = BrowserImageMetadataService(),
     /** Not part of PlatformServices yet; exposed for future Web Chat host injection. */

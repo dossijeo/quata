@@ -55,6 +55,11 @@ interface PlatformServices {
     val clipboard: ClipboardService
     val share: ShareService
     val filePicker: FilePickerService
+    /**
+     * Platform-owned document surface. Launchers replace the explicit unsupported default when
+     * they can present a native document viewer; shared features never need an Android Context.
+     */
+    val documentOpener: DocumentOpenService get() = UnsupportedDocumentOpenService
     val contacts: ContactPickerService
     val location: LocationService
     val permissions: PermissionService

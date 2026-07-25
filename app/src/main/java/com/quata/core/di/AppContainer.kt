@@ -35,6 +35,8 @@ import com.quata.core.platform.AndroidPermissionService
 import com.quata.core.platform.AndroidPlatformServices
 import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.core.platform.PlatformServices
+import com.quata.core.platform.DocumentOpenService
+import com.quata.documentreader.AndroidDocumentOpenService
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.chat.data.ChatMessageStateAckManager
@@ -80,11 +82,14 @@ class AppContainer(context: Context) {
     /** Bound by MainActivity to its Activity Result registry; features still receive only FilePickerService. */
     val filePickerService = AndroidFilePickerService(appContext)
     val permissionService = AndroidPermissionService(appContext)
+    /** Android's internal reader handles PDF, RTF/text and Office attachments through the shared boundary. */
+    val documentOpenService: DocumentOpenService = AndroidDocumentOpenService(appContext)
     val platformServices: PlatformServices = AndroidPlatformServices(
         preferences = AndroidPreferenceStore(appContext),
         clipboard = clipboardService,
         share = shareService,
         filePicker = filePickerService,
+        documentOpener = documentOpenService,
         location = locationService,
         permissions = permissionService,
     )
