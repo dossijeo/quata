@@ -34,7 +34,7 @@ class IosDocumentThumbnailService : DocumentThumbnailService {
             return PlatformResult.Unsupported
         }
         if (!DocumentThumbnailSupport.hasLocalReference(document)) return PlatformResult.Unsupported
-        val source = document.localFileUrlOrNull() ?: return PlatformResult.Unsupported
+        val source = iosDocumentLocalUrlOrNull(document.reference) ?: return PlatformResult.Unsupported
         val sourcePath = source.path ?: return PlatformResult.Failure("document_thumbnail_source_path_missing")
         if (!NSFileManager.defaultManager.fileExistsAtPath(sourcePath)) {
             return PlatformResult.Failure("document_thumbnail_source_missing")
@@ -63,17 +63,6 @@ class IosDocumentThumbnailService : DocumentThumbnailService {
             }
         }
     }
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun PlatformFile.localFileUrlOrNull(): NSURL? {
-    val value = reference.trim()
-    val url = when {
-        value.startsWith("file://") -> NSURL(string = value)
-        value.startsWith("/") -> NSURL.fileURLWithPath(value)
-        else -> null
-    }
-    return url?.takeIf { it.isFileURL() }
 }
 
 @OptIn(ExperimentalForeignApi::class)

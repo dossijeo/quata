@@ -96,8 +96,20 @@ private fun NSURL.toPlatformFile(): PlatformFile = PlatformFile(
 )
 
 /** UIDocumentPicker's legacy initializer receives UTI identifiers, not browser MIME strings. */
-private fun List<String>.toDocumentContentTypes(): List<UTType> {
-    val identifiers = if (isEmpty()) listOf("public.item") else mapNotNull { mimeType ->
+internal fun List<String>.toDocumentContentTypes(): List<UTType> =
+    iosDocumentContentTypeIdentifiers(this).mapNotNull(UTType::typeWithIdentifier)
+
+/**
+ * Deterministic MIME-to-UTI policy used by the real UIKit picker.
+ *
+ * Keeping this value-only lets the iOS host test PDF/RTF/Office routing without presenting a
+ * document picker. [toDocumentContentTypes] still filters identifiers through Uniform Type
+ * Identifiers before UIKit receives them.
+ */
+fun iosDocumentContentTypeIdentifiers(acceptedMimeTypes: List<String>): List<String> {
+    val identifiers = if (acceptedMimeTypes.isEmpty()) {
+        listOf("public.item")
+    } else acceptedMimeTypes.mapNotNull { mimeType ->
         when (mimeType.trim().lowercase()) {
             "*/*" -> "public.item"
             "image/*" -> "public.image"
@@ -105,6 +117,7 @@ private fun List<String>.toDocumentContentTypes(): List<UTType> {
             "audio/*" -> "public.audio"
             "text/*" -> "public.text"
             "application/pdf" -> "com.adobe.pdf"
+            "application/rtf", "text/rtf" -> "public.rtf"
             "application/json" -> "public.json"
             "application/zip", "application/x-zip-compressed" -> "public.zip-archive"
             "application/msword" -> "com.microsoft.word.doc"
@@ -117,13 +130,14 @@ private fun List<String>.toDocumentContentTypes(): List<UTType> {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation" ->
                 "org.openxmlformats.presentationml.presentation"
             "application/vnd.oasis.opendocument.text" -> "org.oasis-open.opendocument.text"
-            "application/vnd.oasis.opendocument.spreadsheet" -> "org.oasis-open.opendocument.spreadsheet"
+            "application/vnd.oasis.opendocument.spreadsheet" ->
+                "org.oasis-open.opendocument.spreadsheet"
             "application/vnd.oasis.opendocument.presentation" -> "org.oasis-open.opendocument.presentation"
             else -> mimeType.takeIf { it.startsWith("public.") || it.startsWith("com.") }
                 ?: "public.data"
         }
     }.distinct().ifEmpty { listOf("public.item") }
-    return identifiers.mapNotNull(UTType::typeWithIdentifier)
+    return identifiers
 }
 
 private fun String.toMimeType(): String? = when (lowercase()) {
