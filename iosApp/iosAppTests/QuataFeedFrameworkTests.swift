@@ -165,6 +165,53 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(generator)
     }
 
+    func testIosVideoThumbnailAdmissionBuildsBoundedFirstFrameRequestForExistingLocalReference() {
+        // This existing directory deliberately is not a video fixture. The test covers only
+        // admission and must not claim that AVFoundation decoded a simulator asset.
+        let localDirectory = URL(fileURLWithPath: NSTemporaryDirectory()).absoluteString
+        let input = IosVideoThumbnailServiceKt.inspectIosVideoThumbnailInput(
+            video: PlatformFile(reference: localDirectory, displayName: "capture.mp4", mimeType: "video/mp4", sizeBytes: nil),
+            maxWidth: 480,
+        )
+
+        XCTAssertEqual(input.status.name, "Ready")
+        XCTAssertEqual(input.maxWidth, 480)
+        XCTAssertEqual(input.requestedTimeSeconds, 0.0)
+        XCTAssertEqual(input.requestedTimeScale, 600)
+        XCTAssertEqual(input.sourceUrl, localDirectory)
+    }
+
+    func testIosVideoThumbnailAdmissionRejectsInvalidAndRemoteReferencesBeforeAvFoundation() {
+        let malformed = IosVideoThumbnailServiceKt.inspectIosVideoThumbnailInput(
+            video: PlatformFile(reference: "file://", displayName: "capture.mp4", mimeType: "video/mp4", sizeBytes: nil),
+            maxWidth: 320,
+        )
+        let remote = IosVideoThumbnailServiceKt.inspectIosVideoThumbnailInput(
+            video: PlatformFile(reference: "https://cdn.invalid/capture.mp4", displayName: "capture.mp4", mimeType: "video/mp4", sizeBytes: nil),
+            maxWidth: 320,
+        )
+
+        XCTAssertEqual(malformed.status.name, "UnsafeLocalReference")
+        XCTAssertEqual(remote.status.name, "UnsafeLocalReference")
+    }
+
+    func testIosVideoThumbnailAdmissionReportsStableFallbackReasonsWithoutDecodingMedia() {
+        let missingPath = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-thumbnail-missing-\(UUID().uuidString).mp4")
+            .absoluteString
+        let missing = IosVideoThumbnailServiceKt.inspectIosVideoThumbnailInput(
+            video: PlatformFile(reference: missingPath, displayName: "missing.mp4", mimeType: "video/mp4", sizeBytes: nil),
+            maxWidth: 320,
+        )
+        let invalidWidth = IosVideoThumbnailServiceKt.inspectIosVideoThumbnailInput(
+            video: PlatformFile(reference: missingPath, displayName: "missing.mp4", mimeType: "video/mp4", sizeBytes: nil),
+            maxWidth: 0,
+        )
+
+        XCTAssertEqual(missing.status.name, "SourceMissing")
+        XCTAssertEqual(invalidWidth.status.name, "InvalidThumbnailWidth")
+    }
+
     func testExportedComposeControllerSupportsUIKitContainment() {
         let host = UIViewController()
         host.loadViewIfNeeded()
