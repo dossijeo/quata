@@ -29,4 +29,15 @@ class QuataNotificationLaunchPayloadTest {
 
         assertEquals(QuataChatDeepLink("sb:42", "m-1"), target)
     }
+
+    @Test
+    fun mapsSupportedNotificationPayloadToThePortableChatTarget() {
+        val target = mapOf("conversation_id" to "sb:42", "message_id" to "m-1")
+            .quataNotificationDeepLinkTargetOrNull()
+
+        assertEquals(
+            QuataDeepLinkTarget.Chat(QuataChatDeepLink("sb:42", "m-1")),
+            target,
+        )
+    }
 }

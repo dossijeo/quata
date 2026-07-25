@@ -35,6 +35,14 @@ fun QuataNotificationLaunchPayload.quataChatDeepLinkOrNull(): QuataChatDeepLink?
 fun Map<String, String?>.quataNotificationChatDeepLinkOrNull(): QuataChatDeepLink? =
     toQuataNotificationLaunchPayload().quataChatDeepLinkOrNull()
 
+/**
+ * Resolves a provider-normalized notification payload through the same target type as public
+ * Quata URLs. Current notification payloads support chat targets only; other target kinds stay
+ * unavailable until their push payload contracts are explicitly introduced.
+ */
+fun Map<String, String?>.quataNotificationDeepLinkTargetOrNull(): QuataDeepLinkTarget? =
+    quataNotificationChatDeepLinkOrNull()?.let(QuataDeepLinkTarget::Chat)
+
 private fun Map<String, String?>.valueFor(vararg keys: String): String? =
     keys.firstNotNullOfOrNull { this[it].normalizedNotificationValue() }
 
