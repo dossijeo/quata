@@ -40,6 +40,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.quata.core.di.AppContainer
+import com.quata.core.diagnostics.AndroidStartupDiagnostics
 import com.quata.core.platform.MainActivityFilePickerHost
 import com.quata.core.platform.MainActivityPermissionHost
 import com.quata.core.platform.MainActivityCameraCaptureHost
@@ -69,48 +70,55 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowCompat.getInsetsController(window, window.decorView)
-            .show(WindowInsetsCompat.Type.navigationBars())
+        val startupPhase = AndroidStartupDiagnostics.begin("mainActivity.onCreate")
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WindowCompat.getInsetsController(window, window.decorView)
+                .show(WindowInsetsCompat.Type.navigationBars())
 
-        appContainer = (application as QuataApp).container
-        filePickerHost = MainActivityFilePickerHost(this).also(appContainer.filePickerService::attachHost)
-        permissionHost = MainActivityPermissionHost(this).also { host ->
-            appContainer.permissionService.attachHost(host::request)
-        }
-        cameraCaptureHost = MainActivityCameraCaptureHost(this).also(appContainer.cameraCaptureService::attachHost)
-        ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
-        val launchedFromShare = intent?.action in SHARE_ACTIONS
-        handleIncomingIntent(intent)
+            appContainer = (application as QuataApp).container
+            filePickerHost = MainActivityFilePickerHost(this).also(appContainer.filePickerService::attachHost)
+            permissionHost = MainActivityPermissionHost(this).also { host ->
+                appContainer.permissionService.attachHost(host::request)
+            }
+            cameraCaptureHost = MainActivityCameraCaptureHost(this).also(appContainer.cameraCaptureService::attachHost)
+            ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
+            val launchedFromShare = intent?.action in SHARE_ACTIONS
+            handleIncomingIntent(intent)
+            AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
-        setContent {
-            val themeMode by appContainer.themePreferences.observeThemeMode()
-                .collectAsState(initial = appContainer.themePreferences.themeMode())
-            QuataTheme(mode = themeMode) {
-                var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare) }
-                Box(Modifier.fillMaxSize()) {
-                    AppNavGraph(
-                        container = appContainer,
-                        themeMode = themeMode,
-                        incomingLink = incomingLink.value,
-                        onIncomingLinkHandled = { incomingLink.value = null },
-                        incomingShare = incomingShare.value,
-                        onIncomingShareHandled = ::clearIncomingShare
-                    )
-                    AnimatedVisibility(
-                        visible = showSplash,
-                        exit = fadeOut(animationSpec = tween(durationMillis = 420))
-                    ) {
-                        QuataSplashScreen(
-                            onFinished = { showSplash = false },
-                            modifier = Modifier.fillMaxSize()
+            setContent {
+                val themeMode by appContainer.themePreferences.observeThemeMode()
+                    .collectAsState(initial = appContainer.themePreferences.themeMode())
+                QuataTheme(mode = themeMode) {
+                    var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare) }
+                    Box(Modifier.fillMaxSize()) {
+                        AppNavGraph(
+                            container = appContainer,
+                            themeMode = themeMode,
+                            incomingLink = incomingLink.value,
+                            onIncomingLinkHandled = { incomingLink.value = null },
+                            incomingShare = incomingShare.value,
+                            onIncomingShareHandled = ::clearIncomingShare
+                        )
+                        AnimatedVisibility(
+                            visible = showSplash,
+                            exit = fadeOut(animationSpec = tween(durationMillis = 420))
+                        ) {
+                            QuataSplashScreen(
+                                onFinished = { showSplash = false },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        StartupSettingsPrompts(
+                            enabled = !showSplash
                         )
                     }
-                    StartupSettingsPrompts(
-                        enabled = !showSplash
-                    )
                 }
             }
+            AndroidStartupDiagnostics.mark("mainActivity.composeContentInstalled")
+        } finally {
+            AndroidStartupDiagnostics.end("mainActivity.onCreate", startupPhase)
         }
     }
 
@@ -122,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        AndroidStartupDiagnostics.mark("mainActivity.onResume")
         WindowCompat.getInsetsController(window, window.decorView)
             .show(WindowInsetsCompat.Type.navigationBars())
         QuataProximityState.start(this)

@@ -7,6 +7,7 @@ import com.quata.core.camera.ImageCompressor
 import com.quata.core.camera.ImagePickerManager
 import com.quata.core.common.AppDispatchers
 import com.quata.core.config.AppConfig
+import com.quata.core.diagnostics.AndroidStartupDiagnostics
 import com.quata.core.media.MediaUploadOptimizer
 import com.quata.core.moderation.ModerationRepository
 import com.quata.core.moderation.UgcTermsAcceptanceStore
@@ -62,6 +63,7 @@ import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.whatsnew.data.WhatsNewRepositoryImpl
 
 class AppContainer(context: Context) {
+    private val constructionStartedAt = AndroidStartupDiagnostics.startedAt()
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
     val sessionPreferences = SessionPreferences(appContext)
@@ -198,4 +200,8 @@ class AppContainer(context: Context) {
         profileRemote = ProfileRemoteDataSource(networkModule.supabaseCommunityApi),
         sessionManager = sessionManager
     )
+
+    init {
+        AndroidStartupDiagnostics.completed("appContainer", constructionStartedAt)
+    }
 }

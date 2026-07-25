@@ -9,6 +9,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.quata.core.di.AppContainer
+import com.quata.core.diagnostics.AndroidStartupDiagnostics
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.AuthSession
 import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
@@ -44,46 +45,60 @@ class QuataApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
-        ShareTargetAvailability.setEnabled(this, container.sessionManager.currentSession() != null)
-        ChatMessageStateWorkScheduler.ensurePeriodic(this)
-        ChatOutboxWorkScheduler.ensurePeriodic(this)
-        observeSupabaseAuthState()
-        observeShareConversationShortcuts()
-        refreshSupabaseSessionIfNeeded()
-        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: Activity) {
-                startedActivities += 1
+        val startupPhase = AndroidStartupDiagnostics.begin("application.onCreate")
+        try {
+            AndroidStartupDiagnostics.mark("application.onCreate.superComplete")
+            val containerPhase = AndroidStartupDiagnostics.begin("application.container")
+            try {
+                container = AppContainer(this)
+            } finally {
+                AndroidStartupDiagnostics.end("application.container", containerPhase)
             }
-
-            override fun onActivityStopped(activity: Activity) {
-                startedActivities = (startedActivities - 1).coerceAtLeast(0)
-                if (startedActivities == 0) {
-                    isAppForeground = false
-                    container.chatRepository.setAppForeground(false)
+            AndroidStartupDiagnostics.mark("application.containerReady")
+            ShareTargetAvailability.setEnabled(this, container.sessionManager.currentSession() != null)
+            ChatMessageStateWorkScheduler.ensurePeriodic(this)
+            ChatOutboxWorkScheduler.ensurePeriodic(this)
+            observeSupabaseAuthState()
+            observeShareConversationShortcuts()
+            refreshSupabaseSessionIfNeeded()
+            AndroidStartupDiagnostics.mark("application.backgroundObserversScheduled")
+            registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+                override fun onActivityStarted(activity: Activity) {
+                    startedActivities += 1
                 }
-            }
 
-            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
-            override fun onActivityResumed(activity: Activity) {
-                resumedActivities += 1
-                isAppForeground = true
-                container.chatRepository.setAppForeground(true)
-                refreshSupabaseSessionIfNeeded()
-                container.pushTokenManager.syncCurrentToken()
-            }
-
-            override fun onActivityPaused(activity: Activity) {
-                resumedActivities = (resumedActivities - 1).coerceAtLeast(0)
-                if (resumedActivities == 0) {
-                    isAppForeground = false
-                    container.chatRepository.setAppForeground(false)
+                override fun onActivityStopped(activity: Activity) {
+                    startedActivities = (startedActivities - 1).coerceAtLeast(0)
+                    if (startedActivities == 0) {
+                        isAppForeground = false
+                        container.chatRepository.setAppForeground(false)
+                    }
                 }
-            }
 
-            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
-            override fun onActivityDestroyed(activity: Activity) = Unit
-        })
+                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+                override fun onActivityResumed(activity: Activity) {
+                    resumedActivities += 1
+                    isAppForeground = true
+                    container.chatRepository.setAppForeground(true)
+                    refreshSupabaseSessionIfNeeded()
+                    container.pushTokenManager.syncCurrentToken()
+                }
+
+                override fun onActivityPaused(activity: Activity) {
+                    resumedActivities = (resumedActivities - 1).coerceAtLeast(0)
+                    if (resumedActivities == 0) {
+                        isAppForeground = false
+                        container.chatRepository.setAppForeground(false)
+                    }
+                }
+
+                override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+                override fun onActivityDestroyed(activity: Activity) = Unit
+            })
+            AndroidStartupDiagnostics.mark("application.lifecycleCallbacksRegistered")
+        } finally {
+            AndroidStartupDiagnostics.end("application.onCreate", startupPhase)
+        }
     }
 
     private fun refreshSupabaseSessionIfNeeded() {
