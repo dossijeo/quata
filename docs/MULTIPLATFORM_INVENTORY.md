@@ -39,6 +39,7 @@ Actualizado durante la FASE 6. Este documento separa lógica compartible de adap
 
 ## Actualizaciones recientes
 
+- **Matriz de capacidades:** `FeatureCapabilityManifest` v1 vive en `core/commonMain` y distingue compilación, exportación, composición, navegación, backend real y E2E del origen de datos/acciones (`Real`, `Local`, `Unsupported`). Los launchers inyectan su registry. Web consume la proyección para etiquetar el estado sin ocultar rutas ya cableadas; Profile declara persistencia local y las mutaciones Feed/Communities/Official siguen deshabilitadas por contrato, no por una falsa confirmación de guardado.
 - **Evidencia de hosts:** el bundle Web Wasm de producción y smoke de Chrome no autenticado están verificados tras `a0d77ab`; el CI macOS con Kotlin `2.2.21`/Xcode `26.3` compila, enlaza y ejecuta XCTest del host iOS. Son verificaciones de arquitectura y host real, no E2E autenticado ni una declaración de Web/iOS completos.
 - **E2E remoto:** los runners Supabase SB-01 a SB-07 están preparados pero no ejecutados contra entorno configurado; SB-08 sigue bloqueado por credenciales/dispositivo de push. El detalle y los criterios de limpieza viven en `MULTIPLATFORM_MIGRATION_BOARD.md`.
 

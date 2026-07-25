@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.capability.QuataFeature
 import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
@@ -104,6 +105,7 @@ private fun QuataWebApp(
 ) {
     val scope = rememberCoroutineScope()
     val navigation = rememberWebNavigation()
+    val capabilityRegistry = remember(runtimeConfiguration) { webFeatureCapabilityRegistry(runtimeConfiguration) }
     val authRepository = remember(runtimeConfiguration, platformServices.preferences) {
         WebAuthRepository(runtimeConfiguration, platformServices.preferences)
     }
@@ -274,63 +276,77 @@ private fun QuataWebApp(
                         onOpenConversation = ::navigateWebConversation,
                     )
                 } else if (navigation.route == "profile") {
-                    WebProfileHost(repository = profileRepository)
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
+                        WebProfileHost(repository = profileRepository)
+                    }
                 } else if (navigation.route == "composer") {
-                    WebPostComposerRoute(
-                        platformServices = platformServices,
-                        runtimeConfiguration = runtimeConfiguration,
-                        authRepository = authRepository,
-                    )
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Composer) {
+                        WebPostComposerRoute(
+                            platformServices = platformServices,
+                            runtimeConfiguration = runtimeConfiguration,
+                            authRepository = authRepository,
+                        )
+                    }
                 } else if (navigation.route == "communities") {
-                    WebNeighborhoodsHost(
-                        repository = neighborhoodsRepository,
-                        currentUserId = currentUserId,
-                        strings = webNeighborhoodsStrings,
-                        slots = webNeighborhoodsSlots,
-                        rankingItems = emptyList(),
-                        onOpenConversation = ::navigateWebConversation,
-                        onOpenUserRoute = { navigateWebFragment("communities") },
-                        onOpenRankingItem = { },
-                        onSubmitComment = { },
-                        commentsEnabled = false,
-                    )
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Communities) {
+                        WebNeighborhoodsHost(
+                            repository = neighborhoodsRepository,
+                            currentUserId = currentUserId,
+                            strings = webNeighborhoodsStrings,
+                            slots = webNeighborhoodsSlots,
+                            rankingItems = emptyList(),
+                            onOpenConversation = ::navigateWebConversation,
+                            onOpenUserRoute = { navigateWebFragment("communities") },
+                            onOpenRankingItem = { },
+                            onSubmitComment = { },
+                            commentsEnabled = false,
+                        )
+                    }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
-                    WebOfficialHost(
-                        repository = officialRepository,
-                        officialPostId = navigation.officialPostId,
-                        navigationMessage = navigation.message,
-                    )
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
+                        WebOfficialHost(
+                            repository = officialRepository,
+                            officialPostId = navigation.officialPostId,
+                            navigationMessage = navigation.message,
+                        )
+                    }
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
-                    WebChatHost(
-                        repository = chatRepository,
-                        audioPlayer = platformServices.audioPlayer,
-                        audioRecorder = platformServices.audioRecorder,
-                        audioRecordingReferences = platformServices.audioRecordingReferences,
-                        filePicker = platformServices.filePicker,
-                        documentOpener = platformServices.documentOpener,
-                        conversationId = navigation.chatConversationId,
-                        navigationMessage = navigation.message,
-                        onOpenConversation = ::navigateWebConversation,
-                        onBackToList = { navigateWebFragment("chat") },
-                    )
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {
+                        WebChatHost(
+                            repository = chatRepository,
+                            audioPlayer = platformServices.audioPlayer,
+                            audioRecorder = platformServices.audioRecorder,
+                            audioRecordingReferences = platformServices.audioRecordingReferences,
+                            filePicker = platformServices.filePicker,
+                            documentOpener = platformServices.documentOpener,
+                            conversationId = navigation.chatConversationId,
+                            navigationMessage = navigation.message,
+                            onOpenConversation = ::navigateWebConversation,
+                            onBackToList = { navigateWebFragment("chat") },
+                        )
+                    }
                 } else {
-                    WebFeedHost(
-                        repository = feedRepository,
-                        navigationMessage = navigation.message,
-                        onOpenChats = { navigateWebFragment("chat") },
-                        sharedPostId = navigation.postId,
-                        onBackToFeed = { navigateWebFragment("") },
-                    )
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
+                        WebFeedHost(
+                            repository = feedRepository,
+                            navigationMessage = navigation.message,
+                            onOpenChats = { navigateWebFragment("chat") },
+                            sharedPostId = navigation.postId,
+                            onBackToFeed = { navigateWebFragment("") },
+                        )
+                    }
                 }
             }
             } else {
-            WebLoginHost(
-                platformServices = platformServices,
-                configuration = runtimeConfiguration,
-                onLoginSuccess = {
-                    isSessionReady = true
-                },
-            )
+            WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
+                WebLoginHost(
+                    platformServices = platformServices,
+                    configuration = runtimeConfiguration,
+                    onLoginSuccess = {
+                        isSessionReady = true
+                    },
+                )
+            }
             }
         }
     }
