@@ -25,6 +25,40 @@ data class QuataChatDeepLink(
     val messageId: String?,
 )
 
+/**
+ * Platform-neutral result of resolving one public Quata URL or notification launch payload.
+ *
+ * This deliberately carries the identifiers that a feature host needs instead of prescribing a
+ * platform navigation implementation. Hosts can use [destination] for their primary route and
+ * retain the target to focus the corresponding post or message when that feature is available.
+ */
+sealed interface QuataDeepLinkTarget {
+    val destination: AppDestinations
+
+    data class FeedPost(val postId: String) : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.Feed
+    }
+
+    data class OfficialPost(val postId: String) : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.Official
+    }
+
+    data class Chat(val target: QuataChatDeepLink) : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.Chat
+    }
+
+    data object RichTextEditorQa : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.RichTextEditorQa
+    }
+}
+
+/** Resolves only public Quata links already supported by the shared navigation contract. */
+fun String.quataDeepLinkTargetOrNull(): QuataDeepLinkTarget? =
+    quataChatDeepLinkOrNull()?.let(QuataDeepLinkTarget::Chat)
+        ?: quataPostIdOrNull()?.let(QuataDeepLinkTarget::FeedPost)
+        ?: quataOfficialPostIdOrNull()?.let(QuataDeepLinkTarget::OfficialPost)
+        ?: takeIf { it.isQuataRichTextEditorQaLink() }?.let { QuataDeepLinkTarget.RichTextEditorQa }
+
 fun String.quataPostIdOrNull(): String? = quataFragmentOrNull()
     ?.takeIf { it.startsWith(PostFragmentPrefix) }
     ?.removePrefix(PostFragmentPrefix)

@@ -32,4 +32,24 @@ class QuataDeepLinksTest {
     fun foreignHostIsNotAccepted() {
         assertNull("https://example.com/#chat-sb%3A12".quataChatDeepLinkOrNull())
     }
+
+    @Test
+    fun resolvesSupportedPublicLinksToFeatureTargetsWithoutPlatformNavigation() {
+        assertEquals(
+            QuataDeepLinkTarget.FeedPost("post-9"),
+            "https://egquata.com/#post-post-9".quataDeepLinkTargetOrNull(),
+        )
+        assertEquals(
+            QuataDeepLinkTarget.OfficialPost("official-4"),
+            "https://egquata.com/#official-official-4".quataDeepLinkTargetOrNull(),
+        )
+        assertEquals(
+            QuataDeepLinkTarget.Chat(QuataChatDeepLink("sb:9", "m-3")),
+            quataChatUrl("sb:9", "m-3").quataDeepLinkTargetOrNull(),
+        )
+        assertEquals(
+            QuataDeepLinkTarget.RichTextEditorQa,
+            "https://egquata.com/#editor-qa".quataDeepLinkTargetOrNull(),
+        )
+    }
 }
