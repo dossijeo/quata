@@ -85,6 +85,18 @@ private final class IosAppCompositionRoot {
         guard let configuration = runtimeConfiguration else { return nil }
         return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
     }()
+    // Chat receives precisely the Keychain-backed session retained by Feed/Auth. It is created
+    // only after a restored or newly logged-in session has installed the authenticated Feed host.
+    private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        return IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
+            configuration: IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+        )
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -130,7 +142,13 @@ private final class IosAppCompositionRoot {
             },
         ) else { return false }
         installAuthenticatedFeed(dependencies)
+        installAuthenticatedChatIfAvailable()
         return true
+    }
+
+    private func installAuthenticatedChatIfAvailable() {
+        guard let chatRuntimeBootstrap else { return }
+        authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap)
     }
 
     private func installAuthenticationIfConfigured() {
@@ -244,6 +262,49 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func installChatFactory(_ factory: @escaping (String?, String?) -> UIViewController) {
         chatFactory = factory
         renderPendingRouteIfPossible()
+    }
+
+    /// Installs the real KMP Chat host after Auth/Feed restored the Keychain-backed session.
+    /// `messageId` intentionally remains a navigation hint: the common Chat host currently
+    /// supports opening a conversation, but not scrolling to a particular message identifier.
+    func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
+        let services = platformServices.services
+        installChatFactory { [weak self] conversationId, _ in
+            let dependencies = bootstrap.hostDependencies(
+                audioPlayer: services.audioPlayer,
+                audioRecorder: services.audioRecorder,
+                filePicker: services.filePicker,
+                conversationId: conversationId,
+                onOpenConversation: { [weak self] conversationId in
+                    self?.showChat(conversationId: conversationId, messageId: nil)
+                },
+                onBackToList: { [weak self] in
+                    self?.openChatList()
+                },
+                // The shared Chat surface already owns picker, recording and playback through
+                // the injected adapters. Existing remote attachments need a sandboxed download
+                // policy before Quick Look can receive a local URL, so surface that boundary
+                // explicitly rather than silently swallowing the user's action.
+                onOpenAttachment: { [weak self] _ in
+                    self?.presentRemoteAttachmentUnavailableNotice()
+                },
+            )
+            return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
+        }
+    }
+
+    private func presentRemoteAttachmentUnavailableNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_attachment_pending_title", value: "Adjunto", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_attachment_pending_message",
+                value: "La descarga segura de adjuntos remotos estará disponible próximamente.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
     }
 
     func installOfficialFactory(_ factory: @escaping (String?) -> UIViewController) {

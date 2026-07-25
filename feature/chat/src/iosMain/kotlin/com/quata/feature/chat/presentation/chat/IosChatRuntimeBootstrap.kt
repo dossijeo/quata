@@ -3,6 +3,10 @@ package com.quata.feature.chat.presentation.chat
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
+import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.AudioRecorderService
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.IosChatPostgrestTransport
@@ -38,6 +42,30 @@ class IosChatRuntimeBootstrap(
     fun repository(): ChatRepository = chatRepository
 
     fun authSessionForInteractiveLogin(): IosRenewableAuthSession = authSession
+
+    /**
+     * Creates the exported Compose host input from the one authenticated repository and the
+     * platform adapters owned by the iOS launcher. Keeping this hand-off here prevents Swift
+     * from constructing a second Chat repository or an unrelated Keychain session per route.
+     */
+    fun hostDependencies(
+        audioPlayer: AudioPlayerService,
+        audioRecorder: AudioRecorderService,
+        filePicker: FilePickerService,
+        conversationId: String?,
+        onOpenConversation: (String) -> Unit,
+        onBackToList: () -> Unit,
+        onOpenAttachment: (PlatformFile) -> Unit,
+    ): IosChatHostDependencies = IosChatHostDependencies(
+        repository = repository(),
+        audioPlayer = audioPlayer,
+        audioRecorder = audioRecorder,
+        filePicker = filePicker,
+        conversationId = conversationId,
+        onOpenConversation = onOpenConversation,
+        onBackToList = onBackToList,
+        onOpenAttachment = onOpenAttachment,
+    )
 }
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */
