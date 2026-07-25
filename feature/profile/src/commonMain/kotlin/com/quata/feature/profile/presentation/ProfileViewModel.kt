@@ -185,13 +185,12 @@ class ProfileViewModel(
 
     private fun toggleEmergencyContact(contactId: String) {
         updateProfile {
-            val selected = emergencyContactIds.distinct().take(5).toMutableList()
-            if (selected.contains(contactId)) {
-                selected.remove(contactId)
-            } else if (selected.size < 5) {
-                selected.add(contactId)
-            }
-            copy(emergencyContactIds = selected)
+            copy(
+                emergencyContactIds = toggleEmergencyContactSelection(
+                    selectedIds = emergencyContactIds,
+                    contactId = contactId,
+                ),
+            )
         }
     }
 
