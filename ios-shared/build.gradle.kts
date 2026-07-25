@@ -24,6 +24,7 @@ kotlin {
             api(project(":feature:feed"))
             api(project(":feature:chat"))
             api(project(":feature:notifications"))
+            api(project(":feature:official"))
         }
     }
 
@@ -35,6 +36,7 @@ kotlin {
             export(project(":feature:feed"))
             export(project(":feature:chat"))
             export(project(":feature:notifications"))
+            export(project(":feature:official"))
         }
     }
 }

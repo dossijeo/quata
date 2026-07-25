@@ -270,6 +270,32 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Notifications")
     }
 
+    func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        let routeDispatcher = IosAuthenticatedRouteDispatcher(host: router)
+        let deepLinkDispatcher = IosDeepLinkDispatcher()
+        deepLinkDispatcher.attachHost(host: routeDispatcher)
+
+        _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#official-public-post-7")
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        var receivedPostId: String?
+        let exportedFeatureController = UIViewController()
+        router.installOfficialFactory { postId in
+            receivedPostId = postId
+            return exportedFeatureController
+        }
+
+        XCTAssertEqual(receivedPostId, "public-post-7")
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-official-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Official")
+    }
+
     func testAuthenticatedRouterBuildsTheExportedChatHostFromSharedRuntimeAndPlatformServices() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
