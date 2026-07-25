@@ -5,7 +5,6 @@ import com.quata.core.platform.BrowserPermissionService
 import com.quata.core.platform.BrowserCameraCaptureService
 import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.platform.BrowserDocumentTextReader
-import com.quata.core.platform.BrowserDocumentOpenService
 import com.quata.core.platform.BrowserContactPickerService
 import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
@@ -52,8 +51,8 @@ data class WebPlatformServices(
       val videoThumbnails: VideoThumbnailService = BrowserVideoThumbnailService(),
       /** Browser text reader exposed for a future shared document-preview host; Office/PDF remain unsupported. */
       val documentTextReader: DocumentTextReader = BrowserDocumentTextReader(),
-      /** Native PDF viewing and browser download boundary for RTF/Office attachments. */
-      override val documentOpener: DocumentOpenService = BrowserDocumentOpenService(),
+      /** Lazy DocMentis modal for PDF/DOCX/PPTX/XLSX; hardened browser fallback for all else. */
+      override val documentOpener: DocumentOpenService = WebDocmentisDocumentOpenService(),
       /** Read-only metadata for files returned by the browser gallery picker. */
       val imageMetadata: ImageMetadataService = BrowserImageMetadataService(),
     /**

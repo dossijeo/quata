@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ensureWebClientInstanceId()
+    installDocmentisSmokeProbe()
     registerWebPushWorker()
     val platformServices = WebPlatformServices()
     val runtimeConfiguration = WebRuntimeConfiguration.fromDocument()
