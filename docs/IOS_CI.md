@@ -21,6 +21,20 @@ incluye bibliotecas de plataforma generadas para Xcode 26; usar Xcode 16.3
 haría fallar el enlace al no resolver `_LocationEssentials`. El workflow fija
 además el runtime iOS 26.2 para que el resultado sea reproducible.
 
+## Concurrencia y cola
+
+La Action agrupa sus ejecuciones por ref (`ios-compile-${{ github.ref }}`) y
+no cancela una ejecución ya iniciada cuando llega otro push a esa misma rama.
+Esto permite que la fase XCTest termine y conserve su diagnóstico. Cada rama
+mantiene su propio grupo: una rama no bloquea la compilación de otra.
+
+GitHub limita cada grupo a una ejecución activa y una pendiente; si se acumulan
+varios pushes para la misma ref, la ejecución pendiente más antigua puede ser
+sustituida por la más reciente. Por tanto, no se habilita paralelismo ilimitado
+en runners macOS, pero un lote puede permanecer en cola y consumir más tiempo
+de validación. Esta política no corrige cancelaciones o fallos anteriores a
+que GitHub inicie los pasos del job.
+
 > El proyecto usa Kotlin/Compose Compiler/serialization `2.2.21`, Compose
 > Multiplatform `1.10.0`, Gradle 9.3.1 y AGP 9.1.0. La Action conserva esas
 > versiones reales para detectar incompatibilidades de toolchain sin ocultarlas
