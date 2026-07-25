@@ -98,6 +98,7 @@ private fun browserPostWebPushRegistration(
     onFailure: (String?, Int?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     let subscription = null;
     try {
       if (subscriptionJson != null) subscription = JSON.parse(subscriptionJson);
@@ -142,5 +143,6 @@ private fun browserPostWebPushRegistration(
       const text = await response.text().catch(() => '');
       onFailure(text || `web_push_http_${'$'}{response.status}`, response.status);
     }).catch((error) => onFailure(error?.message ?? error?.name ?? 'web_push_request_failed', null));
+    })()
     """,
 )

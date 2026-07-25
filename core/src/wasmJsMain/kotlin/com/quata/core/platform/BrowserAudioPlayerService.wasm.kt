@@ -118,7 +118,7 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
         element.src = source;
         element.load();
       } catch (_) { onResult('unsupported'); }
-    })();
+    })()
     """,
 )
 
@@ -128,23 +128,23 @@ private fun browserAudioPlay(id: String, onResult: (String) -> Unit): Unit = js(
       if (!element) return onResult('failure:web_audio_not_loaded');
       const state = () => JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0});
       try { const result = element.play(); if (result?.then) result.then(() => onResult(state())).catch((error) => onResult('failure:' + (error?.name || 'web_audio_play_failed'))); else onResult(state()); } catch (error) { onResult('failure:' + (error?.name || 'web_audio_play_failed')); }
-    })();""",
+    })()""",
 )
 
 private fun browserAudioPause(id: String, onResult: (String) -> Unit): Unit = js(
-    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); element.pause(); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: false, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })();""",
+    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); element.pause(); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: false, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
 )
 
 private fun browserAudioSeek(id: String, positionMillis: Long, onResult: (String) -> Unit): Unit = js(
-    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); const duration = Number.isFinite(element.duration) && element.duration >= 0 ? element.duration : Number.MAX_VALUE; element.currentTime = Math.min(duration, positionMillis / 1000); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })();""",
+    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); const duration = Number.isFinite(element.duration) && element.duration >= 0 ? element.duration : Number.MAX_VALUE; element.currentTime = Math.min(duration, positionMillis / 1000); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
 )
 
 private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js(
-    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })();""",
+    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
 )
 
 private fun browserAudioStop(id: String, onComplete: () -> Unit): Unit = js(
-    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } onComplete(); })();""",
+    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } onComplete(); })()""",
 )
 
 private const val BrowserAudioUnsupported = "unsupported"

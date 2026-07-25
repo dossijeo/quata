@@ -337,6 +337,7 @@ private fun browserPostJson(
     onFailure: (String) -> Unit,
 ): Unit = js(
     """
+    (() => {
     const headers = { 'Content-Type': 'application/json', apikey: apiKey };
     if (accessToken != null && accessToken.length > 0) headers.Authorization = `Bearer ${'$'}{accessToken}`;
     if (webSessionToken != null && webSessionToken.length > 0) headers['x-quata-web-session'] = webSessionToken;
@@ -351,6 +352,7 @@ private fun browserPostJson(
         }
       })
       .catch((error) => onFailure(error?.message || 'web_auth_network_error'));
+    })()
     """,
 )
 

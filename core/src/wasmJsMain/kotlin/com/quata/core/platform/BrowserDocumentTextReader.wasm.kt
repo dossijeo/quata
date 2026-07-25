@@ -29,6 +29,7 @@ private fun browserReadDocumentText(
     onResult: (String, String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') {
       onResult('unsupported', null);
       return;
@@ -40,5 +41,6 @@ private fun browserReadDocumentText(
       })
       .then((text) => onResult('success', text.slice(0, maxCharacters)))
       .catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_document_read_failed'));
+    })()
     """,
 )

@@ -48,6 +48,7 @@ private fun browserGetOrCreatePushSubscription(
     onFailure: (String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     const navigatorRef = globalThis.navigator;
     const notification = globalThis.Notification;
     if (!navigatorRef?.serviceWorker || !notification?.requestPermission || typeof globalThis.fetch !== 'function') {
@@ -89,5 +90,6 @@ private fun browserGetOrCreatePushSubscription(
       else if (error?.name === 'NotSupportedError') onUnsupported();
       else onFailure(error?.message ?? error?.name ?? 'web_push_failed');
     });
+    })()
     """,
 )

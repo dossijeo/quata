@@ -134,15 +134,17 @@ private fun browserCaptureJpeg(displayName: String?, onResult: (String) -> Unit)
           video.play().catch((error) => fail(error, 'camera_capture_preview_failed'));
         }).catch((error) => fail(error, 'camera_permission_denied'));
       } catch (error) { fail(error, 'camera_capture_failed'); }
-    })();
+    })()
     """,
 )
 
 private fun browserReleaseCameraCapture(reference: String): Unit = js(
     """
+    (() => {
     if (typeof reference === 'string' && reference.startsWith('blob:')) {
       try { globalThis.URL?.revokeObjectURL(reference); } catch (_) {}
     }
+    })()
     """,
 )
 

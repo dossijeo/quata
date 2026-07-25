@@ -63,22 +63,27 @@ private suspend fun browserRequestLocationPermission(): String? = suspendCorouti
 }
 
 private fun browserQueryPermission(name: String, callback: (String?) -> Unit): Unit = js("""
+    (() => {
     const permissions = globalThis.navigator?.permissions;
     if (!permissions?.query) { callback(null); return; }
     permissions.query({ name: name })
         .then(result => callback(result.state))
         .catch(() => callback(null));
+    })()
 """)
 
 private fun browserRequestNotification(callback: (String?) -> Unit): Unit = js("""
+    (() => {
     const notification = globalThis.Notification;
     if (!notification?.requestPermission) { callback(null); return; }
     notification.requestPermission()
         .then(result => callback(result))
         .catch(() => callback("denied"));
+    })()
 """)
 
 private fun browserRequestMedia(video: Boolean, callback: (String?) -> Unit): Unit = js("""
+    (() => {
     const getUserMedia = globalThis.navigator?.mediaDevices?.getUserMedia;
     if (!getUserMedia) { callback(null); return; }
     getUserMedia.call(globalThis.navigator.mediaDevices, video ? { video: true } : { audio: true })
@@ -87,9 +92,11 @@ private fun browserRequestMedia(video: Boolean, callback: (String?) -> Unit): Un
             callback("granted");
         })
         .catch(error => callback(error?.name === "NotAllowedError" ? "denied" : null));
+    })()
 """)
 
 private fun browserRequestLocation(callback: (String?) -> Unit): Unit = js("""
+    (() => {
     const geolocation = globalThis.navigator?.geolocation;
     if (!geolocation?.getCurrentPosition) { callback(null); return; }
     geolocation.getCurrentPosition(
@@ -97,4 +104,5 @@ private fun browserRequestLocation(callback: (String?) -> Unit): Unit = js("""
         error => callback(error?.code === 1 ? "denied" : null),
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
     );
+    })()
 """)

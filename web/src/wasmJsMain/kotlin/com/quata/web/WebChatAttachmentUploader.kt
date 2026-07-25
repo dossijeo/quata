@@ -102,6 +102,7 @@ private fun browserUploadChatAttachmentRequest(
     onFailure: (String) -> Unit,
 ): Unit = js(
     """
+    (() => {
     if (typeof globalThis.fetch !== 'function') {
       onFailure('web_chat_attachment_fetch_unsupported');
       return;
@@ -125,6 +126,7 @@ private fun browserUploadChatAttachmentRequest(
         sizeBytes: Number.isFinite(blob.size) ? Math.trunc(blob.size) : null,
       }));
     }).catch((error) => onFailure(error?.message ?? error?.name ?? 'web_chat_attachment_upload_failed'));
+    })()
     """,
 )
 

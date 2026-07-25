@@ -43,10 +43,13 @@ const chromeExecutable = options.chrome ?? defaultChrome;
 await requireDirectory(distribution, `Wasm distribution not found: ${distribution}`);
 await requireFile(join(distribution, 'index.html'), 'The distribution must contain index.html.');
 
+async function runSmoke() {
 const failures = [];
 const staticServer = await startStaticServer(distribution);
 const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'));
 let chrome;
+const browserLogs = [];
+const networkFailures = [];
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory, staticServer.port);
@@ -57,7 +60,20 @@ try {
         cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
             pageErrors.push(describeException(exceptionDetails));
         });
+        cdp.on('Log.entryAdded', ({ entry }) => {
+            const isChromeWebGlProbe = entry.level === 'warning' && entry.text.startsWith(
+                'WebGL: INVALID_ENUM: getParameter: invalid parameter name, WEBGL_debug_renderer_info not enabled',
+            );
+            if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe) {
+                browserLogs.push(`${entry.level}: ${entry.text}`);
+            }
+        });
+        cdp.on('Network.responseReceived', ({ response }) => {
+            if (response.status >= 400) networkFailures.push(`${response.status} ${response.url}`);
+        });
         await cdp.send('Runtime.enable');
+        await cdp.send('Log.enable');
+        await cdp.send('Network.enable');
         await cdp.send('Page.enable');
 
         // The first probe is deliberately unauthenticated and therefore exercises the shared
@@ -76,15 +92,18 @@ try {
         if (pageErrors.length > 0) {
             failures.push(`Uncaught browser exception(s):\n${pageErrors.join('\n')}`);
         }
+        if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
     } finally {
         cdp.close();
     }
 } catch (error) {
     failures.push(error instanceof Error ? error.stack ?? error.message : String(error));
+    if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
+    if (networkFailures.length > 0) failures.push(`Network failure(s):\n${networkFailures.join('\n')}`);
 } finally {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
-    await rm(profileDirectory, { recursive: true, force: true });
+    await removeChromeProfile(profileDirectory);
 }
 
 if (failures.length > 0) {
@@ -92,6 +111,7 @@ if (failures.length > 0) {
     process.exitCode = 1;
 } else {
     console.log(`Web browser smoke passed for ${routeFragments.join(', ')}.`);
+}
 }
 
 function parseArguments(args) {
@@ -128,6 +148,13 @@ async function startStaticServer(rootDirectory) {
     const server = createServer(async (request, response) => {
         try {
             const requestPath = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname);
+            // Chrome requests a favicon even though the Kotlin/Wasm distribution does not ship
+            // one. It is unrelated to launcher health, so make that implicit browser probe a
+            // successful empty response instead of turning the smoke into a false negative.
+            if (requestPath === '/favicon.ico') {
+                response.writeHead(204).end();
+                return;
+            }
             const candidate = resolve(root, `.${requestPath === '/' ? '/index.html' : requestPath}`);
             if (!candidate.startsWith(`${root}\\`) && candidate !== root) {
                 response.writeHead(403).end();
@@ -175,7 +202,7 @@ function contentType(path) {
 async function launchChrome(executable, profile, serverPort) {
     const debugPort = await availablePort();
     const process = spawn(executable, [
-        '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+        '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
         `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`,
         `http://127.0.0.1:${serverPort}/#auth`,
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -230,18 +257,36 @@ async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
 }
 
 async function waitForShell(cdp, fragment) {
+    let lastProbe;
     for (let attempt = 0; attempt < 120; attempt += 1) {
         const probe = await cdp.evaluate(`(() => ({
             hash: location.hash,
             root: document.querySelector('#quata-root'),
             childCount: document.querySelector('#quata-root')?.childElementCount ?? 0,
             canvasCount: document.querySelectorAll('#quata-root canvas').length,
+            allCanvasCount: document.querySelectorAll('canvas').length,
+            shadowChildCount: document.querySelector('#quata-root')?.shadowRoot?.childElementCount ?? 0,
+            shadowCanvasCount: document.querySelector('#quata-root')?.shadowRoot?.querySelectorAll('canvas').length ?? 0,
+            rootHtml: document.querySelector('#quata-root')?.innerHTML ?? null,
+            launcherState: document.documentElement.dataset.quataLauncher ?? null,
+            bundleType: typeof globalThis.web,
+            bundleThen: typeof globalThis.web?.then,
+            bundleKeys: globalThis.web && typeof globalThis.web === 'object' ? Object.keys(globalThis.web) : [],
+            resources: performance.getEntriesByType('resource').map(({ name, initiatorType, duration }) => ({
+                name,
+                initiatorType,
+                duration: Math.round(duration),
+            })),
         }))()`);
         const value = probe?.result?.value;
-        if (value?.hash === `#${fragment}` && value.root && (value.childCount > 0 || value.canvasCount > 0)) return;
+        lastProbe = value;
+        if (value?.hash === `#${fragment}` && value.root && (
+            value.childCount > 0 || value.canvasCount > 0 ||
+            value.shadowChildCount > 0 || value.shadowCanvasCount > 0
+        )) return;
         await delay(100);
     }
-    throw new Error(`The Compose shell did not mount for route #${fragment} within 12 seconds.`);
+    throw new Error(`The Compose shell did not mount for route #${fragment} within 12 seconds. Last probe: ${JSON.stringify(lastProbe)}`);
 }
 
 function describeException(details) {
@@ -250,11 +295,31 @@ function describeException(details) {
 }
 
 async function stopProcess(child) {
+    if (process.platform === 'win32' && child.pid) {
+        const taskkill = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+        await new Promise(resolveProcess => taskkill.once('exit', resolveProcess));
+        return;
+    }
     if (child.exitCode !== null) return;
     child.kill();
     await Promise.race([new Promise(resolveProcess => child.once('exit', resolveProcess)), delay(3_000)]);
-    if (child.exitCode === null && process.platform === 'win32') {
-        spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+}
+
+async function removeChromeProfile(profileDirectory) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+            await rm(profileDirectory, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+            return;
+        } catch (error) {
+            if (attempt === 4) {
+                // A retained Crashpad handle cannot change the browser result. Keep the path in
+                // the warning so it can be cleaned later instead of converting a green smoke
+                // into a false negative on Windows.
+                console.warn(`Could not remove temporary Chrome profile ${profileDirectory}: ${error.message}`);
+                return;
+            }
+            await delay(250);
+        }
     }
 }
 
@@ -313,3 +378,5 @@ class CdpClient {
 
     close() { this.socket.close(); }
 }
+
+await runSmoke();

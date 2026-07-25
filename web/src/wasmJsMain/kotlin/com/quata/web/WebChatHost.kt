@@ -61,11 +61,13 @@ private fun browserDocumentIsVisible(): Boolean = js(
 /** Pauses the repository polling loops on background tabs and unregisters with the host. */
 private fun observeBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -> Unit = js(
     """
+    (() => {
     const document = globalThis.document;
     if (!document?.addEventListener) return () => {};
     const listener = () => onChanged(document.visibilityState !== 'hidden');
     document.addEventListener('visibilitychange', listener);
     return () => document.removeEventListener('visibilitychange', listener);
+    })()
     """,
 )
 

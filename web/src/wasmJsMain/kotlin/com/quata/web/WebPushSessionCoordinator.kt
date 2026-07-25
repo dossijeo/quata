@@ -62,6 +62,7 @@ private fun browserUnsubscribePush(
     onFailure: (String) -> Unit,
 ): Unit = js(
     """
+    (() => {
     const navigatorRef = globalThis.navigator;
     if (!navigatorRef?.serviceWorker) { onSuccess(); return; }
     navigatorRef.serviceWorker.ready
@@ -69,5 +70,6 @@ private fun browserUnsubscribePush(
       .then((subscription) => subscription ? subscription.unsubscribe() : true)
       .then(() => onSuccess())
       .catch((error) => onFailure(error?.message ?? error?.name ?? 'web_push_unsubscribe_failed'));
+    })()
     """,
 )

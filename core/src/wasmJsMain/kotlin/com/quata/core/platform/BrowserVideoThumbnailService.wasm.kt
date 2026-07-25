@@ -62,7 +62,7 @@ private fun String?.toVideoThumbnailFile(): PlatformFile? = runCatching {
 
 private fun browserRevokeObjectUrl(reference: String): Unit = js(
     """
-    if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference);
+    (() => { if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference); })()
     """,
 )
 
@@ -72,6 +72,7 @@ private fun browserCreateVideoThumbnail(
     onResult: (String, String?) -> Unit,
 ): Unit = js(
     """
+    (() => {
     try {
       const document = globalThis.document;
       if (!document?.createElement || !globalThis.URL?.createObjectURL) { onResult('unsupported', null); return; }
@@ -127,5 +128,6 @@ private fun browserCreateVideoThumbnail(
     } catch (error) {
       onResult('failure', error?.message ?? error?.name ?? 'video_thumbnail_start_failed');
     }
+    })()
     """,
 )

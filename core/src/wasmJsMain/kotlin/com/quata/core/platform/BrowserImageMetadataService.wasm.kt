@@ -41,6 +41,7 @@ private fun String?.toImageMetadataOrNull(sourceMimeType: String?): ImageMetadat
 
 private fun browserReadImageMetadata(reference: String, onResult: (String, String?) -> Unit): Unit = js(
     """
+    (() => {
     try {
       if (typeof globalThis.Image !== 'function') { onResult('unsupported', null); return; }
       const image = new globalThis.Image();
@@ -55,5 +56,6 @@ private fun browserReadImageMetadata(reference: String, onResult: (String, Strin
     } catch (error) {
       onResult('failure', error?.message ?? error?.name ?? 'image_metadata_read_failed');
     }
+    })()
     """,
 )

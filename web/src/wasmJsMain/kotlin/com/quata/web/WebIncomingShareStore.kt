@@ -69,6 +69,7 @@ private fun browserReadIncomingShare(
     onFailure: (String) -> Unit,
 ): Unit = js(
     """
+    (() => {
     const request = indexedDB.open('quata-web', 2);
     request.onupgradeneeded = () => {
       const database = request.result;
@@ -99,6 +100,7 @@ private fun browserReadIncomingShare(
         } catch (_) { onFailure('web_share_store_payload_failed'); }
       };
     };
+    })()
     """,
 )
 
@@ -109,6 +111,7 @@ private fun browserRemoveIncomingShare(
     onFailure: (String) -> Unit,
 ): Unit = js(
     """
+    (() => {
     try {
       JSON.parse(referencesJson).forEach((reference) => {
         if (typeof reference === 'string' && reference.startsWith('blob:')) URL.revokeObjectURL(reference);
@@ -130,5 +133,6 @@ private fun browserRemoveIncomingShare(
       transaction.onerror = () => onFailure('web_share_store_remove_failed');
       transaction.onabort = () => onFailure('web_share_store_remove_failed');
     };
+    })()
     """,
 )
