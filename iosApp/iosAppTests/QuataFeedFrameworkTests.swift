@@ -136,4 +136,34 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-chat-host")
     }
+
+    func testPublicChatDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
+        let services = IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+        )
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        let routeDispatcher = IosAuthenticatedRouteDispatcher(host: router)
+        let deepLinkDispatcher = IosDeepLinkDispatcher()
+        deepLinkDispatcher.attachHost(host: routeDispatcher)
+
+        _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#chat-conversation-7?message=message-4")
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        var receivedConversationId: String?
+        var receivedMessageId: String?
+        let exportedFeatureController = UIViewController()
+        router.installChatFactory { conversationId, messageId in
+            receivedConversationId = conversationId
+            receivedMessageId = messageId
+            return exportedFeatureController
+        }
+
+        XCTAssertEqual(receivedConversationId, "conversation-7")
+        XCTAssertEqual(receivedMessageId, "message-4")
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-chat-host")
+    }
 }
