@@ -775,7 +775,7 @@ private fun ImagePostForm(
     val template = quataTheme()
 
     @Composable
-    fun ImageControlsPanel() {
+    fun ImageMediaSourcePanel() {
         val imageEditAction: (@Composable (Modifier) -> Unit)? = if (state.imageUri != null) {
             { actionModifier ->
                 ComposerActionButton(stringResource(R.string.composer_edit_image), Icons.Filled.Edit, onEditImage, actionModifier)
@@ -793,46 +793,48 @@ private fun ImagePostForm(
                 ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, actionModifier)
             },
             editAction = imageEditAction,
-            afterEdit = {
-                Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        onLocationPositioned(coordinates.positionInRoot().y.roundToInt())
-                    }
-            ) {
-                val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
-                ComposerLocationSectionContent(
-                    title = stringResource(R.string.composer_location),
-                    locationText = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                    helperText = stringResource(
-                        if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
-                    ),
-                    isHighlighted = shouldEmphasizeLocation,
-                    leadingIcon = {
-                        CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
-                    },
-                    editAction = { actionModifier ->
-                        LocationEditButton(
-                            isEditing = isLocationEditorOpen,
-                            highlighted = highlightLocationEditor,
-                            onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) },
-                            modifier = actionModifier
-                        )
-                    },
-                    editor = if (isLocationEditorOpen) {
-                        {
-                            ComposerLocationTextEditorContent(
-                                value = state.locationLabel.orEmpty(),
-                                placeholder = stringResource(R.string.composer_location_placeholder),
-                                onValueChange = onLocationChange,
-                            )
-                        }
-                    } else null
-                )
-            }
-        },
         )
+    }
+
+    @Composable
+    fun ImageLocationControl() {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    onLocationPositioned(coordinates.positionInRoot().y.roundToInt())
+                }
+        ) {
+            val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
+            ComposerLocationSectionContent(
+                title = stringResource(R.string.composer_location),
+                locationText = state.locationLabel ?: stringResource(R.string.composer_no_location),
+                helperText = stringResource(
+                    if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
+                ),
+                isHighlighted = shouldEmphasizeLocation,
+                leadingIcon = {
+                    CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
+                },
+                editAction = { actionModifier ->
+                    LocationEditButton(
+                        isEditing = isLocationEditorOpen,
+                        highlighted = highlightLocationEditor,
+                        onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) },
+                        modifier = actionModifier
+                    )
+                },
+                editor = if (isLocationEditorOpen) {
+                    {
+                        ComposerLocationTextEditorContent(
+                            value = state.locationLabel.orEmpty(),
+                            placeholder = stringResource(R.string.composer_location_placeholder),
+                            onValueChange = onLocationChange,
+                        )
+                    }
+                } else null
+            )
+        }
     }
 
     @Composable
@@ -869,9 +871,13 @@ private fun ImagePostForm(
         }
     }
 
-    ComposerMediaPostFormLayoutContent(
+    ComposerMediaPostFormContent(
         isLandscapeLayout = isLandscapeLayout,
-        controls = { ImageControlsPanel() },
+        mediaSource = { ImageMediaSourcePanel() },
+        controls = {
+            Spacer(Modifier.height(12.dp))
+            ImageLocationControl()
+        },
         preview = { ImagePreviewPanel() },
         publish = { PublishButton(state.isLoading, onSubmit) }
     )
@@ -891,7 +897,7 @@ private fun VideoPostForm(
     val template = quataTheme()
 
     @Composable
-    fun VideoControlsPanel() {
+    fun VideoMediaSourcePanel() {
         val videoEditAction: (@Composable (Modifier) -> Unit)? = if (state.videoUri != null) {
             { actionModifier ->
                 ComposerActionButton(stringResource(R.string.video_editor_edit_video), Icons.Filled.Edit, onEditVideo, actionModifier)
@@ -919,6 +925,10 @@ private fun VideoPostForm(
             editAction = videoEditAction,
         )
 
+    }
+
+    @Composable
+    fun VideoDescriptionControl() {
         ComposerDescriptionFormContent(
             value = state.text,
             title = stringResource(R.string.composer_description),
@@ -956,9 +966,10 @@ private fun VideoPostForm(
         }
     }
 
-    ComposerMediaPostFormLayoutContent(
+    ComposerMediaPostFormContent(
         isLandscapeLayout = isLandscapeLayout,
-        controls = { VideoControlsPanel() },
+        mediaSource = { VideoMediaSourcePanel() },
+        controls = { VideoDescriptionControl() },
         preview = { VideoPreviewPanel() },
         publish = { PublishButton(state.isLoading, onSubmit) }
     )

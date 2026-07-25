@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
-import com.quata.feature.postcomposer.presentation.ComposerMediaPostFormLayoutContent
+import com.quata.feature.postcomposer.presentation.ComposerMediaPostFormContent
 import com.quata.feature.postcomposer.presentation.ComposerMediaSourceFormContent
 import com.quata.feature.postcomposer.presentation.ComposerPublishButtonContent
 import com.quata.feature.postcomposer.presentation.ComposerScreenLayoutContent
@@ -90,9 +90,9 @@ fun WebPostComposerHost(
                 PostComposerType.Image, PostComposerType.Video -> {
                     val isVideo = type == PostComposerType.Video
                     val uri = if (isVideo) state.videoUri else state.imageUri
-                    ComposerMediaPostFormLayoutContent(
+                    ComposerMediaPostFormContent(
                         isLandscapeLayout = isLandscapeLayout,
-                        controls = {
+                        mediaSource = {
                             ComposerMediaSourceFormContent(
                                 title = if (isVideo) "Vídeo" else "Imagen",
                                 isLandscapeLayout = isLandscapeLayout,
