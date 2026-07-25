@@ -2,7 +2,7 @@ import XCTest
 import Foundation
 import UIKit
 import QuickLook
-import QuataFeed
+import QuataShared
 @testable import QuataIos
 import QuickLookThumbnailing
 import AVFoundation

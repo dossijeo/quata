@@ -12,6 +12,7 @@ on:
       - "gradlew"
       - "core/**"
       - "designsystem/**"
+      - "ios-shared/**"
       - "feature/**"
       - "web/**"
       - "iosApp/**"
@@ -32,6 +33,7 @@ on:
       - "gradlew"
       - "core/**"
       - "designsystem/**"
+      - "ios-shared/**"
       - "feature/**"
       - "web/**"
       - "iosApp/**"
@@ -169,17 +171,19 @@ jobs:
             :feature:settings:compileKotlinIosSimulatorArm64 \
             :feature:whatsnew:compileKotlinIosArm64 \
             :feature:whatsnew:compileKotlinIosSimulatorArm64 \
+            :ios-shared:compileKotlinIosArm64 \
+            :ios-shared:compileKotlinIosSimulatorArm64 \
             --stacktrace \
             --warning-mode all \
             --console=plain \
             2>&1 | tee build/reports/ios/kotlin-ios.log
 
-      - name: Link QuataFeed simulator framework
+      - name: Link QuataShared simulator framework
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew \
-            :feature:feed:linkDebugFrameworkIosSimulatorArm64 \
+            :ios-shared:linkDebugFrameworkIosSimulatorArm64 \
             --stacktrace \
             --warning-mode all \
             --console=plain \
@@ -296,6 +300,6 @@ jobs:
           path: |
             build/reports/ios/
             iosApp/QuataIos.xcodeproj/
-            feature/feed/build/bin/iosSimulatorArm64/debugFramework/QuataFeed.framework/
+            ios-shared/build/bin/iosSimulatorArm64/debugFramework/QuataShared.framework/
           if-no-files-found: warn
           retention-days: 30

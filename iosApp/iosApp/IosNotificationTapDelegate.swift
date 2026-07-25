@@ -1,6 +1,6 @@
 import Foundation
 import UserNotifications
-import QuataFeed
+import QuataShared
 
 /// Retain this object strongly from the app delegate: UNUserNotificationCenter keeps its delegate weakly.
 /// It parses an already-delivered notification tap but deliberately does not register APNs or request
