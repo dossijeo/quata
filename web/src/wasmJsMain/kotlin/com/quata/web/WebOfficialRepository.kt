@@ -7,6 +7,12 @@ import com.quata.feature.official.data.OfficialRemoteLike
 import com.quata.feature.official.data.OfficialRemotePost
 import com.quata.feature.official.data.OfficialRemoteProfile
 import com.quata.feature.official.data.buildOfficialDomainPosts
+import com.quata.feature.official.data.officialRemoteCommentFromWire
+import com.quata.feature.official.data.officialRemoteLikeFromWire
+import com.quata.feature.official.data.officialRemotePostFromWire
+import com.quata.feature.official.data.officialRemoteProfileFromWire
+import com.quata.feature.official.data.OfficialRemoteWireFields
+import com.quata.feature.official.data.OfficialRemoteWireSchema
 import com.quata.feature.official.data.officialRemoteProfileIds
 import com.quata.feature.official.data.toOfficialDomainUser
 import com.quata.feature.official.domain.OfficialPostDraft
@@ -166,48 +172,29 @@ class WebOfficialRepository(
     }
 }
 
-private fun JsonObject.toOfficialRemotePost(): OfficialRemotePost = OfficialRemotePost(
+private fun JsonObject.toOfficialRemotePost(): OfficialRemotePost = officialRemotePostFromWire(
     id = requiredOfficialString("id"),
-    profileId = officialStringOrNull("profile_id"),
-    title = officialStringOrNull("title"),
-    summary = officialStringOrNull("summary"),
-    postType = officialStringOrNull("post_type"),
-    contentHtml = officialStringOrNull("content_html"),
-    readMoreLabel = officialStringOrNull("read_more_label"),
-    language = officialStringOrNull("language"),
-    translationGroupId = officialStringOrNull("translation_group_id"),
-    mediaUrl = officialStringOrNull("media_url"),
-    mediaType = officialStringOrNull("media_type"),
-    linkUrl = officialStringOrNull("link_url"),
+    fields = officialWireFields(OfficialRemoteWireSchema.postScalarKeys),
     isLive = officialStringOrNull("is_live") == "true",
-    publishedAt = officialStringOrNull("published_at"),
-    createdAt = officialStringOrNull("created_at"),
 )
 
-private fun JsonObject.toOfficialRemoteComment(): OfficialRemoteComment = OfficialRemoteComment(
+private fun JsonObject.toOfficialRemoteComment(): OfficialRemoteComment = officialRemoteCommentFromWire(
     id = requiredOfficialString("id"),
-    postId = officialStringOrNull("official_post_id"),
-    profileId = officialStringOrNull("profile_id"),
-    body = officialStringOrNull("body"),
-    createdAt = officialStringOrNull("created_at"),
+    fields = officialWireFields(OfficialRemoteWireSchema.commentScalarKeys),
 )
 
-private fun JsonObject.toOfficialRemoteLike(): OfficialRemoteLike = OfficialRemoteLike(
-    postId = officialStringOrNull("official_post_id"),
-    profileId = officialStringOrNull("profile_id"),
-)
+private fun JsonObject.toOfficialRemoteLike(): OfficialRemoteLike =
+    officialRemoteLikeFromWire(officialWireFields(OfficialRemoteWireSchema.likeScalarKeys))
 
-private fun JsonObject.toOfficialRemoteProfile(): OfficialRemoteProfile = OfficialRemoteProfile(
+private fun JsonObject.toOfficialRemoteProfile(): OfficialRemoteProfile = officialRemoteProfileFromWire(
     id = requiredOfficialString("id"),
-    displayName = officialStringOrNull("display_name"),
-    fallbackName = officialStringOrNull("nombre"),
-    neighborhood = officialStringOrNull("neighborhood"),
-    barrio = officialStringOrNull("barrio"),
-    avatarUrl = officialStringOrNull("avatar_url"),
-    avatar = officialStringOrNull("avatar"),
+    fields = officialWireFields(OfficialRemoteWireSchema.profileScalarKeys),
     isAdmin = officialStringOrNull("is_admin") == "true",
     isOfficial = officialStringOrNull("is_official") == "true",
 )
+
+private fun JsonObject.officialWireFields(keys: Set<String>): OfficialRemoteWireFields =
+    OfficialRemoteWireFields.from(keys) { key -> officialStringOrNull(key) }
 
 private fun JsonObject.requiredOfficialString(name: String): String =
     officialStringOrNull(name) ?: error("web_official_response_missing_$name")

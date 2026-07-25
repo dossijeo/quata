@@ -9,6 +9,25 @@ import kotlin.test.assertTrue
 
 class OfficialRemoteProtocolTest {
     @Test
+    fun mapsSharedWireScalarsWithoutTakingOverPlatformDecodingOrErrors() {
+        val fields = OfficialRemoteWireFields.from(
+            OfficialRemoteWireSchema.postScalarKeys + OfficialRemoteWireSchema.commentScalarKeys + OfficialRemoteWireSchema.profileScalarKeys,
+            mapOf(
+                "profile_id" to "author",
+                "title" to "Notice",
+                "official_post_id" to "post-1",
+                "display_name" to "Council",
+            )::get,
+        )
+
+        assertEquals("author", officialRemotePostFromWire("post-1", fields, isLive = true).profileId)
+        assertEquals("Notice", officialRemotePostFromWire("post-1", fields, isLive = true).title)
+        assertEquals("post-1", officialRemoteCommentFromWire("comment-1", fields).postId)
+        assertEquals("post-1", officialRemoteLikeFromWire(fields).postId)
+        assertEquals("Council", officialRemoteProfileFromWire("author", fields, true, true).displayName)
+    }
+
+    @Test
     fun buildsOfficialPostWithPortableContentAndInteractionMetadata() {
         val posts = buildOfficialDomainPosts(
             posts = listOf(

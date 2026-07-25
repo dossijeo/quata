@@ -53,6 +53,91 @@ data class OfficialRemoteProfile(
     val isOfficial: Boolean = false,
 )
 
+/**
+ * Scalar fields decoded by a platform PostgREST client before they enter the
+ * portable Official protocol. JSON/Foundation parsing and response failures
+ * deliberately remain platform concerns; the field-to-model mapping does not.
+ */
+class OfficialRemoteWireFields private constructor(
+    private val values: Map<String, String?>,
+) {
+    operator fun get(name: String): String? = values[name]
+
+    companion object {
+        fun from(
+            keys: Set<String>,
+            valueForKey: (String) -> String?,
+        ): OfficialRemoteWireFields = OfficialRemoteWireFields(keys.associateWith(valueForKey))
+    }
+}
+
+/** The one PostgREST scalar vocabulary shared by the Web and iOS adapters. */
+object OfficialRemoteWireSchema {
+    val postScalarKeys: Set<String> = setOf(
+        "profile_id", "title", "summary", "post_type", "content_html", "read_more_label",
+        "language", "translation_group_id", "media_url", "media_type", "link_url", "is_live",
+        "published_at", "created_at",
+    )
+    val commentScalarKeys: Set<String> = setOf("official_post_id", "profile_id", "body", "created_at")
+    val likeScalarKeys: Set<String> = setOf("official_post_id", "profile_id")
+    val profileScalarKeys: Set<String> = setOf(
+        "display_name", "barrio", "neighborhood", "nombre", "avatar_url", "avatar", "is_admin", "is_official",
+    )
+}
+
+fun officialRemotePostFromWire(
+    id: String,
+    fields: OfficialRemoteWireFields,
+    isLive: Boolean,
+): OfficialRemotePost = OfficialRemotePost(
+    id = id,
+    profileId = fields["profile_id"],
+    title = fields["title"],
+    summary = fields["summary"],
+    postType = fields["post_type"],
+    contentHtml = fields["content_html"],
+    readMoreLabel = fields["read_more_label"],
+    language = fields["language"],
+    translationGroupId = fields["translation_group_id"],
+    mediaUrl = fields["media_url"],
+    mediaType = fields["media_type"],
+    linkUrl = fields["link_url"],
+    isLive = isLive,
+    publishedAt = fields["published_at"],
+    createdAt = fields["created_at"],
+)
+
+fun officialRemoteCommentFromWire(id: String, fields: OfficialRemoteWireFields): OfficialRemoteComment =
+    OfficialRemoteComment(
+        id = id,
+        postId = fields["official_post_id"],
+        profileId = fields["profile_id"],
+        body = fields["body"],
+        createdAt = fields["created_at"],
+    )
+
+fun officialRemoteLikeFromWire(fields: OfficialRemoteWireFields): OfficialRemoteLike = OfficialRemoteLike(
+    postId = fields["official_post_id"],
+    profileId = fields["profile_id"],
+)
+
+fun officialRemoteProfileFromWire(
+    id: String,
+    fields: OfficialRemoteWireFields,
+    isAdmin: Boolean,
+    isOfficial: Boolean,
+): OfficialRemoteProfile = OfficialRemoteProfile(
+    id = id,
+    displayName = fields["display_name"],
+    fallbackName = fields["nombre"],
+    neighborhood = fields["neighborhood"],
+    barrio = fields["barrio"],
+    avatarUrl = fields["avatar_url"],
+    avatar = fields["avatar"],
+    isAdmin = isAdmin,
+    isOfficial = isOfficial,
+)
+
 fun officialRemoteProfileIds(
     posts: List<OfficialRemotePost>,
     comments: List<OfficialRemoteComment> = emptyList(),

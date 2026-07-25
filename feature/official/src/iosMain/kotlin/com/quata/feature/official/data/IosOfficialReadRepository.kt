@@ -304,48 +304,29 @@ private fun List<ByteArray>.toIosData(): NSData {
     }
 }
 
-private fun Map<*, *>.toOfficialRemotePost() = OfficialRemotePost(
+private fun Map<*, *>.toOfficialRemotePost() = officialRemotePostFromWire(
     id = requiredOfficialString("id"),
-    profileId = officialStringOrNull("profile_id"),
-    title = officialStringOrNull("title"),
-    summary = officialStringOrNull("summary"),
-    postType = officialStringOrNull("post_type"),
-    contentHtml = officialStringOrNull("content_html"),
-    readMoreLabel = officialStringOrNull("read_more_label"),
-    language = officialStringOrNull("language"),
-    translationGroupId = officialStringOrNull("translation_group_id"),
-    mediaUrl = officialStringOrNull("media_url"),
-    mediaType = officialStringOrNull("media_type"),
-    linkUrl = officialStringOrNull("link_url"),
+    fields = officialWireFields(OfficialRemoteWireSchema.postScalarKeys),
     isLive = officialBoolean("is_live"),
-    publishedAt = officialStringOrNull("published_at"),
-    createdAt = officialStringOrNull("created_at"),
 )
 
-private fun Map<*, *>.toOfficialRemoteComment() = OfficialRemoteComment(
+private fun Map<*, *>.toOfficialRemoteComment() = officialRemoteCommentFromWire(
     id = requiredOfficialString("id"),
-    postId = officialStringOrNull("official_post_id"),
-    profileId = officialStringOrNull("profile_id"),
-    body = officialStringOrNull("body"),
-    createdAt = officialStringOrNull("created_at"),
+    fields = officialWireFields(OfficialRemoteWireSchema.commentScalarKeys),
 )
 
-private fun Map<*, *>.toOfficialRemoteLike() = OfficialRemoteLike(
-    postId = officialStringOrNull("official_post_id"),
-    profileId = officialStringOrNull("profile_id"),
-)
+private fun Map<*, *>.toOfficialRemoteLike() =
+    officialRemoteLikeFromWire(officialWireFields(OfficialRemoteWireSchema.likeScalarKeys))
 
-private fun Map<*, *>.toOfficialRemoteProfile() = OfficialRemoteProfile(
+private fun Map<*, *>.toOfficialRemoteProfile() = officialRemoteProfileFromWire(
     id = requiredOfficialString("id"),
-    displayName = officialStringOrNull("display_name"),
-    fallbackName = officialStringOrNull("nombre"),
-    neighborhood = officialStringOrNull("neighborhood"),
-    barrio = officialStringOrNull("barrio"),
-    avatarUrl = officialStringOrNull("avatar_url"),
-    avatar = officialStringOrNull("avatar"),
+    fields = officialWireFields(OfficialRemoteWireSchema.profileScalarKeys),
     isAdmin = officialBoolean("is_admin"),
     isOfficial = officialBoolean("is_official"),
 )
+
+private fun Map<*, *>.officialWireFields(keys: Set<String>): OfficialRemoteWireFields =
+    OfficialRemoteWireFields.from(keys) { key -> officialStringOrNull(key) }
 
 private fun Map<*, *>.requiredOfficialString(name: String): String = officialStringOrNull(name)
     ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Response, reason = "response_missing_$name")
