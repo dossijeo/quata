@@ -38,7 +38,10 @@ on:
 
 concurrency:
   group: ios-compile-${{ github.ref }}
-  cancel-in-progress: true
+  # An iOS run is expensive and its XCTest phase must complete to leave a
+  # useful diagnostic bundle. Keep one active run per ref instead of
+  # cancelling it when a newer push reaches that same ref.
+  cancel-in-progress: false
 
 permissions:
   contents: read
