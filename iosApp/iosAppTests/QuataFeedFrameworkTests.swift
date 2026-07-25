@@ -7,6 +7,7 @@ import QuataFeed
 import QuickLookThumbnailing
 import AVFoundation
 import CoreLocation
+import Security
 
 final class QuataFeedFrameworkTests: XCTestCase {
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
@@ -19,7 +20,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         defer { storage.clear() }
 
         XCTAssertNil(storage.getSession())
-        XCTAssertNil(storage.lastStatus)
+        // The CI simulator test bundle has no Keychain entitlement. A real signed host returns
+        // errSecItemNotFound for this namespace; both outcomes prove that the Kotlin/CF bridge
+        // handed Security a valid CFDictionary instead of dereferencing Kotlin heap memory.
+        if let status = storage.lastStatus {
+            XCTAssertEqual(status.intValue, errSecMissingEntitlement)
+        }
     }
 
     func testExportsComposeMigrationViewController() {
