@@ -24,7 +24,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // errSecItemNotFound for this namespace; both outcomes prove that the Kotlin/CF bridge
         // handed Security a valid CFDictionary instead of dereferencing Kotlin heap memory.
         if let status = storage.lastStatus {
-            XCTAssertEqual(status.intValue, errSecMissingEntitlement)
+            XCTAssertEqual(OSStatus(status.intValue), errSecMissingEntitlement)
         }
     }
 
