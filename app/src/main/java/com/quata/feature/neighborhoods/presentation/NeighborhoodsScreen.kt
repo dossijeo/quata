@@ -733,39 +733,29 @@ private fun ProfileCommentsDialog(
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var draft by rememberSaveable(post.id) { mutableStateOf("") }
-    val comments = post.comments + localComments
     val currentUserName = stringResource(R.string.comments_you)
     val nowLabel = stringResource(R.string.common_now)
-    CommunityProfileCommentsPanelContent(
-        comments = comments,
-        title = stringResource(R.string.feed_comments),
-        closeContentDescription = stringResource(R.string.common_close),
-        onDismiss = onDismiss,
-        commentRow = { comment -> CommunityProfileCommentRowContent(comment) },
-        input = {
-            CommunityProfileCommentInputContent(
-                value = draft,
-                placeholder = stringResource(R.string.comments_placeholder),
-                sendLabel = stringResource(R.string.common_send),
-                onValueChange = { draft = it },
-                onSend = {
-                            if (canParticipate) {
-                                onAddComment(
-                                    PostComment(
-                                        id = "profile_${post.id}_${System.currentTimeMillis()}",
-                                        authorName = currentUserName,
-                                        message = draft.trim(),
-                                        timestamp = nowLabel
-                                    )
-                                )
-                                draft = ""
-                            } else {
-                                onAuthRequired()
-                            }
-                }
+    CommunityProfileCommentsDialogContent(
+        post = post,
+        localComments = localComments,
+        canParticipate = canParticipate,
+        strings = CommunityProfileCommentsDialogStrings(
+            title = stringResource(R.string.feed_comments),
+            closeContentDescription = stringResource(R.string.common_close),
+            placeholder = stringResource(R.string.comments_placeholder),
+            sendLabel = stringResource(R.string.common_send),
+        ),
+        onAuthRequired = onAuthRequired,
+        createComment = { draft ->
+            com.quata.core.model.PostComment(
+                id = "profile_${post.id}_${System.currentTimeMillis()}",
+                authorName = currentUserName,
+                message = draft,
+                timestamp = nowLabel,
             )
-        }
+        },
+        onAddComment = onAddComment,
+        onDismiss = onDismiss,
     )
 }
 
