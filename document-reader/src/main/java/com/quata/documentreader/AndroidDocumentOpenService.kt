@@ -1,39 +1,29 @@
 package com.quata.documentreader
 
 import android.content.Context
-import android.net.Uri
-import com.quata.core.platform.DocumentOpenService
-import com.quata.core.platform.DocumentSupport
-import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.AndroidDocumentOpenHost
+import com.quata.core.platform.AndroidDocumentOpenRequest
 import com.quata.core.platform.PlatformResult
 
 /**
- * Android implementation of the shared document-opening boundary.
+ * Adapter from the core Android document boundary to Quata's existing internal reader.
  *
- * The reader accepts `content://`, app-local `file://`, and HTTP(S) references. Content is copied
- * through [android.content.ContentResolver] by the reader before a PDF/RTF/Office activity opens
- * it, so no `file://` URI is exposed to another application. Unsupported formats remain explicit
- * instead of pretending that an external viewer is always available.
+ * URI and MIME policy stays in `AndroidDocumentOpenService` in :core. This module only launches
+ * the established reader, preserving its PDF/RTF/Office handling rather than duplicating it.
  */
-class AndroidDocumentOpenService(
+class QuataDocumentReaderOpenHost(
     context: Context,
     private val isDarkModeProvider: () -> Boolean = { false },
-) : DocumentOpenService {
+) : AndroidDocumentOpenHost {
     private val applicationContext = context.applicationContext
 
-    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
-        val reference = file.reference.trim()
-        if (reference.isEmpty()) return PlatformResult.Failure("document_reference_missing")
-
-        val descriptor = DocumentSupport.describe(reference, file.displayName, file.mimeType)
-        if (!descriptor.isPreviewable) return PlatformResult.Unsupported
-
+    override suspend fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> {
         val opened = runCatching {
             QuataDocumentReader.open(
                 context = applicationContext,
-                uri = Uri.parse(reference),
-                fileName = file.displayName,
-                mimeType = file.mimeType,
+                uri = request.uri,
+                fileName = request.displayName,
+                mimeType = request.mimeType,
                 isDarkMode = isDarkModeProvider(),
             )
         }.getOrElse { error ->
