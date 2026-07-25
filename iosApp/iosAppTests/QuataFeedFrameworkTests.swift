@@ -326,6 +326,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Notifications")
     }
 
+    func testAuthenticatedRouterPresentsQueuedProfileSosOnlyAfterItsRealFactoryIsInstalled() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+
+        router.showProfileSos()
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let exportedFeatureController = UIViewController()
+        router.installProfileSosFactory {
+            exportedFeatureController
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-profile-sos-host")
+        XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Profile SOS")
+    }
+
     func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)

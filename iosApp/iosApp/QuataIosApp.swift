@@ -110,6 +110,19 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
+    /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
+    /// verticals. Its adapter deliberately exposes read-only remote state until mutations have
+    /// iOS RLS/E2E evidence.
+    private lazy var profileSosRuntimeBootstrap: IosProfileSosRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        return IosProfileSosRuntimeBootstrapKt.createIosProfileSosRuntimeBootstrap(
+            configuration: IosProfileRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+        )
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -158,6 +171,7 @@ private final class IosAppCompositionRoot {
         installAuthenticatedChatIfAvailable()
         installAuthenticatedOfficialIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
+        installAuthenticatedProfileSosIfAvailable()
         return true
     }
 
@@ -203,6 +217,48 @@ private final class IosAppCompositionRoot {
                 onHandleDeepLink: { _ in },
             ),
         )
+    }
+
+    private func installAuthenticatedProfileSosIfAvailable() {
+        guard let profileSosRuntimeBootstrap else { return }
+        let services = platformServices.services
+        authenticatedHost.installProfileSosFactory { [weak self] in
+            let dependencies = profileSosRuntimeBootstrap.hostDependencies(
+                contacts: services.contacts,
+                permissions: services.permissions,
+                // ContactsUI returns real device contacts, but Profile currently accepts Quata
+                // profile IDs only. Do not turn phone numbers into persistence identifiers.
+                onContactsPicked: { [weak self] _ in
+                    self?.presentProfileSosCapabilityNotice(
+                        "Selected device contacts cannot yet be matched to Quata profiles on iOS."
+                    )
+                },
+                onContactPickerResult: { [weak self] _ in
+                    self?.presentProfileSosCapabilityNotice(
+                        "The contacts picker was unavailable or cancelled."
+                    )
+                },
+                onContactsPermissionResult: { [weak self] _ in
+                    self?.presentProfileSosCapabilityNotice(
+                        "Contacts permission was not granted."
+                    )
+                },
+                onClose: { [weak self] in
+                    self?.authenticatedHost.showFeed(postId: nil)
+                },
+            )
+            return IosProfileSosHostKt.QuataProfileSosViewController(dependencies: dependencies)
+        }
+    }
+
+    private func presentProfileSosCapabilityNotice(_ message: String) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
+            message: message,
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))
+        authenticatedHost.present(alert, animated: true)
     }
 
     private func installAuthenticationIfConfigured() {
@@ -251,6 +307,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var chatFactory: ((String?, String?) -> UIViewController)?
     private var officialFactory: ((String?) -> UIViewController)?
     private var notificationsFactory: (() -> UIViewController)?
+    private var profileSosFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
 
     private enum PendingRoute {
@@ -258,6 +315,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case chat(conversationId: String?, messageId: String?)
         case official(postId: String?)
         case notifications
+        case profileSos
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -371,6 +429,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installProfileSosFactory(_ factory: @escaping () -> UIViewController) {
+        profileSosFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -380,6 +443,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showOfficial(postId: String?) { route(.official(postId: postId)) }
 
     func showNotifications() { route(.notifications) }
+
+    func showProfileSos() { route(.profileSos) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
@@ -416,6 +481,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return officialFactory?(postId)
         case .notifications:
             return notificationsFactory?()
+        case .profileSos:
+            return profileSosFactory?()
         }
     }
 
@@ -430,6 +497,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-official-host", "Quata iOS Official")
         case .notifications:
             presentation = ("quata-ios-notifications-host", "Quata iOS Notifications")
+        case .profileSos:
+            presentation = ("quata-ios-profile-sos-host", "Quata iOS Profile SOS")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }
