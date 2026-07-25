@@ -30,6 +30,7 @@ class AndroidPlatformServices(
     override val clipboard: ClipboardService,
     override val share: ShareService,
     override val filePicker: FilePickerService,
+    /** Defaults to the explicit unsupported result for compatibility with existing Android clients. */
     override val documentOpener: DocumentOpenService = UnsupportedDocumentOpenService,
     override val contacts: ContactPickerService = UnsupportedContactPickerService,
     override val location: LocationService,

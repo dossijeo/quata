@@ -54,7 +54,12 @@ object QuataDocumentReader {
             putExtra(EXTRA_FILE_NAME, fileName)
             putExtra(EXTRA_MIME_TYPE, mimeType)
             isDarkMode?.let { putExtra(EXTRA_IS_DARK_MODE, it) }
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            // A URI permission is meaningful only for a content provider. Never attach a grant
+            // flag to an HTTP(S) document hand-off.
+            if (uri.scheme.equals("content", ignoreCase = true)) {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             if (context !is Activity) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
