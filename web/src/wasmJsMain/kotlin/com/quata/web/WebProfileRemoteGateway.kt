@@ -6,11 +6,15 @@ import com.quata.feature.profile.data.ProfileRemoteRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Authenticated browser transport for Profile's portable repository.
@@ -20,9 +24,9 @@ import kotlinx.serialization.json.jsonPrimitive
  * subscription. A future realtime adapter can replace these flows without changing Profile's
  * common contract.
  *
- * Writes fail explicitly for now: the browser transport has no mutation boundary and the RLS
- * policy for `community_emergency_contacts` has not been verified for browser sessions. Keeping
- * that failure visible is safer than retaining an unsynchronised local Profile/SOS state.
+ * Mutations use the same authenticated browser session as reads and require PostgREST to return
+ * the affected rows. RLS/HTTP failures remain errors: callers must never turn a failed remote
+ * mutation into a local-success notification.
  */
 class WebProfileRemoteGateway(
     private val client: WebPostgrestClient,
@@ -70,11 +74,38 @@ class WebProfileRemoteGateway(
             .take(MaxEmergencyContacts)
     }
 
-    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>): Nothing =
-        throw UnsupportedOperationException("web_profile_mutation_rls_unverified")
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        requireProfileId(profileId)
+        val body = patch.toJsonObject().toString()
+        val rows = client.patch(
+            table = ProfilesTable,
+            query = mapOf("id" to "eq.$profileId"),
+            body = body,
+        ).requireRows("web_profile_patch")
+        check(rows.singleOrNull()?.profileString("id") == profileId) {
+            "web_profile_patch_unconfirmed"
+        }
+    }
 
-    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>): Nothing =
-        throw UnsupportedOperationException("web_profile_emergency_contacts_mutation_rls_unverified")
+    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
+        requireProfileId(profileId)
+        val normalized = contactIds.map(String::trim).filter(String::isNotBlank).distinct().take(MaxEmergencyContacts)
+        normalized.forEach(::requireProfileId)
+        client.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId"))
+            .requireSuccess("web_profile_emergency_contacts_delete")
+        if (normalized.isEmpty()) return
+        val body = JsonArray(normalized.mapIndexed { index, contactId ->
+            buildJsonObject {
+                put("profile_id", profileId)
+                put("contact_profile_id", contactId)
+                put("position", index + 1)
+            }
+        }).toString()
+        val rows = client.post(EmergencyContactsTable, body)
+            .requireRows("web_profile_emergency_contacts_insert")
+        val saved = rows.mapNotNull { it.profileString("contact_profile_id") }
+        check(saved == normalized) { "web_profile_emergency_contacts_unconfirmed" }
+    }
 
     private suspend fun loadProfiles(
         ids: Collection<String>? = null,
@@ -100,6 +131,16 @@ class WebProfileRemoteGateway(
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }
 
+    private fun WebPostgrestResult.requireSuccess(operation: String): WebPostgrestResult.Success = when (this) {
+        is WebPostgrestResult.Success -> this
+        is WebPostgrestResult.Failure -> throw WebProfileRemoteMutationException(operation, this)
+    }
+
+    private fun WebPostgrestResult.requireRows(operation: String): List<JsonObject> {
+        val response = requireSuccess(operation)
+        return Json.parseToJsonElement(response.body).jsonArray.map { it.jsonObject }
+    }
+
     private companion object {
         const val ProfilesTable = "community_profiles"
         const val EmergencyContactsTable = "community_emergency_contacts"
@@ -109,6 +150,11 @@ class WebProfileRemoteGateway(
             "id,display_name,nombre,neighborhood,barrio,country_code,code,phone_local,phone_e164,phone,telefono,avatar_url,avatar,secret_question"
     }
 }
+
+class WebProfileRemoteMutationException(
+    operation: String,
+    failure: WebPostgrestResult.Failure,
+) : IllegalStateException("$operation:${failure.kind.name.lowercase()}:${failure.reason}")
 
 private val WebProfileIdentifier = Regex("[A-Za-z0-9_-]+")
 
@@ -143,3 +189,9 @@ private fun JsonObject.toProfileRemoteRecord(): ProfileRemoteRecord = ProfileRem
 
 private fun JsonObject.profileString(key: String): String? =
     get(key)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
+
+internal fun Map<String, String?>.toJsonObject(): JsonObject = buildJsonObject {
+    this@toJsonObject.forEach { (key, value) ->
+        if (value == null) put(key, JsonNull) else put(key, value)
+    }
+}
