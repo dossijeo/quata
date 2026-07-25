@@ -34,6 +34,10 @@ class OfficialBrowserHostSlots(
     val article: @Composable (OfficialPostItem, Modifier) -> Unit = { post, modifier ->
         Text(post.contentPlain.ifBlank { post.summary }, modifier = modifier)
     },
+    /** Optional platform-owned resource affordance rendered in the shared detail panel. */
+    val resource: (@Composable (OfficialPostItem, Modifier) -> Unit)? = null,
+    /** Optional platform-owned navigation affordance rendered in the shared detail panel. */
+    val navigation: (@Composable (OfficialPostItem, Modifier) -> Unit)? = null,
     val onOpenAuthor: (String) -> Unit = {},
     val onOpenMedia: (String) -> Unit = {},
     val onOpenPost: (String) -> Unit = {},
@@ -75,6 +79,22 @@ fun OfficialBrowserHostContent(
                 link = post.linkUrl,
                 onDismiss = { selectedPost = null },
                 articleContent = { articleModifier -> slots.article(post, articleModifier) },
+                author = { authorModifier ->
+                    OfficialBrowserAuthorHeader(post, slots, authorModifier)
+                },
+                media = slots.media?.let { renderMedia ->
+                    { mediaModifier ->
+                        Box(mediaModifier.clickable { slots.onOpenMedia(post.id) }) {
+                            renderMedia(post, Modifier.fillMaxSize())
+                        }
+                    }
+                },
+                resourceContent = slots.resource?.let { resource ->
+                    { resourceModifier -> resource(post, resourceModifier) }
+                },
+                navigationContent = slots.navigation?.let { navigation ->
+                    { navigationModifier -> navigation(post, navigationModifier) }
+                },
             )
         }
     }
@@ -91,13 +111,7 @@ private fun OfficialBrowserPostCard(
         readMoreLabel = post.readMoreLabel.ifBlank { "Leer más" },
         isLandscape = false,
         author = { authorModifier ->
-            OfficialAuthorHeaderContent(
-                displayName = post.author.displayName,
-                neighborhood = post.author.neighborhood,
-                fallbackNeighborhood = "Cuenta oficial",
-                avatar = { slots.avatar(post, Modifier) },
-                modifier = authorModifier.clickable { slots.onOpenAuthor(post.author.id) },
-            )
+            OfficialBrowserAuthorHeader(post, slots, authorModifier)
         },
         media = slots.media?.let { renderMedia ->
             { mediaModifier ->
@@ -109,6 +123,21 @@ private fun OfficialBrowserPostCard(
         actionRail = { isLandscape, actionModifier -> slots.actionRail(post, isLandscape, actionModifier) },
         onReadMore = onReadMore,
         modifier = frame,
+    )
+}
+
+@Composable
+private fun OfficialBrowserAuthorHeader(
+    post: OfficialPostItem,
+    slots: OfficialBrowserHostSlots,
+    modifier: Modifier,
+) {
+    OfficialAuthorHeaderContent(
+        displayName = post.author.displayName,
+        neighborhood = post.author.neighborhood,
+        fallbackNeighborhood = "Cuenta oficial",
+        avatar = { slots.avatar(post, Modifier) },
+        modifier = modifier.clickable { slots.onOpenAuthor(post.author.id) },
     )
 }
 @Composable private fun OfficialBrowserFailure(message: String, onRetry: () -> Unit, modifier: Modifier) = Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(message, color = MaterialTheme.colorScheme.error); Button(onRetry) { Text("Reintentar") } } }
