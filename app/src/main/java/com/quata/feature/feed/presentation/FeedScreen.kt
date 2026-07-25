@@ -43,7 +43,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -309,50 +308,32 @@ fun FeedScreen(
                 }
             }
 
-            val visiblePostId = state.posts.getOrNull(pagerState.currentPage)?.id
-            val nextPostId = state.posts.getOrNull(pagerState.currentPage + 1)?.id
-            LaunchedEffect(visiblePostId, nextPostId) {
-                if (hasAppliedRetainedPost && visiblePostId != null) {
-                    retainedVisiblePostId = visiblePostId
-                }
-                visiblePostId?.let { postId ->
-                    viewModel.onEvent(FeedUiEvent.PostDisplayed(postId, nextPostId))
-                }
-            }
-
-            LaunchedEffect(
-                pagerState.currentPage,
-                state.posts.size,
-                state.hasMoreOlderPosts,
-                state.isLoadingOlder
-            ) {
-                val shouldLoadOlder =
-                    state.posts.isNotEmpty() &&
-                        state.hasMoreOlderPosts &&
-                        !state.isLoadingOlder &&
-                        pagerState.currentPage >= state.posts.lastIndex - FeedOlderPostsPrefetchDistance
-                if (shouldLoadOlder) {
-                    viewModel.onEvent(FeedUiEvent.LoadOlderPage)
-                }
-            }
-
             FeedPagerViewportContent(
                 padding = padding,
                 modifier = Modifier.nestedScroll(pullRefreshState.nestedScrollConnection)
             ) {
-                VerticalPager(
-                    state = pagerState,
-                    beyondViewportPageCount = 1,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    val post = state.posts[page]
+                FeedReelPagerContent(
+                    pagerState = pagerState,
+                    posts = state.posts,
+                    hasMoreOlderPosts = state.hasMoreOlderPosts,
+                    isLoadingOlder = state.isLoadingOlder,
+                    onPostDisplayed = { visiblePost, nextPost ->
+                        val visiblePostId = visiblePost.id
+                        val nextPostId = nextPost?.id
+                        if (hasAppliedRetainedPost) {
+                            retainedVisiblePostId = visiblePostId
+                        }
+                        viewModel.onEvent(FeedUiEvent.PostDisplayed(visiblePostId, nextPostId))
+                    },
+                    onLoadOlder = { viewModel.onEvent(FeedUiEvent.LoadOlderPage) }
+                ) { page, post, isCurrentPage ->
                     val videoPositionKey = post.videoUrl
                     val canDeletePost = post.author.id == currentUserId || canModerateAll
                     key(post.id, post.videoUrl) {
                         ReelPost(
                             post = post,
                             postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
-                            isCurrentPage = pagerState.currentPage == page,
+                            isCurrentPage = isCurrentPage,
                             isAppForeground = isAppForeground,
                             isFeedMuted = isFeedMuted,
                             currentUserId = currentUserId,
@@ -976,8 +957,6 @@ private data class PostRankingInfo(
 private data class PostPublishedAtInfo(
     val publishedAt: LocalDateTime
 )
-
-private const val FeedOlderPostsPrefetchDistance = 8
 
 private fun calculatePostRankingMap(posts: List<Post>): Map<String, PostRankingInfo> =
     posts
