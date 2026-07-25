@@ -29,6 +29,7 @@ class WebAuthRepository(
     private val preferences: PreferenceStore,
 ) : AuthRepository {
     private val refreshMutex = Mutex()
+    private var activeSession: WebLocalSession? = null
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
@@ -43,6 +44,13 @@ class WebAuthRepository(
         val payload = webPostJson(endpoint, apiKey, request.toString())
         val session = payload.toWebAuthSession()
         session.persist(preferences, payload.webSessionToken())
+        activeSession = WebLocalSession(
+            accessToken = session.accessToken ?: session.token,
+            refreshToken = session.refreshToken.orEmpty(),
+            webSessionToken = payload.webSessionToken(),
+            userId = session.userId,
+            expiresAt = session.expiresAt ?: currentEpochSeconds(),
+        )
         session
     }
 
@@ -55,8 +63,10 @@ class WebAuthRepository(
         val session = storedSessionOrNull() ?: return null
         if (session.expiresAt <= currentEpochSeconds()) {
             WebAuthStorage.clear(preferences)
+            activeSession = null
             return null
         }
+        activeSession = session
         return session
     }
 
@@ -67,19 +77,23 @@ class WebAuthRepository(
     /** Shared request entry point for browser transports that also need the stable profile id. */
     suspend fun sessionForAuthenticatedRequest(): WebLocalSession? {
         val stored = storedSessionOrNull() ?: return null
-        if (!stored.requiresRefresh()) return stored
+        if (!stored.requiresRefresh()) return stored.also { activeSession = it }
         return refreshMutex.withLock {
             val latest = storedSessionOrNull() ?: return@withLock null
-            if (!latest.requiresRefresh()) return@withLock latest
+            if (!latest.requiresRefresh()) return@withLock latest.also { activeSession = it }
             runCatching { refreshSession(latest) }.getOrNull()
         }
     }
+
+    /** Non-suspending snapshot for feature session providers after launcher authentication. */
+    internal fun activeProfileSessionOrNull(): WebLocalSession? = activeSession
 
     /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
     suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
         val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
         val browserFailure = browserUnsubscribe().exceptionOrNull()
         WebAuthStorage.clear(preferences)
+        activeSession = null
         val failure = serverFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
@@ -194,6 +208,7 @@ class WebAuthRepository(
         )
         val refreshed = response.toWebRefreshedSession(current)
         refreshed.persist(preferences)
+        activeSession = refreshed
         return refreshed
     }
 }

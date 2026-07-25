@@ -39,6 +39,15 @@ import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
 import com.quata.feature.profile.domain.SecretQuestionOption
 import com.quata.feature.profile.domain.UserProfile
+import com.quata.feature.profile.data.KmpProfileRepository
+import com.quata.feature.profile.data.ProfileAvatarUploader
+import com.quata.feature.profile.data.ProfileEmergencyContactsStore
+import com.quata.feature.profile.data.ProfileEmergencyMessageStore
+import com.quata.feature.profile.data.ProfilePresentationCatalog
+import com.quata.feature.profile.data.ProfileRemoteGateway
+import com.quata.feature.profile.data.ProfileSession
+import com.quata.feature.profile.data.ProfileSessionProvider
+import com.quata.feature.profile.data.StoredProfileEmergencyMessage
 import com.quata.feature.profile.presentation.EmergencyContactsDialogContent
 import com.quata.feature.profile.presentation.EmergencyContactsDialogSlots
 import com.quata.feature.profile.presentation.EmergencyContactsEditorStrings
@@ -83,6 +92,9 @@ fun WebProfileHost(
                 scrollState = rememberScrollState(),
                 content = {
                     Text("Mi perfil", fontWeight = FontWeight.ExtraBold)
+                    if (repository.persistenceMode() == WebProfilePersistenceMode.OfflineDraft) {
+                        Text("Modo sin conexión: este perfil es un borrador local y no está sincronizado.")
+                    }
                     ProfileOverviewAccountCardContent(
                         avatar = {
                             Text(
@@ -184,8 +196,8 @@ fun WebProfileHost(
     }
 }
 
-/** Browser-local ProfileRepository with explicit contact-picker import, ready for server injection. */
-class WebProfileRepository(
+/** Explicit offline browser draft; this is not selected for a configured authenticated session. */
+private class WebOfflineProfileRepository(
     private val preferences: PreferenceStore,
     private val contactPicker: ContactPickerService,
 ) : ProfileRepository {
@@ -249,9 +261,9 @@ class WebProfileRepository(
     override fun defaultEmergencyMessage(displayName: String): String =
         "Necesito ayuda. Por favor, contacta conmigo, $displayName."
 
-    override fun changesSavedMessage(): String = "Cambios guardados."
+    override fun changesSavedMessage(): String = "Borrador guardado solo en este navegador; no se ha sincronizado."
 
-    override fun emergencyContactsSavedMessage(): String = "Configuración SOS guardada."
+    override fun emergencyContactsSavedMessage(): String = "Borrador SOS guardado solo en este navegador; no se ha sincronizado."
 
     private suspend fun refreshPersistedProfile() {
         val current = model.value.profile
@@ -283,6 +295,112 @@ class WebProfileRepository(
         preferences.putString(WebProfileEmergencyMessageKey, profile.emergencyMessage)
         preferences.putString(WebProfileEmergencyIsDefaultKey, profile.emergencyMessageIsDefault.toString())
     }
+}
+
+/**
+ * Selects remote persistence only when the launcher has a configured authenticated session.
+ * A remote failure is returned unchanged to [ProfileViewModel]; it never falls back to a local
+ * save and therefore cannot produce a false "saved" confirmation.
+ */
+class WebProfileRepository(
+    preferences: PreferenceStore,
+    contactPicker: ContactPickerService,
+    remoteGateway: ProfileRemoteGateway? = null,
+    remoteSessionProvider: ProfileSessionProvider? = null,
+    private val remoteAvailable: () -> Boolean = { false },
+) : ProfileRepository {
+    private val offline = WebOfflineProfileRepository(preferences, contactPicker)
+    private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) {
+        KmpProfileRepository(
+            remote = remoteGateway,
+            sessions = remoteSessionProvider,
+            avatarUploader = WebProfileAvatarUploader,
+            emergencyMessages = WebProfileMemoryEmergencyMessageStore(),
+            emergencyContacts = WebProfileMemoryEmergencyContactsStore(),
+            catalog = WebProfileCatalog,
+        )
+    } else null
+
+    fun persistenceMode(): WebProfilePersistenceMode =
+        webProfilePersistenceMode(remote != null, remoteAvailable())
+
+    private fun selected(): ProfileRepository = when (persistenceMode()) {
+        WebProfilePersistenceMode.Remote -> checkNotNull(remote)
+        WebProfilePersistenceMode.OfflineDraft -> offline
+    }
+
+    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = selected().observeProfileEditModel()
+    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = selected().getProfileEditModel()
+    override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = selected().saveProfile(update)
+    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> =
+        selected().saveEmergencySettings(contactIds, message, messageIsDefault)
+
+    suspend fun importBrowserContacts(): Result<Int> = when (persistenceMode()) {
+        WebProfilePersistenceMode.Remote -> Result.failure(
+            UnsupportedOperationException("web_profile_contacts_require_quata_profiles"),
+        )
+        WebProfilePersistenceMode.OfflineDraft -> offline.importBrowserContacts()
+    }
+
+    override fun defaultEmergencyMessage(displayName: String): String = selected().defaultEmergencyMessage(displayName)
+    override fun changesSavedMessage(): String = selected().changesSavedMessage()
+    override fun emergencyContactsSavedMessage(): String = selected().emergencyContactsSavedMessage()
+}
+
+enum class WebProfilePersistenceMode { Remote, OfflineDraft }
+
+internal fun webProfilePersistenceMode(
+    hasRemoteRepository: Boolean,
+    hasConfiguredAuthenticatedSession: Boolean,
+): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession) {
+    WebProfilePersistenceMode.Remote
+} else {
+    WebProfilePersistenceMode.OfflineDraft
+}
+
+private object WebProfileAvatarUploader : ProfileAvatarUploader {
+    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? {
+        if (avatarUri.isNullOrBlank()) return null
+        throw UnsupportedOperationException("web_profile_avatar_upload_not_available")
+    }
+}
+
+private class WebProfileMemoryEmergencyMessageStore : ProfileEmergencyMessageStore {
+    private val values = mutableMapOf<String, StoredProfileEmergencyMessage>()
+    override fun get(profileId: String): StoredProfileEmergencyMessage? = values[profileId]
+    override fun save(profileId: String, message: String, isDefault: Boolean) {
+        values[profileId] = StoredProfileEmergencyMessage(message, isDefault)
+    }
+}
+
+private class WebProfileMemoryEmergencyContactsStore : ProfileEmergencyContactsStore {
+    private val values = mutableMapOf<String, List<String>>()
+    override fun get(profileId: String): List<String> = values[profileId].orEmpty()
+    override fun save(profileId: String, contactIds: List<String>) { values[profileId] = contactIds }
+}
+
+internal class WebProfileSessionProvider(
+    private val authRepository: WebAuthRepository,
+) : ProfileSessionProvider {
+    private var displayName: String = "Usuario"
+    override fun currentSession(): ProfileSession? = authRepository.activeProfileSessionOrNull()?.let {
+        ProfileSession(profileId = it.userId, displayName = displayName)
+    }
+    override fun updateDisplayName(session: ProfileSession, displayName: String) { this.displayName = displayName }
+}
+
+private object WebProfileCatalog : ProfilePresentationCatalog {
+    override fun countryPrefixes(): List<CountryPrefix> = listOf(
+        CountryPrefix("240", "+240 - Guinea Ecuatorial"),
+        CountryPrefix("34", "+34 - España"),
+    )
+    override fun secretQuestions(): List<SecretQuestionOption> = emptyList()
+    override fun fallbackUserName(): String = "Usuario"
+    override fun defaultEmergencyMessage(displayName: String): String =
+        "Necesito ayuda. Por favor, contacta conmigo, $displayName."
+    override fun changesSavedMessage(): String = "Cambios sincronizados con el servidor."
+    override fun emergencyContactsSavedMessage(): String =
+        "Contactos SOS sincronizados; el texto SOS se conserva solo durante esta sesión web."
 }
 
 private fun defaultProfileModel(): ProfileEditModel {

@@ -1,16 +1,18 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import com.quata.core.platform.PlatformServices
 import com.quata.feature.auth.presentation.AuthBrowserLoginHostContent
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 
-/** Web adapter retains auth construction and browser-backed session persistence. */
+/** Web adapter retains browser-backed session persistence while sharing the app auth session. */
 @Composable
-fun WebLoginHost(platformServices: PlatformServices, configuration: WebRuntimeConfiguration, onLoginSuccess: () -> Unit) {
-    val repository = remember(configuration, platformServices.preferences) { WebAuthRepository(configuration, platformServices.preferences) }
+fun WebLoginHost(
+    platformServices: PlatformServices,
+    repository: WebAuthRepository,
+    onLoginSuccess: () -> Unit,
+) {
     val catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish)
     AuthBrowserLoginHostContent(
         repository = repository,

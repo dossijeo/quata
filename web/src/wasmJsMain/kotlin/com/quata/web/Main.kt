@@ -141,10 +141,17 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val profileRepository = remember(platformServices.preferences, platformServices.contacts) {
+    val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
         WebProfileRepository(
             preferences = platformServices.preferences,
             contactPicker = platformServices.contacts,
+            remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository)),
+            remoteSessionProvider = WebProfileSessionProvider(authRepository),
+            remoteAvailable = {
+                runtimeConfiguration.supabaseUrl?.isNotBlank() == true &&
+                    runtimeConfiguration.supabasePublishableKey?.isNotBlank() == true &&
+                    authRepository.activeProfileSessionOrNull() != null
+            },
         )
     }
     val whatsNewRepository: WhatsNewRepository = remember(runtimeConfiguration, authRepository) {
@@ -341,9 +348,10 @@ private fun QuataWebApp(
             WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
                 WebLoginHost(
                     platformServices = platformServices,
-                    configuration = runtimeConfiguration,
+                    repository = authRepository,
                     onLoginSuccess = {
                         isSessionReady = true
+                        currentUserId = authRepository.activeProfileSessionOrNull()?.userId
                     },
                 )
             }
