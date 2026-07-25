@@ -41,6 +41,12 @@ La revisión de licencia, límites y datos debe hacerse contra la
 [documentación publicada de la versión 0.7.9](https://www.npmjs.com/package/@docmentis/udoc-viewer/v/0.7.9),
 no contra supuestos derivados del wrapper de Quata.
 
+La configuración de hosting no vive en este repositorio. La lista cerrada de
+orígenes, las directivas CSP de partida y el gate de staging están en
+[`WEB_DOCMENTIS_DEPLOYMENT.md`](WEB_DOCMENTIS_DEPLOYMENT.md). No se debe
+habilitar el visor en producción con una CSP laxa ni tratar un smoke local como
+prueba de CORS, permisos o telemetría reales.
+
 ## Validación manual ejecutable
 
 Después de generar el bundle de producción:
