@@ -18,6 +18,7 @@ class AndroidDocumentOpenService(
     context: Context,
     private val host: AndroidDocumentOpenHost = UnsupportedAndroidDocumentOpenHost,
     private val fileProviderAuthority: String = "${context.packageName}.fileprovider",
+    private val contentUriFactory: AndroidDocumentContentUriFactory = AndroidXDocumentContentUriFactory,
 ) : DocumentOpenService {
     private val applicationContext = context.applicationContext
 
@@ -42,9 +43,9 @@ class AndroidDocumentOpenService(
     private fun String.toSafeDocumentUri(): Uri? {
         val parsed = Uri.parse(this)
         return when (parsed.scheme?.lowercase()) {
-            "content" -> parsed.takeIf { !it.authority.isNullOrBlank() }
+            "content" -> parsed.takeIf { AndroidDocumentOpenPolicy.allowsDirectReference(this) }
             // Do not let an attachment trigger clear-text network traffic from the reader.
-            "https" -> parsed.takeIf { !it.host.isNullOrBlank() }
+            "https" -> parsed.takeIf { AndroidDocumentOpenPolicy.allowsDirectReference(this) }
             "file", null -> appOwnedFileUri(parsed.path ?: takeIf { parsed.scheme == null })
             else -> null
         }
@@ -53,13 +54,15 @@ class AndroidDocumentOpenService(
     private fun appOwnedFileUri(path: String?): Uri? {
         val candidate = path?.takeIf { it.isNotBlank() }?.let(::File) ?: return null
         val canonicalFile = runCatching { candidate.canonicalFile }.getOrNull() ?: return null
-        if (!canonicalFile.isFile || !canonicalFile.isInside(applicationContext.cacheDir) &&
-            !canonicalFile.isInside(applicationContext.filesDir)
+        if (!AndroidDocumentOpenPolicy.isAppOwnedFile(
+                file = canonicalFile,
+                cacheDirectory = applicationContext.cacheDir,
+                filesDirectory = applicationContext.filesDir,
+            )
         ) return null
 
-        return runCatching {
-            FileProvider.getUriForFile(applicationContext, fileProviderAuthority, canonicalFile)
-        }.getOrNull()
+        return contentUriFactory.create(applicationContext, fileProviderAuthority, canonicalFile)
+            ?.takeIf { AndroidDocumentOpenPolicy.isContentReference(it.toString()) }
     }
 
     private fun resolveMimeType(uri: Uri, file: PlatformFile): String? {
@@ -71,6 +74,21 @@ class AndroidDocumentOpenService(
         }
         return claimedMime ?: resolverMime ?: AndroidDocumentOpenPolicy.inferMimeType(file)
     }
+}
+
+/**
+ * Narrow seam around AndroidX's FileProvider. It keeps raw app-private file paths out of the
+ * reader boundary and lets host/device tests prove the URI hand-off without replacing the
+ * document reader itself.
+ */
+fun interface AndroidDocumentContentUriFactory {
+    fun create(context: Context, authority: String, file: File): Uri?
+}
+
+internal object AndroidXDocumentContentUriFactory : AndroidDocumentContentUriFactory {
+    override fun create(context: Context, authority: String, file: File): Uri? = runCatching {
+        FileProvider.getUriForFile(context, authority, file)
+    }.getOrNull()
 }
 
 /** Android UI adapter injected by the application composition root. */
@@ -101,6 +119,29 @@ private fun String?.normalizedMime(): String? = this
 
 /** Pure Android-side policy, intentionally visible to local unit tests without a Context. */
 internal object AndroidDocumentOpenPolicy {
+    /** Only content and HTTPS are allowed to cross the boundary unchanged. */
+    fun allowsDirectReference(reference: String): Boolean {
+        val trimmed = reference.trim()
+        val schemeEnd = trimmed.indexOf(':')
+        if (schemeEnd <= 0) return false
+        val scheme = trimmed.substring(0, schemeEnd).lowercase()
+        val remainder = trimmed.substring(schemeEnd + 1)
+        val authority = remainder.removePrefix("//").substringBefore('/').substringBefore('?').substringBefore('#')
+        return when (scheme) {
+            "content" -> remainder.startsWith("//") && authority.isNotBlank()
+            "https" -> remainder.startsWith("//") && authority.isNotBlank()
+            else -> false
+        }
+    }
+
+    /** A FileProvider seam is never permitted to hand a raw file URI to the reader. */
+    fun isContentReference(reference: String): Boolean =
+        allowsDirectReference(reference) && reference.trim().substringBefore(':').equals("content", ignoreCase = true)
+
+    /** App-private files can only be converted by [AndroidDocumentContentUriFactory]. */
+    fun isAppOwnedFile(file: File, cacheDirectory: File, filesDirectory: File): Boolean =
+        file.isFile && (file.isInside(cacheDirectory) || file.isInside(filesDirectory))
+
     fun inferMimeType(file: PlatformFile): String? = when (
         DocumentSupport.describe(file.reference, file.displayName, null).extension
     ) {
