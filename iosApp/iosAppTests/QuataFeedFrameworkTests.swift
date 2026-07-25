@@ -269,4 +269,31 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-notifications-host")
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Notifications")
     }
+
+    func testAuthenticatedRouterBuildsTheExportedChatHostFromSharedRuntimeAndPlatformServices() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+
+        let feedBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
+            configuration: IosFeedRuntimeConfiguration(
+                supabaseUrl: "https://deployment.invalid",
+                supabasePublishableKey: "client-key",
+            ),
+        )
+        let chatBootstrap = IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
+            configuration: IosChatRuntimeConfiguration(
+                supabaseUrl: "https://deployment.invalid",
+                supabasePublishableKey: "client-key",
+            ),
+            authSession: feedBootstrap.authSessionForInteractiveLogin(),
+        )
+
+        router.installAuthenticatedChat(chatBootstrap)
+        router.showChat(conversationId: "conversation-7", messageId: "message-not-yet-positioned")
+
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertTrue(services.activeViewController() === router.children.first)
+    }
 }
