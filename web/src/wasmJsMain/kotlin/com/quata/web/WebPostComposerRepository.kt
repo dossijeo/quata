@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import com.quata.core.text.buildPostBodyWithMeta
