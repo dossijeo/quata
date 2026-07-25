@@ -8,6 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { extname, join, relative, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
@@ -32,6 +33,7 @@ const totals = files.reduce((result, file) => ({
 }), { bytes: 0, gzipBytes: 0 });
 const report = {
     schemaVersion: 1,
+    revision: repositoryRevision(),
     distribution: relative(repositoryRoot, distribution).replaceAll('\\', '/'),
     files,
     totals,
@@ -51,17 +53,36 @@ console.log('Contributor groups:');
 for (const group of report.contributors) console.log(`  ${formatBytes(group.bytes).padStart(10)}  ${group.name} (${group.files} assets)`);
 console.log(`JSON report: ${relative(repositoryRoot, resolve(options.report ?? defaults.report)).replaceAll('\\', '/')}`);
 
-const baseline = options.baseline ? JSON.parse(readFileSync(resolve(options.baseline), 'utf8')) : undefined;
+if (options.writeBaseline) {
+    writeJson(options.writeBaseline, report);
+    console.log(`Certified baseline candidate: ${relative(repositoryRoot, resolve(options.writeBaseline)).replaceAll('\\', '/')}`);
+}
+
+const budget = options.budget ? readBudget(options.budget) : undefined;
+if (options.budget && budget.state !== 'approved') {
+    throw new Error(`Bundle budget ${relative(repositoryRoot, resolve(options.budget)).replaceAll('\\', '/')} is ${budget?.state ?? 'invalid'}; a reviewed exact baseline must set state to approved before a gate can run.`);
+}
+const baselinePath = options.baseline ?? budget?.baselineFile;
+const baseline = baselinePath ? JSON.parse(readFileSync(resolveBudgetPath(baselinePath, options.budget), 'utf8')) : undefined;
+const maxGrowthBytes = options.maxGrowthBytes ?? budget?.maxGrowthBytes;
+const maxGrowthGzipBytes = options.maxGrowthGzipBytes ?? budget?.maxGrowthGzipBytes;
 const failures = [];
 if (options.maxTotalBytes !== undefined && totals.bytes > options.maxTotalBytes) {
     failures.push(`total ${totals.bytes} bytes exceeds explicit max ${options.maxTotalBytes}`);
 }
-if (options.maxGrowthBytes !== undefined) {
+if (maxGrowthBytes !== undefined) {
     if (!Number.isSafeInteger(baseline?.totals?.bytes) || baseline.totals.bytes < 0) {
         throw new Error('--max-growth-bytes requires a baseline report with totals.bytes');
     }
     const growth = totals.bytes - baseline.totals.bytes;
-    if (growth > options.maxGrowthBytes) failures.push(`growth ${growth} bytes exceeds explicit max ${options.maxGrowthBytes}`);
+    if (growth > maxGrowthBytes) failures.push(`growth ${growth} bytes exceeds explicit max ${maxGrowthBytes}`);
+}
+if (maxGrowthGzipBytes !== undefined) {
+    if (!Number.isSafeInteger(baseline?.totals?.gzipBytes) || baseline.totals.gzipBytes < 0) {
+        throw new Error('--max-growth-gzip-bytes requires a baseline report with totals.gzipBytes');
+    }
+    const growth = totals.gzipBytes - baseline.totals.gzipBytes;
+    if (growth > maxGrowthGzipBytes) failures.push(`gzip growth ${growth} bytes exceeds explicit max ${maxGrowthGzipBytes}`);
 }
 if (failures.length > 0) throw new Error(`Wasm bundle budget failed: ${failures.join('; ')}`);
 
@@ -70,15 +91,46 @@ function parseArguments(argumentsList) {
     for (let index = 0; index < argumentsList.length; index += 1) {
         const token = argumentsList[index];
         if (token === '--help') {
-            console.log('Usage: node scripts/wasm-bundle-report.mjs [--dist DIR] [--report FILE] [--baseline FILE] [--max-total-bytes N] [--max-growth-bytes N]');
+            console.log('Usage: node scripts/wasm-bundle-report.mjs [--dist DIR] [--report FILE] [--write-baseline FILE] [--baseline FILE] [--budget FILE] [--max-total-bytes N] [--max-growth-bytes N] [--max-growth-gzip-bytes N]');
             process.exit(0);
         }
-        const key = { '--dist': 'dist', '--report': 'report', '--baseline': 'baseline', '--max-total-bytes': 'maxTotalBytes', '--max-growth-bytes': 'maxGrowthBytes' }[token];
+        const key = {
+            '--dist': 'dist', '--report': 'report', '--write-baseline': 'writeBaseline', '--baseline': 'baseline', '--budget': 'budget',
+            '--max-total-bytes': 'maxTotalBytes', '--max-growth-bytes': 'maxGrowthBytes', '--max-growth-gzip-bytes': 'maxGrowthGzipBytes',
+        }[token];
         if (!key || index + 1 >= argumentsList.length) throw new Error(`Unknown or incomplete argument: ${token}`);
         const value = argumentsList[++index];
         parsed[key] = key.startsWith('max') ? positiveInteger(value, token) : value;
     }
     return parsed;
+}
+
+function readBudget(path) {
+    const budget = JSON.parse(readFileSync(resolve(path), 'utf8'));
+    if (budget.schemaVersion !== 1 || !['proposed', 'approved'].includes(budget.state)) {
+        throw new Error('Bundle budget must declare schemaVersion 1 and state proposed or approved');
+    }
+    for (const key of ['maxGrowthBytes', 'maxGrowthGzipBytes']) {
+        if (!Number.isSafeInteger(budget[key]) || budget[key] < 0) throw new Error(`Bundle budget lacks a non-negative ${key}`);
+    }
+    if (typeof budget.baselineFile !== 'string' || budget.baselineFile.length === 0) {
+        throw new Error('Bundle budget lacks baselineFile');
+    }
+    return budget;
+}
+
+function resolveBudgetPath(path, budgetPath) {
+    return budgetPath && !path.match(/^[A-Za-z]:[\\/]/) && !path.startsWith('/')
+        ? resolve(resolve(budgetPath, '..'), path)
+        : resolve(path);
+}
+
+function repositoryRevision() {
+    try {
+        return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+        return null;
+    }
 }
 
 function positiveInteger(value, flag) {

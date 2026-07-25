@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "state": "proposed",
+  "baselineFile": "wasm-bundle-baseline.json",
+  "maxGrowthBytes": 1048576,
+  "maxGrowthGzipBytes": 262144,
+  "rationale": "The baseline must be generated from a completed production distribution on the reviewed SHA. Until then the 35.29 MiB / 13.55 MiB values recorded in the board are rounded observations only and cannot be used as an enforcement baseline. Once reviewed, change state to approved without changing the limits in the same review."
+}

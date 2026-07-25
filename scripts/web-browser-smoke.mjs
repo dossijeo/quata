@@ -12,10 +12,10 @@
  *   node scripts/web-browser-smoke.mjs
  */
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
@@ -39,6 +39,18 @@ const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-t
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
 const chromeExecutable = options.chrome ?? defaultChrome;
+const browserMetrics = {
+    schemaVersion: 1,
+    // Resolve the local SHA as well as CI's explicit value so a report can be
+    // tied to the exact distribution that the smoke just loaded.
+    revision: process.env.GITHUB_SHA ?? repositoryRevision(),
+    // Never persist an absolute workstation path in an evidence report.
+    distribution: relativeProcessDirectory(distribution),
+    browser: null,
+    // Each sample uses a disposable Chrome profile on the current machine. It
+    // is evidence for regressions, not a cross-machine performance SLO.
+    navigations: [],
+};
 // Keep this fixture in the repository instead of downloading a document during the smoke. The
 // document remains the source asset; the temporary server exposes it read-only under one fixed
 // route and never copies it into the distribution.
@@ -62,10 +74,16 @@ const networkFailures = [];
 const unexpectedDocmentisNetworkRequests = [];
 
 try {
-    chrome = await launchChrome(chromeExecutable, profileDirectory, staticServer.port);
-    const target = await waitForPageTarget(chrome.debugPort);
-    const cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
-    try {
+    chrome = await launchChrome(chromeExecutable, profileDirectory);
+        const target = await waitForPageTarget(chrome.debugPort);
+        const cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
+        try {
+        const version = await cdp.send('Browser.getVersion');
+        browserMetrics.browser = {
+            product: version.product ?? null,
+            userAgent: version.userAgent ?? null,
+            jsVersion: version.jsVersion ?? null,
+        };
         const pageErrors = [];
         cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
             pageErrors.push(describeException(exceptionDetails));
@@ -96,10 +114,11 @@ try {
         await cdp.send('Log.enable');
         await cdp.send('Network.enable');
         await cdp.send('Page.enable');
+        await cdp.send('Performance.enable');
 
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
-        await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors);
+        browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
 
         if (options.docmentis) {
             await navigateAndAssertDocmentisBridge(cdp, staticServer.origin);
@@ -111,7 +130,7 @@ try {
         // not backend behaviour.
         await cdp.evaluate("localStorage.setItem('web.auth.session_ready', 'true')");
         for (const fragment of routeFragments.slice(1)) {
-            await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors);
+            browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
         }
 
         if (pageErrors.length > 0) {
@@ -132,6 +151,11 @@ try {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
     await removeChromeProfile(profileDirectory);
+    if (options.metricsReport) {
+        await writeMetricsReport(options.metricsReport, browserMetrics).catch(error => {
+            failures.push(`Could not write browser metrics: ${error instanceof Error ? error.message : String(error)}`);
+        });
+    }
 }
 
 function isUnexpectedDocmentisNetworkRequest(url, localOrigin) {
@@ -155,13 +179,13 @@ function parseArguments(args) {
     const parsed = {};
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
-        if (argument === '--dist' || argument === '--chrome') {
+        if (argument === '--dist' || argument === '--chrome' || argument === '--metrics-report') {
             const value = args[index + 1];
             if (!value || value.startsWith('--')) throw new Error(`Missing value for ${argument}.`);
-            parsed[argument.slice(2)] = value;
+            parsed[argument.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
             index += 1;
         } else if (argument === '--help' || argument === '-h') {
-            console.log('Usage: node scripts/web-browser-smoke.mjs [--dist DIR] [--chrome PATH] [--docmentis]');
+            console.log('Usage: node scripts/web-browser-smoke.mjs [--dist DIR] [--chrome PATH] [--docmentis] [--metrics-report PATH]');
             process.exit(0);
         } else if (argument === '--docmentis') {
             parsed.docmentis = true;
@@ -277,12 +301,12 @@ function contentType(path) {
     ]).get(extname(path).toLowerCase()) ?? 'application/octet-stream';
 }
 
-async function launchChrome(executable, profile, serverPort) {
+async function launchChrome(executable, profile) {
     const debugPort = await availablePort();
     const process = spawn(executable, [
         '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
         `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`,
-        `http://127.0.0.1:${serverPort}/#auth`,
+        'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
     const startupFailure = new Promise((_, reject) =>
         process.once('error', error => reject(new Error(`Could not start Chrome (${executable}): ${error.message}`))),
@@ -327,11 +351,61 @@ async function waitForPageTarget(port) {
 
 async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
     const initialErrorCount = pageErrors.length;
+    const startedAt = performance.now();
     await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
     await waitForShell(cdp, fragment);
     if (pageErrors.length > initialErrorCount) {
         throw new Error(`Route #${fragment} produced an uncaught browser exception.`);
     }
+    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt);
+}
+
+async function collectNavigationMetrics(cdp, route, mountElapsedMs) {
+    const metricResult = await cdp.send('Performance.getMetrics');
+    const metrics = Object.fromEntries((metricResult.metrics ?? []).map(metric => [metric.name, metric.value]));
+    const navigation = await cdp.evaluate(`(() => {
+        const entry = performance.getEntriesByType('navigation').at(-1);
+        return entry ? {
+            domContentLoadedMs: Math.round(entry.domContentLoadedEventEnd),
+            loadMs: Math.round(entry.loadEventEnd),
+        } : null;
+    })()`);
+    return {
+        route,
+        mountElapsedMs: Math.round(mountElapsedMs),
+        domContentLoadedMs: navigation.result?.value?.domContentLoadedMs ?? null,
+        loadMs: navigation.result?.value?.loadMs ?? null,
+        memory: {
+            jsHeapUsedSize: finiteOrNull(metrics.JSHeapUsedSize),
+            jsHeapTotalSize: finiteOrNull(metrics.JSHeapTotalSize),
+            processPrivateMemory: finiteOrNull(metrics.ProcessPrivateMemory),
+        },
+    };
+}
+
+function finiteOrNull(value) {
+    return Number.isFinite(value) ? Math.round(value) : null;
+}
+
+async function writeMetricsReport(path, report) {
+    const output = resolve(path);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    console.log(`Browser metrics: ${output}`);
+}
+
+function repositoryRevision() {
+    try {
+        return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+        return null;
+    }
+}
+
+function relativeProcessDirectory(path) {
+    const workingDirectory = resolve('.');
+    const normalized = path.startsWith(workingDirectory) ? path.slice(workingDirectory.length).replace(/^[\\/]+/, '') : path;
+    return normalized.replaceAll('\\', '/');
 }
 
 async function waitForShell(cdp, fragment) {
