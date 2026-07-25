@@ -95,15 +95,15 @@ private class IosContactPickerDelegate(
     override fun contactPicker(
         picker: CNContactPickerViewController,
         didSelectContact: CNContact,
-    ) = finish(PlatformResult.Success(listOf(didSelectContact.toPlatformContact())))
+    ) = finish(iosPickedContactsOutcome(listOf(didSelectContact.toIosPickedContactFields())).toPlatformResult())
 
     /** Implementing this delegate callback enables ContactsUI's native multiple selection mode. */
     override fun contactPicker(
         picker: CNContactPickerViewController,
         didSelectContacts: List<*>,
     ) {
-        val contacts = didSelectContacts.filterIsInstance<CNContact>().map(CNContact::toPlatformContact)
-        finish(if (contacts.isEmpty()) PlatformResult.Cancelled else PlatformResult.Success(contacts))
+        val contacts = didSelectContacts.filterIsInstance<CNContact>().map(CNContact::toIosPickedContactFields)
+        finish(iosPickedContactsOutcome(contacts).toPlatformResult())
     }
 
     override fun contactPickerDidCancel(picker: CNContactPickerViewController) {
@@ -118,20 +118,15 @@ private class IosContactPickerDelegate(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun CNContact.toPlatformContact(): PlatformContact {
-    val displayName = listOf(givenName, middleName, familyName)
-        .filter { it.isNotBlank() }
-        .joinToString(" ")
-        .ifBlank { organizationName.takeIf { it.isNotBlank() } }
-    val phones = phoneNumbers.mapNotNull { item ->
-        (item.value as? CNPhoneNumber)?.stringValue?.takeIf(String::isNotBlank)
-    }
-    val emails = emailAddresses.mapNotNull { item ->
-        (item.value as? NSString)?.toString()?.takeIf(String::isNotBlank)
-    }
-    return PlatformContact(
-        displayName = displayName,
-        phones = phones.distinct(),
-        emails = emails.distinct(),
-    )
-}
+private fun CNContact.toIosPickedContactFields(): IosPickedContactFields = IosPickedContactFields(
+    givenName = givenName,
+    middleName = middleName,
+    familyName = familyName,
+    organizationName = organizationName,
+    phones = phoneNumbers.mapNotNull { item ->
+        (item.value as? CNPhoneNumber)?.stringValue
+    },
+    emails = emailAddresses.mapNotNull { item ->
+        (item.value as? NSString)?.toString()
+    },
+)
