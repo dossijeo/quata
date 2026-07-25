@@ -109,7 +109,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -669,7 +668,7 @@ private fun ReelVideo(
     var isPlaying by rememberSaveable(videoUrl) { mutableStateOf(false) }
     var positionMs by remember(videoUrl) { mutableLongStateOf(initialPositionMs) }
     var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
-    var centerFeedbackIcon by remember { mutableStateOf<ImageVector?>(null) }
+    var centerFeedback by remember { mutableStateOf<VideoPlaybackFeedback?>(null) }
     var centerFeedbackTick by remember { mutableLongStateOf(0L) }
     var hasPlaybackError by remember(videoUrl) { mutableStateOf(false) }
     var isBuffering by remember(videoUrl) { mutableStateOf(false) }
@@ -828,101 +827,95 @@ private fun ReelVideo(
     LaunchedEffect(centerFeedbackTick) {
         if (centerFeedbackTick != 0L) {
             delay(650)
-            centerFeedbackIcon = null
+            centerFeedback = null
         }
     }
 
-    fun togglePlayback(showFeedback: Boolean) {
-        if (hasPlaybackError) {
-            retryCount = 0
-            startPlayback()
-            if (showFeedback) {
-                centerFeedbackIcon = Icons.Filled.PlayArrow
-                centerFeedbackTick = System.currentTimeMillis()
-            }
-            return
-        }
-        if (player.isPlaying) {
-            player.pause()
-            isPlaying = false
-            isBuffering = false
-            if (showFeedback) centerFeedbackIcon = Icons.Filled.Pause
-        } else {
-            startPlayback()
-            if (showFeedback) centerFeedbackIcon = Icons.Filled.PlayArrow
-        }
-        if (showFeedback) centerFeedbackTick = System.currentTimeMillis()
-    }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .clipToBounds()
-            .background(Color.Transparent)
-    ) {
-        val videoResizeMode = if (isLandscapeLayout) {
-            AspectRatioFrameLayout.RESIZE_MODE_FIT
-        } else {
-            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-        }
-        AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .clipToBounds(),
-            factory = { viewContext ->
-                (LayoutInflater.from(viewContext)
-                    .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
-                    this.player = player
-                    useController = false
-                    resizeMode = videoResizeMode
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-            },
-            update = {
-                val applyLegacyRotationTransform =
-                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && playbackRotation != 0
-                it.useController = false
-                it.resizeMode = videoResizeMode
-                if (it.player !== player) {
-                    it.player = player
-                }
-                it.findQuataTextureView()?.applyQuataVideoPlaybackTransform(
-                    if (applyLegacyRotationTransform) playbackRotation else 0
-                )
-            }
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable { togglePlayback(showFeedback = true) }
-        )
-        val showRebuffering = isBuffering && hasStartedPlayback
-        ReelPlaybackFeedbackContent(
-            feedbackIcon = centerFeedbackIcon,
-            isRebuffering = showRebuffering,
-            modifier = Modifier.align(Alignment.Center)
-        )
-        VideoControls(
+    FeedReelVideoPlaybackHostContent(
+        state = VideoPlaybackState(
             isPlaying = isPlaying,
-            isBuffering = showRebuffering,
+            isBuffering = isBuffering,
             positionMs = positionMs,
             durationMs = durationMs,
             isMuted = isMuted,
-            onPlayPause = { togglePlayback(showFeedback = false) },
-            onSeek = { targetMs ->
-                player.seekTo(targetMs)
-                positionMs = targetMs
-            },
-            onToggleMute = { onMuteChange(!isMuted) },
             showMuteButton = !isLandscapeLayout,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
-        )
-    }
+            hasStartedPlayback = hasStartedPlayback,
+            isEnded = player.playbackState == Player.STATE_ENDED,
+            error = hasPlaybackError.takeIf { it }?.let { "feed_video_playback_failed" },
+            feedback = centerFeedback,
+        ),
+        strings = VideoPlaybackStrings(
+            play = stringResource(R.string.feed_play),
+            pause = stringResource(R.string.feed_pause),
+            mute = stringResource(R.string.feed_mute),
+            unmute = stringResource(R.string.feed_unmute),
+        ),
+        media = {
+            val videoResizeMode = if (isLandscapeLayout) {
+                AspectRatioFrameLayout.RESIZE_MODE_FIT
+            } else {
+                AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            }
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds(),
+                factory = { viewContext ->
+                    (LayoutInflater.from(viewContext)
+                        .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
+                        this.player = player
+                        useController = false
+                        resizeMode = videoResizeMode
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                },
+                update = {
+                    val applyLegacyRotationTransform =
+                        Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && playbackRotation != 0
+                    it.useController = false
+                    it.resizeMode = videoResizeMode
+                    if (it.player !== player) {
+                        it.player = player
+                    }
+                    it.findQuataTextureView()?.applyQuataVideoPlaybackTransform(
+                        if (applyLegacyRotationTransform) playbackRotation else 0
+                    )
+                }
+            )
+        },
+        onPlay = { showFeedback ->
+            startPlayback()
+            if (showFeedback) {
+                centerFeedback = VideoPlaybackFeedback.Play
+                centerFeedbackTick = System.currentTimeMillis()
+            }
+        },
+        onPause = { showFeedback ->
+            player.pause()
+            isPlaying = false
+            isBuffering = false
+            if (showFeedback) {
+                centerFeedback = VideoPlaybackFeedback.Pause
+                centerFeedbackTick = System.currentTimeMillis()
+            }
+        },
+        onSeek = { targetMs ->
+            player.seekTo(targetMs)
+            positionMs = targetMs
+        },
+        onEnded = {
+            player.seekTo(0)
+            startPlayback()
+        },
+        onError = {
+            retryCount = 0
+            startPlayback()
+        },
+        onToggleMute = { onMuteChange(!isMuted) },
+    )
 }
 
 private fun ExoPlayer.setFeedAudioEnabled(enabled: Boolean) {
@@ -930,63 +923,6 @@ private fun ExoPlayer.setFeedAudioEnabled(enabled: Boolean) {
         .buildUpon()
         .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
         .build()
-}
-
-@Composable
-private fun VideoControls(
-    isPlaying: Boolean,
-    isBuffering: Boolean,
-    positionMs: Long,
-    durationMs: Long,
-    isMuted: Boolean,
-    onPlayPause: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onToggleMute: () -> Unit,
-    showMuteButton: Boolean,
-    modifier: Modifier = Modifier
-) {
-    ReelVideoControlsContent(
-        state = ReelVideoControlsState(
-            isPlaying = isPlaying,
-            isBuffering = isBuffering,
-            positionMs = positionMs,
-            durationMs = durationMs,
-            isMuted = isMuted,
-            showMuteButton = showMuteButton,
-        ),
-        strings = ReelVideoControlsStrings(
-            play = stringResource(R.string.feed_play),
-            pause = stringResource(R.string.feed_pause),
-            mute = stringResource(R.string.feed_mute),
-            unmute = stringResource(R.string.feed_unmute),
-        ),
-        playPauseIcon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-        muteIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-        onPlayPause = onPlayPause,
-        onProgressChange = { progress ->
-            onSeek((progress * durationMs.coerceAtLeast(1L).toFloat()).toLong())
-        },
-        onToggleMute = onToggleMute,
-        timeline = { progress, onProgressChange ->
-            TimelineThumb(
-                progress = progress,
-                onProgressChange = onProgressChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(30.dp),
-            )
-        },
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun TimelineThumb(
-    progress: Float,
-    onProgressChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    ReelTimelineThumbContent(progress, onProgressChange, modifier)
 }
 
 @Composable
