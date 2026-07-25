@@ -27,9 +27,9 @@ class IosPlatformServices(
         presenterProvider?.let(::attachSystemPicker)
     },
     override val location: LocationService = locationHost ?: UnsupportedIosLocationService,
-    override val permissions: PermissionService = locationHost?.let { host ->
-        IosCompositePermissionService(location = host)
-    } ?: IosNotificationPermissionService(),
+    override val permissions: PermissionService = IosCompositePermissionService(
+        location = locationHost ?: UnsupportedIosPermissionService,
+    ),
 ) : PlatformServices {
     /** Feature-level boundary, injected by the UIKit launcher when camera capture is consumed. */
     val cameraCapture: IosCameraCaptureService = IosCameraCaptureService(
