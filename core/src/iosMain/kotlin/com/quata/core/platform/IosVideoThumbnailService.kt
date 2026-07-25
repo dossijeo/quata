@@ -1,16 +1,11 @@
 package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
 import platform.AVFoundation.AVAssetImageGenerator
 import platform.AVFoundation.AVURLAsset
 import platform.CoreGraphics.CGSizeMake
 import platform.CoreMedia.CMTimeMakeWithSeconds
 import platform.Foundation.NSData
-import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSTemporaryDirectory
@@ -38,25 +33,24 @@ class IosVideoThumbnailService : VideoThumbnailService {
             return PlatformResult.Failure("video_thumbnail_source_missing")
         }
 
-        return memScoped {
-            val error = alloc<ObjCObjectVar<NSError?>>()
-            val generator = AVAssetImageGenerator(AVURLAsset(URL = source, options = null)).apply {
+        return runCatching {
+            val generator = AVAssetImageGenerator(AVURLAsset(uRL = source, options = null)).apply {
                 appliesPreferredTrackTransform = true
                 maximumSize = CGSizeMake(maxWidth.toDouble(), maxWidth.toDouble())
             }
             val image = generator.copyCGImageAtTime(
                 requestedTime = CMTimeMakeWithSeconds(0.0, 600),
                 actualTime = null,
-                error = error.ptr,
+                error = null,
             )
             when {
-                image == null -> PlatformResult.Failure(
-                    error.value?.localizedDescription ?: "video_thumbnail_decode_failed",
-                )
+                image == null -> PlatformResult.Failure("video_thumbnail_decode_failed")
                 else -> UIImagePNGRepresentation(UIImage.imageWithCGImage(image))
                     ?.toTemporaryVideoThumbnailFile(video)
                     ?: PlatformResult.Failure("video_thumbnail_encode_failed")
             }
+        }.getOrElse { throwable ->
+            PlatformResult.Failure(throwable.message ?: "video_thumbnail_generation_failed")
         }
     }
 }
