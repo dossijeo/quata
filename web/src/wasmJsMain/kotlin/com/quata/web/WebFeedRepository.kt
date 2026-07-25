@@ -10,6 +10,10 @@ import com.quata.feature.feed.data.FeedRemotePost
 import com.quata.feature.feed.data.FeedRemotePostRequest
 import com.quata.feature.feed.data.FeedRemoteProfile
 import com.quata.feature.feed.data.RemoteFeedReadRepository
+import com.quata.feature.feed.data.feedRemoteCommentFromFields
+import com.quata.feature.feed.data.feedRemoteLikeFromFields
+import com.quata.feature.feed.data.feedRemotePostFromFields
+import com.quata.feature.feed.data.feedRemoteProfileFromFields
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.Flow
@@ -108,23 +112,23 @@ private fun String.requirePostgrestIdentifier(): String {
 class WebPostgrestReadException(val failure: WebPostgrestResult.Failure) :
     IllegalStateException("web_postgrest_${failure.kind.name.lowercase()}:${failure.reason}")
 
-private fun JsonObject.toFeedRemotePost() = FeedRemotePost(
-    id = requiredString("id"), profileId = stringOrNull("profile_id"), authorId = stringOrNull("author_id"),
-    body = stringOrNull("body"), content = stringOrNull("content"), imageUrl = stringOrNull("image_url"),
-    videoUrl = stringOrNull("video_url"), createdAt = stringOrNull("created_at"),
+private fun JsonObject.toFeedRemotePost() = feedRemotePostFromFields(
+    field = { name -> stringOrNull(name) },
+    missingIdError = { IllegalStateException("web_feed_response_missing_id") },
 )
-private fun JsonObject.toFeedRemoteComment() = FeedRemoteComment(
-    id = requiredString("id"), postId = stringOrNull("post_id"), profileId = stringOrNull("profile_id"),
-    body = stringOrNull("body"), createdAt = stringOrNull("created_at"),
+
+private fun JsonObject.toFeedRemoteComment() = feedRemoteCommentFromFields(
+    field = { name -> stringOrNull(name) },
+    missingIdError = { IllegalStateException("web_feed_response_missing_id") },
 )
-private fun JsonObject.toFeedRemoteLike() = FeedRemoteLike(postId = stringOrNull("post_id"), profileId = stringOrNull("profile_id"))
-private fun JsonObject.toFeedRemoteProfile() = FeedRemoteProfile(
-    id = requiredString("id"), displayName = stringOrNull("display_name"), fallbackName = stringOrNull("nombre"),
-    countryCode = stringOrNull("country_code"), phoneLocal = stringOrNull("phone_local"),
-    neighborhood = stringOrNull("neighborhood"), barrio = stringOrNull("barrio"), avatarUrl = stringOrNull("avatar_url"),
-    avatar = stringOrNull("avatar"), isAdmin = stringOrNull("is_admin") == "true", isOfficial = stringOrNull("is_official") == "true",
+
+private fun JsonObject.toFeedRemoteLike() = feedRemoteLikeFromFields { name -> stringOrNull(name) }
+private fun JsonObject.toFeedRemoteProfile() = feedRemoteProfileFromFields(
+    field = { name -> stringOrNull(name) },
+    booleanField = { name -> stringOrNull(name) == "true" },
+    missingIdError = { IllegalStateException("web_feed_response_missing_id") },
 )
-private fun JsonObject.requiredString(name: String): String = stringOrNull(name) ?: error("web_feed_response_missing_$name")
+
 private fun JsonObject.stringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
 private const val PostSelect = "id,wall_id,profile_id,body,image_url,video_url,created_at,community_id,author_id,content"

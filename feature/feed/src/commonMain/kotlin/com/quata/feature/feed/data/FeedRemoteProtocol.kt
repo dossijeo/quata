@@ -42,6 +42,64 @@ data class FeedRemoteProfile(
     val isOfficial: Boolean = false,
 )
 
+/**
+ * Pure field-to-wire-model mapping shared by the browser and URLSession adapters.
+ *
+ * Transports remain responsible for parsing their native JSON representation into scalar fields,
+ * as well as for HTTP, credentials and status/error handling. Keeping that boundary explicit
+ * avoids making `commonMain` depend on either kotlinx.serialization JSON objects or Foundation.
+ */
+fun feedRemotePostFromFields(
+    field: (String) -> String?,
+    missingIdError: () -> Throwable = { IllegalStateException("feed_remote_response_missing_id") },
+): FeedRemotePost = FeedRemotePost(
+    id = field.requiredFeedRemoteId(missingIdError),
+    profileId = field("profile_id"),
+    authorId = field("author_id"),
+    body = field("body"),
+    content = field("content"),
+    imageUrl = field("image_url"),
+    videoUrl = field("video_url"),
+    createdAt = field("created_at"),
+)
+
+fun feedRemoteCommentFromFields(
+    field: (String) -> String?,
+    missingIdError: () -> Throwable = { IllegalStateException("feed_remote_response_missing_id") },
+): FeedRemoteComment = FeedRemoteComment(
+    id = field.requiredFeedRemoteId(missingIdError),
+    postId = field("post_id"),
+    profileId = field("profile_id"),
+    body = field("body"),
+    createdAt = field("created_at"),
+)
+
+fun feedRemoteLikeFromFields(field: (String) -> String?): FeedRemoteLike = FeedRemoteLike(
+    postId = field("post_id"),
+    profileId = field("profile_id"),
+)
+
+fun feedRemoteProfileFromFields(
+    field: (String) -> String?,
+    booleanField: (String) -> Boolean,
+    missingIdError: () -> Throwable = { IllegalStateException("feed_remote_response_missing_id") },
+): FeedRemoteProfile = FeedRemoteProfile(
+    id = field.requiredFeedRemoteId(missingIdError),
+    displayName = field("display_name"),
+    fallbackName = field("nombre"),
+    countryCode = field("country_code"),
+    phoneLocal = field("phone_local"),
+    neighborhood = field("neighborhood"),
+    barrio = field("barrio"),
+    avatarUrl = field("avatar_url"),
+    avatar = field("avatar"),
+    isAdmin = booleanField("is_admin"),
+    isOfficial = booleanField("is_official"),
+)
+
+private fun ((String) -> String?).requiredFeedRemoteId(missingIdError: () -> Throwable): String =
+    invoke("id") ?: throw missingIdError()
+
 fun feedRemoteProfileIds(
     posts: List<FeedRemotePost>,
     comments: List<FeedRemoteComment> = emptyList(),

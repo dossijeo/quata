@@ -206,45 +206,23 @@ private fun NSData.toIosJsonRows(): List<Map<*, *>> {
     return json.map { row -> row as? Map<*, *> ?: error("ios_feed_response_row_invalid") }
 }
 
-private fun Map<*, *>.toFeedRemotePost(): FeedRemotePost = FeedRemotePost(
-    id = requiredIosString("id"),
-    profileId = iosString("profile_id"),
-    authorId = iosString("author_id"),
-    body = iosString("body"),
-    content = iosString("content"),
-    imageUrl = iosString("image_url"),
-    videoUrl = iosString("video_url"),
-    createdAt = iosString("created_at"),
+private fun Map<*, *>.toFeedRemotePost(): FeedRemotePost = feedRemotePostFromFields(
+    field = { name -> iosString(name) },
+    missingIdError = { IllegalStateException("ios_feed_response_missing_id") },
 )
 
-private fun Map<*, *>.toFeedRemoteComment(): FeedRemoteComment = FeedRemoteComment(
-    id = requiredIosString("id"),
-    postId = iosString("post_id"),
-    profileId = iosString("profile_id"),
-    body = iosString("body"),
-    createdAt = iosString("created_at"),
+private fun Map<*, *>.toFeedRemoteComment(): FeedRemoteComment = feedRemoteCommentFromFields(
+    field = { name -> iosString(name) },
+    missingIdError = { IllegalStateException("ios_feed_response_missing_id") },
 )
 
-private fun Map<*, *>.toFeedRemoteLike(): FeedRemoteLike = FeedRemoteLike(
-    postId = iosString("post_id"),
-    profileId = iosString("profile_id"),
+private fun Map<*, *>.toFeedRemoteLike(): FeedRemoteLike = feedRemoteLikeFromFields { name -> iosString(name) }
+private fun Map<*, *>.toFeedRemoteProfile(): FeedRemoteProfile = feedRemoteProfileFromFields(
+    field = { name -> iosString(name) },
+    booleanField = { name -> iosBoolean(name) },
+    missingIdError = { IllegalStateException("ios_feed_response_missing_id") },
 )
 
-private fun Map<*, *>.toFeedRemoteProfile(): FeedRemoteProfile = FeedRemoteProfile(
-    id = requiredIosString("id"),
-    displayName = iosString("display_name"),
-    fallbackName = iosString("nombre"),
-    countryCode = iosString("country_code"),
-    phoneLocal = iosString("phone_local"),
-    neighborhood = iosString("neighborhood"),
-    barrio = iosString("barrio"),
-    avatarUrl = iosString("avatar_url"),
-    avatar = iosString("avatar"),
-    isAdmin = iosBoolean("is_admin"),
-    isOfficial = iosBoolean("is_official"),
-)
-
-private fun Map<*, *>.requiredIosString(name: String): String = iosString(name) ?: error("ios_feed_response_missing_$name")
 private fun Map<*, *>.iosString(name: String): String? = this[name]
     ?.takeUnless { it is NSNull }
     ?.toString()
