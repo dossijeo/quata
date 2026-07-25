@@ -23,6 +23,10 @@ class IosChatHostDependencies(
     val filePicker: FilePickerService,
     val conversationId: String? = null,
     val navigationMessage: String = "Quata para iOS",
+    /** AVFoundation records AAC in an MP4 container; Web stays on the common WebM default. */
+    val audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(
+        mimeType = ChatAudioRecordingConfiguration.IOS_MIME_TYPE,
+    ),
     val onOpenConversation: (String) -> Unit,
     val onBackToList: () -> Unit,
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
@@ -52,6 +56,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
+                audioRecordingConfiguration = dependencies.audioRecordingConfiguration,
             )
         }
     }

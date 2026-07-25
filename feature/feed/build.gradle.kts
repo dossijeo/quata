@@ -19,6 +19,10 @@ kotlin {
             // The UIKit launcher embeds a single framework. Re-export Auth only for iOS so its
             // shared Compose login and iOS transport are available without a Swift duplicate.
             export(project(":feature:auth"))
+            // Chat's UIKit host is likewise exposed through the sole embedded framework. The
+            // Swift router decides when real chat dependencies are available; it does not own
+            // a duplicate Chat UI or audio implementation.
+            export(project(":feature:chat"))
         }
     }
     sourceSets {
@@ -34,7 +38,10 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
-        iosMain.dependencies { api(project(":feature:auth")) }
+        iosMain.dependencies {
+            api(project(":feature:auth"))
+            api(project(":feature:chat"))
+        }
         jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }

@@ -43,6 +43,24 @@ import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+/**
+ * Recording format selected by a platform launcher for the shared chat composer.
+ *
+ * The browser keeps WebM as its default because it is the MediaRecorder-compatible format used
+ * by its recorder adapter. iOS injects AAC-in-MP4 from its UIKit host instead of teaching common
+ * UI about AVFoundation.
+ */
+data class ChatAudioRecordingConfiguration(
+    val mimeType: String = WEB_MIME_TYPE,
+) {
+    fun toPlatformOptions(): AudioRecordingOptions = AudioRecordingOptions(mimeType = mimeType)
+
+    companion object {
+        const val WEB_MIME_TYPE = "audio/webm"
+        const val IOS_MIME_TYPE = "audio/mp4"
+    }
+}
+
 /** Host-neutral browser-style Chat viewport. Navigation and external opening are injected. */
 @Composable
 fun ChatBrowserHostContent(
@@ -56,6 +74,7 @@ fun ChatBrowserHostContent(
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     modifier: Modifier = Modifier,
+    audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
 ) {
     if (conversationId == null) {
         ChatBrowserConversationList(
@@ -74,6 +93,7 @@ fun ChatBrowserHostContent(
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
+            audioRecordingConfiguration = audioRecordingConfiguration,
             modifier = modifier,
         )
     }
@@ -235,6 +255,7 @@ private fun ChatBrowserConversationDetail(
     navigationMessage: String,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
@@ -345,7 +366,7 @@ private fun ChatBrowserConversationDetail(
                         } else {
                             Button(onClick = {
                                 scope.launch {
-                                    when (val result = audioRecorder.start(AudioRecordingOptions(mimeType = "audio/webm"))) {
+                                    when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {
                                         is PlatformResult.Success -> {
                                             isRecordingAudio = true
                                             recordingElapsedSeconds = 0L
