@@ -29,9 +29,10 @@ class IosDocumentThumbnailService : DocumentThumbnailService {
         maxWidth: Int,
     ): PlatformResult<PlatformFile> {
         if (maxWidth <= 0) return PlatformResult.Failure("invalid_thumbnail_width")
-        if (!DocumentSupport.describe(document.reference, document.displayName, document.mimeType).isPreviewable) {
+        if (!DocumentThumbnailSupport.supports(document)) {
             return PlatformResult.Unsupported
         }
+        if (!DocumentThumbnailSupport.hasLocalReference(document)) return PlatformResult.Unsupported
         val source = document.localFileUrlOrNull() ?: return PlatformResult.Unsupported
         val sourcePath = source.path ?: return PlatformResult.Failure("document_thumbnail_source_path_missing")
         if (!NSFileManager.defaultManager.fileExistsAtPath(sourcePath)) {
