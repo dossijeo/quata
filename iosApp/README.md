@@ -49,10 +49,12 @@ pendiente. No fabrica datos, URL ni sesiones Swift para aparentar funcionalidad.
 
 ## Construcción local en macOS
 
-Se requiere Xcode 16.3, JDK 17 y XcodeGen. Desde la raíz del repositorio:
+Se requiere Xcode 16.3, JDK 17 y XcodeGen. Este flujo local enlaza el
+framework que consume el host; la comprobación reproducible de todos los
+módulos Kotlin/Native se ejecuta en la CI macOS descrita más abajo. Desde la
+raíz del repositorio:
 
 ```bash
-./gradlew compileKotlinIosArm64 compileKotlinIosSimulatorArm64
 ./gradlew :feature:feed:linkDebugFrameworkIosSimulatorArm64
 brew install xcodegen
 cd iosApp
