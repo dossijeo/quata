@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -236,7 +235,8 @@ fun OfficialPostEditorScreen(
             padding = padding,
             title = stringResource(R.string.official_create),
         ) {
-
+            OfficialEditorFormContent(
+                modeSelector = {
                     OfficialEditorModeSelectorContent(
                         title = stringResource(
                             if (editorMode == OfficialEditorMode.Quick) {
@@ -257,7 +257,8 @@ fun OfficialPostEditorScreen(
                             editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
                         },
                     )
-
+                },
+                mainSection = {
                         OfficialEditorCard {
                             OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
                         OfficialEditorDropdownFieldContent(
@@ -282,7 +283,8 @@ fun OfficialPostEditorScreen(
                             )
                         }
                     }
-
+                },
+                mediaSection = {
                     OfficialEditorMediaSectionContent(
                         title = stringResource(R.string.official_form_media_section),
                         imagePicker = { pickerModifier ->
@@ -325,7 +327,8 @@ fun OfficialPostEditorScreen(
                             }
                         },
                     )
-
+                },
+                bodySection = {
                     OfficialEditorBodySectionContent(
                         title = stringResource(
                             if (editorMode == OfficialEditorMode.Quick) {
@@ -385,7 +388,8 @@ fun OfficialPostEditorScreen(
                             null
                         }
                     )
-
+                },
+                previewSection = {
                     OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
                     OfficialPostPreview(
                         author = currentUser,
@@ -398,18 +402,21 @@ fun OfficialPostEditorScreen(
                         mediaType = mediaType,
                         linkUrl = effectiveLinkUrl
                     )
-
+                },
+                feedback = {
                     if (error != null) {
                         Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
-
+                },
+                publishAction = {
                     OfficialPublishButton(
                         enabled = canPublishPost(),
                         isPublishing = isPublishing,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { requestPublication() },
                     )
-                    Spacer(Modifier.height(96.dp))
+                },
+            )
         }
     }
 
