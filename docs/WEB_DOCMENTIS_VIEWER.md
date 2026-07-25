@@ -21,13 +21,25 @@ o pulsar Cerrar/Escape destruye tanto `viewer` como `client` y elimina el DOM.
 
 ## Licencia, branding y red
 
-No se incluye licencia, token ni configuración comercial en el código. La
-integración invoca `UDocClient.create()` sin opciones: se conservan branding,
-atribución, licencia, comprobación de actualización y telemetría conforme a los
-valores por defecto del proveedor. El runtime Wasm y las fuentes/documentos
-remotos pueden requerir conectividad; una política de despliegue/CSP debe
-permitir sólo los orígenes que apruebe producto/legal. No se desactiva
-telemetría ni se oculta atribución sin una licencia válida externa.
+No se incluye licencia, token ni configuración comercial en el código. El
+wrapper JavaScript del paquete se publica como MIT, pero el binario Wasm se
+distribuye bajo la licencia de runtime de DocMentis. La integración invoca
+`UDocClient.create()` sin opciones: conserva la atribución, telemetría,
+comprobación de actualización y descarga de Google Fonts que el proveedor tenga
+activadas por defecto.
+
+En la versión fijada, el uso libre/sin licencia requiere una verificación online
+por cada apertura antes de renderizar. Si el servicio de permisos no responde o
+se alcanza su límite, el documento no se muestra y Quata vuelve a la descarga
+segura. Una licencia comercial puede cambiar esas condiciones; no se debe
+desactivar telemetría, ocultar atribución ni suponer funcionamiento offline sin
+que producto/legal provea y apruebe esa licencia. La CSP de despliegue debe
+autorizar explícitamente sólo los orígenes necesarios para documentos, permisos,
+telemetría, comprobación de versión y fuentes.
+
+La revisión de licencia, límites y datos debe hacerse contra la
+[documentación publicada de la versión 0.7.9](https://www.npmjs.com/package/@docmentis/udoc-viewer/v/0.7.9),
+no contra supuestos derivados del wrapper de Quata.
 
 ## Validación manual ejecutable
 
