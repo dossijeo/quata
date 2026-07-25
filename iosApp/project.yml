@@ -12,18 +12,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios
         SWIFT_VERSION: "5.0"
-        GENERATE_INFOPLIST_FILE: "YES"
-        # Compose Multiplatform requires this on iPhone to opt out of the legacy 60 Hz
-        # frame-duration cap. Keep it as a generated Info.plist setting so local XcodeGen
-        # projects and the reproducible CI project carry the same launch configuration.
-        INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone: "YES"
-        INFOPLIST_KEY_NSCameraUsageDescription: "Quata necesita acceso a la cámara para capturar fotos que quieras compartir."
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Quata necesita acceso al micrófono para grabar mensajes de audio."
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Quata necesita tu ubicación para las funciones de proximidad y SOS."
-        # Configured by Xcode build settings or CI secrets. Do not store a Supabase service-role
-        # key in this project; only the client-safe URL and publishable key are consumed at runtime.
-        INFOPLIST_KEY_QUATA_SUPABASE_URL: "$(QUATA_SUPABASE_URL)"
-        INFOPLIST_KEY_QUATA_SUPABASE_PUBLISHABLE_KEY: "$(QUATA_SUPABASE_PUBLISHABLE_KEY)"
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: iosApp/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # QuataFeed re-exports :core for Swift; do not embed a separate Core framework.
