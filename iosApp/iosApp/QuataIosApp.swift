@@ -1,5 +1,6 @@
 import CoreLocation
 import UIKit
+import UserNotifications
 import QuataShared
 
 enum IosPublicRuntimeConfiguration {
@@ -97,6 +98,18 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
+    /// Official is composed only after the Keychain-backed authenticated session used by
+    /// Auth/Feed has been restored. Its repository is a real read-only PostgREST adapter.
+    private lazy var officialRuntimeBootstrap: IosOfficialRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        return IosOfficialRuntimeBootstrap(
+            configuration: IosOfficialRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+        )
+    }()
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -143,12 +156,53 @@ private final class IosAppCompositionRoot {
         ) else { return false }
         installAuthenticatedFeed(dependencies)
         installAuthenticatedChatIfAvailable()
+        installAuthenticatedOfficialIfAvailable()
+        installAuthenticatedNotificationsIfAvailable()
         return true
     }
 
     private func installAuthenticatedChatIfAvailable() {
         guard let chatRuntimeBootstrap else { return }
         authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap)
+    }
+
+    private func installAuthenticatedOfficialIfAvailable() {
+        guard let officialRuntimeBootstrap else { return }
+        authenticatedHost.installOfficialFactory { postId in
+            QuataOfficialViewControllerKt.QuataOfficialViewController(
+                dependencies: QuataOfficialViewControllerKt.createIosOfficialHostDependencies(
+                    repository: officialRuntimeBootstrap.repository,
+                    officialPostId: postId,
+                    navigationMessage: "Quata para iOS",
+                ),
+            )
+        }
+    }
+
+    private func installAuthenticatedNotificationsIfAvailable() {
+        guard let chatRuntimeBootstrap else { return }
+        let notificationsBootstrap = IosNotificationsRuntimeBootstrapKt
+            .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
+        installAuthenticatedNotifications(
+            IosNotificationsHostKt.createIosNotificationsHostDependencies(
+                repository: notificationsBootstrap.repository(),
+                timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
+                onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                onOpenConversation: { [weak self] conversationId in
+                    self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                },
+                onRequestNotificationPermission: {
+                    // Permission is a UIKit/system concern. This invokes the real iOS prompt;
+                    // APNs token registration remains the existing AppDelegate bridge.
+                    UNUserNotificationCenter.current().requestAuthorization(
+                        options: [.alert, .badge, .sound]
+                    ) { _, _ in }
+                },
+                // Conversation navigation above is the real host action. This common callback
+                // is observability only and must not manufacture a URL or a route.
+                onHandleDeepLink: { _ in },
+            ),
+        )
     }
 
     private func installAuthenticationIfConfigured() {

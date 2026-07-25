@@ -22,6 +22,22 @@ class IosOfficialHostDependencies(
 )
 
 /**
+ * Swift-facing dependency factory for the read-only iOS Official vertical.
+ *
+ * Keeping the default platform slots in Kotlin avoids making the UIKit launcher construct
+ * Compose slot objects or depend on Kotlin default-argument Objective-C export details.
+ */
+fun createIosOfficialHostDependencies(
+    repository: OfficialRepository,
+    officialPostId: String?,
+    navigationMessage: String,
+): IosOfficialHostDependencies = IosOfficialHostDependencies(
+    repository = repository,
+    officialPostId = officialPostId,
+    navigationMessage = navigationMessage,
+)
+
+/**
  * Stable Swift-callable factory for the shared Official list/detail viewport.
  * No repository implementation is created here; the iOS composition root injects the real one.
  */

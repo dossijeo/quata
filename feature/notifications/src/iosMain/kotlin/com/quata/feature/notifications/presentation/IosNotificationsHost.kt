@@ -17,6 +17,34 @@ class IosNotificationsHostDependencies(
     val onHandleDeepLink: (String) -> Unit,
 )
 
+/**
+ * Creates the standard in-app inbox strings and dependencies at the iOS boundary.
+ * The inbox remains backed by the supplied authenticated repository; these strings do not
+ * manufacture notification data or a push provider.
+ */
+fun createIosNotificationsHostDependencies(
+    repository: NotificationsRepository,
+    timestampNowMillis: Long,
+    onBack: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onRequestNotificationPermission: () -> Unit,
+    onHandleDeepLink: (String) -> Unit,
+): IosNotificationsHostDependencies = IosNotificationsHostDependencies(
+    repository = repository,
+    timestampNowMillis = timestampNowMillis,
+    strings = NotificationsStrings(
+        title = "Notificaciones",
+        subtitle = "Mensajes no leídos",
+        backContentDescription = "Volver",
+        relativeTime = { createdAt, _ -> createdAt.ifBlank { "Ahora" } },
+        localizedBody = { it },
+    ),
+    onBack = onBack,
+    onOpenConversation = onOpenConversation,
+    onRequestNotificationPermission = onRequestNotificationPermission,
+    onHandleDeepLink = onHandleDeepLink,
+)
+
 fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
         NotificationsHostContent(
