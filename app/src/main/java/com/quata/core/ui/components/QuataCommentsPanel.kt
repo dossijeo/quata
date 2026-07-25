@@ -248,45 +248,34 @@ private fun LandscapeQuataCommentsPanel(
 ) {
     val context = LocalContext.current
     val template = quataTheme()
-    Box(
+    QuataCommentsPanelLandscapeContent(
         modifier = modifier
             .dismissCommunityEmojiPanelOnOutsideTap(
                 isVisible = isEmojiPickerVisible,
                 state = emojiDismissState
+            ),
+        header = { headerModifier ->
+            QuataCommentsPanelHeader(
+                commentsCount = comments.size,
+                onTranslatorClick = onTranslatorClick,
+                modifier = headerModifier,
             )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 18.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                QuataCommentsPanelHeader(
-                    commentsCount = comments.size,
-                    onTranslatorClick = onTranslatorClick,
-                    modifier = Modifier.weight(1f)
+        },
+        closeAction = {
+            CompactIconButton(onClick = onDismiss) {
+                CompactIcon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.common_close),
+                    tint = template.colors.textSecondary,
                 )
-                Spacer(Modifier.width(8.dp))
-                CompactIconButton(onClick = onDismiss) {
-                    CompactIcon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.common_close),
-                        tint = template.colors.textSecondary
-                    )
-                }
             }
-            Spacer(Modifier.height(12.dp))
+        },
+        comments = { commentsModifier ->
             LazyColumn(
                 state = commentsListState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(min = 140.dp),
+                modifier = commentsModifier,
                 contentPadding = PaddingValues(bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(comments) { comment ->
                     QuataCommentRow(
@@ -299,14 +288,16 @@ private fun LandscapeQuataCommentsPanel(
                     Spacer(Modifier.height(12.dp))
                 }
             }
-            replyTarget?.let { target ->
-                Spacer(Modifier.height(10.dp))
+        },
+        replyTarget = replyTarget?.let { target ->
+            {
                 QuataReplyTargetBanner(
                     comment = target,
-                    onClear = { onReplyTargetChange(null) }
+                    onClear = { onReplyTargetChange(null) },
                 )
             }
-            Spacer(Modifier.height(12.dp))
+        },
+        input = { inputModifier ->
             QuataCommentInput(
                 postId = postId,
                 draft = draft,
@@ -325,23 +316,25 @@ private fun LandscapeQuataCommentsPanel(
                     onEmojiPickerVisibleChange(false)
                 },
                 currentUserLabel = context.getString(R.string.comments_you),
-                modifier = Modifier.requiredHeightIn(min = 64.dp)
+                modifier = inputModifier,
             )
-        }
-        if (isEmojiPickerVisible) {
-            CommunityEmojiPanel(
-                onEmojiClick = { emoji ->
-                    onDraftChange(draft.insertAtSelection(emoji))
-                },
-                gridMaxHeight = emojiGridMaxHeight,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 84.dp, start = 24.dp)
-                    .fillMaxWidth(0.62f)
-                    .trackCommunityEmojiPanelBounds(emojiDismissState)
-            )
-        }
-    }
+        },
+        emojiPanel = if (isEmojiPickerVisible) {
+            {
+                CommunityEmojiPanel(
+                    onEmojiClick = { emoji ->
+                        onDraftChange(draft.insertAtSelection(emoji))
+                    },
+                    gridMaxHeight = emojiGridMaxHeight,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 84.dp, start = 24.dp)
+                        .fillMaxWidth(0.62f)
+                        .trackCommunityEmojiPanelBounds(emojiDismissState),
+                )
+            }
+        } else null,
+    )
 }
 
 @Composable
