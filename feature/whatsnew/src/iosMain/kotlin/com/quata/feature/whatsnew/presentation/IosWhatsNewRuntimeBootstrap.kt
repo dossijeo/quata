@@ -44,9 +44,15 @@ class IosWhatsNewRuntimeBootstrap internal constructor(
  * Builds the actual offline iOS runtime from public bundle version metadata and UserDefaults.
  * Missing/unexpanded bundle versions fail closed instead of inventing an installed release.
  */
-fun createDefaultIosWhatsNewRuntimeBootstrap(
-    bundle: NSBundle = NSBundle.mainBundle,
-    defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
+fun createDefaultIosWhatsNewRuntimeBootstrap(): IosWhatsNewRuntimeBootstrap? = createIosWhatsNewRuntimeBootstrap(
+    bundle = NSBundle.mainBundle,
+    defaults = NSUserDefaults.standardUserDefaults,
+)
+
+/** Injectable variant used by host tests and non-standard bundle/suite composition. */
+fun createIosWhatsNewRuntimeBootstrap(
+    bundle: NSBundle,
+    defaults: NSUserDefaults,
 ): IosWhatsNewRuntimeBootstrap? {
     val versionCode = bundle.configuredString("CFBundleVersion")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
     val versionName = bundle.configuredString("CFBundleShortVersionString") ?: return null
