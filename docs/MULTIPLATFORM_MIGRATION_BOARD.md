@@ -205,6 +205,16 @@ quedan filas ni objetos con ese prefijo.
 | SB-07 | Dos usuarios aislados, comunidad/post preaprovisionados y purga externa autorizada | Ejecutar `scripts/run-supabase-e2e-sb07.ps1 -AllowExistingTestData -AllowCommunityMutation`: validar post/membresía, crear/listar/borrar comentario y reacción emoji, y comprobar que el segundo JWT no borra el comentario del actor | **Bloqueado por seguridad (2026-07-26):** el outsider borró el comentario del actor; el runner produjo `rls_violation`. El fixture aislado se purgó y verificó sin perfiles/wall/post residuales. No se cambia RLS mientras la web publicada dependa de las políticas actuales; requiere corrección coordinada antes de reintentar. | Evidencia de fallo seguro y purga. No se declara ranking remoto: no existe una ruta persistente consumida por `SupabaseCommunityApi`. |
 | SB-08 | Credenciales push y cliente/dispositivo real | Registrar y revocar suscripción; entregar notificación y comprobar deep link de Chat normalizado | Bloqueado externo | Identificador de suscripción revocado y evidencia de entrega, sin tokens en el repo |
 
+### Reconciliación de evidencia E2E (2026-07-26)
+
+Las entradas históricas SB-01 a SB-06 de la tabla anterior quedan sustituidas
+por esta evidencia ejecutada y con purga comprobada: SB-01 catálogo TLS y CI
+manual #30194306847; SB-02 sesión Web; SB-03 Feed/Official y deep links;
+SB-04 Chat de dos usuarios; SB-05 adjuntos/Storage; SB-06 Profile/SOS. Cada
+lote usó identidades/filas efímeras, revocó sesiones y confirmó la eliminación
+de sus propios datos. SB-07 no está verde: RLS-001 está en
+`docs/RLS_FINDINGS.md`.
+
 La asignación respeta dependencias: SB-01 abre SB-02; SB-02 abre SB-03 y
 SB-04; SB-04 abre SB-05. SB-06 y SB-07 pueden ejecutarse en paralelo una vez
 confirmado el catálogo. Ningún resultado de compilación sustituye estas pruebas
