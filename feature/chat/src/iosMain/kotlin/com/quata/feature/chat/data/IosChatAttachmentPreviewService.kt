@@ -26,8 +26,8 @@ class IosChatAttachmentPreviewService(
 ) {
     /** Shared admission check used by the UIKit callback before starting a network operation. */
     fun supportsQuickLook(attachment: PlatformFile): Boolean =
-        DocumentPreviewAdmissions.admit(attachment, DocumentPreviewAdmissions.QuickLook)
-            is DocumentPreviewAdmission.Open
+        (DocumentPreviewAdmissions.admit(attachment, DocumentPreviewAdmissions.QuickLook)
+            is DocumentPreviewAdmission.Open)
 
     suspend fun openRemoteAttachment(attachment: PlatformFile): PlatformResult<Unit> {
         val downloaded = downloader.download(
