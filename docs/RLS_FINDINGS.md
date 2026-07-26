@@ -78,6 +78,10 @@ La evidencia y riesgos están en
   comprobó su ausencia.
 - **Impacto:** no se puede confiar en que el trigger vincule el actor Web al
   `profile_id` enviado. Exponer like/unlike permitiría suplantación de identidad.
+- **Candidata no desplegada:** `20260726171002_official_post_likes_actor_guard.sql`
+  convierte RLS en la frontera principal, conserva SELECT anónimo y deja el
+  trigger como defensa `SECURITY INVOKER`. Requiere SB-09 verde en staging y
+  smoke Android antes de cambiar este estado.
 
 ### Límite y seguimiento
 

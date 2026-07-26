@@ -73,20 +73,29 @@ async function rows(configuration, session, query, prefix) {
   if (!result.ok || !Array.isArray(result.body)) throw new Error(`${prefix}:http_${result.status}`);
   return result.body;
 }
+async function anonymousRows(configuration, query, prefix) {
+  const result = await request(
+    restUrl(configuration, "official_post_likes", query),
+    { headers: headers(configuration) },
+    prefix,
+  );
+  if (!result.ok || !Array.isArray(result.body)) throw new Error(`${prefix}:http_${result.status}`);
+  return result.body;
+}
 async function assertAbsent(configuration, session, postId, profileId, prefix) {
   const remaining = await rows(configuration, session, { select: "id", official_post_id: `eq.${postId}`, profile_id: `eq.${profileId}`, limit: "1" }, prefix);
   if (remaining.length) throw new Error(`${prefix}:row_remains`);
 }
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "unknown";
-  const known = ["invalid_arguments", "missing_environment", "invalid_public_supabase_url", "invalid_or_privileged_supabase_key", "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "invalid_official_post_identifier", "isolated_e2e_accounts_must_differ", "public_auth_request_failed", "invalid_auth_response", "official_like_insert_failed", "official_like_spoof_not_denied", "official_like_spoof_persisted", "official_like_cross_delete_not_denied", "official_like_cross_delete_changed_row", "official_like_delete_failed", "official_like_cleanup"];
+  const known = ["invalid_arguments", "missing_environment", "invalid_public_supabase_url", "invalid_or_privileged_supabase_key", "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "invalid_official_post_identifier", "isolated_e2e_accounts_must_differ", "public_auth_request_failed", "invalid_auth_response", "official_like_insert_failed", "official_like_spoof_not_denied", "official_like_spoof_persisted", "official_like_cross_delete_not_denied", "official_like_cross_delete_changed_row", "official_like_anonymous_read_changed", "official_like_delete_failed", "official_like_cleanup"];
   return { status: "failed", error: known.find((prefix) => message.startsWith(prefix)) ?? "unexpected_official_like_runner_failure" };
 }
 async function report(output, payload) { const target = resolve(output); await mkdir(dirname(target), { recursive: true }); await writeFile(target, `${JSON.stringify(payload, null, 2)}\n`, { encoding: "utf8", mode: 0o600 }); console.log(`SB-09 report written: ${target}`); }
 
 async function main() {
   const { output } = args(process.argv.slice(2)); const startedAt = new Date().toISOString(); const steps = [];
-  let configuration; let a; let b; let likeId = null; let spoofLikeId = null; let cleanup = { state: "not_started" };
+  let configuration; let a; let b; let likeIdA = null; let likeIdB = null; let spoofLikeId = null; let cleanup = { state: "not_started" };
   try {
     configuration = config();
     a = await login(configuration, configuration.users[0]); b = await login(configuration, configuration.users[1]);
@@ -96,30 +105,54 @@ async function main() {
     await assertAbsent(configuration, b, configuration.postId, b.profileId, "official_like_spoof_cleanup");
     const created = await request(restUrl(configuration, "official_post_likes"), { method: "POST", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" }, body: JSON.stringify({ official_post_id: configuration.postId, profile_id: a.profileId }) }, "official_like_insert_failed");
     if (!created.ok || !Array.isArray(created.body) || created.body.length !== 1 || !uuid.test(created.body[0]?.id ?? "")) throw new Error(`official_like_insert_failed:http_${created.status}`);
-    likeId = created.body[0].id; steps.push("a_created_own_like");
+    likeIdA = created.body[0].id; steps.push("a_created_own_like");
     const spoof = await request(restUrl(configuration, "official_post_likes"), { method: "POST", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" }, body: JSON.stringify({ official_post_id: configuration.postId, profile_id: b.profileId }) }, "official_like_spoof_not_denied");
     spoofLikeId = Array.isArray(spoof.body) && uuid.test(spoof.body[0]?.id ?? "") ? spoof.body[0].id : null;
     if (!is42501(spoof)) throw new Error(`official_like_spoof_not_denied:http_${spoof.status}`);
     await assertAbsent(configuration, a, configuration.postId, b.profileId, "official_like_spoof_persisted"); steps.push("a_spoofed_b_profile_rejected_42501");
-    const crossDelete = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_cross_delete_not_denied");
+    const createdByB = await request(restUrl(configuration, "official_post_likes"), { method: "POST", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" }, body: JSON.stringify({ official_post_id: configuration.postId, profile_id: b.profileId }) }, "official_like_insert_failed");
+    if (!createdByB.ok || !Array.isArray(createdByB.body) || createdByB.body.length !== 1 || !uuid.test(createdByB.body[0]?.id ?? "")) throw new Error(`official_like_insert_failed:http_${createdByB.status}`);
+    likeIdB = createdByB.body[0].id; steps.push("b_created_own_like");
+    const publicLikes = await anonymousRows(configuration, {
+      select: "id",
+      id: `in.(${likeIdA},${likeIdB})`,
+      limit: "2",
+    }, "official_like_anonymous_read_changed");
+    if (new Set(publicLikes.map((row) => row?.id)).size !== 2) throw new Error("official_like_anonymous_read_changed:created_likes_not_public");
+    steps.push("anonymous_select_preserved_for_created_likes");
+    const crossDelete = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeIdB}`, profile_id: `eq.${b.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_cross_delete_not_denied");
     if (!is42501(crossDelete)) throw new Error(`official_like_cross_delete_not_denied:http_${crossDelete.status}`);
-    const stillThere = await rows(configuration, a, { select: "id", id: `eq.${likeId}`, limit: "1" }, "official_like_cross_delete_changed_row");
-    if (stillThere.length !== 1 || stillThere[0]?.id !== likeId) throw new Error("official_like_cross_delete_changed_row"); steps.push("b_cross_delete_rejected_42501");
-    const deleted = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_delete_failed");
+    const stillThere = await rows(configuration, b, { select: "id", id: `eq.${likeIdB}`, limit: "1" }, "official_like_cross_delete_changed_row");
+    if (stillThere.length !== 1 || stillThere[0]?.id !== likeIdB) throw new Error("official_like_cross_delete_changed_row"); steps.push("a_cross_delete_of_b_rejected_42501");
+    const deleted = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeIdA}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_delete_failed");
     if (!deleted.ok) throw new Error(`official_like_delete_failed:http_${deleted.status}`);
-    await assertAbsent(configuration, a, configuration.postId, a.profileId, "official_like_cleanup"); likeId = null; steps.push("a_deleted_own_like_and_absence_verified");
+    await assertAbsent(configuration, a, configuration.postId, a.profileId, "official_like_cleanup"); likeIdA = null; steps.push("a_deleted_own_like_and_absence_verified");
+    const deletedByB = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeIdB}`, profile_id: `eq.${b.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_delete_failed");
+    if (!deletedByB.ok) throw new Error(`official_like_delete_failed:http_${deletedByB.status}`);
+    await assertAbsent(configuration, b, configuration.postId, b.profileId, "official_like_cleanup"); likeIdB = null; steps.push("b_deleted_own_like_and_absence_verified");
+    const publicAfterCleanup = await anonymousRows(configuration, {
+      select: "id",
+      official_post_id: `eq.${configuration.postId}`,
+      profile_id: `in.(${a.profileId},${b.profileId})`,
+      limit: "1",
+    }, "official_like_anonymous_read_changed");
+    if (publicAfterCleanup.length) throw new Error("official_like_anonymous_read_changed:cleanup_not_publicly_visible");
+    steps.push("anonymous_select_preserved_after_cleanup");
     await revoke(configuration, a); a = null; await revoke(configuration, b); b = null; cleanup = { state: "like_absence_verified_sessions_revoked_external_fixture_purge_required" }; steps.push("both_sessions_revoked");
     await report(output, { check: "SB-09", status: "passed_with_external_fixture_purge_pending", startedAt, finishedAt: new Date().toISOString(), mode: "two_isolated_users_public_key_official_like", steps, cleanup, mutationPolicy: "Public key plus isolated-user JWTs only. No service-role, database URL, SQL, DDL, RPC or schema changes. The separate fixture owner hard-purges all three isolated accounts and verifies Auth/profile absence." });
   } catch (error) {
     const rollbackStates = [];
-    if (configuration && a && likeId) {
-      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_cleanup"); rollbackStates.push(rollback.ok ? "actor_like_deleted" : "actor_like_rollback_pending"); } catch { rollbackStates.push("actor_like_rollback_pending"); }
+    if (configuration && a && likeIdA) {
+      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeIdA}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_cleanup"); rollbackStates.push(rollback.ok ? "actor_a_like_deleted" : "actor_a_like_rollback_pending"); } catch { rollbackStates.push("actor_a_like_rollback_pending"); }
+    }
+    if (configuration && b && likeIdB) {
+      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeIdB}`, profile_id: `eq.${b.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_cleanup"); rollbackStates.push(rollback.ok ? "actor_b_like_deleted" : "actor_b_like_rollback_pending"); } catch { rollbackStates.push("actor_b_like_rollback_pending"); }
     }
     if (configuration && b && spoofLikeId) {
       try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${spoofLikeId}`, profile_id: `eq.${b.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_spoof_cleanup"); rollbackStates.push(rollback.ok ? "spoofed_like_deleted_by_impersonated_profile" : "spoofed_like_rollback_pending"); } catch { rollbackStates.push("spoofed_like_rollback_pending"); }
     }
     if (rollbackStates.length) {
-      cleanup = rollbackStates.every((state) => state.endsWith("_deleted") || state === "actor_like_deleted")
+      cleanup = rollbackStates.every((state) => state.includes("_deleted"))
         ? { state: "created_likes_deleted_after_failure_external_fixture_purge_required", rollback: rollbackStates }
         : { state: "rollback_pending", rollback: rollbackStates, action: "remove all listed isolated likes before fixture purge" };
     }
