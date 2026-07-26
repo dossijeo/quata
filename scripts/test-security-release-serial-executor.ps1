@@ -23,10 +23,16 @@ function Exec([string[]]$a, [hashtable]$env = @{}) {
 }
 function Fixture {
     Sql @"
-create schema auth;
-create schema supabase_migrations;
-create role anon nologin;
-create role authenticated nologin;
+create schema if not exists auth;
+create schema if not exists supabase_migrations;
+do `$roles`$ begin
+  create role anon nologin;
+exception when duplicate_object then null;
+end `$roles`$;
+do `$roles`$ begin
+  create role authenticated nologin;
+exception when duplicate_object then null;
+end `$roles`$;
 create table supabase_migrations.schema_migrations(version text primary key, statements text[], name text);
 create function auth.uid() returns uuid language sql stable as 'select null::uuid';
 create table public.community_comments(id uuid primary key, profile_id uuid not null, post_id uuid not null, body text);
@@ -89,6 +95,25 @@ create policy "public update comments" on public.community_comments for update t
     $script:guardDefinition = $script:guardDefinition -replace '^create function', 'create or replace function'
     Sql $script:guardDefinition
 }
+function Reset-Fixture {
+    # A rollback deliberately preserves its migration-ledger evidence.  The
+    # positive 002 path must therefore use a genuinely fresh installation,
+    # rather than silently reusing a forward ledger whose catalog was rolled
+    # back in the negative test.
+    Sql @"
+set client_min_messages = warning;
+drop table if exists public.community_comments cascade;
+drop table if exists public.official_post_likes cascade;
+drop function if exists public.quata_chat_auth_profile_id() cascade;
+drop function if exists public.quata_current_profile_is_admin() cascade;
+drop function if exists public.quata_current_profile_id() cascade;
+drop function if exists public.quata_current_role_is_service() cascade;
+drop function if exists public.quata_guard_official_post_likes() cascade;
+drop schema if exists auth cascade;
+drop schema if exists supabase_migrations cascade;
+"@
+    Fixture
+}
 try {
     New-Item -ItemType Directory -Path $temp | Out-Null
     npm --prefix $temp install --ignore-scripts --no-save --package-lock=false --fund=false --audit=false pg@8.16.3
@@ -137,7 +162,34 @@ try {
     $dry2=Exec @("--action", "dry-run"); $dry2Report=($dry2.output[-1]|ConvertFrom-Json); $fp2=($dry2Report.migrations|Where-Object version -eq "20260726171002").preconditionSha256; $gate=Join-Path $temp "gates.json"; $shaA=('a'*64); $project=$dry2Report.databaseProjectFingerprint; @{schemaVersion=1;releaseCommit=('b'*40);snapshotFingerprint=('c'*64);databaseProjectFingerprint=$project;generatedAt=(Get-Date).ToUniversalTime().ToString('o');expiresAt=(Get-Date).AddHours(1).ToUniversalTime().ToString('o');migration="20260726171005";status="passed";preconditionSha256=$forwardFp;postflight=@{status="passed";sha256=$shaA};reports=@{dbReleaseSafety=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$project};backendCompatibility=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$project};sb07=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$project}}}|ConvertTo-Json -Depth 4|Set-Content $gate
     $gateHash=(Get-FileHash -LiteralPath $gate -Algorithm SHA256).Hash.ToLowerInvariant()
     $wrongTarget=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$gate,"--expected-gate-evidence-sha256",$gateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",('e'*64)); Assert-True ($wrongTarget.code -ne 0 -and ($wrongTarget.output -join "`n") -match "gate_evidence_invalid") "wrong target fingerprint was accepted"
-    $two=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$gate,"--expected-gate-evidence-sha256",$gateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$project); Assert-True ($two.code -eq 0) "002 failed: $($two.output -join "`n")"
+    # A syntactically valid 171005 gate is not enough: after its rollback the
+    # ledger remains but the effective 001 hardening is gone.  002 must fail
+    # with the stable state code and must not leave a ledger row behind.
+    $forwardRollbackDry=Exec @("--action","dry-run"); $forwardRollbackFp=((($forwardRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
+    $forwardRollback=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$forwardRollbackFp)
+    if($forwardRollback.code -ne 0){ throw "forward rollback failed: $($forwardRollback.output -join "`n")" }
+    $notHardened=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$gate,"--expected-gate-evidence-sha256",$gateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$project)
+    Assert-True ($notHardened.code -ne 0 -and ($notHardened.output -join "`n") -match "serial_release_002_forward_state_not_hardened") "002 accepted a rolled-back forward state"
+    $no002=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171002';").Trim(); Assert-True ($no002 -eq "0") "failed 002 wrote a ledger row"
+    $oldGate=Join-Path $temp "old-001-gate.json"; $oldGateValue=Get-Content -LiteralPath $gate -Raw|ConvertFrom-Json; $oldGateValue.migration="20260726171001"; $oldGateValue|ConvertTo-Json -Depth 4|Set-Content $oldGate
+    $oldGateHash=(Get-FileHash -LiteralPath $oldGate -Algorithm SHA256).Hash.ToLowerInvariant()
+    $oldGateRejected=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$oldGate,"--expected-gate-evidence-sha256",$oldGateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$project)
+    Assert-True ($oldGateRejected.code -ne 0 -and ($oldGateRejected.output -join "`n") -match "gate_evidence_invalid") "obsolete 171001 gate was accepted for 002"
+    $no002AfterOldGate=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171002';").Trim(); Assert-True ($no002AfterOldGate -eq "0") "obsolete gate attempt wrote a ledger row"
+
+    # Prove the counterpart: a clean catalog that travels 001 -> rollback ->
+    # 171005 forward does pass the same 002 gate.
+    Reset-Fixture
+    $freshDry=Exec @("--action","dry-run"); $fresh001Fp=((($freshDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
+    $fresh001=Exec @("--action","apply-001","--expected-precondition-sha256",$fresh001Fp); Assert-True ($fresh001.code -eq 0) "fresh 001 failed"
+    $freshRollbackDry=Exec @("--action","dry-run"); $freshRollbackFp=((($freshRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
+    $freshRollback=Exec @("--action","rollback-001","--expected-precondition-sha256",$freshRollbackFp); Assert-True ($freshRollback.code -eq 0) "fresh rollback 001 failed"
+    $freshForwardDry=Exec @("--action","dry-run"); $freshForwardFp=((($freshForwardDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
+    $freshForward=Exec @("--action","apply-001-forward","--expected-precondition-sha256",$freshForwardFp); Assert-True ($freshForward.code -eq 0) "fresh forward 001 failed"
+    $fresh2Dry=Exec @("--action", "dry-run"); $fresh2Report=($fresh2Dry.output[-1]|ConvertFrom-Json); $fresh2Fp=($fresh2Report.migrations|Where-Object version -eq "20260726171002").preconditionSha256; $freshProject=$fresh2Report.databaseProjectFingerprint
+    $freshGate=Join-Path $temp "fresh-gates.json"; @{schemaVersion=1;releaseCommit=('b'*40);snapshotFingerprint=('c'*64);databaseProjectFingerprint=$freshProject;generatedAt=(Get-Date).ToUniversalTime().ToString('o');expiresAt=(Get-Date).AddHours(1).ToUniversalTime().ToString('o');migration="20260726171005";status="passed";preconditionSha256=$freshForwardFp;postflight=@{status="passed";sha256=$shaA};reports=@{dbReleaseSafety=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$freshProject};backendCompatibility=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$freshProject};sb07=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$freshProject}}}|ConvertTo-Json -Depth 4|Set-Content $freshGate
+    $freshGateHash=(Get-FileHash -LiteralPath $freshGate -Algorithm SHA256).Hash.ToLowerInvariant()
+    $two=Exec @("--action","apply-002","--expected-precondition-sha256",$fresh2Fp,"--gate-evidence",$freshGate,"--expected-gate-evidence-sha256",$freshGateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$freshProject); Assert-True ($two.code -eq 0) "fresh hardened 002 failed: $($two.output -join "`n")"
     $twoReport=$two.output[-1]|ConvertFrom-Json; Assert-True ($twoReport.migrations[0].functionLockMode -eq "function_cost_roundtrip") "managed-role function lock fallback was not reported"
     $ledger = (& docker exec $container psql -U postgres -A -t -c "select string_agg(version||'|'||name||'|'||cardinality(statements),',' order by version) from supabase_migrations.schema_migrations;").Trim(); Assert-True ($ledger -eq "20260726171001|community_comments_delete_rls|1,20260726171002|official_post_likes_actor_guard|1,20260726171005|community_comments_reapply_rls|1") "ledger mismatch: $ledger"
     $guardHash = (& docker exec $container psql -U postgres -A -t -c "select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure));").Trim()
@@ -155,12 +207,11 @@ try {
     $rollback2State=(& docker exec $container psql -U postgres -A -t -c "select (select relrowsecurity from pg_class where oid='public.official_post_likes'::regclass), to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null;").Trim(); Assert-True ($rollback2State -eq "f|t") "rollback-002 did not restore the production-like fixture: $rollback2State"
     $rollback2AgainDry=Exec @("--action","dry-run"); $rollback2AgainFp=((($rollback2AgainDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
     $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "function_lock_missing") "rollback-002 drift/idempotency was accepted"
-    $forwardRollbackDry=Exec @("--action","dry-run"); $forwardRollbackFp=((($forwardRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
-    $forwardRollback=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$forwardRollbackFp)
-    if($forwardRollback.code -ne 0){ throw "forward rollback failed: $($forwardRollback.output -join "`n")" }
+    $freshForwardRollbackDry=Exec @("--action","dry-run"); $freshForwardRollbackFp=((($freshForwardRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
+    $freshForwardRollback=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$freshForwardRollbackFp); Assert-True ($freshForwardRollback.code -eq 0) "fresh forward rollback failed"
     $forwardLedger=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171005';").Trim(); Assert-True ($forwardLedger -eq "1") "forward rollback repaired ledger"
-    $forwardAgain=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$forwardRollbackFp); Assert-True ($forwardAgain.code -ne 0) "second forward rollback was accepted"
-    $forwardReapply=Exec @("--action","apply-001-forward","--expected-precondition-sha256",$forwardRollbackFp); Assert-True ($forwardReapply.code -ne 0 -and ($forwardReapply.output -join "`n") -match "duplicate_ledger") "forward was reapplied without a new version"
+    $forwardAgain=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$freshForwardRollbackFp); Assert-True ($forwardAgain.code -ne 0) "second forward rollback was accepted"
+    $forwardReapply=Exec @("--action","apply-001-forward","--expected-precondition-sha256",$freshForwardRollbackFp); Assert-True ($forwardReapply.code -ne 0 -and ($forwardReapply.output -join "`n") -match "duplicate_ledger") "forward was reapplied without a new version"
     $finalCosts = (& docker exec $container psql -U postgres -A -t -c "select string_agg(procost::text,',' order by proname) from pg_proc where proname in ('quata_chat_auth_profile_id','quata_current_profile_id','quata_current_profile_is_admin','quata_current_role_is_service','quata_guard_official_post_likes');").Trim(); Assert-True ($finalCosts -eq "100,100,100,100,100") "successful executor changed final function COST: $finalCosts"
     Write-Output "Serial executor PostgreSQL 17 test passed: hash rejection, rollback atomicity, table/function races, exact ledger, ordering and idempotency."
 } finally { Remove-Item Env:QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK -ErrorAction SilentlyContinue; $env:NODE_PATH=$oldNodePath; docker rm -f $container *> $null; if(Test-Path $temp){Remove-Item $temp -Recurse -Force}; Get-ChildItem -LiteralPath (Join-Path $root "build-reports/security-release") -Filter "serial-executor-disposable-*.json" -ErrorAction SilentlyContinue | Remove-Item -Force }
