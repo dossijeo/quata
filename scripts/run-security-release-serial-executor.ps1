@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("dry-run", "apply-001", "apply-002")]
+    [ValidateSet("dry-run", "apply-001", "apply-002", "rollback-001", "rollback-002")]
     [string]$Action = "dry-run",
     [string]$DbUrlFile,
     [string]$TlsCaFile,

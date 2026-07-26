@@ -16,21 +16,21 @@ const thisFile = fileURLToPath(import.meta.url);
 const root = resolve(dirname(thisFile), "..");
 const allowlistPath = resolve(root, "scripts/security-release-serial-allowlist.json");
 const releaseLock = "quata/security-release/001-002/v1";
-const targetForAction = { "apply-001": "20260726171001", "apply-002": "20260726171002" };
+const targetForAction = { "apply-001": "20260726171001", "apply-002": "20260726171002", "rollback-001": "20260726171001", "rollback-002": "20260726171002" };
 
 function usage(message) {
   if (message) console.error(message);
-  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE --expected-gate-evidence-sha256 SHA256 --expected-release-commit SHA --expected-snapshot-fingerprint SHA] [--out FILE]");
+  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002|rollback-001|rollback-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE ...] [--out FILE]");
   process.exitCode = 2;
 }
 
 export function sha256(value) { return createHash("sha256").update(value).digest("hex"); }
 
-export function validateAllowlist(allowlist, version, source) {
+export function validateAllowlist(allowlist, version, source, rollback = false) {
   const entry = allowlist.migrations?.[version];
   if (!entry) throw new Error(`serial_release_allowlist_missing:${version}`);
-  const actual = sha256(source);
-  if (actual !== entry.sha256) throw new Error(`serial_release_migration_hash_mismatch:${version}`);
+  const actual = sha256(source); const expected = rollback ? entry.rollbackSha256 : entry.sha256;
+  if (actual !== expected) throw new Error(`serial_release_${rollback ? "rollback" : "migration"}_hash_mismatch:${version}`);
   return entry;
 }
 
@@ -41,7 +41,7 @@ function parseArgs(argv) {
     if (!key.startsWith("--") || i + 1 >= argv.length) throw new Error("invalid_arguments");
     args[key.slice(2)] = argv[++i];
   }
-  if (!args.action || !["dry-run", "apply-001", "apply-002"].includes(args.action)) throw new Error("invalid_action");
+  if (!args.action || !["dry-run", "apply-001", "apply-002", "rollback-001", "rollback-002"].includes(args.action)) throw new Error("invalid_action");
   return args;
 }
 
@@ -109,6 +109,17 @@ async function ledgerRows(client) {
   return (await client.query("select version::text, name, statements from supabase_migrations.schema_migrations where version = any($1::text[]) order by version", [["20260726171001", "20260726171002"]])).rows;
 }
 
+async function lockReleaseObjects(client, version) {
+  const table = version === "20260726171001" ? "community_comments" : "official_post_likes";
+  await client.query("lock table supabase_migrations.schema_migrations in share row exclusive mode");
+  await client.query(`lock table public.${table} in share row exclusive mode`);
+}
+
+function exactLedgerRow(row, source, entry) {
+  return !!row && row.name === entry.name && Array.isArray(row.statements)
+    && row.statements.length === 1 && row.statements[0] === source;
+}
+
 function isSha256(value) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
 
 async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot) {
@@ -124,7 +135,9 @@ async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnap
   if (value?.schemaVersion !== 1 || value?.migration !== "20260726171001" || value?.status !== "passed"
       || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
       || !isSha256(value?.preconditionSha256)
-      || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256))) {
+      || !isSha256(value?.databaseProjectFingerprint) || !isSha256(value?.postflight?.sha256)
+      || !Number.isFinite(Date.parse(value?.generatedAt ?? "")) || !Number.isFinite(Date.parse(value?.expiresAt ?? "")) || Date.parse(value.expiresAt) <= Date.now()
+      || value?.postflight?.status !== "passed" || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256) || reports[name]?.databaseProjectFingerprint !== value.databaseProjectFingerprint)) {
     throw new Error("serial_release_gate_evidence_invalid");
   }
   return value;
@@ -143,14 +156,20 @@ async function writeReport(file, report) {
 export async function run(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const allowlist = JSON.parse(await readFile(allowlistPath, "utf8"));
+  const rollback = args.action.startsWith("rollback-");
   const versions = args.action === "dry-run" ? ["20260726171001", "20260726171002"] : [targetForAction[args.action]];
   const sources = {};
   for (const version of versions) {
     const entry = allowlist.migrations[version];
-    const source = await readFile(resolve(root, "supabase/migrations", entry.file), "utf8");
-    validateAllowlist(allowlist, version, source);
-    sources[version] = { entry, source, body: unwrapOuterTransaction(source, version) };
+    const source = await readFile(resolve(root, rollback ? "supabase/rollbacks" : "supabase/migrations", rollback ? entry.rollbackFile : entry.file), "utf8");
+    validateAllowlist(allowlist, version, source, rollback);
+    const migrationSource = await readFile(resolve(root, "supabase/migrations", entry.file), "utf8");
+    validateAllowlist(allowlist, version, migrationSource);
+    sources[version] = { entry, source, migrationSource, body: unwrapOuterTransaction(source, version) };
   }
+  const approved001 = allowlist.migrations["20260726171001"];
+  const approved001Source = await readFile(resolve(root, "supabase/migrations", approved001.file), "utf8");
+  validateAllowlist(allowlist, "20260726171001", approved001Source);
   if (args.action === "apply-002") {
     await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"]);
   }
@@ -171,25 +190,34 @@ export async function run(argv = process.argv.slice(2)) {
     if (args.action === "dry-run") { report.status = "passed"; return report; }
 
     const version = versions[0];
-    if (present.has(version)) throw new Error(`serial_release_duplicate_ledger_version:${version}`);
-    if (version === "20260726171001" && present.has("20260726171002")) throw new Error("serial_release_order_violation_002_exists_before_001");
-    if (version === "20260726171002" && !present.has("20260726171001")) throw new Error("serial_release_order_violation_001_missing");
+    if (!rollback && present.has(version)) throw new Error(`serial_release_duplicate_ledger_version:${version}`);
+    if (!rollback && version === "20260726171001" && present.has("20260726171002")) throw new Error("serial_release_order_violation_002_exists_before_001");
+    if (!rollback && version === "20260726171002" && !exactLedgerRow(present.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_order_or_001_ledger_drift");
+    if (rollback && !exactLedgerRow(present.get(version), sources[version].migrationSource, sources[version].entry)) throw new Error(`serial_release_rollback_ledger_drift_or_missing:${version}`);
     const expected = args["expected-precondition-sha256"];
     if (report.migrations[0].preconditionSha256 !== expected) throw new Error("serial_release_precondition_fingerprint_mismatch");
     const hold = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_LOCK_MS ?? 0);
     if (Number.isSafeInteger(hold) && hold > 0) await new Promise((resolveHold) => setTimeout(resolveHold, hold));
     await client.query("begin isolation level serializable");
     try {
+      await lockReleaseObjects(client, version);
+      // Re-read after table+ledger locks: the externally observed dry-run
+      // fingerprint is not trusted until this point immediately before DDL.
+      const lockedRows = await ledgerRows(client); const locked = new Map(lockedRows.map((row) => [row.version, row]));
+      const lockedFingerprint = await catalogFingerprint(client, version);
+      if (lockedFingerprint.sha256 !== expected) throw new Error("serial_release_precondition_fingerprint_changed_after_lock");
+      if ((!rollback && locked.has(version)) || (rollback && !exactLedgerRow(locked.get(version), sources[version].migrationSource, sources[version].entry))) throw new Error("serial_release_ledger_changed_after_lock");
+      if (!rollback && version === "20260726171002" && !exactLedgerRow(locked.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_001_ledger_changed_after_lock");
       await client.query(sources[version].body);
       if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FAIL_BEFORE_LEDGER === "1") throw new Error("serial_release_test_fail_before_ledger");
-      await client.query("insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)", [version, [sources[version].source], sources[version].entry.name]);
+      if (!rollback) await client.query("insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)", [version, [sources[version].source], sources[version].entry.name]);
       await client.query("commit");
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
     }
     report.status = "passed";
-    report.migrations[0].ledger = "inserted";
+    report.migrations[0].ledger = rollback ? "preserved" : "inserted";
     return report;
   } finally {
     await client.end().catch(() => {});

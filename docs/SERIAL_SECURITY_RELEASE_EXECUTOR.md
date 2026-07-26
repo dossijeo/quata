@@ -74,3 +74,11 @@ La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 
 Comprueba hash drift, rollback atómico de DDL+ledger, exclusión por lock,
 orden/evidencia de 002, ledger exacto e idempotencia por rechazo.
+
+## Rollback
+
+`rollback-001` y `rollback-002` sólo ejecutan el rollback versionado cuyo hash
+figura en la allowlist. Requieren el mismo fingerprint previo, lock advisory,
+locks de tabla/ledger y una fila ledger ya aplicada **byte-exacta**. Nunca
+borran, editan ni reparan dicha fila: una reaplicación necesita una nueva
+migración forward revisada. El rollback se rechaza ante drift.
