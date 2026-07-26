@@ -21,7 +21,7 @@ declare
     v_trigger_fingerprint text;
     v_table_acl_fingerprint text;
 begin
-    -- Fingerprints are calculated from the exact release DDL on PostgreSQL 16.
+    -- Fingerprints are calculated from the exact release DDL on PostgreSQL 17.
     -- This intentionally rejects a same-name policy/function edited by a later
     -- release instead of dropping it as though it were RLS-002's state.
     select md5(string_agg(
@@ -74,7 +74,7 @@ begin
     if v_trigger_fingerprint is distinct from 'abba4fbe811d7c60f8973aafeb46c845' then
         raise exception 'official_post_likes_rollback_refused:trigger_binding_mismatch';
     end if;
-    if v_table_acl_fingerprint is distinct from '4d61a6652a1c035a2537b519a957c376' then
+    if v_table_acl_fingerprint is distinct from 'c7df1252ee777b76dbef7e2f5ce23b2c' then
         raise exception 'official_post_likes_rollback_refused:table_acl_mismatch';
     end if;
 end;

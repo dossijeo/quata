@@ -76,6 +76,10 @@ Para ensayar de forma aislada PostgreSQL **y** PostgREST:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-official-likes-rls-migration.ps1
 ```
 
+El harness fija `postgres:17-alpine`; las huellas de catálogo del rollback se
+han calculado y validado contra PostgreSQL 17, versión requerida antes de un
+eventual GO de producción.
+
 El ensayo crea una fila previa y verifica esta secuencia completa:
 
 1. baseline histórico: PostgREST acepta la suplantación conocida;

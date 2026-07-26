@@ -56,7 +56,7 @@ try {
     & docker network create $network | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Could not create isolated Docker network." }
     & docker run --detach --name $postgres --network $network --network-alias postgres `
-        --env "POSTGRES_PASSWORD=$postgresPassword" --volume "${workspace}:/workspace:ro" postgres:16-alpine | Out-Null
+        --env "POSTGRES_PASSWORD=$postgresPassword" --volume "${workspace}:/workspace:ro" postgres:17-alpine | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Could not start isolated PostgreSQL." }
 
     foreach ($attempt in 1..30) {
