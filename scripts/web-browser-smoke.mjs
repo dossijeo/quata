@@ -62,7 +62,7 @@ const fixtureDirectory = options.docmentis
     : null;
 const staticServer = await startStaticServer(distribution, fixtureDirectory?.sameOriginFiles ?? new Map());
 const authenticatedStorage = fixtureDirectory
-    ? await startAuthenticatedFixtureStorage(fixtureDirectory.crossOriginFiles)
+    ? await startAuthenticatedFixtureStorage(fixtureDirectory.crossOriginFiles, staticServer.origin)
     : null;
 const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'));
 let chrome;
@@ -290,14 +290,17 @@ async function createDocmentisFixtures() {
     return { path, sameOriginFiles, crossOriginFiles };
 }
 
-async function startAuthenticatedFixtureStorage(files) {
+async function startAuthenticatedFixtureStorage(files, allowedOrigin) {
     const token = `quata-local-${Math.random().toString(36).slice(2)}`;
     let requests = 0;
     const server = createServer(async (request, response) => {
         const requestUrl = new URL(request.url ?? '/', 'http://localhost');
-        const expectedOrigin = request.headers.origin;
         const fixture = files.get(requestUrl.pathname);
-        if (!fixture || requestUrl.searchParams.get('temporary_doc_token') !== token) {
+        if (
+            !fixture ||
+            requestUrl.searchParams.get('temporary_doc_token') !== token ||
+            request.headers.origin !== allowedOrigin
+        ) {
             response.writeHead(403).end();
             return;
         }
@@ -306,7 +309,7 @@ async function startAuthenticatedFixtureStorage(files) {
         requests += 1;
         response.writeHead(200, {
             'Content-Type': contentType(fixture),
-            'Access-Control-Allow-Origin': expectedOrigin ?? 'null',
+            'Access-Control-Allow-Origin': allowedOrigin,
             'Vary': 'Origin',
             'Cross-Origin-Resource-Policy': 'cross-origin',
             'Cache-Control': 'no-store',
