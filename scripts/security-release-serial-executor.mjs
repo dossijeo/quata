@@ -109,7 +109,8 @@ async function catalogFingerprint(client, version) {
 }
 
 async function assertEffectiveReleaseState(client, version, rollback) {
-  const table = version === "20260726171001" ? "community_comments" : "official_post_likes";
+  const commentsRelease = version === "20260726171001" || version === "20260726171005";
+  const table = commentsRelease ? "community_comments" : "official_post_likes";
   const { rows } = await client.query(`
     select
       c.relrowsecurity as rls,
@@ -130,7 +131,7 @@ async function assertEffectiveReleaseState(client, version, rollback) {
   if (rows.length !== 1) throw new Error(`serial_release_postcondition_table_missing:${table}`);
   const state = rows[0];
   const policyNames = state.policies;
-  const expectedPolicies = version === "20260726171001"
+  const expectedPolicies = commentsRelease
     ? (rollback
       ? ["public delete comments", "public insert comments", "public read comments", "public update comments"]
       : ["authenticated delete own or admin comments", "authenticated insert own comments", "public read comments"])
@@ -138,7 +139,7 @@ async function assertEffectiveReleaseState(client, version, rollback) {
       ? []
       : ["official_post_likes_authenticated_delete_own_or_admin", "official_post_likes_authenticated_insert_own", "official_post_likes_public_read"]);
   if (JSON.stringify(policyNames) !== JSON.stringify(expectedPolicies)) throw new Error(`serial_release_postcondition_policy_mismatch:${version}`);
-  if (version === "20260726171001") {
+  if (commentsRelease) {
     const publicRead = state.policy_details.find((policy) => policy.name === "public read comments");
     if (!publicRead || publicRead.cmd !== "SELECT" || JSON.stringify(publicRead.roles) !== JSON.stringify(["public"])
         || publicRead.qual !== "true" || publicRead.check !== null) {

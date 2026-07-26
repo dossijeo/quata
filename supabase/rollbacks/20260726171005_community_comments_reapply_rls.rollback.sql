@@ -6,5 +6,6 @@ drop policy if exists "authenticated insert own comments" on public.community_co
 grant delete, insert, update, truncate, references, trigger on table public.community_comments to anon, authenticated;
 create policy "public delete comments" on public.community_comments for delete to public using (true);
 create policy "public insert comments" on public.community_comments for insert to public with check (true);
+create policy "public read comments" on public.community_comments for select to public using (true);
 create policy "public update comments" on public.community_comments for update to public using (true) with check (true);
 commit;
