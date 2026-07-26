@@ -5,6 +5,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promi
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
+import { recordLogicalCleanupFailure } from "./web-chat-browser-e2e-report.mjs";
 
 const required = [
   "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
@@ -278,7 +279,7 @@ try {
     try {
       report.cleanup = { state: "external_hard_purge_required", logicalActions: await logicalCleanup(config, state) };
     } catch {
-      report.cleanup = { state: "rollback_pending", required: "authorized hard purge of both isolated accounts and related Chat rows" };
+      recordLogicalCleanupFailure(report);
     }
   }
   for (const value of [pageA, pageB]) if (value?.context) await value.context.close().catch(() => {});

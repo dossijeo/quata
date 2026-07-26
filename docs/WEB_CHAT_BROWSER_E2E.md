@@ -39,6 +39,9 @@ entrega inmediata.
 El wrapper aborta antes de red o DML si falta cualquiera de los dos opt-in, los
 scopes aislados o el contrato `approved_isolated_account_purge`. El informe no
 contiene tokens, contraseñas, teléfonos, IDs ni textos marcadores.
+Si falla cualquier paso del cleanup lógico, el recorrido también termina con
+estado fallido y código de salida distinto de cero; la purga dura externa sigue
+siendo obligatoria.
 
 No se prueban adjuntos en este recorrido: SB-05 ya valida Storage y su cleanup.
 Agregar un archivo a la prueba de UI sólo será aceptable cuando la purga de
