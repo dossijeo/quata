@@ -84,6 +84,8 @@ private final class IosAppCompositionRoot {
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
+    private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
+        IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap()
     private let deepLinkDispatcher = IosDeepLinkDispatcher()
     private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
         IosPublicRuntimeConfiguration.feedConfiguration()
@@ -150,6 +152,7 @@ private final class IosAppCompositionRoot {
         self.window = window
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
+        installWhatsNewIfAvailable()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -349,6 +352,23 @@ private final class IosAppCompositionRoot {
         }
     }
 
+    /// What's New is a versioned local catalog. It does not require or manufacture backend state.
+    private func installWhatsNewIfAvailable() {
+        guard let whatsNewRuntimeBootstrap else { return }
+        authenticatedHost.installWhatsNewFactory { [weak self] in
+            IosWhatsNewRuntimeBootstrapKt.QuataIosManagedWhatsNewViewController(
+                runtime: whatsNewRuntimeBootstrap,
+                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+            )
+        }
+        authenticatedHost.installReleaseHistoryFactory { [weak self] in
+            IosWhatsNewRuntimeBootstrapKt.QuataIosReleaseHistoryViewController(
+                runtime: whatsNewRuntimeBootstrap,
+                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+            )
+        }
+    }
+
     private func presentProfileSosCapabilityNotice(_ message: String) {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
@@ -419,6 +439,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var communitiesFactory: (() -> UIViewController)?
     private var composerFactory: (() -> UIViewController)?
     private var settingsFactory: (() -> UIViewController)?
+    private var whatsNewFactory: (() -> UIViewController)?
+    private var releaseHistoryFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
     private lazy var routeMenuButton: UIButton = {
@@ -449,6 +471,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case communities
         case composer
         case settings
+        case whatsNew
+        case releaseHistory
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -648,6 +672,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installWhatsNewFactory(_ factory: @escaping () -> UIViewController) {
+        whatsNewFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    func installReleaseHistoryFactory(_ factory: @escaping () -> UIViewController) {
+        releaseHistoryFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -667,6 +701,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showComposer() { route(.composer) }
 
     func showSettings() { route(.settings) }
+
+    func showWhatsNew() { route(.whatsNew) }
+
+    func showReleaseHistory() { route(.releaseHistory) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
@@ -746,6 +784,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return composerFactory?()
         case .settings:
             return settingsFactory?()
+        case .whatsNew:
+            return whatsNewFactory?()
+        case .releaseHistory:
+            return releaseHistoryFactory?()
         }
     }
 
@@ -768,6 +810,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-composer-host", "Quata iOS Composer")
         case .settings:
             presentation = ("quata-ios-settings-host", "Quata iOS Settings")
+        case .whatsNew:
+            presentation = ("quata-ios-whats-new-host", "Quata iOS What's New")
+        case .releaseHistory:
+            presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }

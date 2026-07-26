@@ -56,6 +56,24 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(host.route?.name, "ReleaseHistory")
     }
 
+    func testPublicReleaseHistoryDeepLinkWaitsForLocalFactory() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+        let dispatcher = IosDeepLinkDispatcher()
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#release-history")
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let history = UIViewController()
+        router.installReleaseHistoryFactory { history }
+
+        XCTAssertTrue(router.children.contains { $0 === history })
+        XCTAssertEqual(history.view.accessibilityIdentifier, "quata-ios-release-history-host")
+    }
+
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
         // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
         // A unique namespace avoids observing or modifying the authenticated app session.
