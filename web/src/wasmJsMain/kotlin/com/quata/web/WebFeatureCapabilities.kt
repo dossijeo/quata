@@ -61,7 +61,7 @@ fun webFeatureCapabilityRegistry(configuration: WebRuntimeConfiguration): Featur
     )
 }
 
-private fun browserCapabilityLanguageTag(): String? = js(
+internal fun browserCapabilityLanguageTag(): String? = js(
     "globalThis.navigator?.language || globalThis.document?.documentElement?.lang || null",
 )
 

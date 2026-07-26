@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.CountryPrefix
+import com.quata.core.capability.ProfileSosCapabilityCopy
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PlatformContact
 import com.quata.core.platform.PlatformResult
@@ -253,7 +254,9 @@ private class WebOfflineProfileRepository(
                 imported.size
             }
             PlatformResult.Cancelled -> 0
-            PlatformResult.Unsupported -> throw UnsupportedOperationException("El selector de contactos no está disponible en este navegador.")
+            PlatformResult.Unsupported -> throw UnsupportedOperationException(
+                ProfileSosCapabilityCopy.contactsPickerUnavailable(browserCapabilityLanguageTag()),
+            )
             is PlatformResult.Failure -> throw IllegalStateException(result.reason ?: "contact_picker_failed")
         }
     }

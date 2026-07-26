@@ -252,17 +252,17 @@ private final class IosAppCompositionRoot {
                 // profile IDs only. Do not turn phone numbers into persistence identifiers.
                 onContactsPicked: { [weak self] _ in
                     self?.presentProfileSosCapabilityNotice(
-                        "Selected device contacts cannot yet be matched to Quata profiles on iOS."
+                        ProfileSosCapabilityCopy.shared.selectedDeviceContactsNotMatched(languageTag: Locale.current.identifier)
                     )
                 },
                 onContactPickerResult: { [weak self] _ in
                     self?.presentProfileSosCapabilityNotice(
-                        "The contacts picker was unavailable or cancelled."
+                        ProfileSosCapabilityCopy.shared.contactsPickerUnavailable(languageTag: Locale.current.identifier)
                     )
                 },
                 onContactsPermissionResult: { [weak self] _ in
                     self?.presentProfileSosCapabilityNotice(
-                        "Contacts permission was not granted."
+                        ProfileSosCapabilityCopy.shared.contactsPermissionNotGranted(languageTag: Locale.current.identifier)
                     )
                 },
                 onClose: { [weak self] in
