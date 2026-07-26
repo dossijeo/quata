@@ -41,7 +41,8 @@ segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
   -GateEvidence build-reports/security-release/001-external-gates.json `
   -ExpectedGateEvidenceSha256 '<SHA-256 aprobado del JSON>' `
   -ExpectedReleaseCommit '<commit de 40 hex>' `
-  -ExpectedSnapshotFingerprint '<SHA-256 del snapshot>'
+  -ExpectedSnapshotFingerprint '<SHA-256 del snapshot>' `
+  -ExpectedDatabaseProjectFingerprint '<SHA-256 del destino del preflight>'
 ```
 
 Propiedades comprobadas:
@@ -65,6 +66,10 @@ Propiedades comprobadas:
   humana de los tres informes ni una firma externa, pero evita que un fichero
   JSON trivial, no anclado a la ventana/commit/snapshot aprobados, desbloquee
   el segundo cambio.
+- El executor deriva `databaseProjectFingerprint` de host/puerto/base del URL
+  de destino y sólo conserva su SHA-256. Debe coincidir con el informe,
+  todos los reports post-001 y el anchor explícito; así una evidencia de otro
+  proyecto/pooler no puede desbloquear 002.
 
 La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 

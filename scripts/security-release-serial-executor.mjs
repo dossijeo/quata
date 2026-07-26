@@ -55,7 +55,8 @@ async function databaseConfig() {
   if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error("serial_release_database_url_scheme_invalid");
   const ca = await readFile(caFile, "utf8");
   if (!ca.trim()) throw new Error("serial_release_tls_ca_empty");
-  return { connectionString, ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial" };
+  const databaseProjectFingerprint = sha256(JSON.stringify({ host: url.hostname.toLowerCase(), port: url.port || "5432", database: decodeURIComponent(url.pathname.replace(/^\//, "")) }));
+  return { connectionString, ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", databaseProjectFingerprint };
 }
 
 function unwrapOuterTransaction(sql, version) {
@@ -122,9 +123,9 @@ function exactLedgerRow(row, source, entry) {
 
 function isSha256(value) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
 
-async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot) {
+async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot, expectedProject, actualProject) {
   if (!path) throw new Error("serial_release_gate_evidence_required_for_002");
-  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot)) {
+  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot) || !isSha256(expectedProject)) {
     throw new Error("serial_release_gate_evidence_anchor_required_for_002");
   }
   const source = await readFile(resolve(path), "utf8");
@@ -135,7 +136,7 @@ async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnap
   if (value?.schemaVersion !== 1 || value?.migration !== "20260726171001" || value?.status !== "passed"
       || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
       || !isSha256(value?.preconditionSha256)
-      || !isSha256(value?.databaseProjectFingerprint) || !isSha256(value?.postflight?.sha256)
+      || value?.databaseProjectFingerprint !== expectedProject || value?.databaseProjectFingerprint !== actualProject || !isSha256(value?.postflight?.sha256)
       || !Number.isFinite(Date.parse(value?.generatedAt ?? "")) || !Number.isFinite(Date.parse(value?.expiresAt ?? "")) || Date.parse(value.expiresAt) <= Date.now()
       || value?.postflight?.status !== "passed" || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256) || reports[name]?.databaseProjectFingerprint !== value.databaseProjectFingerprint)) {
     throw new Error("serial_release_gate_evidence_invalid");
@@ -170,13 +171,14 @@ export async function run(argv = process.argv.slice(2)) {
   const approved001 = allowlist.migrations["20260726171001"];
   const approved001Source = await readFile(resolve(root, "supabase/migrations", approved001.file), "utf8");
   validateAllowlist(allowlist, "20260726171001", approved001Source);
-  if (args.action === "apply-002") {
-    await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"]);
-  }
   if (args.action !== "dry-run" && !/^[a-f0-9]{64}$/.test(args["expected-precondition-sha256"] ?? "")) throw new Error("serial_release_expected_precondition_sha256_required");
 
-  const client = new pg.Client(await databaseConfig());
-  const report = { check: "QUATA-SECURITY-RELEASE-SERIAL", action: args.action, status: "failed", releaseLock, migrations: [] };
+  const config = await databaseConfig();
+  if (args.action === "apply-002") {
+    await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], config.databaseProjectFingerprint);
+  }
+  const client = new pg.Client(config);
+  const report = { check: "QUATA-SECURITY-RELEASE-SERIAL", action: args.action, status: "failed", releaseLock, databaseProjectFingerprint: config.databaseProjectFingerprint, migrations: [] };
   try {
     await client.connect();
     const lock = await client.query("select pg_try_advisory_lock(hashtextextended($1, 0)) acquired", [releaseLock]);

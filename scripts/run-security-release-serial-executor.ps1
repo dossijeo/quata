@@ -9,6 +9,7 @@ param(
     [string]$ExpectedGateEvidenceSha256,
     [string]$ExpectedReleaseCommit,
     [string]$ExpectedSnapshotFingerprint,
+    [string]$ExpectedDatabaseProjectFingerprint,
     [string]$Output = ""
 )
 
@@ -30,6 +31,7 @@ try {
     if ($ExpectedGateEvidenceSha256) { $args += @("--expected-gate-evidence-sha256", $ExpectedGateEvidenceSha256) }
     if ($ExpectedReleaseCommit) { $args += @("--expected-release-commit", $ExpectedReleaseCommit) }
     if ($ExpectedSnapshotFingerprint) { $args += @("--expected-snapshot-fingerprint", $ExpectedSnapshotFingerprint) }
+    if ($ExpectedDatabaseProjectFingerprint) { $args += @("--expected-database-project-fingerprint", $ExpectedDatabaseProjectFingerprint) }
     if ($Output) { $args += @("--out", $Output) }
     & node @args
     exit $LASTEXITCODE
