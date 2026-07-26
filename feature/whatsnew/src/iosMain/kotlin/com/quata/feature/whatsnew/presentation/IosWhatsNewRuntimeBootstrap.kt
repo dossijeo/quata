@@ -56,7 +56,10 @@ fun createIosWhatsNewRuntimeBootstrap(
 ): IosWhatsNewRuntimeBootstrap? {
     val versionCode = bundle.configuredString("CFBundleVersion")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
     val versionName = bundle.configuredString("CFBundleShortVersionString") ?: return null
-    val languageTags = NSLocale.preferredLanguages.mapNotNull { it as? String }.ifEmpty { listOf("en") }
+    // `preferredLanguages` is not exported by every Kotlin/Native Foundation SDK. The current
+    // locale is sufficient for this small, fully local catalogue and keeps the bootstrap
+    // portable across the CI Xcode toolchain and supported iOS hosts.
+    val languageTags = listOfNotNull(NSLocale.currentLocale.languageCode).ifEmpty { listOf("en") }
     val repository = LocalWhatsNewRepository(
         releases = IosWhatsNewCatalog.releases,
         store = IosWhatsNewSeenStateStore(defaults, IosWhatsNewSeenStateStore.DefaultKey),
