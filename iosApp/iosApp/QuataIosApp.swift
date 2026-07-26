@@ -715,6 +715,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             message: nil,
             preferredStyle: .actionSheet,
         )
+        populateAuthenticatedRouteMenu(sheet)
+        present(sheet, animated: true)
+    }
+
+    /// Keeps the authenticated menu honest: an item is present only after its real KMP factory
+    /// has been installed. Internal visibility lets XCTest verify that local-only destinations
+    /// remain discoverable without introducing a Swift replacement screen.
+    func populateAuthenticatedRouteMenu(_ sheet: UIAlertController) {
         if feedFactory != nil {
             sheet.addAction(UIAlertAction(title: "Inicio", style: .default) { [weak self] _ in self?.showFeed(postId: nil) })
         }
@@ -739,8 +747,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if settingsFactory != nil {
             sheet.addAction(UIAlertAction(title: "Ajustes", style: .default) { [weak self] _ in self?.showSettings() })
         }
+        if whatsNewFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Novedades", style: .default) { [weak self] _ in self?.showWhatsNew() })
+        }
+        if releaseHistoryFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Acerca de Quata", style: .default) { [weak self] _ in self?.showReleaseHistory() })
+        }
         sheet.addAction(UIAlertAction(title: "Cerrar", style: .cancel))
-        present(sheet, animated: true)
     }
 
     private func showMigrationStatus() {

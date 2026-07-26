@@ -649,6 +649,24 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.view.subviews.last === routeButton)
     }
 
+    func testAuthenticatedRouteMenuExposesWhatsNewOnlyAfterItsLocalFactoriesAreInstalled() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+
+        let beforeInstall = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(beforeInstall)
+        XCTAssertFalse(beforeInstall.actions.contains { $0.title == "Novedades" })
+        XCTAssertFalse(beforeInstall.actions.contains { $0.title == "Acerca de Quata" })
+
+        router.installWhatsNewFactory { UIViewController() }
+        router.installReleaseHistoryFactory { UIViewController() }
+        let afterInstall = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(afterInstall)
+
+        XCTAssertTrue(afterInstall.actions.contains { $0.title == "Novedades" })
+        XCTAssertTrue(afterInstall.actions.contains { $0.title == "Acerca de Quata" })
+    }
+
 }
 
 private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {
