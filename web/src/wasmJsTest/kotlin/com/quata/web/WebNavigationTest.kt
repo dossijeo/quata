@@ -21,6 +21,14 @@ class WebNavigationTest {
     }
 
     @Test
+    fun exposesComposerInTheNormalAuthenticatedNavigation() {
+        assertEquals(
+            listOf("", "composer", "chat", "notifications", "profile", "settings"),
+            webNavigationItems.map { it.id },
+        )
+    }
+
+    @Test
     fun resolvesExternalShareTargetRoutes() {
         assertRoute("share-target", "share-target".toWebNavigationState())
         assertRoute("share-target-error", "SHARE-TARGET-ERROR".toWebNavigationState())
