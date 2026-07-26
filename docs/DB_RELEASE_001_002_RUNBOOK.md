@@ -128,19 +128,28 @@ Después deben pasar:
   -OutputDirectory build-reports/backend-compatibility/post-001
 ```
 
-No avanzar si falla ledger, catálogo 18/44, Web, Android, SB-07 o limpieza.
-Antes del gate completo debe pasar `preflight-auth` y después:
+No avanzar si falla ledger, catálogo 18/44, Web, Android o la evidencia SB-07
+compuesta.
 
-```powershell
-$env:QUATA_SB07_PRODUCTION_GATE_APPROVED = 'approved_temporary_fixture_only'
-$env:QUATA_SB07_PRODUCTION_GATE_ALLOW_MUTATION = 'approved_public_postgrest_mutations'
-.\scripts\run-supabase-e2e-sb07-post-forward.ps1 `
-  -Mode full `
-  -DbUrlFile $dbUrlFile `
-  -TlsCaFile $tlsCaFile `
-  -RecoveryFile '<ruta externa al repo con ACL exclusiva>' `
-  -Output build-reports/supabase/sb07-post-forward.json
-```
+### Excepción SB-07 sin fixtures productivos
+
+Para 171005 no se crean cuentas, perfiles ni comentarios temporales en
+producción. El riesgo de un cleanup parcial de Auth/perfiles supera el valor
+adicional del ensayo mutante remoto. El gate `sb07` se compone de:
+
+- SB-07 completo contra Supabase local exacto: anon shape, own insert,
+  spoof `42501`, outsider/owner/admin active-inactive, UPDATE bloqueado,
+  rollback/reaplicación y cleanup;
+- hashes allowlisted de migración/rollback 171005;
+- `postconditionSha256` emitido por el executor antes del commit;
+- catálogo productivo bajo locks con RLS, policies, grants y helpers exactos;
+- gates read-only productivos 18/44, 10 GET, Web y Feed anónimo;
+- API-37 autenticado con Feed, Communities/«Abre una comunidad», comentarios
+  visibles y cero crash/ANR, sin crear fixtures.
+
+El runner productivo `run-supabase-e2e-sb07-post-forward.ps1` queda como
+follow-up no bloqueante y **no se ejecuta ni integra** hasta obtener GO
+crash-safe independiente.
 
 Construir el JSON de gate 171005 según
 `docs/SERIAL_SECURITY_RELEASE_EXECUTOR.md`; debe estar anclado a commit,

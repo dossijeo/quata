@@ -238,6 +238,13 @@ Full con drill verificado de los objetos afectados. No se presenta como
 restauración integral de Supabase. Las 29 decisiones siguen abiertas como
 hallazgo: no se marcan, reparan ni aplican.
 
+También se acepta para la futura forward 171005 una evidencia SB-07 compuesta
+sin fixtures productivos: el ensayo mutante completo se ejecuta en Supabase
+local exacto y producción aporta postcondición de catálogo bajo lock, contratos
+read-only y smoke Android autenticado sin crear datos. El runner que crea y
+purga Auth/perfiles en producción permanece NO-GO crash-safe y no bloquea
+171005 porque no forma parte de la ventana.
+
 Antes de abrir la ventana:
 
 1. congelar y revisar de nuevo el commit exacto del corte;

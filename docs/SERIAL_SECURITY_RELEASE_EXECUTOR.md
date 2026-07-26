@@ -30,6 +30,9 @@ esquema `1`. Debe incluir el `releaseCommit` congelado (40 hex), el
 `snapshotFingerprint` del baseline (SHA-256), `migration`, `status`,
 `preconditionSha256` **y** `postconditionSha256` de 171005 y estos tres informes con `status: "passed"` y SHA-256
 del fichero que se revisó: `dbReleaseSafety`, `backendCompatibility` y `sb07`.
+`sb07` es el informe compuesto aprobado: prueba mutante completa en Supabase
+local exacto más postcondición/catalogo bajo lock y gates productivos
+read-only/API-37; no requiere fixtures Auth/perfiles en producción.
 Un aprobador calcula además el SHA-256 de los **bytes** de esta evidencia. El
 segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
 
