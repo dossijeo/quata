@@ -158,6 +158,16 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository(),
         )
     }()
+    /// The extension writes only to the App Group. This authenticated app runtime reuses the
+    /// existing Keychain session and real Chat repository when the user opens the handoff URL.
+    private lazy var externalShareRuntimeBootstrap: IosExternalShareRuntimeBootstrap? = {
+        guard let runtimeBootstrap, let chatRuntimeBootstrap else { return nil }
+        return IosExternalShareInboxKt.createIosExternalShareRuntimeBootstrap(
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            chatRepository: chatRuntimeBootstrap.repository()
+        )
+    }()
+    private var pendingExternalShareID: String?
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -173,6 +183,16 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
+        if url.scheme?.lowercased() == "quata", url.host?.lowercased() == "external-share" {
+            guard let shareID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "id" })?.value,
+                !shareID.isEmpty,
+                shareID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
+            else { return false }
+            pendingExternalShareID = shareID
+            presentPendingExternalShareIfAvailable()
+            return true
+        }
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
     }
@@ -211,7 +231,37 @@ private final class IosAppCompositionRoot {
         installAuthenticatedProfileSosIfAvailable()
         installAuthenticatedCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
+        presentPendingExternalShareIfAvailable()
         return true
+    }
+
+    private func presentPendingExternalShareIfAvailable() {
+        guard
+            let shareID = pendingExternalShareID,
+            let bootstrap = externalShareRuntimeBootstrap,
+            let claim = bootstrap.claimRestoredAuthenticated(requestedId: shareID)
+        else { return }
+        pendingExternalShareID = nil
+        var completedConversationID: String?
+        let dependencies = bootstrap.hostDependencies(
+            claim: claim,
+            onDismiss: { [weak self] in
+                guard let self else { return }
+                self.authenticatedHost.dismiss(animated: true) {
+                    if let conversationID = completedConversationID {
+                        self.authenticatedHost.showChat(conversationId: conversationID, messageId: nil)
+                    }
+                }
+            },
+            onOpenConversation: { conversationID in
+                completedConversationID = conversationID
+            }
+        )
+        let controller = QuataExternalShareViewControllerKt.QuataExternalShareViewController(
+            dependencies: dependencies
+        )
+        controller.modalPresentationStyle = .fullScreen
+        authenticatedHost.present(controller, animated: true)
     }
 
     private func installAuthenticatedChatIfAvailable() {

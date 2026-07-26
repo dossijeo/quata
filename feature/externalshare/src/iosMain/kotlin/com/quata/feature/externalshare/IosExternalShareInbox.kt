@@ -109,6 +109,12 @@ class IosExternalShareRuntimeBootstrap(
     private val chatRepository: ChatRepository,
     private val inbox: IosExternalShareInbox = IosExternalShareInbox(),
 ) {
+    /** Synchronous restored-session path used after the authenticated host is installed. */
+    fun claimRestoredAuthenticated(requestedId: String?): IosExternalShareClaim? {
+        if (authSession.restoredSession() == null) return null
+        return inbox.claim(requestedId)
+    }
+
     suspend fun claimAuthenticated(requestedId: String?): IosExternalShareClaim? {
         if (authSession.currentSession() == null) return null
         return inbox.claim(requestedId)
