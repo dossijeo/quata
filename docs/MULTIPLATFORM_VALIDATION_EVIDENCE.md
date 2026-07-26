@@ -44,6 +44,7 @@ integrarse; un verde de cualquiera de las filas no se hereda automaticamente.
 | --- | --- | --- |
 | `a0d77ab9262d0732905aa577b82921777bd64486` | `:web:wasmJsBrowserDistribution`, `node scripts/web-browser-smoke.mjs` y `:app:assembleDebug` terminaron correctamente en el lote documentado. | Bundle Wasm de produccion y smoke Chrome de rutas no autenticadas. No es login, Supabase, RLS ni E2E remoto. |
 | `eb41be9663f616cf6c030bd802137a5f31e421ad` | El bundle Wasm y `web-browser-smoke.mjs --docmentis` pasaron localmente; se registro inventario 35.29 MiB (13.55 MiB gzip) y metricas locales. | Smoke de importacion/create/destroy de DocMentis y observabilidad local; no licencia/telemetria/CSP de produccion, Storage autenticado ni documentos remotos. |
+| Baseline `acde140c` (runner nuevo pendiente de integrar) | `WEB-AUTH-BROWSER-01` obtuvo una sesión real por `quata-auth-bridge`, inyectó sólo configuración pública en una copia temporal del bundle, restauró `WebAuthStorage` en Chrome, montó `#feed` y leyó el perfil autenticado desde el navegador; logout Web y revocación global pasaron. La cuenta aislada se purgó y se comprobó ausente. | E2E parcial de restauración, no automatización del formulario Compose. El runner no modifica Kotlin y se ejecutó contra el bundle ya validado `acde140c`; el bundle del SHA que lo integre debe volver a generarse antes de elevarlo a gate final. |
 
 La fuente de esos resultados locales es
 [WASM_WEB_VALIDATION.md](WASM_WEB_VALIDATION.md),
@@ -67,13 +68,14 @@ repetirse en el SHA final para la auditoria de cierre.
 
 ## E2E: estado honesto y gates faltantes
 
-No se ha acreditado un E2E verde de Web autenticado ni de iOS contra Supabase
-en este corte. Existen runners de preparacion para Auth y lectura, pero un
-runner disponible no es evidencia de haberlo ejecutado:
+No se ha acreditado un E2E completo de Web autenticado ni de iOS contra Supabase
+en este corte. `WEB-AUTH-BROWSER-01` acredita restauración de sesión Web y una
+lectura autenticada en Chrome, pero no la entrada del formulario Compose ni el
+resto de verticales. Los runners disponibles no sustituyen evidencia ejecutada:
 
 | Gate pendiente | Evidencia necesaria para cerrarlo |
 | --- | --- |
-| Web autenticado | Bundle del SHA final, Chrome con configuracion publica, login/restauracion, rutas autenticadas y limpieza verificable de cuenta/datos efimeros. Ver [SUPABASE_E2E_SB02.md](SUPABASE_E2E_SB02.md) y [SUPABASE_E2E_SB03.md](SUPABASE_E2E_SB03.md). |
+| Web autenticado completo | Regenerar bundle para el SHA final y automatizar el formulario Compose; después ampliar `WEB-AUTH-BROWSER-01` a rutas autenticadas/mutaciones autorizadas y conservar limpieza verificable. Ver [WEB_AUTHENTICATED_BROWSER_E2E.md](WEB_AUTHENTICATED_BROWSER_E2E.md), [SUPABASE_E2E_SB02.md](SUPABASE_E2E_SB02.md) y [SUPABASE_E2E_SB03.md](SUPABASE_E2E_SB03.md). |
 | iOS funcional | XCTest/UI de rutas autenticadas y adaptadores reales (permisos, contactos, archivos/media) en simulador o dispositivo configurado. El XCTest actual solo acredita el smoke de frontera del host. |
 | Push | Registro/entrega y limpieza real de Web Push/APNs; service worker o bridge por si solos no acreditan entrega. |
 | Android cierre | `assembleDebug`, instalacion, arranque API-37, crash buffer y PID sobre el SHA final, especialmente despues de cada lote Android. |
