@@ -86,17 +86,19 @@ async function report(output, payload) { const target = resolve(output); await m
 
 async function main() {
   const { output } = args(process.argv.slice(2)); const startedAt = new Date().toISOString(); const steps = [];
-  let configuration; let a; let b; let likeId = null; let cleanup = { state: "not_started" };
+  let configuration; let a; let b; let likeId = null; let spoofLikeId = null; let cleanup = { state: "not_started" };
   try {
     configuration = config();
     a = await login(configuration, configuration.users[0]); b = await login(configuration, configuration.users[1]);
     if (a.profileId === b.profileId) throw new Error("isolated_e2e_accounts_must_differ");
     steps.push("two_isolated_users_logged_in");
     await assertAbsent(configuration, a, configuration.postId, a.profileId, "official_like_cleanup");
+    await assertAbsent(configuration, b, configuration.postId, b.profileId, "official_like_spoof_cleanup");
     const created = await request(restUrl(configuration, "official_post_likes"), { method: "POST", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" }, body: JSON.stringify({ official_post_id: configuration.postId, profile_id: a.profileId }) }, "official_like_insert_failed");
     if (!created.ok || !Array.isArray(created.body) || created.body.length !== 1 || !uuid.test(created.body[0]?.id ?? "")) throw new Error(`official_like_insert_failed:http_${created.status}`);
     likeId = created.body[0].id; steps.push("a_created_own_like");
     const spoof = await request(restUrl(configuration, "official_post_likes"), { method: "POST", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" }, body: JSON.stringify({ official_post_id: configuration.postId, profile_id: b.profileId }) }, "official_like_spoof_not_denied");
+    spoofLikeId = Array.isArray(spoof.body) && uuid.test(spoof.body[0]?.id ?? "") ? spoof.body[0].id : null;
     if (!is42501(spoof)) throw new Error(`official_like_spoof_not_denied:http_${spoof.status}`);
     await assertAbsent(configuration, a, configuration.postId, b.profileId, "official_like_spoof_persisted"); steps.push("a_spoofed_b_profile_rejected_42501");
     const crossDelete = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_cross_delete_not_denied");
@@ -109,8 +111,17 @@ async function main() {
     await revoke(configuration, a); a = null; await revoke(configuration, b); b = null; cleanup = { state: "like_absence_verified_sessions_revoked_external_fixture_purge_required" }; steps.push("both_sessions_revoked");
     await report(output, { check: "SB-09", status: "passed_with_external_fixture_purge_pending", startedAt, finishedAt: new Date().toISOString(), mode: "two_isolated_users_public_key_official_like", steps, cleanup, mutationPolicy: "Public key plus isolated-user JWTs only. No service-role, database URL, SQL, DDL, RPC or schema changes. The separate fixture owner hard-purges all three isolated accounts and verifies Auth/profile absence." });
   } catch (error) {
+    const rollbackStates = [];
     if (configuration && a && likeId) {
-      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_cleanup"); cleanup = rollback.ok ? { state: "created_like_deleted_after_failure_external_fixture_purge_required" } : { state: "rollback_pending", action: "delete the isolated actor like before fixture purge" }; } catch { cleanup = { state: "rollback_pending", action: "delete the isolated actor like before fixture purge" }; }
+      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${likeId}`, profile_id: `eq.${a.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, a.accessToken), Prefer: "return=representation" } }, "official_like_cleanup"); rollbackStates.push(rollback.ok ? "actor_like_deleted" : "actor_like_rollback_pending"); } catch { rollbackStates.push("actor_like_rollback_pending"); }
+    }
+    if (configuration && b && spoofLikeId) {
+      try { const rollback = await request(restUrl(configuration, "official_post_likes", { id: `eq.${spoofLikeId}`, profile_id: `eq.${b.profileId}` }), { method: "DELETE", headers: { ...headers(configuration, b.accessToken), Prefer: "return=representation" } }, "official_like_spoof_cleanup"); rollbackStates.push(rollback.ok ? "spoofed_like_deleted_by_impersonated_profile" : "spoofed_like_rollback_pending"); } catch { rollbackStates.push("spoofed_like_rollback_pending"); }
+    }
+    if (rollbackStates.length) {
+      cleanup = rollbackStates.every((state) => state.endsWith("_deleted") || state === "actor_like_deleted")
+        ? { state: "created_likes_deleted_after_failure_external_fixture_purge_required", rollback: rollbackStates }
+        : { state: "rollback_pending", rollback: rollbackStates, action: "remove all listed isolated likes before fixture purge" };
     }
     for (const session of [a, b]) if (configuration && session) { try { await revoke(configuration, session); } catch { cleanup.sessionRevocation = "pending"; } }
     console.error(JSON.stringify({ check: "SB-09", startedAt, finishedAt: new Date().toISOString(), cleanup, ...safeFailure(error) })); process.exitCode = 1;

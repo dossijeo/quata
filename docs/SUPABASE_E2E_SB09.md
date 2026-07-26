@@ -13,9 +13,12 @@ datos dependientes; el runner rechaza la mutación si no se declara ese contrato
 ## Evidencia del 2026-07-26
 
 SB-09 creó correctamente el like de A, pero el intento de A de escribir
-`profile_id` de B no devolvió `42501`. El runner eliminó el like de A durante el
-rollback. Después se purgaron por el flujo de ciclo de vida los perfiles y usuarios
-Auth temporales, y se verificó su ausencia junto con el post temporal.
+`profile_id` de B no devolvió `42501`. El runner registra el ID de cualquier
+like de suplantación aceptado y, durante el rollback, intenta borrarlo con la
+sesión de B además del like propio de A; si alguna limpieza falla, lo declara
+pendiente antes de la purga externa. Después se purgaron por el flujo de ciclo
+de vida los perfiles y usuarios Auth temporales, y se verificó su ausencia junto
+con el post temporal.
 
 Por tanto, la capacidad Web Official de mutar permanece en `Unsupported`. No se
 debe cambiar RLS ni publicar like/unlike hasta que una corrección coordinada de
