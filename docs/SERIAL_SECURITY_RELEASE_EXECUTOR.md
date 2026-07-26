@@ -1,7 +1,7 @@
 # Ejecutor serial RLS-001 / RLS-002
 
 `scripts/security-release-serial-executor.mjs` es el único mecanismo de este
-lote que puede escribir las dos migraciones aprobadas. No llama a `supabase db
+lote que puede escribir las migraciones allowlisted. No llama a `supabase db
 push`, no repara historiales y no considera ninguna migración de backlog.
 
 Usar el wrapper para que la URL nunca llegue a argumentos ni a informes:
@@ -13,16 +13,16 @@ Usar el wrapper para que la URL nunca llegue a argumentos ni a informes:
   -Output build-reports/security-release/001-preflight.json
 ```
 
-El informe devuelve un `preconditionSha256` por migración. Antes de aplicar,
-comparar y copiar manualmente el hash correspondiente, sin volver a obtenerlo
-después de abrir la ventana de release:
+El informe debe mostrar 171001 `present` con ledger byte-exacto y 171005/002
+`absent`. Devuelve un `preconditionSha256` por migración. Antes de aplicar la
+forward, comparar y copiar manualmente el hash de 171005:
 
 ```powershell
-.\scripts\run-security-release-serial-executor.ps1 -Action apply-001 `
+.\scripts\run-security-release-serial-executor.ps1 -Action apply-001-forward `
   -DbUrlFile C:\Users\PC\.quata-supabase-db-url.txt `
   -TlsCaFile C:\Users\PC\.quata-supabase-pooler-ca.pem `
-  -ExpectedPreconditionSha256 '<hash de 001>' `
-  -Output build-reports/security-release/001-apply.json
+  -ExpectedPreconditionSha256 '<hash precondición de 171005>' `
+  -Output build-reports/security-release/001-forward-apply.json
 ```
 
 Tras los gates externos post-forward 171005, crear una evidencia JSON revisada con el

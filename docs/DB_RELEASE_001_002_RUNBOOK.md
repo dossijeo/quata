@@ -23,7 +23,7 @@ contención posible es `apply-001-forward` para 171005.
 ### Autoridad y excepción limitada
 
 El release manager es la única autoridad para abrir la ventana y autorizar por
-separado apply-001/apply-002. Ha aceptado para este lote la ausencia de PITR y
+separado apply-001-forward/apply-002. Ha aceptado para este lote la ausencia de PITR y
 la no reconciliación de 29 migraciones históricas porque el ejecutor no toca el
 backlog, 001/002 son DDL/RLS sin DML, los rollbacks exactos están probados y
 existe backup lógico Full con restore verificado de los objetos afectados.
@@ -52,12 +52,12 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
 - corte Git inmutable e independiente revisado;
 - backup lógico Full y drill de alcance verificados;
 - hashes de la allowlist sin cambios;
-- dry-run remoto con `status=passed`, 001/002 `ledger=absent` y fingerprints
-  previos archivados;
+- dry-run remoto con `status=passed`, 171001 `ledger=present` byte-exacto,
+  171005/002 `ledger=absent` y fingerprints previos archivados;
 - baseline y compatibilidad completos en verde;
-- evidencia encadenada de postflight 001 vigente antes de 002;
+- evidencia encadenada de postflight 171005 vigente antes de 002;
 - una única terminal/persona ejecutora;
-- autorización explícita separada para cada apply;
+- autorización explícita separada para apply-001-forward y apply-002;
 - 003/004 ausentes de la rama y de la ejecución.
 
 Un solo fallo conserva o devuelve la decisión a NO-GO.
