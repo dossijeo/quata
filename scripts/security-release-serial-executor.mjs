@@ -408,7 +408,10 @@ export async function run(argv = process.argv.slice(2)) {
       if ((!rollback && locked.has(version)) || (rollback && !exactLedgerRow(locked.get(version), sources[version].migrationSource, sources[version].entry))) throw new Error("serial_release_ledger_changed_after_lock");
       if (!rollback && version === "20260726171005" && !exactLedgerRow(locked.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_001_ledger_changed_after_lock");
       if (!rollback && version === "20260726171002" && !exactLedgerRow(locked.get("20260726171005"), approvedForwardSource, approvedForward)) throw new Error("serial_release_forward_ledger_changed_after_lock");
-      if (!rollback && version === "20260726171002") await assertEffectiveReleaseState(client, "20260726171005", false);
+      if (!rollback && version === "20260726171002") {
+        try { await assertEffectiveReleaseState(client, "20260726171005", false); }
+        catch { throw new Error("serial_release_002_forward_state_not_hardened"); }
+      }
       const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
       if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
       await client.query(sources[version].body);
