@@ -483,13 +483,19 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else { return }
         // Reuse the Keychain-backed session from Chat; Quick Look only receives a local temporary
         // file after the Kotlin boundary validates and downloads the remote attachment.
+        let attachmentConfiguration = IosChatRuntimeConfiguration(
+            supabaseUrl: configuration.supabaseUrl,
+            supabasePublishableKey: configuration.supabasePublishableKey,
+        )
+        let attachmentSession = bootstrap.authSessionForInteractiveLogin()
         let attachmentPreviewService = IosChatAttachmentPreviewService(
-            configuration: IosChatRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            ),
-            authSession: bootstrap.authSessionForInteractiveLogin(),
+            configuration: attachmentConfiguration,
+            authSession: attachmentSession,
             documentOpener: services.documentOpener,
+            downloader: IosChatAttachmentDownloader(
+                configuration: attachmentConfiguration,
+                authSession: attachmentSession,
+            ),
         )
         installChatFactory { [weak self] conversationId, _ in
             let dependencies = bootstrap.hostDependencies(
