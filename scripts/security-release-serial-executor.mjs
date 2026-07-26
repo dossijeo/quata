@@ -226,13 +226,41 @@ async function lockReleaseObjects(client, version, rollback) {
   // tuples conflict with ALTER/DROP/CREATE OR REPLACE without blocking
   // unrelated function DDL. A helper created by apply-002 is protected by its
   // uncommitted catalog insert until this transaction commits.
-  const lockedFunctions = await client.query(
-    `select p.oid
-       from unnest($1::text[]) f(identity)
-       join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
-       for share of p`,
-    [functions]);
-  if (lockedFunctions.rowCount !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+  if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK !== "1") {
+    try {
+      const lockedFunctions = await client.query(
+        `select p.oid
+           from unnest($1::text[]) f(identity)
+           join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
+           for share of p`,
+        [functions]);
+      if (lockedFunctions.rowCount !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+      return "pg_proc_row_share";
+    } catch (error) {
+      if (error.code !== "42501") throw error;
+    }
+  }
+  // Hosted Supabase roles may own these functions while being denied row locks
+  // on system catalogs. Force a real function-catalog tuple update and restore
+  // the exact COST in the same transaction. The tuple lock survives until
+  // commit and is non-cooperative with ALTER/DROP/CREATE OR REPLACE.
+  const { rows: ownedFunctions } = await client.query(`
+    select f.identity, p.procost::float8 as cost, pg_get_userbyid(p.proowner) as owner, current_user as actor
+      from unnest($1::text[]) f(identity)
+      join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
+     order by f.identity`, [functions]);
+  if (ownedFunctions.length !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+  for (const fn of ownedFunctions) {
+    if (fn.owner !== fn.actor) throw new Error(`serial_release_function_lock_owner_mismatch:${version}`);
+    const originalCost = Number(fn.cost);
+    if (!Number.isFinite(originalCost) || originalCost <= 0) throw new Error(`serial_release_function_lock_cost_invalid:${version}`);
+    const alternateCost = originalCost === 1 ? 2 : originalCost + 1;
+    const identity = functions.find((candidate) => candidate === fn.identity || candidate.replace(/^public\./, "") === fn.identity);
+    if (!identity) throw new Error(`serial_release_function_lock_identity_mismatch:${version}`);
+    await client.query(`alter function ${identity} cost ${alternateCost}`);
+    await client.query(`alter function ${identity} cost ${originalCost}`);
+  }
+  return "function_cost_roundtrip";
 }
 
 function exactLedgerRow(row, source, entry) {
@@ -342,7 +370,7 @@ export async function run(argv = process.argv.slice(2)) {
     if (Number.isSafeInteger(hold) && hold > 0) await new Promise((resolveHold) => setTimeout(resolveHold, hold));
     await client.query("begin isolation level serializable");
     try {
-      await lockReleaseObjects(client, version, rollback);
+      report.migrations[0].functionLockMode = await lockReleaseObjects(client, version, rollback);
       // Re-read after table+ledger locks: the externally observed dry-run
       // fingerprint is not trusted until this point immediately before DDL.
       const lockedRows = await ledgerRows(client); const locked = new Map(lockedRows.map((row) => [row.version, row]));

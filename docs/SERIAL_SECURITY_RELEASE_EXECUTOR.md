@@ -76,6 +76,13 @@ Propiedades comprobadas:
   `pg_proc` de todos los resolvers/guards afectados. Después revalida el
   fingerprint y, antes del commit, comprueba definiciones, owner, ACL,
   policies, grants y binding del trigger del estado resultante.
+- En Supabase gestionado, donde el owner puede alterar sus funciones pero no
+  bloquear filas de `pg_proc`, usa un fallback no cooperativo: cambia
+  transitoriamente `COST` y lo restaura dentro de la misma transacción. Esto
+  toma el lock real del tuple frente a `ALTER`, `DROP` y
+  `CREATE OR REPLACE`; el fingerprint y `procost` finales deben ser idénticos.
+  Un fallo revierte también el cambio transitorio. El event trigger PostgREST
+  sólo emite su notificación habitual de recarga y no ejecuta DML.
 
 La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 
@@ -85,7 +92,8 @@ La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 
 Comprueba hash drift, rollback atómico de DDL+ledger, dos usuarios sobre el
 mismo pooler, una carrera de escritor externo antes del lock, bloqueo selectivo
-de DDL externo de tabla/función hasta el commit, exclusión advisory,
+de DDL externo de tabla/`CREATE OR REPLACE FUNCTION` hasta el commit, llamadas
+concurrentes a funciones no bloqueadas, restauración de `procost`, exclusión advisory,
 orden/evidencia de 002, ledger exacto y rechazo de drift/idempotencia de
 rollbacks 001/002.
 
