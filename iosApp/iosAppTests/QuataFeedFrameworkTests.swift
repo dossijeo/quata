@@ -11,6 +11,82 @@ import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testApnsAuthorizationRegistersOnlyForGrantedSystemStates() {
+        XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.notDetermined))
+        XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.denied))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.authorized))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.provisional))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.ephemeral))
+    }
+
+    func testApnsAuthorizationPromptRequestsRegistrationOnlyAfterCleanGrant() {
+        let error = NSError(domain: "test", code: 1)
+
+        XCTAssertTrue(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: true, error: nil)
+        )
+        XCTAssertFalse(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: false, error: nil)
+        )
+        XCTAssertFalse(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: true, error: error)
+        )
+    }
+
+    func testApnsTokenFormattingProducesCanonicalLowercaseHexWithoutPersistence() {
+        let token = Data([0x00, 0x0A, 0xF0, 0xFF])
+
+        XCTAssertEqual(IosApnsTokenFormatting.hexString(token), "000af0ff")
+        XCTAssertEqual(IosApnsTokenFormatting.hexString(Data()), "")
+    }
+
+    func testWhatsNewPreferredLanguageUsesSpanishTag() {
+        XCTAssertEqual(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["es-ES", "en-US"]), "es-ES")
+    }
+
+    func testWhatsNewPreferredLanguageUsesEnglishTag() {
+        XCTAssertEqual(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["en-US", "es-ES"]), "en-US")
+    }
+
+    func testWhatsNewPreferredLanguageRejectsInvalidInputForKotlinFallback() {
+        XCTAssertNil(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["../../invalid"]))
+        XCTAssertNil(IosWhatsNewLocale.sanitizedPreferredLanguageTag([]))
+    }
+
+    func testWhatsNewMenuDispatcherForwardsOnlyAfterHostAttachment() {
+        let dispatcher = IosWhatsNewRouteDispatcher()
+        let host = CapturingWhatsNewRouteHost()
+
+        _ = dispatcher.openReleaseHistory()
+        XCTAssertNil(host.route)
+
+        dispatcher.attachHost(host: host)
+        _ = dispatcher.openReleaseHistory()
+        XCTAssertEqual(host.route?.name, "ReleaseHistory")
+
+        dispatcher.detachHost()
+        _ = dispatcher.openPendingReleases()
+        XCTAssertEqual(host.route?.name, "ReleaseHistory")
+    }
+
+    func testPublicReleaseHistoryDeepLinkWaitsForLocalFactory() {
+        let services = makePlatformServiceComposition()
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        let initialChildren = router.children
+        let dispatcher = IosDeepLinkDispatcher()
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#release-history")
+        XCTAssertEqual(router.children.count, initialChildren.count)
+
+        let history = UIViewController()
+        router.installReleaseHistoryFactory { history }
+
+        XCTAssertTrue(router.children.contains { $0 === history })
+        XCTAssertEqual(history.view.accessibilityIdentifier, "quata-ios-release-history-host")
+    }
+
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
         // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
         // A unique namespace avoids observing or modifying the authenticated app session.
@@ -586,4 +662,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.view.subviews.last === routeButton)
     }
 
+    func testAuthenticatedRouteMenuExposesWhatsNewOnlyAfterItsLocalFactoriesAreInstalled() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+
+        let beforeInstall = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(beforeInstall)
+        XCTAssertFalse(beforeInstall.actions.contains { $0.title == "Novedades" })
+        XCTAssertFalse(beforeInstall.actions.contains { $0.title == "Acerca de Quata" })
+
+        router.installWhatsNewFactory { UIViewController() }
+        router.installReleaseHistoryFactory { UIViewController() }
+        let afterInstall = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(afterInstall)
+
+        XCTAssertTrue(afterInstall.actions.contains { $0.title == "Novedades" })
+        XCTAssertTrue(afterInstall.actions.contains { $0.title == "Acerca de Quata" })
+    }
+
+}
+
+private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {
+    var route: IosWhatsNewRoute?
+
+    func open(route: IosWhatsNewRoute) {
+        self.route = route
+    }
 }

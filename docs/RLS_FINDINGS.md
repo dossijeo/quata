@@ -3,6 +3,10 @@
 Este registro reúne hallazgos confirmados por pruebas E2E. No es una migración
 y no autoriza cambios de esquema, funciones, políticas ni datos de producción.
 
+Reconciliación MP-A14 (`9cc84dc2`): RLS-001/SB-07 y RLS-002/SB-09 continúan
+abiertos. Communities y Official mantienen sus mutaciones afectadas
+`fail-closed`; no se aplicó ninguna política ni cambio remoto.
+
 ## RLS-001 — Un outsider puede borrar un comentario ajeno
 
 - **Detectado:** 2026-07-26, SB-07 de Communities.
@@ -51,3 +55,24 @@ hay que evaluar la Web publicada que hoy depende de las políticas existentes.
 5. Se registra el SHA de migración y la evidencia sin IDs, tokens, teléfonos ni secretos.
 6. Sólo tras los cinco puntos anteriores se retira la contención por operación y se añaden
    pruebas de cliente específicas para el flujo habilitado.
+
+## RLS-002 — Un actor puede suplantar el perfil al crear un like Official
+
+- **Detectado:** 2026-07-26, SB-09 de Official con dos cuentas y un post aislados.
+- **Superficie:** `public.official_post_likes`.
+- **Evidencia:** la inspección de catálogo, sin DDL ni DML, confirmó RLS desactivado,
+  cero políticas y el trigger `quata_guard_official_post_likes_trg` instalado. Sin
+  embargo, SB-09 creó el like propio de A y después intentó crear un like con el JWT
+  de A y `profile_id` de B: la operación no devolvió `42501`. El runner hizo rollback
+  del like propio; los perfiles/Auth aislados y el post temporal se purgaron y se
+  comprobó su ausencia.
+- **Impacto:** no se puede confiar en que el trigger vincule el actor Web al
+  `profile_id` enviado. Exponer like/unlike permitiría suplantación de identidad.
+
+### Límite y seguimiento
+
+No es una autorización para endurecer RLS existente. Mantener todas las mutaciones
+Official Web deshabilitadas. La corrección debe coordinarse con la web publicada y
+demostrar en SB-09: insert propio, rechazo `42501` de suplantación, rechazo `42501`
+del borrado ajeno, borrado propio y purga verificable de fixtures antes de habilitar
+la UI.

@@ -8,7 +8,6 @@ plugins {
 kotlin {
     androidLibrary { namespace = "com.quata.feature.whatsnew"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
-    js(IR) { browser() }
     wasmJs { browser() }
     sourceSets {
         commonMain.dependencies {
@@ -19,9 +18,12 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+        }
         androidMain.dependencies { }
         iosMain.dependencies { }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

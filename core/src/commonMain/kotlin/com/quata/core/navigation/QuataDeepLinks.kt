@@ -6,6 +6,8 @@ private const val PostFragmentPrefix = "post-"
 private const val OfficialPostFragmentPrefix = "official-"
 private const val ChatFragmentPrefix = "chat-"
 private const val RichTextEditorQaFragment = "editor-qa"
+private const val WhatsNewFragment = "whats-new"
+private const val ReleaseHistoryFragment = "release-history"
 
 fun quataPostUrl(postId: String): String = "https://$QuataWebHost/#$PostFragmentPrefix$postId"
 
@@ -19,6 +21,10 @@ fun quataChatUrl(conversationId: String, messageId: String? = null): String = bu
         append(quataUrlEncode(it))
     }
 }
+
+fun quataWhatsNewUrl(): String = "https://$QuataWebHost/#$WhatsNewFragment"
+
+fun quataReleaseHistoryUrl(): String = "https://$QuataWebHost/#$ReleaseHistoryFragment"
 
 data class QuataChatDeepLink(
     val conversationId: String,
@@ -50,6 +56,14 @@ sealed interface QuataDeepLinkTarget {
     data object RichTextEditorQa : QuataDeepLinkTarget {
         override val destination: AppDestinations = AppDestinations.RichTextEditorQa
     }
+
+    data object WhatsNew : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.WhatsNew
+    }
+
+    data object ReleaseHistory : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.ReleaseHistory
+    }
 }
 
 /** Resolves only public Quata links already supported by the shared navigation contract. */
@@ -58,6 +72,8 @@ fun String.quataDeepLinkTargetOrNull(): QuataDeepLinkTarget? =
         ?: quataPostIdOrNull()?.let(QuataDeepLinkTarget::FeedPost)
         ?: quataOfficialPostIdOrNull()?.let(QuataDeepLinkTarget::OfficialPost)
         ?: takeIf { it.isQuataRichTextEditorQaLink() }?.let { QuataDeepLinkTarget.RichTextEditorQa }
+        ?: takeIf { it.isQuataWhatsNewLink() }?.let { QuataDeepLinkTarget.WhatsNew }
+        ?: takeIf { it.isQuataReleaseHistoryLink() }?.let { QuataDeepLinkTarget.ReleaseHistory }
 
 fun String.quataPostIdOrNull(): String? = quataFragmentOrNull()
     ?.takeIf { it.startsWith(PostFragmentPrefix) }
@@ -71,6 +87,10 @@ fun String.quataOfficialPostIdOrNull(): String? = quataFragmentOrNull()
 
 fun String.isQuataRichTextEditorQaLink(): Boolean =
     quataFragmentOrNull() == RichTextEditorQaFragment
+
+fun String.isQuataWhatsNewLink(): Boolean = quataFragmentOrNull() == WhatsNewFragment
+
+fun String.isQuataReleaseHistoryLink(): Boolean = quataFragmentOrNull() == ReleaseHistoryFragment
 
 fun String.quataChatDeepLinkOrNull(): QuataChatDeepLink? {
     val payload = quataFragmentOrNull()

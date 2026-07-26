@@ -25,7 +25,7 @@ fun WebLoginHost(
         recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
         recoveryQuestionLoading = catalog.recoveryQuestionLoading,
         passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-        registerUnavailableMessage = "El registro aún no está disponible en Quata Web.",
+        registerUnavailableMessage = WebRegistrationUnavailableMessage,
         runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")

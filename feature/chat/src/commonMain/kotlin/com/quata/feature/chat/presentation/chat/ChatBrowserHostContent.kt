@@ -308,12 +308,18 @@ private fun ChatBrowserConversationDetail(
         }
         ChatConversationDetailContent(
             messages = state.messages,
-            selectedMessageId = null,
+            selectedMessageId = state.selectedMessageId,
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
             avatar = {},
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
-            onMessageClick = {},
+            onMessageClick = { message ->
+                viewModel.onEvent(
+                    ChatUiEvent.MessageSelected(
+                        message.id.takeUnless { it == state.selectedMessageId },
+                    ),
+                )
+            },
             composer = { composerModifier ->
                 Surface(composerModifier) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -323,6 +329,15 @@ private fun ChatBrowserConversationDetail(
                             label = { Text("Mensaje") },
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        state.replyToMessage?.let { message ->
+                            Text(
+                                "Respondiendo a ${message.senderName}: ${message.text}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Button(onClick = { viewModel.onEvent(ChatUiEvent.ClearReply) }) {
+                                Text("Cancelar respuesta")
+                            }
+                        }
                         state.attachmentName?.let { name ->
                             Text("Adjunto: $name", style = MaterialTheme.typography.bodySmall)
                         }
@@ -454,6 +469,14 @@ private fun ChatBrowserConversationDetail(
                     launch = { action -> scope.launch { action() } },
                     modifier = attachmentModifier,
                 )
+            },
+            messageActions = { message, actionsModifier ->
+                if (message.id == state.selectedMessageId && !message.isLocalEcho) {
+                    Button(
+                        onClick = { viewModel.onEvent(ChatUiEvent.StartReply) },
+                        modifier = actionsModifier,
+                    ) { Text("Responder") }
+                }
             },
             modifier = Modifier.weight(1f),
         )

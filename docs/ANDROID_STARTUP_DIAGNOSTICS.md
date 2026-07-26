@@ -36,6 +36,14 @@ de `Application.onCreate` de Android; no identifica una causa ni autoriza cambio
 inicialización. Debe repetirse la captura con el sistema estable antes de atribuir el bloqueo a
 la aplicación, al emulador o a una dependencia concreta.
 
+## Reconciliación A/B de ola 2 (2026-07-26)
+
+Sobre el mismo emulador API-37, ola 1 (`587789ff`) tardó 25,392 s y ola 2
+(`9cc84dc2`) 21,159 s. Ambas conservaron el proceso y dejaron vacíos los
+buffers de crash/ANR. El resultado se clasifica `environment_both_slow`: valida
+ausencia de regresión funcional observada, no acredita una mejora de
+rendimiento ni un SLO de arranque.
+
 ## Perfetto
 
 En Android Studio, inicia **Profiler > System Trace**, arranca Quata y busca las secciones

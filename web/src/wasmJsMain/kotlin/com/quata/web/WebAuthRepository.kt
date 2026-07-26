@@ -101,7 +101,7 @@ class WebAuthRepository(
     }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
-        Result.failure(UnsupportedOperationException("web_auth_register_not_implemented"))
+        webRegistrationUnavailable()
 
     override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> = runCatching {
         require(countryCode.any(Char::isDigit)) { "web_auth_country_code_required" }

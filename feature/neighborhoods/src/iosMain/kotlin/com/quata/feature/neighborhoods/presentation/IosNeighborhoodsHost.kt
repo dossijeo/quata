@@ -22,6 +22,15 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import platform.UIKit.UIViewController
 
 /**
+ * The launcher's only cross-feature navigation obligation for Communities.  The selected ID is
+ * the backend profile ID supplied by the member row; callers must not substitute a display name
+ * or create a local profile model.
+ */
+fun interface IosCommunityProfileNavigator {
+    fun openMemberProfile(profileId: String)
+}
+
+/**
  * Inputs owned by the iOS launcher. The repository is injected into [viewModel] by the
  * launcher; keeping it here makes the composition boundary explicit and avoids a service
  * locator in shared presentation code.
@@ -38,7 +47,7 @@ class IosNeighborhoodsHostDependencies(
     val usersStrings: NeighborhoodUsersStrings,
     val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     val onOpenConversation: (String) -> Unit,
-    val onNavigateToProfile: (String) -> Unit,
+    val profileNavigator: IosCommunityProfileNavigator,
     val onOpenAttachment: (ProfileAttachment) -> Unit,
 )
 
@@ -66,7 +75,7 @@ fun createIosNeighborhoodsHostDependencies(
         QuataAvatarFallback(name = user.displayName, stableId = user.id)
     },
     onOpenConversation = onOpenConversation,
-    onNavigateToProfile = onNavigateToProfile,
+    profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
     onOpenAttachment = {},
 )
 
@@ -116,7 +125,7 @@ fun QuataNeighborhoodsViewController(
                 onFollowUser = { dependencies.viewModel.toggleFollowUser(it.id) },
                 onOpenProfile = { user ->
                     dependencies.viewModel.openUserProfile(user.id)
-                    dependencies.onNavigateToProfile(user.id)
+                    dependencies.profileNavigator.openMemberProfile(user.id)
                 },
                 onOpenPrivateChat = { user ->
                     dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)

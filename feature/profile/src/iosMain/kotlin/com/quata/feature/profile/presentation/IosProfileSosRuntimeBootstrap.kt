@@ -15,6 +15,7 @@ import com.quata.feature.profile.data.ProfileEmergencyMessageStore
 import com.quata.feature.profile.data.ProfilePresentationCatalog
 import com.quata.feature.profile.data.ProfileSession
 import com.quata.feature.profile.data.ProfileSessionProvider
+import com.quata.feature.profile.data.RemoteProfileViewerRepository
 import com.quata.feature.profile.data.StoredProfileEmergencyMessage
 import com.quata.feature.profile.domain.SecretQuestionOption
 import platform.Foundation.NSUserDefaults
@@ -31,13 +32,18 @@ class IosProfileSosRuntimeBootstrap(
     private val authSession: IosRenewableAuthSession,
 ) {
     private val sessionProvider = IosProfileSessionAdapter(authSession)
+    private val remote = IosProfilePostgrestGateway(configuration, authSession)
     private val repository = KmpProfileRepository(
-        remote = IosProfilePostgrestGateway(configuration, authSession),
+        remote = remote,
         sessions = sessionProvider,
         avatarUploader = IosUnsupportedProfileAvatarUploader,
         emergencyMessages = IosProfileEmergencyMessageDefaults(),
         emergencyContacts = IosProfileEmergencyContactsDefaults(),
         catalog = IosProfilePresentationCatalog,
+    )
+    private val memberProfileRepository = RemoteProfileViewerRepository(
+        remote = remote,
+        sessions = sessionProvider,
     )
 
     fun hostDependencies(
@@ -60,6 +66,20 @@ class IosProfileSosRuntimeBootstrap(
         onContactsPicked = onContactsPicked,
         onContactPickerResult = onContactPickerResult,
         onContactsPermissionResult = onContactsPermissionResult,
+        onClose = onClose,
+    )
+
+    /**
+     * Uses the same authenticated transport and Keychain-backed identity as Profile/SOS, but
+     * exposes only the dedicated read-only member projection. The launcher must not substitute
+     * a local Communities model for this route.
+     */
+    fun memberProfileHostDependencies(
+        profileId: String,
+        onClose: () -> Unit,
+    ): IosMemberProfileHostDependencies = IosMemberProfileHostDependencies(
+        profileId = profileId,
+        repository = memberProfileRepository,
         onClose = onClose,
     )
 }

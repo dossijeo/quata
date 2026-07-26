@@ -47,6 +47,13 @@ fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependenc
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().padding(16.dp)) {
                     Text("Compartir en Quata", style = MaterialTheme.typography.titleLarge)
+                    Button(
+                        onClick = dependencies.onDismiss,
+                        enabled = !state.isSending,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Text("Cancelar")
+                    }
                     dependencies.payload.text.takeIf { it.isNotBlank() }?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
                     dependencies.payload.attachments.forEach { attachment ->
                         Button(onClick = { dependencies.onOpenAttachment(attachment) }) { Text(attachment.name) }

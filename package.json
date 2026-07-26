@@ -1,0 +1,10 @@
+{
+  "name": "quata-browser-e2e",
+  "private": true,
+  "scripts": {
+    "test:web-chat-report": "node --test scripts/web-chat-browser-e2e-report.test.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.0"
+  }
+}

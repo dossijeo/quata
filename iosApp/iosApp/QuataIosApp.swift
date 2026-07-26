@@ -1,7 +1,19 @@
 import CoreLocation
+import Foundation
 import UIKit
 import UserNotifications
 import QuataShared
+
+enum IosWhatsNewLocale {
+    static func sanitizedPreferredLanguageTag(_ preferredLanguages: [String] = Locale.preferredLanguages) -> String? {
+        guard let raw = preferredLanguages.first else { return nil }
+        let candidate = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard candidate.range(of: "^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return candidate
+    }
+}
 
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
@@ -84,6 +96,10 @@ private final class IosAppCompositionRoot {
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
+    private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
+        IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
+            languageTag: IosWhatsNewLocale.sanitizedPreferredLanguageTag(),
+        )
     private let deepLinkDispatcher = IosDeepLinkDispatcher()
     private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
         IosPublicRuntimeConfiguration.feedConfiguration()
@@ -142,14 +158,32 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository(),
         )
     }()
+    /// The extension writes only to the App Group. This authenticated app runtime reuses the
+    /// existing Keychain session and real Chat repository when the user opens the handoff URL.
+    private lazy var externalShareRuntimeBootstrap: IosExternalShareRuntimeBootstrap? = {
+        guard let runtimeBootstrap, let chatRuntimeBootstrap else { return nil }
+        return IosExternalShareInboxKt.createIosExternalShareRuntimeBootstrap(
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            chatRepository: chatRuntimeBootstrap.repository()
+        )
+    }()
+    private var externalShareForegroundObserver: NSObjectProtocol?
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = authenticatedHost
         window.makeKeyAndVisible()
         self.window = window
+        externalShareForegroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.presentPendingExternalShareIfAvailable()
+        }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
+        installWhatsNewIfAvailable()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -194,7 +228,36 @@ private final class IosAppCompositionRoot {
         installAuthenticatedProfileSosIfAvailable()
         installAuthenticatedCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
+        presentPendingExternalShareIfAvailable()
         return true
+    }
+
+    private func presentPendingExternalShareIfAvailable() {
+        guard
+            let bootstrap = externalShareRuntimeBootstrap,
+            authenticatedHost.presentedViewController == nil,
+            let claim = bootstrap.claimRestoredAuthenticated(requestedId: nil)
+        else { return }
+        var completedConversationID: String?
+        let dependencies = bootstrap.hostDependencies(
+            claim: claim,
+            onDismiss: { [weak self] in
+                guard let self else { return }
+                self.authenticatedHost.dismiss(animated: true) {
+                    if let conversationID = completedConversationID {
+                        self.authenticatedHost.showChat(conversationId: conversationID, messageId: nil)
+                    }
+                }
+            },
+            onOpenConversation: { conversationID in
+                completedConversationID = conversationID
+            }
+        )
+        let controller = QuataExternalShareViewControllerKt.QuataExternalShareViewController(
+            dependencies: dependencies
+        )
+        controller.modalPresentationStyle = .fullScreen
+        authenticatedHost.present(controller, animated: true)
     }
 
     private func installAuthenticatedChatIfAvailable() {
@@ -229,10 +292,18 @@ private final class IosAppCompositionRoot {
                 },
                 onRequestNotificationPermission: {
                     // Permission is a UIKit/system concern. This invokes the real iOS prompt;
-                    // APNs token registration remains the existing AppDelegate bridge.
+                    // APNs token registration remains the existing AppDelegate bridge. Request
+                    // it from this completion as the authorization sheet is not guaranteed to
+                    // produce another applicationDidBecomeActive callback.
                     UNUserNotificationCenter.current().requestAuthorization(
                         options: [.alert, .badge, .sound]
-                    ) { _, _ in }
+                    ) { granted, error in
+                        guard IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(
+                            granted: granted,
+                            error: error
+                        ) else { return }
+                        IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+                    }
                 },
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.
@@ -274,7 +345,7 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedCommunitiesIfAvailable() {
-        guard let communitiesRuntimeBootstrap else { return }
+        guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
@@ -283,10 +354,17 @@ private final class IosAppCompositionRoot {
                     onOpenConversation: { [weak self] conversationId in
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
-                    onNavigateToProfile: { [weak self] _ in
-                        self?.presentCommunitiesCapabilityNotice(
-                            "Community member profiles are not yet an iOS route."
+                    onNavigateToProfile: { [weak self] profileId in
+                        guard let self else { return }
+                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+                            profileId: profileId,
+                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
                         )
+                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+                            dependencies: dependencies,
+                        )
+                        controller.modalPresentationStyle = .fullScreen
+                        self.authenticatedHost.present(controller, animated: true)
                     },
                 ),
             )
@@ -330,6 +408,23 @@ private final class IosAppCompositionRoot {
                         UserDefaults.standard.set(value, forKey: SettingsPreferenceKey.themeMode)
                     },
                 ),
+            )
+        }
+    }
+
+    /// What's New is a versioned local catalog. It does not require or manufacture backend state.
+    private func installWhatsNewIfAvailable() {
+        guard let whatsNewRuntimeBootstrap else { return }
+        authenticatedHost.installWhatsNewFactory { [weak self] in
+            IosWhatsNewRuntimeBootstrapKt.QuataIosManagedWhatsNewViewController(
+                runtime: whatsNewRuntimeBootstrap,
+                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+            )
+        }
+        authenticatedHost.installReleaseHistoryFactory { [weak self] in
+            IosWhatsNewRuntimeBootstrapKt.QuataIosReleaseHistoryViewController(
+                runtime: whatsNewRuntimeBootstrap,
+                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
             )
         }
     }
@@ -404,6 +499,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var communitiesFactory: (() -> UIViewController)?
     private var composerFactory: (() -> UIViewController)?
     private var settingsFactory: (() -> UIViewController)?
+    private var whatsNewFactory: (() -> UIViewController)?
+    private var releaseHistoryFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
     private lazy var routeMenuButton: UIButton = {
@@ -434,6 +531,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case communities
         case composer
         case settings
+        case whatsNew
+        case releaseHistory
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -508,6 +607,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// supports opening a conversation, but not scrolling to a particular message identifier.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
+        // Chat remains installable for an already constructed bootstrap even when the host has no
+        // public runtime metadata. Only remote preview degrades in that case.
+        let attachmentPreviewService: IosChatAttachmentPreviewService? = {
+            guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+                return nil
+            }
+            // Reuse the Keychain-backed session from Chat; Quick Look only receives a local
+            // temporary file after the Kotlin boundary validates and downloads the attachment.
+            let attachmentConfiguration = IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            )
+            let attachmentSession = bootstrap.authSessionForInteractiveLogin()
+            return IosChatAttachmentPreviewService(
+                configuration: attachmentConfiguration,
+                authSession: attachmentSession,
+                documentOpener: services.documentOpener,
+                downloader: IosChatAttachmentDownloader(
+                    configuration: attachmentConfiguration,
+                    authSession: attachmentSession,
+                ),
+            )
+        }()
         installChatFactory { [weak self] conversationId, _ in
             let dependencies = bootstrap.hostDependencies(
                 audioPlayer: services.audioPlayer,
@@ -520,12 +642,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onBackToList: { [weak self] in
                     self?.openChatList()
                 },
-                // The shared Chat surface already owns picker, recording and playback through
-                // the injected adapters. Existing remote attachments need a sandboxed download
-                // policy before Quick Look can receive a local URL, so surface that boundary
-                // explicitly rather than silently swallowing the user's action.
-                onOpenAttachment: { [weak self] _ in
-                    self?.presentRemoteAttachmentUnavailableNotice()
+                onOpenAttachment: { [weak self] attachment in
+                    guard let attachmentPreviewService,
+                          attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
+                        self?.presentRemoteAttachmentPreviewUnsupportedNotice()
+                        return
+                    }
+                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { error in
+                        guard error != nil else { return }
+                        DispatchQueue.main.async {
+                            self?.presentRemoteAttachmentDownloadFailureNotice()
+                        }
+                    }
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
@@ -538,6 +666,34 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             message: NSLocalizedString(
                 "ios_chat_attachment_pending_message",
                 value: "La descarga segura de adjuntos remotos estará disponible próximamente.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
+    }
+
+    private func presentRemoteAttachmentPreviewUnsupportedNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_attachment_pending_title", value: "Adjunto", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_attachment_preview_unsupported_message",
+                value: "Este tipo de adjunto todavía no se puede previsualizar en iOS.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
+    }
+
+    private func presentRemoteAttachmentDownloadFailureNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_attachment_pending_title", value: "Adjunto", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_attachment_download_failed_message",
+                value: "No se ha podido descargar el adjunto de forma segura. Inténtalo de nuevo.",
                 comment: "",
             ),
             preferredStyle: .alert,
@@ -576,6 +732,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installWhatsNewFactory(_ factory: @escaping () -> UIViewController) {
+        whatsNewFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    func installReleaseHistoryFactory(_ factory: @escaping () -> UIViewController) {
+        releaseHistoryFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
     func showChat(conversationId: String, messageId: String?) {
@@ -596,6 +762,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func showSettings() { route(.settings) }
 
+    func showWhatsNew() { route(.whatsNew) }
+
+    func showReleaseHistory() { route(.releaseHistory) }
+
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
     @objc private func presentAuthenticatedRouteMenu() {
@@ -605,6 +775,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             message: nil,
             preferredStyle: .actionSheet,
         )
+        populateAuthenticatedRouteMenu(sheet)
+        present(sheet, animated: true)
+    }
+
+    /// Keeps the authenticated menu honest: an item is present only after its real KMP factory
+    /// has been installed. Internal visibility lets XCTest verify that local-only destinations
+    /// remain discoverable without introducing a Swift replacement screen.
+    func populateAuthenticatedRouteMenu(_ sheet: UIAlertController) {
         if feedFactory != nil {
             sheet.addAction(UIAlertAction(title: "Inicio", style: .default) { [weak self] _ in self?.showFeed(postId: nil) })
         }
@@ -629,8 +807,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if settingsFactory != nil {
             sheet.addAction(UIAlertAction(title: "Ajustes", style: .default) { [weak self] _ in self?.showSettings() })
         }
+        if whatsNewFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Novedades", style: .default) { [weak self] _ in self?.showWhatsNew() })
+        }
+        if releaseHistoryFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Acerca de Quata", style: .default) { [weak self] _ in self?.showReleaseHistory() })
+        }
         sheet.addAction(UIAlertAction(title: "Cerrar", style: .cancel))
-        present(sheet, animated: true)
     }
 
     private func showMigrationStatus() {
@@ -674,6 +857,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return composerFactory?()
         case .settings:
             return settingsFactory?()
+        case .whatsNew:
+            return whatsNewFactory?()
+        case .releaseHistory:
+            return releaseHistoryFactory?()
         }
     }
 
@@ -696,6 +883,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-composer-host", "Quata iOS Composer")
         case .settings:
             presentation = ("quata-ios-settings-host", "Quata iOS Settings")
+        case .whatsNew:
+            presentation = ("quata-ios-whats-new-host", "Quata iOS What's New")
+        case .releaseHistory:
+            presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
     }

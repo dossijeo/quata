@@ -19,6 +19,7 @@ sealed class AppDestinations(val route: String) {
         fun createRoute(conversationId: String) = "chat/${quataUrlEncode(conversationId)}"
     }
     data object Notifications : AppDestinations("notifications")
+    data object WhatsNew : AppDestinations("whats_new")
     data object ReleaseHistory : AppDestinations("release_history")
     data object Profile : AppDestinations("profile")
     data object UserProfile : AppDestinations("user_profile/{userId}") {

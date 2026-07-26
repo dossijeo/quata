@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- A signed configuration must inject `development` or `production`; no team, token or
+         certificate is kept in source control. An unset value makes a signed APNs build fail
+         instead of silently claiming push capability. -->
+    <key>aps-environment</key>
+    <string>$(QUATA_APNS_ENVIRONMENT)</string>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.quata.ios.share</string>
+    </array>
+</dict>
+</plist>

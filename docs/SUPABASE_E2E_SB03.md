@@ -19,8 +19,8 @@ aislada autorizada y dos IDs ya existentes que la identidad de esa cuenta pueda
 leer. Los valores `*_PUBLIC_EXPECTED` sólo admiten:
 
 - `visible`: la consulta con clave publishable sin bearer debe devolver la fila.
-- `denied`: la consulta autenticada debe devolver la fila y la pÃºblica debe
-  devolver una lista vacÃ­a por RLS. No se acepta un 401/403 como sustituto de
+- `denied`: la consulta autenticada debe devolver la fila y la pública debe
+  devolver una lista vacía por RLS. No se acepta un 401/403 como sustituto de
   ese contrato porque los repositorios de lectura consumen colecciones.
 
 ```powershell
@@ -36,7 +36,7 @@ $env:QUATA_E2E_OFFICIAL_PUBLIC_EXPECTED = 'visible' # o denied
 .\scripts\run-supabase-e2e-sb03.ps1 -AllowExistingTestData
 ```
 
-El script no acepta URL, credenciales ni IDs como parÃ¡metros. No escribe
+El script no acepta URL, credenciales ni IDs como parámetros. No escribe
 tokens, URL, teléfono, contraseña ni IDs en el informe; al terminar revoca las
 sesiones de la cuenta E2E. El operador elimina los posts de prueba por su flujo
 aprobado y anota esa limpieza en el tablero.
