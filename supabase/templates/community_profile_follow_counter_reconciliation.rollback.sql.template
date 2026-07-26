@@ -1,0 +1,49 @@
+begin;
+
+select pg_advisory_xact_lock(
+    hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
+);
+
+do $$
+declare
+    v_batch public.quata_follow_count_reconciliation_batches%rowtype;
+begin
+    select * into strict v_batch
+    from public.quata_follow_count_reconciliation_batches
+    where migration_marker = '__MIGRATION_VERSION__';
+
+    if (select count(*) from public.community_profile_follows)
+       <> v_batch.edge_count
+       or public.quata_follow_edges_fingerprint()
+          <> v_batch.edge_fingerprint then
+        raise exception 'Rollback refused: follow edges changed after snapshot'
+            using errcode = '40001';
+    end if;
+end;
+$$;
+
+drop trigger if exists quata_sync_profile_follow_counts_trg
+on public.community_profile_follows;
+drop function if exists public.quata_sync_profile_follow_counts();
+
+update public.community_profiles cp
+set followers_count = snapshot.old_followers_count,
+    following_count = snapshot.old_following_count
+from public.quata_follow_count_reconciliation_snapshot snapshot
+join public.quata_follow_count_reconciliation_batches batch
+  on batch.batch_id = snapshot.batch_id
+where batch.migration_marker = '__MIGRATION_VERSION__'
+  and snapshot.profile_id = cp.id;
+
+delete from public.quata_follow_count_reconciliation_batches
+where migration_marker = '__MIGRATION_VERSION__';
+
+drop table if exists public.quata_follow_count_reconciliation_snapshot;
+drop table if exists public.quata_follow_count_reconciliation_batches;
+drop function if exists public.quata_follow_edges_fingerprint();
+
+grant execute on function public.recalculate_profile_follow_counts(uuid)
+to public, anon, authenticated, service_role;
+comment on function public.recalculate_profile_follow_counts(uuid) is null;
+
+commit;

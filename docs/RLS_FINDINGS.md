@@ -76,3 +76,19 @@ Official Web deshabilitadas. La corrección debe coordinarse con la web publicad
 demostrar en SB-09: insert propio, rechazo `42501` de suplantación, rechazo `42501`
 del borrado ajeno, borrado propio y purga verificable de fixtures antes de habilitar
 la UI.
+
+## RLS-005 — Mutaciones públicas de follows de perfiles
+
+- **Detectado:** 2026-07-26 mediante catálogo remoto de sólo lectura y contrato
+  Android.
+- **Severidad:** alta.
+- **Evidencia:** `community_profile_follows` tiene RLS, pero `allow all` y
+  policies públicas de INSERT/DELETE con condiciones `true`. `anon` y
+  `authenticated` tienen INSERT/UPDATE/DELETE y no hay trigger de actor.
+- **Impacto:** un cliente directo puede atribuir follows a otro perfil o borrar
+  relaciones ajenas. Los caches de counters tampoco tienen productor: 74 de
+  112 perfiles difieren de las 107 aristas autoritativas.
+- **Corrección preparada, no desplegada:** plantillas separadas de actor y
+  reconciliación reversible en `supabase/templates/`, pendientes de timestamps
+  por el ledger bloqueado. Véase
+  `docs/RLS_005_COMMUNITY_PROFILE_FOLLOWS_FIX.md`.
