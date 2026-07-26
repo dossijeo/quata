@@ -57,18 +57,20 @@ persistente de entre 8 y 200 caracteres. La respuesta conserva
 La integracion completa, incluido registro del service worker, suscripcion y
 logout aislado, esta documentada en `supabase/WEB_PUSH_INTEGRATION.md`.
 
-## Registro y recuperación Android
+## Recuperación Android
 
 Android usa también este límite para que ningún cliente anónimo pueda leer o
 escribir credenciales en `community_profiles`:
 
-- `action: "register"` crea el perfil, guarda únicamente `pass_hash`, enlaza el
-  usuario Auth y devuelve la misma sesión que `login`.
 - `action: "recovery_question"` devuelve sólo `secret_question`.
 - `action: "reset_password"` valida `secret_answer` en servidor, rota la
   credencial Auth y guarda `pass_hash` con `pass_plain = null`.
 
 La función no registra el payload ni contraseñas o respuestas secretas.
+
+El registro no pertenece a este bridge público. Web y Android usan
+`quata-register`, protegido por Turnstile y con respuesta anti-enumeración
+`202 { "version": 1, "status": "accepted" }`; después llaman a `login`.
 
 ## Deploy
 

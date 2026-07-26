@@ -309,16 +309,38 @@ data class ToggleResult(
 
 @Serializable
 data class SupabaseAuthBridgeRequest(
+    val version: Int = 1,
     val action: String = "login",
     val country_code: String? = null,
     val phone: String? = null,
     val password: String? = null,
-    val display_name: String? = null,
-    val neighborhood: String? = null,
     val secret_question: String? = null,
     val secret_answer: String? = null,
     val new_password: String? = null,
     val reactivate_deactivated: Boolean = false
+)
+
+@Serializable
+data class QuataRegistrationRequest(
+    val version: Int = 1,
+    val channel: String = "android",
+    val challenge_token: String,
+    val challenge_action: String,
+    val client_instance_id: String,
+    val idempotency_key: String,
+    val country_code: String,
+    val phone: String,
+    val password: String,
+    val display_name: String,
+    val neighborhood: String,
+    val secret_question: String,
+    val secret_answer: String
+)
+
+@Serializable
+data class QuataRegistrationAcceptedResponse(
+    val version: Int,
+    val status: String
 )
 
 @Serializable

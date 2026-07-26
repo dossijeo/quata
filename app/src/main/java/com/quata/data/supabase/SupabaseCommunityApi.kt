@@ -112,28 +112,18 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             )
         )
 
-    suspend fun registerWithAuthBridge(
-        countryCode: String,
-        phone: String,
-        password: String,
-        displayName: String,
-        neighborhood: String,
-        secretQuestion: String,
-        secretAnswer: String
-    ): SupabaseAuthBridgeResponse =
-        client.invokeFunction(
-            "quata-auth-bridge",
-            SupabaseAuthBridgeRequest(
-                action = "register",
-                country_code = digitsOnly(countryCode),
-                phone = digitsOnly(phone),
-                password = password,
-                display_name = displayName,
-                neighborhood = neighborhood,
-                secret_question = secretQuestion,
-                secret_answer = secretAnswer
+    suspend fun requestRegistration(request: QuataRegistrationRequest) {
+        val response = client.invokeFunction<QuataRegistrationRequest, QuataRegistrationAcceptedResponse>(
+            "quata-register",
+            request.copy(
+                country_code = digitsOnly(request.country_code),
+                phone = digitsOnly(request.phone)
             )
         )
+        check(response.version == 1 && response.status == "accepted") {
+            "registration_not_accepted"
+        }
+    }
 
     suspend fun getRecoveryQuestionWithAuthBridge(countryCode: String, phone: String): String =
         client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseRecoveryQuestionResponse>(
@@ -162,6 +152,22 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             )
         )
         check(response.ok) { "password_reset_failed" }
+    }
+
+    suspend fun updateRecoverySecretWithAuthBridge(
+        profileId: String,
+        secretQuestion: String,
+        secretAnswer: String
+    ) {
+        val response = client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeOkResponse>(
+            "quata-auth-bridge",
+            SupabaseAuthBridgeRequest(
+                action = "update_recovery_secret",
+                secret_question = secretQuestion,
+                secret_answer = secretAnswer
+            )
+        )
+        check(response.ok) { "recovery_secret_update_failed:$profileId" }
     }
 
     suspend fun performAccountLifecycle(action: String, password: String): SupabaseAccountLifecycleResponse =

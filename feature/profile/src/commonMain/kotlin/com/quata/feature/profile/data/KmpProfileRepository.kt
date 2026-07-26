@@ -85,6 +85,9 @@ class KmpProfileRepository(
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
         remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+        if (update.secretAnswer.isNotBlank()) {
+            remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
+        }
         remote.saveEmergencyContacts(session.profileId, normalizedIds)
         emergencyContacts.save(session.profileId, normalizedIds)
         emergencyMessages.save(session.profileId, update.emergencyMessage, update.emergencyMessageIsDefault)
@@ -183,8 +186,6 @@ internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
     put("phone", "+${countryCode.filter(Char::isDigit)}${phone.filter(Char::isDigit)}")
     put("telefono", phone)
     put("avatar_url", avatarUri.cleanProfileValue())
-    put("secret_question", secretQuestion)
-    if (secretAnswer.isNotBlank()) put("secret_answer", secretAnswer)
 }
 
 internal fun ProfileRemoteRecord.toUserProfile(

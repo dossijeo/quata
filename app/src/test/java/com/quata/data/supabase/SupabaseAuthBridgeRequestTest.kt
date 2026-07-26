@@ -27,8 +27,11 @@ class SupabaseAuthBridgeRequestTest {
     @Test
     fun registrationPayloadUsesServerBoundaryAndNeverRequestsPlainPasswordStorage() {
         val payload = json.encodeToString(
-            SupabaseAuthBridgeRequest(
-                action = "register",
+            QuataRegistrationRequest(
+                challenge_token = "challenge",
+                challenge_action = "register_android",
+                client_instance_id = "instance-id",
+                idempotency_key = "idempotency-id",
                 country_code = "34",
                 phone = "600000000",
                 password = "not-a-real-password",
@@ -39,7 +42,8 @@ class SupabaseAuthBridgeRequestTest {
             )
         )
 
-        assertTrue(payload.contains("\"action\":\"register\""))
+        assertTrue(payload.contains("\"channel\":\"android\""))
+        assertTrue(payload.contains("\"challenge_action\":\"register_android\""))
         assertFalse(payload.contains("pass_plain"))
         assertFalse(payload.contains("pass_hash"))
     }

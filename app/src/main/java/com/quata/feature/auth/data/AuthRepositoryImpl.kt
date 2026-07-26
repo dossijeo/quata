@@ -3,6 +3,8 @@ package com.quata.feature.auth.data
 import android.content.Context
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
+import com.quata.core.auth.AndroidRegistrationChallengeService
+import com.quata.core.auth.RegistrationClientIdentityStore
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.common.UserFacingException
 import com.quata.core.config.AppConfig
@@ -16,6 +18,7 @@ import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseResponseCacheStore
+import com.quata.data.supabase.QuataRegistrationRequest
 import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.feature.auth.domain.AuthRepository
@@ -28,7 +31,9 @@ class AuthRepositoryImpl(
     private val supabaseApi: SupabaseCommunityApi,
     private val sessionManager: SessionManager,
     private val googleAuthHelper: GoogleAuthHelper,
-    private val pushTokenManager: PushTokenManager
+    private val pushTokenManager: PushTokenManager,
+    private val registrationChallengeService: AndroidRegistrationChallengeService,
+    private val registrationIdentityStore: RegistrationClientIdentityStore
 ) : AuthRepository {
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
@@ -67,15 +72,26 @@ class AuthRepositoryImpl(
         } else {
             val phoneLocal = request.phone.onlyDigits()
             val countryCode = request.countryCode.onlyDigits()
-            supabaseApi.registerWithAuthBridge(
-                countryCode = countryCode,
+            val identity = "$countryCode$phoneLocal"
+            val challenge = registrationChallengeService.acquire()
+            supabaseApi.requestRegistration(
+                QuataRegistrationRequest(
+                challenge_token = challenge.token,
+                challenge_action = challenge.action,
+                client_instance_id = registrationIdentityStore.clientInstanceId(),
+                idempotency_key = registrationIdentityStore.idempotencyKey(identity),
+                country_code = countryCode,
                 phone = phoneLocal,
                 password = request.password,
-                displayName = request.displayName,
+                display_name = request.displayName,
                 neighborhood = request.neighborhood,
-                secretQuestion = request.secretQuestion,
-                secretAnswer = request.secretAnswer
-            ).toSession()
+                secret_question = request.secretQuestion,
+                secret_answer = request.secretAnswer
+                )
+            )
+            val session = supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession()
+            registrationIdentityStore.complete(identity)
+            session
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
         .onSuccess { sessionManager.setSession(it) }

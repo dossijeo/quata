@@ -27,7 +27,7 @@ class ProfileRepositoryImpl(
     private val emergencyContactsStore = EmergencyContactsStore(context)
     private val portableRepository: ProfileRepository by lazy {
         KmpProfileRepository(
-            remote = AndroidProfileRemoteGateway(remote),
+            remote = AndroidProfileRemoteGateway(remote, remote.api),
             sessions = AndroidProfileSessionProvider(sessionManager),
             avatarUploader = AndroidProfileAvatarUploader(remote, mediaUploadOptimizer),
             emergencyMessages = AndroidProfileEmergencyMessageStore(context),

@@ -44,6 +44,7 @@ import com.quata.core.diagnostics.AndroidStartupDiagnostics
 import com.quata.core.platform.MainActivityFilePickerHost
 import com.quata.core.platform.MainActivityPermissionHost
 import com.quata.core.platform.MainActivityCameraCaptureHost
+import com.quata.core.auth.MainActivityTurnstileHost
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private var filePickerHost: MainActivityFilePickerHost? = null
     private var permissionHost: MainActivityPermissionHost? = null
     private var cameraCaptureHost: MainActivityCameraCaptureHost? = null
+    private var turnstileHost: MainActivityTurnstileHost? = null
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(QuataLanguageManager.wrap(newBase))
@@ -82,6 +84,9 @@ class MainActivity : ComponentActivity() {
                 appContainer.permissionService.attachHost(host::request)
             }
             cameraCaptureHost = MainActivityCameraCaptureHost(this).also(appContainer.cameraCaptureService::attachHost)
+            turnstileHost = MainActivityTurnstileHost(this).also { host ->
+                appContainer.registrationChallengeService.attachHost(host::request)
+            }
             ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
             val launchedFromShare = intent?.action in SHARE_ACTIONS
             handleIncomingIntent(intent)
@@ -155,6 +160,8 @@ class MainActivity : ComponentActivity() {
             host.close()
         }
         cameraCaptureHost = null
+        appContainer.registrationChallengeService.detachHost()
+        turnstileHost = null
         super.onDestroy()
     }
 
