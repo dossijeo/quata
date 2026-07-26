@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string[]]$MigrationFile,
     [string]$Snapshot = "build-reports/db-release-safety/snapshot.json",
-    [string]$OutputDirectory = "build-reports/db-release-safety/release-package"
+    [string]$OutputDirectory = "build-reports/db-release-safety/release-package",
+    [string]$RepositoryRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +17,11 @@ if ($snapshotReport.check -ne "DB-RELEASE-SAFETY" -or $snapshotReport.phase -ne 
     throw "Snapshot has an unexpected contract."
 }
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$repoRoot = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+} else {
+    (Resolve-Path -LiteralPath $RepositoryRoot).Path
+}
 $migrationRoot = Join-Path $repoRoot "supabase/migrations"
 $selected = @()
 foreach ($file in $MigrationFile) {
@@ -85,7 +90,11 @@ foreach ($item in @($anchors) + @($selected)) {
 $manifest = [ordered]@{
     schemaVersion = 1
     createdAt = (Get-Date).ToUniversalTime().ToString("o")
-    sourceCommit = (git -C $repoRoot rev-parse HEAD).Trim()
+    sourceCommit = if (Test-Path -LiteralPath (Join-Path $repoRoot ".git")) {
+        (git -C $repoRoot rev-parse HEAD).Trim()
+    } else {
+        "disposable-test-fixture"
+    }
     deploymentAuthorized = $false
     remoteLedgerAnchors = @($anchors.Version)
     selectedVersions = @($selected.Version)

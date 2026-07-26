@@ -43,6 +43,23 @@ Reserva de integración:
 
 La reserva ordena el paquete, pero no autoriza su aplicación.
 
+### Reconciliación versionada
+
+`supabase/migration-reconciliation.json` clasifica las 31 migraciones y declara
+marcadores de catálogo duraderos. El snapshot read-only calcula el SHA-256 de
+cada SQL y comprueba los marcadores:
+
+- 24 `already_applied`;
+- 7 `obsolete_superseded`;
+- 0 `pending`;
+- 0 decisiones sin fichero y 0 marcadores ausentes.
+
+Esta clasificación no inserta 29 filas ficticias en el ledger: varias versiones
+históricas colisionan y algunas definiciones fueron reemplazadas. Su registro
+auditable es el manifiesto + fingerprint del snapshot. El ledger Supabase
+continúa con sus dos anclas reales y, en adelante, sólo recibe timestamps
+únicos aplicados por el paquete selectivo.
+
 ## Evidencia read-only y puertas
 
 Ejecutar desde la raíz, con la URL en fichero y una sola CA explícita:
@@ -63,21 +80,27 @@ ignorado por Git. No contienen URL, credenciales, IDs ni valores de negocio.
 Incluyen hashes SHA-256 de los SQL locales, ledger remoto, políticas/grants,
 firmas de RPC y hashes de funciones de trigger.
 
-El `snapshot` captura evidencia aunque exista drift. `preflight` falla cerrado
-con `blocked_history_reconciliation` mientras el ledger no tenga un método de
-aplicación seleccionado que garantice que no se reejecutan los 29 SQL.
+El `snapshot` captura evidencia aunque exista drift. `preflight` y `postflight`
+sólo pueden pasar el gate de historial si la reconciliación está completa y se
+usa el método de paquete selectivo. El informe conserva
+`safeForSupabaseDbPush=false`: ejecutar desde el repositorio completo continúa
+prohibido aunque `selectivePackageEligible=true`.
 
 ### ANDROID-COMPAT-01
 
 PASS exige simultáneamente:
 
-- las diez tablas consumidas por el cliente actual presentes;
-- los 32 RPC `quata_chat_*` invocados por `SupabaseCommunityApi` presentes;
+- las 18 tablas/vistas derivadas de las llamadas del cliente actual presentes;
+- los 44 RPC derivados de `SupabaseCommunityApi` más los dos contratos de
+  release-history presentes;
 - firmas registradas para comparar antes/después;
 - tras el eventual despliegue, repetición del catálogo y smoke del APK actual
   en API-37 sin crash/ANR.
 
-En el preflight del 2026-07-26: `missingTables=[]`,
+La primera versión del release-safety cubría sólo un subconjunto manual de
+10 tablas/32 RPC. Tras auditar `61987276`, el inventario se deriva del código y
+usa el superset 18/44 de la suite de compatibilidad; ese es el contrato
+autoritativo. En el preflight ampliado: `missingTables=[]`,
 `missingRpcs=[]`. El código de producto de `366c86aa` es idéntico a
 `9cc84dc2` en `app`, `core`, `designsystem`, `feature` y `web`; ese corte ya
 tenía assemble y smoke Android acreditados. Esto es evidencia previa, no
@@ -101,6 +124,12 @@ recorrió `#feed`, y el árbol Web de `366c86aa` es idéntico. Tras el eventual
 despliegue se debe repetir la ruta `#feed` y una lectura sin bearer. Catálogo
 SQL y smoke local por separado no se presentan como E2E de navegador remoto.
 
+La suite `61987276` es la puerta completa propuesta: GET PostgREST público con
+las columnas exactas de Feed/Official/Communities, comparación de firmas
+pre/post, navegación Web sin credenciales y smoke API-37 preservando datos.
+Release-safety conserva el catálogo 18/44 y el gate mínimo Feed; la suite
+completa debe ejecutarse antes y después de cada migración autorizada.
+
 ### TRIGGER-ACTOR-01
 
 El preflight inventaría triggers en posts, comentarios y likes, y marca como
@@ -108,8 +137,9 @@ riesgo cualquier función de trigger `SECURITY DEFINER` que consulte
 `current_user` directamente o mediante `quata_current_role_is_service()`.
 No publica el cuerpo: sólo nombre, flags y SHA-256.
 
-El snapshot desplegado encontró tres riesgos:
+El snapshot desplegado encontró cuatro riesgos:
 
+- `community_profiles / quata_guard_profile_roles_trg`;
 - `official_posts / quata_guard_official_posts_trg`;
 - `official_post_comments / quata_guard_official_post_comments_trg`;
 - `official_post_likes / quata_guard_official_post_likes_trg`.
@@ -159,25 +189,55 @@ Commit revisado: `77d93da4`, sin integrar ni desplegar.
   spoof previo, insert propio A/B, rechazo `42501` de spoof/borrado ajeno,
   delete propio y lectura anónima.
 
-Condiciones pendientes: revisión independiente, staging/SB-09, postflight
-Android/Feed y método de ledger que no reejecute las 29 migraciones históricas.
+Revisión independiente: **aprobada para staging** por
+`review_auxiliary_e2e`. Los únicos bloqueos restantes de esta candidata son el
+método de ledger/release, el ensayo staging/SB-09 y los gates reales
+pre/postflight de Android y Feed.
+
+El rollback de RLS-002 sigue sólo dentro de la documentación de la candidata.
+Antes de integrar debe existir como SQL versionado, con hash congelado y
+regresión rollback/reaplicación.
 
 ## Auditoría de la candidata RLS-001
 
-Commit rechazado para release: `4757af17`, no integrado ni desplegado.
+El primer commit `4757af17` fue rechazado. La revisión corregida
+`46a54b54` está **aprobada para integración/staging** por
+`review_auxiliary_e2e`, pero no desplegada.
 
-- versión `20260726171001` correcta y rollback explícito;
-- conserva lectura pública y el contrato Android de borrado por ID;
-- pero sólo restringe DELETE: la política UPDATE pública permite que un
-  outsider reasigne `profile_id` y se convierta en propietario antes de borrar;
-- INSERT público también permite suplantar autoría;
-- el SQL no contiene su propio `BEGIN/COMMIT`; la prueba lo envuelve, pero el
-  artefacto de producción no garantiza atomicidad por sí solo.
+- El rechazo inicial se debió a que sólo restringía DELETE, dejaba la evasión
+  UPDATE→DELETE, permitía INSERT suplantado y no era auto-transaccional.
+- La versión `20260726171001` corregida conserva rollback explícito y lectura
+  pública, y mantiene el contrato Android de borrado por ID.
 
-Debe reemplazarse por una candidata que cubra como mínimo UPDATE y DELETE, y
-que decida INSERT con evidencia de compatibilidad del Android actual. El
-hallazgo crítico de `community_profiles` requiere candidata/revisión separada
-antes del release; no se añadirá improvisadamente a RLS-001.
+La revisión corregida cubre INSERT/UPDATE/DELETE, es transaccional, preserva
+SELECT y prueba el contrato Android de insert propio/borrado por ID, admin
+activo/inactivo, rollback/reaplicación y limpieza. Quedan pendientes la
+regresión Supabase aislada y los gates reales post-release. El hallazgo crítico
+de `community_profiles` mantiene su candidata/revisión separada.
+
+## Auditoría de Web registration 004
+
+Commit corregido revisado: `f6266215`, sin integrar ni desplegar.
+
+La revisión corrige transacción, flags cliente/servidor fail-closed, Turnstile
+obligatorio al habilitar, secreto interno dedicado, respuesta 202 uniforme y
+runner de cleanup. Aun así, queda **bloqueada**:
+
+- declara 003 como precondición, pero la candidata `473f2400` rompe el reset
+  Android legado y permite que un admin desactivado asigne roles;
+- no incluye rollback SQL versionado;
+- al configurar el secreto dedicado, identidades Auth antiguas derivadas con
+  la service-role key requieren una transición demostrada;
+- el endpoint registra `error.message`, que debe reemplazarse por códigos
+  operativos seguros.
+- la UI Web no integra ni envía el token Turnstile, por lo que todas las altas
+  quedarían rechazadas al habilitar el servidor;
+- persiste una señal de enumeración por tiempo y el cleanup elimina
+  trazabilidad, no tiene claim/lease y sólo está probado con mocks.
+
+El bloqueo de 003 incluye el reset Android legado y la exposición pública de
+`pass_plain`, `pass_hash` y `secret_answer`. Registration no se puede
+empaquetar antes de resolver ese contrato.
 
 ## Backup y rollback
 
@@ -194,7 +254,7 @@ Antes de autorizar:
    entorno no productivo;
 4. comprobar que el rollback restaura políticas/grants/triggers anteriores y
    no borra datos de negocio;
-5. acordar un método de ledger que aplique sólo los tres timestamps reservados.
+5. acordar un método de ledger que aplique sólo los cuatro timestamps reservados.
 
 El método propuesto es generar un workdir efímero con únicamente:
 
@@ -208,6 +268,13 @@ Antes de aplicar, el release manager debe enlazar ese workdir de forma segura y
 ejecutar `supabase db push --dry-run`. El dry-run debe listar sólo las
 migraciones nuevas. Si aparece cualquier SQL histórico, se aborta. No se usará
 el workdir completo del repositorio.
+
+`scripts/test-db-release-ledger-package.ps1` validó el procedimiento contra
+PostgreSQL 17 desechable con TLS: dos anclas simuladas, dry-run que enumeró sólo
+001-004, aplicación de cuatro probes, ledger final 6/6 y segundo dry-run sin
+pendientes. El contenedor y el clon temporal se eliminaron al terminar. Esto
+prueba selección/registro/idempotencia; las regresiones SQL de cada candidata
+siguen siendo obligatorias porque los probes no sustituyen el esquema Supabase.
 
 No existe un rollback genérico seguro. Para RLS se restaura la política previa
 en una transacción. Para el endpoint de registro se revocan grants y se
@@ -240,5 +307,9 @@ El postflight mecanizable requiere enumerar las versiones esperadas:
   -ExpectedMigration 20260726171001,20260726171002
 ```
 
-Mientras el plan de ledger siga abierto, el comando debe continuar bloqueado
+Si aparece una decisión histórica ausente, un marcador remoto ausente o un
+fichero desconocido, el comando vuelve a `blocked_history_reconciliation`
 aunque Android y Feed sean compatibles.
+
+El corte reproducible, fingerprint y matriz de rollback 001-004 quedan
+congelados en `docs/DB_RELEASE_SNAPSHOT_2026-07-26.md`.
