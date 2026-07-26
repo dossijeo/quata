@@ -104,3 +104,7 @@ figura en la allowlist. Requieren el mismo fingerprint previo, lock advisory,
 locks de tabla/ledger y una fila ledger ya aplicada **byte-exacta**. Nunca
 borran, editan ni reparan dicha fila: una reaplicación necesita una nueva
 migración forward revisada. El rollback se rechaza ante drift.
+
+Tras rollback de 001, la reaplicación usa exclusivamente la nueva versión
+`20260726171005_community_comments_reapply_rls`: el executor conserva 171001
+byte-exacto, inserta 171005 y exige 171005 byte-exacto antes de permitir 002.

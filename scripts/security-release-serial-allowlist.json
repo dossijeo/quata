@@ -15,6 +15,13 @@
       "sha256": "d978ebc8ca18de9dcc52d0f3549722894812fc0a50649c6c39946d97c9cc53ec"
       ,"rollbackFile": "20260726171002_official_post_likes_actor_guard.rollback.sql",
       "rollbackSha256": "2687317b6bcbef69bb5f6c5f4a86c272bbcd4908f82e35d52e4db9e267eab12a"
+    },
+    "20260726171005": {
+      "file": "20260726171005_community_comments_reapply_rls.sql",
+      "name": "community_comments_reapply_rls",
+      "sha256": "83fc421f7f447d18312ba3738e574cb1d8001f0f46360b8d94d80f0e00c5fa1a",
+      "rollbackFile": "20260726171005_community_comments_reapply_rls.rollback.sql",
+      "rollbackSha256": "346141918eef20e6926c1d087fec6bf7b5fe652e41073be92605d2e3ceea6384"
     }
   }
 }
