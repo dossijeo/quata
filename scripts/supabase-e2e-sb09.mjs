@@ -10,11 +10,19 @@ import { dirname, resolve } from "node:path";
 
 const required = [
   "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
-  "QUATA_E2E_OFFICIAL_A_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_A_PHONE", "QUATA_E2E_OFFICIAL_A_PASSWORD",
-  "QUATA_E2E_OFFICIAL_B_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_B_PHONE", "QUATA_E2E_OFFICIAL_B_PASSWORD",
   "QUATA_E2E_OFFICIAL_POST_ID", "QUATA_E2E_OFFICIAL_A_E2E_SCOPE", "QUATA_E2E_OFFICIAL_B_E2E_SCOPE",
   "QUATA_E2E_OFFICIAL_EXTERNAL_HARD_CLEANUP",
 ];
+const productionUserRequired = ["A", "B"].flatMap((label) => [
+  `QUATA_E2E_OFFICIAL_${label}_COUNTRY_CODE`,
+  `QUATA_E2E_OFFICIAL_${label}_PHONE`,
+  `QUATA_E2E_OFFICIAL_${label}_PASSWORD`,
+]);
+const localUserRequired = ["A", "B"].flatMap((label) => [
+  `QUATA_E2E_OFFICIAL_${label}_EMAIL`,
+  `QUATA_E2E_OFFICIAL_${label}_PASSWORD`,
+]);
+const localApproval = "approved_loopback_only";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function args(argv) {
@@ -28,29 +36,48 @@ function publicKey(value) {
   try { return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))?.role !== "service_role"; } catch { return false; }
 }
 function config() {
-  const missing = required.filter((name) => !process.env[name]?.trim());
+  const local = process.env.QUATA_E2E_LOCAL_SUPABASE === localApproval;
+  const missing = [...required, ...(local ? localUserRequired : productionUserRequired)]
+    .filter((name) => !process.env[name]?.trim());
   if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
   const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, "");
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error("invalid_public_supabase_url");
+  const localUrl = /^http:\/\/127\.0\.0\.1:\d+$/.test(baseUrl);
+  if (local ? !localUrl : !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) {
+    throw new Error(local ? "invalid_loopback_supabase_url" : "invalid_public_supabase_url");
+  }
   const key = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim();
   if (!publicKey(key)) throw new Error("invalid_or_privileged_supabase_key");
   if (process.env.QUATA_E2E_OFFICIAL_EXTERNAL_HARD_CLEANUP !== "approved_isolated_account_purge") throw new Error("safe_cleanup_contract_missing");
   if (process.env.QUATA_E2E_OFFICIAL_A_E2E_SCOPE !== "isolated_sb09_account" || process.env.QUATA_E2E_OFFICIAL_B_E2E_SCOPE !== "isolated_sb09_account") throw new Error("isolated_e2e_account_scope_missing");
   const postId = process.env.QUATA_E2E_OFFICIAL_POST_ID.trim();
   if (!uuid.test(postId)) throw new Error("invalid_official_post_identifier");
-  const users = ["A", "B"].map((label) => ({
+  const users = ["A", "B"].map((label) => local ? ({
+    label,
+    email: process.env[`QUATA_E2E_OFFICIAL_${label}_EMAIL`].trim(),
+    password: process.env[`QUATA_E2E_OFFICIAL_${label}_PASSWORD`],
+  }) : ({
     label,
     countryCode: process.env[`QUATA_E2E_OFFICIAL_${label}_COUNTRY_CODE`].trim(),
     phone: process.env[`QUATA_E2E_OFFICIAL_${label}_PHONE`].trim(),
     password: process.env[`QUATA_E2E_OFFICIAL_${label}_PASSWORD`],
   }));
-  if (`${users[0].countryCode}|${users[0].phone}` === `${users[1].countryCode}|${users[1].phone}`) throw new Error("isolated_e2e_accounts_must_differ");
-  return { baseUrl, key, postId, users };
+  const identityA = local ? users[0].email : `${users[0].countryCode}|${users[0].phone}`;
+  const identityB = local ? users[1].email : `${users[1].countryCode}|${users[1].phone}`;
+  if (identityA === identityB) throw new Error("isolated_e2e_accounts_must_differ");
+  return { baseUrl, key, postId, users, local };
 }
 function headers(configuration, token) { return { apikey: configuration.key, "content-type": "application/json", accept: "application/json", "x-client-info": "quata-e2e-sb09", ...(token ? { authorization: `Bearer ${token}` } : {}) }; }
 async function request(url, options, prefix) {
   let response;
-  try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(15_000) }); } catch { throw new Error(`${prefix}:network`); }
+  try {
+    response = await fetch(url, {
+      ...options,
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new Error(`${prefix}:network`);
+  }
   const text = await response.text();
   let body = null;
   if (text) { try { body = JSON.parse(text); } catch { body = null; } }
@@ -58,6 +85,25 @@ async function request(url, options, prefix) {
 }
 function restUrl(configuration, table, query = {}) { const url = new URL(`${configuration.baseUrl}/rest/v1/${table}`); for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value); return url; }
 async function login(configuration, user) {
+  if (configuration.local) {
+    const auth = await request(
+      `${configuration.baseUrl}/auth/v1/token?grant_type=password`,
+      { method: "POST", headers: headers(configuration), body: JSON.stringify({ email: user.email, password: user.password }) },
+      "public_auth_request_failed",
+    );
+    const authUserId = auth.body?.user?.id, accessToken = auth.body?.access_token;
+    if (!auth.ok || !uuid.test(authUserId ?? "") || typeof accessToken !== "string" || !accessToken) {
+      throw new Error(`invalid_auth_response:${user.label}`);
+    }
+    const profiles = await request(
+      restUrl(configuration, "community_profiles", { select: "id", auth_user_id: `eq.${authUserId}`, limit: "1" }),
+      { headers: headers(configuration, accessToken) },
+      "public_auth_request_failed",
+    );
+    const profileId = Array.isArray(profiles.body) ? profiles.body[0]?.id : null;
+    if (!profiles.ok || !uuid.test(profileId ?? "")) throw new Error(`invalid_auth_response:${user.label}`);
+    return { ...user, profileId, accessToken };
+  }
   const result = await request(`${configuration.baseUrl}/functions/v1/quata-auth-bridge`, { method: "POST", headers: headers(configuration), body: JSON.stringify({ action: "web_login", country_code: user.countryCode, phone_local: user.phone, password: user.password, client_instance_id: `e2e-sb09-${user.label.toLowerCase()}-${crypto.randomUUID()}` }) }, "public_auth_request_failed");
   const profileId = result.body?.profile?.id, accessToken = result.body?.session?.access_token;
   if (!result.ok || !uuid.test(profileId ?? "") || typeof accessToken !== "string" || !accessToken) throw new Error(`invalid_auth_response:${user.label}`);
@@ -88,7 +134,7 @@ async function assertAbsent(configuration, session, postId, profileId, prefix) {
 }
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "unknown";
-  const known = ["invalid_arguments", "missing_environment", "invalid_public_supabase_url", "invalid_or_privileged_supabase_key", "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "invalid_official_post_identifier", "isolated_e2e_accounts_must_differ", "public_auth_request_failed", "invalid_auth_response", "official_like_insert_failed", "official_like_spoof_not_denied", "official_like_spoof_persisted", "official_like_cross_delete_not_denied", "official_like_cross_delete_changed_row", "official_like_anonymous_read_changed", "official_like_delete_failed", "official_like_cleanup"];
+  const known = ["invalid_arguments", "missing_environment", "invalid_public_supabase_url", "invalid_loopback_supabase_url", "invalid_or_privileged_supabase_key", "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "invalid_official_post_identifier", "isolated_e2e_accounts_must_differ", "public_auth_request_failed", "invalid_auth_response", "official_like_insert_failed", "official_like_spoof_not_denied", "official_like_spoof_persisted", "official_like_cross_delete_not_denied", "official_like_cross_delete_changed_row", "official_like_anonymous_read_changed", "official_like_delete_failed", "official_like_cleanup"];
   return { status: "failed", error: known.find((prefix) => message.startsWith(prefix)) ?? "unexpected_official_like_runner_failure" };
 }
 async function report(output, payload) { const target = resolve(output); await mkdir(dirname(target), { recursive: true }); await writeFile(target, `${JSON.stringify(payload, null, 2)}\n`, { encoding: "utf8", mode: 0o600 }); console.log(`SB-09 report written: ${target}`); }
@@ -139,7 +185,7 @@ async function main() {
     if (publicAfterCleanup.length) throw new Error("official_like_anonymous_read_changed:cleanup_not_publicly_visible");
     steps.push("anonymous_select_preserved_after_cleanup");
     await revoke(configuration, a); a = null; await revoke(configuration, b); b = null; cleanup = { state: "like_absence_verified_sessions_revoked_external_fixture_purge_required" }; steps.push("both_sessions_revoked");
-    await report(output, { check: "SB-09", status: "passed_with_external_fixture_purge_pending", startedAt, finishedAt: new Date().toISOString(), mode: "two_isolated_users_public_key_official_like", steps, cleanup, mutationPolicy: "Public key plus isolated-user JWTs only. No service-role, database URL, SQL, DDL, RPC or schema changes. The separate fixture owner hard-purges all three isolated accounts and verifies Auth/profile absence." });
+    await report(output, { check: "SB-09", status: "passed_with_external_fixture_purge_pending", startedAt, finishedAt: new Date().toISOString(), mode: configuration.local ? "local_loopback_two_isolated_users_official_like" : "two_isolated_users_public_key_official_like", steps, cleanup, mutationPolicy: "Public key plus isolated-user JWTs only. No service-role, database URL, SQL, DDL, RPC or schema changes. The separate fixture owner hard-purges all three isolated accounts and verifies Auth/profile absence." });
   } catch (error) {
     const rollbackStates = [];
     if (configuration && a && likeIdA) {

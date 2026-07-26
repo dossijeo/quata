@@ -39,3 +39,21 @@ contra producción desde esta rama. Tras aplicarla en staging, SB-09 debe demost
 6. El rollback del runner elimina cualquier fila aceptada antes de la purga dura.
 7. El operador purga cada cuenta en una transacción separada, elimina Auth y
    comprueba ausencia de perfiles, usuarios, post y likes.
+
+## Modo local desechable
+
+SB-09 admite un modo para validar migraciones contra Supabase CLI/Docker sin
+tocar un proyecto remoto. Requiere simultaneamente:
+
+```text
+QUATA_E2E_LOCAL_SUPABASE=approved_loopback_only
+QUATA_SUPABASE_URL=http://127.0.0.1:<puerto>
+QUATA_E2E_OFFICIAL_A_EMAIL
+QUATA_E2E_OFFICIAL_B_EMAIL
+```
+
+En este modo el login usa GoTrue local con email y password, y resuelve el
+perfil por `auth_user_id`. El runner solo acepta el literal `127.0.0.1` y
+rechaza redirecciones HTTP. El operador debe comprobar además que ese puerto
+pertenece al stack desechable y no a un proxy o túnel. El modo remoto conserva
+el requisito HTTPS `*.supabase.co` y el flujo `quata-auth-bridge` existente.

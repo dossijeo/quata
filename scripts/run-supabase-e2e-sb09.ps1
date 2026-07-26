@@ -9,13 +9,24 @@ $ErrorActionPreference = "Stop"
 if (-not $AllowExistingTestData -or -not $AllowOfficialLikeMutation) {
     throw "SB-09 mutates an isolated Official like. Re-run only with both explicit switches after provisioned fixtures have a verified hard-purge plan."
 }
-foreach ($name in @(
+$localMode = $env:QUATA_E2E_LOCAL_SUPABASE -ceq "approved_loopback_only"
+$required = @(
     "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
-    "QUATA_E2E_OFFICIAL_A_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_A_PHONE", "QUATA_E2E_OFFICIAL_A_PASSWORD",
-    "QUATA_E2E_OFFICIAL_B_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_B_PHONE", "QUATA_E2E_OFFICIAL_B_PASSWORD",
     "QUATA_E2E_OFFICIAL_POST_ID", "QUATA_E2E_OFFICIAL_A_E2E_SCOPE", "QUATA_E2E_OFFICIAL_B_E2E_SCOPE",
     "QUATA_E2E_OFFICIAL_EXTERNAL_HARD_CLEANUP"
-)) {
+)
+if ($localMode) {
+    $required += @(
+        "QUATA_E2E_OFFICIAL_A_EMAIL", "QUATA_E2E_OFFICIAL_A_PASSWORD",
+        "QUATA_E2E_OFFICIAL_B_EMAIL", "QUATA_E2E_OFFICIAL_B_PASSWORD"
+    )
+} else {
+    $required += @(
+        "QUATA_E2E_OFFICIAL_A_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_A_PHONE", "QUATA_E2E_OFFICIAL_A_PASSWORD",
+        "QUATA_E2E_OFFICIAL_B_COUNTRY_CODE", "QUATA_E2E_OFFICIAL_B_PHONE", "QUATA_E2E_OFFICIAL_B_PASSWORD"
+    )
+}
+foreach ($name in $required) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
         throw "$name must be set in the current process. SB-09 never accepts credentials or identifiers as arguments."
     }
