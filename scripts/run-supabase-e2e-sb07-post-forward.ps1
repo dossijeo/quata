@@ -3,6 +3,7 @@ param(
     [ValidateSet('preflight-auth','full')][string]$Mode = 'preflight-auth',
     [Parameter(Mandatory = $true)][string]$DbUrlFile,
     [Parameter(Mandatory = $true)][string]$TlsCaFile,
+    [Parameter(Mandatory = $true)][string]$RecoveryFile,
     [string]$Output = 'build-reports/supabase/sb-07-post-forward.json'
 )
 
@@ -11,6 +12,7 @@ $ErrorActionPreference = 'Stop'
 if ($env:QUATA_SB07_PRODUCTION_GATE_APPROVED -cne 'approved_temporary_fixture_only') { throw 'explicit_fixture_authorization_missing' }
 if ($Mode -eq 'full' -and $env:QUATA_SB07_PRODUCTION_GATE_ALLOW_MUTATION -cne 'approved_public_postgrest_mutations') { throw 'explicit_public_mutation_authorization_missing' }
 if (-not (Test-Path -LiteralPath $DbUrlFile -PathType Leaf) -or -not (Test-Path -LiteralPath $TlsCaFile -PathType Leaf)) { throw 'secure_database_input_missing' }
+if (Test-Path -LiteralPath $RecoveryFile) { throw 'recovery_file_must_not_overwrite' }
 if (-not (Get-Command npm -ErrorAction SilentlyContinue) -or -not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'node_npm_required' }
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('quata-sb07-post-forward-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp | Out-Null
@@ -20,11 +22,13 @@ try {
   $env:SUPABASE_DB_URL = (Get-Content -LiteralPath $DbUrlFile -Raw).Trim()
   $env:SUPABASE_DB_TLS_CA_FILE = (Resolve-Path -LiteralPath $TlsCaFile).Path
   $env:NODE_PATH = Join-Path $temp 'node_modules'
+  $env:QUATA_SB07_RECOVERY_FILE = [IO.Path]::GetFullPath($RecoveryFile)
   & node (Join-Path $PSScriptRoot 'supabase-e2e-sb07-post-forward.mjs') --mode $Mode --out $Output
   exit $LASTEXITCODE
 } finally {
   Remove-Item Env:SUPABASE_DB_URL -ErrorAction SilentlyContinue
   Remove-Item Env:SUPABASE_DB_TLS_CA_FILE -ErrorAction SilentlyContinue
   Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue
+  Remove-Item Env:QUATA_SB07_RECOVERY_FILE -ErrorAction SilentlyContinue
   if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force }
 }
