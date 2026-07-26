@@ -226,8 +226,11 @@ async function lockReleaseObjects(client, version, rollback) {
   // tuples conflict with ALTER/DROP/CREATE OR REPLACE without blocking
   // unrelated function DDL. A helper created by apply-002 is protected by its
   // uncommitted catalog insert until this transaction commits.
-  if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK !== "1") {
-    try {
+  await client.query("savepoint function_row_lock_probe");
+  try {
+      if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK === "1") {
+        await client.query("do $$ begin raise insufficient_privilege; end $$");
+      }
       const lockedFunctions = await client.query(
         `select p.oid
            from unnest($1::text[]) f(identity)
@@ -235,10 +238,12 @@ async function lockReleaseObjects(client, version, rollback) {
            for share of p`,
         [functions]);
       if (lockedFunctions.rowCount !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+      await client.query("release savepoint function_row_lock_probe");
       return "pg_proc_row_share";
-    } catch (error) {
-      if (error.code !== "42501") throw error;
-    }
+  } catch (error) {
+    if (error.code !== "42501") throw error;
+    await client.query("rollback to savepoint function_row_lock_probe");
+    await client.query("release savepoint function_row_lock_probe");
   }
   // Hosted Supabase roles may own these functions while being denied row locks
   // on system catalogs. Force a real function-catalog tuple update and restore
