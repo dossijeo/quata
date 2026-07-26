@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.quata-account-lifecycle]
 verify_jwt = false
+
+[functions.quata-register]
+verify_jwt = false
