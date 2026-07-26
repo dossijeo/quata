@@ -1,7 +1,19 @@
 import CoreLocation
+import Foundation
 import UIKit
 import UserNotifications
 import QuataShared
+
+enum IosWhatsNewLocale {
+    static func sanitizedPreferredLanguageTag(_ preferredLanguages: [String] = Locale.preferredLanguages) -> String? {
+        guard let raw = preferredLanguages.first else { return nil }
+        let candidate = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard candidate.range(of: "^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return candidate
+    }
+}
 
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
@@ -85,7 +97,9 @@ private final class IosAppCompositionRoot {
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
     private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
-        IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap()
+        IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
+            languageTag: IosWhatsNewLocale.sanitizedPreferredLanguageTag(),
+        )
     private let deepLinkDispatcher = IosDeepLinkDispatcher()
     private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
         IosPublicRuntimeConfiguration.feedConfiguration()

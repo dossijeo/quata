@@ -40,6 +40,19 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(IosApnsTokenFormatting.hexString(Data()), "")
     }
 
+    func testWhatsNewPreferredLanguageUsesSpanishTag() {
+        XCTAssertEqual(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["es-ES", "en-US"]), "es-ES")
+    }
+
+    func testWhatsNewPreferredLanguageUsesEnglishTag() {
+        XCTAssertEqual(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["en-US", "es-ES"]), "en-US")
+    }
+
+    func testWhatsNewPreferredLanguageRejectsInvalidInputForKotlinFallback() {
+        XCTAssertNil(IosWhatsNewLocale.sanitizedPreferredLanguageTag(["../../invalid"]))
+        XCTAssertNil(IosWhatsNewLocale.sanitizedPreferredLanguageTag([]))
+    }
+
     func testWhatsNewMenuDispatcherForwardsOnlyAfterHostAttachment() {
         let dispatcher = IosWhatsNewRouteDispatcher()
         let host = CapturingWhatsNewRouteHost()

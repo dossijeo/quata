@@ -10,7 +10,8 @@ estado. El repositorio mantiene el progreso de forma monotónica. Si la lectura 
 la escritura falla, la pantalla no declara la versión como vista.
 
 `createDefaultIosWhatsNewRuntimeBootstrap` obtiene `CFBundleVersion`,
-`CFBundleShortVersionString` y el idioma del locale actual del sistema. Rechaza
+`CFBundleShortVersionString` y el primer idioma preferido saneado por el host Swift; si falta o
+es inválido usa el fallback local explícito `en` del catálogo. Rechaza
 metadatos ausentes o sin expandir. El catálogo sólo presenta entradas cuyo
 `versionCode` no supera la versión instalada.
 

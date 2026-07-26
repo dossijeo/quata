@@ -26,7 +26,6 @@ import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
-import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIViewController
 
@@ -47,25 +46,37 @@ class IosWhatsNewRuntimeBootstrap internal constructor(
 fun createDefaultIosWhatsNewRuntimeBootstrap(): IosWhatsNewRuntimeBootstrap? = createIosWhatsNewRuntimeBootstrap(
     bundle = NSBundle.mainBundle,
     defaults = NSUserDefaults.standardUserDefaults,
+    languageTag = null,
+)
+
+/** Swift supplies the sanitized preferred language; invalid input deliberately falls back to English. */
+fun createDefaultIosWhatsNewRuntimeBootstrap(languageTag: String?): IosWhatsNewRuntimeBootstrap? = createIosWhatsNewRuntimeBootstrap(
+    bundle = NSBundle.mainBundle,
+    defaults = NSUserDefaults.standardUserDefaults,
+    languageTag = languageTag,
 )
 
 /** Injectable variant used by host tests and non-standard bundle/suite composition. */
 fun createIosWhatsNewRuntimeBootstrap(
     bundle: NSBundle,
     defaults: NSUserDefaults,
+    languageTag: String? = null,
 ): IosWhatsNewRuntimeBootstrap? {
     val versionCode = bundle.configuredString("CFBundleVersion")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
     val versionName = bundle.configuredString("CFBundleShortVersionString") ?: return null
-    // `preferredLanguages` is not exported by every Kotlin/Native Foundation SDK. The current
-    // locale is sufficient for this small, fully local catalogue and keeps the bootstrap
-    // portable across the CI Xcode toolchain and supported iOS hosts.
-    val languageTags = listOfNotNull(NSLocale.currentLocale.languageCode).ifEmpty { listOf("en") }
+    val languageTags = languageTag
+        ?.trim()
+        ?.takeIf { LanguageTagPattern.matches(it) }
+        ?.let(::listOf)
+        ?: listOf("en")
     val repository = LocalWhatsNewRepository(
         releases = IosWhatsNewCatalog.releases,
         store = IosWhatsNewSeenStateStore(defaults, IosWhatsNewSeenStateStore.DefaultKey),
     )
     return IosWhatsNewRuntimeBootstrap(versionCode, versionName, languageTags, repository)
 }
+
+private val LanguageTagPattern = Regex("^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$")
 
 /** Loads pending local releases and records progress before allowing the host to leave. */
 fun QuataIosManagedWhatsNewViewController(
