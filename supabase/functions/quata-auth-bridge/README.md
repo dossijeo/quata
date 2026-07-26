@@ -57,6 +57,19 @@ persistente de entre 8 y 200 caracteres. La respuesta conserva
 La integracion completa, incluido registro del service worker, suscripcion y
 logout aislado, esta documentada en `supabase/WEB_PUSH_INTEGRATION.md`.
 
+## Registro y recuperación Android
+
+Android usa también este límite para que ningún cliente anónimo pueda leer o
+escribir credenciales en `community_profiles`:
+
+- `action: "register"` crea el perfil, guarda únicamente `pass_hash`, enlaza el
+  usuario Auth y devuelve la misma sesión que `login`.
+- `action: "recovery_question"` devuelve sólo `secret_question`.
+- `action: "reset_password"` valida `secret_answer` en servidor, rota la
+  credencial Auth y guarda `pass_hash` con `pass_plain = null`.
+
+La función no registra el payload ni contraseñas o respuestas secretas.
+
 ## Deploy
 
 La funcion debe poder ejecutarse antes de que el usuario tenga JWT, asi que se despliega sin verificacion JWT de Supabase. Esto queda fijado en `supabase/config.toml`; tambien puedes pasar el flag explicitamente:

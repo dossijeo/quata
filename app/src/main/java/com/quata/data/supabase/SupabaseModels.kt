@@ -308,18 +308,24 @@ data class ToggleResult(
 )
 
 @Serializable
-data class LoginResult(
-    val profile: CommunityProfile,
-    val passwordMatches: Boolean
+data class SupabaseAuthBridgeRequest(
+    val action: String = "login",
+    val country_code: String? = null,
+    val phone: String? = null,
+    val password: String? = null,
+    val display_name: String? = null,
+    val neighborhood: String? = null,
+    val secret_question: String? = null,
+    val secret_answer: String? = null,
+    val new_password: String? = null,
+    val reactivate_deactivated: Boolean = false
 )
 
 @Serializable
-data class SupabaseAuthBridgeRequest(
-    val country_code: String,
-    val phone: String,
-    val password: String,
-    val reactivate_deactivated: Boolean = false
-)
+data class SupabaseRecoveryQuestionResponse(val secret_question: String)
+
+@Serializable
+data class SupabaseAuthBridgeOkResponse(val ok: Boolean)
 
 @Serializable
 data class SupabaseAccountLifecycleRequest(

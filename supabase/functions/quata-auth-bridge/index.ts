@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
-  action?: "login" | "web_login" | "recovery_question" | "reset_password";
+  action?: "login" | "web_login" | "register" | "recovery_question" | "reset_password";
   profile_id?: string;
   country_code?: string;
   phone?: string;
@@ -15,6 +15,9 @@ type BridgeRequest = {
   password?: string;
   secret_answer?: string;
   new_password?: string;
+  display_name?: string;
+  neighborhood?: string;
+  secret_question?: string;
   reactivate_deactivated?: boolean;
   client_instance_id?: string;
 };
@@ -132,8 +135,48 @@ async function handleRequest(req: Request): Promise<Response> {
     global: { headers: { "X-Client-Info": "quata-auth-bridge" } },
   });
 
-  const profile = await findProfile(admin, payload);
   const action = payload.action || "login";
+  let profile = await findProfile(admin, payload);
+  if (action === "register") {
+    if (profile) {
+      const existingPassword = payload.password?.trim() || "";
+      if (!existingPassword || !await validateLegacyPassword(profile, existingPassword)) {
+        return jsonResponse({ error: "profile_exists" }, 409);
+      }
+      // Preserve Android's legacy re-registration behavior for a matching,
+      // deactivated account while keeping the credential comparison server-side.
+      payload.reactivate_deactivated = true;
+    }
+    if (!profile) {
+      const countryCode = digitsOnly(payload.country_code || "");
+      const phoneLocal = digitsOnly(payload.phone_local || payload.phone || "");
+      const password = payload.password?.trim() || "";
+      const displayName = payload.display_name?.trim() || "";
+      const neighborhood = payload.neighborhood?.trim() || "";
+      const secretQuestion = payload.secret_question?.trim() || "";
+      const secretAnswer = payload.secret_answer?.trim() || "";
+      if (!countryCode || !phoneLocal || !password || !displayName || !neighborhood || !secretQuestion || !secretAnswer) {
+        return jsonResponse({ error: "registration_fields_required" }, 400);
+      }
+      const phoneE164 = `+${countryCode}${phoneLocal}`;
+      const { data: created, error: createError } = await admin
+        .from("community_profiles")
+        .insert({
+          display_name: displayName, nombre: displayName, phone: phoneE164,
+          phone_normalized: phoneLocal, country_code: countryCode, phone_local: phoneLocal,
+          phone_e164: phoneE164, code: countryCode, telefono: phoneLocal,
+          barrio: neighborhood, neighborhood, secret_question: secretQuestion,
+          secret_answer: secretAnswer, pass_hash: await sha256(password), pass_plain: null,
+        })
+        .select(profileSelect)
+        .single();
+      if (createError) {
+        if (createError.code === "23505") return jsonResponse({ error: "profile_exists" }, 409);
+        throw createError;
+      }
+      profile = created as unknown as CommunityProfile;
+    }
+  }
   if (action === "recovery_question") {
     if (!profile?.secret_question?.trim()) {
       return jsonResponse({ error: "recovery_profile_not_found" }, 404);
