@@ -1,6 +1,6 @@
 # Web registration contract
 
-`quata-web-register` is the server boundary for browser registration. It creates
+`quata-register` is the shared server boundary for registration. It creates
 the Supabase Auth identity, `community_profiles` row and Web session as one
 idempotent saga. Browser code never receives the service-role key.
 

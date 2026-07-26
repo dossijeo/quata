@@ -48,7 +48,7 @@ Deno.serve(async (request) => {
 
     const admin = createClient(configuration.supabaseUrl, configuration.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { "X-Client-Info": "quata-web-register" } },
+      global: { headers: { "X-Client-Info": "quata-register" } },
     });
     // Supabase Edge forwards Cloudflare's trusted header. If absent, use a
     // per-request nonce so attackers cannot force every request into one global bucket.

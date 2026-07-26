@@ -314,7 +314,7 @@ private fun WebRuntimeConfiguration.authBridgeEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-auth-bridge"
 
 private fun WebRuntimeConfiguration.webRegistrationEndpoint(): String =
-    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-register"
+    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-register"
 
 internal fun WebRuntimeConfiguration.webPushEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-push"

@@ -2,7 +2,7 @@
 --
 -- This migration deliberately does not change community_profiles RLS or grants. The deployed
 -- clients still depend on those legacy policies; the browser registration bundle calls only the
--- quata-web-register Edge Function with a publishable key.
+-- quata-register Edge Function with a publishable key.
 
 begin;
 
@@ -251,7 +251,7 @@ grant execute on function public.quata_claim_web_registration(text, text, text, 
 grant execute on function public.quata_web_registration_auth_user(text) to service_role;
 
 comment on table public.web_registration_requests is
-    'Server-only saga/idempotency ledger for quata-web-register; contains hashes, never raw credentials.';
+    'Server-only saga/idempotency ledger for quata-register; contains hashes, never raw credentials.';
 comment on table public.web_registration_rate_limits is
     'Server-only fixed-window anti-abuse counters for Web registration.';
 comment on function public.quata_claim_web_registration(text, text, text, text, text) is

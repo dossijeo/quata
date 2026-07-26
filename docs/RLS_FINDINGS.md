@@ -3,7 +3,7 @@
 ## community_profiles — evidencia de registro Web
 
 La auditoría read-only confirmó grants y policies amplias para `anon`, incluidos
-INSERT/UPDATE. Este contrato no los usa ni modifica: `quata-web-register` opera
+INSERT/UPDATE. Este contrato no los usa ni modifica: `quata-register` opera
 con service-role. El endurecimiento corresponde a la migración coordinada
 `20260726171003`; registro debe aplicarse después como `20260726171004`.
 

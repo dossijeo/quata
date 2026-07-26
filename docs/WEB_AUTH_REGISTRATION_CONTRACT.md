@@ -7,7 +7,7 @@ defecto y no se despliega desde esta rama. Se habilita únicamente cuando
 coinciden el flag público `quata-web-registration-enabled=true`, el flag servidor
 `QUATA_WEB_REGISTRATION_ENABLED=true`, Turnstile y todos los secretos requeridos.
 
-La API `quata-web-register` acepta exclusivamente `version=1` y una allowlist
+La API `quata-register` acepta exclusivamente `version=1` y una allowlist
 cerrada. Canonicaliza la identidad como E.164, crea Auth, perfil y sesión Web
 mediante service-role, y usa una saga durable con idempotencia, rate limiting y
 compensación. Su respuesta es siempre `202 {"version":1,"status":"accepted"}` para
@@ -32,5 +32,5 @@ cuarentena y alerta para reintento. La ejecución real requiere credenciales de
 operador y no está expuesta al navegador.
 
 Los secretos y nombres de configuración están documentados en
-`supabase/functions/quata-web-register/README.md`; no se almacenan valores en el
+`supabase/functions/quata-register/README.md`; no se almacenan valores en el
 repositorio. La activación sólo procede tras E2E temporal con purga verificada.
