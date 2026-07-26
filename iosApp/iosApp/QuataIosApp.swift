@@ -654,6 +654,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.isAccessibilityElement = true
         controller.view.accessibilityLabel = accessibilityLabel
         view.addSubview(controller.view)
+        // Feature hosts fill the router bounds. Keep the authenticated route affordance above
+        // the newly inserted Compose view; otherwise it remains in the hierarchy but cannot be
+        // seen or tapped after the first route transition.
+        view.bringSubviewToFront(routeMenuButton)
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
