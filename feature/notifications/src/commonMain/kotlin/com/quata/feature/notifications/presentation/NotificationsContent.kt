@@ -66,7 +66,7 @@ fun NotificationsContent(
                 Text(strings.title, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             }
             Text(strings.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            deliveryNotice?.let(::NotificationDeliveryNoticeContent)
+            deliveryNotice?.let { notice -> NotificationDeliveryNoticeContent(notice) }
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(state.items, key = { it.id }) { item ->
