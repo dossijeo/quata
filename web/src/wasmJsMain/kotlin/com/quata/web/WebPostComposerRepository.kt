@@ -47,14 +47,12 @@ class WebPostComposerRepository(
     }
 
     private suspend fun resolveWallId(profileId: String): String {
-        client.webComposerRows("community_members", mapOf("select" to "wall_id", "profile_id" to "eq.$profileId"), 1)
-            .firstOrNull()?.get("wall_id")?.jsonPrimitive?.contentOrNull?.let { return it }
-        return client.webComposerRows(
-            "community_walls_stats",
-            mapOf("select" to "id", "is_active" to "eq.true", "order" to "sort_order.asc,created_at.desc"),
+        val membershipWallId = client.webComposerRows(
+            "community_members",
+            mapOf("select" to "wall_id", "profile_id" to "eq.$profileId"),
             1,
-        ).firstOrNull()?.get("id")?.jsonPrimitive?.contentOrNull
-            ?: error("web_composer_active_wall_missing")
+        ).firstOrNull()?.get("wall_id")?.jsonPrimitive?.contentOrNull
+        return requireComposerMembershipWallId(membershipWallId)
     }
 
     private suspend fun uploadMedia(profileId: String, reference: String, kind: String): String {
@@ -100,6 +98,14 @@ private fun validate(draft: PostComposerDraft) = when (draft.type) {
     PostComposerType.Image -> require(!draft.imageUri.isNullOrBlank()) { "Selecciona una imagen" }
     PostComposerType.Video -> require(!draft.videoUri.isNullOrBlank()) { "Selecciona o graba un v\u00eddeo" }
 }
+
+/**
+ * Never fall back to an arbitrary active wall when publishing from the browser.  Existing RLS
+ * policies are intentionally left untouched during the migration, so the client must not turn a
+ * missing membership into a write attempt against an unrelated community.
+ */
+internal fun requireComposerMembershipWallId(wallId: String?): String =
+    wallId?.trim()?.takeIf { it.isNotEmpty() } ?: error("web_composer_membership_missing")
 
 private fun PostComposerDraft.toRemoteBody(): String = when (type) {
     PostComposerType.Text -> buildPostBodyWithMeta(cleanBody = text, textPattern = textPatternId, channel = "feed")
