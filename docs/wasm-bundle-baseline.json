@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "baselineState": "proposed",
+  "revision": null,
+  "capture": {
+    "artifactRevision": "unverified-local-artifact",
+    "verification": "This inventory was read from a completed local productionExecutable directory. Rebuild on the integration SHA and replace it before changing the budget state to approved."
+  },
+  "distribution": "web/build/dist/wasmJs/productionExecutable",
+  "files": [
+    {
+      "path": "104857733b57882c09e6.wasm",
+      "extension": ".wasm",
+      "bytes": 19056375,
+      "gzipBytes": 8672843,
+      "sha256": "71d63304c905a358348d5a10a550c649e7e31f1521f0e0b6662f2f164cb912bf",
+      "contributor": "DocMentis"
+    },
+    {
+      "path": "e9b28911e687b1ee6b42.wasm",
+      "extension": ".wasm",
+      "bytes": 8641646,
+      "gzipBytes": 3310211,
+      "sha256": "58caa327bbac7caac417de5375c577547e0828ef7e95c6041919f141b60b3a38",
+      "contributor": "Skiko"
+    },
+    {
+      "path": "22e04c026f76c8ef5ca7.wasm",
+      "extension": ".wasm",
+      "bytes": 5785520,
+      "gzipBytes": 1547179,
+      "sha256": "fcf19e292565920288723c9a964887d4c1f63086ee04e3ca9bc42ccd455e35ae",
+      "contributor": "Kotlin/Wasm application"
+    },
+    {
+      "path": "web.js.map",
+      "extension": ".map",
+      "bytes": 1782821,
+      "gzipBytes": 311789,
+      "sha256": "434144933e6d78ae449694c0784f1fd53a5150715fb2f8e6fade89302e36ca78",
+      "contributor": "Source maps"
+    },
+    {
+      "path": "436.js",
+      "extension": ".js",
+      "bytes": 620695,
+      "gzipBytes": 141595,
+      "sha256": "555e4bed942c89ab5bed17231eee129938bd75d2d204465b152e664a33fde186",
+      "contributor": "DocMentis"
+    },
+    {
+      "path": "web.js",
+      "extension": ".js",
+      "bytes": 617928,
+      "gzipBytes": 113780,
+      "sha256": "84678c0eed8f749108f13a357782386ea4a31da561091675c91156b9bf8f3797",
+      "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "436.js.map",
+      "extension": ".map",
+      "bytes": 423456,
+      "gzipBytes": 94510,
+      "sha256": "e855a16a5fba74eb8f4a1b7f77fb96c04394590da9ee3d82c774e465d9a096dd",
+      "contributor": "Source maps"
+    },
+    {
+      "path": "quata-sw.js",
+      "extension": ".js",
+      "bytes": 7067,
+      "gzipBytes": 2389,
+      "sha256": "fca9773c23cbb0eb44b51373a169ca96346f8ffdb50ad649d6ef62a9c8871a62",
+      "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "web.js.LICENSE.txt",
+      "extension": ".txt",
+      "bytes": 1298,
+      "gzipBytes": 277,
+      "sha256": "85a703daf937b69e6a45c75947dcea43f4026a835b84a7ea4300843217311baf",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "index.html",
+      "extension": ".html",
+      "bytes": 796,
+      "gzipBytes": 442,
+      "sha256": "a2146bcba015af2de1999167c725cfb6fc55a30b56a8145daf579b1730ec861e",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "extension": ".webmanifest",
+      "bytes": 518,
+      "gzipBytes": 281,
+      "sha256": "8f2bda58bd2a8edcc33c3253bc91861dffadf9293a5244a001df6ba5ad869df8",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "953.js",
+      "extension": ".js",
+      "bytes": 346,
+      "gzipBytes": 268,
+      "sha256": "88c4c0d52814601d81e724a715deb2f81145c78e4c8ad3383725a72415292042",
+      "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "953.js.map",
+      "extension": ".map",
+      "bytes": 228,
+      "gzipBytes": 185,
+      "sha256": "36106aff97ed6a006033c094826726c933e1c4354b5710eda8921b3854c4165e",
+      "contributor": "Source maps"
+    }
+  ],
+  "totals": {
+    "bytes": 36938694,
+    "gzipBytes": 14195749
+  },
+  "contributors": [
+    {
+      "name": "DocMentis",
+      "files": 2,
+      "bytes": 19677070,
+      "gzipBytes": 8814438
+    },
+    {
+      "name": "Skiko",
+      "files": 1,
+      "bytes": 8641646,
+      "gzipBytes": 3310211
+    },
+    {
+      "name": "Kotlin/Wasm application",
+      "files": 1,
+      "bytes": 5785520,
+      "gzipBytes": 1547179
+    },
+    {
+      "name": "Source maps",
+      "files": 3,
+      "bytes": 2206505,
+      "gzipBytes": 406484
+    },
+    {
+      "name": "JavaScript runtime/chunks",
+      "files": 3,
+      "bytes": 625341,
+      "gzipBytes": 116437
+    },
+    {
+      "name": "Static/runtime assets",
+      "files": 3,
+      "bytes": 2612,
+      "gzipBytes": 1000
+    }
+  ],
+  "notes": [
+    "DocMentis is dynamically imported; its emitted chunk(s) are identified by file-name hints when webpack preserves them.",
+    "The npm package source size is not a distribution-size proxy. Measure emitted chunks after wasmJsBrowserDistribution."
+  ]
+}

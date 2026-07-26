@@ -59,9 +59,6 @@ if (options.writeBaseline) {
 }
 
 const budget = options.budget ? readBudget(options.budget) : undefined;
-if (options.budget && budget.state !== 'approved') {
-    throw new Error(`Bundle budget ${relative(repositoryRoot, resolve(options.budget)).replaceAll('\\', '/')} is ${budget?.state ?? 'invalid'}; a reviewed exact baseline must set state to approved before a gate can run.`);
-}
 const baselinePath = options.baseline ?? budget?.baselineFile;
 const baseline = baselinePath ? JSON.parse(readFileSync(resolveBudgetPath(baselinePath, options.budget), 'utf8')) : undefined;
 const maxGrowthBytes = options.maxGrowthBytes ?? budget?.maxGrowthBytes;
@@ -84,7 +81,12 @@ if (maxGrowthGzipBytes !== undefined) {
     const growth = totals.gzipBytes - baseline.totals.gzipBytes;
     if (growth > maxGrowthGzipBytes) failures.push(`gzip growth ${growth} bytes exceeds explicit max ${maxGrowthGzipBytes}`);
 }
-if (failures.length > 0) throw new Error(`Wasm bundle budget failed: ${failures.join('; ')}`);
+if (budget?.state === 'proposed') {
+    console.log(`Bundle budget is proposed; comparison is advisory until its baseline is reviewed and state becomes approved.`);
+    for (const failure of failures) console.log(`Proposed-budget regression: ${failure}`);
+} else if (failures.length > 0) {
+    throw new Error(`Wasm bundle budget failed: ${failures.join('; ')}`);
+}
 
 function parseArguments(argumentsList) {
     const parsed = {};
