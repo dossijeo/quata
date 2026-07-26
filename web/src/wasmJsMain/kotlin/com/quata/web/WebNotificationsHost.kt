@@ -11,15 +11,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.quata.feature.notifications.presentation.NotificationsHostContent
 import com.quata.feature.notifications.presentation.NotificationsStrings
+import com.quata.feature.notifications.presentation.NotificationDeliveryState
+import com.quata.feature.notifications.presentation.notificationDeliveryNotice
 import kotlinx.coroutines.delay
 
 @Composable
-fun WebNotificationsHost(repository: WebNotificationsRepository, onBack: () -> Unit, onOpenConversation: (String) -> Unit) {
+fun WebNotificationsHost(
+    repository: WebNotificationsRepository,
+    runtimeConfiguration: WebRuntimeConfiguration,
+    onBack: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+) {
     var nowMillis by remember { mutableLongStateOf(browserNowMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(60_000L); nowMillis = browserNowMillis() } }
     NotificationsHostContent(
         padding = PaddingValues(), repository = repository, timestampNowMillis = nowMillis,
         strings = NotificationsStrings("Notificaciones", "Mensajes no leídos", "Volver", { createdAt, _ -> createdAt.ifBlank { "Ahora" } }, { it }),
+        deliveryNotice = notificationDeliveryNotice(
+            if (runtimeConfiguration.isBackendConfigured) {
+                NotificationDeliveryState.DeliveryUnverified
+            } else {
+                NotificationDeliveryState.NotConfigured
+            },
+        ),
         onBack = onBack, onOpenConversation = onOpenConversation,
     )
 }

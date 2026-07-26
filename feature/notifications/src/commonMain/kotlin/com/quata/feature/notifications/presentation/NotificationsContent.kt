@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -44,6 +45,7 @@ fun NotificationsContent(
     state: NotificationsUiState,
     timestampNowMillis: Long,
     strings: NotificationsStrings,
+    deliveryNotice: NotificationDeliveryNotice? = null,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onMarkRead: (NotificationItem) -> Unit,
@@ -64,6 +66,7 @@ fun NotificationsContent(
                 Text(strings.title, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
             }
             Text(strings.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            deliveryNotice?.let(::NotificationDeliveryNoticeContent)
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(state.items, key = { it.id }) { item ->
@@ -78,6 +81,21 @@ fun NotificationsContent(
                         onDismiss = { onDismiss(item) }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationDeliveryNoticeContent(notice: NotificationDeliveryNotice) {
+    QuataCard(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(notice.title, fontWeight = FontWeight.SemiBold)
+            Text(notice.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val actionLabel = notice.actionLabel
+            val onAction = notice.onAction
+            if (actionLabel != null && onAction != null) {
+                Button(onClick = onAction, modifier = Modifier.padding(top = 8.dp)) { Text(actionLabel) }
             }
         }
     }

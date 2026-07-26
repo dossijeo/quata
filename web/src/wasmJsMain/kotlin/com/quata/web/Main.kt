@@ -281,6 +281,7 @@ private fun QuataWebApp(
                 } else if (navigation.route == "notifications") {
                     WebNotificationsHost(
                         repository = notificationsRepository,
+                        runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigateWebFragment("") },
                         onOpenConversation = ::navigateWebConversation,
                     )

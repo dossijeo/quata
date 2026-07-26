@@ -11,6 +11,7 @@ class IosNotificationsHostDependencies(
     val repository: NotificationsRepository,
     val timestampNowMillis: Long,
     val strings: NotificationsStrings,
+    val deliveryNotice: NotificationDeliveryNotice?,
     val onBack: () -> Unit,
     val onOpenConversation: (String) -> Unit,
     val onRequestNotificationPermission: () -> Unit,
@@ -39,6 +40,11 @@ fun createIosNotificationsHostDependencies(
         relativeTime = { createdAt, _ -> createdAt.ifBlank { "Ahora" } },
         localizedBody = { it },
     ),
+    deliveryNotice = notificationDeliveryNotice(
+        state = NotificationDeliveryState.PermissionRequired,
+        actionLabel = "Permitir notificaciones",
+        onAction = onRequestNotificationPermission,
+    ),
     onBack = onBack,
     onOpenConversation = onOpenConversation,
     onRequestNotificationPermission = onRequestNotificationPermission,
@@ -52,6 +58,7 @@ fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependenc
             repository = dependencies.repository,
             timestampNowMillis = dependencies.timestampNowMillis,
             strings = dependencies.strings,
+            deliveryNotice = dependencies.deliveryNotice,
             onBack = dependencies.onBack,
             onOpenConversation = { id ->
                 dependencies.onHandleDeepLink(id)
