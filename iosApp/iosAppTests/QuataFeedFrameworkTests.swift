@@ -64,7 +64,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         _ = dispatcher.openReleaseHistory()
         XCTAssertEqual(host.route?.name, "ReleaseHistory")
 
-        dispatcher.detachHost(host: host)
+        dispatcher.detachHost()
         _ = dispatcher.openPendingReleases()
         XCTAssertEqual(host.route?.name, "ReleaseHistory")
     }

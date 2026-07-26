@@ -180,7 +180,10 @@ class IosWhatsNewRouteDispatcher {
     @Volatile private var host: IosWhatsNewRouteHost? = null
 
     fun attachHost(host: IosWhatsNewRouteHost) { this.host = host }
-    fun detachHost(host: IosWhatsNewRouteHost) { if (this.host === host) this.host = null }
+    // Kotlin/Native protocol wrappers do not preserve Swift object identity across calls, so a
+    // parameterized identity check can retain a detached UIKit host. This dispatcher owns only
+    // one attachment; teardown therefore always clears it explicitly.
+    fun detachHost() { host = null }
     fun openPendingReleases(): PlatformResult<Unit> = dispatch(IosWhatsNewRoute.PendingReleases)
     fun openReleaseHistory(): PlatformResult<Unit> = dispatch(IosWhatsNewRoute.ReleaseHistory)
 
