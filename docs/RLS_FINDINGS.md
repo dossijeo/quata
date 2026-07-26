@@ -99,7 +99,9 @@ la UI.
   colisiones de mapping/identidad telefónica y falló cerrada al encontrar 74
   perfiles con contadores distintos de las aristas reales de follow. No se
   imprimieron IDs ni se corrigieron datos; requiere reconciliación separada
-  antes de cualquier rollout.
+  antes de cualquier rollout. El análisis agregado confirmó 112 perfiles con
+  ambos caches a cero frente a 107 aristas autoritativas; véase
+  `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
 
 ## RLS-004 — Credenciales y recuperación visibles por SELECT público
 
@@ -118,3 +120,20 @@ la UI.
   publicados. Primero deben migrarse login/recuperación a Edge/RPC y eliminarse
   las lecturas directas; después se revoca SELECT de tabla y se conceden solo
   columnas públicas o una vista dedicada.
+
+## RLS-005 — Las aristas de follow aceptan mutaciones públicas
+
+- **Detectado:** 2026-07-26 mediante catálogo remoto de solo lectura y código
+  Android.
+- **Severidad:** alta.
+- **Estado:** abierto; solo documentado.
+- **Evidencia:** `community_profile_follows` tiene `allow all` y policies
+  públicas de INSERT/DELETE con condiciones `true`; `anon` y `authenticated`
+  conservan INSERT, UPDATE y DELETE. No hay trigger de actor. Android envía
+  directamente `follower_profile_id` y `followed_profile_id`.
+- **Impacto:** un cliente directo puede crear o eliminar relaciones atribuidas
+  a otros perfiles. Además, los contadores cacheados no se actualizan.
+- **Límite:** no se endurece aquí por la restricción de no cambiar producción.
+  Requiere migración aislada owner/actor-active, pruebas PostgREST y Android, y
+  coordinación con el backfill reversible descrito en
+  `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
