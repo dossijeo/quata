@@ -3,6 +3,10 @@
 Este registro reúne hallazgos confirmados por pruebas E2E. No es una migración
 y no autoriza cambios de esquema, funciones, políticas ni datos de producción.
 
+Reconciliación MP-A14 (`9cc84dc2`): RLS-001/SB-07 y RLS-002/SB-09 continúan
+abiertos. Communities y Official mantienen sus mutaciones afectadas
+`fail-closed`; no se aplicó ninguna política ni cambio remoto.
+
 ## RLS-001 — Un outsider puede borrar un comentario ajeno
 
 - **Detectado:** 2026-07-26, SB-07 de Communities.

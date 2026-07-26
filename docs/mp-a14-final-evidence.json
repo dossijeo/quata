@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-26",
+  "scope": "MP-A14 final evidence reconciliation",
+  "integration": {
+    "wave1": {
+      "status": "merged",
+      "sha": "587789ff03df0c1b83baa2b6ca74babc4e4d3499",
+      "pullRequest": 46,
+      "url": "https://github.com/dossijeo/quata/pull/46"
+    },
+    "wave2": {
+      "status": "candidate_not_merged",
+      "sha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
+      "branch": "codex/integration-wave2"
+    }
+  },
+  "wave2LocalGates": {
+    "androidImportsInCommonMain": {
+      "status": "passed",
+      "count": 0
+    },
+    "webWasmJsTest": {
+      "status": "passed",
+      "durationSeconds": 150.5
+    },
+    "neighborhoodsCompileTestKotlinWasmJs": {
+      "status": "passed",
+      "durationSeconds": 91.7
+    },
+    "chatCompileTestKotlinWasmJs": {
+      "status": "passed",
+      "durationSeconds": 103.7
+    },
+    "profileCompileKotlinWasmJs": {
+      "status": "passed",
+      "durationSeconds": 101.6,
+      "testStatus": "infrastructure_timeout_without_diagnostic"
+    },
+    "whatsnewCompileKotlinWasmJs": {
+      "status": "passed",
+      "durationSeconds": 101.2,
+      "testStatus": "infrastructure_timeout_without_diagnostic"
+    },
+    "externalshareCompileTestKotlinWasmJs": {
+      "status": "passed",
+      "durationSeconds": 176.1
+    },
+    "webWasmJsBrowserDistribution": {
+      "status": "passed",
+      "durationSeconds": 857.6,
+      "knownWarnings": 2
+    },
+    "webDocmentisSmoke": {
+      "status": "passed",
+      "durationSeconds": 29,
+      "kind": "smoke",
+      "routes": [
+        "auth",
+        "feed",
+        "chat",
+        "official",
+        "settings",
+        "share-target"
+      ],
+      "createdRemoteFixtures": false,
+      "residualFixtures": 0
+    },
+    "androidAssembleDebug": {
+      "status": "passed",
+      "durationSeconds": 638.5,
+      "apkBytes": 79029367,
+      "apkSha256": "3317E295A9BB14F38AF845EB52B30D225F2B21A62A439DA5AC90754A836B2979",
+      "inheritedVendorWarnings": 89
+    },
+    "androidStartupAB": {
+      "status": "no_differential_regression",
+      "kind": "smoke",
+      "wave1Seconds": 25.392,
+      "wave2Seconds": 21.159,
+      "areasChecked": 5,
+      "crashBufferClean": true,
+      "anrObserved": false,
+      "classification": "environment_both_slow"
+    }
+  },
+  "iosCi": {
+    "runId": 30210875187,
+    "url": "https://github.com/dossijeo/quata/actions/runs/30210875187",
+    "headSha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
+    "statusAtDocumentationTime": "in_progress",
+    "conclusionAtDocumentationTime": null,
+    "kind": "compile_link_simulator_tests_unsigned_archive"
+  },
+  "e2eAndSecurity": {
+    "chatBrowser": {
+      "branchSha": "1d604ab3",
+      "preflight": "passed",
+      "uiStatus": "blocked_before_open_chat_a",
+      "blocker": "Compose canvas and shadow DOM expose no locatable textbox through DOM or accessibility tree, including forced accessibility",
+      "sendReplyLogoutAccredited": false,
+      "residualFixtures": 0
+    },
+    "rls001": {
+      "gate": "SB-07",
+      "status": "confirmed_open",
+      "clientMutationCapability": "blocked_fail_closed",
+      "serverMutationApplied": false
+    },
+    "rls002": {
+      "gate": "SB-09",
+      "status": "confirmed_open",
+      "clientMutationCapability": "blocked_fail_closed",
+      "serverMutationApplied": false
+    }
+  },
+  "explicitLimits": {
+    "webRegistration": "fail_closed_until_a_reviewed_backend_contract_and_e2e_exist",
+    "profileRemote": "conditional_on_authenticated_runtime_and_public_configuration",
+    "apns": "registration_plumbing_only_no_delivery_evidence",
+    "externalShare": "unsigned_ci_does_not_validate_signed_app_group_on_physical_device",
+    "localMac": "xcode_16_incompatible_with_current_kotlin_native_platform_libraries",
+    "jsIr": "removed_only_from_feature_whatsnew",
+    "migrationComplete": false,
+    "webReady": false,
+    "iosReady": false
+  }
+}

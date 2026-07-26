@@ -58,3 +58,8 @@ MP-A08 se cierra cuando la retirada esté integrada y los cuatro gates del paso
 3 estén verdes, o cuando producto solicite explícitamente JS y se entregue el
 host/gate/publicación enumerados en la primera alternativa. Hasta entonces la
 decisión está tomada, pero su ejecución permanece pendiente y reversible.
+
+En ola 2 se retiró únicamente el target de `:feature:whatsnew`. Los gates
+locales Web Wasm y Android pasaron sobre `9cc84dc2`; la CI iOS exacta
+#30210875187 sigue pendiente. Por tanto no se infiere la retirada del resto de
+módulos ni se declara cerrado MP-A08.

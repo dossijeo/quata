@@ -1,13 +1,18 @@
 # Matriz de evidencia para la auditoría final KMP
 
-**Corte documental integrado:** `9c26d315636e5d54d8b423d3fe1a63d2ef7387f4`
-(`origin/main`, 2026-07-26).
+**Corte integrado:** ola 1 en `origin/main`,
+`587789ff03df0c1b83baa2b6ca74babc4e4d3499`
+([PR #46](https://github.com/dossijeo/quata/pull/46), 2026-07-26).
+**Candidato reconciliado:** ola 2,
+`9cc84dc2a77935ae2b84a7159e435c1ca6f8f220`
+(`codex/integration-wave2`, todavía no integrado).
 **Método de esta corrección:** se reconciliaron las evidencias de gates ya
 realizados contra el historial integrado. No se ejecutaron Gradle, emulador,
 navegador, Supabase ni GitHub Actions en este lote documental; no acredita
 compilaciones ni E2E nuevas.
 
-Esta matriz es el punto de cierre de la migración, no un segundo tablero. El
+Esta matriz es el punto de reconciliación MP-A14, no una declaración de que la
+migración esté completa ni un segundo tablero. El
 estado operativo, responsables y entregas pequeñas viven en
 [MULTIPLATFORM_MIGRATION_BOARD.md](MULTIPLATFORM_MIGRATION_BOARD.md); el detalle
 por vertical y adaptador vive en
@@ -19,9 +24,11 @@ un cambio posterior.
 
 | Superficie | SHA / ejecución | Evidencia acreditada | Alcance que no acredita |
 | --- | --- | --- | --- |
-| Android y Web/Wasm | `acde140ccf2debd22b98d9bd1ce2ab008f4a1211` | Gates Android/Web ya registrados para ese corte, incluida distribución Wasm y el informe de bundle que originó el baseline propuesto. Los commits posteriores hasta `9c26d315` sólo incorporan smoke iOS y documentación. | No convierte el smoke Web en E2E autenticado ni aprueba el presupuesto; tampoco sustituye una repetición si un futuro lote altera Android o Web. |
-| iOS | `f352044643c230c722486e2eb0bebdd93a30a4fc`, [CI #30187628542](https://github.com/dossijeo/quata/actions/runs/30187628542) | Ejecutó con éxito Kotlin/Native de todos los targets, enlace/ensamblado de `QuataShared` XCFramework, host Swift, simulador, XCTest/UI de frontera y archive genérico sin firma. | No acredita firma, distribución, dispositivo físico, permisos, APNs ni E2E contra Supabase. |
-| Documentación final | `9c26d315636e5d54d8b423d3fe1a63d2ef7387f4` | Esta matriz y su trazabilidad de límites están integradas en `origin/main`. | No es una ejecución de plataforma. |
+| Ola 1 integrada | `587789ff03df0c1b83baa2b6ca74babc4e4d3499`, [PR #46](https://github.com/dossijeo/quata/pull/46) | Merge confirmado en `main`; conserva la evidencia histórica por SHA de sus lotes. | No acredita automáticamente la ola 2. |
+| Android ola 2 | `9cc84dc2` | `assembleDebug` verde; APK 79.029.367 bytes/SHA-256 registrado. A/B API-37 contra ola 1 recorrió cinco áreas, con crash buffer limpio, sin ANR: 25,392 s ola 1 y 21,159 s ola 2. | Smoke comparativo, no benchmark; ambos hosts lentos se clasificaron `environment_both_slow`. |
+| Web/Wasm ola 2 | `9cc84dc2` | Tests/compilaciones acotados verdes, distribución Wasm verde y smoke DocMentis de seis rutas en 29 s, sin fixtures remotos. | Dos `compileTest` agotaron timeout sin diagnóstico; el smoke no es E2E autenticado. Chat UI sigue bloqueado por AX aunque el preflight remoto y la purga pasaron. |
+| iOS ola 2 | `9cc84dc2`, [CI #30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | Run exacto disparado sobre el SHA candidato. | **Pendiente/in progress al redactar MP-A14**; no se declara compilación iOS verde. Aunque termine verde seguirá siendo sin firma y sin dispositivo/App Group/APNs reales. |
+| Evidencia mecanizable | [`mp-a14-final-evidence.json`](mp-a14-final-evidence.json) | SHAs, gates locales, hash del APK, run iOS y límites funcionales del corte. | Es documentación; no ejecuta ni transforma un smoke en E2E. |
 
 ## Convenciones de evidencia
 
@@ -37,28 +44,28 @@ un cambio posterior.
 | Requisito | Evidencia actual | Límite / acción obligatoria antes del cierre |
 | --- | --- | --- |
 | Migración progresiva, sin reescritura masiva ni mover varias features a la vez | El inventario registra cortes verticales y el tablero separa MP-A01..MP-A14; MP-A10 documenta una retirada limitada de wrappers Feed. | Revisar cada lote contra el diff y conservar la secuencia de validación; no hay una prueba automática que demuestre por sí sola que todo cambio futuro es incremental. |
-| Android no se rompe | La ancla Android/Web `acde140c` conserva los gates Android ya realizados; los cambios entre ese SHA y `9c26d315` no modifican código Android. MP-A10 además registra compile/assemble y arranque API-37 sin crash para su corte. | Repetir assemble, instalación, arranque, `logcat -b crash` y `pidof` sólo cuando un lote posterior toque Android o sus dependencias transitivas; no atribuir el gate de `acde140c` a cambios futuros. |
-| `commonMain` no importa Android | El audit previo registró cero coincidencias de `^import android\\.`; el gate versionado permanece en el historial y los cambios posteriores hasta `9c26d315` no añaden código común funcional. | Ejecutar el gate en cualquier lote que modifique `commonMain` o source sets; la evidencia actual no exonera cambios nuevos. |
+| Android no se rompe | En `9cc84dc2`, `assembleDebug` pasó y el A/B API-37 contra `587789ff` no mostró diferencial de ANR/crash; cinco áreas arrancaron y el buffer crash quedó limpio. | Es smoke en un entorno lento, no rendimiento certificado ni cobertura funcional completa. |
+| `commonMain` no importa Android | `scripts/multiplatform-metrics.ps1` registró cero imports Android en `commonMain` para `9cc84dc2`. | Ejecutar el gate en cualquier lote posterior que modifique `commonMain` o source sets. |
 | Hosts de plataforma finos y lógica/UI compartida | `core`, `designsystem` y features exponen modelos, ViewModels y Compose común; `:app`, `web` e `iosApp` actúan como hosts. MP-A01 integra `QuataShared.framework`. | `:app` conserva el nombre histórico, no `androidApp/`; decidir ese renombre en un lote independiente si es requisito literal. Persisten adaptadores Android para media, sistema y navegación. |
 | Clean Architecture por feature | El inventario separa dominio/estado/presentación y los contratos de plataforma; pantallas comunes se sitúan en los módulos feature/designsystem. | Auditar dependencias y source sets de cada feature final; quedan bordes Android con infraestructura y UI mezcladas que deben extraerse sólo cuando haya un slot/adaptador claro. |
 | Feed, Chat, Communities, Profile/SOS, Official y Composer compartidos progresivamente | El inventario documenta ViewModels/estado/UI estructural común y slots para media, avatar, navegación o recursos. Communities/Official/Profile tienen shells iOS parciales. | No hay paridad funcional completa: media, mutaciones, realtime, permisos, contactos, previews de bitmap/vídeo y navegación nativa siguen por plataforma. Validar cada flujo de usuario, no sólo que el composable compile. |
 | Design system común sin trasladar APIs Android a `commonMain` | Theme, controles, comentarios, emoji, ranking, paneles y Touch Flow constan como comunes; recursos/Coil/audio/cámara/ventana continúan adaptados. | Terminar sólo los componentes restantes que todavía viven en `:app`; preservar recursos, Context y lifecycle como adaptadores. |
 | Adaptadores reales de plataforma | Android dispone de varios adaptadores reales; Web e iOS tienen contratos y una cobertura creciente de browser/UIKit. El inventario declara explícitamente `Unsupported` cuando no hay host. | Cámara, audio, Media3/MediaStore, documentos, contactos, WorkManager, SQLite/FastText/Vosk, EGL/Bitmap, push y Google Sign-In no tienen paridad completa en las tres plataformas. No convertir `Unsupported` en éxito ficticio. |
-| Host Web Wasm real | `web/wasmJsMain` tiene `main`, `ComposeViewport`, routing y adaptadores browser. La ancla `acde140c` acredita el gate Web/Wasm y el informe de bundle; `9c26d315` no modifica esa superficie. | El smoke sigue siendo no autenticado y el budget sigue `proposed`: repetir distribución/bundle/smoke sólo si cambia Web/Wasm y no declarar Web lista hasta E2E remoto y capacidades pendientes. |
+| Host Web Wasm real | `9cc84dc2` pasó `:web:wasmJsTest`, distribución y smoke DocMentis de Auth/Feed/Chat/Official/Settings/Share Target. | El smoke sigue siendo no autenticado y el budget sigue `proposed`. Chat UI autenticado no alcanzó envío/reply/logout por el bloqueo AX; 0 residuos no convierte el recorrido en éxito. |
 | Visor Web de documentos mediante DocMentis | El inventario declara carga perezosa de `@docmentis/udoc-viewer` para PDF/DOCX/PPTX/XLSX y fallback seguro para RTF/legacy; MP-A13 registra smoke DocMentis. | Falta prueba funcional con documentos propios, CORS y Storage autenticado. Licencia, telemetría, actualizaciones, fuentes y CSP de DocMentis requieren aprobación de producto/legal antes de despliegue. |
-| Host iOS real y `iosMain` presente | `iosApp` UIKit, `:ios-shared` y CI reproducible están documentados. La CI exacta `#30187628542` para `f3520446` valida Kotlin/Native, framework/XCFramework, host Swift, simulador, XCTest/UI y archive sin firma; `9c26d315` sólo añade documentación después de ese gate. | iOS **no está lista**: no hay distribución firmada/dispositivo físico ni E2E configurado; permisos, push/APNs, media, documentos y rutas autenticadas restantes necesitan pruebas funcionales. |
-| Pruebas iOS | La CI `#30187628542` ya cubre la frontera Swift/Kotlin y el smoke de host Compose en simulador para el SHA citado. | Ampliar XCTest/UI de permisos, archivos y adaptadores; reejecutar CI cuando cambien los targets, framework, host Swift o pruebas iOS, no por esta corrección documental. |
-| Backend y E2E con Supabase | SB-01 se ejecutó el 2026-07-26 con pooler de producción, CA explícita de Supabase y TLS `verify-full`: catálogo/RPC/bucket completos, sin DDL, DML, RPC ni datos de negocio. El workflow manual de GitHub Actions `#30194306847` también pasó sobre `cdb1ff42`, consumiendo secretos de repositorio y sin publicar el informe. SB-02 ejecutó contra producción el bridge Web, refresh, doble login/logout y revocación global; su perfil y usuario Auth efímeros fueron purgados y comprobados. SB-03 verificó Feed y Official autenticados/públicos y deep links con filas aisladas que se purgaron. SB-04 verificó el circuito Chat de dos usuarios y, tras el cleanup lógico, una purga dura autorizada y comprobada. SB-05..SB-08 mantienen runners, precondiciones, limpieza y límites fail-closed. | SB-05..SB-07 requieren datos efímeros y limpieza/revocación verificable; SB-08 requiere credenciales push y dispositivo. No declarar backend real/E2E completo hasta registrar esas evidencias. |
+| Host iOS real y `iosMain` presente | `iosApp` UIKit y `:ios-shared` existen; la CI histórica acredita cortes anteriores. La CI exacta de ola 2 es `#30210875187` sobre `9cc84dc2`. | El run está pendiente al documentar. iOS **no está lista** aunque compile: faltan firma/dispositivo, App Group físico, entrega APNs, permisos y E2E funcional. El Mac virtual con Xcode 16 es incompatible con las platform libraries actuales de Kotlin/Native/Xcode 26. |
+| Pruebas iOS | La Action está preparada para Kotlin/Native, framework/XCFramework, host Swift, simulador, XCTest/UI y archive genérico sin firma. | Esperar conclusión de `#30210875187`; no sustituye App Group firmado, APNs entregado ni recorrido real de External Share. |
+| Backend y E2E con Supabase | SB-01..SB-06 conservan evidencia y limpieza. SB-07 confirmó RLS-001 (outsider borra comentario ajeno) y SB-09 confirmó RLS-002 (suplantación de `profile_id` en like Official); ambos lotes terminaron sin residuos. | Communities/Official Web permanecen fail-closed. No se ha endurecido RLS ni aplicado DDL porque podría romper la Web publicada; una corrección coordinada debe hacer verdes SB-07/SB-09 antes de habilitar mutaciones. |
 | Bundle, warnings y rendimiento Web | MP-A07/MP-A13 conservan medición 35,29 MiB / 13,55 MiB gzip, análisis de DocMentis/Skiko y métricas locales de Chrome. | El budget está `proposed`, no es gate aprobado; faltan baseline certificado, runner controlado y resolución de avisos sin suprimirlos globalmente. |
-| Inventario y documentación honestos | El inventario distingue KMP parcial de host real y el tablero etiqueta E2E/limitaciones. | MP-A14 permanece pendiente: reconciliar SHA, comandos, artefactos y alcance de smoke/E2E de toda evidencia antes de declarar finalización. |
+| Inventario y documentación honestos | MP-A14 reconcilia ola 1, candidato ola 2, gates locales, CI pendiente y límites en Markdown/JSON. | Reconciliación documental completada; la migración y la CI ola 2 no se declaran completas. |
 
 ## Matriz de plataformas: condición de salida
 
 | Plataforma | Evidencia ya disponible | Qué falta para llamarla lista |
 | --- | --- | --- |
-| Android | Gates Android acreditados en el corte `acde140c`; no hay código Android posterior hasta el corte documental `9c26d315`. | Revalidar ante cambio Android/dependencia transitiva; después completar los flujos funcionales que sigan delegados a adaptadores. |
-| Web / Wasm | Gate Web/Wasm y baseline propuesto acreditados en `acde140c`; host real y smoke no autenticado con DocMentis. | Aprobar baseline certificado, ejecutar navegador con sesión/configuración pública y SB-02..SB-07 según capacidades; confirmar documentos, push y acciones parciales. **No lista.** |
-| iOS | CI exacta `#30187628542` verde para `f3520446`, ancestro directo del corte documental, con Kotlin/Native/Xcode/XCTest/archive sin firma. | Shell de verticales restantes, configuración pública/sesión, permisos/archivos/media/push y E2E autorizado. **No lista.** |
+| Android | `9cc84dc2`: assemble y smoke A/B API-37 sin diferencial de crash/ANR. | Completar flujos funcionales; la lentitud compartida del entorno no es un benchmark aprobado. |
+| Web / Wasm | `9cc84dc2`: compilación/tests acotados, distribución y smoke local verdes. | Resolver AX de Compose Chat, alta Web fail-closed, RLS-001/RLS-002, push y E2E UI. **No lista.** |
+| iOS | `#30210875187` exacta para `9cc84dc2`, pendiente al documentar. | CI verde, firma/dispositivo, App Group/External Share físico, APNs entregado, permisos/media y E2E autorizado. **No lista.** |
 
 ## Secuencia obligatoria de auditoría final
 

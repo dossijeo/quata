@@ -4,6 +4,15 @@ Qüata usa GitHub Actions como host macOS para comprobar la migracion a Compose
 Multiplatform desde un equipo Windows. El workflow se encuentra en
 `.github/workflows/ios-build.yml`.
 
+## Corte candidato actual
+
+La ola 1 se integró en `main` por PR #46, merge
+`587789ff03df0c1b83baa2b6ca74babc4e4d3499`. La ola 2 corresponde al commit
+`9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` y a la ejecución
+[#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187),
+todavía pendiente en la reconciliación MP-A14. Hasta conocer su conclusión no
+se atribuye verde iOS a ese SHA.
+
 ## Que valida
 
 1. Compila los source sets `iosArm64` e `iosSimulatorArm64` de todos los
@@ -32,6 +41,11 @@ La compilacion usa `macos-15`, JDK 17 y Xcode 26.3. Kotlin/Native `2.2.21`
 incluye bibliotecas de plataforma generadas para Xcode 26; usar Xcode 16.3
 haría fallar el enlace al no resolver `_LocationEssentials`. El workflow fija
 además el runtime iOS 26.2 para que el resultado sea reproducible.
+
+El Mac virtual disponible con Xcode 16 es, por ello, incompatible con este
+corte y no sirve como gate final. Una compilación o smoke sin firma tampoco
+acredita entrega APNs, App Group/Share Extension firmados, provisioning,
+dispositivo físico ni E2E autenticado.
 
 ## Concurrencia y cola
 

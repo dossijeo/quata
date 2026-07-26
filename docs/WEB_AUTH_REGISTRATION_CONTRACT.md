@@ -6,6 +6,10 @@ Quata Web **no ofrece alta de cuentas**. `quata-auth-bridge` autentica y vincula
 
 El guard `web_auth_registration_contract_unavailable` impide que el host Web simule ese flujo. La prueba Wasm asociada verifica que el rechazo es local y no realiza ninguna petición de red. SB-02 mantiene su negativa explícita a crear usuarios: sólo puede ejercitar login con una cuenta efímera aprovisionada por un flujo autorizado y luego revocar sus sesiones.
 
+En la ola 2 (`9cc84dc2`) este límite permanece `fail-closed`: los tests Wasm,
+la distribución y el smoke Web pasaron, pero eso no constituye un E2E de alta
+ni habilita registro remoto.
+
 ## API mínima requerida antes de habilitar el formulario
 
 El backend debe exponer una única operación de alta, separada de `quata-auth-bridge`, con estas propiedades:

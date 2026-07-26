@@ -49,9 +49,10 @@ objeto y fila sea parte de la misma ejecución y pueda verificarse después.
 
 ## Estado de validación local
 
-Sobre `17eafade`, `:web:wasmJsTest`, `:web:wasmJsBrowserDistribution` y el smoke
-base de Chrome pasaron. El preflight remoto también confirmó login con dos
-cuentas aisladas y creación del hilo privado.
+Sobre `1d604ab3`, `:web:wasmJsTest`,
+`:web:wasmJsBrowserDistribution` y el smoke base de Chrome pasaron. El
+preflight remoto también confirmó login con dos cuentas aisladas y creación
+del hilo privado.
 
 El recorrido Playwright permanece bloqueado antes del primer envío: Compose/Wasm
 monta correctamente su canvas dentro del shadow DOM y conserva sesión, runtime y
@@ -61,3 +62,4 @@ de runtime. Por tanto esta evidencia no acredita envío, recepción, reply ni
 logout mediante UI. Todos los fixtures de cada intento se eliminaron a través de
 `quata-account-lifecycle` y se verificó por base de datos la ausencia de Auth,
 perfiles, hilos, participantes, mensajes, adjuntos y sesiones web.
+La comprobación final arrojó cero residuos en todas esas superficies.

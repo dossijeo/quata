@@ -40,3 +40,7 @@ La CI sin firma sólo valida compilación, enlace, tests y estructura del
 archive. App Group y Share Extension requieren perfiles firmados compatibles y
 una prueba en dispositivo físico; no deben declararse operativos por un archive
 sin firma.
+
+La ola 2 (`9cc84dc2`) espera la CI exacta #30210875187. Su eventual archive
+sin firma no crea un App Group físico ni sustituye la validación con
+provisioning compatible y dispositivo real.
