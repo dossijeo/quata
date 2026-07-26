@@ -221,6 +221,48 @@ begin
                display_name, phone, pass_hash, phone_normalized, phone_local, is_admin
            ) values ('Mallory', '+34999', 'hash-x', '999', '999', true)$q$
     );
+    perform public.test_expect_42501(
+        'anonymous auth identity injection on insert',
+        'anon', null,
+        $q$insert into public.community_profiles (
+               display_name, phone, pass_hash, phone_normalized, phone_local,
+               auth_user_id
+           ) values (
+               'Mallory identity', '+34998', 'hash-x', '998', '998',
+               '99999999-9999-4999-8999-999999999999'
+           )$q$
+    );
+    perform public.test_expect_42501(
+        'anonymous lifecycle injection on insert',
+        'anon', null,
+        $q$insert into public.community_profiles (
+               display_name, phone, pass_hash, phone_normalized, phone_local,
+               account_status, deactivated_at
+           ) values (
+               'Mallory lifecycle', '+34997', 'hash-x', '997', '997',
+               'deactivated', now()
+           )$q$
+    );
+    perform public.test_expect_42501(
+        'anonymous official role injection on insert',
+        'anon', null,
+        $q$insert into public.community_profiles (
+               display_name, phone, pass_hash, phone_normalized, phone_local,
+               is_official
+           ) values (
+               'Mallory official', '+34996', 'hash-x', '996', '996', true
+           )$q$
+    );
+    perform public.test_expect_42501(
+        'anonymous counter injection on insert',
+        'anon', null,
+        $q$insert into public.community_profiles (
+               display_name, phone, pass_hash, phone_normalized, phone_local,
+               followers_count
+           ) values (
+               'Mallory counters', '+34995', 'hash-x', '995', '995', 1000000
+           )$q$
+    );
 
     v_rows := public.test_exec_as(
         'authenticated',

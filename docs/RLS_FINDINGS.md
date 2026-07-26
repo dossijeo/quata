@@ -104,7 +104,9 @@ la UI.
 - **Evidencia:** `public read profiles` usa `USING (true)` y el grant SELECT de
   tabla incluye `pass_hash`, `pass_plain`, `secret_answer`, teléfono e
   identificadores Auth. Android legacy consulta esos campos directamente para
-  login y recuperación.
+  login y recuperación. Un GET PostgREST anónimo real y de solo lectura
+  confirmó valores no vacíos de los cuatro campos en una muestra de diez filas;
+  no se conservaron valores ni identificadores.
 - **Impacto:** una clave publicable puede leer secretos de autenticación y
   recuperación. El hash no mitiga la presencia adicional de `pass_plain`.
 - **Límite:** no se restringe SELECT en RLS-003 para no romper los clientes

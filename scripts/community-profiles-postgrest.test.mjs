@@ -166,4 +166,29 @@ expect(
   maliciousRegistration,
 );
 
+for (const [label, forbidden] of [
+  ["auth identity", { auth_user_id: "99999999-9999-4999-8999-999999999999" }],
+  ["lifecycle", { account_status: "deactivated" }],
+  ["official role", { is_official: true }],
+  ["counter", { followers_count: 1000000 }],
+]) {
+  const response = await request("/community_profiles", {
+    method: "POST",
+    body: {
+      display_name: `PostgREST ${label}`,
+      phone: "+34667",
+      pass_hash: "hash-g",
+      phone_normalized: "667",
+      phone_local: "667",
+      ...forbidden,
+    },
+  });
+  expect(
+    (response.status === 401 || response.status === 403) &&
+      response.value?.code === "42501",
+    `anonymous ${label} insert did not fail with 42501`,
+    response,
+  );
+}
+
 console.log("COMMUNITY_PROFILES_POSTGREST_TEST_OK");

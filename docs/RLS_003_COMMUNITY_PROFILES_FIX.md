@@ -81,6 +81,9 @@ la edición propia, la suplantación, el UPDATE anónimo y las dos escaladas. El
 resultado es `COMMUNITY_PROFILES_POSTGREST_TEST_OK`; al terminar elimina API,
 base y red Docker, por lo que no conserva fixtures.
 
+Los INSERT hostiles se prueban por separado para `auth_user_id`, `is_admin`,
+`is_official`, estado/desactivación y contadores. Todos devuelven `42501`.
+
 ## Compatibilidad y orden de rollout
 
 La lectura pública conserva su forma y no afecta a feeds Android/Web/iOS. El
@@ -93,6 +96,24 @@ No debe retirarse la contención de cliente ni desplegarse este SQL hasta que el
 release integrado ejecute las pruebas de registro, login, recuperación, perfil,
 feed y lifecycle en staging.
 
+### Rollout sin romper Android publicado
+
+No existe una policy segura que pueda conservar el reset Android actual: ese
+cliente envía un PATCH anónimo con sólo `pass_hash` y `pass_plain`, sin aportar
+en la request ninguna prueba verificable por el servidor. Mantener ese PATCH
+equivale a permitir que cualquiera que conozca un UUID cambie la contraseña.
+
+Por tanto, `171003` no es candidata a producción por sí sola. El orden seguro es:
+
+1. desplegar primero endpoints Edge/RPC de registro, pregunta y reset que
+   validen la respuesta en servidor, sin cambiar grants;
+2. publicar Android usando esos endpoints para alta/login/recuperación y dejar
+   de leer o parchear credenciales en `community_profiles`;
+3. medir adopción y, si el producto mantiene APK antiguas, aplicar una versión
+   mínima antes del corte;
+4. desplegar `171003` junto al contrato de auth ya adoptado;
+5. ejecutar E2E cross-platform y sólo entonces retirar contenciones.
+
 ## Riesgo pendiente no incluido
 
 La policy de lectura pública y los grants de tabla exponen actualmente también
@@ -101,3 +122,28 @@ revocan aquí porque los clientes legacy todavía los consultan y el encargo
 prohíbe romper la Web publicada. Se registra como RLS-004 y requiere migrar
 todos los flujos de login/recuperación a RPC/Edge antes de otorgar SELECT sólo a
 columnas públicas.
+
+### Fase posterior para RLS-004
+
+La exposición quedó confirmada también mediante un GET PostgREST anónimo real:
+en una muestra de diez perfiles se recibieron valores no vacíos de
+`pass_plain`, `pass_hash`, `secret_answer` y `auth_user_id`. No se registró
+ningún valor, ID, teléfono ni secreto.
+
+Cerrar RLS-004 requiere una migración posterior, también no desplegable hasta
+completar los pasos 1–3 anteriores:
+
+- revocar el SELECT de tabla a `anon` y `authenticated`;
+- conceder SELECT por columna únicamente para el contrato público usado por
+  Feed/Official/Communities (`id`, nombres visibles, barrio, avatar, contadores
+  y flags públicos);
+- mover pregunta de recuperación y perfil privado a RPC/Edge con contrato
+  mínimo;
+- eliminar `pass_plain` tras migrar/invalidar el legado y no devolver nunca
+  `pass_hash` ni `secret_answer`;
+- verificar que todos los `select=` Android/Web/iOS funcionan con las columnas
+  concedidas y que pedir cualquier columna privada devuelve denegación.
+
+Una vista pública dedicada es una alternativa válida, pero debe exponerse sólo
+con la proyección anterior y probar explícitamente su comportamiento de
+seguridad; no se debe crear una vista propietaria con `SELECT *`.
