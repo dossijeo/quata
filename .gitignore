@@ -1,6 +1,7 @@
 .gradle/
 .idea/
 build/
+node_modules/
 local.properties
 release-signing.properties
 keystores/

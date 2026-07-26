@@ -1,0 +1,7 @@
+{
+  "name": "quata-browser-e2e",
+  "private": true,
+  "devDependencies": {
+    "playwright-core": "1.62.0"
+  }
+}
