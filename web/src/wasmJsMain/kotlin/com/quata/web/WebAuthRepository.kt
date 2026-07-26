@@ -93,7 +93,10 @@ class WebAuthRepository(
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
         require(configuration.webRegistrationEnabled) { "web_registration_unavailable" }
-        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val challengeToken = requestTurnstileChallenge(
+            configuration.turnstileSiteKey.requireConfigured("turnstile_site_key_missing"),
+        )
+        val apiKey = configuration.webRegistrationApiKey.requireConfigured("web_registration_api_key_missing")
         val countryCode = request.countryCode.filter(Char::isDigit)
         val phoneLocal = request.phone.filter(Char::isDigit)
         val identity = "$countryCode:$phoneLocal"
@@ -105,9 +108,13 @@ class WebAuthRepository(
                 request = request,
                 clientInstanceId = ensureWebClientInstanceId(),
                 idempotencyKey = idempotencyKey,
+                challengeToken = challengeToken,
             ).toString(),
         )
-        acceptAuthenticationPayload(payload).also {
+        require(Json.parseToJsonElement(payload).jsonObject["status"]?.jsonPrimitive?.contentOrNull == "accepted") {
+            "web_registration_unavailable"
+        }
+        login(request.countryCode, request.phone, request.password).getOrThrow().also {
             preferences.remove(PendingRegistrationIdentity)
             preferences.remove(PendingRegistrationKey)
         }
@@ -370,6 +377,7 @@ internal fun buildWebRegistrationRequest(
     request: RegisterAccountRequest,
     clientInstanceId: String,
     idempotencyKey: String,
+    challengeToken: String,
 ): JsonObject = buildJsonObject {
     put("version", 1)
     put("display_name", request.displayName.trim())
@@ -381,7 +389,42 @@ internal fun buildWebRegistrationRequest(
     put("secret_answer", request.secretAnswer.trim())
     put("client_instance_id", clientInstanceId)
     put("idempotency_key", idempotencyKey)
+    put("challenge_token", challengeToken)
 }
+
+private suspend fun requestTurnstileChallenge(siteKey: String): String = suspendCoroutine { continuation ->
+    requestTurnstileWidget(
+        siteKey.toJsString(),
+        { token -> continuation.resume(token.toString()) },
+        { continuation.resumeWith(Result.failure(IllegalStateException("turnstile_challenge_failed"))) },
+    )
+}
+
+@JsFun("""(siteKey, resolve, reject) => {
+  let attempts = 0;
+  const run = () => {
+    if (!globalThis.turnstile) {
+      if (++attempts < 40) { setTimeout(run, 250); return; }
+      reject(); return;
+    }
+    const node = document.createElement('div');
+    node.style.position = 'fixed'; node.style.left = '-10000px';
+    document.body.appendChild(node);
+    const widgetId = globalThis.turnstile.render(node, {
+      sitekey: siteKey, size: 'invisible', execution: 'execute',
+      callback: token => { node.remove(); resolve(token); },
+      'error-callback': () => { node.remove(); reject(); },
+      'expired-callback': () => { node.remove(); reject(); }
+    });
+    globalThis.turnstile.execute(widgetId);
+  };
+  run();
+}""")
+private external fun requestTurnstileWidget(
+    siteKey: JsString,
+    resolve: (JsString) -> Unit,
+    reject: () -> Unit,
+)
 
 private const val WebSessionRefreshLeewaySeconds = 60L
 

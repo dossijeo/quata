@@ -45,7 +45,7 @@ test("rejects every unknown or privileged client-controlled field", () => {
 test("creates Auth, profile and Web session in order", async () => {
   const events = [];
   const result = await runRegistration(validPayload, dependencies(events));
-  assert.deepEqual(result, { ok: true, profileId: "profile-1" });
+  assert.deepEqual(result, { version: 1, status: "accepted" });
   assert.deepEqual(events, [
     "prepare",
     "claim",
@@ -60,16 +60,12 @@ test("creates Auth, profile and Web session in order", async () => {
   ]);
 });
 
-test("returns a generic duplicate result without creating identities", async () => {
+test("returns the same generic acceptance for a duplicate", async () => {
   const events = [];
-  await assert.rejects(
-    runRegistration(validPayload, dependencies(events, {
+  const result = await runRegistration(validPayload, dependencies(events, {
       claim: async () => ({ kind: "conflict", record: null }),
-    })),
-    (error) => error instanceof RegistrationContractError &&
-      error.code === "registration_unavailable" &&
-      error.status === 202,
-  );
+    }));
+  assert.deepEqual(result, { version: 1, status: "accepted" });
   assert.deepEqual(events, ["prepare"]);
 });
 
@@ -136,7 +132,7 @@ test("replays a completed idempotency key without creating another user", async 
       record: { id: "request-1", profileId: "profile-1", authUserId: "auth-1" },
     }),
   }));
-  assert.deepEqual(result, { ok: true, replay: true });
+  assert.deepEqual(result, { version: 1, status: "accepted" });
   assert.deepEqual(events, ["prepare", "restore"]);
 });
 
@@ -162,6 +158,7 @@ function dependencies(events, overrides = {}) {
       events.push("claim");
       return { kind: "new", record };
     },
+    accepted: () => ({ version: 1, status: "accepted" }),
     findProfile: async () => {
       events.push("find-profile");
       return null;

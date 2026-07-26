@@ -79,11 +79,10 @@ Deno.serve(async (req) => {
   try {
     return await handleRequest(req);
   } catch (error) {
-    console.error(error);
+    console.error(JSON.stringify({ event: "auth_bridge_failed", code: "internal_error" }));
     return jsonResponse(
       {
         error: "internal_error",
-        detail: error instanceof Error ? error.message : "Unexpected error",
       },
       500,
     );
@@ -119,11 +118,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const expectedBridgeKey = Deno.env.get("QUATA_AUTH_BRIDGE_API_KEY");
   if (expectedBridgeKey) {
-    const providedKey =
-      req.headers.get("x-quata-api-key") ||
-      req.headers.get("apikey") ||
+    const dedicated = req.headers.get("x-quata-api-key");
+    const publishable = req.headers.get("apikey") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (providedKey !== expectedBridgeKey) {
+    if (dedicated !== expectedBridgeKey && publishable !== publicKey) {
       return jsonResponse({ error: "invalid_api_key" }, 401);
     }
   }
@@ -140,8 +138,8 @@ async function handleRequest(req: Request): Promise<Response> {
     global: { headers: { "X-Client-Info": "quata-auth-bridge" } },
   });
 
-  const profile = await findProfile(admin, payload);
   const action = payload.action || "login";
+  const profile = await findProfile(admin, payload);
   if (action === "recovery_question") {
     if (!profile?.secret_question?.trim()) {
       return jsonResponse({ error: "recovery_profile_not_found" }, 404);
@@ -179,6 +177,7 @@ async function handleRequest(req: Request): Promise<Response> {
     avatar_url: profile.avatar_url || profile.avatar || null,
     neighborhood: profile.neighborhood || profile.barrio || null,
     auth_source: "quata_legacy_bridge",
+    auth_password_secret_version: Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION") || "legacy",
   };
 
   const authUserId = await ensureAuthUser(admin, {
@@ -207,6 +206,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if ((signInError || !signInData.session) && isInvalidAuthPassword(signInError)) {
     const { error: updatePasswordError } = await admin.auth.admin.updateUserById(authUserId, {
       password: authPassword,
+      user_metadata: userMetadata,
     });
     if (updatePasswordError) {
       return jsonResponse({ error: "auth_session_failed", detail: updatePasswordError.message }, 500);
@@ -239,6 +239,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (linkProfileError) throw linkProfileError;
 
   const response: Record<string, unknown> = {
+    version: 1,
     profile: publicProfile(profile, authUserId),
     session: signInData.session,
     user: signInData.user,

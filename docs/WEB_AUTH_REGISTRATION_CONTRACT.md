@@ -10,12 +10,18 @@ coinciden el flag público `quata-web-registration-enabled=true`, el flag servid
 La API `quata-web-register` acepta exclusivamente `version=1` y una allowlist
 cerrada. Canonicaliza la identidad como E.164, crea Auth, perfil y sesión Web
 mediante service-role, y usa una saga durable con idempotencia, rate limiting y
-compensación. El cliente persiste la clave de idempotencia por identidad para
-reintentos incluso tras recargar.
+compensación. Su respuesta es siempre `202 {"version":1,"status":"accepted"}` para
+identidad nueva o existente, con suelo temporal y jitter; el cliente continúa
+por el login normal. El cliente persiste la clave de idempotencia por identidad
+para reintentos incluso tras recargar.
 
 La migración `20260726171004_web_registration_contract.sql` es transaccional y
 debe aplicarse después del actor guard `20260726171003`. Android mantiene su
 contrato existente. Ninguna policy RLS existente se relaja en este cambio.
+
+La activación funcional queda bloqueada hasta que Android migre su alta al mismo
+orquestador mediante un canal con atestación verificable. `quata-auth-bridge` no
+acepta altas: una API key pública no sustituye Play Integrity ni la saga durable.
 
 ## Operación
 

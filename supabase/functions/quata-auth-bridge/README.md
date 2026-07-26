@@ -22,6 +22,9 @@ Supabase inyecta `SUPABASE_URL` y, segun la generacion del proyecto, claves en f
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SECRET_KEYS`
 - `SUPABASE_PUBLISHABLE_KEYS`
+- `QUATA_INTERNAL_AUTH_PASSWORD_SECRET`
+- `QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION`
+- `QUATA_WEB_REGISTRATION_PEPPER`
 
 La funcion intenta leer ambos formatos. Si tu app usa una publishable key concreta (`sb_publishable_...`) y quieres fijarla explicitamente, define tambien:
 
@@ -36,6 +39,10 @@ supabase secrets set QUATA_AUTH_BRIDGE_API_KEY="sb_publishable_..."
 ```
 
 Si `QUATA_AUTH_BRIDGE_API_KEY` existe, la funcion exigira que el request envie esa key en `apikey`, `Authorization: Bearer ...` o `x-quata-api-key`.
+
+El bridge no expone `action: "register"`. El alta Android debe migrarse al mismo
+orquestador durable que Web mediante un canal con atestación verificable; no se
+admite una segunda inserción pública que omita saga, idempotencia o antiabuso.
 
 ## Login web y Web Push
 

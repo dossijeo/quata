@@ -6,7 +6,20 @@
 
 begin;
 
--- Release precondition: 20260726171003 community_profiles actor guard is applied first.
+-- Canonical identity precondition shared with the profiles actor-guard rollout.
+do $$
+begin
+  if not exists(select 1 from information_schema.columns where table_schema='public'
+    and table_name='community_profiles' and column_name='phone_e164')
+    or not exists(select 1 from information_schema.columns where table_schema='public'
+    and table_name='community_profiles' and column_name='country_code')
+    or not exists(select 1 from information_schema.columns where table_schema='public'
+    and table_name='community_profiles' and column_name='phone_local')
+    or not exists(select 1 from pg_trigger where tgrelid='public.community_profiles'::regclass
+      and tgname='quata_guard_profile_roles_trg' and not tgisinternal) then
+    raise exception 'community_profiles actor guard / canonical E164 contract missing';
+  end if;
+end $$;
 alter table public.community_profiles
     add column if not exists secret_answer_hash text;
 
@@ -24,6 +37,11 @@ create table if not exists public.web_registration_requests (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     completed_at timestamptz,
+    cleanup_claim_token uuid,
+    cleanup_claimed_at timestamptz,
+    cleanup_attempt_count integer not null default 0,
+    cleanup_next_retry_at timestamptz,
+    cleanup_completed_at timestamptz,
     constraint web_registration_requests_key_hash_check
         check (request_key_hash ~ '^[0-9a-f]{64}$'),
     constraint web_registration_requests_payload_hash_check
@@ -33,7 +51,7 @@ create table if not exists public.web_registration_requests (
     constraint web_registration_requests_client_hash_check
         check (client_hash ~ '^[0-9a-f]{64}$'),
     constraint web_registration_requests_status_check
-        check (status in ('processing', 'completed', 'failed', 'cleanup_required')),
+        check (status in ('processing', 'completed', 'failed', 'cleanup_required', 'cleanup_completed')),
     constraint web_registration_requests_attempt_count_check
         check (attempt_count between 1 and 20),
     constraint web_registration_requests_key_unique unique (request_key_hash)
@@ -62,13 +80,23 @@ create table if not exists public.web_registration_rate_limits (
 create index if not exists web_registration_rate_limits_expiry_idx
 on public.web_registration_rate_limits(window_started_at);
 
+create table if not exists public.web_registration_cleanup_events (
+ id bigint generated always as identity primary key,
+ registration_id uuid not null references public.web_registration_requests(id),
+ attempt integer not null, event_type text not null, actor text not null,
+ details jsonb not null default '{}'::jsonb, occurred_at timestamptz not null default now()
+);
+
 alter table public.web_registration_requests enable row level security;
 alter table public.web_registration_rate_limits enable row level security;
+alter table public.web_registration_cleanup_events enable row level security;
 
 revoke all on table public.web_registration_requests from public, anon, authenticated;
 revoke all on table public.web_registration_rate_limits from public, anon, authenticated;
+revoke all on table public.web_registration_cleanup_events from public, anon, authenticated;
 grant select, insert, update, delete on table public.web_registration_requests to service_role;
 grant select, insert, update, delete on table public.web_registration_rate_limits to service_role;
+grant select, insert on table public.web_registration_cleanup_events to service_role;
 
 create or replace function public.quata_claim_web_registration(
     p_request_key_hash text,
@@ -112,6 +140,9 @@ begin
         end if;
         if v_request.status = 'cleanup_required' or v_request.attempt_count >= 5 then
             return jsonb_build_object('kind', 'cleanup_required');
+        end if;
+        if v_request.status = 'cleanup_completed' then
+            return jsonb_build_object('kind', 'conflict');
         end if;
         if v_request.status = 'processing'
            and v_request.updated_at > clock_timestamp() - interval '2 minutes' then
@@ -225,5 +256,40 @@ comment on table public.web_registration_rate_limits is
     'Server-only fixed-window anti-abuse counters for Web registration.';
 comment on function public.quata_claim_web_registration(text, text, text, text, text) is
     'Atomically applies registration rate limits and claims/resumes an idempotent saga.';
+
+create or replace function public.quata_claim_web_registration_cleanup(p_token uuid, p_actor text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare r public.web_registration_requests;
+begin
+ select * into r from public.web_registration_requests where status='cleanup_required'
+ and coalesce(cleanup_next_retry_at,'-infinity')<=now()
+ and (cleanup_claimed_at is null or cleanup_claimed_at<now()-interval '10 minutes')
+ order by updated_at for update skip locked limit 1;
+ if not found then return jsonb_build_object('kind','empty'); end if;
+ update public.web_registration_requests set cleanup_claim_token=p_token,cleanup_claimed_at=now(),
+ cleanup_attempt_count=cleanup_attempt_count+1,updated_at=now() where id=r.id returning * into r;
+ insert into public.web_registration_cleanup_events(registration_id,attempt,event_type,actor)
+ values(r.id,r.cleanup_attempt_count,'claimed',left(p_actor,100));
+ return jsonb_build_object('kind','claimed','request',to_jsonb(r));
+end $$;
+revoke all on function public.quata_claim_web_registration_cleanup(uuid,text) from public,anon,authenticated;
+grant execute on function public.quata_claim_web_registration_cleanup(uuid,text) to service_role;
+
+create or replace function public.quata_finish_web_registration_cleanup(
+ p_id uuid,p_token uuid,p_actor text,p_success boolean,p_details jsonb
+) returns void language plpgsql security definer set search_path=pg_catalog,public as $$
+declare n integer;
+begin
+ update public.web_registration_requests set status=case when p_success then 'cleanup_completed' else 'cleanup_required' end,
+ cleanup_completed_at=case when p_success then now() else cleanup_completed_at end,
+ cleanup_next_retry_at=case when p_success then null else now()+least(interval '1 hour',interval '1 minute'*power(2,least(cleanup_attempt_count,6))) end,
+ cleanup_claim_token=null,cleanup_claimed_at=null,updated_at=now()
+ where id=p_id and cleanup_claim_token=p_token returning cleanup_attempt_count into n;
+ if not found then raise exception 'invalid_cleanup_lease'; end if;
+ insert into public.web_registration_cleanup_events(registration_id,attempt,event_type,actor,details)
+ values(p_id,n,case when p_success then 'completed' else 'retry_scheduled' end,left(p_actor,100),coalesce(p_details,'{}'));
+end $$;
+revoke all on function public.quata_finish_web_registration_cleanup(uuid,uuid,text,boolean,jsonb) from public,anon,authenticated;
+grant execute on function public.quata_finish_web_registration_cleanup(uuid,uuid,text,boolean,jsonb) to service_role;
 
 commit;

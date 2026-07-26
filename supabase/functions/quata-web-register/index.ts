@@ -2,13 +2,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   hashRecoveryAnswer,
   hashRegistrationPassword,
-  randomBase64Url,
   sha256Hex,
 } from "../_shared/web-registration-security.mjs";
 import {
   RegistrationContractError,
   runRegistration,
 } from "./contract.mjs";
+import { opaqueRegistrationDelay } from "./response-policy.mjs";
+import { isAllowedOrigin, parseRegistrationConfig, verifyTurnstileChallenge } from "./http-policy.mjs";
 
 type RegistrationRecord = {
   id: string;
@@ -17,6 +18,7 @@ type RegistrationRecord = {
 };
 
 Deno.serve(async (request) => {
+  const responseFloorStartedAt = Date.now();
   const origin = request.headers.get("origin") || "";
   const cors = corsHeaders(origin);
   if (request.method === "OPTIONS") {
@@ -48,17 +50,14 @@ Deno.serve(async (request) => {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { "X-Client-Info": "quata-web-register" } },
     });
-    const publicClient = createClient(configuration.supabaseUrl, configuration.publicApiKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { "X-Client-Info": "quata-web-register-signin" } },
-    });
-    const sourceIp = request.headers.get("cf-connecting-ip") ||
-      "unavailable";
+    // Supabase Edge forwards Cloudflare's trusted header. If absent, use a
+    // per-request nonce so attackers cannot force every request into one global bucket.
+    const sourceIp = request.headers.get("cf-connecting-ip") || `untrusted-${crypto.randomUUID()}`;
 
     const result = await runRegistration(payload, {
       prepare: async (input: Record<string, string>) => {
         if (configuration.enabled) {
-          const challengeOk = await verifyTurnstile(
+          const challengeOk = await verifyTurnstileChallenge(
           configuration.turnstileSecret!,
             input.challengeToken,
             sourceIp,
@@ -85,6 +84,7 @@ Deno.serve(async (request) => {
           authEmail: `${input.countryCode}${input.phoneLocal}@phone.quata.app`,
         };
       },
+      accepted: () => ({ version: 1, status: "accepted" }),
       claim: async (context: Record<string, string>) => {
         const { data, error } = await admin.rpc("quata_claim_web_registration", {
           p_request_key_hash: context.requestKeyHash,
@@ -137,6 +137,8 @@ Deno.serve(async (request) => {
             display_name: context.displayName,
             neighborhood: context.neighborhood,
             auth_source: "quata_web_registration",
+            registration_request_id: record.id,
+            auth_password_secret_version: configuration.internalAuthPasswordSecretVersion,
           },
         });
         if (error || !data.user) throw error ?? new Error("auth_user_not_created");
@@ -188,20 +190,8 @@ Deno.serve(async (request) => {
       recordProfile: (record: RegistrationRecord, profileId: string) =>
         updateRequest(admin, record.id, { profile_id: profileId, updated_at: new Date().toISOString() }),
       createAuthenticatedResult: (
-        context: Record<string, string>,
-        record: RegistrationRecord,
-        authUser: { id: string },
-        profile: Record<string, unknown>,
-      ) => authenticatedResult({
-        admin,
-        publicClient,
-        configuration,
-        context,
-        record,
-        authUser,
-        profile,
-      }),
-      restoreCompleted: async (context: Record<string, string>, record: RegistrationRecord) => {
+      ) => Promise.resolve(null),
+      restoreCompleted: async (_context: Record<string, string>, record: RegistrationRecord) => {
         const { data: profile, error } = await admin
           .from("community_profiles")
           .select("id,auth_user_id,display_name,country_code,phone_local,neighborhood")
@@ -210,15 +200,7 @@ Deno.serve(async (request) => {
         if (error || !profile || !record.authUserId) {
           throw new RegistrationContractError("registration_unavailable", 409);
         }
-        return authenticatedResult({
-          admin,
-          publicClient,
-          configuration,
-          context,
-          record,
-          authUser: { id: record.authUserId },
-          profile,
-        });
+        return null;
       },
       complete: (record: RegistrationRecord, authUserId: string, profileId: string) =>
         updateRequest(admin, record.id, {
@@ -253,9 +235,11 @@ Deno.serve(async (request) => {
           updated_at: new Date().toISOString(),
         }),
     });
+    await opaqueRegistrationDelay(responseFloorStartedAt);
     return json(result, 202, cors);
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(JSON.stringify({ event: "web_registration_failed", code:
+      error instanceof RegistrationContractError ? error.code : "internal_error" }));
     if (error instanceof RegistrationContractError) {
       const headers = error.retryAfterSeconds
         ? { ...cors, "Retry-After": String(error.retryAfterSeconds) }
@@ -266,51 +250,6 @@ Deno.serve(async (request) => {
   }
 });
 
-async function authenticatedResult(params: {
-  admin: ReturnType<typeof createClient>;
-  publicClient: ReturnType<typeof createClient>;
-  configuration: ReturnType<typeof requireConfiguration>;
-  context: Record<string, string>;
-  record: RegistrationRecord;
-  authUser: { id: string };
-  profile: Record<string, unknown>;
-}) {
-  const password = await internalAuthPassword(
-    params.record.profileId,
-    params.context.password,
-    params.configuration.internalAuthPasswordSecret,
-  );
-  const { data: signIn, error: signInError } = await params.publicClient.auth.signInWithPassword({
-    email: params.context.authEmail,
-    password,
-  });
-  if (signInError || !signIn.session || !signIn.user) {
-    throw signInError ?? new Error("auth_session_failed");
-  }
-  const webToken = randomBase64Url(32);
-  const { data: webSession, error: webSessionError } = await params.admin
-    .from("web_client_sessions")
-    .upsert({
-      profile_id: params.record.profileId,
-      auth_user_id: params.authUser.id,
-      client_instance_id: params.context.clientInstanceId,
-      token_hash: await sha256Hex(webToken),
-      updated_at: new Date().toISOString(),
-      last_seen_at: new Date().toISOString(),
-      revoked_at: null,
-    }, { onConflict: "profile_id,client_instance_id" })
-    .select("id")
-    .single();
-  if (webSessionError) throw webSessionError;
-  return {
-    version: 1,
-    profile: params.profile,
-    session: signIn.session,
-    user: signIn.user,
-    client_type: "web",
-    web_session: { id: webSession.id, token: webToken },
-  };
-}
 
 function registrationRecord(row: Record<string, unknown>): RegistrationRecord {
   return {
@@ -321,7 +260,8 @@ function registrationRecord(row: Record<string, unknown>): RegistrationRecord {
 }
 
 async function updateRequest(
-  admin: ReturnType<typeof createClient>,
+  // Generated DB types are not available inside the vendored Edge bundle.
+  admin: any,
   id: string,
   patch: Record<string, unknown>,
 ) {
@@ -333,44 +273,12 @@ async function internalAuthPassword(profileId: string, password: string, stableS
   return `Qa-${await sha256Hex(`${profileId}:${password}:${stableSecret}`)}`;
 }
 
-async function verifyTurnstile(secret: string, token: string, remoteIp: string) {
-  if (!token) return false;
-  const body = new URLSearchParams({ secret, response: token, remoteip: remoteIp });
-  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    body,
-  });
-  if (!response.ok) return false;
-  const result = await response.json() as { success?: boolean };
-  return result.success === true;
-}
-
 function requireConfiguration() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    envDictionaryValue("SUPABASE_SECRET_KEYS");
-  const publicApiKey = Deno.env.get("QUATA_WEB_REGISTRATION_API_KEY") ||
-    Deno.env.get("QUATA_SUPABASE_PUBLIC_KEY") ||
-    Deno.env.get("SUPABASE_ANON_KEY") ||
-    envDictionaryValue("SUPABASE_PUBLISHABLE_KEYS");
-  const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
-  const internalAuthPasswordSecret = Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET");
-  const enabled = Deno.env.get("QUATA_WEB_REGISTRATION_ENABLED") === "true";
-  const turnstileSecret = Deno.env.get("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET") || null;
-  if (!supabaseUrl || !serviceRoleKey || !publicApiKey || !pepper || pepper.length < 32 ||
-      !internalAuthPasswordSecret || internalAuthPasswordSecret.length < 32 ||
-      (enabled && !turnstileSecret)) {
+  try {
+    return parseRegistrationConfig((name: string) => Deno.env.get(name));
+  } catch {
     throw new RegistrationContractError("server_not_configured", 503);
   }
-  return {
-    supabaseUrl,
-    serviceRoleKey,
-    publicApiKey,
-    pepper,
-    internalAuthPasswordSecret,
-    enabled,
-    turnstileSecret,
-  };
 }
 
 function allowedOrigin(origin: string) {
@@ -378,7 +286,7 @@ function allowedOrigin(origin: string) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  return Boolean(origin) && allowed.includes(origin);
+  return isAllowedOrigin(origin, allowed);
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -403,17 +311,4 @@ function constantTimeEqual(left: string, right: string) {
     difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
   }
   return difference === 0;
-}
-
-function envDictionaryValue(name: string, preferredKey = "default"): string | null {
-  const raw = Deno.env.get(name);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const preferred = parsed[preferredKey];
-    if (typeof preferred === "string" && preferred.trim()) return preferred;
-    return Object.values(parsed).find((value) => typeof value === "string" && value.trim()) as string || null;
-  } catch {
-    return null;
-  }
 }

@@ -73,13 +73,14 @@ export async function runRegistration(payload, dependencies) {
     throw new RegistrationContractError("rate_limited", 429, claim.retryAfterSeconds ?? 60);
   }
   if (claim.kind === "conflict" || claim.kind === "cleanup_required") {
-    throw new RegistrationContractError("registration_unavailable", 202);
+    return dependencies.accepted();
   }
   if (claim.kind === "busy") {
     throw new RegistrationContractError("registration_in_progress", 409, claim.retryAfterSeconds ?? 15);
   }
   if (claim.kind === "replay") {
-    return dependencies.restoreCompleted(context, claim.record);
+    await dependencies.restoreCompleted(context, claim.record);
+    return dependencies.accepted();
   }
 
   const record = claim.record;
@@ -91,13 +92,13 @@ export async function runRegistration(payload, dependencies) {
     const existingProfile = await dependencies.findProfile(context);
     if (existingProfile && existingProfile.id !== record.profileId) {
       await dependencies.fail(record, "identity_unavailable");
-      throw new RegistrationContractError("registration_unavailable", 202);
+      return dependencies.accepted();
     }
 
     authUser = await dependencies.findAuthUser(context);
     if (authUser && authUser.profileId !== record.profileId) {
       await dependencies.fail(record, "identity_unavailable");
-      throw new RegistrationContractError("registration_unavailable", 202);
+      return dependencies.accepted();
     }
     if (!authUser) {
       authUser = await dependencies.createAuthUser(context, record);
@@ -110,7 +111,7 @@ export async function runRegistration(payload, dependencies) {
     await dependencies.recordProfile(record, profile.id);
     const result = await dependencies.createAuthenticatedResult(context, record, authUser, profile);
     await dependencies.complete(record, authUser.id, profile.id);
-    return result;
+    return dependencies.accepted();
   } catch (error) {
     if (error instanceof RegistrationContractError) throw error;
     if (createdProfile && profile?.id) {

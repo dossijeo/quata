@@ -7,7 +7,7 @@ export async function cleanupRegistration(record, dependencies) {
     events.push("profile_deleted");
     await dependencies.deleteAuthUser(record.authUserId);
     events.push("auth_deleted");
-    await dependencies.markCleaned(record.id, events);
+    await dependencies.markCompleted(record.id, events);
     await dependencies.alert("registration_cleanup_completed", record.id);
     return events;
   } catch (error) {

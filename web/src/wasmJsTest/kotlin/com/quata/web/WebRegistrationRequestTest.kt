@@ -20,6 +20,7 @@ class WebRegistrationRequestTest {
             ),
             clientInstanceId = "browser-instance-123",
             idempotencyKey = "0123456789abcdef0123456789abcdef",
+            challengeToken = "turnstile-token",
         )
 
         assertEquals(
@@ -34,6 +35,7 @@ class WebRegistrationRequestTest {
                 "secret_answer",
                 "client_instance_id",
                 "idempotency_key",
+                "challenge_token",
             ),
             body.keys,
         )
