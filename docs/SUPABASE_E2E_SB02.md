@@ -4,7 +4,7 @@
 
 ## Precondición de cuenta
 
-Web no implementa registro (`WebAuthRepository.register` devuelve `web_auth_register_not_implemented`) y el alta Android actual depende del endpoint WordPress. No existe un alta Web pública y segura que SB-02 pueda automatizar. `-CreateUser` falla antes de hacer red. Un operador debe aprovisionar y autorizar previamente una cuenta **aislada y efímera** mediante el flujo permitido; no se permite usar una cuenta personal ni de producción.
+Web no implementa registro (`WebAuthRepository.register` devuelve `web_auth_registration_contract_unavailable`) y el alta Android actual crea perfiles mediante una capacidad de confianza que no existe en el navegador. No existe un alta Web pública y segura que SB-02 pueda automatizar. `-CreateUser` falla antes de hacer red. Un operador debe aprovisionar y autorizar previamente una cuenta **aislada y efímera** mediante el flujo permitido; no se permite usar una cuenta personal ni de producción. El contrato mínimo para habilitarlo está en [WEB_AUTH_REGISTRATION_CONTRACT.md](WEB_AUTH_REGISTRATION_CONTRACT.md).
 
 La contraseña no se imprime ni se escribe en el informe. Cada logout Web ejerce el mismo endpoint que el cliente (`quata-web-push`, acción `logout`); al finalizar, el runner revoca globalmente las sesiones de esa cuenta como limpieza defensiva. No borra la cuenta, pues no la creó. El operador que la aprovisionó debe eliminarla por su flujo autorizado y anotar esa limpieza en el tablero.
 
