@@ -201,9 +201,8 @@ internal fun installDocmentisSmokeProbe(): Unit = js(
       // This hook is intentionally unavailable outside the local browser smoke. In particular,
       // never expose an arbitrary URL loader from a deployed application merely for testing.
       if (!['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname)) return;
-      const fixturePath = '/__quata-smoke-fixtures/legal.docx';
       globalThis.__quataDocmentisProbe = {
-        async load() {
+        async load(fixturePath = '/__quata-smoke-fixtures/legal.docx') {
         const { UDocClient } = await import('@docmentis/udoc-viewer');
         const host = globalThis.document?.createElement?.('div');
         if (!host || !globalThis.document?.body) throw new Error('DocMentis smoke DOM unavailable');
@@ -215,7 +214,9 @@ internal fun installDocmentisSmokeProbe(): Unit = js(
         try {
           client = await UDocClient.create({ disableUpdateCheck: true, googleFonts: false });
           viewer = await client.createViewer({ container: host });
-          await viewer.load(globalThis.location.origin + fixturePath);
+          const source = new URL(fixturePath, globalThis.location.origin);
+          if (!['http:', 'https:'].includes(source.protocol)) throw new Error('DocMentis smoke URL is not HTTP(S)');
+          await viewer.load(source.href);
           // Loading resolves only after the SDK accepts the document. Wait for two frames so
           // this probe also proves that it mounted a render surface, not merely that a fetch
           // started successfully.
