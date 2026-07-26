@@ -2,7 +2,7 @@ package com.quata.feature.externalshare
 
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.chat.domain.ChatRepository
-import platform.Foundation.NSData
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSLock
@@ -23,6 +23,7 @@ class IosExternalShareClaim internal constructor(
  * The share extension never sees the authenticated session; the containing app is the only
  * process allowed to turn a claimed payload into Chat operations.
  */
+@OptIn(ExperimentalForeignApi::class)
 class IosExternalShareInbox(
     private val appGroupIdentifier: String = QuataExternalShareAppGroup,
     private val fileManager: NSFileManager = NSFileManager.defaultManager,
@@ -60,7 +61,7 @@ class IosExternalShareInbox(
         val persisted = readManifest(processingClaimPath, id)
         val result = persisted?.let { manifest ->
             persistedExternalSharePayload(manifest) { relativePath ->
-                NSURL.fileURLWithPath("$processingClaimPath/$relativePath").absoluteString
+                NSURL.fileURLWithPath("$processingClaimPath/$relativePath").absoluteString.orEmpty()
             }
         } ?: PersistedExternalShareResult.Invalid
         when (result) {
@@ -102,7 +103,7 @@ class IosExternalShareInbox(
     }
 
     private fun readManifest(claimPath: String, expectedId: String): PersistedExternalShare? {
-        val data = NSData.dataWithContentsOfFile("$claimPath/manifest.json") ?: return null
+        val data = fileManager.contentsAtPath("$claimPath/manifest.json") ?: return null
         val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *> ?: return null
         val id = root["id"] as? String ?: return null
         if (id != expectedId) return null

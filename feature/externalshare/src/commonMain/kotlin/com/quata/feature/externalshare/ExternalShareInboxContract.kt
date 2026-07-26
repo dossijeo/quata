@@ -54,7 +54,7 @@ fun persistedExternalSharePayload(
             return PersistedExternalShareResult.Invalid
         }
         val uri = attachmentUri(relativePath)
-        if (!isSupportedSharedAttachment(uri, name, attachment.mimeType)) {
+        if (uri.isBlank() || !isSupportedSharedAttachment(uri, name, attachment.mimeType)) {
             return PersistedExternalShareResult.Unsupported
         }
         ExternalShareAttachment(uri = uri, name = name, mimeType = attachment.mimeType?.trim()?.takeIf(String::isNotEmpty))
