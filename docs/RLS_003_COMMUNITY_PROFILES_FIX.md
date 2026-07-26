@@ -145,6 +145,13 @@ las filas afectadas, no corregirlas automáticamente.
 La URL de base no se pasa como argumento de proceso: el runner monta el fichero
 local como secreto de solo lectura y lo consume dentro del contenedor.
 
+Evidencia remota de solo lectura: una ejecución con fingerprints deliberadamente
+no aprobados alcanzó antes la reconciliación de contadores y falló cerrada con
+74 perfiles cuyos `followers_count`/`following_count` no coinciden con las
+aristas de `community_profile_follows`. No se mostraron IDs ni filas. El rollout
+queda bloqueado hasta investigar y reconciliar esos contadores mediante un
+procedimiento separado, revisado y reversible; el preflight no modifica datos.
+
 ## Riesgo pendiente no incluido
 
 La policy de lectura pública y los grants de tabla exponen actualmente también

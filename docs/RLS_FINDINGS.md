@@ -95,6 +95,11 @@ la UI.
 - **Condición de rollout:** publicar junto al nuevo registro/recuperación
   privilegiado y repetir staging/E2E; no aplicar aisladamente mientras los
   clientes publicados dependan del UPDATE anónimo.
+- **Preflight histórico:** la comprobación remota de solo lectura pasó las
+  colisiones de mapping/identidad telefónica y falló cerrada al encontrar 74
+  perfiles con contadores distintos de las aristas reales de follow. No se
+  imprimieron IDs ni se corrigieron datos; requiere reconciliación separada
+  antes de cualquier rollout.
 
 ## RLS-004 — Credenciales y recuperación visibles por SELECT público
 
