@@ -67,6 +67,7 @@ async function reconciliationInventory(localMigrations) {
   const localByFile = new Map(localMigrations.map((migration) => [migration.file, migration]));
   const manifestFiles = new Set(manifest.migrations.map((migration) => migration.file));
   const missingDecisions = localMigrations
+    .filter((migration) => migration.cliVersion.length !== 14)
     .filter((migration) => !manifestFiles.has(migration.file))
     .map((migration) => migration.file);
   const unknownDecisions = manifest.migrations

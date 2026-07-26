@@ -20,7 +20,7 @@ completo pase.
 
 - release-safety: `codex/db-release-safety`;
 - RLS-001: `origin/codex/fix-rls-communities@46a54b54`;
-- RLS-002: `origin/codex/fix-rls-official-likes@77d93da4`;
+- RLS-002 final: `origin/codex/fix-rls-official-likes-release@0aa44614`;
 - gates: `origin/codex/backend-compatibility-gates@61987276`.
 
 Antes de preparar el release, la rama de integración debe contener esas

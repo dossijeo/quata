@@ -60,7 +60,7 @@ rechaza el snapshot real hasta resolver esa evidencia.
 | Orden | Versión | Fuente congelada | Rollback | Decisión |
 |---|---|---|---|---|
 | 1 | `20260726171001` Communities comments | `46a54b54`, blob SQL `d6b847f4da85e7a85ae196b7595d235efe2a1e02` | versionado en el mismo commit, blob `0a6994e70bc6f1ad5f571f813cee58e2c4a7c78b` | Apta para staging; no producción sin gates |
-| 2 | `20260726171002` Official Likes | `47c6abe3`, blob SQL `d54abd255ec598621e707864a68caab265fe8e33` | versionado, blob `fe27738b72c030eb4e3e437f0ce9c53b66145dfd` | Rollback cerrado; release aún bloqueado por ledger/backup/gates |
+| 2 | `20260726171002` Official Likes | `0aa44614`, blob SQL `d54abd255ec598621e707864a68caab265fe8e33` | versionado, blob `5967cf2d2023cbdef4b9e0545e0d75718aecb71e` | Rollback cerrado; release aún bloqueado por ledger/backup/gates |
 | 3 | `20260726171003` Profiles actor guard | `473f2400`, blob SQL `3f7ac5e522347e6abd601af6cb292a6b0c3d2f54` | versionado en el mismo commit, blob `0c464ce00ce478f596b579d49d765c3979df73f8` | Bloqueada por Android legado, admin inactivo y RLS-004 |
 | 4 | `20260726171004` Web registration | `f6266215`, blob SQL `40af62de9671cd41724fd88cea392a94b0806b62` | inexistente | Bloqueada por 003 y por rollback/compatibilidad |
 
@@ -76,7 +76,7 @@ por diseño reabre el hallazgo RLS-001 y sólo es un escape de compatibilidad.
 
 La fuente canónica es
 `supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql`
-en `47c6abe3`. El SQL:
+en `0aa44614`. El SQL:
 
 - elimina las tres políticas nuevas;
 - desactiva RLS en `official_post_likes`;

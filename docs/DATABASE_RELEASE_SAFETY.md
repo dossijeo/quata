@@ -175,7 +175,7 @@ eludir las correcciones RLS-001/RLS-002. No se ejecutó explotación remota.
 
 ## Auditoría de la candidata RLS-002
 
-Commit revisado: `77d93da4`, sin integrar ni desplegar.
+Commit final revisado: `0aa44614`, integrado en esta rama pero no desplegado.
 
 - versión `20260726171002`: única y coincide con la reserva;
 - estado remoto compatible: `official_post_likes` tiene RLS desactivado, cero
@@ -194,8 +194,8 @@ Revisión independiente: **aprobada para staging** por
 método de ledger/release, el ensayo staging/SB-09 y los gates reales
 pre/postflight de Android y Feed.
 
-La revisión `47c6abe3` añadió rollback SQL versionado, blob
-`fe27738b72c030eb4e3e437f0ce9c53b66145dfd`, y pasó la regresión
+La revisión final añadió rollback SQL versionado, blob
+`5967cf2d2023cbdef4b9e0545e0d75718aecb71e`, y pasó la regresión
 migración→rollback→reaplicación. El rollback reproduce intencionadamente el
 spoof histórico antes de volver a cerrarlo y limpia sus fixtures.
 
