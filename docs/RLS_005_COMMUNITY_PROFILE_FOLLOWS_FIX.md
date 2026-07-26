@@ -60,15 +60,22 @@ La segunda plantilla:
 3. guarda profile/mismatch/edge counts y SHA-256 ordenados tanto del conjunto
    de perfiles como de las aristas;
 4. instala un trigger `AFTER INSERT OR UPDATE OR DELETE` que recalcula ambos
-   lados desde la tabla autoritativa;
+   lados desde la tabla autoritativa, bloqueando antes los profile IDs en orden
+   UUID para evitar lost updates y deadlocks recíprocos;
 5. actualiza sólo perfiles con diferencias;
 6. exige que rowcount actualizado=mismatch inicial, snapshot completo,
    fingerprints estables y cero mismatches antes de commit;
 7. revoca el recálculo manual a PUBLIC/anon/auth.
 
 El rollback se niega a restaurar si count/fingerprint de perfiles o aristas
-cambió desde el snapshot. Si siguen idénticos, restaura los valores anteriores,
-elimina el productor y limpia las tablas de auditoría.
+cambió desde el snapshot o si los counters ya no son los derivados guardados.
+Si siguen idénticos, restaura los valores anteriores, elimina el productor y
+limpia las tablas de auditoría.
+
+Tras el primer follow real se usa la plantilla forward-safe
+`community_profile_follow_counter_producer_decommission.sql.template`: retira
+el trigger sin restaurar caches ni borrar snapshot/índices. Su rollback
+versionado vuelve a instalar el productor.
 
 `__MIGRATION_VERSION__` es un placeholder obligatorio: release management debe
 reemplazarlo por el timestamp/nombre definitivo al promover la plantilla.
@@ -85,6 +92,8 @@ PostgreSQL 16 desechable:
 - DELETE propio y admin;
 - snapshot, rowcounts, backfill y producer trigger;
 - recalculate RPC denegado a cliente y permitido a servicio;
+- dos conexiones concurrentes para inserts/deletes recíprocos y target
+  compartido, sin deadlock ni lost update;
 - rollback de ambas unidades, reproducción controlada del fallo histórico y
   reaplicación segura;
 - limpieza.

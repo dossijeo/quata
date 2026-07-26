@@ -28,9 +28,17 @@ try {
 
     docker exec $containerName `
         psql -U postgres -d postgres -X `
+        -v KEEP_FIXTURES=1 `
         -f /workspace/scripts/sql/community-profile-follows-integrity.test.sql
     if ($LASTEXITCODE -ne 0) {
         throw "The isolated follows integrity test failed."
+    }
+
+    docker exec $containerName `
+        psql -U postgres -d postgres -X `
+        -f /workspace/scripts/sql/community-profile-follows-concurrency.test.sql
+    if ($LASTEXITCODE -ne 0) {
+        throw "The concurrent follows producer test failed."
     }
 }
 finally {

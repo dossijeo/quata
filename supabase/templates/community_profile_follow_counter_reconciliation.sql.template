@@ -4,7 +4,7 @@ select pg_advisory_xact_lock(
     hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
 );
 
-create table if not exists public.quata_follow_count_reconciliation_batches (
+create table public.quata_follow_count_reconciliation_batches (
     batch_id uuid primary key,
     migration_marker text not null unique,
     profile_count integer not null,
@@ -15,7 +15,7 @@ create table if not exists public.quata_follow_count_reconciliation_batches (
     created_at timestamptz not null default now()
 );
 
-create table if not exists public.quata_follow_count_reconciliation_snapshot (
+create table public.quata_follow_count_reconciliation_snapshot (
     batch_id uuid not null references
         public.quata_follow_count_reconciliation_batches(batch_id)
         on delete cascade,
@@ -177,6 +177,7 @@ declare
     v_old_followed uuid;
     v_new_follower uuid;
     v_new_followed uuid;
+    v_profile_id uuid;
 begin
     if tg_op in ('UPDATE', 'DELETE') then
         v_old_follower := old.follower_profile_id;
@@ -186,6 +187,26 @@ begin
         v_new_follower := new.follower_profile_id;
         v_new_followed := new.followed_profile_id;
     end if;
+
+    -- Serialize producers touching the same profiles. UUID ordering is
+    -- mandatory so reciprocal follows cannot lock in opposite order.
+    for v_profile_id in
+        select distinct affected.profile_id
+        from unnest(array_remove(array[
+            v_old_follower,
+            v_old_followed,
+            v_new_follower,
+            v_new_followed
+        ], null)) as affected(profile_id)
+        order by affected.profile_id
+    loop
+        perform 1
+        from public.community_profiles cp
+        where cp.id = v_profile_id
+        -- Compatible with the FK KEY SHARE locks already taken by both edge
+        -- inserts, while still serializing counter updates.
+        for no key update;
+    end loop;
 
     update public.community_profiles cp
     set followers_count = (
@@ -209,6 +230,9 @@ $$;
 
 revoke all on function public.quata_sync_profile_follow_counts()
 from public, anon, authenticated;
+
+create index if not exists community_profile_follows_followed_profile_idx
+on public.community_profile_follows(followed_profile_id);
 
 drop trigger if exists quata_sync_profile_follow_counts_trg
 on public.community_profile_follows;

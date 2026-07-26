@@ -456,6 +456,41 @@ begin
 end;
 $$;
 
+\i /workspace/supabase/templates/community_profile_follow_counter_producer_decommission.sql.template
+
+do $$
+begin
+    if exists (
+        select 1 from pg_trigger
+        where tgrelid = 'public.community_profile_follows'::regclass
+          and tgname = 'quata_sync_profile_follow_counts_trg'
+          and not tgisinternal
+    ) then
+        raise exception 'FAIL producer decommission retained trigger';
+    end if;
+    if to_regprocedure('public.quata_sync_profile_follow_counts()') is null then
+        raise exception 'FAIL producer decommission removed reusable function';
+    end if;
+    raise notice 'PASS forward-safe producer decommission';
+end;
+$$;
+
+\i /workspace/supabase/templates/community_profile_follow_counter_producer_decommission.rollback.sql.template
+
+do $$
+begin
+    if not exists (
+        select 1 from pg_trigger
+        where tgrelid = 'public.community_profile_follows'::regclass
+          and tgname = 'quata_sync_profile_follow_counts_trg'
+          and not tgisinternal
+    ) then
+        raise exception 'FAIL producer decommission rollback';
+    end if;
+    raise notice 'PASS producer decommission rollback';
+end;
+$$;
+
 \if :{?KEEP_FIXTURES}
 \echo COMMUNITY_PROFILE_FOLLOWS_INTEGRITY_FIXTURES_READY
 \else

@@ -8,6 +8,10 @@ const paths = {
     "supabase/templates/community_profile_follow_counter_reconciliation.sql.template",
   countersRollback:
     "supabase/templates/community_profile_follow_counter_reconciliation.rollback.sql.template",
+  decommission:
+    "supabase/templates/community_profile_follow_counter_producer_decommission.sql.template",
+  decommissionRollback:
+    "supabase/templates/community_profile_follow_counter_producer_decommission.rollback.sql.template",
 };
 
 const normalize = (value) =>
@@ -95,6 +99,16 @@ requireFragment(
 );
 requireFragment(
   sql.counters,
+  "for no key update",
+  "deterministic_profile_locks",
+);
+requireFragment(
+  sql.counters,
+  "community_profile_follows_followed_profile_idx",
+  "followed_profile_index",
+);
+requireFragment(
+  sql.counters,
   "revoke execute on function public.recalculate_profile_follow_counts(uuid) from public, anon, authenticated",
   "manual_recalculate_restricted",
 );
@@ -107,6 +121,21 @@ requireFragment(
   sql.countersRollback,
   "rollback refused: profile set changed after snapshot",
   "rollback_profile_gate",
+);
+requireFragment(
+  sql.countersRollback,
+  "rollback refused: counters changed after reconciliation",
+  "rollback_counter_gate",
+);
+requireFragment(
+  sql.decommission,
+  "counters preserved at their latest values",
+  "forward_safe_decommission",
+);
+requireFragment(
+  sql.decommissionRollback,
+  "create trigger quata_sync_profile_follow_counts_trg",
+  "decommission_reversible",
 );
 
 if (

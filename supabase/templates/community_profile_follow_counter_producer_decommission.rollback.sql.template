@@ -1,0 +1,15 @@
+begin;
+
+select pg_advisory_xact_lock(
+    hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
+);
+
+drop trigger if exists quata_sync_profile_follow_counts_trg
+on public.community_profile_follows;
+create trigger quata_sync_profile_follow_counts_trg
+after insert or update or delete on public.community_profile_follows
+for each row execute function public.quata_sync_profile_follow_counts();
+
+comment on function public.quata_sync_profile_follow_counts() is null;
+
+commit;

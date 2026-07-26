@@ -27,12 +27,26 @@ begin
         raise exception 'Rollback refused: follow edges changed after snapshot'
             using errcode = '40001';
     end if;
+
+    if exists (
+        select 1
+        from public.community_profiles cp
+        join public.quata_follow_count_reconciliation_snapshot snapshot
+          on snapshot.profile_id = cp.id
+         and snapshot.batch_id = v_batch.batch_id
+        where cp.followers_count <> snapshot.derived_followers_count
+           or cp.following_count <> snapshot.derived_following_count
+    ) then
+        raise exception 'Rollback refused: counters changed after reconciliation'
+            using errcode = '40001';
+    end if;
 end;
 $$;
 
 drop trigger if exists quata_sync_profile_follow_counts_trg
 on public.community_profile_follows;
 drop function if exists public.quata_sync_profile_follow_counts();
+drop index if exists public.community_profile_follows_followed_profile_idx;
 
 update public.community_profiles cp
 set followers_count = snapshot.old_followers_count,
