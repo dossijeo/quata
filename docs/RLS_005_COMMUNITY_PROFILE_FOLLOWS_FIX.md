@@ -57,18 +57,18 @@ La segunda plantilla:
 
 1. adquiere advisory lock transaccional;
 2. crea batch y snapshot de los contadores anteriores/derivados;
-3. guarda profile count, mismatch count, edge count y SHA-256 ordenado de las
-   aristas;
+3. guarda profile/mismatch/edge counts y SHA-256 ordenados tanto del conjunto
+   de perfiles como de las aristas;
 4. instala un trigger `AFTER INSERT OR UPDATE OR DELETE` que recalcula ambos
    lados desde la tabla autoritativa;
 5. actualiza sólo perfiles con diferencias;
-6. exige snapshot completo, fingerprint estable y cero mismatches antes de
-   commit;
+6. exige que rowcount actualizado=mismatch inicial, snapshot completo,
+   fingerprints estables y cero mismatches antes de commit;
 7. revoca el recálculo manual a PUBLIC/anon/auth.
 
-El rollback se niega a restaurar si count o fingerprint de aristas cambió desde
-el snapshot. Si siguen idénticos, restaura los valores anteriores, elimina el
-productor y limpia las tablas de auditoría.
+El rollback se niega a restaurar si count/fingerprint de perfiles o aristas
+cambió desde el snapshot. Si siguen idénticos, restaura los valores anteriores,
+elimina el productor y limpia las tablas de auditoría.
 
 `__MIGRATION_VERSION__` es un placeholder obligatorio: release management debe
 reemplazarlo por el timestamp/nombre definitivo al promover la plantilla.

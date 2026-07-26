@@ -80,6 +80,16 @@ requireFragment(
 );
 requireFragment(
   sql.counters,
+  "profile_fingerprint",
+  "profile_fingerprint",
+);
+requireFragment(
+  sql.counters,
+  "get diagnostics v_updated_count = row_count",
+  "update_rowcount_gate",
+);
+requireFragment(
+  sql.counters,
   "after insert or update or delete on public.community_profile_follows",
   "counter_trigger",
 );
@@ -92,6 +102,11 @@ requireFragment(
   sql.countersRollback,
   "rollback refused: follow edges changed after snapshot",
   "rollback_fingerprint_gate",
+);
+requireFragment(
+  sql.countersRollback,
+  "rollback refused: profile set changed after snapshot",
+  "rollback_profile_gate",
 );
 
 if (

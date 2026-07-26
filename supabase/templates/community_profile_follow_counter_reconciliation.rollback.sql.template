@@ -12,6 +12,14 @@ begin
     from public.quata_follow_count_reconciliation_batches
     where migration_marker = '__MIGRATION_VERSION__';
 
+    if (select count(*) from public.community_profiles)
+       <> v_batch.profile_count
+       or public.quata_follow_profiles_fingerprint()
+          <> v_batch.profile_fingerprint then
+        raise exception 'Rollback refused: profile set changed after snapshot'
+            using errcode = '40001';
+    end if;
+
     if (select count(*) from public.community_profile_follows)
        <> v_batch.edge_count
        or public.quata_follow_edges_fingerprint()
@@ -41,6 +49,7 @@ where migration_marker = '__MIGRATION_VERSION__';
 drop table if exists public.quata_follow_count_reconciliation_snapshot;
 drop table if exists public.quata_follow_count_reconciliation_batches;
 drop function if exists public.quata_follow_edges_fingerprint();
+drop function if exists public.quata_follow_profiles_fingerprint();
 
 grant execute on function public.recalculate_profile_follow_counts(uuid)
 to public, anon, authenticated, service_role;

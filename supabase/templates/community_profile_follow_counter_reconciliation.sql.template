@@ -8,6 +8,7 @@ create table if not exists public.quata_follow_count_reconciliation_batches (
     batch_id uuid primary key,
     migration_marker text not null unique,
     profile_count integer not null,
+    profile_fingerprint text not null,
     mismatch_count integer not null,
     edge_count integer not null,
     edge_fingerprint text not null,
@@ -54,21 +55,44 @@ as $$
     from public.community_profile_follows;
 $$;
 
+create or replace function public.quata_follow_profiles_fingerprint()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select encode(
+        digest(
+            coalesce(string_agg(id::text, ',' order by id), ''),
+            'sha256'
+        ),
+        'hex'
+    )
+    from public.community_profiles;
+$$;
+
 revoke all on function public.quata_follow_edges_fingerprint()
 from public, anon, authenticated;
 grant execute on function public.quata_follow_edges_fingerprint()
+to service_role;
+revoke all on function public.quata_follow_profiles_fingerprint()
+from public, anon, authenticated;
+grant execute on function public.quata_follow_profiles_fingerprint()
 to service_role;
 
 do $$
 declare
     v_batch_id uuid := gen_random_uuid();
     v_profile_count integer;
+    v_profile_fingerprint text;
     v_mismatch_count integer;
     v_edge_count integer;
     v_edge_fingerprint text;
 begin
-    select count(*)::integer
-    into v_profile_count
+    select count(*)::integer,
+           public.quata_follow_profiles_fingerprint()
+    into v_profile_count, v_profile_fingerprint
     from public.community_profiles;
 
     select count(*)::integer,
@@ -102,6 +126,7 @@ begin
         batch_id,
         migration_marker,
         profile_count,
+        profile_fingerprint,
         mismatch_count,
         edge_count,
         edge_fingerprint
@@ -109,6 +134,7 @@ begin
         v_batch_id,
         '__MIGRATION_VERSION__',
         v_profile_count,
+        v_profile_fingerprint,
         v_mismatch_count,
         v_edge_count,
         v_edge_fingerprint
@@ -190,18 +216,35 @@ create trigger quata_sync_profile_follow_counts_trg
 after insert or update or delete on public.community_profile_follows
 for each row execute function public.quata_sync_profile_follow_counts();
 
-update public.community_profiles cp
-set followers_count = snapshot.derived_followers_count,
-    following_count = snapshot.derived_following_count
-from public.quata_follow_count_reconciliation_snapshot snapshot
-join public.quata_follow_count_reconciliation_batches batch
-  on batch.batch_id = snapshot.batch_id
-where batch.migration_marker = '__MIGRATION_VERSION__'
-  and snapshot.profile_id = cp.id
-  and (
-      cp.followers_count <> snapshot.derived_followers_count
-      or cp.following_count <> snapshot.derived_following_count
-  );
+do $$
+declare
+    v_updated_count integer;
+    v_expected_count integer;
+begin
+    update public.community_profiles cp
+    set followers_count = snapshot.derived_followers_count,
+        following_count = snapshot.derived_following_count
+    from public.quata_follow_count_reconciliation_snapshot snapshot
+    join public.quata_follow_count_reconciliation_batches batch
+      on batch.batch_id = snapshot.batch_id
+    where batch.migration_marker = '__MIGRATION_VERSION__'
+      and snapshot.profile_id = cp.id
+      and (
+          cp.followers_count <> snapshot.derived_followers_count
+          or cp.following_count <> snapshot.derived_following_count
+      );
+    get diagnostics v_updated_count = row_count;
+
+    select mismatch_count into strict v_expected_count
+    from public.quata_follow_count_reconciliation_batches
+    where migration_marker = '__MIGRATION_VERSION__';
+
+    if v_updated_count <> v_expected_count then
+        raise exception 'Follow count update rowcount mismatch (% vs %)',
+            v_updated_count, v_expected_count using errcode = '23514';
+    end if;
+end;
+$$;
 
 do $$
 declare
@@ -220,6 +263,14 @@ begin
     if v_snapshot_count <> v_batch.profile_count then
         raise exception 'Follow count snapshot rowcount changed'
             using errcode = '23514';
+    end if;
+
+    if (select count(*) from public.community_profiles)
+       <> v_batch.profile_count
+       or public.quata_follow_profiles_fingerprint()
+          <> v_batch.profile_fingerprint then
+        raise exception 'Profile set changed during reconciliation'
+            using errcode = '40001';
     end if;
 
     if (select count(*) from public.community_profile_follows)
