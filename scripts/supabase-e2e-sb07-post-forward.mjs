@@ -9,24 +9,41 @@ const { Client } = createRequire(import.meta.url)('pg');
 const sha = (value) => createHash('sha256').update(value).digest('hex');
 const must = (condition, code) => { if (!condition) throw new Error(code); };
 function args(values) { if (values.length !== 4 || values[0] !== '--mode' || !['preflight-auth', 'full'].includes(values[1]) || values[2] !== '--out' || !values[3]) throw new Error('invalid_arguments'); return { mode: values[1], out: values[3] }; }
-function safeError(error) { const m = String(error?.message ?? 'unexpected'); return ['invalid_arguments','public_auth_failed','anon_select_shape_changed','own_insert_not_201_dto','spoof_insert_not_42501','outsider_delete_not_zero','outsider_row_not_intact','owner_delete_not_one','inactive_admin_not_blocked','inactive_admin_row_not_intact','active_admin_delete_not_one','update_not_blocked_42501','cleanup_residue_detected'].find((x) => m.startsWith(x)) ?? 'unexpected_gate_failure'; }
+function safeError(error) { const m = String(error?.message ?? 'unexpected'); return ['invalid_arguments','public_auth_failed','anon_select_shape_changed','own_insert_not_201_dto','spoof_insert_not_42501','outsider_delete_not_zero','outsider_row_not_intact','owner_delete_not_one','inactive_admin_not_blocked','inactive_admin_row_not_intact','active_admin_delete_not_one','update_not_blocked_42501','cleanup_residue_detected','cleanup_auth_identity_unverified'].find((x) => m.startsWith(x)) ?? 'unexpected_gate_failure'; }
 const { mode, out } = args(process.argv.slice(2));
 const config = await readFile(resolve('app/src/main/java/com/quata/core/config/AppConfig.kt'), 'utf8');
 const base = config.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1]?.replace(/\/$/, '');
 const publicKey = config.match(/SUPABASE_ANON_KEY\s*=\s*"([^"]+)"/)?.[1];
 must(base && publicKey, 'missing_public_runtime_config'); must(process.env.SUPABASE_DB_URL && process.env.SUPABASE_DB_TLS_CA_FILE, 'missing_secure_database_config');
 const fixture = { actor: randomUUID(), outsider: randomUUID(), admin: randomUUID(), wall: randomUUID(), post: randomUUID() };
-const marker = `sb07-forward-${randomUUID()}`, password = `Sb07-${randomUUID()}-A9`, authIds = new Set();
+const marker = `sb07-forward-${randomUUID()}`, password = `Sb07-${randomUUID()}-A9`;
 const report = { check: 'SB-07-post-forward', mode, status: 'failed', startedAt: new Date().toISOString(), fixture: { markerSha256: sha(marker), ids: Object.fromEntries(Object.entries(fixture).map(([k,v]) => [k, sha(v).slice(0,16)])) }, steps: [], cleanup: { status: 'not_started' } };
 const ca = await loadSb01CertificateAuthority();
 const db = new Client({ ...buildSb01TlsConnection(process.env.SUPABASE_DB_URL, ca), application_name: 'quata-sb07-post-forward', connectionTimeoutMillis: 15000, query_timeout: 20000 });
 const headers = (token) => ({ apikey: publicKey, 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) });
 async function http(url, options) { const response = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) }); const text = await response.text(); let body = null; if (text) { try { body = JSON.parse(text); } catch { throw new Error('invalid_public_response_json'); } } return { status: response.status, body }; }
 const api = (table, query='') => `${base}/rest/v1/${table}${query ? `?${query}` : ''}`;
-async function login(profileId, phone) { const response = await http(`${base}/functions/v1/quata-auth-bridge`, { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'web_login', profile_id: profileId, country_code: '34', phone_local: phone, password, client_instance_id: `sb07-${randomUUID()}` }) }); must(response.status === 200 && typeof response.body?.session?.access_token === 'string', 'public_auth_failed'); if (response.body?.user?.id) authIds.add(response.body.user.id); return response.body.session.access_token; }
+async function login(profileId, phone) { const response = await http(`${base}/functions/v1/quata-auth-bridge`, { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'web_login', profile_id: profileId, country_code: '34', phone_local: phone, password, client_instance_id: `sb07-${randomUUID()}` }) }); must(response.status === 200 && typeof response.body?.session?.access_token === 'string', 'public_auth_failed'); return response.body.session.access_token; }
 async function insert(token, profileId, body) { return http(api('community_comments','select=id,post_id,profile_id,body,created_at'), { method:'POST', headers:{...headers(token),Prefer:'return=representation'}, body:JSON.stringify({ post_id: fixture.post, profile_id: profileId, body }) }); }
 async function remove(token, id) { return http(api('community_comments',`id=eq.${encodeURIComponent(id)}`), { method:'DELETE', headers:{...headers(token),Prefer:'return=representation'} }); }
-async function cleanup() { const profiles=[fixture.actor,fixture.outsider,fixture.admin]; report.cleanup={status:'running'}; await db.query('delete from public.community_comments where post_id=$1 or profile_id=any($2::uuid[])',[fixture.post,profiles]); await db.query('delete from public.community_posts where id=$1',[fixture.post]); await db.query('delete from public.community_walls where id=$1',[fixture.wall]); const linked=(await db.query('select auth_user_id from public.community_profiles where id=any($1::uuid[]) and auth_user_id is not null',[profiles])).rows.map((r)=>r.auth_user_id); linked.forEach((id)=>authIds.add(id)); await db.query('delete from public.web_client_sessions where profile_id=any($1::uuid[])',[profiles]).catch(()=>undefined); await db.query('delete from public.community_profiles where id=any($1::uuid[])',[profiles]); if (authIds.size) await db.query('delete from auth.users where id=any($1::uuid[])',[[...authIds]]); const residue=await db.query('select (select count(*) from public.community_comments where post_id=$1 or profile_id=any($2::uuid[]))+(select count(*) from public.community_posts where id=$1)+(select count(*) from public.community_walls where id=$3)+(select count(*) from public.community_profiles where id=any($2::uuid[]))+(select count(*) from auth.users where id=any($4::uuid[])) n',[fixture.post,profiles,fixture.wall,[...authIds]]); must(Number(residue.rows[0].n)===0,'cleanup_residue_detected'); report.cleanup={status:'verified_zero_residue'}; }
+async function cleanup() {
+  const profiles=[fixture.actor,fixture.outsider,fixture.admin]; report.cleanup={status:'running'};
+  await db.query('delete from public.community_comments where post_id=$1 or profile_id=any($2::uuid[])',[fixture.post,profiles]);
+  await db.query('delete from public.community_posts where id=$1',[fixture.post]);
+  await db.query('delete from public.community_walls where id=$1',[fixture.wall]);
+  // Auth identities are trusted only when the fixture profiles themselves link
+  // them, with an exact one-to-one mapping. Bridge response values are untrusted.
+  const links=(await db.query('select id,auth_user_id from public.community_profiles where id=any($1::uuid[])',[profiles])).rows;
+  const linkedAuthIds=links.map((row)=>row.auth_user_id);
+  const exactFixtureSet=new Set(profiles), exactLinkSet=new Set(links.map((row)=>row.id));
+  const safeAuthCleanup=links.length===profiles.length && exactLinkSet.size===profiles.length && [...exactFixtureSet].every((id)=>exactLinkSet.has(id)) && linkedAuthIds.every(Boolean) && new Set(linkedAuthIds).size===profiles.length;
+  await db.query('delete from public.web_client_sessions where profile_id=any($1::uuid[])',[profiles]).catch(()=>undefined);
+  await db.query('delete from public.community_profiles where id=any($1::uuid[])',[profiles]);
+  if (!safeAuthCleanup) { report.cleanup={status:'failed_auth_identity_unverified'}; throw new Error('cleanup_auth_identity_unverified'); }
+  await db.query('delete from auth.users where id=any($1::uuid[])',[linkedAuthIds]);
+  const residue=await db.query('select (select count(*) from public.community_comments where post_id=$1 or profile_id=any($2::uuid[]))+(select count(*) from public.community_posts where id=$1)+(select count(*) from public.community_walls where id=$3)+(select count(*) from public.community_profiles where id=any($2::uuid[]))+(select count(*) from auth.users where id=any($4::uuid[])) n',[fixture.post,profiles,fixture.wall,linkedAuthIds]);
+  must(Number(residue.rows[0].n)===0,'cleanup_residue_detected'); report.cleanup={status:'verified_zero_residue'};
+}
 try {
   await db.connect(); const digits=String(Date.now()).slice(-8); const fixtures=[['actor',fixture.actor,false],['outsider',fixture.outsider,false],['admin',fixture.admin,true]];
   for (let i=0;i<fixtures.length;i+=1) { const phone=`8${digits}${i}`; fixtures[i].push(phone); await db.query('insert into public.community_profiles(id,display_name,phone,pass_hash,phone_normalized,country_code,phone_local,is_admin,account_status) values($1,$2,$3,$4,$3,$5,$6,$7,$8)',[fixtures[i][1],`${marker}-${fixtures[i][0]}`,`+34${phone}`,sha(password),'34',phone,fixtures[i][2],'active']); }

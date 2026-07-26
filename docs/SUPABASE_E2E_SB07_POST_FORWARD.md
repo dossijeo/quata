@@ -4,6 +4,13 @@
 
 It creates three uniquely marked temporary profiles through TLS PostgreSQL solely to provision and clean fixtures; all actor operations use the public key, the deployed auth bridge, JWTs and PostgREST. The report contains only hashes of fixture identifiers.
 
+Permitted direct DML is restricted to these fixture UUIDs: `community_profiles`,
+their `web_client_sessions`, one wall/post and their comments, plus `auth.users`
+only after an exact one-to-one `community_profiles.auth_user_id` mapping has been
+read back from PostgreSQL. The runner never trusts an Auth/bridge response for
+deletion. If the mapping is incomplete, it purges fixture business rows and
+profiles but fails closed without deleting any Auth user.
+
 Authentication is preflighted while all profiles are active. In full mode the temporary admin alone is switched to `deactivated` immediately before the inactive-admin assertion, then reactivated for the permitted-admin assertion.
 
 ```powershell
