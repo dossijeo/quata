@@ -523,6 +523,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// supports opening a conversation, but not scrolling to a particular message identifier.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
+        // Chat remains installable for an already constructed bootstrap even when the host has no
+        // public runtime metadata. Only remote preview degrades in that case.
+        let attachmentPreviewService: IosChatAttachmentPreviewService? = {
+            guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+                return nil
+            }
+            // Reuse the Keychain-backed session from Chat; Quick Look only receives a local
+            // temporary file after the Kotlin boundary validates and downloads the attachment.
+            let attachmentConfiguration = IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            )
+            let attachmentSession = bootstrap.authSessionForInteractiveLogin()
+            return IosChatAttachmentPreviewService(
+                configuration: attachmentConfiguration,
+                authSession: attachmentSession,
+                documentOpener: services.documentOpener,
+                downloader: IosChatAttachmentDownloader(
+                    configuration: attachmentConfiguration,
+                    authSession: attachmentSession,
+                ),
+            )
+        }()
         installChatFactory { [weak self] conversationId, _ in
             let dependencies = bootstrap.hostDependencies(
                 audioPlayer: services.audioPlayer,
@@ -535,12 +558,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onBackToList: { [weak self] in
                     self?.openChatList()
                 },
-                // The shared Chat surface already owns picker, recording and playback through
-                // the injected adapters. Existing remote attachments need a sandboxed download
-                // policy before Quick Look can receive a local URL, so surface that boundary
-                // explicitly rather than silently swallowing the user's action.
-                onOpenAttachment: { [weak self] _ in
-                    self?.presentRemoteAttachmentUnavailableNotice()
+                onOpenAttachment: { [weak self] attachment in
+                    guard let attachmentPreviewService,
+                          attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
+                        self?.presentRemoteAttachmentPreviewUnsupportedNotice()
+                        return
+                    }
+                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { error in
+                        guard error != nil else { return }
+                        DispatchQueue.main.async {
+                            self?.presentRemoteAttachmentDownloadFailureNotice()
+                        }
+                    }
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
@@ -553,6 +582,34 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             message: NSLocalizedString(
                 "ios_chat_attachment_pending_message",
                 value: "La descarga segura de adjuntos remotos estará disponible próximamente.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
+    }
+
+    private func presentRemoteAttachmentPreviewUnsupportedNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_attachment_pending_title", value: "Adjunto", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_attachment_preview_unsupported_message",
+                value: "Este tipo de adjunto todavía no se puede previsualizar en iOS.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Cerrar", comment: ""), style: .default))
+        present(alert, animated: true)
+    }
+
+    private func presentRemoteAttachmentDownloadFailureNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_chat_attachment_pending_title", value: "Adjunto", comment: ""),
+            message: NSLocalizedString(
+                "ios_chat_attachment_download_failed_message",
+                value: "No se ha podido descargar el adjunto de forma segura. Inténtalo de nuevo.",
                 comment: "",
             ),
             preferredStyle: .alert,
