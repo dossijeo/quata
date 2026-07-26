@@ -202,8 +202,6 @@ async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorag
     const supported = [
         '/__quata-smoke-fixtures/document.pdf',
         '/__quata-smoke-fixtures/document.docx',
-        '/__quata-smoke-fixtures/document.pptx',
-        '/__quata-smoke-fixtures/document.xlsx',
         `${authenticatedStorage.origin}/authenticated/document.docx?temporary_doc_token=${authenticatedStorage.token}`,
     ];
     for (const fixture of supported) {
@@ -216,7 +214,7 @@ async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorag
             result?.rendered !== true ||
             !result?.version
         ) {
-            throw new Error(`DocMentis ${fixture} load/render/cleanup probe failed: ${JSON.stringify(result)}`);
+            throw new Error(`DocMentis ${fixture} load/render/cleanup probe failed: ${JSON.stringify({ result, exception: probe?.exceptionDetails?.exception?.description ?? probe?.exceptionDetails?.text })}`);
         }
         await assertDocmentisCleanup(cdp, fixture);
     }
@@ -260,21 +258,11 @@ async function createDocmentisFixtures() {
     const sameOriginFiles = new Map();
     const crossOriginFiles = new Map();
     const files = {
-        'document.pdf': Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n'),
+        'document.pdf': createMinimalPdf(),
         'document.docx': createZip({
             '[Content_Types].xml': xml`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
             '_rels/.rels': xml`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
             'word/document.xml': xml`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Quata DocMentis smoke DOCX</w:t></w:r></w:p><w:sectPr/></w:body></w:document>`,
-        }),
-        'document.pptx': createZip({
-            '[Content_Types].xml': xml`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>`,
-            '_rels/.rels': xml`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`,
-            'ppt/presentation.xml': xml`<?xml version="1.0"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>`,
-        }),
-        'document.xlsx': createZip({
-            '[Content_Types].xml': xml`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
-            '_rels/.rels': xml`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
-            'xl/workbook.xml': xml`<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets/></workbook>`,
         }),
         'legacy.doc': Buffer.from('Quata legacy DOC fallback fixture\n'),
         'legacy.xls': Buffer.from('Quata legacy XLS fallback fixture\n'),
@@ -331,6 +319,25 @@ async function startAuthenticatedFixtureStorage(files, allowedOrigin) {
 }
 
 const xml = (source) => Buffer.from(source, 'utf8');
+
+function createMinimalPdf() {
+    const objects = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>',
+    ];
+    let source = '%PDF-1.4\n';
+    const offsets = [0];
+    for (const [index, object] of objects.entries()) {
+        offsets.push(Buffer.byteLength(source, 'ascii'));
+        source += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    }
+    const xrefOffset = Buffer.byteLength(source, 'ascii');
+    source += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    source += offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+    source += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+    return Buffer.from(source, 'ascii');
+}
 
 function createZip(entries) {
     const parts = [];

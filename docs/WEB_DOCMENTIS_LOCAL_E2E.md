@@ -8,10 +8,13 @@ documentos de usuarios:
 node scripts/web-browser-smoke.mjs --docmentis
 ```
 
-Al habilitar `--docmentis`, el harness crea en un directorio temporal PDF,
-DOCX, PPTX y XLSX minimales. Cada uno pasa por la importacion dinamica de
+Al habilitar `--docmentis`, el harness crea en un directorio temporal un PDF y
+un DOCX estructuralmente validos. Cada uno pasa por la importacion dinamica de
 `@docmentis/udoc-viewer`, crea cliente/visor, espera una superficie renderizada
-y destruye ambos objetos. La prueba falla si queda el host DOM temporal.
+y destruye ambos objetos. La prueba falla si queda el host DOM temporal. PPTX y
+XLSX siguen admitidos por el adaptador y cubiertos por la politica Wasm, pero
+requieren documentos OOXML completos: sus fixtures funcionales pertenecen al
+E2E con archivos de staging, no a generadores minimales que el parser rechaza.
 
 Tambien carga un DOCX desde un segundo origen loopback. Ese servidor simula una
 URL de Storage firmada temporal: exige un token aleatorio de una sola ejecucion,
