@@ -1,7 +1,7 @@
 # Decisión de target Kotlin/JS IR
 
-Fecha de inventario: 2026-07-25. Alcance: `js(IR)` frente al producto
-Kotlin/Wasm de Quata. Esta decisión no elimina todavía ningún target.
+Fecha de inventario: 2026-07-26. Alcance: `js(IR)` frente al producto
+Kotlin/Wasm de Quata. La retirada se ejecuta por lotes pequeños y reversibles.
 
 ## Decisión
 
@@ -19,10 +19,10 @@ E2E pendientes siguen gobernadas por el tablero de migración.
 | --- | --- | --- |
 | Host y distribución | `web/build.gradle.kts` declara sólo `wasmJs { browser(); binaries.executable() }`; `web/src/wasmJsMain/.../Main.kt` es el único `main()` y los recursos PWA viven en `web/src/wasmJsMain/resources`. | No hay host ni binario JS que pueda servir al usuario. |
 | Código específico JS | Sólo existen seis ficheros: `core` (`PlatformDispatchers.js.kt`, `SessionClock.js.kt`, `PlatformCapabilities.js.kt`), `designsystem` (`RichTextClock.js.kt`, `QuataWindowLayoutInfo.js.kt`) y `feature:chat` (`ChatClock.js.kt`). | Son `actual` pequeños; sus equivalentes Wasm existen y, a diferencia de ellos, los JS no implementan servicios de navegador reales. |
-| Grafo | Declaran `js(IR) { browser() }` los módulos `core`, `designsystem` y las 11 features `auth`, `chat`, `externalshare`, `feed`, `neighborhoods`, `notifications`, `official`, `postcomposer`, `profile`, `settings`, `whatsnew`. Todos sus bloques `jsMain.dependencies` están vacíos. | Hay un target JS mantenido en 13 módulos sin consumidor de producto. |
+| Grafo | Declaran `js(IR) { browser() }` los módulos `core`, `designsystem` y las 10 features `auth`, `chat`, `externalshare`, `feed`, `neighborhoods`, `notifications`, `official`, `postcomposer`, `profile`, `settings`. `:feature:whatsnew` retiró el target en este primer lote: no tiene host, código ni dependencias `jsMain`. | Quedan 12 módulos con target JS sin consumidor de producto; la retirada conserva Wasm, Android e iOS. |
 | Pruebas y CI | No hay `src/jsTest`; `ios-build.yml` compila Kotlin/Native y el host Swift; `codeql.yml` ensambla Android. Los gates Web documentados son `:web:wasmJsBrowserDistribution` y `scripts/web-browser-smoke.mjs`. | Ningún gate acredita una distribución JS; por tanto JS no puede declararse soportado. |
 | Publicación/consumo | No hay `maven-publish`, `MavenPublication`, publicación npm ni pipeline que consuma un artefacto JS. Las dependencias npm (DocMentis) se declaran en `wasmJsMain`. | No hay consumidor interno ni externo conocido que requiera JS IR. |
-| Coste de infraestructura | `settings.gradle.kts` conserva `RepositoriesMode.PREFER_PROJECT` por la distribución Node de Kotlin/JS. Kotlin/Wasm también requiere Node/webpack, por lo que retirar JS no elimina esa necesidad. Sí reduce configuración, source sets, tareas y superficie de compatibilidad de 13 módulos. | Ahorro de mantenimiento y de grafo; no prometer ahorro de Node ni de CI sin medición posterior. |
+| Coste de infraestructura | `settings.gradle.kts` conserva `RepositoriesMode.PREFER_PROJECT` por la distribución Node de Kotlin/JS. Kotlin/Wasm también requiere Node/webpack, por lo que retirar JS no elimina esa necesidad. Sí reduce configuración, source sets, tareas y superficie de compatibilidad de 12 módulos restantes. | Ahorro de mantenimiento y de grafo; no prometer ahorro de Node ni de CI sin medición posterior. |
 
 ## Alternativas descartadas
 
@@ -35,8 +35,10 @@ E2E pendientes siguen gobernadas por el tablero de migración.
 
 ## Lote de retirada reversible
 
-1. En una rama efímera independiente, retirar `js(IR)` y `jsMain` de los 13
-   módulos, incluyendo los seis `actual` exclusivos JS. No tocar
+1. En ramas efímeras independientes, retirar `js(IR)` y `jsMain` de módulos
+   hoja sin código JS específico. El primer lote elimina sólo
+   `:feature:whatsnew`; los seis `actual` exclusivos JS quedan fuera hasta
+   que su dependencia se pueda retirar en un lote dedicado. No tocar
    `wasmJs`/`wasmJsMain`, Android ni iOS.
 2. Confirmar que ninguna referencia Gradle, script o documentación de producto
    invoca `compileKotlinJs`, `jsBrowser*` o un artefacto JS. Mantener la
