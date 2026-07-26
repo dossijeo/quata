@@ -19,7 +19,8 @@ evidencia de ejecución, no fuente.
 
 ## Corte observado
 
-- corte de release actual: `origin/codex/security-release-001-002@d2e7551b`;
+- corte operativo aplicado: `origin/codex/security-release-001-002@8a548d2f`;
+- evidencia documental postflight: misma rama, validada contra su `HEAD`;
 - servidor: PostgreSQL 17.6 mediante TLS `verify-full` y CA explícita;
 - ledger remoto: anclas `20260628`, `20260723`, RLS-001 171001 y su forward
   `20260726171005/community_comments_reapply_rls`;
@@ -238,21 +239,20 @@ Full con drill verificado de los objetos afectados. No se presenta como
 restauración integral de Supabase. Las 29 decisiones siguen abiertas como
 hallazgo: no se marcan, reparan ni aplican.
 
-También se acepta para la futura forward 171005 una evidencia SB-07 compuesta
+Para la forward 171005 ya aplicada se aceptó una evidencia SB-07 compuesta
 sin fixtures productivos: el ensayo mutante completo se ejecuta en Supabase
 local exacto y producción aporta postcondición de catálogo bajo lock, contratos
 read-only y smoke Android autenticado sin crear datos. El runner que crea y
 purga Auth/perfiles en producción permanece NO-GO crash-safe y no bloquea
-171005 porque no forma parte de la ventana.
+su aplicación porque no formó parte de la ventana.
 
-Antes de abrir la ventana:
+Antes de abrir la futura ventana de 002:
 
 1. congelar y revisar de nuevo el commit exacto del corte;
 2. refrescar el backup lógico Full, su clave separada y el drill con conteos;
 3. refrescar snapshot read-only, baseline 18/44, Web y Android API-37;
 4. repetir el dry-run serial y archivar hashes/fingerprints;
 5. designar una sola autoridad y una sola terminal ejecutora;
-6. obtener autorización explícita separada para apply-001-forward (171005) y
-   apply-002;
+6. obtener autorización explícita separada para `apply-002`;
 7. cerrar cada paso con postflight y gates antes de avanzar;
 8. mantener 003/004 y las 29 históricas fuera de toda ejecución.

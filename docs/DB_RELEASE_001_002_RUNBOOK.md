@@ -12,8 +12,8 @@ no permite usar con seguridad `supabase db push`: la única vía autorizable es
 `scripts/run-security-release-serial-executor.ps1`, cuya allowlist limita los
 SQL y rollbacks por SHA-256.
 
-La decisión permanece **NO-GO para apply** hasta autorización explícita del
-release manager. El dry-run es read-only.
+La decisión permanece **NO-GO para cualquier nueva apply** —actualmente sólo
+002— hasta autorización explícita del release manager. El dry-run es read-only.
 
 Estado remoto actual: 171001 y 171005 están en ledger byte-exacto; el catálogo
 de comentarios está hardened y 002 está ausente. Ni `apply-001` ni
@@ -22,8 +22,9 @@ ventana, siempre con autorización explícita separada y gates post-171005.
 
 ### Autoridad y excepción limitada
 
-El release manager es la única autoridad para abrir la ventana y autorizar por
-separado apply-001-forward/apply-002. Ha aceptado para este lote la ausencia de PITR y
+El release manager es la única autoridad para abrir la ventana de 002 y
+autorizar `apply-002`. La forward 171005 ya fue autorizada, aplicada y cerrada.
+Ha aceptado para este lote la ausencia de PITR y
 la no reconciliación de 29 migraciones históricas porque el ejecutor no toca el
 backlog, 001/002 son DDL/RLS sin DML, los rollbacks exactos están probados y
 existe backup lógico Full con restore verificado de los objetos afectados.
@@ -57,7 +58,7 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
 - baseline y compatibilidad completos en verde;
 - evidencia encadenada de postflight 171005 vigente antes de 002;
 - una única terminal/persona ejecutora;
-- autorización explícita separada para apply-001-forward y apply-002;
+- autorización explícita separada para `apply-002`;
 - 003/004 ausentes de la rama y de la ejecución.
 
 Un solo fallo conserva o devuelve la decisión a NO-GO.
