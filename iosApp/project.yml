@@ -22,6 +22,25 @@ targets:
       # The umbrella owns Kotlin/Native exports; do not embed feature frameworks separately.
       - framework: ../ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
         embed: true
+      - target: QuataShareExtension
+        embed: true
+  QuataShareExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosShareExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios.shareextension
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: iosShareExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: iosShareExtension/QuataShareExtension.entitlements
+        APPLICATION_EXTENSION_API_ONLY: "YES"
+        SKIP_INSTALL: "YES"
   QuataIosUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -44,6 +63,7 @@ schemes:
     build:
       targets:
         QuataIos: all
+        QuataShareExtension: all
     run:
       config: Debug
     test:

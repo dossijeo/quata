@@ -38,6 +38,7 @@ kotlin {
             api(project(":feature:postcomposer"))
             api(project(":feature:settings"))
             api(project(":feature:whatsnew"))
+            api(project(":feature:externalshare"))
         }
     }
 
@@ -56,6 +57,7 @@ kotlin {
             export(project(":feature:postcomposer"))
             export(project(":feature:settings"))
             export(project(":feature:whatsnew"))
+            export(project(":feature:externalshare"))
         }
     }
 }
