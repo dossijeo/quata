@@ -3,6 +3,7 @@ import {
   hashRecoveryAnswer,
   hashRegistrationPassword,
   sha256Hex,
+  registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
 import {
   RegistrationContractError,
@@ -27,7 +28,7 @@ Deno.serve(async (request) => {
       : json({ error: "origin_not_allowed" }, 403, cors);
   }
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, cors);
-  if (!allowedOrigin(origin)) return json({ error: "origin_not_allowed" }, 403, cors);
+  if (origin && !allowedOrigin(origin)) return json({ error: "origin_not_allowed" }, 403, cors);
 
   try {
     const configuration = requireConfiguration();
@@ -81,7 +82,7 @@ Deno.serve(async (request) => {
             channel: input.channel,
             pepper: configuration.pepper,
           })),
-          phoneHash: await sha256Hex(`${phoneIdentity}:${configuration.pepper}`),
+          phoneHash: await registrationPhoneHash(input.countryCode, input.phoneLocal, configuration.pepper),
           clientHash: await sha256Hex(`${input.clientInstanceId}:${configuration.pepper}`),
           ipHash: await sha256Hex(`${sourceIp}:${configuration.pepper}`),
           authEmail: `${input.countryCode}${input.phoneLocal}@phone.quata.app`,
@@ -192,7 +193,7 @@ Deno.serve(async (request) => {
       },
       recordProfile: (record: RegistrationRecord, profileId: string) =>
         updateRequest(admin, record.id, { profile_id: profileId, updated_at: new Date().toISOString() }),
-      createAuthenticatedResult: (
+      finalizeRegistration: (
       ) => Promise.resolve(null),
       restoreCompleted: async (_context: Record<string, string>, record: RegistrationRecord) => {
         const { data: profile, error } = await admin

@@ -67,6 +67,26 @@ export async function hashRecoveryAnswer(answer, pepper) {
   return `v1:${await sha256Hex(`${normalized}:${pepper}`)}`;
 }
 
+export async function recoverySecretPatch(question, answer, pepper) {
+  const normalizedQuestion = typeof question === "string" ? question.trim() : "";
+  const normalizedAnswer = typeof answer === "string" ? answer.trim() : "";
+  if (!normalizedQuestion || !normalizedAnswer || !pepper || pepper.length < 32) {
+    throw new Error("recovery_secret_invalid");
+  }
+  return {
+    secret_question: normalizedQuestion,
+    secret_answer: null,
+    secret_answer_hash: await hashRecoveryAnswer(normalizedAnswer, pepper),
+  };
+}
+
+export async function registrationPhoneHash(countryCode, phoneLocal, pepper) {
+  const country = String(countryCode ?? "").replace(/\D/g, "");
+  const local = String(phoneLocal ?? "").replace(/\D/g, "");
+  if (!country || !local || !pepper || pepper.length < 32) throw new Error("phone_hash_invalid");
+  return sha256Hex(`+${country}${local}:${pepper}`);
+}
+
 export function randomBase64Url(byteLength) {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
   let binary = "";

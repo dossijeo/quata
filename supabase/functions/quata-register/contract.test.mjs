@@ -9,6 +9,8 @@ import {
   hashRecoveryAnswer,
   hashRegistrationPassword,
   verifyRegistrationPassword,
+  recoverySecretPatch,
+  registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
 
 const validPayload = {
@@ -36,6 +38,14 @@ test("validates and canonicalizes the public allowlist", () => {
   assert.equal(result.phoneE164, "+34600100200");
 });
 
+test("quarantine and saga share canonical legacy E164 hashing", async () => {
+  const pepper = "p".repeat(32);
+  assert.equal(
+    await registrationPhoneHash("+34", "600 100 200", pepper),
+    await registrationPhoneHash("34", "600100200", pepper),
+  );
+});
+
 test("rejects every unknown or privileged client-controlled field", () => {
   assert.throws(
     () => validateRegistrationPayload({ ...validPayload, is_admin: true }),
@@ -51,7 +61,7 @@ test("uses one strict contract for Web and attested Android channels", () => {
   );
 });
 
-test("creates Auth, profile and Web session in order", async () => {
+test("creates Auth and profile before opaque acceptance", async () => {
   const events = [];
   const result = await runRegistration(validPayload, dependencies(events));
   assert.deepEqual(result, { version: 1, status: "accepted" });
@@ -64,7 +74,7 @@ test("creates Auth, profile and Web session in order", async () => {
     "record-auth",
     "create-profile",
     "record-profile",
-    "create-session",
+    "finalize-registration",
     "complete",
   ]);
 });
@@ -107,8 +117,8 @@ test("deletes the profile before Auth when session creation fails", async () => 
   const events = [];
   await assert.rejects(
     runRegistration(validPayload, dependencies(events, {
-      createAuthenticatedResult: async () => {
-        events.push("create-session");
+      finalizeRegistration: async () => {
+        events.push("finalize-registration");
         throw new Error("session failed");
       },
     })),
@@ -156,6 +166,13 @@ test("uses a slow salted password hash and peppered recovery hash", async () => 
   );
 });
 
+test("recovery update patch never retains the plaintext answer", async () => {
+  const patch = await recoverySecretPatch(" barrio ", " Centro ", "p".repeat(32));
+  assert.equal(patch.secret_question, "barrio");
+  assert.equal(patch.secret_answer, null);
+  assert.match(patch.secret_answer_hash, /^v1:[0-9a-f]{64}$/);
+});
+
 function dependencies(events, overrides = {}) {
   const record = { id: "request-1", profileId: "profile-1", authUserId: null };
   return {
@@ -186,8 +203,8 @@ function dependencies(events, overrides = {}) {
       return { id: "profile-1" };
     },
     recordProfile: async () => events.push("record-profile"),
-    createAuthenticatedResult: async () => {
-      events.push("create-session");
+    finalizeRegistration: async () => {
+      events.push("finalize-registration");
       return { ok: true, profileId: "profile-1" };
     },
     restoreCompleted: async () => {

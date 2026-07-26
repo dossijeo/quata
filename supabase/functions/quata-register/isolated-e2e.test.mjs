@@ -10,7 +10,7 @@ test("isolated browser flow: accept, reload replay, login and verified purge",as
   accepted:()=>({version:1,status:"accepted"}),findProfile:async()=>db.profiles.get("p")||null,
   findAuthUser:async()=>db.auth.get("a")||null,createAuthUser:async()=>{const a={id:"a",profileId:"p"};db.auth.set("a",a);return a},
   recordAuthUser:async()=>{},createProfile:async()=>{const p={id:"p"};db.profiles.set("p",p);return p},
-  recordProfile:async()=>{},createAuthenticatedResult:async()=>null,complete:async()=>{db.ledger.completed=true},
+  recordProfile:async()=>{},finalizeRegistration:async()=>null,complete:async()=>{db.ledger.completed=true},
   restoreCompleted:async()=>null,deleteProfile:async id=>db.profiles.delete(id),deleteAuthUser:async id=>db.auth.delete(id),
   fail:async()=>{},requireCleanup:async()=>{},
  };

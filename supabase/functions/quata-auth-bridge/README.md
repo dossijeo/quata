@@ -44,6 +44,12 @@ El bridge no expone `action: "register"`. El alta Android debe migrarse al mismo
 orquestador durable que Web mediante un canal con atestación verificable; no se
 admite una segunda inserción pública que omita saga, idempotencia o antiabuso.
 
+Con `QUATA_REGISTRATION_QUARANTINE_ENABLED=true`, login/recovery consultan el
+ledger y bloquean perfiles `cleanup_required`; este flag debe activarse a la vez
+que `quata-register`. `action: "update_recovery_secret"` exige JWT de usuario,
+`version: 1`, pregunta y respuesta; responde `{"ok":true,"version":1}` y guarda
+únicamente `secret_answer_hash` peppered, anulando el valor legacy.
+
 ## Login web y Web Push
 
 Los clientes Android mantienen `action: "login"` sin cambios. Un cliente web

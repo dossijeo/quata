@@ -4,6 +4,8 @@ import {
   hashRecoveryAnswer,
   hashRegistrationPassword,
   verifyRegistrationPassword,
+  recoverySecretPatch,
+  registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
 
 const corsHeaders = {
@@ -13,7 +15,8 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
-  action?: "login" | "web_login" | "recovery_question" | "reset_password";
+  action?: "login" | "web_login" | "recovery_question" | "reset_password" | "update_recovery_secret";
+  version?: number;
   profile_id?: string;
   country_code?: string;
   phone?: string;
@@ -23,6 +26,7 @@ type BridgeRequest = {
   new_password?: string;
   reactivate_deactivated?: boolean;
   client_instance_id?: string;
+  secret_question?: string;
 };
 
 type CommunityProfile = {
@@ -139,7 +143,28 @@ async function handleRequest(req: Request): Promise<Response> {
   });
 
   const action = payload.action || "login";
+  if (action === "update_recovery_secret") {
+    if (payload.version !== 1) return jsonResponse({ error: "unsupported_version" }, 400);
+    const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!bearer) return jsonResponse({ error: "authentication_required" }, 401);
+    const { data: identity, error: identityError } = await admin.auth.getUser(bearer);
+    if (identityError || !identity.user) return jsonResponse({ error: "authentication_required" }, 401);
+    const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+    let patch;
+    try {
+      patch = await recoverySecretPatch(payload.secret_question, payload.secret_answer, pepper);
+    } catch {
+      return jsonResponse({ error: "recovery_secret_invalid" }, 400);
+    }
+    const { error: updateError } = await admin.from("community_profiles").update(patch)
+      .eq("auth_user_id", identity.user.id);
+    if (updateError) throw updateError;
+    return jsonResponse({ ok: true, version: 1 });
+  }
   const profile = await findProfile(admin, payload);
+  if (profile && await isRegistrationQuarantined(admin, profile)) {
+    return jsonResponse({ error: "account_unavailable" }, 503);
+  }
   if (action === "recovery_question") {
     if (!profile?.secret_question?.trim()) {
       return jsonResponse({ error: "recovery_profile_not_found" }, 404);
@@ -260,7 +285,7 @@ async function handleRequest(req: Request): Promise<Response> {
 }
 
 async function createWebClientSession(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   params: { profileId: string; authUserId: string; clientInstanceId: string },
 ) {
   const token = randomBase64Url(32);
@@ -287,7 +312,7 @@ async function createWebClientSession(
 }
 
 async function handlePasswordReset(params: {
-  admin: ReturnType<typeof createClient>;
+  admin: any;
   profile: CommunityProfile | null;
   payload: BridgeRequest;
   serviceRoleKey: string;
@@ -343,7 +368,7 @@ async function handlePasswordReset(params: {
   return jsonResponse({ ok: true });
 }
 
-async function findProfile(admin: ReturnType<typeof createClient>, payload: BridgeRequest): Promise<CommunityProfile | null> {
+async function findProfile(admin: any, payload: BridgeRequest): Promise<CommunityProfile | null> {
   const profileId = payload.profile_id?.trim();
   if (profileId) {
     const { data, error } = await admin
@@ -375,7 +400,7 @@ async function findProfile(admin: ReturnType<typeof createClient>, payload: Brid
 }
 
 async function ensureAuthUser(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   params: {
     profile: CommunityProfile;
     email: string;
@@ -423,13 +448,13 @@ function isInvalidAuthPassword(error: { code?: string | null; message?: string |
   return error?.code === "invalid_credentials" || /invalid login credentials/i.test(error?.message || "");
 }
 
-async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+async function findAuthUserByEmail(admin: any, email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const perPage = 1000;
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
-    const found = data.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    const found = data.users.find((user: any) => user.email?.toLowerCase() === normalizedEmail);
     if (found) return found;
     if (data.users.length < perPage) return null;
   }
@@ -454,6 +479,25 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function isRegistrationQuarantined(
+  admin: any,
+  profile: CommunityProfile,
+): Promise<boolean> {
+  if (Deno.env.get("QUATA_REGISTRATION_QUARANTINE_ENABLED") !== "true") return false;
+  const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+  if (!pepper || pepper.length < 32) throw new Error("quarantine_configuration_missing");
+  const country = digitsOnly(profile.country_code || profile.code || "");
+  const local = digitsOnly(profile.phone_local || profile.phone_normalized || profile.telefono || "");
+  if (!country || !local) throw new Error("profile_identity_not_canonical");
+  const phoneHash = await registrationPhoneHash(country, local, pepper);
+  const { count, error } = await admin.from("web_registration_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_hash", phoneHash)
+    .eq("status", "cleanup_required");
+  if (error) throw error;
+  return (count || 0) > 0;
 }
 
 function randomBase64Url(byteLength: number): string {

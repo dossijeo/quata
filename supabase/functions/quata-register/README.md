@@ -1,8 +1,9 @@
 # Web registration contract
 
 `quata-register` is the shared server boundary for registration. It creates
-the Supabase Auth identity, `community_profiles` row and Web session as one
-idempotent saga. Browser code never receives the service-role key.
+the Supabase Auth identity and `community_profiles` row as one idempotent saga.
+It returns only opaque acceptance; clients then call the existing login bridge,
+which creates Auth/Web sessions. Client code never receives the service-role key.
 
 Despite its legacy route name, this is the single registration orchestrator.
 `channel` is strictly `web` or `android`; both require a fresh Turnstile token

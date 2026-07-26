@@ -112,7 +112,7 @@ export async function runRegistration(payload, dependencies) {
     profile = existingProfile ?? await dependencies.createProfile(context, record, authUser.id);
     createdProfile = existingProfile == null;
     await dependencies.recordProfile(record, profile.id);
-    const result = await dependencies.createAuthenticatedResult(context, record, authUser, profile);
+    await dependencies.finalizeRegistration(context, record, authUser, profile);
     await dependencies.complete(record, authUser.id, profile.id);
     return dependencies.accepted();
   } catch (error) {
