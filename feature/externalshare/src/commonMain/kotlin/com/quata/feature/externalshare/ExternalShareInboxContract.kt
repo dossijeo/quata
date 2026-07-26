@@ -6,6 +6,7 @@ data class PersistedExternalShare(
     val text: String,
     val attachments: List<PersistedExternalShareAttachment>,
     val directConversationId: String? = null,
+    val createdAtEpochMillis: Long = 0,
 )
 
 data class PersistedExternalShareAttachment(

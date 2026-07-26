@@ -17,6 +17,7 @@ private struct ShareManifest: Codable {
     }
 
     let id: String
+    let createdAtEpochMillis: Int64
     let text: String
     let attachments: [Attachment]
 }
@@ -37,7 +38,8 @@ final class ShareViewController: SLComposeServiceViewController {
         Task { @MainActor in
             do {
                 let shareID = "share-\(UUID().uuidString.lowercased())"
-                try await persistShare(id: shareID)
+                let createdAtEpochMillis = Int64(Date().timeIntervalSince1970 * 1_000)
+                try await persistShare(id: shareID, createdAtEpochMillis: createdAtEpochMillis)
                 // Share extensions cannot launch their containing app through a supported public
                 // API. Publish to the App Group and finish; Quata claims the oldest pending item
                 // on its next authenticated foreground transition.
@@ -50,7 +52,7 @@ final class ShareViewController: SLComposeServiceViewController {
 
     override func configurationItems() -> [Any]! { [] }
 
-    private func persistShare(id: String) async throws {
+    private func persistShare(id: String, createdAtEpochMillis: Int64) async throws {
         guard let root = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: ShareExtensionConfiguration.appGroup
         ) else { throw ShareExtensionError.appGroupUnavailable }
@@ -107,7 +109,12 @@ final class ShareViewController: SLComposeServiceViewController {
 
             let text = textParts.joined(separator: "\n").prefix(20_000)
             guard !text.isEmpty || !attachments.isEmpty else { throw ShareExtensionError.emptyPayload }
-            let manifest = ShareManifest(id: id, text: String(text), attachments: attachments)
+            let manifest = ShareManifest(
+                id: id,
+                createdAtEpochMillis: createdAtEpochMillis,
+                text: String(text),
+                attachments: attachments
+            )
             let data = try JSONEncoder().encode(manifest)
             try data.write(to: staging.appendingPathComponent("manifest.json"), options: [.atomic])
             // Renaming a directory inside the same App Group volume is the publish boundary: the

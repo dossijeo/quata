@@ -12,15 +12,29 @@ payload. Quata reclama el elemento pendiente más antiguo en el siguiente
 arranque o foreground autenticado y reutiliza el repositorio Chat y la sesión
 renovable que ya posee la aplicación.
 
-La reclamación mueve `pending/<id>` a `processing/<id>`. Un registro de claims
-activo evita que dos callbacks del mismo proceso presenten o envíen el mismo
-payload; un nuevo proceso puede recuperar un elemento que quedó en
-`processing` tras una terminación. Cerrar, cancelar o completar el envío
-elimina el directorio procesado.
+Cada manifiesto guarda `createdAtEpochMillis` al comenzar la publicación. La
+cola se ordena por ese timestamp y, para empates, por ID y nombre de directorio;
+el UUID nunca determina por sí solo qué elemento es el más antiguo.
 
-La cola se limita a diez elementos para evitar crecimiento sin límite si el
-usuario comparte repetidamente sin abrir Quata. Los IDs, nombres, rutas,
-cantidad y tamaño se validan antes de exponer archivos al host compartido.
+La reclamación mueve atómicamente `pending/<id>` a
+`processing/claim-<claimedAt>-<owner>-<id>`. El propio nombre es una lease:
+identifica la generación y cuándo fue reclamada. Un registro de claims activo
+evita duplicados dentro del proceso. Tras un crash, otro proceso sólo puede
+recuperar una lease vencida (TTL de dos minutos) y lo hace renombrando
+atómicamente el directorio a una generación nueva. Dos recuperadores pueden
+observar el mismo candidato, pero sólo uno puede completar el rename desde el
+nombre exacto anterior.
+
+Cerrar, cancelar o completar el envío elimina únicamente el directorio de la
+generación reclamada. Por tanto, un callback tardío de una generación anterior
+no puede borrar un payload que ya haya sido recuperado con una lease nueva.
+Los directorios `processing/<id>` creados por versiones anteriores se
+reconocen y migran a la nueva lease al recuperarlos.
+
+La cola pendiente se limita a diez elementos para evitar crecimiento sin
+límite si el usuario comparte repetidamente sin abrir Quata. Los IDs, nombres,
+rutas, cantidad y tamaño se validan antes de exponer archivos al host
+compartido.
 
 La CI sin firma sólo valida compilación, enlace, tests y estructura del
 archive. App Group y Share Extension requieren perfiles firmados compatibles y
