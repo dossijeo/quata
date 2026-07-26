@@ -22,12 +22,19 @@ import com.quata.core.capability.StaticFeatureCapabilityRegistry
 import com.quata.core.ui.components.QuataCard
 
 /**
- * Browser evidence manifest. Backend availability is runtime-configured; E2E stays false until
- * the authenticated Supabase runs in the migration board are recorded as evidence.
+ * Browser evidence manifest. Most remote capability is configuration-driven, while Profile/SOS
+ * deliberately falls back to an explicitly local draft until a real authenticated session is
+ * available. The profile gateway must never be advertised as remote merely because a public
+ * endpoint is configured.
  */
-fun webFeatureCapabilityRegistry(configuration: WebRuntimeConfiguration): FeatureCapabilityRegistry {
+fun webFeatureCapabilityRegistry(
+    configuration: WebRuntimeConfiguration,
+    hasAuthenticatedSession: Boolean = false,
+): FeatureCapabilityRegistry {
     val remoteRead = configuration.isBackendConfigured
     val remoteOrigin = if (remoteRead) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
+    val remoteProfile = remoteRead && hasAuthenticatedSession
+    val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local
     fun capability(
         source: CapabilityStateOrigin = remoteOrigin,
         mutation: CapabilityStateOrigin = CapabilityStateOrigin.Unsupported,
@@ -51,7 +58,10 @@ fun webFeatureCapabilityRegistry(configuration: WebRuntimeConfiguration): Featur
                 QuataFeature.Auth to capability(mutation = remoteOrigin),
                 QuataFeature.Feed to capability(),
                 QuataFeature.Chat to capability(mutation = remoteOrigin),
-                QuataFeature.Profile to capability(CapabilityStateOrigin.Local, CapabilityStateOrigin.Local, backend = false),
+                // The Web Profile repository selects PostgREST only when both public runtime
+                // metadata and an authenticated session exist; otherwise its local draft is
+                // intentionally visible and labelled as such.
+                QuataFeature.Profile to capability(profileOrigin, profileOrigin, backend = remoteProfile),
                 QuataFeature.Communities to capability(),
                 QuataFeature.Official to capability(),
                 QuataFeature.Composer to capability(mutation = remoteOrigin),

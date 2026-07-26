@@ -90,6 +90,9 @@ try {
     const browserContract = await assertBrowserContract(cdp, configuration, activeSession.profileId);
     if (!browserContract) throw new Error('browser_authenticated_profile_read_failed');
     report.steps.push('browser_authenticated_profile_read');
+    stage = 'mounting_authenticated_profile';
+    await navigateAndWait(cdp, `${staticServer.origin}/#profile`, 'profile');
+    report.steps.push('authenticated_profile_shell_restored');
     if (browserFaults.length) throw new Error('browser_runtime_fault');
 
     stage = 'web_logout';

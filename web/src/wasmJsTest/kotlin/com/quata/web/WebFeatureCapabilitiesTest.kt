@@ -32,7 +32,7 @@ class WebFeatureCapabilitiesTest {
     }
 
     @Test
-    fun marksLocalProfileAndUnsupportedReadOnlyMutationsHonestly() {
+    fun marksProfileAsLocalUntilAnAuthenticatedSessionCanUseTheRemoteGateway() {
         val registry = webFeatureCapabilityRegistry(configured)
 
         assertEquals(
@@ -42,6 +42,25 @@ class WebFeatureCapabilitiesTest {
         assertFalse(registry.projection(QuataFeature.Feed, FeatureCapabilityAction.Mutate).enabled)
         assertFalse(registry.projection(QuataFeature.Communities, FeatureCapabilityAction.Mutate).enabled)
         assertFalse(registry.projection(QuataFeature.Official, FeatureCapabilityAction.Mutate).enabled)
+    }
+
+    @Test
+    fun marksProfileRemoteOnlyWithConfiguredBackendAndAuthenticatedSession() {
+        val authenticated = webFeatureCapabilityRegistry(
+            configuration = configured,
+            hasAuthenticatedSession = true,
+        )
+
+        assertTrue(authenticated.capability(QuataFeature.Profile).backendReal)
+        assertEquals(
+            CapabilityStateOrigin.Real,
+            authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.View).origin,
+        )
+        assertEquals(
+            CapabilityStateOrigin.Real,
+            authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.Mutate).origin,
+        )
+        assertFalse(authenticated.capability(QuataFeature.Profile).e2e)
     }
 
     @Test

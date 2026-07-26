@@ -107,7 +107,6 @@ private fun QuataWebApp(
 ) {
     val scope = rememberCoroutineScope()
     val navigation = rememberWebNavigation()
-    val capabilityRegistry = remember(runtimeConfiguration) { webFeatureCapabilityRegistry(runtimeConfiguration) }
     val authRepository = remember(runtimeConfiguration, platformServices.preferences) {
         WebAuthRepository(runtimeConfiguration, platformServices.preferences)
     }
@@ -167,6 +166,12 @@ private fun QuataWebApp(
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
+    val capabilityRegistry = remember(runtimeConfiguration, isSessionReady, currentUserId) {
+        webFeatureCapabilityRegistry(
+            configuration = runtimeConfiguration,
+            hasAuthenticatedSession = isSessionReady && currentUserId != null,
+        )
+    }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
         currentUserId = authRepository.sessionForAuthenticatedRequest()?.userId
