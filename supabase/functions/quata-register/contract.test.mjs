@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   RegistrationContractError,
   runRegistration,
@@ -26,6 +27,9 @@ const validPayload = {
   client_instance_id: "browser-instance-123",
   idempotency_key: "0123456789abcdef0123456789abcdef",
 };
+const androidPayload = JSON.parse(
+  readFileSync(new URL("../../../app/src/test/resources/android-registration-payload.json", import.meta.url), "utf8"),
+);
 
 test("validates and canonicalizes the public allowlist", () => {
   const result = validateRegistrationPayload({
@@ -54,10 +58,20 @@ test("rejects every unknown or privileged client-controlled field", () => {
 });
 
 test("uses one strict contract for Web and attested Android channels", () => {
-  assert.equal(validateRegistrationPayload({ ...validPayload, channel: "android" }).channel, "android");
+  const result = validateRegistrationPayload(androidPayload);
+  assert.equal(result.channel, "android");
+  assert.equal(result.phoneLocal, "600000000");
   assert.throws(
     () => validateRegistrationPayload({ ...validPayload, channel: "legacy" }),
     (error) => error instanceof RegistrationContractError && error.code === "invalid_channel",
+  );
+});
+
+test("rejects the non-canonical Android phone alias", () => {
+  const { phone_local, ...withoutCanonicalPhone } = androidPayload;
+  assert.throws(
+    () => validateRegistrationPayload({ ...withoutCanonicalPhone, phone: phone_local }),
+    (error) => error instanceof RegistrationContractError && error.code === "unknown_field",
   );
 });
 

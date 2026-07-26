@@ -328,7 +328,7 @@ data class QuataRegistrationRequest(
     val client_instance_id: String,
     val idempotency_key: String,
     val country_code: String,
-    val phone: String,
+    val phone_local: String,
     val password: String,
     val display_name: String,
     val neighborhood: String,

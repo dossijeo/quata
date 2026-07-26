@@ -117,7 +117,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             "quata-register",
             request.copy(
                 country_code = digitsOnly(request.country_code),
-                phone = digitsOnly(request.phone)
+                phone_local = digitsOnly(request.phone_local)
             )
         )
         check(response.version == 1 && response.status == "accepted") {

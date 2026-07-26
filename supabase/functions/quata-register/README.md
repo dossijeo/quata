@@ -5,11 +5,12 @@ the Supabase Auth identity and `community_profiles` row as one idempotent saga.
 It returns only opaque acceptance; clients then call the existing login bridge,
 which creates Auth/Web sessions. Client code never receives the service-role key.
 
-Despite its legacy route name, this is the single registration orchestrator.
+This is the single registration orchestrator.
 `channel` is strictly `web` or `android`; both require a fresh Turnstile token
 verified by Siteverify and use the identical E.164/idempotency/saga/hash path.
-Android obtains the token through the official Turnstile WebView integration.
-Until that client ships, its channel remains unusable and fail-closed.
+Android obtains the token through its isolated Turnstile WebView host. The
+Android channel remains fail-closed unless its site key and exact HTTPS origin
+are configured in the shipped client.
 
 Required environment variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `QUATA_WEB_REGISTRATION_API_KEY`, `QUATA_WEB_REGISTRATION_ALLOWED_ORIGINS`,
@@ -33,7 +34,7 @@ Apply `20260726171004_web_registration_contract.sql` only after the
 release workflow. This branch intentionally does not deploy.
 
 The endpoint accepts only the documented profile fields plus
-`client_installation_id` and `idempotency_key`. It validates them, applies
+`client_instance_id` and `idempotency_key`. It validates them, applies
 durable phone/client/IP rate limits, stores only peppered request identifiers,
 and compensates profile then Auth on partial failure. Requests whose cleanup
 cannot complete are quarantined as `cleanup_required` for operator review.
@@ -45,8 +46,10 @@ npm run test:web-registration-contract
 gradlew :web:compileKotlinWasmJs :feature:auth:compileKotlinMetadata
 ```
 
-Existing Android registration remains unchanged. The function uses service-role
-and therefore does not depend on anonymous `community_profiles` INSERT/UPDATE.
+Android registration migrates to this endpoint with the canonical
+`phone_local`, `client_instance_id`, and `channel=android` payload. The function
+uses service-role and therefore does not depend on anonymous
+`community_profiles` INSERT/UPDATE.
 
 Operator cleanup is auditable via
 `deno run --allow-env --allow-net scripts/cleanup-web-registration.ts`.

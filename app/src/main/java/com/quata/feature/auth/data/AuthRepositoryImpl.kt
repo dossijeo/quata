@@ -80,7 +80,7 @@ class AuthRepositoryImpl(
                 client_instance_id = registrationIdentityStore.clientInstanceId(),
                 idempotency_key = registrationIdentityStore.idempotencyKey(identity),
                 country_code = countryCode,
-                phone = phoneLocal,
+                phone_local = phoneLocal,
                 password = request.password,
                 display_name = request.displayName,
                 neighborhood = request.neighborhood,

@@ -2,6 +2,7 @@ package com.quata.data.supabase
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,25 +26,26 @@ class SupabaseAuthBridgeRequestTest {
     }
 
     @Test
-    fun registrationPayloadUsesServerBoundaryAndNeverRequestsPlainPasswordStorage() {
+    fun registrationPayloadExactlyMatchesSharedServerContractFixture() {
         val payload = json.encodeToString(
             QuataRegistrationRequest(
                 challenge_token = "challenge",
-                client_instance_id = "instance-id",
-                idempotency_key = "idempotency-id",
+                client_instance_id = "android-instance-123",
+                idempotency_key = "0123456789abcdef0123456789abcdef",
                 country_code = "34",
-                phone = "600000000",
-                password = "not-a-real-password",
+                phone_local = "600000000",
+                password = "LongPassword7",
                 display_name = "Test",
                 neighborhood = "Centro",
-                secret_question = "question",
+                secret_question = "barrio",
                 secret_answer = "answer"
             )
         )
+        val fixture = requireNotNull(javaClass.classLoader?.getResource("android-registration-payload.json"))
+            .readText()
 
-        assertTrue(payload.contains("\"channel\":\"android\""))
-        assertFalse(payload.contains("challenge_action"))
-        assertFalse(payload.contains("pass_plain"))
-        assertFalse(payload.contains("pass_hash"))
+        assertEquals(json.parseToJsonElement(fixture), json.parseToJsonElement(payload))
+        assertTrue(payload.contains("\"phone_local\":\"600000000\""))
+        assertFalse(payload.contains("\"phone\":"))
     }
 }

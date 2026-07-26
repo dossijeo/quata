@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "channel": "android",
+  "challenge_token": "challenge",
+  "client_instance_id": "android-instance-123",
+  "idempotency_key": "0123456789abcdef0123456789abcdef",
+  "country_code": "34",
+  "phone_local": "600000000",
+  "password": "LongPassword7",
+  "display_name": "Test",
+  "neighborhood": "Centro",
+  "secret_question": "barrio",
+  "secret_answer": "answer"
+}

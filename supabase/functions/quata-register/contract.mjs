@@ -19,7 +19,7 @@ export function validateRegistrationPayload(payload) {
   const displayName = normalizedText(payload.display_name, 2, 80, "invalid_display_name");
   const neighborhood = normalizedText(payload.neighborhood, 2, 100, "invalid_neighborhood");
   const countryCode = digits(payload.country_code);
-  const phoneLocal = digits(payload.phone_local ?? payload.phone);
+  const phoneLocal = digits(payload.phone_local);
   const password = typeof payload.password === "string" ? payload.password : "";
   const secretQuestion = typeof payload.secret_question === "string" ? payload.secret_question.trim() : "";
   const secretAnswer = normalizedText(payload.secret_answer, 2, 160, "invalid_secret_answer");

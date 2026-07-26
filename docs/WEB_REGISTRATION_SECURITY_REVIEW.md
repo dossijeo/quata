@@ -13,8 +13,9 @@ the existing Web login/session shape.
 
 ## Compatibility and release order
 
-Android's legacy registration and login contract was preserved. New hashes are
-also understood by `quata-auth-bridge`. Migration
+Android registration is migrated to the same strict `quata-register` contract;
+its login remains on `quata-auth-bridge`, which also understands the new hashes.
+Migration
 `20260726171004_web_registration_contract.sql` must follow the separate
 `community_profiles` actor-guard migration. No existing RLS policy was changed
 here, and the implementation does not rely on anonymous table writes.

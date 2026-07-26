@@ -161,6 +161,7 @@ class MainActivity : ComponentActivity() {
         }
         cameraCaptureHost = null
         appContainer.registrationChallengeService.detachHost()
+        turnstileHost?.close()
         turnstileHost = null
         super.onDestroy()
     }

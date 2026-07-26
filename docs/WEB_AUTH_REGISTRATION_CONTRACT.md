@@ -16,12 +16,13 @@ por el login normal. El cliente persiste la clave de idempotencia por identidad
 para reintentos incluso tras recargar.
 
 La migración `20260726171004_web_registration_contract.sql` es transaccional y
-debe aplicarse después del actor guard `20260726171003`. Android mantiene su
-contrato existente. Ninguna policy RLS existente se relaja en este cambio.
+debe aplicarse después del actor guard `20260726171003`. Android migra su alta
+al mismo orquestador con `channel=android`, `phone_local`,
+`client_instance_id` y un challenge Turnstile de acción `register_android`.
+Ninguna policy RLS existente se relaja en este cambio.
 
-La activación funcional queda bloqueada hasta que Android migre su alta al mismo
-orquestador mediante un canal con atestación verificable. `quata-auth-bridge` no
-acepta altas: una API key pública no sustituye Play Integrity ni la saga durable.
+`quata-auth-bridge` no acepta altas: la API key pública sólo enruta y el
+challenge verificable no sustituye la saga durable del servidor.
 
 ## Operación
 
