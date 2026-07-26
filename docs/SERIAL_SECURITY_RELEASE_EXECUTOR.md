@@ -72,8 +72,10 @@ La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 .\scripts\test-security-release-serial-executor.ps1
 ```
 
-Comprueba hash drift, rollback atómico de DDL+ledger, exclusión por lock,
-orden/evidencia de 002, ledger exacto e idempotencia por rechazo.
+Comprueba hash drift, rollback atómico de DDL+ledger, una carrera de escritor
+externo antes del lock (revalidación y aborto limpio), bloqueo de DDL externo
+hasta el commit, exclusión advisory, orden/evidencia de 002, ledger exacto y
+rechazo de drift/idempotencia de rollbacks 001/002.
 
 ## Rollback
 
