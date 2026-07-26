@@ -35,11 +35,18 @@ class IosChatAttachmentPreviewService(
         }
         return when (val opened = documentOpener.open(localFile)) {
             is PlatformResult.Success -> opened
-            is PlatformResult.Failure -> PlatformResult.Failure(
-                opened.reason ?: "ios_chat_attachment_preview_failed",
-            )
-            PlatformResult.Cancelled -> PlatformResult.Failure("ios_chat_attachment_preview_cancelled")
-            PlatformResult.Unsupported -> PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
+            is PlatformResult.Failure -> {
+                downloader.discard(localFile)
+                PlatformResult.Failure(opened.reason ?: "ios_chat_attachment_preview_failed")
+            }
+            PlatformResult.Cancelled -> {
+                downloader.discard(localFile)
+                PlatformResult.Failure("ios_chat_attachment_preview_cancelled")
+            }
+            PlatformResult.Unsupported -> {
+                downloader.discard(localFile)
+                PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
+            }
         }
     }
 }
