@@ -13,6 +13,12 @@ y `minSdk`, y conserva todos sus `sourceSets` y dependencias. Así se evita que
 una convención introduzca dependencias implícitas o elimine JS durante el
 piloto. `:feature:settings` es el único adoptante inicial.
 
+## Adoptantes actuales
+
+`:feature:settings` fue el piloto inicial. `:feature:auth` es el segundo lote:
+su configuración de targets era idéntica y todas sus dependencias continúan
+declaradas por el módulo.
+
 ## Rollout
 
 Antes de migrar otro módulo, verificar que el piloto mantiene sus targets y
