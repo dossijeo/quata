@@ -190,15 +190,34 @@ jobs:
             2>&1 | tee build/reports/ios/framework-link.log
 
       - name: Assemble QuataShared XCFramework
+        # The XCFramework task may invoke both device and simulator linkers.
+        # Bound it independently so a linker/Gradle deadlock yields a process
+        # snapshot instead of consuming the complete workflow timeout.
+        timeout-minutes: 17
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew \
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          run_watchdog 900 build/reports/ios/xcframework.log ./gradlew \
             :ios-shared:assembleQuataSharedDebugXCFramework \
             --stacktrace \
             --warning-mode all \
-            --console=plain \
-            2>&1 | tee build/reports/ios/xcframework.log
+            --console=plain
 
       - name: Generate Xcode project
         working-directory: iosApp
