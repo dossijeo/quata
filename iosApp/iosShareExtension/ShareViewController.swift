@@ -25,6 +25,12 @@ private struct ShareManifest: Codable {
 /// session, Supabase configuration or publication code; the containing app performs the
 /// authenticated handoff and destination selection.
 final class ShareViewController: SLComposeServiceViewController {
+    private static let wordProcessingTypes = [
+        UTType("com.microsoft.word.doc"),
+        UTType("org.openxmlformats.wordprocessingml.document"),
+        UTType("org.oasis-open.opendocument.text")
+    ].compactMap { $0 }
+
     override func isContentValid() -> Bool { true }
 
     override func didSelectPost() {
@@ -118,7 +124,8 @@ final class ShareViewController: SLComposeServiceViewController {
             type.conforms(to: .pdf) || type.conforms(to: .plainText) || type.conforms(to: .rtf) ||
             type.conforms(to: .html) || type.conforms(to: .xml) || type.conforms(to: .json) ||
             type.conforms(to: .commaSeparatedText) || type.conforms(to: .spreadsheet) ||
-            type.conforms(to: .presentation) || type.conforms(to: .wordProcessing)
+            type.conforms(to: .presentation) ||
+            wordProcessingTypes.contains(where: { type.conforms(to: $0) })
     }
 }
 
