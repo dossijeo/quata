@@ -17,8 +17,8 @@ class BrowserDocumentOpenService : DocumentOpenService {
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
         val safeReference = browserDocumentReferenceOrNull(file.reference, browserCurrentOrigin())
             ?: return PlatformResult.Failure("web_document_url_scheme_not_allowed")
-        val kind = DocumentSupport.describe(file.reference, file.displayName, file.mimeType).kind
-        val mode = BrowserDocumentOpenPolicy.actionFor(kind, file.reference) ?: return PlatformResult.Unsupported
+        val admission = DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.BrowserFallback)
+        val mode = BrowserDocumentOpenPolicy.actionFor(admission, file.reference) ?: return PlatformResult.Unsupported
         return suspendCoroutine { continuation ->
             browserOpenDocument(safeReference, BrowserDocumentOpenPolicy.downloadName(file.displayName), mode) { state, reason ->
                 continuation.resume(
@@ -73,12 +73,18 @@ object BrowserDocumentOpenPolicy {
      * PDF Blob instead of navigating to it, so a Blob containing HTML cannot execute under this
      * application's origin. HTTP(S) PDFs remain eligible for the browser's native viewer.
      */
-    fun actionFor(kind: DocumentPreviewKind, reference: String): String? = when (kind) {
-        DocumentPreviewKind.Pdf -> if (reference.trim().startsWith("blob:", ignoreCase = true)) "download" else "view"
-        DocumentPreviewKind.RichText,
-        DocumentPreviewKind.Office -> "download"
-        DocumentPreviewKind.PlainText,
-        DocumentPreviewKind.Unsupported -> null
+    fun actionFor(admission: DocumentPreviewAdmission, reference: String): String? = when (admission) {
+        is DocumentPreviewAdmission.Open -> if (
+            admission.descriptor.kind == DocumentPreviewKind.Pdf &&
+            reference.trim().startsWith("blob:", ignoreCase = true)
+        ) {
+            "download"
+        } else {
+            "view"
+        }
+
+        is DocumentPreviewAdmission.Download -> "download"
+        is DocumentPreviewAdmission.Unavailable -> null
     }
 
     fun downloadName(displayName: String?): String = displayName

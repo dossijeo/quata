@@ -7,10 +7,10 @@ import kotlin.test.assertNull
 class BrowserDocumentOpenPolicyTest {
     @Test
     fun pdfBlobUsesSafeDownloadWhileRemotePdfCanUseViewer() {
-        assertEquals("view", BrowserDocumentOpenPolicy.actionFor(DocumentPreviewKind.Pdf, "https://cdn.example/report.pdf"))
-        assertEquals("download", BrowserDocumentOpenPolicy.actionFor(DocumentPreviewKind.Pdf, " blob:https://app.example/id "))
-        assertEquals("download", BrowserDocumentOpenPolicy.actionFor(DocumentPreviewKind.Office, "https://cdn.example/report.docx"))
-        assertEquals(null, BrowserDocumentOpenPolicy.actionFor(DocumentPreviewKind.Unsupported, "https://cdn.example/file.bin"))
+        assertEquals("view", BrowserDocumentOpenPolicy.actionFor(admit("report.pdf"), "https://cdn.example/report.pdf"))
+        assertEquals("download", BrowserDocumentOpenPolicy.actionFor(admit("report.pdf"), " blob:https://app.example/id "))
+        assertEquals("download", BrowserDocumentOpenPolicy.actionFor(admit("report.docx"), "https://cdn.example/report.docx"))
+        assertEquals(null, BrowserDocumentOpenPolicy.actionFor(admit("file.bin"), "https://cdn.example/file.bin"))
     }
 
     @Test
@@ -47,4 +47,9 @@ class BrowserDocumentOpenPolicyTest {
         assertNull(browserDocumentReferenceOrNull("data:application/pdf;base64,ZmFrZQ==", "https://web.quata.example"))
         assertNull(browserDocumentReferenceOrNull("blob:https://other.example/document-id", "https://web.quata.example"))
     }
+
+    private fun admit(fileName: String): DocumentPreviewAdmission = DocumentPreviewAdmissions.admit(
+        file = PlatformFile(reference = "https://cdn.example/$fileName", displayName = fileName),
+        capabilities = DocumentPreviewAdmissions.BrowserFallback,
+    )
 }

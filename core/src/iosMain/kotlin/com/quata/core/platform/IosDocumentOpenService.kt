@@ -19,7 +19,9 @@ class IosDocumentOpenService(
 
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
-        if (!file.isQuickLookDocument()) return PlatformResult.Unsupported
+        if (DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.QuickLook) !is DocumentPreviewAdmission.Open) {
+            return PlatformResult.Unsupported
+        }
         val url = iosDocumentLocalUrlOrNull(file.reference) ?: return PlatformResult.Unsupported
         val path = url.path ?: return PlatformResult.Failure("document_open_source_path_missing")
         if (!NSFileManager.defaultManager.fileExistsAtPath(path)) {
@@ -32,23 +34,6 @@ class IosDocumentOpenService(
         presenter.presentViewController(preview, animated = true, completion = null)
         return PlatformResult.Success(Unit)
     }
-}
-
-/**
- * Quick Look receives only the document kinds represented by this adapter. A remote URL is never
- * handed to UIKit: callers must first download it into a sandbox-readable local file.
- */
-private fun PlatformFile.isQuickLookDocument(): Boolean = when (
-    DocumentSupport.describe(reference, displayName, mimeType).kind
-) {
-    DocumentPreviewKind.Pdf,
-    DocumentPreviewKind.RichText,
-    DocumentPreviewKind.Office,
-    -> true
-
-    DocumentPreviewKind.PlainText,
-    DocumentPreviewKind.Unsupported,
-    -> false
 }
 
 @OptIn(ExperimentalForeignApi::class)
