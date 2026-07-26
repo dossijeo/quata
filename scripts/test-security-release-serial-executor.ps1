@@ -77,6 +77,7 @@ grant select, insert, delete on public.official_post_likes to anon, authenticate
 grant select, insert, delete, update on public.community_comments to anon, authenticated;
 create policy "public delete comments" on public.community_comments for delete to public using (true);
 create policy "public insert comments" on public.community_comments for insert to public with check (true);
+create policy "public read comments" on public.community_comments for select to public using (true);
 create policy "public update comments" on public.community_comments for update to public using (true) with check (true);
 "@
     # Replace the compact bootstrap definition with the exact production

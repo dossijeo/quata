@@ -116,6 +116,8 @@ async function assertEffectiveReleaseState(client, version, rollback) {
       c.relforcerowsecurity as force_rls,
       coalesce((select jsonb_agg(p.policyname order by p.policyname)
         from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb) as policies,
+      coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname)
+        from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb) as policy_details,
       has_table_privilege('anon', c.oid, 'SELECT') as anon_select,
       has_table_privilege('anon', c.oid, 'INSERT') as anon_insert,
       has_table_privilege('anon', c.oid, 'DELETE') as anon_delete,
@@ -130,13 +132,28 @@ async function assertEffectiveReleaseState(client, version, rollback) {
   const policyNames = state.policies;
   const expectedPolicies = version === "20260726171001"
     ? (rollback
-      ? ["public delete comments", "public insert comments", "public update comments"]
-      : ["authenticated delete own or admin comments", "authenticated insert own comments"])
+      ? ["public delete comments", "public insert comments", "public read comments", "public update comments"]
+      : ["authenticated delete own or admin comments", "authenticated insert own comments", "public read comments"])
     : (rollback
       ? []
       : ["official_post_likes_authenticated_delete_own_or_admin", "official_post_likes_authenticated_insert_own", "official_post_likes_public_read"]);
   if (JSON.stringify(policyNames) !== JSON.stringify(expectedPolicies)) throw new Error(`serial_release_postcondition_policy_mismatch:${version}`);
   if (version === "20260726171001") {
+    const publicRead = state.policy_details.find((policy) => policy.name === "public read comments");
+    if (!publicRead || publicRead.cmd !== "SELECT" || JSON.stringify(publicRead.roles) !== JSON.stringify(["public"])
+        || publicRead.qual !== "true" || publicRead.check !== null) {
+      throw new Error(`serial_release_postcondition_public_read_policy_mismatch:${version}`);
+    }
+    if (!rollback) {
+      const insertOwn = state.policy_details.find((policy) => policy.name === "authenticated insert own comments");
+      const deleteOwn = state.policy_details.find((policy) => policy.name === "authenticated delete own or admin comments");
+      if (!insertOwn || insertOwn.cmd !== "INSERT" || JSON.stringify(insertOwn.roles) !== JSON.stringify(["authenticated"])
+          || !insertOwn.check?.includes("quata_chat_auth_profile_id")
+          || !deleteOwn || deleteOwn.cmd !== "DELETE" || JSON.stringify(deleteOwn.roles) !== JSON.stringify(["authenticated"])
+          || !deleteOwn.qual?.includes("quata_chat_auth_profile_id") || !deleteOwn.qual?.includes("quata_current_profile_is_admin")) {
+        throw new Error(`serial_release_postcondition_mutation_policy_mismatch:${version}`);
+      }
+    }
     const grantsOk = rollback
       ? state.anon_insert && state.anon_delete && state.anon_update && state.auth_insert && state.auth_delete && state.auth_update
       : !state.anon_insert && !state.anon_delete && !state.anon_update && state.auth_insert && state.auth_delete && !state.auth_update;
