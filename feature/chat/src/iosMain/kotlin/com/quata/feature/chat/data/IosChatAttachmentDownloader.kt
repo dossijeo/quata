@@ -83,9 +83,17 @@ class IosChatAttachmentDownloader(
         return PlatformResult.Success(localFile)
     }
 
+    /** Removes only a file generated in this downloader's own temporary directory. */
+    internal fun discard(file: PlatformFile) {
+        val cacheDirectory = chatAttachmentCacheDirectory()
+        val path = NSURL(string = file.reference)?.path ?: file.reference
+        if (!path.startsWith("$cacheDirectory/")) return
+        NSFileManager.defaultManager.removeItemAtPath(path, error = null)
+    }
+
     private fun cacheDestination(sourceName: String): NSURL {
         val manager = NSFileManager.defaultManager
-        val cacheDirectory = NSTemporaryDirectory().trimEnd('/') + "/quata_chat_attachments"
+        val cacheDirectory = chatAttachmentCacheDirectory()
         if (!manager.fileExistsAtPath(cacheDirectory) && !manager.createDirectoryAtPath(
                 cacheDirectory,
                 withIntermediateDirectories = true,
@@ -103,6 +111,9 @@ class IosChatAttachmentDownloader(
         return NSURL.fileURLWithPath("$cacheDirectory/$safeName")
     }
 }
+
+private fun chatAttachmentCacheDirectory(): String =
+    NSTemporaryDirectory().trimEnd('/') + "/quata_chat_attachments"
 
 private data class IosPublicChatAttachmentResponse(
     val data: NSData,
