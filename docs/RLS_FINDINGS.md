@@ -52,24 +52,23 @@ hay que evaluar la Web publicada que hoy depende de las políticas existentes.
 6. Sólo tras los cinco puntos anteriores se retira la contención por operación y se añaden
    pruebas de cliente específicas para el flujo habilitado.
 
-## RLS-002 — Likes Official protegidos por trigger, no por RLS
+## RLS-002 — Un actor puede suplantar el perfil al crear un like Official
 
-- **Observado:** 2026-07-26, inspección de catálogo de producción con la conexión
-  de pooler y CA explícita; sin DDL ni DML.
+- **Detectado:** 2026-07-26, SB-09 de Official con dos cuentas y un post aislados.
 - **Superficie:** `public.official_post_likes`.
-- **Evidencia:** la tabla tiene RLS desactivado y no tiene políticas; el trigger
-  `quata_guard_official_post_likes_trg` está instalado. La función asociada exige
-  autenticación y rechaza insert/delete cuando `profile_id` no pertenece al perfil
-  de la sesión (salvo administrador en delete).
-- **Decisión de aplicación:** Web puede exponer únicamente like/unlike, siempre
-  filtrando por el perfil de la sesión y dejando que el trigger sea la autoridad
-  final. Crear Official, comentarios y cualquier escritura que no tenga este
-  contrato continúan deshabilitados.
+- **Evidencia:** la inspección de catálogo, sin DDL ni DML, confirmó RLS desactivado,
+  cero políticas y el trigger `quata_guard_official_post_likes_trg` instalado. Sin
+  embargo, SB-09 creó el like propio de A y después intentó crear un like con el JWT
+  de A y `profile_id` de B: la operación no devolvió `42501`. El runner hizo rollback
+  del like propio; los perfiles/Auth aislados y el post temporal se purgaron y se
+  comprobó su ausencia.
+- **Impacto:** no se puede confiar en que el trigger vincule el actor Web al
+  `profile_id` enviado. Exponer like/unlike permitiría suplantación de identidad.
 
 ### Límite y seguimiento
 
-No es una corrección RLS ni autoriza endurecer políticas existentes. Falta una
-prueba E2E de dos usuarios efímeros que confirme insert del actor, rechazo de
-suplantación y delete sólo del like propio, con purga verificable. Si se migra
-esta tabla a RLS en el futuro, repetir esa prueba antes de retirar el trigger o
-declarar equivalencia.
+No es una autorización para endurecer RLS existente. Mantener todas las mutaciones
+Official Web deshabilitadas. La corrección debe coordinarse con la web publicada y
+demostrar en SB-09: insert propio, rechazo `42501` de suplantación, rechazo `42501`
+del borrado ajeno, borrado propio y purga verificable de fixtures antes de habilitar
+la UI.
