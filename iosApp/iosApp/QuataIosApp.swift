@@ -480,23 +480,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// supports opening a conversation, but not scrolling to a particular message identifier.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
-        guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else { return }
-        // Reuse the Keychain-backed session from Chat; Quick Look only receives a local temporary
-        // file after the Kotlin boundary validates and downloads the remote attachment.
-        let attachmentConfiguration = IosChatRuntimeConfiguration(
-            supabaseUrl: configuration.supabaseUrl,
-            supabasePublishableKey: configuration.supabasePublishableKey,
-        )
-        let attachmentSession = bootstrap.authSessionForInteractiveLogin()
-        let attachmentPreviewService = IosChatAttachmentPreviewService(
-            configuration: attachmentConfiguration,
-            authSession: attachmentSession,
-            documentOpener: services.documentOpener,
-            downloader: IosChatAttachmentDownloader(
+        // Chat remains installable for an already constructed bootstrap even when the host has no
+        // public runtime metadata. Only remote preview degrades in that case.
+        let attachmentPreviewService: IosChatAttachmentPreviewService? = {
+            guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+                return nil
+            }
+            // Reuse the Keychain-backed session from Chat; Quick Look only receives a local
+            // temporary file after the Kotlin boundary validates and downloads the attachment.
+            let attachmentConfiguration = IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            )
+            let attachmentSession = bootstrap.authSessionForInteractiveLogin()
+            return IosChatAttachmentPreviewService(
                 configuration: attachmentConfiguration,
                 authSession: attachmentSession,
-            ),
-        )
+                documentOpener: services.documentOpener,
+                downloader: IosChatAttachmentDownloader(
+                    configuration: attachmentConfiguration,
+                    authSession: attachmentSession,
+                ),
+            )
+        }()
         installChatFactory { [weak self] conversationId, _ in
             let dependencies = bootstrap.hostDependencies(
                 audioPlayer: services.audioPlayer,
@@ -510,7 +516,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                     self?.openChatList()
                 },
                 onOpenAttachment: { [weak self] attachment in
-                    guard attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
+                    guard let attachmentPreviewService,
+                          attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
                         self?.presentRemoteAttachmentPreviewUnsupportedNotice()
                         return
                     }
