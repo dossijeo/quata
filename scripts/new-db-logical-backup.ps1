@@ -78,15 +78,15 @@ try {
     $artifacts = @()
     if ($Scope -eq "Full") {
         $encrypted = Join-Path $set "database.dump.enc"
-        $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--compress=9", "--no-owner", "--no-acl") $encrypted $connection $TlsCaFile $envFile
+        $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--compress=9", "--no-owner") $encrypted $connection $TlsCaFile $envFile
         $artifacts += [ordered]@{ name="database.dump.enc"; kind="full_custom"; plaintextSha256=$checksum; ciphertextSha256=(Get-FileHash $encrypted -Algorithm SHA256).Hash.ToLowerInvariant() }
     } else {
-        $encrypted = Join-Path $set "schema.dump.enc"; $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--schema-only", "--no-owner", "--no-acl") $encrypted $connection $TlsCaFile $envFile
+        $encrypted = Join-Path $set "schema.dump.enc"; $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--schema-only", "--no-owner") $encrypted $connection $TlsCaFile $envFile
         $artifacts += [ordered]@{ name="schema.dump.enc"; kind="schema_custom"; plaintextSha256=$checksum; ciphertextSha256=(Get-FileHash $encrypted -Algorithm SHA256).Hash.ToLowerInvariant() }
-        $encrypted = Join-Path $set "critical-data.dump.enc"; $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--data-only", "--no-owner", "--no-acl", "--table=public.community_comments", "--table=public.official_post_likes") $encrypted $connection $TlsCaFile $envFile
+        $encrypted = Join-Path $set "critical-data.dump.enc"; $checksum=Invoke-DumpAndEncrypt @("--format=custom", "--data-only", "--no-owner", "--table=public.community_comments", "--table=public.official_post_likes") $encrypted $connection $TlsCaFile $envFile
         $artifacts += [ordered]@{ name="critical-data.dump.enc"; kind="critical_data_custom"; tables=@("public.community_comments", "public.official_post_likes"); plaintextSha256=$checksum; ciphertextSha256=(Get-FileHash $encrypted -Algorithm SHA256).Hash.ToLowerInvariant() }
     }
-    $manifest = [ordered]@{ format="quata-logical-backup-v1"; createdAt=(Get-Date).ToUniversalTime().ToString("o"); scope=$Scope; encryption="AES-256-GCM"; tls="verify-full_explicit_ca"; artifacts=$artifacts; containsConnectionData=$false; notes=@("Connection URL and credentials are never stored in this manifest.", "Plaintext is removed after encryption; retain the key separately.") }
+    $manifest = [ordered]@{ format="quata-logical-backup-v1"; createdAt=(Get-Date).ToUniversalTime().ToString("o"); scope=$Scope; encryption="AES-256-GCM"; tls="verify-full_explicit_ca"; grantsIncluded=$true; artifacts=$artifacts; containsConnectionData=$false; notes=@("Connection URL and credentials are never stored in this manifest.", "The backup pipeline writes no plaintext dump; retain the key separately.") }
     $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $set "manifest.json") -Encoding utf8
     Write-Output "logical_backup_created=$set"
 }

@@ -10,7 +10,8 @@ release de RLS. Es una puerta adicional, no sustituye PITR de Supabase.
   disco. El resultado se restringe al usuario actual en Windows. Usa AES-256-GCM;
   la clave base64 de 32 bytes se mantiene fuera del
   repositorio y fuera del directorio del backup.
-- El modo `Full` (predeterminado) genera un `pg_dump` custom completo. `Critical`
+- El modo `Full` (predeterminado) genera un `pg_dump` custom completo, incluidos
+  grants/ACL. `Critical`
   conserva el esquema completo más datos de `community_comments` y
   `official_post_likes`, de modo que incluye sus objetos dependientes.
 
@@ -32,9 +33,14 @@ La restauración se prueba antes de autorizar DDL:
   -EncryptionKeyFile 'C:\seguro\release-backup.key'
 ```
 
-El drill crea y borra un PostgreSQL 17 Docker. Falla de forma cerrada si el
+El drill crea y borra un PostgreSQL 17 Docker. Durante el drill existe un
+plaintext transitorio únicamente bajo un directorio temporal con herencia ACL
+eliminada y grant exclusivo al usuario actual; se elimina incluso ante error.
+Falla de forma cerrada si el
 tag AEAD no valida al descifrar, el checksum SHA-256 cifrado o plano no coincide,
 `pg_restore` falla o la presencia de ambas tablas no se verifica.
+El dump conserva grants/ACL; el destino desechable los omite explícitamente al
+restaurar (`--no-acl`) para no requerir roles equivalentes durante este drill.
 No se debe ejecutar un backup real si no hay un volumen local restringido y una
 clave custodiada separadamente. Conservar el set cifrado hasta cerrar el release
 y confirmar PITR/rollback; nunca subirlo a Git, artefactos CI ni almacenamiento

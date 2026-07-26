@@ -28,6 +28,12 @@ try {
     & (Join-Path $PSScriptRoot "new-db-logical-backup.ps1") -DbUrlFile $urlFile -TlsCaFile (Join-Path $tls "ca.pem") -EncryptionKeyFile $keyFile -OutRoot $out -Scope Full -DockerImage $DockerImage -DockerNetwork $network
     if ($LASTEXITCODE -ne 0) { Fail "test_backup_failed" }
     $set=(Get-ChildItem -LiteralPath $out -Directory | Where-Object Name -notlike '.working-*' | Select-Object -First 1).FullName; if ([string]::IsNullOrWhiteSpace($set)) { Fail "test_backup_set_missing" }
+    $manifest=Get-Content -LiteralPath (Join-Path $set "manifest.json") -Raw | ConvertFrom-Json
+    if ($manifest.grantsIncluded -ne $true -or $manifest.containsConnectionData -ne $false) { Fail "test_manifest_contract_failed" }
+    if ($env:OS -eq "Windows_NT") {
+        $unsafe=@((Get-Acl -LiteralPath $set).Access | Where-Object { $_.AccessControlType -eq "Allow" -and $_.IdentityReference.Value -match "(^|\\)(Everyone|Users|Authenticated Users)$" })
+        if ($unsafe.Count -ne 0) { Fail "test_backup_acl_not_restricted" }
+    }
     & (Join-Path $PSScriptRoot "restore-db-logical-backup-drill.ps1") -BackupSet $set -EncryptionKeyFile $keyFile -DockerImage $DockerImage -ExpectedCommunityComments 2 -ExpectedOfficialPostLikes 3
     if ($LASTEXITCODE -ne 0) { Fail "test_restore_failed" }
     Write-Output "logical_backup_disposable_tls_restore_test_passed"

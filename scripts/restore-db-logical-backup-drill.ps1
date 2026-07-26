@@ -11,6 +11,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 function Fail([string]$Code) { throw $Code }
+function Restrict-Directory([string]$Path) {
+    New-Item -ItemType Directory -Force -Path $Path | Out-Null
+    if ($env:OS -eq "Windows_NT") {
+        $identity=(& whoami).Trim()
+        & icacls $Path /inheritance:r /grant:r "${identity}:(OI)(CI)F" *> $null
+        if ($LASTEXITCODE -ne 0) { Fail "restore_directory_acl_failed" }
+        $unsafe=@((Get-Acl -LiteralPath $Path).Access | Where-Object { $_.AccessControlType -eq "Allow" -and $_.IdentityReference.Value -match "(^|\\)(Everyone|Users|Authenticated Users)$" })
+        if ($unsafe.Count -ne 0) { Fail "restore_directory_acl_not_restricted" }
+    }
+}
 function Read-Key([string]$Path) { try { $key=[Convert]::FromBase64String((Get-Content -LiteralPath $Path -Raw).Trim()) } catch { Fail "encryption_key_invalid" }; if ($key.Length -ne 32) { Fail "encryption_key_invalid" }; return ,$key }
 function Decrypt-File([string]$Source, [string]$Destination, [byte[]]$Key) {
     & node (Join-Path $PSScriptRoot "db-backup-crypto.mjs") decrypt $Source $Destination $EncryptionKeyFile *> $null
@@ -22,7 +32,7 @@ $manifest=Get-Content -LiteralPath (Join-Path $BackupSet "manifest.json") -Raw |
 if ($manifest.format -ne "quata-logical-backup-v1") { Fail "backup_manifest_invalid" }
 $key=Read-Key $EncryptionKeyFile; $work=Join-Path ([IO.Path]::GetTempPath()) ("quata-restore-drill-"+[guid]::NewGuid().ToString("N")); $name="quata-restore-"+[guid]::NewGuid().ToString("N").Substring(0,12); $password=[guid]::NewGuid().ToString("N")
 try {
-    New-Item -ItemType Directory -Path $work | Out-Null
+    Restrict-Directory $work
     foreach ($artifact in $manifest.artifacts) {
         $encrypted=Join-Path $BackupSet $artifact.name; if (-not (Test-Path -LiteralPath $encrypted)) { Fail "backup_artifact_missing" }
         if ([string]::IsNullOrWhiteSpace($artifact.ciphertextSha256) -or (Get-FileHash $encrypted -Algorithm SHA256).Hash.ToLowerInvariant() -cne $artifact.ciphertextSha256) { Fail "backup_ciphertext_checksum_mismatch" }
