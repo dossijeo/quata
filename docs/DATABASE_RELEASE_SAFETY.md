@@ -16,13 +16,15 @@ orquestador después de revisar migraciones, rollback y evidencias.
 
 ## Bloqueo de historial
 
-El repositorio contiene 31 SQL de migración, pero
+La rama de integración contiene 33 SQL de migración: 31 históricos y las dos
+candidatas 001/002. Sin embargo,
 `supabase_migrations.schema_migrations` sólo registra:
 
 - `20260628 / 0001_chat_schema`;
 - `20260723 / 0001_multidevice_fcm_and_web_push`.
 
-Hay 29 SQL locales sin entrada remota y siete prefijos de versión repetidos.
+Hay 29 SQL históricos sin entrada remota, más las dos candidatas todavía no
+desplegadas, y siete prefijos de versión repetidos.
 Los nombres históricos `YYYYMMDD_000N_...sql` no son versiones únicas para
 Supabase CLI: la versión es el segmento anterior al primer `_`. Por ello:
 
@@ -46,7 +48,7 @@ La reserva ordena el paquete, pero no autoriza su aplicación.
 ### Reconciliación versionada
 
 `supabase/migration-reconciliation.json` inventaría efectos de catálogo de las
-31 migraciones. El snapshot read-only calcula el SHA-256 de cada SQL y
+31 migraciones históricas. El snapshot read-only calcula el SHA-256 de cada SQL y
 comprueba esos marcadores, pero no los confunde con prueba de ejecución:
 
 - 2 `remote_ledger_anchor`;

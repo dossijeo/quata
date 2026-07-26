@@ -32,11 +32,14 @@ try {
         $env:SUPABASE_DB_TLS_CA_FILE = (Resolve-Path -LiteralPath $TlsCaFile).Path
         Remove-Item Env:SUPABASE_DB_TLS_CA_PEM -ErrorAction SilentlyContinue
     }
-    if ($Mode -ne "public") {
+    $temporaryPackages = @()
+    if ($Mode -ne "public") { $temporaryPackages += "pg@8.16.3" }
+    if (-not $SkipWeb) { $temporaryPackages += "playwright-core@1.62.0" }
+    if ($temporaryPackages.Count -gt 0) {
         $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("quata-backend-gates-" + [guid]::NewGuid().ToString("N"))
         New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
-        npm --prefix $temporaryRoot install --ignore-scripts --no-save --package-lock=false --fund=false --audit=false pg@8.16.3
-        if ($LASTEXITCODE -ne 0) { throw "Unable to provision the pinned read-only PostgreSQL client." }
+        npm --prefix $temporaryRoot install --ignore-scripts --no-save --package-lock=false --fund=false --audit=false @temporaryPackages
+        if ($LASTEXITCODE -ne 0) { throw "Unable to provision pinned compatibility-gate dependencies." }
         $env:NODE_PATH = Join-Path $temporaryRoot "node_modules"
     }
 
@@ -51,8 +54,10 @@ try {
 
     if (-not $SkipWeb) {
         if (-not $WebDistribution) { throw "WebDistribution is required unless SkipWeb is set." }
+        $webRunner = Join-Path $temporaryRoot "backend-compatibility-web-smoke.mjs"
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot "backend-compatibility-web-smoke.mjs") -Destination $webRunner
         $webArguments = @(
-            (Join-Path $PSScriptRoot "backend-compatibility-web-smoke.mjs"),
+            $webRunner,
             "--dist", (Resolve-Path -LiteralPath $WebDistribution).Path
         )
         if ($ChromePath) { $webArguments += @("--chrome", $ChromePath) }

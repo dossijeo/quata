@@ -20,8 +20,9 @@ evidencia de ejecución, no fuente.
 - servidor: PostgreSQL 17.6 mediante TLS `verify-full` y CA explícita;
 - ledger remoto: `20260628/0001_chat_schema` y
   `20260723/0001_multidevice_fcm_and_web_push`;
-- historial local: 31 SQL, con siete prefijos CLI repetidos y 29 ficheros sin
-  fila remota;
+- historial local: 33 SQL (31 históricos + 001/002), con siete prefijos CLI
+  históricos repetidos, 29 ficheros históricos sin fila remota y dos
+  candidatas no desplegadas;
 - reconciliación de catálogo: dos `remote_ledger_anchor`, 22
   `catalog_effects_observed`, siete
   `catalog_effects_observed_superseded`, 29 decisiones sin evidencia semántica
@@ -163,6 +164,29 @@ El informe sanitizado está en
 `build-reports/db-release-safety/backup-readiness.json`. No contiene URL,
 credenciales ni project ref en claro. Este bloqueo exige habilitar/confirmar un
 restore point recuperable desde Supabase antes de cualquier release.
+
+## Evidencia local del corte de integración
+
+Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
+
+- RLS-002 pasó en PostgreSQL 17 + PostgREST 12.2.3 el baseline vulnerable, la
+  migración segura, ataques spoof/cross-delete `42501`, rechazo atómico de
+  rollback ante drift, rollback al fingerprint exacto y reaplicación segura;
+- el gate completo de compatibilidad terminó `passed`: 10 lecturas públicas,
+  inventario Android 18 tablas/44 RPC sin ausencias, 243 columnas y 45 firmas
+  registradas;
+- la navegación Web credential-free pasó `#feed`, `#official` y
+  `#communities`;
+- el emulador API-37 autenticado pasó Feed, Chat, Official, Communities y
+  Profile, con proceso vivo y cero crash/ANR;
+- la mecánica de paquete desechable volvió a pasar, mientras el empaquetador
+  real rechazó correctamente el snapshot por
+  `selectivePackageEligible=false`;
+- el preflight remoto terminó
+  `blocked_history_reconciliation`, como se exige.
+
+Los informes permanecen ignorados bajo `build-reports/`. Esta evidencia no
+supera los bloqueos de ledger y backup/PITR.
 
 ## Condiciones mínimas para pasar a GO
 
