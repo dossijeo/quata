@@ -6,6 +6,7 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.QuickLook.QLPreviewController
 import platform.QuickLook.QLPreviewControllerDataSourceProtocol
+import platform.QuickLook.QLPreviewControllerDelegateProtocol
 import platform.QuickLook.QLPreviewItemProtocol
 import platform.UIKit.UIViewController
 import platform.darwin.NSObject
@@ -14,14 +15,24 @@ import platform.darwin.dispatch_get_main_queue
 import kotlin.coroutines.resume
 
 /** Real Quick Look adapter for local, sandbox-readable document URLs. */
+interface IosDismissAwareDocumentOpenService : DocumentOpenService {
+    suspend fun open(file: PlatformFile, onDismiss: () -> Unit): PlatformResult<Unit>
+}
+
 @OptIn(ExperimentalForeignApi::class)
 class IosDocumentOpenService(
     private val presenterProvider: IosViewControllerProvider,
-) : DocumentOpenService {
+) : IosDismissAwareDocumentOpenService {
     private var activePreview: QLPreviewController? = null
     private var activeDataSource: IosQuickLookDataSource? = null
+    private var activeDelegate: IosQuickLookDelegate? = null
 
-    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> = open(file) {}
+
+    override suspend fun open(
+        file: PlatformFile,
+        onDismiss: () -> Unit,
+    ): PlatformResult<Unit> {
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
         if (DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.QuickLook) !is DocumentPreviewAdmission.Open) {
             return PlatformResult.Unsupported
@@ -37,13 +48,35 @@ class IosDocumentOpenService(
             dispatch_async(dispatch_get_main_queue()) {
                 if (!continuation.isActive) return@dispatch_async
                 val dataSource = IosQuickLookDataSource(url)
-                val preview = QLPreviewController().apply { this.dataSource = dataSource }
+                lateinit var preview: QLPreviewController
+                val delegate = IosQuickLookDelegate {
+                    runCatching(onDismiss)
+                    if (activePreview === preview) {
+                        activePreview = null
+                        activeDataSource = null
+                        activeDelegate = null
+                    }
+                }
+                preview = QLPreviewController().apply {
+                    this.dataSource = dataSource
+                    this.delegate = delegate
+                }
                 activeDataSource = dataSource
+                activeDelegate = delegate
                 activePreview = preview
                 presenter.presentViewController(preview, animated = true, completion = null)
                 continuation.resume(PlatformResult.Success(Unit))
             }
         }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosQuickLookDelegate(
+    private val onDismiss: () -> Unit,
+) : NSObject(), QLPreviewControllerDelegateProtocol {
+    override fun previewControllerDidDismiss(controller: QLPreviewController) {
+        onDismiss()
     }
 }
 

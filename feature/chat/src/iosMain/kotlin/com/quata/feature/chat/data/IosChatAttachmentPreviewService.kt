@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentPreviewAdmission
 import com.quata.core.platform.DocumentPreviewAdmissions
+import com.quata.core.platform.IosDismissAwareDocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
@@ -40,18 +41,24 @@ class IosChatAttachmentPreviewService(
             PlatformResult.Cancelled -> return PlatformResult.Failure("ios_chat_attachment_download_cancelled")
             PlatformResult.Unsupported -> return PlatformResult.Failure("ios_chat_attachment_download_unsupported")
         }
-        return when (val opened = documentOpener.open(localFile)) {
+        val lease = TemporaryPreviewLease { downloader.discard(localFile) }
+        val opened = if (documentOpener is IosDismissAwareDocumentOpenService) {
+            documentOpener.open(localFile, lease::release)
+        } else {
+            documentOpener.open(localFile)
+        }
+        return when (opened) {
             is PlatformResult.Success -> opened
             is PlatformResult.Failure -> {
-                downloader.discard(localFile)
+                lease.release()
                 PlatformResult.Failure(opened.reason ?: "ios_chat_attachment_preview_failed")
             }
             PlatformResult.Cancelled -> {
-                downloader.discard(localFile)
+                lease.release()
                 PlatformResult.Failure("ios_chat_attachment_preview_cancelled")
             }
             PlatformResult.Unsupported -> {
-                downloader.discard(localFile)
+                lease.release()
                 PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
             }
         }
