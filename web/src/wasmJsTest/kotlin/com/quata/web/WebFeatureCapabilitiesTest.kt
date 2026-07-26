@@ -46,9 +46,34 @@ class WebFeatureCapabilitiesTest {
 
     @Test
     fun disablesRemoteRoutesWhenPublicBackendConfigurationIsAbsent() {
-        val registry = webFeatureCapabilityRegistry(WebRuntimeConfiguration())
+        val unconfigured = WebRuntimeConfiguration()
+        val registry = webFeatureCapabilityRegistry(unconfigured)
 
         assertFalse(registry.projection(QuataFeature.Auth, FeatureCapabilityAction.View).enabled)
         assertTrue(registry.projection(QuataFeature.Profile, FeatureCapabilityAction.View).enabled)
+        assertFalse(registry.capability(QuataFeature.Auth).backendReal)
+        assertEquals(
+            listOf(
+                WebAuthRuntimeRequirement.SupabaseUrl,
+                WebAuthRuntimeRequirement.SupabasePublishableKey,
+            ),
+            unconfigured.missingAuthRuntimeRequirements(),
+        )
+        val diagnostic = requireNotNull(unconfigured.authRuntimeDiagnosticOrNull())
+        assertTrue(diagnostic.contains("quata-supabase-url"))
+        assertTrue(diagnostic.contains("quata-supabase-publishable-key"))
+        assertTrue(diagnostic.contains("no uses claves service-role"))
+    }
+
+    @Test
+    fun reportsOnlyTheMissingPublicAuthSetting() {
+        val configuration = WebRuntimeConfiguration(supabaseUrl = "https://project.supabase.co")
+
+        assertEquals(
+            listOf(WebAuthRuntimeRequirement.SupabasePublishableKey),
+            configuration.missingAuthRuntimeRequirements(),
+        )
+        assertTrue(requireNotNull(configuration.authRuntimeDiagnosticOrNull()).contains("quata-supabase-publishable-key"))
+        assertEquals(null, configured.authRuntimeDiagnosticOrNull())
     }
 }

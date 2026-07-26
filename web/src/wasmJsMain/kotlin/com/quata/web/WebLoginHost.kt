@@ -10,6 +10,7 @@ import com.quata.feature.auth.presentation.AuthCatalogLocale
 @Composable
 fun WebLoginHost(
     platformServices: PlatformServices,
+    runtimeConfiguration: WebRuntimeConfiguration,
     repository: WebAuthRepository,
     onLoginSuccess: () -> Unit,
 ) {
@@ -25,6 +26,7 @@ fun WebLoginHost(
         recoveryQuestionLoading = catalog.recoveryQuestionLoading,
         passwordUpdatedMessage = catalog.passwordUpdatedMessage,
         registerUnavailableMessage = "El registro aún no está disponible en Quata Web.",
+        runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")
         onLoginSuccess()

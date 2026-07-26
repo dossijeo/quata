@@ -14,6 +14,23 @@ data class WebRuntimeConfiguration(
     val isBackendConfigured: Boolean
         get() = !supabaseUrl.isNullOrBlank() && !supabasePublishableKey.isNullOrBlank()
 
+    /**
+     * Public deployment requirements only. This deliberately reports meta names, never values,
+     * so the launcher can explain a local/unconfigured Auth screen without exposing credentials.
+     */
+    internal fun missingAuthRuntimeRequirements(): List<WebAuthRuntimeRequirement> = buildList {
+        if (supabaseUrl.isNullOrBlank()) add(WebAuthRuntimeRequirement.SupabaseUrl)
+        if (supabasePublishableKey.isNullOrBlank()) add(WebAuthRuntimeRequirement.SupabasePublishableKey)
+    }
+
+    internal fun authRuntimeDiagnosticOrNull(): String? {
+        val missing = missingAuthRuntimeRequirements()
+        if (missing.isEmpty()) return null
+        return "La autenticación remota no está configurada en este despliegue. " +
+            "Falta ${missing.joinToString { it.metaName }}. " +
+            "Configura únicamente esos metadatos públicos; no uses claves service-role ni VAPID privadas."
+    }
+
     companion object {
         fun fromDocument(): WebRuntimeConfiguration = WebRuntimeConfiguration(
             supabaseUrl = document.metaContent("quata-supabase-url"),
@@ -21,6 +38,11 @@ data class WebRuntimeConfiguration(
             releaseVersionCode = document.metaContent("quata-release-version-code")?.toLongOrNull(),
         )
     }
+}
+
+internal enum class WebAuthRuntimeRequirement(val metaName: String) {
+    SupabaseUrl("quata-supabase-url"),
+    SupabasePublishableKey("quata-supabase-publishable-key"),
 }
 
 /** Builds the unauthenticated VAPID-key endpoint from already-injected public runtime config. */

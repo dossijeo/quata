@@ -37,6 +37,7 @@ fun AuthBrowserLoginHostContent(
     recoveryQuestionLoading: String,
     passwordUpdatedMessage: String,
     registerUnavailableMessage: String?,
+    runtimeConfigurationNotice: String? = null,
     onLoginSuccess: suspend () -> Unit,
 ) {
     val loginViewModel = remember(repository) { LoginViewModel(repository) }
@@ -44,7 +45,7 @@ fun AuthBrowserLoginHostContent(
     val loginState by loginViewModel.uiState.collectAsState()
     val recoveryState by recoveryViewModel.uiState.collectAsState()
     var destination by remember { mutableStateOf(AuthBrowserDestination.Login) }
-    var notice by remember { mutableStateOf<String?>(null) }
+    var notice by remember(runtimeConfigurationNotice) { mutableStateOf(runtimeConfigurationNotice) }
     DisposableEffect(loginViewModel, recoveryViewModel) {
         onDispose {
             loginViewModel.close()

@@ -351,6 +351,7 @@ private fun QuataWebApp(
             WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
                 WebLoginHost(
                     platformServices = platformServices,
+                    runtimeConfiguration = runtimeConfiguration,
                     repository = authRepository,
                     onLoginSuccess = {
                         isSessionReady = true

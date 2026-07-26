@@ -119,6 +119,7 @@ try {
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
         browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
+        await assertUnconfiguredAuthBoundary(cdp);
 
         if (options.docmentis) {
             await navigateAndAssertDocmentisBridge(cdp, staticServer.origin);
@@ -358,6 +359,23 @@ async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
         throw new Error(`Route #${fragment} produced an uncaught browser exception.`);
     }
     return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt);
+}
+
+async function assertUnconfiguredAuthBoundary(cdp) {
+    let value;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const boundary = await cdp.evaluate(`(() => ({
+            urlMeta: document.querySelector('meta[name="quata-supabase-url"]')?.getAttribute('content')?.trim() ?? null,
+            publishableKeyMeta: document.querySelector('meta[name="quata-supabase-publishable-key"]')?.getAttribute('content')?.trim() ?? null,
+            backendConfigured: localStorage.getItem('web.runtime.backend_configured'),
+        }))()`);
+        value = boundary?.result?.value;
+        if (value?.backendConfigured !== null && value?.backendConfigured !== undefined) break;
+        await delay(100);
+    }
+    if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
+        throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
+    }
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs) {
