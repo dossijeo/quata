@@ -5,6 +5,7 @@ import com.quata.feature.chat.domain.ChatRepository
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSJSONSerialization
+import platform.Foundation.NSLock
 import platform.Foundation.NSURL
 
 const val QuataExternalShareAppGroup = "group.com.quata.ios.share"
@@ -26,10 +27,13 @@ class IosExternalShareInbox(
     private val appGroupIdentifier: String = QuataExternalShareAppGroup,
     private val fileManager: NSFileManager = NSFileManager.defaultManager,
 ) {
-    fun claim(requestedId: String? = null): IosExternalShareClaim? {
+    private val claimLock = NSLock()
+    private val activeClaimIds = mutableSetOf<String>()
+
+    fun claim(requestedId: String? = null): IosExternalShareClaim? = withClaimLock {
         val root = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)
-            ?: return null
-        val rootPath = root.path ?: return null
+            ?: return@withClaimLock null
+        val rootPath = root.path ?: return@withClaimLock null
         val pendingPath = "$rootPath/ExternalShares/pending"
         val processingPath = "$rootPath/ExternalShares/processing"
         fileManager.createDirectoryAtPath(pendingPath, true, null, null)
@@ -42,14 +46,15 @@ class IosExternalShareInbox(
                 .filter(::isSafeShareId)
                 .sorted()
                 .firstOrNull()
-            ?: return null
+            ?: return@withClaimLock null
+        if (id in activeClaimIds) return@withClaimLock null
         val pendingClaimPath = "$pendingPath/$id"
         val processingClaimPath = "$processingPath/$id"
         if (fileManager.fileExistsAtPath(pendingClaimPath)) {
-            if (fileManager.fileExistsAtPath(processingClaimPath)) return null
-            if (!fileManager.moveItemAtPath(pendingClaimPath, processingClaimPath, null)) return null
+            if (fileManager.fileExistsAtPath(processingClaimPath)) return@withClaimLock null
+            if (!fileManager.moveItemAtPath(pendingClaimPath, processingClaimPath, null)) return@withClaimLock null
         } else if (!fileManager.fileExistsAtPath(processingClaimPath)) {
-            return null
+            return@withClaimLock null
         }
 
         val persisted = readManifest(processingClaimPath, id)
@@ -58,24 +63,41 @@ class IosExternalShareInbox(
                 NSURL.fileURLWithPath("$processingClaimPath/$relativePath").absoluteString
             }
         } ?: PersistedExternalShareResult.Invalid
-        return when (result) {
-            is PersistedExternalShareResult.Accepted -> IosExternalShareClaim(result.payload, this)
+        when (result) {
+            is PersistedExternalShareResult.Accepted -> {
+                activeClaimIds += id
+                IosExternalShareClaim(result.payload, this)
+            }
             PersistedExternalShareResult.Empty,
             PersistedExternalShareResult.Invalid,
             PersistedExternalShareResult.TooManyFiles,
             PersistedExternalShareResult.Unsupported -> {
-                discard(id)
+                discardLocked(id)
                 null
             }
         }
     }
 
-    internal fun discard(id: String) {
+    internal fun discard(id: String) = withClaimLock {
+        discardLocked(id)
+    }
+
+    private fun discardLocked(id: String) {
         if (!isSafeShareId(id)) return
+        activeClaimIds -= id
         val rootPath = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)?.path ?: return
         val processingClaimPath = "$rootPath/ExternalShares/processing/$id"
         if (fileManager.fileExistsAtPath(processingClaimPath)) {
             fileManager.removeItemAtPath(processingClaimPath, null)
+        }
+    }
+
+    private inline fun <T> withClaimLock(block: () -> T): T {
+        claimLock.lock()
+        return try {
+            block()
+        } finally {
+            claimLock.unlock()
         }
     }
 
@@ -141,4 +163,5 @@ fun createIosExternalShareRuntimeBootstrap(
 ): IosExternalShareRuntimeBootstrap = IosExternalShareRuntimeBootstrap(authSession, chatRepository)
 
 private fun isSafeShareId(value: String): Boolean =
-    value.isNotEmpty() && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+    value.isNotEmpty() && value.length <= MaxExternalShareIdChars &&
+        value.all { it.isLetterOrDigit() || it == '-' || it == '_' }

@@ -167,13 +167,20 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository()
         )
     }()
-    private var pendingExternalShareID: String?
+    private var externalShareForegroundObserver: NSObjectProtocol?
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = authenticatedHost
         window.makeKeyAndVisible()
         self.window = window
+        externalShareForegroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.presentPendingExternalShareIfAvailable()
+        }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
         installWhatsNewIfAvailable()
@@ -183,16 +190,6 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
-        if url.scheme?.lowercased() == "quata", url.host?.lowercased() == "external-share" {
-            guard let shareID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                .queryItems?.first(where: { $0.name == "id" })?.value,
-                !shareID.isEmpty,
-                shareID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
-            else { return false }
-            pendingExternalShareID = shareID
-            presentPendingExternalShareIfAvailable()
-            return true
-        }
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
     }
@@ -237,11 +234,10 @@ private final class IosAppCompositionRoot {
 
     private func presentPendingExternalShareIfAvailable() {
         guard
-            let shareID = pendingExternalShareID,
             let bootstrap = externalShareRuntimeBootstrap,
-            let claim = bootstrap.claimRestoredAuthenticated(requestedId: shareID)
+            authenticatedHost.presentedViewController == nil,
+            let claim = bootstrap.claimRestoredAuthenticated(requestedId: nil)
         else { return }
-        pendingExternalShareID = nil
         var completedConversationID: String?
         let dependencies = bootstrap.hostDependencies(
             claim: claim,

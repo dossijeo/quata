@@ -3,8 +3,8 @@ import UniformTypeIdentifiers
 
 private enum ShareExtensionConfiguration {
     static let appGroup = "group.com.quata.ios.share"
-    static let callbackScheme = "quata"
     static let maximumFiles = 5
+    static let maximumPendingShares = 10
     static let maximumFileBytes: Int64 = 25 * 1024 * 1024
     static let maximumTotalBytes: Int64 = 100 * 1024 * 1024
 }
@@ -32,17 +32,10 @@ final class ShareViewController: SLComposeServiceViewController {
             do {
                 let shareID = "share-\(UUID().uuidString.lowercased())"
                 try await persistShare(id: shareID)
-                guard let callback = URL(string: "\(ShareExtensionConfiguration.callbackScheme)://external-share?id=\(shareID)") else {
-                    throw ShareExtensionError.invalidCallback
-                }
-                extensionContext?.open(callback) { [weak self] opened in
-                    guard let self else { return }
-                    if opened {
-                        self.extensionContext?.completeRequest(returningItems: nil)
-                    } else {
-                        self.extensionContext?.cancelRequest(withError: ShareExtensionError.appUnavailable)
-                    }
-                }
+                // Share extensions cannot launch their containing app through a supported public
+                // API. Publish to the App Group and finish; Quata claims the oldest pending item
+                // on its next authenticated foreground transition.
+                extensionContext?.completeRequest(returningItems: nil)
             } catch {
                 extensionContext?.cancelRequest(withError: error)
             }
@@ -59,6 +52,13 @@ final class ShareViewController: SLComposeServiceViewController {
         let staging = root.appendingPathComponent("ExternalShares/staging-\(id)", isDirectory: true)
         let destination = pending.appendingPathComponent(id, isDirectory: true)
         try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
+        let pendingCount = try FileManager.default.contentsOfDirectory(
+            at: pending,
+            includingPropertiesForKeys: nil
+        ).count
+        guard pendingCount < ShareExtensionConfiguration.maximumPendingShares else {
+            throw ShareExtensionError.tooManyPendingShares
+        }
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         do {
             let providers = extensionContext?.inputItems
@@ -153,6 +153,6 @@ private extension NSItemProvider {
 }
 
 private enum ShareExtensionError: LocalizedError {
-    case appGroupUnavailable, invalidCallback, appUnavailable, emptyPayload, tooManyFiles
+    case appGroupUnavailable, emptyPayload, tooManyFiles, tooManyPendingShares
     case fileTooLarge, payloadTooLarge, unreadableItem
 }

@@ -33,7 +33,10 @@ fun persistedExternalSharePayload(
 ): PersistedExternalShareResult {
     val id = persisted.id.trim()
     val text = persisted.text.trim().take(MaxExternalShareTextChars)
-    if (id.isEmpty() || !id.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
+    if (
+        id.isEmpty() || id.length > MaxExternalShareIdChars ||
+        !id.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+    ) {
         return PersistedExternalShareResult.Invalid
     }
     if (persisted.attachments.size > MaxExternalShareFiles) {
@@ -43,8 +46,10 @@ fun persistedExternalSharePayload(
         val relativePath = attachment.relativePath.trim()
         val name = attachment.name.trim().take(MaxExternalShareFileNameChars)
         if (
-            relativePath.isEmpty() || name.isEmpty() || relativePath != relativePath.substringAfterLast('/') ||
-            relativePath.contains('\\') || relativePath == "." || relativePath == ".."
+            relativePath.isEmpty() || name.isEmpty() ||
+            relativePath != relativePath.substringAfterLast('/') ||
+            relativePath.contains('\\') || relativePath == "." || relativePath == ".." ||
+            name.any { it == '/' || it == '\\' || it.isISOControl() }
         ) {
             return PersistedExternalShareResult.Invalid
         }
@@ -66,5 +71,6 @@ fun persistedExternalSharePayload(
 }
 
 const val MaxExternalShareFiles = 5
+const val MaxExternalShareIdChars = 120
 const val MaxExternalShareTextChars = 20_000
 const val MaxExternalShareFileNameChars = 255

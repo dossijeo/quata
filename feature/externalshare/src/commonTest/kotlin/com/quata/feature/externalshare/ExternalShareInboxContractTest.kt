@@ -41,6 +41,24 @@ class ExternalShareInboxContractTest {
                 attachmentUri = { it },
             ),
         )
+        assertEquals(
+            PersistedExternalShareResult.Invalid,
+            persistedExternalSharePayload(
+                PersistedExternalShare("x".repeat(MaxExternalShareIdChars + 1), "text", emptyList()),
+                attachmentUri = { it },
+            ),
+        )
+        assertEquals(
+            PersistedExternalShareResult.Invalid,
+            persistedExternalSharePayload(
+                PersistedExternalShare(
+                    "share-3",
+                    "",
+                    listOf(PersistedExternalShareAttachment("asset.pdf", "bad\nname.pdf", "application/pdf")),
+                ),
+                attachmentUri = { it },
+            ),
+        )
     }
 
     @Test
