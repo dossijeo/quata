@@ -13,36 +13,69 @@ begin;
 
 do $$
 declare
-    v_unexpected_policy text;
+    v_policy_fingerprint text;
+    v_guard_fingerprint text;
+    v_guard_acl_fingerprint text;
+    v_helper_fingerprint text;
+    v_helper_acl_fingerprint text;
+    v_trigger_fingerprint text;
+    v_table_acl_fingerprint text;
 begin
-    if not (select relrowsecurity from pg_class where oid = 'public.official_post_likes'::regclass) then
-        raise exception 'official_post_likes_rollback_refused:rls_not_enabled';
+    -- Fingerprints are calculated from the exact release DDL on PostgreSQL 16.
+    -- This intentionally rejects a same-name policy/function edited by a later
+    -- release instead of dropping it as though it were RLS-002's state.
+    select md5(string_agg(
+        p.policyname || '|' || p.cmd || '|' || coalesce(array_to_string(p.roles, ','), '') || '|'
+        || coalesce(p.qual, '') || '|' || coalesce(p.with_check, ''), E'\n' order by p.policyname))
+    into v_policy_fingerprint
+    from pg_policies p
+    where p.schemaname = 'public' and p.tablename = 'official_post_likes';
+    if to_regprocedure('public.quata_guard_official_post_likes()') is null
+       or to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null then
+        raise exception 'official_post_likes_rollback_refused:release_function_missing';
     end if;
+    select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure)),
+           md5(coalesce(proacl::text, ''))
+    into v_guard_fingerprint, v_guard_acl_fingerprint
+    from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure;
+    select md5(pg_get_functiondef('public.quata_official_like_delete_allowed(uuid)'::regprocedure)),
+           md5(coalesce(proacl::text, ''))
+    into v_helper_fingerprint, v_helper_acl_fingerprint
+    from pg_proc where oid = 'public.quata_official_like_delete_allowed(uuid)'::regprocedure;
+    select md5(pg_get_triggerdef(t.oid, true)) into v_trigger_fingerprint
+    from pg_trigger t
+    where t.tgrelid = 'public.official_post_likes'::regclass
+      and t.tgname = 'quata_guard_official_post_likes_trg' and not t.tgisinternal;
+    select md5(coalesce(c.relacl::text, '')) into v_table_acl_fingerprint
+    from pg_class c where c.oid = 'public.official_post_likes'::regclass;
 
-    if (select prosecdef from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure) then
-        raise exception 'official_post_likes_rollback_refused:guard_not_security_invoker';
+    if not (select relrowsecurity and not relforcerowsecurity
+            from pg_class where oid = 'public.official_post_likes'::regclass) then
+        raise exception 'official_post_likes_rollback_refused:rls_state_mismatch';
     end if;
-
-    if to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null then
-        raise exception 'official_post_likes_rollback_refused:delete_helper_missing';
+    if (select pg_get_userbyid(relowner) from pg_class where oid = 'public.official_post_likes'::regclass) <> 'postgres' then
+        raise exception 'official_post_likes_rollback_refused:table_owner_mismatch';
     end if;
-
-    select policyname into v_unexpected_policy
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'official_post_likes'
-      and policyname not in (
-          'official_post_likes_public_read',
-          'official_post_likes_authenticated_insert_own',
-          'official_post_likes_authenticated_delete_own_or_admin'
-      )
-    limit 1;
-    if v_unexpected_policy is not null then
-        raise exception 'official_post_likes_rollback_refused:unexpected_policy:%', v_unexpected_policy;
+    if (select pg_get_userbyid(proowner) from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure) <> 'postgres'
+       or (select pg_get_userbyid(proowner) from pg_proc where oid = 'public.quata_official_like_delete_allowed(uuid)'::regprocedure) <> 'postgres' then
+        raise exception 'official_post_likes_rollback_refused:function_owner_mismatch';
     end if;
-
-    if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'official_post_likes') <> 3 then
-        raise exception 'official_post_likes_rollback_refused:expected_three_release_policies';
+    if v_policy_fingerprint is distinct from 'd046ca9fab6ca48f72bd0c5eb03981ac' then
+        raise exception 'official_post_likes_rollback_refused:policy_fingerprint_mismatch';
+    end if;
+    if v_guard_fingerprint is distinct from 'c9505e6d5b5fbb818c465cf84a3ebf56'
+       or v_guard_acl_fingerprint is distinct from 'd41d8cd98f00b204e9800998ecf8427e' then
+        raise exception 'official_post_likes_rollback_refused:guard_fingerprint_mismatch';
+    end if;
+    if v_helper_fingerprint is distinct from '139c75e8a54504468e1861557a681264'
+       or v_helper_acl_fingerprint is distinct from '5fc13192159b7c60c3a808895ae2c2c8' then
+        raise exception 'official_post_likes_rollback_refused:helper_fingerprint_mismatch';
+    end if;
+    if v_trigger_fingerprint is distinct from 'abba4fbe811d7c60f8973aafeb46c845' then
+        raise exception 'official_post_likes_rollback_refused:trigger_binding_mismatch';
+    end if;
+    if v_table_acl_fingerprint is distinct from '4d61a6652a1c035a2537b519a957c376' then
+        raise exception 'official_post_likes_rollback_refused:table_acl_mismatch';
     end if;
 end;
 $$;

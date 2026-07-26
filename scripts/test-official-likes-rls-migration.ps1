@@ -21,6 +21,20 @@ function Invoke-PsqlCommand([string]$sql) {
     & docker exec $postgres psql -U postgres -X -v ON_ERROR_STOP=1 -c $sql
     if ($LASTEXITCODE -ne 0) { throw "psql command failed" }
 }
+function Get-OfficialLikesCatalogFingerprint() {
+    $fingerprint = (& docker exec $postgres psql -U postgres -X -v ON_ERROR_STOP=1 -f /workspace/scripts/official-likes-rls-catalog-fingerprint.sql | Select-Object -Last 1).Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($fingerprint)) { throw "Could not fingerprint isolated Official likes catalog." }
+    return $fingerprint
+}
+function Assert-RollbackRefusesSameNameDrift() {
+    Invoke-PsqlCommand "alter policy official_post_likes_authenticated_insert_own on public.official_post_likes with check (true);"
+    $before = Get-OfficialLikesCatalogFingerprint
+    & docker exec $postgres psql -U postgres -X -v ON_ERROR_STOP=1 -f /workspace/supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql
+    if ($LASTEXITCODE -eq 0) { throw "Rollback accepted same-name policy drift." }
+    $after = Get-OfficialLikesCatalogFingerprint
+    if ($before -ne $after) { throw "Rejected rollback modified the drifted catalog." }
+    Invoke-PsqlFile "/workspace/scripts/official-likes-rls-drift-rollback-test.sql"
+}
 function Invoke-PostgrestContract([string]$phase, [string]$url) {
     $previousUrl = $env:OFFICIAL_LIKES_POSTGREST_URL
     $previousSecret = $env:OFFICIAL_LIKES_POSTGREST_JWT_SECRET
@@ -72,6 +86,15 @@ try {
     # Baseline proves the catalog we are going to restore, through PostgREST too.
     Invoke-PostgrestContract "baseline" $url
 
+    Invoke-PsqlFile "/workspace/supabase/migrations/20260726171002_official_post_likes_actor_guard.sql"
+    Invoke-PsqlCommand "notify pgrst, 'reload schema';"
+    Invoke-PsqlFile "/workspace/scripts/official-likes-rls-secured-fingerprint.sql"
+    Invoke-PsqlFile "/workspace/scripts/official-likes-rls-secured-catalog-test.sql"
+    Invoke-PostgrestContract "secured" $url
+
+    # A policy with the release's own name but another WITH CHECK must make the
+    # rollback refuse atomically; it must not be mistaken for this release.
+    Assert-RollbackRefusesSameNameDrift
     Invoke-PsqlFile "/workspace/supabase/migrations/20260726171002_official_post_likes_actor_guard.sql"
     Invoke-PsqlCommand "notify pgrst, 'reload schema';"
     Invoke-PsqlFile "/workspace/scripts/official-likes-rls-secured-catalog-test.sql"

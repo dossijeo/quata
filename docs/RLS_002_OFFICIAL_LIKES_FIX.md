@@ -63,11 +63,12 @@ la migración: RLS desactivado, cero políticas en la tabla, trigger
 `SECURITY DEFINER`, helper de DELETE ausente y grants `anon`/`authenticated`
 originales.
 
-Es un rollback *fail-closed*: exige que siga presente exclusivamente el conjunto
-de tres políticas de la release, RLS habilitado, guard `SECURITY INVOKER` y el
-helper correspondiente. Si detecta deriva de otra release, aborta la transacción
-sin tocar catálogo ni datos; se debe tomar un backup nuevo y preparar una
-reversión específica.
+Es un rollback *fail-closed*: exige el fingerprint exacto del estado de esta
+release: definición y ACL de guard/helper, dueño de tabla/funciones, binding del
+trigger, RLS sin `FORCE`, ACL de tabla y cada nombre/rol/`USING`/`WITH CHECK` de
+las tres políticas. Si detecta incluso una política con el mismo nombre pero
+otro cuerpo, aborta la transacción sin tocar catálogo ni datos; se debe tomar un
+backup nuevo y preparar una reversión específica.
 
 Para ensayar de forma aislada PostgreSQL **y** PostgREST:
 
@@ -82,6 +83,11 @@ El ensayo crea una fila previa y verifica esta secuencia completa:
    anónimo y likes propios funcionan;
 3. rollback: el catálogo vuelve al baseline y la fila previa sigue intacta;
 4. reapply: se repiten los ataques bloqueados a través de PostgREST.
+
+El mismo ensayo altera intencionadamente el `WITH CHECK` de una política con el
+mismo nombre, intenta el rollback y comprueba que falla atómicamente: conserva
+la fila previa y el fingerprint del catálogo drifted sin cambios. Después
+reaplica la migración y continúa el rollback/reapply positivo.
 
 En producción el operador debe tomar primero el snapshot de catálogo/datos del
 runbook de release y ejecutar los smokes de Feed anónimo y Android. El SQL no es
