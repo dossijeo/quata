@@ -19,6 +19,9 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies { }
         // The iOS Communities adapter opens only through the established Chat domain contract.
         // Keeping this dependency platform-scoped avoids coupling the shared Communities domain

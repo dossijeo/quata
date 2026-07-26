@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -107,7 +108,6 @@ private fun QuataWebApp(
 ) {
     val scope = rememberCoroutineScope()
     val navigation = rememberWebNavigation()
-    val capabilityRegistry = remember(runtimeConfiguration) { webFeatureCapabilityRegistry(runtimeConfiguration) }
     val authRepository = remember(runtimeConfiguration, platformServices.preferences) {
         WebAuthRepository(runtimeConfiguration, platformServices.preferences)
     }
@@ -167,6 +167,12 @@ private fun QuataWebApp(
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
+    val capabilityRegistry = remember(runtimeConfiguration, isSessionReady, currentUserId) {
+        webFeatureCapabilityRegistry(
+            configuration = runtimeConfiguration,
+            hasAuthenticatedSession = isSessionReady && currentUserId != null,
+        )
+    }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
         currentUserId = authRepository.sessionForAuthenticatedRequest()?.userId
@@ -364,8 +370,14 @@ private fun QuataWebApp(
     }
 }
 
-private val webNavigationItems = listOf(
+/**
+ * Every authenticated Web vertical that can persist data must be reachable from the normal
+ * navigation, not only through a hand-written hash URL. In particular, Composer performs a real
+ * authenticated PostgREST write and is intentionally exposed alongside the read routes.
+ */
+internal val webNavigationItems = listOf(
     QuataNavigationItem("", "Inicio", Icons.Filled.Home),
+    QuataNavigationItem("composer", "Publicar", Icons.Filled.AddCircle),
     QuataNavigationItem("chat", "Chats", Icons.AutoMirrored.Filled.Chat),
     QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
     QuataNavigationItem("profile", "Perfil", Icons.Filled.Person),

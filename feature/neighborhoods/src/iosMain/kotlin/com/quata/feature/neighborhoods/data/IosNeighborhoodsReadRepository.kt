@@ -3,6 +3,8 @@ package com.quata.feature.neighborhoods.data
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
+import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
+import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -45,7 +47,8 @@ data class IosNeighborhoodsRuntimeConfiguration(
  * It uses URLSession and the same renewable Keychain session as Auth/Feed/Chat. Directory and
  * profile reads are real PostgREST snapshots; there is deliberately no fabricated local data or
  * unverified realtime subscription. Follow, moderation and report mutations remain explicit
- * failures until their RLS contracts have iOS E2E evidence.
+ * failures until their RLS contracts have iOS E2E evidence. SB-07 additionally keeps every
+ * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosNeighborhoodsReadRepository(
@@ -71,9 +74,11 @@ class IosNeighborhoodsReadRepository(
             ).getOrThrow()
     }
 
-    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = unsupported("ios_communities_follow_not_verified")
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
+        CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
 
-    override suspend fun reportPost(postId: String): Result<Unit> = unsupported("ios_communities_report_not_verified")
+    override suspend fun reportPost(postId: String): Result<Unit> =
+        CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
@@ -90,7 +95,7 @@ class IosNeighborhoodsReadRepository(
         userId: String,
         isAdmin: Boolean,
         isOfficial: Boolean,
-    ): Result<NeighborhoodUser> = unsupported("ios_communities_roles_not_verified")
+    ): Result<NeighborhoodUser> = CommunityMutationSafety.blocked(CommunityMutationOperation.SetUserRoles)
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
 
@@ -166,8 +171,6 @@ class IosNeighborhoodsReadRepository(
     private suspend fun authenticatedSession() = authSession.currentSession()
         ?.takeIf { it.bearerToken.isNotBlank() && it.userId.isNotBlank() }
         ?: error("ios_communities_session_missing")
-
-    private fun <T> unsupported(reason: String): Result<T> = Result.failure(UnsupportedOperationException(reason))
 
     private companion object {
         const val DirectoryLimit = 500

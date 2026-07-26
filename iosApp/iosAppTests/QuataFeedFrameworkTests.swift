@@ -573,4 +573,17 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.first?.isViewLoaded == true)
         XCTAssertTrue(services.activeViewController() === router.children.first)
     }
+    func testRouteMenuRemainsAboveRouteController() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installCommunitiesFactory { UIViewController() }
+        router.showCommunities()
+
+        let routeButton = router.view.subviews.compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
+        }
+        XCTAssertNotNil(routeButton)
+        XCTAssertTrue(router.view.subviews.last === routeButton)
+    }
+
 }

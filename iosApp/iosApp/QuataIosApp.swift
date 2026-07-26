@@ -405,6 +405,25 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var composerFactory: (() -> UIViewController)?
     private var settingsFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
+    private var hasAuthenticatedSession = false
+    private lazy var routeMenuButton: UIButton = {
+        var configuration = UIButton.Configuration.filled()
+        configuration.image = UIImage(systemName: "line.3.horizontal")
+        configuration.cornerStyle = .capsule
+        configuration.baseForegroundColor = .white
+        configuration.baseBackgroundColor = .systemOrange
+        let button = UIButton(configuration: configuration)
+        button.accessibilityIdentifier = "quata-ios-authenticated-route-menu"
+        button.accessibilityLabel = NSLocalizedString(
+            "ios_authenticated_route_menu",
+            value: "Abrir secciones",
+            comment: "",
+        )
+        button.addTarget(self, action: #selector(presentAuthenticatedRouteMenu), for: .touchUpInside)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.isHidden = true
+        return button
+    }()
 
     private enum PendingRoute {
         case feed(postId: String?)
@@ -429,10 +448,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     override func viewDidLoad() {
         super.viewDidLoad()
         showMigrationStatus()
+        view.addSubview(routeMenuButton)
+        NSLayoutConstraint.activate([
+            routeMenuButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+        ])
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
         feedFactory = { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+        hasAuthenticatedSession = true
+        routeMenuButton.isHidden = false
         renderPendingRouteIfPossible()
         if pendingRoute == nil {
             showFeed(postId: nil)
@@ -444,6 +470,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
+        hasAuthenticatedSession = false
+        routeMenuButton.isHidden = true
         show(
             IosAuthHostKt.QuataAuthViewController(dependencies: dependencies),
             accessibilityIdentifier: "quata-ios-auth-host",
@@ -570,6 +598,41 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
+    @objc private func presentAuthenticatedRouteMenu() {
+        guard hasAuthenticatedSession else { return }
+        let sheet = UIAlertController(
+            title: NSLocalizedString("ios_authenticated_route_menu_title", value: "Quata", comment: ""),
+            message: nil,
+            preferredStyle: .actionSheet,
+        )
+        if feedFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Inicio", style: .default) { [weak self] _ in self?.showFeed(postId: nil) })
+        }
+        if chatFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Conversaciones", style: .default) { [weak self] _ in self?.openChatList() })
+        }
+        if officialFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Oficial", style: .default) { [weak self] _ in self?.showOfficial(postId: nil) })
+        }
+        if notificationsFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Notificaciones", style: .default) { [weak self] _ in self?.showNotifications() })
+        }
+        if profileSosFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Perfil y SOS", style: .default) { [weak self] _ in self?.showProfileSos() })
+        }
+        if communitiesFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Comunidades", style: .default) { [weak self] _ in self?.showCommunities() })
+        }
+        if composerFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Crear publicación", style: .default) { [weak self] _ in self?.showComposer() })
+        }
+        if settingsFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Ajustes", style: .default) { [weak self] _ in self?.showSettings() })
+        }
+        sheet.addAction(UIAlertAction(title: "Cerrar", style: .cancel))
+        present(sheet, animated: true)
+    }
+
     private func showMigrationStatus() {
         show(
             QuataFeedViewControllerKt.QuataIosMigrationStatusViewController(),
@@ -654,6 +717,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.isAccessibilityElement = true
         controller.view.accessibilityLabel = accessibilityLabel
         view.addSubview(controller.view)
+        // Feature hosts fill the router bounds. Keep the authenticated route affordance above
+        // the newly inserted Compose view; otherwise it remains in the hierarchy but cannot be
+        // seen or tapped after the first route transition.
+        view.bringSubviewToFront(routeMenuButton)
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 

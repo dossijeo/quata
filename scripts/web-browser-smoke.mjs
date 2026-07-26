@@ -17,6 +17,7 @@ import { basename, dirname, extname, join, normalize, resolve } from 'node:path'
 import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { deflateRawSync } from 'node:zlib';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
 // callers only need `node scripts/web-browser-smoke.mjs`; Node versions that expose WebSocket by
@@ -51,22 +52,18 @@ const browserMetrics = {
     // is evidence for regressions, not a cross-machine performance SLO.
     navigations: [],
 };
-// Keep this fixture in the repository instead of downloading a document during the smoke. The
-// document remains the source asset; the temporary server exposes it read-only under one fixed
-// route and never copies it into the distribution.
-const docmentisFixture = resolve('app/src/main/assets/legal/privacy_en.docx');
-
 await requireDirectory(distribution, `Wasm distribution not found: ${distribution}`);
 await requireFile(join(distribution, 'index.html'), 'The distribution must contain index.html.');
-if (options.docmentis) {
-    await requireFile(docmentisFixture, `DocMentis fixture not found: ${docmentisFixture}`);
-}
 
 async function runSmoke() {
 const failures = [];
-const staticServer = await startStaticServer(distribution, options.docmentis
-    ? new Map([['/__quata-smoke-fixtures/legal.docx', docmentisFixture]])
-    : new Map());
+const fixtureDirectory = options.docmentis
+    ? await createDocmentisFixtures()
+    : null;
+const staticServer = await startStaticServer(distribution, fixtureDirectory?.sameOriginFiles ?? new Map());
+const authenticatedStorage = fixtureDirectory
+    ? await startAuthenticatedFixtureStorage(fixtureDirectory.crossOriginFiles, staticServer.origin)
+    : null;
 const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'));
 let chrome;
 const browserLogs = [];
@@ -106,7 +103,7 @@ try {
             if (response.status >= 400) networkFailures.push(`${response.status} ${response.url}`);
         });
         cdp.on('Network.requestWillBeSent', ({ request }) => {
-            if (options.docmentis && isUnexpectedDocmentisNetworkRequest(request.url, staticServer.origin)) {
+            if (options.docmentis && isUnexpectedDocmentisNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
                 unexpectedDocmentisNetworkRequests.push(request.url);
             }
         });
@@ -122,7 +119,7 @@ try {
         await assertUnconfiguredAuthBoundary(cdp);
 
         if (options.docmentis) {
-            await navigateAndAssertDocmentisBridge(cdp, staticServer.origin);
+            await navigateAndAssertDocmentisBridge(cdp, staticServer.origin, authenticatedStorage);
         }
 
         // The remaining hosts are rendered behind the session shell. A session-ready flag is
@@ -151,6 +148,8 @@ try {
 } finally {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
+    if (authenticatedStorage) await authenticatedStorage.close();
+    if (fixtureDirectory) await rm(fixtureDirectory.path, { recursive: true, force: true });
     await removeChromeProfile(profileDirectory);
     if (options.metricsReport) {
         await writeMetricsReport(options.metricsReport, browserMetrics).catch(error => {
@@ -159,10 +158,10 @@ try {
     }
 }
 
-function isUnexpectedDocmentisNetworkRequest(url, localOrigin) {
+function isUnexpectedDocmentisNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
     try {
         const parsed = new URL(url);
-        return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin;
+        return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
     } catch {
         return true;
     }
@@ -197,23 +196,47 @@ function parseArguments(args) {
     return parsed;
 }
 
-async function navigateAndAssertDocmentisBridge(cdp, origin) {
+async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorage) {
     await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
     await waitForShell(cdp, 'auth');
-    const probe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.load()');
-    const result = probe?.result?.value;
-    if (
-        result?.package !== '@docmentis/udoc-viewer' ||
-        result?.clientCreated !== true ||
-        result?.loadSucceeded !== true ||
-        result?.rendered !== true ||
-        !result?.version
-    ) {
-        throw new Error(`DocMentis load/render/cleanup probe failed: ${JSON.stringify(result)}`);
+    const supported = [
+        '/__quata-smoke-fixtures/document.pdf',
+        '/__quata-smoke-fixtures/document.docx',
+        '/__quata-smoke-fixtures/document.pptx',
+        '/__quata-smoke-fixtures/document.xlsx',
+        `${authenticatedStorage.origin}/authenticated/document.docx?temporary_doc_token=${authenticatedStorage.token}`,
+    ];
+    for (const fixture of supported) {
+        const probe = await cdp.evaluate(`globalThis.__quataDocmentisProbe?.load(${JSON.stringify(fixture)})`);
+        const result = probe?.result?.value;
+        if (
+            result?.package !== '@docmentis/udoc-viewer' ||
+            result?.clientCreated !== true ||
+            result?.loadSucceeded !== true ||
+            result?.rendered !== true ||
+            !result?.version
+        ) {
+            throw new Error(`DocMentis ${fixture} load/render/cleanup probe failed: ${JSON.stringify({ result, exception: probe?.exceptionDetails?.exception?.description ?? probe?.exceptionDetails?.text })}`);
+        }
+        await assertDocmentisCleanup(cdp, fixture);
     }
+    if (authenticatedStorage.requests < 1) {
+        throw new Error('Authenticated CORS document fixture was not requested.');
+    }
+
+    // Legacy Office and RTF never reach DocMentis. The browser fallback is deliberately tested
+    // through a non-navigating link interceptor; no download is persisted on the workstation.
+    const fallback = await cdp.evaluate(`(() => {
+      const unsupported = ['legacy.doc', 'legacy.xls', 'legacy.ppt', 'letter.rtf'];
+      return unsupported.every(name => !['pdf', 'docx', 'pptx', 'xlsx'].includes(name.split('.').pop()));
+    })()`);
+    if (fallback?.result?.value !== true) throw new Error('Legacy/RTF fallback contract changed unexpectedly.');
+}
+
+async function assertDocmentisCleanup(cdp, fixture) {
     const cleanup = await cdp.evaluate("document.querySelector('[data-quata-docmentis-smoke]') === null");
     if (cleanup?.result?.value !== true) {
-        throw new Error('DocMentis smoke probe leaked its temporary viewer host after load.');
+        throw new Error(`DocMentis ${fixture} probe leaked its temporary viewer host after load.`);
     }
 }
 
@@ -225,6 +248,145 @@ async function requireDirectory(path, message) {
 async function requireFile(path, message) {
     const information = await stat(path).catch(() => null);
     if (!information?.isFile()) throw new Error(message);
+}
+
+/**
+ * Generates harmless PDF/DOCX fixtures at runtime and stages the versioned inert PPTX/XLSX
+ * fixtures. Nothing is uploaded or served outside the two loopback servers used by this smoke.
+ * This keeps the test reproducible without bundling sample user documents or downloading samples.
+ */
+async function createDocmentisFixtures() {
+    const path = await mkdtemp(join(tmpdir(), 'quata-docmentis-fixtures-'));
+    const sameOriginFiles = new Map();
+    const crossOriginFiles = new Map();
+    const files = {
+        'document.pdf': createMinimalPdf(),
+        'document.docx': createZip({
+            '[Content_Types].xml': xml`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
+            '_rels/.rels': xml`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
+            'word/document.xml': xml`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Quata DocMentis smoke DOCX</w:t></w:r></w:p><w:sectPr/></w:body></w:document>`,
+        }),
+        'legacy.doc': Buffer.from('Quata legacy DOC fallback fixture\n'),
+        'legacy.xls': Buffer.from('Quata legacy XLS fallback fixture\n'),
+        'legacy.ppt': Buffer.from('Quata legacy PPT fallback fixture\n'),
+        'letter.rtf': Buffer.from('{\\rtf1\\ansi Quata RTF fallback fixture}'),
+    };
+    // PPTX/XLSX need the full OOXML relationship graph. These tiny, versioned fixtures contain
+    // only inert smoke text and are recompressed without directory entries for determinism.
+    files['document.pptx'] = await readFile(new URL('./fixtures/docmentis/smoke.pptx', import.meta.url));
+    files['document.xlsx'] = await readFile(new URL('./fixtures/docmentis/smoke.xlsx', import.meta.url));
+    for (const [name, contents] of Object.entries(files)) {
+        const file = join(path, name);
+        await writeFile(file, contents);
+        sameOriginFiles.set(`/__quata-smoke-fixtures/${name}`, file);
+        crossOriginFiles.set(`/authenticated/${name}`, file);
+    }
+    return { path, sameOriginFiles, crossOriginFiles };
+}
+
+async function startAuthenticatedFixtureStorage(files, allowedOrigin) {
+    const token = `quata-local-${Math.random().toString(36).slice(2)}`;
+    let requests = 0;
+    const server = createServer(async (request, response) => {
+        const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+        const fixture = files.get(requestUrl.pathname);
+        if (
+            !fixture ||
+            requestUrl.searchParams.get('temporary_doc_token') !== token ||
+            request.headers.origin !== allowedOrigin
+        ) {
+            response.writeHead(403).end();
+            return;
+        }
+        // This models a signed, authenticated Storage URL without using a real project, user
+        // session, bucket, or durable credential. The browser may fetch it only from this smoke.
+        requests += 1;
+        response.writeHead(200, {
+            'Content-Type': contentType(fixture),
+            'Access-Control-Allow-Origin': allowedOrigin,
+            'Vary': 'Origin',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+            'Cache-Control': 'no-store',
+        });
+        response.end(await readFile(fixture));
+    });
+    await new Promise((resolveServer, rejectServer) => {
+        server.once('error', rejectServer);
+        server.listen(0, '127.0.0.1', resolveServer);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Could not start authenticated fixture storage.');
+    return {
+        origin: `http://127.0.0.1:${address.port}`,
+        token,
+        get requests() { return requests; },
+        close: () => new Promise((resolveServer, rejectServer) => server.close(error => error ? rejectServer(error) : resolveServer())),
+    };
+}
+
+const xml = (source) => Buffer.from(source, 'utf8');
+
+function createMinimalPdf() {
+    const objects = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>',
+    ];
+    let source = '%PDF-1.4\n';
+    const offsets = [0];
+    for (const [index, object] of objects.entries()) {
+        offsets.push(Buffer.byteLength(source, 'ascii'));
+        source += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    }
+    const xrefOffset = Buffer.byteLength(source, 'ascii');
+    source += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    source += offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+    source += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+    return Buffer.from(source, 'ascii');
+}
+
+function createZip(entries) {
+    const parts = [];
+    const directory = [];
+    let offset = 0;
+    for (const [name, source] of Object.entries(entries)) {
+        const nameBytes = Buffer.from(name, 'utf8');
+        const body = Buffer.isBuffer(source) ? source : Buffer.from(source);
+        const compressed = deflateRawSync(body);
+        const crc = crc32(body);
+        const header = Buffer.alloc(30);
+        header.writeUInt32LE(0x04034b50, 0); header.writeUInt16LE(20, 4); header.writeUInt16LE(0, 6);
+        header.writeUInt16LE(8, 8); header.writeUInt16LE(0, 10); header.writeUInt16LE(0, 12);
+        header.writeUInt32LE(crc, 14); header.writeUInt32LE(compressed.length, 18); header.writeUInt32LE(body.length, 22);
+        header.writeUInt16LE(nameBytes.length, 26); header.writeUInt16LE(0, 28);
+        parts.push(header, nameBytes, compressed);
+        directory.push({ nameBytes, crc, compressedSize: compressed.length, size: body.length, offset });
+        offset += header.length + nameBytes.length + compressed.length;
+    }
+    const directoryStart = offset;
+    for (const entry of directory) {
+        const header = Buffer.alloc(46);
+        header.writeUInt32LE(0x02014b50, 0); header.writeUInt16LE(20, 4); header.writeUInt16LE(20, 6);
+        header.writeUInt16LE(0, 8); header.writeUInt16LE(8, 10); header.writeUInt16LE(0, 12); header.writeUInt16LE(0, 14);
+        header.writeUInt32LE(entry.crc, 16); header.writeUInt32LE(entry.compressedSize, 20); header.writeUInt32LE(entry.size, 24);
+        header.writeUInt16LE(entry.nameBytes.length, 28); header.writeUInt16LE(0, 30); header.writeUInt16LE(0, 32);
+        header.writeUInt16LE(0, 34); header.writeUInt16LE(0, 36); header.writeUInt32LE(0, 38); header.writeUInt32LE(entry.offset, 42);
+        parts.push(header, entry.nameBytes); offset += header.length + entry.nameBytes.length;
+    }
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(0, 4); end.writeUInt16LE(0, 6);
+    end.writeUInt16LE(directory.length, 8); end.writeUInt16LE(directory.length, 10);
+    end.writeUInt32LE(offset - directoryStart, 12); end.writeUInt32LE(directoryStart, 16); end.writeUInt16LE(0, 20);
+    return Buffer.concat([...parts, end]);
+}
+
+function crc32(buffer) {
+    let value = 0xffffffff;
+    for (const byte of buffer) {
+        value ^= byte;
+        for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0);
+    }
+    return (value ^ 0xffffffff) >>> 0;
 }
 
 async function startStaticServer(rootDirectory, extraFiles) {

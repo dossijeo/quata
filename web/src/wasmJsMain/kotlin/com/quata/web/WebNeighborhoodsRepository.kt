@@ -3,6 +3,8 @@
 package com.quata.web
 
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
+import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
+import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -25,7 +27,8 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * It deliberately uses the same authenticated PostgREST client as the other Web repositories.
  * Community chat, follow and moderation writes are not exposed by the browser transport yet, so
- * they fail explicitly instead of inventing a local-only community state.
+ * they fail explicitly instead of inventing a local-only community state. SB-07 keeps every
+ * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
  */
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,
@@ -43,9 +46,11 @@ class WebNeighborhoodsRepository(
 
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = unsupported("web_community_chat_not_implemented")
 
-    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = unsupported("web_community_follow_not_implemented")
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
+        CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
 
-    override suspend fun reportPost(postId: String): Result<Unit> = unsupported("web_community_report_not_implemented")
+    override suspend fun reportPost(postId: String): Result<Unit> =
+        CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
 
     override suspend fun openPrivateChat(userId: String): Result<String> = unsupported("web_community_private_chat_not_implemented")
 
@@ -55,7 +60,7 @@ class WebNeighborhoodsRepository(
     }.getOrDefault(false)
 
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
-        unsupported("web_community_roles_not_implemented")
+        CommunityMutationSafety.blocked(CommunityMutationOperation.SetUserRoles)
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
 
