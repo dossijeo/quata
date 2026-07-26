@@ -245,6 +245,7 @@ Antes de abrir la ventana:
 3. refrescar snapshot read-only, baseline 18/44, Web y Android API-37;
 4. repetir el dry-run serial y archivar hashes/fingerprints;
 5. designar una sola autoridad y una sola terminal ejecutora;
-6. obtener autorización explícita separada para apply-001 y apply-002;
+6. obtener autorización explícita separada para apply-001-forward (171005) y
+   apply-002;
 7. cerrar cada paso con postflight y gates antes de avanzar;
 8. mantener 003/004 y las 29 históricas fuera de toda ejecución.
