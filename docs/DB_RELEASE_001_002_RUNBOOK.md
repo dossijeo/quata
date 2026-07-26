@@ -15,6 +15,11 @@ SQL y rollbacks por SHA-256.
 La decisión permanece **NO-GO para apply** hasta autorización explícita del
 release manager. El dry-run es read-only.
 
+Estado remoto actual: 171001 está en ledger porque fue aplicada y después
+revertida; su catálogo vulnerable quedó restaurado. 171005 y 002 están
+ausentes. Por tanto `apply-001` ya no es una acción válida: la única nueva
+contención posible es `apply-001-forward` para 171005.
+
 ### Autoridad y excepción limitada
 
 El release manager es la única autoridad para abrir la ventana y autorizar por
@@ -87,17 +92,17 @@ TLS de la URL y fuerza CA explícita, hostname y `rejectUnauthorized=true`.
 Registrar de ese informe los fingerprints previos de 001 y 002. No sustituir
 este comando por `supabase db push --dry-run`.
 
-## Apply 001
+## Apply forward 001 (171005)
 
 Sólo tras autorización explícita:
 
 ```powershell
 .\scripts\run-security-release-serial-executor.ps1 `
-  -Action apply-001 `
+  -Action apply-001-forward `
   -DbUrlFile $dbUrlFile `
   -TlsCaFile $tlsCaFile `
-  -ExpectedPreconditionSha256 '<fingerprint 001 del dry-run>' `
-  -Output build-reports/security-release/apply-001.json
+  -ExpectedPreconditionSha256 '<fingerprint 171005 del dry-run>' `
+  -Output build-reports/security-release/apply-001-forward.json
 ```
 
 El ejecutor toma advisory lock y locks de tabla/ledger, vuelve a comprobar
@@ -112,7 +117,7 @@ Después deben pasar:
   -Phase postflight `
   -Output build-reports/db-release-safety/post-001.json `
   -DbUrlFile $dbUrlFile `
-  -ExpectedMigration 20260726171001
+  -ExpectedMigration 20260726171001,20260726171005
 
 .\scripts\run-backend-compatibility-gates.ps1 `
   -DbUrlFile $dbUrlFile `
@@ -124,9 +129,23 @@ Después deben pasar:
 ```
 
 No avanzar si falla ledger, catálogo 18/44, Web, Android, SB-07 o limpieza.
-Construir el JSON de gate 001 según
+Antes del gate completo debe pasar `preflight-auth` y después:
+
+```powershell
+$env:QUATA_SB07_PRODUCTION_GATE_APPROVED = 'approved_temporary_fixture_only'
+$env:QUATA_SB07_PRODUCTION_GATE_ALLOW_MUTATION = 'approved_public_postgrest_mutations'
+.\scripts\run-supabase-e2e-sb07-post-forward.ps1 `
+  -Mode full `
+  -DbUrlFile $dbUrlFile `
+  -TlsCaFile $tlsCaFile `
+  -RecoveryFile '<ruta externa al repo con ACL exclusiva>' `
+  -Output build-reports/supabase/sb07-post-forward.json
+```
+
+Construir el JSON de gate 171005 según
 `docs/SERIAL_SECURITY_RELEASE_EXECUTOR.md`; debe estar anclado a commit,
-snapshot, destino, precondición y hashes de todos los informes.
+snapshot, destino, precondición, `postconditionSha256` de 171005 y hashes de
+todos los informes.
 
 ## Apply 002
 
@@ -164,15 +183,16 @@ antes. Nunca ejecutar SQL manual, `migration repair`, `db push`, un rollback de
   -ExpectedPreconditionSha256 '<fingerprint actual 002>'
 ```
 
-Para 001 se usa el mismo comando con `-Action rollback-001`. El ledger es
-histórico y se conserva. Tras cualquier rollback se repiten postflight y todos
-los gates; una corrección posterior requiere un timestamp nuevo.
+Para la forward se usa el mismo comando con `-Action rollback-001-forward`.
+Los ledgers 171001/171005 son históricos y se conservan. Tras ese rollback, una
+nueva contención requiere otra versión forward; nunca se reaplica 171005.
 
 ## Cierre
 
 El release sólo se declara completado cuando:
 
-- ledger contiene 001 y 002 exactamente una vez con fuente/nombre allowlisted;
+- ledger contiene 171001, 171005 y 002 exactamente una vez con
+  fuente/nombre allowlisted;
 - informes apply y postflight están encadenados y archivados;
 - todos los gates y hard-cleanup terminan en verde;
 - no quedan cuentas ni filas E2E temporales;
