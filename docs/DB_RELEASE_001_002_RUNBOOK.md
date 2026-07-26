@@ -15,10 +15,10 @@ SQL y rollbacks por SHA-256.
 La decisión permanece **NO-GO para apply** hasta autorización explícita del
 release manager. El dry-run es read-only.
 
-Estado remoto actual: 171001 está en ledger porque fue aplicada y después
-revertida; su catálogo vulnerable quedó restaurado. 171005 y 002 están
-ausentes. Por tanto `apply-001` ya no es una acción válida: la única nueva
-contención posible es `apply-001-forward` para 171005.
+Estado remoto actual: 171001 y 171005 están en ledger byte-exacto; el catálogo
+de comentarios está hardened y 002 está ausente. Ni `apply-001` ni
+`apply-001-forward` son ya acciones válidas. Sólo 002 puede abrir una futura
+ventana, siempre con autorización explícita separada y gates post-171005.
 
 ### Autoridad y excepción limitada
 
@@ -52,8 +52,8 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
 - corte Git inmutable e independiente revisado;
 - backup lógico Full y drill de alcance verificados;
 - hashes de la allowlist sin cambios;
-- dry-run remoto con `status=passed`, 171001 `ledger=present` byte-exacto,
-  171005/002 `ledger=absent` y fingerprints previos archivados;
+- dry-run remoto con `status=passed`, 171001/171005 `ledger=present`
+  byte-exacto, 002 `ledger=absent` y fingerprints archivados;
 - baseline y compatibilidad completos en verde;
 - evidencia encadenada de postflight 171005 vigente antes de 002;
 - una única terminal/persona ejecutora;
@@ -89,26 +89,15 @@ TLS de la URL y fuerza CA explícita, hostname y `rejectUnauthorized=true`.
   -Output build-reports/security-release/remote-dry-run.json
 ```
 
-Registrar de ese informe los fingerprints previos de 001 y 002. No sustituir
-este comando por `supabase db push --dry-run`.
+Registrar los fingerprints de 171005 y 002 y verificar el ledger exacto. No
+sustituir este comando por `supabase db push --dry-run`.
 
-## Apply forward 001 (171005)
+## Forward 001 (171005) completada
 
-Sólo tras autorización explícita:
-
-```powershell
-.\scripts\run-security-release-serial-executor.ps1 `
-  -Action apply-001-forward `
-  -DbUrlFile $dbUrlFile `
-  -TlsCaFile $tlsCaFile `
-  -ExpectedPreconditionSha256 '<fingerprint 171005 del dry-run>' `
-  -Output build-reports/security-release/apply-001-forward.json
-```
-
-El ejecutor toma advisory lock y locks de tabla/ledger, vuelve a comprobar
-ledger y catálogo dentro de una transacción serializable, aplica únicamente el
-SQL allowlisted, valida el estado efectivo de RLS/policies/grants y escribe el
-ledger en la misma transacción.
+171005 ya se aplicó atómicamente con el executor allowlisted. Emitió
+`postconditionSha256`, insertó su ledger exacto y pasó el postflight compuesto.
+No volver a ejecutar `apply-001-forward`: el executor debe rechazarla por
+ledger duplicado.
 
 Después deben pasar:
 
@@ -158,7 +147,7 @@ todos los informes.
 
 ## Apply 002
 
-Sólo tras autorización explícita y gate 001 válido:
+Sólo tras autorización explícita separada y gate 171005 válido:
 
 ```powershell
 .\scripts\run-security-release-serial-executor.ps1 `

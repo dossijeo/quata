@@ -2,12 +2,12 @@
 
 ## Decisión
 
-**NO-GO para una nueva aplicación.** RLS-001 (`20260726171001`) se aplicó con
-autorización, pero el gate SB-07 falló antes de sus mutaciones de actor por el
-orden incorrecto de un fixture de autenticación. Se ejecutó inmediatamente su
-rollback allowlisted. El ledger histórico 171001 se conserva y el catálogo
-volvió byte-semánticamente al estado vulnerable previo. No se aplicó 002, no se
-usó `migration repair` y no se desplegaron Edge Functions.
+**NO-GO para 002 sin autorización separada.** RLS-001
+(`20260726171001`) se aplicó y revirtió; después se aplicó con autorización la
+forward `20260726171005`. Su postflight funcional pasó con evidencia SB-07
+compuesta. Los ledgers 171001/171005 se conservan y el catálogo está hardened.
+No se aplicó 002, no se usó `migration repair` y no se desplegaron Edge
+Functions.
 
 El snapshot read-only terminó en `passed` con fingerprint:
 
@@ -21,8 +21,8 @@ evidencia de ejecución, no fuente.
 
 - corte de release actual: `origin/codex/security-release-001-002@d2e7551b`;
 - servidor: PostgreSQL 17.6 mediante TLS `verify-full` y CA explícita;
-- ledger remoto: anclas `20260628`, `20260723` y RLS-001
-  `20260726171001/community_comments_delete_rls`;
+- ledger remoto: anclas `20260628`, `20260723`, RLS-001 171001 y su forward
+  `20260726171005/community_comments_reapply_rls`;
 - historial local: 34 SQL (31 históricos + 001/002/forward-001), con siete prefijos CLI
   históricos repetidos, 29 ficheros históricos sin fila remota y dos
   candidatas no desplegadas;
@@ -215,18 +215,18 @@ Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
 - el ejecutor serial allowlisted pasó en PostgreSQL 17: atomicidad,
   concurrencia externa de tablas y funciones, ledger exacto, orden,
   postcondiciones efectivas y rollback 001/002;
-- el dry-run remoto post-rollback terminó `passed`; 001 está presente con
-  fuente/nombre exactos, 171005 y 002 están ausentes, y el fingerprint de
-  `community_comments` coincide con el estado previo vulnerable;
+- el dry-run remoto post-forward terminó `passed`; 171001/171005 están
+  presentes con fuente/nombre exactos, 002 está ausente y el fingerprint de
+  `community_comments` coincide con el estado hardened;
 - la identidad del destino se deriva del usuario/project-ref normalizado y se
   ancla a `pg_control_system().system_identifier`, OID/base y rol consultados,
   conservando únicamente el SHA-256;
 - el ejecutor no enumera ni aplica el backlog histórico y el runbook prohíbe
   `supabase db push`.
 
-Los informes permanecen ignorados bajo `build-reports/`. Cualquier nueva
-contención debe usar la forward allowlisted `20260726171005`; 171001 no puede
-reaplicarse ni repararse.
+Los informes permanecen ignorados bajo `build-reports/`. Ni 171001 ni 171005
+pueden reaplicarse o repararse. Un rollback futuro de 171005 exigiría otra
+versión forward nueva.
 
 ## Excepción de gobernanza y condiciones para la ventana
 

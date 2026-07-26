@@ -13,17 +13,9 @@ Usar el wrapper para que la URL nunca llegue a argumentos ni a informes:
   -Output build-reports/security-release/001-preflight.json
 ```
 
-El informe debe mostrar 171001 `present` con ledger byte-exacto y 171005/002
-`absent`. Devuelve un `preconditionSha256` por migración. Antes de aplicar la
-forward, comparar y copiar manualmente el hash de 171005:
-
-```powershell
-.\scripts\run-security-release-serial-executor.ps1 -Action apply-001-forward `
-  -DbUrlFile C:\Users\PC\.quata-supabase-db-url.txt `
-  -TlsCaFile C:\Users\PC\.quata-supabase-pooler-ca.pem `
-  -ExpectedPreconditionSha256 '<hash precondición de 171005>' `
-  -Output build-reports/security-release/001-forward-apply.json
-```
+El informe actual debe mostrar 171001/171005 `present` con ledger byte-exacto y
+002 `absent`. 171005 ya fue aplicada y no debe reaplicarse; conservar su
+`postconditionSha256` emitido para anclar los gates de 002.
 
 Tras los gates externos post-forward 171005, crear una evidencia JSON revisada con el
 esquema `1`. Debe incluir el `releaseCommit` congelado (40 hex), el
