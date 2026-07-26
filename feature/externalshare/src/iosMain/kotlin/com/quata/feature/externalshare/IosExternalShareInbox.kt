@@ -3,7 +3,7 @@ package com.quata.feature.externalshare
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDate
+import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSLock
@@ -32,7 +32,7 @@ class IosExternalShareInbox(
     private val appGroupIdentifier: String = QuataExternalShareAppGroup,
     private val fileManager: NSFileManager = NSFileManager.defaultManager,
     private val nowEpochMillis: () -> Long = {
-        (NSDate().timeIntervalSince1970 * 1_000.0).toLong()
+        ((CFAbsoluteTimeGetCurrent() + AppleEpochOffsetSeconds) * 1_000.0).toLong()
     },
     private val ownerToken: String = NSUUID.UUID().UUIDString.replace("-", "").lowercase(),
 ) {
@@ -213,3 +213,5 @@ fun createIosExternalShareRuntimeBootstrap(
     authSession: IosRenewableAuthSession,
     chatRepository: ChatRepository,
 ): IosExternalShareRuntimeBootstrap = IosExternalShareRuntimeBootstrap(authSession, chatRepository)
+
+private const val AppleEpochOffsetSeconds = 978_307_200.0
