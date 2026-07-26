@@ -4,6 +4,9 @@
 -- clients still depend on those legacy policies; the browser registration bundle calls only the
 -- quata-web-register Edge Function with a publishable key.
 
+begin;
+
+-- Release precondition: 20260726171003 community_profiles actor guard is applied first.
 alter table public.community_profiles
     add column if not exists secret_answer_hash text;
 
@@ -222,3 +225,5 @@ comment on table public.web_registration_rate_limits is
     'Server-only fixed-window anti-abuse counters for Web registration.';
 comment on function public.quata_claim_web_registration(text, text, text, text, text) is
     'Atomically applies registration rate limits and claims/resumes an idempotent saga.';
+
+commit;

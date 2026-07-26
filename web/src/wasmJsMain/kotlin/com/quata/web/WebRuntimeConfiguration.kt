@@ -10,6 +10,7 @@ data class WebRuntimeConfiguration(
     val supabaseUrl: String? = null,
     val supabasePublishableKey: String? = null,
     val releaseVersionCode: Long? = null,
+    val webRegistrationEnabled: Boolean = false,
 ) {
     val isBackendConfigured: Boolean
         get() = !supabaseUrl.isNullOrBlank() && !supabasePublishableKey.isNullOrBlank()
@@ -36,6 +37,7 @@ data class WebRuntimeConfiguration(
             supabaseUrl = document.metaContent("quata-supabase-url"),
             supabasePublishableKey = document.metaContent("quata-supabase-publishable-key"),
             releaseVersionCode = document.metaContent("quata-release-version-code")?.toLongOrNull(),
+            webRegistrationEnabled = document.metaContent("quata-web-registration-enabled") == "true",
         )
     }
 }

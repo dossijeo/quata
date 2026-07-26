@@ -26,7 +26,7 @@ fun WebLoginHost(
         recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
         recoveryQuestionLoading = catalog.recoveryQuestionLoading,
         passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-        registerStrings = RegisterFormStrings(
+        registerStrings = if (runtimeConfiguration.webRegistrationEnabled) RegisterFormStrings(
             displayName = catalog.register.displayName,
             neighborhood = catalog.register.neighborhood,
             phone = catalog.login.phone,
@@ -36,9 +36,9 @@ fun WebLoginHost(
             creating = catalog.register.creating,
             createAccount = catalog.register.createAccount,
             back = catalog.register.back,
-        ),
+        ) else null,
         registerSubtitle = catalog.register.title,
-        registerUnavailableMessage = null,
+        registerUnavailableMessage = if (runtimeConfiguration.webRegistrationEnabled) null else "El registro web aún no está habilitado.",
         runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")

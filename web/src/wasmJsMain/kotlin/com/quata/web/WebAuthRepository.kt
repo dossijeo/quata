@@ -32,8 +32,6 @@ class WebAuthRepository(
 ) : AuthRepository {
     private val refreshMutex = Mutex()
     private var activeSession: WebLocalSession? = null
-    private var pendingRegistrationIdentity: String? = null
-    private var pendingRegistrationKey: String? = null
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
@@ -94,6 +92,7 @@ class WebAuthRepository(
     }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
+        require(configuration.webRegistrationEnabled) { "web_registration_unavailable" }
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
         val countryCode = request.countryCode.filter(Char::isDigit)
         val phoneLocal = request.phone.filter(Char::isDigit)
@@ -109,8 +108,8 @@ class WebAuthRepository(
             ).toString(),
         )
         acceptAuthenticationPayload(payload).also {
-            pendingRegistrationIdentity = null
-            pendingRegistrationKey = null
+            preferences.remove(PendingRegistrationIdentity)
+            preferences.remove(PendingRegistrationKey)
         }
     }
 
@@ -239,16 +238,21 @@ class WebAuthRepository(
         return session
     }
 
-    private fun registrationKeyFor(identity: String): String {
-        if (pendingRegistrationIdentity == identity && !pendingRegistrationKey.isNullOrBlank()) {
-            return checkNotNull(pendingRegistrationKey)
+    private suspend fun registrationKeyFor(identity: String): String {
+        val storedIdentity = preferences.getString(PendingRegistrationIdentity)
+        val storedKey = preferences.getString(PendingRegistrationKey)
+        if (storedIdentity == identity && !storedKey.isNullOrBlank()) {
+            return storedKey
         }
         return newWebRegistrationIdempotencyKey().also {
-            pendingRegistrationIdentity = identity
-            pendingRegistrationKey = it
+            preferences.putString(PendingRegistrationIdentity, identity)
+            preferences.putString(PendingRegistrationKey, it)
         }
     }
 }
+
+private const val PendingRegistrationIdentity = "web.auth.registration.identity"
+private const val PendingRegistrationKey = "web.auth.registration.idempotency_key"
 
 data class WebPushCredentials(
     val accessToken: String,

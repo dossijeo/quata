@@ -12,6 +12,7 @@ import {
 } from "../_shared/web-registration-security.mjs";
 
 const validPayload = {
+  version: 1,
   display_name: "Gabriela",
   neighborhood: "Centro",
   country_code: "34",
@@ -34,10 +35,10 @@ test("validates and canonicalizes the public allowlist", () => {
   assert.equal(result.phoneE164, "+34600100200");
 });
 
-test("rejects privileged client-controlled fields", () => {
+test("rejects every unknown or privileged client-controlled field", () => {
   assert.throws(
     () => validateRegistrationPayload({ ...validPayload, is_admin: true }),
-    (error) => error instanceof RegistrationContractError && error.code === "forbidden_field",
+    (error) => error instanceof RegistrationContractError && error.code === "unknown_field",
   );
 });
 
@@ -67,7 +68,7 @@ test("returns a generic duplicate result without creating identities", async () 
     })),
     (error) => error instanceof RegistrationContractError &&
       error.code === "registration_unavailable" &&
-      error.status === 409,
+      error.status === 202,
   );
   assert.deepEqual(events, ["prepare"]);
 });

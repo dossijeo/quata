@@ -14,7 +14,8 @@ export function validateRegistrationPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new RegistrationContractError("invalid_request");
   }
-  rejectPrivilegedFields(payload);
+  rejectUnknownFields(payload);
+  if (payload.version !== 1) throw new RegistrationContractError("unsupported_version");
   const displayName = normalizedText(payload.display_name, 2, 80, "invalid_display_name");
   const neighborhood = normalizedText(payload.neighborhood, 2, 100, "invalid_neighborhood");
   const countryCode = digits(payload.country_code);
@@ -33,6 +34,7 @@ export function validateRegistrationPayload(payload) {
     throw new RegistrationContractError("invalid_phone");
   }
   if (
+    password !== password.trim() ||
     password.length < 10 ||
     password.length > 128 ||
     !/[a-z]/.test(password) ||
@@ -71,7 +73,7 @@ export async function runRegistration(payload, dependencies) {
     throw new RegistrationContractError("rate_limited", 429, claim.retryAfterSeconds ?? 60);
   }
   if (claim.kind === "conflict" || claim.kind === "cleanup_required") {
-    throw new RegistrationContractError("registration_unavailable", 409);
+    throw new RegistrationContractError("registration_unavailable", 202);
   }
   if (claim.kind === "busy") {
     throw new RegistrationContractError("registration_in_progress", 409, claim.retryAfterSeconds ?? 15);
@@ -89,13 +91,13 @@ export async function runRegistration(payload, dependencies) {
     const existingProfile = await dependencies.findProfile(context);
     if (existingProfile && existingProfile.id !== record.profileId) {
       await dependencies.fail(record, "identity_unavailable");
-      throw new RegistrationContractError("registration_unavailable", 409);
+      throw new RegistrationContractError("registration_unavailable", 202);
     }
 
     authUser = await dependencies.findAuthUser(context);
     if (authUser && authUser.profileId !== record.profileId) {
       await dependencies.fail(record, "identity_unavailable");
-      throw new RegistrationContractError("registration_unavailable", 409);
+      throw new RegistrationContractError("registration_unavailable", 202);
     }
     if (!authUser) {
       authUser = await dependencies.createAuthUser(context, record);
@@ -150,21 +152,13 @@ function digits(value) {
   return typeof value === "string" ? value.replace(/\D/g, "") : "";
 }
 
-function rejectPrivilegedFields(payload) {
-  const forbidden = [
-    "auth_user_id",
-    "profile_id",
-    "is_admin",
-    "is_official",
-    "account_status",
-    "avatar",
-    "avatar_url",
-    "pass_hash",
-    "pass_plain",
-    "secret_answer_hash",
-    "role",
-  ];
-  if (forbidden.some((field) => Object.prototype.hasOwnProperty.call(payload, field))) {
-    throw new RegistrationContractError("forbidden_field");
+function rejectUnknownFields(payload) {
+  const allowed = new Set([
+    "version", "display_name", "neighborhood", "country_code", "phone_local",
+    "password", "secret_question", "secret_answer", "client_instance_id",
+    "idempotency_key", "challenge_token",
+  ]);
+  if (Object.keys(payload).some((field) => !allowed.has(field))) {
+    throw new RegistrationContractError("unknown_field");
   }
 }

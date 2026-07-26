@@ -29,6 +29,7 @@ Deno.serve(async (request) => {
 
   try {
     const configuration = requireConfiguration();
+    if (!configuration.enabled) return json({ error: "registration_unavailable" }, 503, cors);
     if (!constantTimeEqual(request.headers.get("apikey") || "", configuration.publicApiKey)) {
       return json({ error: "invalid_api_key" }, 401, cors);
     }
@@ -52,20 +53,19 @@ Deno.serve(async (request) => {
       global: { headers: { "X-Client-Info": "quata-web-register-signin" } },
     });
     const sourceIp = request.headers.get("cf-connecting-ip") ||
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unavailable";
 
     const result = await runRegistration(payload, {
       prepare: async (input: Record<string, string>) => {
-        if (configuration.turnstileSecret) {
+        if (configuration.enabled) {
           const challengeOk = await verifyTurnstile(
-            configuration.turnstileSecret,
+          configuration.turnstileSecret!,
             input.challengeToken,
             sourceIp,
           );
           if (!challengeOk) throw new RegistrationContractError("challenge_failed", 403);
         }
-        const phoneIdentity = `${input.countryCode}:${input.phoneLocal}`;
+        const phoneIdentity = input.phoneE164;
         return {
           ...input,
           requestKeyHash: await sha256Hex(`${input.idempotencyKey}:${configuration.pepper}`),
@@ -106,7 +106,8 @@ Deno.serve(async (request) => {
         const { data, error } = await admin
           .from("community_profiles")
           .select("id,auth_user_id,display_name,country_code,phone_local,neighborhood")
-          .eq("phone_local", context.phoneLocal)
+          .eq("country_code", context.countryCode)
+          .eq("phone_e164", context.phoneE164)
           .maybeSingle();
         if (error) throw error;
         return data;
@@ -125,7 +126,7 @@ Deno.serve(async (request) => {
         const password = await internalAuthPassword(
           record.profileId,
           context.password,
-          configuration.serviceRoleKey,
+          configuration.internalAuthPasswordSecret,
         );
         const { data, error } = await admin.auth.admin.createUser({
           email: context.authEmail,
@@ -252,7 +253,7 @@ Deno.serve(async (request) => {
           updated_at: new Date().toISOString(),
         }),
     });
-    return json(result, 201, cors);
+    return json(result, 202, cors);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     if (error instanceof RegistrationContractError) {
@@ -277,7 +278,7 @@ async function authenticatedResult(params: {
   const password = await internalAuthPassword(
     params.record.profileId,
     params.context.password,
-    params.configuration.serviceRoleKey,
+    params.configuration.internalAuthPasswordSecret,
   );
   const { data: signIn, error: signInError } = await params.publicClient.auth.signInWithPassword({
     email: params.context.authEmail,
@@ -328,8 +329,8 @@ async function updateRequest(
   if (error) throw error;
 }
 
-async function internalAuthPassword(profileId: string, password: string, serviceRoleKey: string) {
-  return `Qa-${await sha256Hex(`${profileId}:${password}:${serviceRoleKey}`)}`;
+async function internalAuthPassword(profileId: string, password: string, stableSecret: string) {
+  return `Qa-${await sha256Hex(`${profileId}:${password}:${stableSecret}`)}`;
 }
 
 async function verifyTurnstile(secret: string, token: string, remoteIp: string) {
@@ -353,7 +354,12 @@ function requireConfiguration() {
     Deno.env.get("SUPABASE_ANON_KEY") ||
     envDictionaryValue("SUPABASE_PUBLISHABLE_KEYS");
   const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
-  if (!supabaseUrl || !serviceRoleKey || !publicApiKey || !pepper || pepper.length < 32) {
+  const internalAuthPasswordSecret = Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET");
+  const enabled = Deno.env.get("QUATA_WEB_REGISTRATION_ENABLED") === "true";
+  const turnstileSecret = Deno.env.get("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET") || null;
+  if (!supabaseUrl || !serviceRoleKey || !publicApiKey || !pepper || pepper.length < 32 ||
+      !internalAuthPasswordSecret || internalAuthPasswordSecret.length < 32 ||
+      (enabled && !turnstileSecret)) {
     throw new RegistrationContractError("server_not_configured", 503);
   }
   return {
@@ -361,7 +367,9 @@ function requireConfiguration() {
     serviceRoleKey,
     publicApiKey,
     pepper,
-    turnstileSecret: Deno.env.get("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET") || null,
+    internalAuthPasswordSecret,
+    enabled,
+    turnstileSecret,
   };
 }
 

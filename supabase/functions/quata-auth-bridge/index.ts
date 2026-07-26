@@ -463,7 +463,10 @@ function randomBase64Url(byteLength: number): string {
 }
 
 async function supabaseAuthPassword(profileId: string, legacyPassword: string, serviceRoleKey: string): Promise<string> {
-  const hash = await sha256(`${profileId}:${legacyPassword}:${serviceRoleKey}`);
+  // A dedicated stable secret prevents service-role rotation from invalidating every Auth password.
+  // The fallback preserves already-deployed legacy identities until the release config is migrated.
+  const stableSecret = Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET") || serviceRoleKey;
+  const hash = await sha256(`${profileId}:${legacyPassword}:${stableSecret}`);
   return `Qa-${hash}`;
 }
 
