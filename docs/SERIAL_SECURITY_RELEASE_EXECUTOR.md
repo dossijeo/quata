@@ -25,16 +25,23 @@ después de abrir la ventana de release:
   -Output build-reports/security-release/001-apply.json
 ```
 
-Tras los gates externos post-001, crear una evidencia JSON revisada con
-`migration: "20260726171001"`, `status: "passed"` y
-`preconditionSha256`. Sólo entonces es posible abrir el segundo comando:
+Tras los gates externos post-001, crear una evidencia JSON revisada con el
+esquema `1`. Debe incluir el `releaseCommit` congelado (40 hex), el
+`snapshotFingerprint` del baseline (SHA-256), `migration`, `status`,
+`preconditionSha256` y estos tres informes con `status: "passed"` y SHA-256
+del fichero que se revisó: `dbReleaseSafety`, `backendCompatibility` y `sb07`.
+Un aprobador calcula además el SHA-256 de los **bytes** de esta evidencia. El
+segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
 
 ```powershell
 .\scripts\run-security-release-serial-executor.ps1 -Action apply-002 `
   -DbUrlFile C:\Users\PC\.quata-supabase-db-url.txt `
   -TlsCaFile C:\Users\PC\.quata-supabase-pooler-ca.pem `
   -ExpectedPreconditionSha256 '<hash de 002>' `
-  -GateEvidence build-reports/security-release/001-external-gates.json
+  -GateEvidence build-reports/security-release/001-external-gates.json `
+  -ExpectedGateEvidenceSha256 '<SHA-256 aprobado del JSON>' `
+  -ExpectedReleaseCommit '<commit de 40 hex>' `
+  -ExpectedSnapshotFingerprint '<SHA-256 del snapshot>'
 ```
 
 Propiedades comprobadas:
@@ -53,6 +60,11 @@ Propiedades comprobadas:
   La fila usa el texto completo como único elemento de `statements` y el nombre
   compatible de Supabase. Una versión existente es un error, nunca un repair o
   una reaplicación.
+- La evidencia de gates de 002 se valida con esquema versionado y con el hash
+  esperado que el aprobador pasó explícitamente. Esto no sustituye la revisión
+  humana de los tres informes ni una firma externa, pero evita que un fichero
+  JSON trivial, no anclado a la ventana/commit/snapshot aprobados, desbloquee
+  el segundo cambio.
 
 La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 

@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import process from "node:process";
@@ -20,7 +20,7 @@ const targetForAction = { "apply-001": "20260726171001", "apply-002": "202607261
 
 function usage(message) {
   if (message) console.error(message);
-  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE] [--out FILE]");
+  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE --expected-gate-evidence-sha256 SHA256 --expected-release-commit SHA --expected-snapshot-fingerprint SHA] [--out FILE]");
   process.exitCode = 2;
 }
 
@@ -109,10 +109,22 @@ async function ledgerRows(client) {
   return (await client.query("select version::text, name, statements from supabase_migrations.schema_migrations where version = any($1::text[]) order by version", [["20260726171001", "20260726171002"]])).rows;
 }
 
-async function readGateEvidence(path) {
+function isSha256(value) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
+
+async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot) {
   if (!path) throw new Error("serial_release_gate_evidence_required_for_002");
-  const value = JSON.parse(await readFile(resolve(path), "utf8"));
-  if (value?.migration !== "20260726171001" || value?.status !== "passed" || !value?.preconditionSha256) {
+  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot)) {
+    throw new Error("serial_release_gate_evidence_anchor_required_for_002");
+  }
+  const source = await readFile(resolve(path), "utf8");
+  if (sha256(source) !== expectedHash) throw new Error("serial_release_gate_evidence_hash_mismatch");
+  const value = JSON.parse(source);
+  const reports = value?.reports;
+  const requiredReports = ["dbReleaseSafety", "backendCompatibility", "sb07"];
+  if (value?.schemaVersion !== 1 || value?.migration !== "20260726171001" || value?.status !== "passed"
+      || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
+      || !isSha256(value?.preconditionSha256)
+      || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256))) {
     throw new Error("serial_release_gate_evidence_invalid");
   }
   return value;
@@ -122,7 +134,8 @@ async function writeReport(file, report) {
   if (!file) return;
   const destination = resolve(file);
   const allowed = resolve(root, "build-reports");
-  if (!destination.startsWith(`${allowed}/`) && destination !== allowed) throw new Error("serial_release_output_must_be_under_build_reports");
+  const relation = relative(allowed, destination);
+  if (!relation || relation.startsWith("..") || isAbsolute(relation)) throw new Error("serial_release_output_must_be_under_build_reports");
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 }
@@ -138,7 +151,9 @@ export async function run(argv = process.argv.slice(2)) {
     validateAllowlist(allowlist, version, source);
     sources[version] = { entry, source, body: unwrapOuterTransaction(source, version) };
   }
-  if (args.action === "apply-002") await readGateEvidence(args["gate-evidence"]);
+  if (args.action === "apply-002") {
+    await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"]);
+  }
   if (args.action !== "dry-run" && !/^[a-f0-9]{64}$/.test(args["expected-precondition-sha256"] ?? "")) throw new Error("serial_release_expected_precondition_sha256_required");
 
   const client = new pg.Client(await databaseConfig());

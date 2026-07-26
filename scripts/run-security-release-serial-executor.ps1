@@ -6,6 +6,9 @@ param(
     [string]$TlsCaFile,
     [string]$ExpectedPreconditionSha256,
     [string]$GateEvidence,
+    [string]$ExpectedGateEvidenceSha256,
+    [string]$ExpectedReleaseCommit,
+    [string]$ExpectedSnapshotFingerprint,
     [string]$Output = ""
 )
 
@@ -24,6 +27,9 @@ try {
     $args = @((Join-Path $PSScriptRoot "security-release-serial-executor.mjs"), "--action", $Action)
     if ($ExpectedPreconditionSha256) { $args += @("--expected-precondition-sha256", $ExpectedPreconditionSha256) }
     if ($GateEvidence) { $args += @("--gate-evidence", $GateEvidence) }
+    if ($ExpectedGateEvidenceSha256) { $args += @("--expected-gate-evidence-sha256", $ExpectedGateEvidenceSha256) }
+    if ($ExpectedReleaseCommit) { $args += @("--expected-release-commit", $ExpectedReleaseCommit) }
+    if ($ExpectedSnapshotFingerprint) { $args += @("--expected-snapshot-fingerprint", $ExpectedSnapshotFingerprint) }
     if ($Output) { $args += @("--out", $Output) }
     & node @args
     exit $LASTEXITCODE
