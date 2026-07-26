@@ -46,3 +46,18 @@ siendo obligatoria.
 No se prueban adjuntos en este recorrido: SB-05 ya valida Storage y su cleanup.
 Agregar un archivo a la prueba de UI sólo será aceptable cuando la purga de
 objeto y fila sea parte de la misma ejecución y pueda verificarse después.
+
+## Estado de validación local
+
+Sobre `17eafade`, `:web:wasmJsTest`, `:web:wasmJsBrowserDistribution` y el smoke
+base de Chrome pasaron. El preflight remoto también confirmó login con dos
+cuentas aisladas y creación del hilo privado.
+
+El recorrido Playwright permanece bloqueado antes del primer envío: Compose/Wasm
+monta correctamente su canvas dentro del shadow DOM y conserva sesión, runtime y
+ruta Chat, pero Chrome no materializa el `OutlinedTextField` como textbox
+localizable, ni siquiera con `--force-renderer-accessibility`. No hubo excepciones
+de runtime. Por tanto esta evidencia no acredita envío, recepción, reply ni
+logout mediante UI. Todos los fixtures de cada intento se eliminaron a través de
+`quata-account-lifecycle` y se verificó por base de datos la ausencia de Auth,
+perfiles, hilos, participantes, mensajes, adjuntos y sesiones web.

@@ -169,9 +169,35 @@ async function openChatPage(browser, origin, session, thread) {
   const page = await context.newPage(), faults = [];
   page.on("pageerror", () => faults.push("uncaught_exception"));
   page.on("console", (entry) => { if (entry.type() === "error") faults.push("console_error"); });
-  await page.goto(`${origin}/#chat-sb%3A${thread}`, { waitUntil: "domcontentloaded" });
-  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
-  await page.getByLabel("Mensaje").waitFor({ timeout: 30_000 });
+  try {
+    await page.goto(`${origin}/#chat-sb%3A${thread}`, { waitUntil: "domcontentloaded" });
+  } catch {
+    throw new Error("browser_chat_navigation_failed");
+  }
+  try {
+    await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  } catch {
+    throw new Error("browser_chat_root_missing");
+  }
+  try {
+    await page.getByLabel("Mensaje").waitFor({ timeout: 30_000 });
+  } catch {
+    const diagnostic = await page.evaluate(() => ({
+      canvasPresent: document.querySelector("canvas") !== null,
+      inputPresent: document.querySelector("input,textarea,[role='textbox']") !== null,
+      rootChildPresent: (document.querySelector("#quata-root")?.childElementCount ?? 0) > 0,
+      shadowChildPresent: (document.querySelector("#quata-root")?.shadowRoot?.childElementCount ?? 0) > 0,
+      shadowCanvasPresent: document.querySelector("#quata-root")?.shadowRoot?.querySelector("canvas") !== null,
+      sessionReady: localStorage.getItem("web.auth.session_ready") === "true",
+      accessTokenPresent: Boolean(localStorage.getItem("quata_web_access_token")),
+      backendConfigured: localStorage.getItem("web.runtime.backend_configured") === "true",
+      chatRouteObserved: localStorage.getItem("web.navigation.route")?.startsWith("chat/") === true,
+    })).catch(() => ({ diagnosticUnavailable: true }));
+    diagnostic.runtimeFaults = [...new Set(faults)];
+    const error = new Error("browser_chat_composer_missing");
+    error.safeDiagnostic = diagnostic;
+    throw error;
+  }
   return { context, page, faults };
 }
 async function sendText(page, marker) {
@@ -220,6 +246,7 @@ function safeFailure(error) {
     "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "isolated_e2e_accounts_must_differ",
     "public_auth_request_failed", "invalid_auth_response", "chat_rpc_failed", "chat_contract_invalid",
     "distribution_missing", "runtime_configuration_injection_failed", "static_server_start_failed",
+    "browser_chat_navigation_failed", "browser_chat_root_missing", "browser_chat_composer_missing",
     "chat_backend_poll_timeout", "browser_runtime_fault", "web_logout_local_session_remains",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_browser_e2e_failure";
 }
@@ -227,36 +254,50 @@ function safeFailure(error) {
 const options = parseArgs(process.argv.slice(2));
 const report = {
   check: "WEB-CHAT-BROWSER-02", status: "failed", startedAt: new Date().toISOString(),
-  mode: "two_isolated_users_playwright_compose_wasm", steps: [], cleanup: { state: "not_started" },
+  mode: "two_isolated_users_playwright_compose_wasm", phase: "preflight",
+  steps: [], cleanup: { state: "not_started" },
 };
 let config, distribution, server, browser, pageA, pageB;
 const state = { a: null, b: null, thread: null, messageA: null, messageB: null };
 try {
+  report.phase = "configuration";
   config = configuration();
+  report.phase = "login_two_users";
   state.a = await login(config, config.users[0]);
   state.b = await login(config, config.users[1]);
   if (state.a.profileId === state.b.profileId) throw new Error("isolated_e2e_accounts_must_differ");
   report.steps.push("two_isolated_users_logged_in");
+  report.phase = "create_private_thread";
   state.thread = threadId(await rpc(config, state.a, "quata_chat_get_or_create_private_thread", {
     p_actor_profile_id: state.a.profileId, p_peer_profile_id: state.b.profileId,
   }));
   report.steps.push("private_thread_ready");
+  report.phase = "configure_distribution";
   distribution = await configuredDistribution(options.distribution, config);
+  report.phase = "start_static_server";
   server = await startServer(distribution);
+  report.phase = "launch_browser";
   browser = await chromium.launch({
     executablePath: options.chrome, headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+    // Compose/Wasm renders controls into a Skia canvas. Request Chrome's accessibility tree so
+    // Playwright can use real semantics when the runtime exposes them; the compositor preflight
+    // fails closed when no textbox is materialized instead of falling back to screen coordinates.
+    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
   });
+  report.phase = "open_chat_a";
   pageA = await openChatPage(browser, server.origin, state.a, state.thread);
+  report.phase = "open_chat_b";
   pageB = await openChatPage(browser, server.origin, state.b, state.thread);
   report.steps.push("two_authenticated_chat_views_opened");
 
+  report.phase = "send_a_text";
   const markerA = `e2e-chat-a-${crypto.randomUUID()}`, markerB = `e2e-chat-b-${crypto.randomUUID()}`;
   await sendText(pageA.page, markerA);
   state.messageA = positiveId((await pollMessage(config, state.b, state.thread, (message) => message?.text === markerA))?.id, "message_a");
   await pageB.page.getByText(markerA, { exact: true }).waitFor({ timeout: 45_000 });
   report.steps.push("a_text_received_by_b_via_polling_ui");
 
+  report.phase = "send_b_reply";
   await startReply(pageB.page, markerA);
   await sendText(pageB.page, markerB);
   const reply = await pollMessage(config, state.a, state.thread, (message) => message?.text === markerB);
@@ -266,13 +307,16 @@ try {
   report.steps.push("b_reply_received_by_a_via_polling_ui_and_backend_linked");
   if (pageA.faults.length || pageB.faults.length) throw new Error("browser_runtime_fault");
 
+  report.phase = "logout_two_users";
   await logout(pageA.page);
   await logout(pageB.page);
   report.steps.push("both_ui_logouts_completed");
+  report.phase = "logical_cleanup";
   report.status = "passed_with_external_hard_cleanup_pending";
   report.cleanup = { state: "ui_sessions_ended_external_hard_purge_required" };
   report.pollingContract = "No Realtime is claimed. Each peer message became visible in Compose UI within 45 seconds around the repository's 30-second polling interval.";
 } catch (error) {
+  if (error?.safeDiagnostic) report.diagnostic = error.safeDiagnostic;
   report.error = safeFailure(error);
 } finally {
   if (config && state.thread) {
