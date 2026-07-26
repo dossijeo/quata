@@ -5,6 +5,7 @@ import com.quata.core.platform.PlatformServices
 import com.quata.feature.auth.presentation.AuthBrowserLoginHostContent
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
+import com.quata.feature.auth.presentation.register.RegisterFormStrings
 
 /** Web adapter retains browser-backed session persistence while sharing the app auth session. */
 @Composable
@@ -25,7 +26,19 @@ fun WebLoginHost(
         recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
         recoveryQuestionLoading = catalog.recoveryQuestionLoading,
         passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-        registerUnavailableMessage = WebRegistrationUnavailableMessage,
+        registerStrings = RegisterFormStrings(
+            displayName = catalog.register.displayName,
+            neighborhood = catalog.register.neighborhood,
+            phone = catalog.login.phone,
+            password = catalog.login.password,
+            secretAnswer = catalog.register.secretAnswer,
+            searchPrefix = catalog.login.searchPrefix,
+            creating = catalog.register.creating,
+            createAccount = catalog.register.createAccount,
+            back = catalog.register.back,
+        ),
+        registerSubtitle = catalog.register.title,
+        registerUnavailableMessage = null,
         runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")

@@ -23,6 +23,10 @@ import com.quata.feature.auth.presentation.recovery.ForgotPasswordForm
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordFormStrings
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordViewModel
 import com.quata.feature.auth.presentation.register.RegisterSecretQuestion
+import com.quata.feature.auth.presentation.register.RegisterEffect
+import com.quata.feature.auth.presentation.register.RegisterForm
+import com.quata.feature.auth.presentation.register.RegisterFormStrings
+import com.quata.feature.auth.presentation.register.RegisterViewModel
 
 /** Host-neutral browser login orchestration; transports and post-login work are injected. */
 @Composable
@@ -36,23 +40,31 @@ fun AuthBrowserLoginHostContent(
     recoveryQuestionWaiting: String,
     recoveryQuestionLoading: String,
     passwordUpdatedMessage: String,
+    registerStrings: RegisterFormStrings?,
+    registerSubtitle: String?,
     registerUnavailableMessage: String?,
     runtimeConfigurationNotice: String? = null,
     onLoginSuccess: suspend () -> Unit,
 ) {
     val loginViewModel = remember(repository) { LoginViewModel(repository) }
     val recoveryViewModel = remember(repository) { ForgotPasswordViewModel(repository) }
+    val registerViewModel = remember(repository) { RegisterViewModel(repository) }
     val loginState by loginViewModel.uiState.collectAsState()
     val recoveryState by recoveryViewModel.uiState.collectAsState()
+    val registerState by registerViewModel.uiState.collectAsState()
     var destination by remember { mutableStateOf(AuthBrowserDestination.Login) }
     var notice by remember(runtimeConfigurationNotice) { mutableStateOf(runtimeConfigurationNotice) }
-    DisposableEffect(loginViewModel, recoveryViewModel) {
+    DisposableEffect(loginViewModel, recoveryViewModel, registerViewModel) {
         onDispose {
             loginViewModel.close()
             recoveryViewModel.close()
+            registerViewModel.close()
         }
     }
     LaunchedEffect(loginViewModel) { loginViewModel.effects.collect { if (it is LoginEffect.Success) onLoginSuccess() } }
+    LaunchedEffect(registerViewModel) {
+        registerViewModel.effects.collect { if (it is RegisterEffect.Success) onLoginSuccess() }
+    }
     LaunchedEffect(recoveryViewModel) {
         recoveryViewModel.effects.collect {
             if (it is ForgotPasswordEffect.PasswordUpdated) {
@@ -61,7 +73,8 @@ fun AuthBrowserLoginHostContent(
             }
         }
     }
-    AuthScreenLayoutContent(PaddingValues(), subtitle, portraitLogoSpacing = 22.dp) { isLandscape ->
+    val activeSubtitle = if (destination == AuthBrowserDestination.Register) registerSubtitle ?: subtitle else subtitle
+    AuthScreenLayoutContent(PaddingValues(), activeSubtitle, portraitLogoSpacing = 22.dp) { isLandscape ->
         when (destination) {
             AuthBrowserDestination.Login -> LoginForm(
                 state = loginState,
@@ -69,10 +82,17 @@ fun AuthBrowserLoginHostContent(
                 strings = strings,
                 isLandscape = isLandscape,
                 showMockNotice = false,
-                showRegistration = registerUnavailableMessage != null,
+                showRegistration = registerStrings != null || registerUnavailableMessage != null,
                 onEvent = loginViewModel::onEvent,
                 onForgotPassword = { destination = AuthBrowserDestination.Recovery; notice = null },
-                onGoToRegister = { notice = registerUnavailableMessage },
+                onGoToRegister = {
+                    if (registerStrings != null) {
+                        destination = AuthBrowserDestination.Register
+                        notice = null
+                    } else {
+                        notice = registerUnavailableMessage
+                    }
+                },
             )
             AuthBrowserDestination.Recovery -> ForgotPasswordForm(
                 state = recoveryState,
@@ -88,9 +108,20 @@ fun AuthBrowserLoginHostContent(
                 onEvent = recoveryViewModel::onEvent,
                 onBack = { destination = AuthBrowserDestination.Login },
             )
+            AuthBrowserDestination.Register -> registerStrings?.let { stringsForRegister ->
+                RegisterForm(
+                    state = registerState,
+                    prefixes = prefixes,
+                    secretQuestions = secretQuestions,
+                    strings = stringsForRegister,
+                    isLandscape = isLandscape,
+                    onEvent = registerViewModel::onEvent,
+                    onBack = { destination = AuthBrowserDestination.Login; notice = null },
+                )
+            }
         }
         notice?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
-private enum class AuthBrowserDestination { Login, Recovery }
+private enum class AuthBrowserDestination { Login, Recovery, Register }

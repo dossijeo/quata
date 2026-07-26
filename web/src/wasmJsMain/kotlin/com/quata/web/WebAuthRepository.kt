@@ -32,6 +32,8 @@ class WebAuthRepository(
 ) : AuthRepository {
     private val refreshMutex = Mutex()
     private var activeSession: WebLocalSession? = null
+    private var pendingRegistrationIdentity: String? = null
+    private var pendingRegistrationKey: String? = null
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
@@ -44,16 +46,7 @@ class WebAuthRepository(
             put("client_instance_id", ensureWebClientInstanceId())
         }
         val payload = webPostJson(endpoint, apiKey, request.toString())
-        val session = payload.toWebAuthSession()
-        session.persist(preferences, payload.webSessionToken())
-        activeSession = WebLocalSession(
-            accessToken = session.accessToken ?: session.token,
-            refreshToken = session.refreshToken.orEmpty(),
-            webSessionToken = payload.webSessionToken(),
-            userId = session.userId,
-            expiresAt = session.expiresAt ?: currentEpochSeconds(),
-        )
-        session
+        acceptAuthenticationPayload(payload)
     }
 
     override suspend fun logout() {
@@ -100,8 +93,26 @@ class WebAuthRepository(
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
 
-    override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
-        webRegistrationUnavailable()
+    override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val countryCode = request.countryCode.filter(Char::isDigit)
+        val phoneLocal = request.phone.filter(Char::isDigit)
+        val identity = "$countryCode:$phoneLocal"
+        val idempotencyKey = registrationKeyFor(identity)
+        val payload = webPostJson(
+            endpoint = configuration.webRegistrationEndpoint(),
+            apiKey = apiKey,
+            body = buildWebRegistrationRequest(
+                request = request,
+                clientInstanceId = ensureWebClientInstanceId(),
+                idempotencyKey = idempotencyKey,
+            ).toString(),
+        )
+        acceptAuthenticationPayload(payload).also {
+            pendingRegistrationIdentity = null
+            pendingRegistrationKey = null
+        }
+    }
 
     override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> = runCatching {
         require(countryCode.any(Char::isDigit)) { "web_auth_country_code_required" }
@@ -213,6 +224,30 @@ class WebAuthRepository(
         activeSession = refreshed
         return refreshed
     }
+
+    private suspend fun acceptAuthenticationPayload(payload: String): AuthSession {
+        val session = payload.toWebAuthSession()
+        val webSessionToken = payload.webSessionToken()
+        session.persist(preferences, webSessionToken)
+        activeSession = WebLocalSession(
+            accessToken = session.accessToken ?: session.token,
+            refreshToken = session.refreshToken.orEmpty(),
+            webSessionToken = webSessionToken,
+            userId = session.userId,
+            expiresAt = session.expiresAt ?: currentEpochSeconds(),
+        )
+        return session
+    }
+
+    private fun registrationKeyFor(identity: String): String {
+        if (pendingRegistrationIdentity == identity && !pendingRegistrationKey.isNullOrBlank()) {
+            return checkNotNull(pendingRegistrationKey)
+        }
+        return newWebRegistrationIdempotencyKey().also {
+            pendingRegistrationIdentity = identity
+            pendingRegistrationKey = it
+        }
+    }
 }
 
 data class WebPushCredentials(
@@ -266,6 +301,9 @@ private fun String?.requireConfigured(error: String): String =
 
 private fun WebRuntimeConfiguration.authBridgeEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-auth-bridge"
+
+private fun WebRuntimeConfiguration.webRegistrationEndpoint(): String =
+    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-register"
 
 internal fun WebRuntimeConfiguration.webPushEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-push"
@@ -323,6 +361,23 @@ private fun JsonObject.requiredString(name: String): String =
 private fun JsonObject.stringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
 private fun countryCodeDigits(value: String?): String = value.orEmpty().filter(Char::isDigit)
+
+internal fun buildWebRegistrationRequest(
+    request: RegisterAccountRequest,
+    clientInstanceId: String,
+    idempotencyKey: String,
+): JsonObject = buildJsonObject {
+    put("version", 1)
+    put("display_name", request.displayName.trim())
+    put("neighborhood", request.neighborhood.trim())
+    put("country_code", request.countryCode.filter(Char::isDigit))
+    put("phone_local", request.phone.filter(Char::isDigit))
+    put("password", request.password)
+    put("secret_question", request.secretQuestion.trim())
+    put("secret_answer", request.secretAnswer.trim())
+    put("client_instance_id", clientInstanceId)
+    put("idempotency_key", idempotencyKey)
+}
 
 private const val WebSessionRefreshLeewaySeconds = 60L
 
@@ -384,6 +439,19 @@ internal fun ensureWebClientInstanceId(): String = js(
         (String(Date.now()) + '-' + Math.random().toString(36).slice(2));
       globalThis.localStorage?.setItem(key, created);
       return created;
+    })()
+    """,
+)
+
+private fun newWebRegistrationIdempotencyKey(): String = js(
+    """
+    (() => {
+      const random = globalThis.crypto?.randomUUID?.();
+      if (random) return random.replaceAll('-', '');
+      if (!globalThis.crypto?.getRandomValues) throw new Error('web_registration_secure_random_unavailable');
+      const bytes = new Uint8Array(24);
+      globalThis.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
     })()
     """,
 )

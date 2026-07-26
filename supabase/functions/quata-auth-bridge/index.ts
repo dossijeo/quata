@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  constantTimeEqualHex,
+  hashRecoveryAnswer,
+  hashRegistrationPassword,
+  verifyRegistrationPassword,
+} from "../_shared/web-registration-security.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +45,7 @@ type CommunityProfile = {
   neighborhood?: string | null;
   secret_question?: string | null;
   secret_answer?: string | null;
+  secret_answer_hash?: string | null;
   account_status?: "active" | "deactivated" | null;
   deactivated_at?: string | null;
 };
@@ -63,6 +70,7 @@ const profileSelect = [
   "neighborhood",
   "secret_question",
   "secret_answer",
+  "secret_answer_hash",
   "account_status",
   "deactivated_at",
 ].join(",");
@@ -286,13 +294,26 @@ async function handlePasswordReset(params: {
   const { admin, profile, payload, serviceRoleKey } = params;
   const newPassword = payload.new_password?.trim() || "";
   const secretAnswer = payload.secret_answer?.trim() || "";
-  if (!profile?.secret_question?.trim() || !profile.secret_answer?.trim()) {
+  if (
+    !profile?.secret_question?.trim() ||
+    (!profile.secret_answer?.trim() && !profile.secret_answer_hash?.trim())
+  ) {
     return jsonResponse({ error: "recovery_profile_not_found" }, 404);
   }
   if (!newPassword || newPassword.length < 6) {
     return jsonResponse({ error: "invalid_new_password" }, 400);
   }
-  if (!secretAnswer || profile.secret_answer.trim().localeCompare(secretAnswer.trim(), undefined, { sensitivity: "accent" }) !== 0) {
+  let answerMatches = false;
+  if (secretAnswer && profile.secret_answer_hash?.startsWith("v1:")) {
+    const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+    if (!pepper) return jsonResponse({ error: "recovery_not_configured" }, 503);
+    const candidate = await hashRecoveryAnswer(secretAnswer, pepper);
+    answerMatches = constantTimeEqualHex(profile.secret_answer_hash, candidate);
+  } else if (secretAnswer && profile.secret_answer?.trim()) {
+    answerMatches =
+      profile.secret_answer.trim().localeCompare(secretAnswer.trim(), undefined, { sensitivity: "accent" }) === 0;
+  }
+  if (!answerMatches) {
     return jsonResponse({ error: "invalid_secret_answer" }, 401);
   }
 
@@ -314,7 +335,7 @@ async function handlePasswordReset(params: {
   if (authError) throw authError;
   const { error: profileError } = await admin.from("community_profiles").update({
     auth_user_id: authUserId,
-    pass_hash: await sha256(newPassword),
+    pass_hash: await hashRegistrationPassword(newPassword),
     pass_plain: null,
   }).eq("id", profile.id);
   if (profileError) throw profileError;
@@ -417,6 +438,9 @@ async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email
 async function validateLegacyPassword(profile: CommunityProfile, password: string): Promise<boolean> {
   const passHash = profile.pass_hash?.trim();
   if (passHash) {
+    if (passHash.startsWith("pbkdf2_sha256$")) {
+      return verifyRegistrationPassword(passHash, password);
+    }
     const sha = await sha256(password);
     if (sha.toLowerCase() === passHash.toLowerCase()) return true;
   }
