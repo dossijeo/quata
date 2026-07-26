@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -35,7 +37,9 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Every request uses the user's Supabase bearer token through [WebPostgrestClient]. Authentication
  * and RLS failures remain a [WebPostgrestReadException], rather than being presented as an empty
- * official feed. Browser write flows need a separately reviewed API and therefore fail explicitly.
+ * official feed. Publishing and comments remain unavailable; liking is a deliberately narrow
+ * exception guarded in production by `quata_guard_official_post_likes`, which binds writes to the
+ * authenticated profile.
  */
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
@@ -78,7 +82,40 @@ class WebOfficialRepository(
 
     override suspend fun deletePost(postId: String): Result<Unit> = unsupportedMutation()
 
-    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = runCatching {
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val profileId = authRepository.restoreLocalSession()?.userId
+            ?.takeIf { it.matches(PostgrestIdentifier) }
+            ?: throw WebOfficialMutationException("web_official_like_session_missing")
+        val existingLike = client.rows(
+            table = "official_post_likes",
+            query = mapOf(
+                "select" to "id",
+                "official_post_id" to "eq.$safePostId",
+                "profile_id" to "eq.$profileId",
+            ),
+            limit = 1,
+        ).firstOrNull()
+        val mutation = if (existingLike == null) {
+            client.post(
+                table = "official_post_likes",
+                body = buildJsonObject {
+                    put("official_post_id", JsonPrimitive(safePostId))
+                    put("profile_id", JsonPrimitive(profileId))
+                }.toString(),
+            )
+        } else {
+            val likeId = existingLike.requiredOfficialString("id").requireOfficialPostgrestIdentifier()
+            client.delete(
+                table = "official_post_likes",
+                query = mapOf("id" to "eq.$likeId", "profile_id" to "eq.$profileId"),
+            )
+        }
+        if (mutation is WebPostgrestResult.Failure) throw WebOfficialMutationException(
+            "web_official_like_${mutation.kind.name.lowercase()}",
+        )
+        loadFeed(limit = 1, postId = safePostId).getOrThrow().firstOrNull()
+    }
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = unsupportedMutation()
 
@@ -200,3 +237,5 @@ private fun JsonObject.requiredOfficialString(name: String): String =
     officialStringOrNull(name) ?: error("web_official_response_missing_$name")
 
 private fun JsonObject.officialStringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
+
+private class WebOfficialMutationException(message: String) : IllegalStateException(message)
