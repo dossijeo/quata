@@ -60,6 +60,6 @@ host/gate/publicación enumerados en la primera alternativa. Hasta entonces la
 decisión está tomada, pero su ejecución permanece pendiente y reversible.
 
 En ola 2 se retiró únicamente el target de `:feature:whatsnew`. Los gates
-locales Web Wasm y Android pasaron sobre `9cc84dc2`; la CI iOS exacta
-#30210875187 sigue pendiente. Por tanto no se infiere la retirada del resto de
-módulos ni se declara cerrado MP-A08.
+locales Web Wasm y Android y la CI iOS exacta #30210875187 pasaron sobre
+`9cc84dc2`. No se infiere la retirada del resto de módulos ni se declara
+cerrado MP-A08.

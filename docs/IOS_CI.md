@@ -10,8 +10,9 @@ La ola 1 se integró en `main` por PR #46, merge
 `587789ff03df0c1b83baa2b6ca74babc4e4d3499`. La ola 2 corresponde al commit
 `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` y a la ejecución
 [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187),
-todavía pendiente en la reconciliación MP-A14. Hasta conocer su conclusión no
-se atribuye verde iOS a ese SHA.
+completada con `success` el 2026-07-26 a las 16:59:46Z. Pasaron Kotlin/Native,
+enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin
+firma y publicación del artefacto.
 
 ## Que valida
 

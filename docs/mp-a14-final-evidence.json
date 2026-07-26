@@ -88,8 +88,18 @@
     "runId": 30210875187,
     "url": "https://github.com/dossijeo/quata/actions/runs/30210875187",
     "headSha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
-    "statusAtDocumentationTime": "in_progress",
-    "conclusionAtDocumentationTime": null,
+    "statusAtDocumentationTime": "completed",
+    "conclusionAtDocumentationTime": "success",
+    "completedAtUtc": "2026-07-26T16:59:46Z",
+    "stepsPassed": [
+      "kotlin_native",
+      "framework_link",
+      "xcframework",
+      "xcode_swift_host_and_share_extension",
+      "simulator_xctest",
+      "unsigned_archive",
+      "artifact_upload"
+    ],
     "kind": "compile_link_simulator_tests_unsigned_archive"
   },
   "e2eAndSecurity": {

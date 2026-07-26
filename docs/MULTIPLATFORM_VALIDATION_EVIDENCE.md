@@ -30,8 +30,7 @@ se registra como E2E completado.
 
 ## iOS: CI macOS por SHA exacto
 
-Todos los runs históricos marcados como verdes terminaron con `success`. La fila
-de ola 2 permanece pendiente. El workflow `iOS compile`
+Todos los runs marcados como verdes terminaron con `success`. El workflow `iOS compile`
 compila Kotlin/Native, enlaza el framework compartido, genera/compila el host
 Swift y ejecuta XCTest. Desde `a6a11ba`, tambien crea un archive generico sin
 firma; eso no es un IPA firmado ni una prueba en dispositivo fisico.
@@ -46,7 +45,7 @@ firma; eso no es un IPA firmado ni una prueba en dispositivo fisico.
 | `3d496f800d8c4cdb80cd30c6709292d091a9c964` | Shell Communities | [#30170903885](https://github.com/dossijeo/quata/actions/runs/30170903885) | Host/ruta autenticada estructural; no mutaciones, media, roles ni E2E. |
 | `a6a11baacc2b5412e80040e54f9a90b165c4ee80` | Archive iOS sin firma | [#30171716978](https://github.com/dossijeo/quata/actions/runs/30171716978) | Ademas del smoke XCTest, archive generico y comprobacion de `QuataShared.framework`. |
 | `e9e09c5a9c9deaf662ce52a78137a4d6fe6170ce` | Transporte escalar Official comun | [#30172609978](https://github.com/dossijeo/quata/actions/runs/30172609978) | Compilacion/enlace/host/XCTest; no lectura remota E2E. |
-| `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` | Candidato ola 2 completo | [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Pendiente/in progress al redactar MP-A14.** No se declara verde hasta comprobar la conclusión exacta del run. |
+| `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` | Candidato ola 2 completo | [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde** (2026-07-26 16:59:46Z): Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. No acredita firma, dispositivo, App Group operativo ni APNs entregado. |
 
 La definicion concreta de esos pasos, artefactos y limites se mantiene en
 [IOS_CI.md](IOS_CI.md) y [IOS_UNSIGNED_ARCHIVE.md](IOS_UNSIGNED_ARCHIVE.md).
