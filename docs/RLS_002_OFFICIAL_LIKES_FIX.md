@@ -55,8 +55,40 @@ su alcance: deben auditarse por separado antes de habilitar esas mutaciones.
 
 ## Rollback de emergencia
 
-El rollback reabre RLS-002 y sólo debe usarse si la compatibilidad de producción
-lo exige:
+El rollback versionado es
+`supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql`.
+Reabre RLS-002 y sólo debe usarse si la compatibilidad de producción lo exige.
+No borra ni modifica filas. Restaura exactamente el catálogo capturado antes de
+la migración: RLS desactivado, cero políticas en la tabla, trigger
+`SECURITY DEFINER`, helper de DELETE ausente y grants `anon`/`authenticated`
+originales.
+
+Es un rollback *fail-closed*: exige que siga presente exclusivamente el conjunto
+de tres políticas de la release, RLS habilitado, guard `SECURITY INVOKER` y el
+helper correspondiente. Si detecta deriva de otra release, aborta la transacción
+sin tocar catálogo ni datos; se debe tomar un backup nuevo y preparar una
+reversión específica.
+
+Para ensayar de forma aislada PostgreSQL **y** PostgREST:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-official-likes-rls-migration.ps1
+```
+
+El ensayo crea una fila previa y verifica esta secuencia completa:
+
+1. baseline histórico: PostgREST acepta la suplantación conocida;
+2. aplicar: RLS bloquea INSERT y DELETE ajenos con `42501`, mientras SELECT
+   anónimo y likes propios funcionan;
+3. rollback: el catálogo vuelve al baseline y la fila previa sigue intacta;
+4. reapply: se repiten los ataques bloqueados a través de PostgREST.
+
+En producción el operador debe tomar primero el snapshot de catálogo/datos del
+runbook de release y ejecutar los smokes de Feed anónimo y Android. El SQL no es
+una migración automática de Supabase: se ejecuta manualmente sólo como respuesta
+de emergencia documentada.
+
+La forma abreviada del efecto catalogado es:
 
 ```sql
 begin;
