@@ -104,6 +104,8 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.platform.DocumentSupport
+import com.quata.core.platform.DocumentPreviewError
+import com.quata.core.platform.DocumentPreviewRenderState
 import com.quata.documentreader.QuataDocumentPreviewRenderer
 import com.quata.documentreader.QuataDocumentReader
 import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentPlayerContent
@@ -406,7 +408,11 @@ fun DocumentAttachmentPreview(
                 )
             }
         }.getOrNull()
-        renderState = if (bitmap != null) DocumentPreviewRenderState.Ready else DocumentPreviewRenderState.Unavailable
+        renderState = if (bitmap != null) {
+            DocumentPreviewRenderState.Ready
+        } else {
+            DocumentPreviewRenderState.Unavailable(DocumentPreviewError.RendererFailed)
+        }
     }
 
     DocumentPreviewFrameContent(
