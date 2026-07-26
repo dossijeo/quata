@@ -202,6 +202,8 @@ async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorag
     const supported = [
         '/__quata-smoke-fixtures/document.pdf',
         '/__quata-smoke-fixtures/document.docx',
+        '/__quata-smoke-fixtures/document.pptx',
+        '/__quata-smoke-fixtures/document.xlsx',
         `${authenticatedStorage.origin}/authenticated/document.docx?temporary_doc_token=${authenticatedStorage.token}`,
     ];
     for (const fixture of supported) {
@@ -249,9 +251,9 @@ async function requireFile(path, message) {
 }
 
 /**
- * Generates harmless, tiny OOXML/PDF fixtures at runtime. They are never checked in, uploaded,
- * or served outside the two loopback servers used by this smoke. Keeping the generator here makes
- * the document test reproducible without bundling sample user documents or downloading samples.
+ * Generates harmless PDF/DOCX fixtures at runtime and stages the versioned inert PPTX/XLSX
+ * fixtures. Nothing is uploaded or served outside the two loopback servers used by this smoke.
+ * This keeps the test reproducible without bundling sample user documents or downloading samples.
  */
 async function createDocmentisFixtures() {
     const path = await mkdtemp(join(tmpdir(), 'quata-docmentis-fixtures-'));
@@ -269,6 +271,10 @@ async function createDocmentisFixtures() {
         'legacy.ppt': Buffer.from('Quata legacy PPT fallback fixture\n'),
         'letter.rtf': Buffer.from('{\\rtf1\\ansi Quata RTF fallback fixture}'),
     };
+    // PPTX/XLSX need the full OOXML relationship graph. These tiny, versioned fixtures contain
+    // only inert smoke text and are recompressed without directory entries for determinism.
+    files['document.pptx'] = await readFile(new URL('./fixtures/docmentis/smoke.pptx', import.meta.url));
+    files['document.xlsx'] = await readFile(new URL('./fixtures/docmentis/smoke.xlsx', import.meta.url));
     for (const [name, contents] of Object.entries(files)) {
         const file = join(path, name);
         await writeFile(file, contents);
