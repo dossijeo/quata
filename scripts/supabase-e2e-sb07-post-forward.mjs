@@ -16,7 +16,7 @@ const base = config.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1]?.replace(/\/$/, '
 const publicKey = config.match(/SUPABASE_ANON_KEY\s*=\s*"([^"]+)"/)?.[1];
 must(base && publicKey, 'missing_public_runtime_config'); must(process.env.SUPABASE_DB_URL && process.env.SUPABASE_DB_TLS_CA_FILE && process.env.QUATA_SB07_RECOVERY_FILE, 'missing_secure_database_config');
 const fixture = { actor: randomUUID(), outsider: randomUUID(), admin: randomUUID(), wall: randomUUID(), post: randomUUID() };
-const marker = `sb07-forward-${randomUUID()}`, password = `Sb07-${randomUUID()}-A9`, fixtureEmails = [];
+const marker = `sb07-forward-${randomUUID()}`, password = `Sb07-${randomUUID()}-A9`;
 const report = { check: 'SB-07-post-forward', mode, status: 'failed', startedAt: new Date().toISOString(), fixture: { markerSha256: sha(marker), ids: Object.fromEntries(Object.entries(fixture).map(([k,v]) => [k, sha(v).slice(0,16)])) }, steps: [], cleanup: { status: 'not_started' } };
 const ca = await loadSb01CertificateAuthority();
 const db = new Client({ ...buildSb01TlsConnection(process.env.SUPABASE_DB_URL, ca), application_name: 'quata-sb07-post-forward', connectionTimeoutMillis: 15000, query_timeout: 20000 });
@@ -34,23 +34,16 @@ async function cleanup() {
   const links=(await db.query('select id,auth_user_id from public.community_profiles where id=any($1::uuid[])',[profiles])).rows;
   const linkedAuthIds=links.map((row)=>row.auth_user_id), exactIds=new Set(links.map((row)=>row.id));
   const profileMappingExact=links.length===profiles.length && exactIds.size===profiles.length && profiles.every((id)=>exactIds.has(id)) && linkedAuthIds.every(Boolean) && new Set(linkedAuthIds).size===profiles.length;
-  let authUserIds=linkedAuthIds, authIdentitySource='profile_link';
-  if (!profileMappingExact) {
-    const byEmail=(await db.query('select id,email from auth.users where lower(email)=any($1::text[])',[fixtureEmails.map((email)=>email.toLowerCase())])).rows;
-    const foundEmails=new Set(byEmail.map((row)=>String(row.email).toLowerCase()));
-    const emailLookupExact=byEmail.length===profiles.length && foundEmails.size===profiles.length && fixtureEmails.every((email)=>foundEmails.has(email.toLowerCase())) && new Set(byEmail.map((row)=>row.id)).size===profiles.length;
-    if (emailLookupExact) { authUserIds=byEmail.map((row)=>row.id); authIdentitySource='fixture_email'; }
-    else { await writeFile(process.env.QUATA_SB07_RECOVERY_FILE, `${JSON.stringify({kind:'sb07_post_forward_recovery',createdAt:new Date().toISOString(),fixture,expectedAuthEmails:fixtureEmails},null,2)}\n`,{mode:0o600}); report.cleanup={status:'residual_pending_auth_mapping'}; throw new Error('cleanup_residual_pending'); }
-  }
+  if (!profileMappingExact) { await writeFile(process.env.QUATA_SB07_RECOVERY_FILE, `${JSON.stringify({kind:'sb07_post_forward_recovery',createdAt:new Date().toISOString(),fixture},null,2)}\n`,{mode:0o600}); report.cleanup={status:'residual_pending_auth_mapping'}; throw new Error('cleanup_residual_pending'); }
   await db.query('delete from public.web_client_sessions where profile_id=any($1::uuid[])',[profiles]).catch(()=>undefined);
   await db.query('delete from public.community_profiles where id=any($1::uuid[])',[profiles]);
-  await db.query('delete from auth.users where id=any($1::uuid[])',[authUserIds]);
-  const residue=await db.query('select (select count(*) from public.community_comments where post_id=$1 or profile_id=any($2::uuid[]))+(select count(*) from public.community_posts where id=$1)+(select count(*) from public.community_walls where id=$3)+(select count(*) from public.community_profiles where id=any($2::uuid[]))+(select count(*) from auth.users where id=any($4::uuid[])) n',[fixture.post,profiles,fixture.wall,authUserIds]);
-  must(Number(residue.rows[0].n)===0,'cleanup_residue_detected'); report.cleanup={status:'verified_zero_residue',authIdentitySource};
+  await db.query('delete from auth.users where id=any($1::uuid[])',[linkedAuthIds]);
+  const residue=await db.query('select (select count(*) from public.community_comments where post_id=$1 or profile_id=any($2::uuid[]))+(select count(*) from public.community_posts where id=$1)+(select count(*) from public.community_walls where id=$3)+(select count(*) from public.community_profiles where id=any($2::uuid[]))+(select count(*) from auth.users where id=any($4::uuid[])) n',[fixture.post,profiles,fixture.wall,linkedAuthIds]);
+  must(Number(residue.rows[0].n)===0,'cleanup_residue_detected'); report.cleanup={status:'verified_zero_residue',authIdentitySource:'profile_link'};
 }
 try {
   await db.connect(); const digits=String(Date.now()).slice(-8); const fixtures=[['actor',fixture.actor,false],['outsider',fixture.outsider,false],['admin',fixture.admin,true]];
-  for (let i=0;i<fixtures.length;i+=1) { const phone=`8${digits}${i}`; fixtures[i].push(phone); fixtureEmails.push(`34${phone}@phone.quata.app`); await db.query('insert into public.community_profiles(id,display_name,phone,pass_hash,phone_normalized,country_code,phone_local,is_admin,account_status) values($1,$2,$3,$4,$3,$5,$6,$7,$8)',[fixtures[i][1],`${marker}-${fixtures[i][0]}`,`+34${phone}`,sha(password),'34',phone,fixtures[i][2],'active']); }
+  for (let i=0;i<fixtures.length;i+=1) { const phone=`8${digits}${i}`; fixtures[i].push(phone); await db.query('insert into public.community_profiles(id,display_name,phone,pass_hash,phone_normalized,country_code,phone_local,is_admin,account_status) values($1,$2,$3,$4,$3,$5,$6,$7,$8)',[fixtures[i][1],`${marker}-${fixtures[i][0]}`,`+34${phone}`,sha(password),'34',phone,fixtures[i][2],'active']); }
   const [actor,outsider,admin] = await Promise.all(fixtures.map(([,id,,phone])=>login(id,phone)));
   report.steps.push('auth_preflight_three_active_profiles_login');
   if (mode === 'full') {
