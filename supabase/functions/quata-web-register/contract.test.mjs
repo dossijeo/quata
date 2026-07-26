@@ -13,6 +13,7 @@ import {
 
 const validPayload = {
   version: 1,
+  channel: "web",
   display_name: "Gabriela",
   neighborhood: "Centro",
   country_code: "34",
@@ -39,6 +40,14 @@ test("rejects every unknown or privileged client-controlled field", () => {
   assert.throws(
     () => validateRegistrationPayload({ ...validPayload, is_admin: true }),
     (error) => error instanceof RegistrationContractError && error.code === "unknown_field",
+  );
+});
+
+test("uses one strict contract for Web and attested Android channels", () => {
+  assert.equal(validateRegistrationPayload({ ...validPayload, channel: "android" }).channel, "android");
+  assert.throws(
+    () => validateRegistrationPayload({ ...validPayload, channel: "legacy" }),
+    (error) => error instanceof RegistrationContractError && error.code === "invalid_channel",
   );
 });
 

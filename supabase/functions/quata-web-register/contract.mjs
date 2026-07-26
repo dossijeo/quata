@@ -26,6 +26,8 @@ export function validateRegistrationPayload(payload) {
   const clientInstanceId = normalizedText(payload.client_instance_id, 8, 200, "invalid_client_instance_id");
   const idempotencyKey = normalizedText(payload.idempotency_key, 16, 200, "invalid_idempotency_key");
   const challengeToken = typeof payload.challenge_token === "string" ? payload.challenge_token.trim() : "";
+  const channel = payload.channel;
+  if (channel !== "web" && channel !== "android") throw new RegistrationContractError("invalid_channel");
 
   if (!/^[1-9][0-9]{0,2}$/.test(countryCode)) {
     throw new RegistrationContractError("invalid_country_code");
@@ -62,6 +64,7 @@ export function validateRegistrationPayload(payload) {
     clientInstanceId,
     idempotencyKey,
     challengeToken,
+    channel,
   };
 }
 
@@ -157,7 +160,7 @@ function rejectUnknownFields(payload) {
   const allowed = new Set([
     "version", "display_name", "neighborhood", "country_code", "phone_local",
     "password", "secret_question", "secret_answer", "client_instance_id",
-    "idempotency_key", "challenge_token",
+    "idempotency_key", "challenge_token", "channel",
   ]);
   if (Object.keys(payload).some((field) => !allowed.has(field))) {
     throw new RegistrationContractError("unknown_field");

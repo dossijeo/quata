@@ -1,6 +1,6 @@
 import test from "node:test"; import assert from "node:assert/strict";
 import {runRegistration} from "./contract.mjs"; import {cleanupRegistration} from "./cleanup-contract.mjs";
-const payload={version:1,display_name:"Test",neighborhood:"Centro",country_code:"34",phone_local:"600100200",
+const payload={version:1,channel:"web",display_name:"Test",neighborhood:"Centro",country_code:"34",phone_local:"600100200",
  password:"LongPassword7",secret_question:"barrio",secret_answer:"Centro",client_instance_id:"browser-test",
  idempotency_key:"0123456789abcdef0123456789abcdef",challenge_token:"verified"};
 test("isolated browser flow: accept, reload replay, login and verified purge",async()=>{

@@ -380,6 +380,7 @@ internal fun buildWebRegistrationRequest(
     challengeToken: String,
 ): JsonObject = buildJsonObject {
     put("version", 1)
+    put("channel", "web")
     put("display_name", request.displayName.trim())
     put("neighborhood", request.neighborhood.trim())
     put("country_code", request.countryCode.filter(Char::isDigit))
@@ -411,7 +412,7 @@ private suspend fun requestTurnstileChallenge(siteKey: String): String = suspend
     node.style.position = 'fixed'; node.style.left = '-10000px';
     document.body.appendChild(node);
     const widgetId = globalThis.turnstile.render(node, {
-      sitekey: siteKey, size: 'invisible', execution: 'execute',
+      sitekey: siteKey, size: 'invisible', execution: 'execute', action: 'register_web',
       callback: token => { node.remove(); resolve(token); },
       'error-callback': () => { node.remove(); reject(); },
       'expired-callback': () => { node.remove(); reject(); }

@@ -58,9 +58,11 @@ Deno.serve(async (request) => {
       prepare: async (input: Record<string, string>) => {
         if (configuration.enabled) {
           const challengeOk = await verifyTurnstileChallenge(
-          configuration.turnstileSecret!,
+            configuration.turnstileSecret!,
             input.challengeToken,
             sourceIp,
+            `register_${input.channel}`,
+            configuration.turnstileAllowedHostnames,
           );
           if (!challengeOk) throw new RegistrationContractError("challenge_failed", 403);
         }
@@ -76,6 +78,7 @@ Deno.serve(async (request) => {
             secretQuestion: input.secretQuestion,
             secretAnswer: input.secretAnswer,
             clientInstanceId: input.clientInstanceId,
+            channel: input.channel,
             pepper: configuration.pepper,
           })),
           phoneHash: await sha256Hex(`${phoneIdentity}:${configuration.pepper}`),

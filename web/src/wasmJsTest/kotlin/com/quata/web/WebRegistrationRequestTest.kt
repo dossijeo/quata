@@ -26,6 +26,7 @@ class WebRegistrationRequestTest {
         assertEquals(
             setOf(
                 "version",
+                "channel",
                 "display_name",
                 "neighborhood",
                 "country_code",

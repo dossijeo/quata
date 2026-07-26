@@ -4,13 +4,21 @@
 the Supabase Auth identity, `community_profiles` row and Web session as one
 idempotent saga. Browser code never receives the service-role key.
 
+Despite its legacy route name, this is the single registration orchestrator.
+`channel` is strictly `web` or `android`; both require a fresh Turnstile token
+verified by Siteverify and use the identical E.164/idempotency/saga/hash path.
+Android obtains the token through the official Turnstile WebView integration.
+Until that client ships, its channel remains unusable and fail-closed.
+
 Required environment variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `QUATA_WEB_REGISTRATION_API_KEY`, `QUATA_WEB_REGISTRATION_ALLOWED_ORIGINS`,
 `QUATA_WEB_REGISTRATION_PEPPER`, `QUATA_INTERNAL_AUTH_PASSWORD_SECRET`,
 `QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION`,
 `QUATA_WEB_REGISTRATION_ENABLED`. Both secrets must contain at least
 32 characters. When registration is enabled, configure
-`QUATA_WEB_REGISTRATION_TURNSTILE_SECRET`. The feature and challenge are
+`QUATA_WEB_REGISTRATION_TURNSTILE_SECRET` and the comma-separated
+`QUATA_TURNSTILE_ALLOWED_HOSTNAMES`. Siteverify must match both hostname and
+`register_web`/`register_android` action. The feature and challenge are
 fail-closed; the browser also requires the
 public `quata-web-registration-enabled=true` meta flag.
 
