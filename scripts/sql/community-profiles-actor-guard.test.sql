@@ -55,6 +55,16 @@ create table public.community_profiles (
     deactivated_auth_user_id uuid
 );
 
+create table public.community_profile_follows (
+    id uuid primary key default gen_random_uuid(),
+    follower_profile_id uuid not null
+        references public.community_profiles(id) on delete cascade,
+    followed_profile_id uuid not null
+        references public.community_profiles(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    unique (follower_profile_id, followed_profile_id)
+);
+
 grant all on public.community_profiles to anon, authenticated, service_role;
 
 create or replace function public.quata_current_profile_id()

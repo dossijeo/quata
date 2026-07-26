@@ -130,13 +130,20 @@ aprobados de los perfiles admin y official. No imprime IDs. Falla si detecta:
 
 - una identidad Auth que el mapping `id OR auth_user_id` resuelva a más de un
   perfil;
-- teléfonos normalizados duplicados;
-- estados de desactivación incoherentes o contadores negativos;
+- identidades telefónicas duplicadas tras canonicalizar todos los campos usados
+  por el Auth bridge (`phone_e164`, `phone`, país+local, code+telefono y las
+  variantes locales legacy);
+- estados de desactivación incoherentes;
+- contadores que no coincidan exactamente con las aristas reales de
+  `community_profile_follows`, incluidos positivos manipulados;
 - cualquier diferencia frente al inventario de roles privilegiados revisado.
 
 Los fingerprints deben obtenerse y aprobarse durante la revisión operativa
 privada; no se incluyen en Git. Un fallo bloquea el rollout y exige investigar
 las filas afectadas, no corregirlas automáticamente.
+
+La URL de base no se pasa como argumento de proceso: el runner monta el fichero
+local como secreto de solo lectura y lo consume dentro del contenedor.
 
 ## Riesgo pendiente no incluido
 

@@ -52,18 +52,68 @@ begin
             v_anomalies using errcode = '23505';
     end if;
 
+    -- Cover every representation used by Android/Auth bridge, removing
+    -- formatting before comparing. Local-only keys are conservative because
+    -- legacy login/recovery queries phone_local without a country predicate.
     select count(*) into v_anomalies
     from (
-        select country_code, phone_local
-        from public.community_profiles
-        where nullif(trim(country_code), '') is not null
-          and nullif(trim(phone_local), '') is not null
-        group by country_code, phone_local
-        having count(*) > 1
+        select identity_key
+        from (
+            select cp.id,
+                   'global:' || regexp_replace(cp.phone_e164, '\D', '', 'g')
+                       as identity_key
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.phone_e164, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'global:' || regexp_replace(cp.phone, '\D', '', 'g')
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.phone, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'global:' || regexp_replace(
+                       coalesce(cp.country_code, '') || coalesce(cp.phone_local, ''),
+                       '\D', '', 'g'
+                   )
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.country_code, '\D', '', 'g'), '') is not null
+              and nullif(regexp_replace(cp.phone_local, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'global:' || regexp_replace(
+                       coalesce(cp.code, '') || coalesce(cp.telefono, ''),
+                       '\D', '', 'g'
+                   )
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.code, '\D', '', 'g'), '') is not null
+              and nullif(regexp_replace(cp.telefono, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'local:' || regexp_replace(cp.phone_normalized, '\D', '', 'g')
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.phone_normalized, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'local:' || regexp_replace(cp.phone_local, '\D', '', 'g')
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.phone_local, '\D', '', 'g'), '') is not null
+            union all
+            select cp.id,
+                   'local:' || regexp_replace(cp.telefono, '\D', '', 'g')
+            from public.community_profiles cp
+            where nullif(regexp_replace(cp.telefono, '\D', '', 'g'), '') is not null
+        ) identity_keys
+        group by identity_key
+        having count(distinct id) > 1
     ) duplicated_phone_identity;
     if v_anomalies <> 0 then
         raise exception 'Preflight failed: duplicate normalized phone identities (%)',
             v_anomalies using errcode = '23505';
+    end if;
+
+    if to_regclass('public.community_profile_follows') is null then
+        raise exception 'Preflight failed: community_profile_follows is missing'
+            using errcode = '42P01';
     end if;
 
     select count(*) into v_anomalies
@@ -82,7 +132,24 @@ begin
            and deactivated_at is null
        );
     if v_anomalies <> 0 then
-        raise exception 'Preflight failed: lifecycle/counter anomalies (%)',
+        raise exception 'Preflight failed: lifecycle/negative counter anomalies (%)',
+            v_anomalies using errcode = '23514';
+    end if;
+
+    select count(*) into v_anomalies
+    from public.community_profiles cp
+    where cp.followers_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.followed_profile_id = cp.id
+          )
+       or cp.following_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.follower_profile_id = cp.id
+          );
+    if v_anomalies <> 0 then
+        raise exception 'Preflight failed: counters do not match follow edges (%)',
             v_anomalies using errcode = '23514';
     end if;
 
