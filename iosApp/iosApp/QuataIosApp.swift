@@ -514,7 +514,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         self?.presentRemoteAttachmentPreviewUnsupportedNotice()
                         return
                     }
-                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { _, error in
+                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { error in
                         guard error != nil else { return }
                         DispatchQueue.main.async {
                             self?.presentRemoteAttachmentDownloadFailureNotice()
