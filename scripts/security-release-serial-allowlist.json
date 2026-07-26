@@ -21,7 +21,7 @@
       "name": "community_comments_reapply_rls",
       "sha256": "83fc421f7f447d18312ba3738e574cb1d8001f0f46360b8d94d80f0e00c5fa1a",
       "rollbackFile": "20260726171005_community_comments_reapply_rls.rollback.sql",
-      "rollbackSha256": "5c719aeebeb013eb3c287daa29e31fc109755119c3869d2b69b36a89d4732330"
+      "rollbackSha256": "057c79778a06cc18d181c2a3613a09a821042fadda6733f290d03994cac7a07b"
     }
   }
 }

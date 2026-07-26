@@ -233,10 +233,11 @@ async function ledgerRows(client) {
 }
 
 async function lockReleaseObjects(client, version, rollback) {
-  const table = version === "20260726171001" ? "community_comments" : "official_post_likes";
+  const commentsRelease = version === "20260726171001" || version === "20260726171005";
+  const table = commentsRelease ? "community_comments" : "official_post_likes";
   await client.query("lock table supabase_migrations.schema_migrations in share row exclusive mode");
   await client.query(`lock table public.${table} in share row exclusive mode`);
-  const functions = version === "20260726171001"
+  const functions = commentsRelease
     ? ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"]
     : ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()",
       ...(rollback ? ["public.quata_official_like_delete_allowed(uuid)"] : [])];

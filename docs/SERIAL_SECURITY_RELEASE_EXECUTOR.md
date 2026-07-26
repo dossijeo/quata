@@ -108,3 +108,6 @@ migración forward revisada. El rollback se rechaza ante drift.
 Tras rollback de 001, la reaplicación usa exclusivamente la nueva versión
 `20260726171005_community_comments_reapply_rls`: el executor conserva 171001
 byte-exacto, inserta 171005 y exige 171005 byte-exacto antes de permitir 002.
+Si se ejecuta `rollback-001-forward`, 171005 permanece deliberadamente en el
+ledger y esa forward queda cerrada: no puede reaplicarse. Cualquier nueva
+contención exige otra versión forward revisada.
