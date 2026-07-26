@@ -75,7 +75,9 @@ limpia las tablas de auditoría.
 Tras el primer follow real se usa la plantilla forward-safe
 `community_profile_follow_counter_producer_decommission.sql.template`: retira
 el trigger sin restaurar caches ni borrar snapshot/índices. Su rollback
-versionado vuelve a instalar el productor.
+versionado bloquea temporalmente mutaciones sobre las aristas, reconcilia
+ambos contadores desde la tabla autoritativa, exige cero diferencias y sólo
+entonces vuelve a instalar el productor.
 
 `__MIGRATION_VERSION__` es un placeholder obligatorio: release management debe
 reemplazarlo por el timestamp/nombre definitivo al promover la plantilla.
@@ -94,6 +96,8 @@ PostgreSQL 16 desechable:
 - recalculate RPC denegado a cliente y permitido a servicio;
 - dos conexiones concurrentes para inserts/deletes recíprocos y target
   compartido, sin deadlock ni lost update;
+- tráfico real durante el decommission, seguido de rollback con reconciliación
+  y una nueva mutación mantenida por el productor reactivado;
 - rollback de ambas unidades, reproducción controlada del fallo histórico y
   reaplicación segura;
 - limpieza.

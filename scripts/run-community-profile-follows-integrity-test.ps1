@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$PostgresImage = "postgres:16-alpine"
+)
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -11,7 +13,7 @@ try {
         --name $containerName `
         --env POSTGRES_PASSWORD=quata-test-only `
         --volume "${repoRoot}:/workspace:ro" `
-        postgres:16-alpine | Out-Null
+        $PostgresImage | Out-Null
 
     $ready = $false
     foreach ($attempt in 1..30) {

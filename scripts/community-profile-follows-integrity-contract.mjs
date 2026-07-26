@@ -137,6 +137,16 @@ requireFragment(
   "create trigger quata_sync_profile_follow_counts_trg",
   "decommission_reversible",
 );
+requireFragment(
+  sql.decommissionRollback,
+  "lock table public.community_profile_follows in share row exclusive mode",
+  "decommission_rollback_blocks_mutations",
+);
+requireFragment(
+  sql.decommissionRollback,
+  "producer rollback reconciliation did not converge",
+  "decommission_rollback_reconciles",
+);
 
 if (
   !sql.counters.includes("__migration_version__") ||

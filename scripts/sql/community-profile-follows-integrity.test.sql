@@ -475,6 +475,40 @@ begin
 end;
 $$;
 
+-- Exercise real traffic while the producer is intentionally absent. The
+-- counters may drift during this window; rollback must rebuild them before
+-- reactivating the trigger.
+insert into public.community_profile_follows (
+    follower_profile_id, followed_profile_id
+) values (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+);
+
+delete from public.community_profile_follows
+where follower_profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and followed_profile_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+do $$
+begin
+    if not exists (
+        select 1
+        from public.community_profiles cp
+        where cp.followers_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.followed_profile_id = cp.id
+              )
+           or cp.following_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.follower_profile_id = cp.id
+              )
+    ) then
+        raise exception 'FAIL decommission traffic did not reproduce counter drift';
+    end if;
+    raise notice 'PASS decommission permits expected temporary drift';
+end;
+$$;
+
 \i /workspace/supabase/templates/community_profile_follow_counter_producer_decommission.rollback.sql.template
 
 do $$
@@ -487,7 +521,81 @@ begin
     ) then
         raise exception 'FAIL producer decommission rollback';
     end if;
-    raise notice 'PASS producer decommission rollback';
+    if exists (
+        select 1
+        from public.community_profiles cp
+        where cp.followers_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.followed_profile_id = cp.id
+              )
+           or cp.following_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.follower_profile_id = cp.id
+              )
+    ) then
+        raise exception 'FAIL producer decommission rollback left stale counters';
+    end if;
+    raise notice 'PASS producer decommission rollback reconciles traffic';
+end;
+$$;
+
+-- A new mutation after rollback must again be maintained by the producer.
+insert into public.community_profile_follows (
+    follower_profile_id, followed_profile_id
+) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+);
+
+do $$
+begin
+    if exists (
+        select 1
+        from public.community_profiles cp
+        where cp.followers_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.followed_profile_id = cp.id
+              )
+           or cp.following_count <> (
+                  select count(*) from public.community_profile_follows f
+                  where f.follower_profile_id = cp.id
+              )
+    ) then
+        raise exception 'FAIL producer did not maintain counters after rollback';
+    end if;
+    raise notice 'PASS producer resumes after decommission rollback';
+end;
+$$;
+
+-- Restore the canonical A -> B fixture through the reactivated producer.
+delete from public.community_profile_follows
+where follower_profile_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  and followed_profile_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+do $$
+begin
+    if (select count(*) from public.community_profile_follows) <> 1
+       or not exists (
+           select 1
+           from public.community_profile_follows
+           where follower_profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+             and followed_profile_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+       )
+       or exists (
+           select 1
+           from public.community_profiles cp
+           where cp.followers_count <> (
+                     select count(*) from public.community_profile_follows f
+                     where f.followed_profile_id = cp.id
+                 )
+              or cp.following_count <> (
+                     select count(*) from public.community_profile_follows f
+                     where f.follower_profile_id = cp.id
+                 )
+       ) then
+        raise exception 'FAIL producer fixture restoration after rollback';
+    end if;
+    raise notice 'PASS producer maintains fixture restoration after rollback';
 end;
 $$;
 
