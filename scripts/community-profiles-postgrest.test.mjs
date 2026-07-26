@@ -127,11 +127,9 @@ expect(
   anonymousUpdate,
 );
 
-const chosenId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const registration = await request("/community_profiles", {
   method: "POST",
   body: {
-    id: chosenId,
     display_name: "PostgREST registration",
     phone: "+34555",
     pass_hash: "hash-e",
@@ -142,9 +140,28 @@ const registration = await request("/community_profiles", {
 expect(
   registration.status === 201 &&
     registration.value.length === 1 &&
-    registration.value[0].id !== chosenId,
+    typeof registration.value[0].id === "string",
   "anonymous registration did not receive a server id",
   registration,
+);
+
+const chosenIdRegistration = await request("/community_profiles", {
+  method: "POST",
+  body: {
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    display_name: "PostgREST chosen id",
+    phone: "+34556",
+    pass_hash: "hash-e2",
+    phone_normalized: "556",
+    phone_local: "556",
+  },
+});
+expect(
+  (chosenIdRegistration.status === 401 ||
+    chosenIdRegistration.status === 403) &&
+    chosenIdRegistration.value?.code === "42501",
+  "anonymous chosen id insert did not fail with 42501",
+  chosenIdRegistration,
 );
 
 const maliciousRegistration = await request("/community_profiles", {
@@ -187,6 +204,34 @@ for (const [label, forbidden] of [
     (response.status === 401 || response.status === 403) &&
       response.value?.code === "42501",
     `anonymous ${label} insert did not fail with 42501`,
+    response,
+  );
+}
+
+for (const [label, sub, target, body] of [
+  [
+    "inactive owner",
+    "44444444-4444-4444-8444-444444444444",
+    "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    { display_name: "Inactive owner via PostgREST" },
+  ],
+  [
+    "inactive admin",
+    "55555555-5555-4555-8555-555555555555",
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    { is_official: true },
+  ],
+]) {
+  const response = await request(`/community_profiles?id=eq.${target}`, {
+    token: jwt(sub),
+    method: "PATCH",
+    body,
+  });
+  expect(
+    response.status === 200 &&
+      Array.isArray(response.value) &&
+      response.value.length === 0,
+    `${label} update was not filtered`,
     response,
   );
 }

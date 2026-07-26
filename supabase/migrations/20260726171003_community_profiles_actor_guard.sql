@@ -46,12 +46,18 @@ on public.community_profiles
 for update
 to authenticated
 using (
-    id = public.quata_current_profile_id()
-    or public.quata_current_profile_is_admin()
+    id = public.quata_chat_auth_profile_id()
+    or (
+        public.quata_chat_auth_profile_id() is not null
+        and public.quata_current_profile_is_admin()
+    )
 )
 with check (
-    id = public.quata_current_profile_id()
-    or public.quata_current_profile_is_admin()
+    id = public.quata_chat_auth_profile_id()
+    or (
+        public.quata_chat_auth_profile_id() is not null
+        and public.quata_current_profile_is_admin()
+    )
 );
 
 create or replace function public.quata_guard_profile_roles()
@@ -89,8 +95,9 @@ begin
         return new;
     end if;
 
-    v_actor := public.quata_current_profile_id();
-    v_actor_is_admin := public.quata_current_profile_is_admin();
+    v_actor := public.quata_chat_auth_profile_id();
+    v_actor_is_admin :=
+        v_actor is not null and public.quata_current_profile_is_admin();
 
     if v_actor is null then
         raise exception 'An authenticated profile actor is required'
@@ -150,7 +157,38 @@ revoke update
 on public.community_profiles
 from anon;
 
-grant select, insert
+revoke insert
+on public.community_profiles
+from anon, authenticated;
+
+grant select
+on public.community_profiles
+to anon, authenticated;
+
+-- Explicit allowlist: new columns are denied automatically. Credentials remain
+-- temporarily because the published Android registration sends them; rollout
+-- is blocked until that client moves behind the server auth boundary.
+grant insert (
+    display_name,
+    phone,
+    pass_hash,
+    phone_normalized,
+    country_code,
+    phone_local,
+    phone_e164,
+    barrio,
+    barrio_normalized,
+    home_community_id,
+    neighborhood,
+    code,
+    telefono,
+    nombre,
+    avatar_url,
+    secret_question,
+    secret_answer,
+    pass_plain,
+    avatar
+)
 on public.community_profiles
 to anon, authenticated;
 

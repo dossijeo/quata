@@ -86,6 +86,21 @@ as $$
     ), false);
 $$;
 
+create or replace function public.quata_chat_auth_profile_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+    select cp.id
+    from public.community_profiles cp
+    where auth.uid() is not null
+      and cp.account_status = 'active'
+      and (cp.id = auth.uid() or cp.auth_user_id = auth.uid())
+    limit 1;
+$$;
+
 create or replace function public.quata_current_role_is_service()
 returns boolean
 language sql
@@ -129,7 +144,25 @@ insert into public.community_profiles (
     ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Actor B', '+34222', 'hash-b', '222', '222',
      '22222222-2222-4222-8222-222222222222', false),
     ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Admin', '+34333', 'hash-c', '333', '333',
-     '33333333-3333-4333-8333-333333333333', true);
+     '33333333-3333-4333-8333-333333333333', true),
+    ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Inactive owner', '+34777', 'hash-e', '777', '777',
+     '44444444-4444-4444-8444-444444444444', false),
+    ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'Inactive admin', '+34888', 'hash-f', '888', '888',
+     '55555555-5555-4555-8555-555555555555', true);
+
+update public.community_profiles
+set account_status = 'deactivated',
+    deactivated_at = now()
+where id in (
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    'ffffffff-ffff-4fff-8fff-ffffffffffff'
+);
+
+\set EXPECTED_ADMIN_SHA256 d2c931fdc9988046080e8d006024273b6c6111ae47852a4617d061ec1b7c16a9
+\set EXPECTED_OFFICIAL_SHA256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+\i /workspace/scripts/sql/community-profiles-rollout-preflight.sql
+\unset EXPECTED_ADMIN_SHA256
+\unset EXPECTED_OFFICIAL_SHA256
 
 create or replace function public.test_exec_as(
     p_role text,
@@ -199,20 +232,29 @@ begin
     perform public.test_exec_as(
         'anon', null,
         $q$insert into public.community_profiles (
-               id, display_name, phone, pass_hash, phone_normalized, phone_local
+               display_name, phone, pass_hash, phone_normalized, phone_local
            ) values (
-               'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
                'Legacy registration', '+34444', 'hash-d', '444', '444'
            )$q$
     );
     select id into v_generated_id
     from public.community_profiles
     where display_name = 'Legacy registration';
-    if v_generated_id is null
-       or v_generated_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'::uuid then
-        raise exception 'FAIL anonymous registration id was not server-generated';
+    if v_generated_id is null then
+        raise exception 'FAIL anonymous registration did not receive a server id';
     end if;
     raise notice 'PASS legacy anonymous registration with server id';
+
+    perform public.test_expect_42501(
+        'anonymous id injection on insert',
+        'anon', null,
+        $q$insert into public.community_profiles (
+               id, display_name, phone, pass_hash, phone_normalized, phone_local
+           ) values (
+               'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+               'Chosen identity', '+34994', 'hash-x', '994', '994'
+           )$q$
+    );
 
     perform public.test_expect_42501(
         'anonymous admin escalation on insert',
@@ -345,6 +387,30 @@ begin
            set display_name = 'Admin rewrite'
            where id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'$q$
     );
+
+    v_rows := public.test_exec_as(
+        'authenticated',
+        '44444444-4444-4444-8444-444444444444',
+        $q$update public.community_profiles
+           set display_name = 'Inactive owner rewrite'
+           where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'$q$
+    );
+    if v_rows <> 0 then
+        raise exception 'FAIL inactive owner update was not blocked';
+    end if;
+    raise notice 'PASS inactive owner update';
+
+    v_rows := public.test_exec_as(
+        'authenticated',
+        '55555555-5555-4555-8555-555555555555',
+        $q$update public.community_profiles
+           set is_official = true
+           where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'$q$
+    );
+    if v_rows <> 0 then
+        raise exception 'FAIL inactive admin role update was not blocked';
+    end if;
+    raise notice 'PASS inactive admin role update';
 
     v_rows := public.test_exec_as(
         'service_role', null,

@@ -46,9 +46,9 @@ No se ejecutó DDL ni DML contra el proyecto remoto.
 | Borrar/truncar | No | No | No | Sí |
 
 El alta legacy sigue admitiendo contraseña y recuperación porque Android aún
-crea el perfil antes de recibir el JWT del Auth bridge. El servidor reemplaza
-siempre cualquier `id` aportado por un cliente no privilegiado y rechaza
-`auth_user_id`, roles, estado, desactivación y contadores no seguros.
+crea el perfil antes de recibir el JWT del Auth bridge. El grant de INSERT por
+columnas no permite aportar `id` y el servidor lo genera; también rechaza
+`auth_user_id`, roles, timestamps, estado, desactivación y contadores.
 
 Las ediciones propias conservan nombre, avatar, ubicación, teléfono, contraseña
 y pregunta/respuesta de recuperación. `id`, `auth_user_id`, timestamps de ciclo
@@ -63,7 +63,8 @@ efímero. Los roles `anon`, `authenticated` y `service_role`, junto con los GUC
 aplica la migración real y verifica:
 
 1. lectura anónima de feed;
-2. alta anónima legacy y sustitución del UUID elegido por el cliente;
+2. alta anónima legacy con UUID generado por servidor y rechazo de UUID elegido
+   por el cliente;
 3. rechazo `42501` de escalada de admin en INSERT;
 4. edición legítima del perfil propio;
 5. bloqueo de suplantación y de UPDATE anónimo;
@@ -82,7 +83,13 @@ resultado es `COMMUNITY_PROFILES_POSTGREST_TEST_OK`; al terminar elimina API,
 base y red Docker, por lo que no conserva fixtures.
 
 Los INSERT hostiles se prueban por separado para `auth_user_id`, `is_admin`,
-`is_official`, estado/desactivación y contadores. Todos devuelven `42501`.
+`is_official`, estado/desactivación, contadores e `id`. Todos devuelven
+`42501`. El INSERT se concede por allowlist de columnas, de modo que una futura
+columna queda denegada por defecto.
+
+También se prueban dueño y administrador desactivados, tanto en SQL como en
+PostgREST. Ambos reciben cero filas mutables: la policy y el trigger usan
+`quata_chat_auth_profile_id()`, cuyo contrato exige `account_status = 'active'`.
 
 ## Compatibilidad y orden de rollout
 
@@ -112,7 +119,24 @@ Por tanto, `171003` no es candidata a producción por sí sola. El orden seguro 
 3. medir adopción y, si el producto mantiene APK antiguas, aplicar una versión
    mínima antes del corte;
 4. desplegar `171003` junto al contrato de auth ya adoptado;
-5. ejecutar E2E cross-platform y sólo entonces retirar contenciones.
+5. ejecutar el preflight histórico fail-closed descrito abajo;
+6. ejecutar E2E cross-platform y sólo entonces retirar contenciones.
+
+### Preflight histórico obligatorio
+
+`scripts/run-community-profiles-rollout-preflight.ps1` sólo ejecuta una
+transacción `READ ONLY` y se niega a arrancar sin los fingerprints SHA-256
+aprobados de los perfiles admin y official. No imprime IDs. Falla si detecta:
+
+- una identidad Auth que el mapping `id OR auth_user_id` resuelva a más de un
+  perfil;
+- teléfonos normalizados duplicados;
+- estados de desactivación incoherentes o contadores negativos;
+- cualquier diferencia frente al inventario de roles privilegiados revisado.
+
+Los fingerprints deben obtenerse y aprobarse durante la revisión operativa
+privada; no se incluyen en Git. Un fallo bloquea el rollout y exige investigar
+las filas afectadas, no corregirlas automáticamente.
 
 ## Riesgo pendiente no incluido
 
