@@ -237,9 +237,10 @@ async function lockReleaseObjects(client, version, rollback) {
   const table = commentsRelease ? "community_comments" : "official_post_likes";
   await client.query("lock table supabase_migrations.schema_migrations in share row exclusive mode");
   await client.query(`lock table public.${table} in share row exclusive mode`);
+  if (version === "20260726171002") await client.query("lock table public.community_comments in share row exclusive mode");
   const functions = commentsRelease
     ? ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"]
-    : ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()",
+    : ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()", "public.quata_chat_auth_profile_id()",
       ...(rollback ? ["public.quata_official_like_delete_allowed(uuid)"] : [])];
   // PostgreSQL has no LOCK FUNCTION command. Row locks on the exact pg_proc
   // tuples conflict with ALTER/DROP/CREATE OR REPLACE without blocking
@@ -304,7 +305,7 @@ async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnap
   const value = JSON.parse(source);
   const reports = value?.reports;
   const requiredReports = ["dbReleaseSafety", "backendCompatibility", "sb07"];
-  if (value?.schemaVersion !== 1 || value?.migration !== "20260726171001" || value?.status !== "passed"
+  if (value?.schemaVersion !== 1 || value?.migration !== "20260726171005" || value?.status !== "passed"
       || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
       || !isSha256(value?.preconditionSha256)
       || value?.databaseProjectFingerprint !== expectedProject || value?.databaseProjectFingerprint !== actualProject || !isSha256(value?.postflight?.sha256)
@@ -407,6 +408,7 @@ export async function run(argv = process.argv.slice(2)) {
       if ((!rollback && locked.has(version)) || (rollback && !exactLedgerRow(locked.get(version), sources[version].migrationSource, sources[version].entry))) throw new Error("serial_release_ledger_changed_after_lock");
       if (!rollback && version === "20260726171005" && !exactLedgerRow(locked.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_001_ledger_changed_after_lock");
       if (!rollback && version === "20260726171002" && !exactLedgerRow(locked.get("20260726171005"), approvedForwardSource, approvedForward)) throw new Error("serial_release_forward_ledger_changed_after_lock");
+      if (!rollback && version === "20260726171002") await assertEffectiveReleaseState(client, "20260726171005", false);
       const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
       if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
       await client.query(sources[version].body);

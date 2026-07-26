@@ -25,10 +25,10 @@ después de abrir la ventana de release:
   -Output build-reports/security-release/001-apply.json
 ```
 
-Tras los gates externos post-001, crear una evidencia JSON revisada con el
+Tras los gates externos post-forward 171005, crear una evidencia JSON revisada con el
 esquema `1`. Debe incluir el `releaseCommit` congelado (40 hex), el
 `snapshotFingerprint` del baseline (SHA-256), `migration`, `status`,
-`preconditionSha256` y estos tres informes con `status: "passed"` y SHA-256
+`preconditionSha256` de 171005 y estos tres informes con `status: "passed"` y SHA-256
 del fichero que se revisó: `dbReleaseSafety`, `backendCompatibility` y `sb07`.
 Un aprobador calcula además el SHA-256 de los **bytes** de esta evidencia. El
 segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
