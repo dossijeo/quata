@@ -25,6 +25,22 @@ Ejemplo (no pegar secretos en consola ni en CI):
   -OutRoot 'D:\restricted-backups\quata'
 ```
 
+El directorio de salida es obligatorio y debe estar fuera de cualquier checkout
+o worktree. Para crear una clave independiente de 32 bytes (sin sobrescribir
+ningún fichero):
+
+```powershell
+.\scripts\new-db-logical-backup-key.ps1 -KeyFile 'D:\restricted-keys\quata-release.key'
+```
+
+Si existe una URL histórica con `sslmode=require`, se puede generar un fichero
+nuevo con `verify-full`; sigue siendo imprescindible pasar una CA confiable al
+backup:
+
+```powershell
+.\scripts\upgrade-db-url-verify-full.ps1 -InputFile 'C:\seguro\old-url.txt' -OutputFile 'C:\seguro\verify-full-url.txt'
+```
+
 La restauración se prueba antes de autorizar DDL:
 
 ```powershell

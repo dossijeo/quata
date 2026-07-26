@@ -34,6 +34,11 @@ try {
         $unsafe=@((Get-Acl -LiteralPath $set).Access | Where-Object { $_.AccessControlType -eq "Allow" -and $_.IdentityReference.Value -match "(^|\\)(Everyone|Users|Authenticated Users)$" })
         if ($unsafe.Count -ne 0) { Fail "test_backup_acl_not_restricted" }
     }
+    # A failed pg_dump must never leave an authorized-looking release set.
+    $failedRoot=Join-Path $root "failed-backup-output"; $badUrlFile=Join-Path $root "bad-url.txt"; [IO.File]::WriteAllText($badUrlFile,"postgresql://postgres:$password@missing.test.invalid:5432/postgres?sslmode=verify-full")
+    $failed=$false
+    try { & (Join-Path $PSScriptRoot "new-db-logical-backup.ps1") -DbUrlFile $badUrlFile -TlsCaFile (Join-Path $tls "ca.pem") -EncryptionKeyFile $keyFile -OutRoot $failedRoot -Scope Full -DockerImage $DockerImage -DockerNetwork $network } catch { $failed=$true }
+    if (-not $failed -or @(Get-ChildItem -LiteralPath $failedRoot -Directory -ErrorAction SilentlyContinue).Count -ne 0) { Fail "test_failed_dump_left_authorized_backup" }
     & (Join-Path $PSScriptRoot "restore-db-logical-backup-drill.ps1") -BackupSet $set -EncryptionKeyFile $keyFile -DockerImage $DockerImage -ExpectedCommunityComments 2 -ExpectedOfficialPostLikes 3
     if ($LASTEXITCODE -ne 0) { Fail "test_restore_failed" }
     Write-Output "logical_backup_disposable_tls_restore_test_passed"

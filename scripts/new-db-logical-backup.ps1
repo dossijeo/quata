@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$DbUrlFile,
     [Parameter(Mandatory = $true)][string]$TlsCaFile,
     [Parameter(Mandatory = $true)][string]$EncryptionKeyFile,
-    [string]$OutRoot = "backups/release-logical",
+    [Parameter(Mandatory = $true)][string]$OutRoot,
     [ValidateSet("Full", "Critical")][string]$Scope = "Full",
     [string]$DockerImage = "postgres:17-alpine",
     [string]$DockerNetwork = ""
@@ -15,6 +15,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Fail([string]$Code) { throw $Code }
+function Test-Within([string]$Candidate, [string]$Container) {
+    $candidateFull=[IO.Path]::GetFullPath($Candidate).TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)
+    $containerFull=[IO.Path]::GetFullPath($Container).TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)
+    return $candidateFull.Equals($containerFull,[StringComparison]::OrdinalIgnoreCase) -or $candidateFull.StartsWith($containerFull+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)
+}
 function Restrict-Directory([string]$Path) {
     New-Item -ItemType Directory -Force -Path $Path | Out-Null
     if ($env:OS -eq "Windows_NT") {
@@ -53,7 +58,9 @@ function Invoke-DumpAndEncrypt([string[]]$DumpArguments, [string]$EncryptedOutpu
     $args = @("run", "--rm", "--env-file", $EnvPath, "-v", "${outputDirectory}:/work", "-v", "${CaPath}:/tls/ca.pem:ro", "-v", "${PSScriptRoot}:/script:ro", "-v", "${EncryptionKeyFile}:/key/release.key:ro")
     if (-not [string]::IsNullOrWhiteSpace($DockerNetwork)) { $args += @("--network", $DockerNetwork) }
     $outputName=Split-Path $EncryptedOutput -Leaf
-    $command="apk add --no-cache nodejs >/dev/null 2>&1; pg_dump $($DumpArguments -join ' ') | node /script/db-backup-crypto.mjs encrypt-stdin ignored /work/$outputName /key/release.key"
+    # A shell pipeline masks the first process exit status. A FIFO lets us wait
+    # for both pg_dump and the encryptor and reject a partial/empty dump.
+    $command="apk add --no-cache nodejs >/dev/null 2>&1; fifo=/work/.dump-$outputName.fifo; rm -f `"`$fifo`"; mkfifo `"`$fifo`"; node /script/db-backup-crypto.mjs encrypt-stdin ignored /work/$outputName /key/release.key < `"`$fifo`" & encrypt_pid=`$!; pg_dump $($DumpArguments -join ' ') > `"`$fifo`"; dump_status=`$?; wait `"`$encrypt_pid`"; encrypt_status=`$?; rm -f `"`$fifo`"; [ `"`$dump_status`" -eq 0 ] && [ `"`$encrypt_status`" -eq 0 ]"
     $args += @($DockerImage, "sh", "-ec", $command)
     $checksum = & docker @args 2>$null
     if ($LASTEXITCODE -ne 0 -or $checksum -notmatch '^[a-f0-9]{64}$') { Fail "logical_backup_dump_or_encryption_failed" }
@@ -67,12 +74,15 @@ if ((Get-Content -LiteralPath $TlsCaFile -Raw) -notmatch "-----BEGIN CERTIFICATE
 $connection = Parse-Connection $DbUrlFile
 $key = Read-Key $EncryptionKeyFile
 $root = [IO.Path]::GetFullPath($OutRoot)
+$worktrees = @(& git -C (Join-Path $PSScriptRoot "..") worktree list --porcelain 2>$null | Where-Object { $_ -like "worktree *" } | ForEach-Object { $_.Substring(9) })
+if (@($worktrees | Where-Object { Test-Within $root $_ }).Count -ne 0) { Fail "backup_outroot_must_not_be_inside_a_repository_worktree" }
 Restrict-Directory $root
 $id = "release-" + (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ") + "-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
 $set = Join-Path $root $id
 $work = Join-Path $root (".working-" + [guid]::NewGuid().ToString("N"))
 $envFile = Join-Path $work "pg.env"
 Restrict-Directory $set; Restrict-Directory $work
+$completed=$false
 
 try {
     $artifacts = @()
@@ -88,9 +98,11 @@ try {
     }
     $manifest = [ordered]@{ format="quata-logical-backup-v1"; createdAt=(Get-Date).ToUniversalTime().ToString("o"); scope=$Scope; encryption="AES-256-GCM"; tls="verify-full_explicit_ca"; grantsIncluded=$true; artifacts=$artifacts; containsConnectionData=$false; notes=@("Connection URL and credentials are never stored in this manifest.", "The backup pipeline writes no plaintext dump; retain the key separately.") }
     $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $set "manifest.json") -Encoding utf8
+    $completed=$true
     Write-Output "logical_backup_created=$set"
 }
 finally {
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+    if (-not $completed -and (Test-Path -LiteralPath $set)) { Remove-Item -LiteralPath $set -Recurse -Force }
     if ($null -ne $key) { [Array]::Clear($key, 0, $key.Length) }
 }
