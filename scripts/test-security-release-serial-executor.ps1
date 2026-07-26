@@ -34,7 +34,44 @@ create function public.quata_chat_auth_profile_id() returns uuid language sql st
 create function public.quata_current_profile_is_admin() returns boolean language sql stable as 'select false';
 create table public.official_post_likes(id uuid primary key, profile_id uuid not null);
 create function public.quata_current_profile_id() returns uuid language sql stable as 'select null::uuid';
-create function public.quata_guard_official_post_likes() returns trigger language plpgsql security definer as 'begin return new; end';
+create function public.quata_current_role_is_service() returns boolean language sql stable as 'select false';
+create or replace function public.quata_guard_official_post_likes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as `$guard`$
+declare
+    v_actor uuid := public.quata_current_profile_id();
+begin
+    if public.quata_current_role_is_service() then
+        if tg_op = 'DELETE' then
+            return old;
+        end if;
+        return new;
+    end if;
+
+    if v_actor is null then
+        raise exception 'Authentication required'
+            using errcode = '42501';
+    end if;
+
+    if tg_op = 'INSERT' and new.profile_id <> v_actor then
+        raise exception 'Likes must be created by the current profile'
+            using errcode = '42501';
+    end if;
+
+    if tg_op = 'DELETE' and old.profile_id <> v_actor and not public.quata_current_profile_is_admin() then
+        raise exception 'Only the like owner or an administrator can remove this like'
+            using errcode = '42501';
+    end if;
+
+    if tg_op = 'DELETE' then
+        return old;
+    end if;
+    return new;
+end;
+`$guard`$;
 create trigger quata_guard_official_post_likes_trg before insert or delete on public.official_post_likes for each row execute function public.quata_guard_official_post_likes();
 grant select, insert, delete on public.official_post_likes to anon, authenticated;
 grant select, insert, delete, update on public.community_comments to anon, authenticated;
@@ -42,6 +79,14 @@ create policy "public delete comments" on public.community_comments for delete t
 create policy "public insert comments" on public.community_comments for insert to public with check (true);
 create policy "public update comments" on public.community_comments for update to public using (true) with check (true);
 "@
+    # Replace the compact bootstrap definition with the exact production
+    # definition used by the original migration. The rollback deliberately
+    # fingerprints pg_get_functiondef byte-for-byte.
+    $officialBaseline = Get-Content -LiteralPath (Join-Path $root "scripts/official-likes-rls-migration-test.sql") -Raw
+    $guardDefinition = [regex]::Match($officialBaseline, '(?s)create function public\.quata_guard_official_post_likes\(\).*?\$\$;').Value
+    Assert-True (-not [string]::IsNullOrWhiteSpace($guardDefinition)) "production guard fixture definition missing"
+    $guardDefinition = $guardDefinition -replace '^create function', 'create or replace function'
+    Sql $guardDefinition
 }
 try {
     New-Item -ItemType Directory -Path $temp | Out-Null
@@ -76,8 +121,13 @@ try {
     $wrongTarget=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$gate,"--expected-gate-evidence-sha256",$gateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",('e'*64)); Assert-True ($wrongTarget.code -ne 0 -and ($wrongTarget.output -join "`n") -match "gate_evidence_invalid") "wrong target fingerprint was accepted"
     $two=Exec @("--action","apply-002","--expected-precondition-sha256",$fp2,"--gate-evidence",$gate,"--expected-gate-evidence-sha256",$gateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$project); Assert-True ($two.code -eq 0) "002 failed: $($two.output -join "`n")"
     $ledger = (& docker exec $container psql -U postgres -A -t -c "select string_agg(version||'|'||name||'|'||cardinality(statements),',' order by version) from supabase_migrations.schema_migrations;").Trim(); Assert-True ($ledger -eq "20260726171001|community_comments_delete_rls|1,20260726171002|official_post_likes_actor_guard|1") "ledger mismatch: $ledger"
+    $guardHash = (& docker exec $container psql -U postgres -A -t -c "select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure));").Trim()
+    Assert-True ($guardHash -eq "c9505e6d5b5fbb818c465cf84a3ebf56") "production-like guard fingerprint mismatch: $guardHash"
     $rollback2Dry=Exec @("--action","dry-run"); $rollback2Fp=((($rollback2Dry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
-    $rollback2Drift=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2Fp); Assert-True ($rollback2Drift.code -ne 0 -and ($rollback2Drift.output -join "`n") -match "rollback_refused") "rollback-002 catalog drift was accepted"
+    $rollback2=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2Fp); Assert-True ($rollback2.code -eq 0) "rollback-002 failed: $($rollback2.output -join "`n")"
+    $rollback2State=(& docker exec $container psql -U postgres -A -t -c "select (select relrowsecurity from pg_class where oid='public.official_post_likes'::regclass), to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null;").Trim(); Assert-True ($rollback2State -eq "f|t") "rollback-002 did not restore the production-like fixture: $rollback2State"
+    $rollback2AgainDry=Exec @("--action","dry-run"); $rollback2AgainFp=((($rollback2AgainDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
+    $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "rollback_refused") "rollback-002 drift/idempotency was accepted"
     $rollbackDry=Exec @("--action","dry-run"); $rollbackFp=((($rollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
     $rollback=Exec @("--action","rollback-001","--expected-precondition-sha256",$rollbackFp); Assert-True ($rollback.code -eq 0) "rollback 001 failed: $($rollback.output -join "`n")"
     $preserved=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171001';").Trim(); Assert-True ($preserved -eq "1") "rollback repaired/deleted ledger"

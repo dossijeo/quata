@@ -56,7 +56,10 @@ async function databaseConfig() {
   const ca = await readFile(caFile, "utf8");
   if (!ca.trim()) throw new Error("serial_release_tls_ca_empty");
   const databaseProjectFingerprint = sha256(JSON.stringify({ host: url.hostname.toLowerCase(), port: url.port || "5432", database: decodeURIComponent(url.pathname.replace(/^\//, "")) }));
-  return { connectionString, ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", databaseProjectFingerprint };
+  // pg-connection-string lets URL SSL parameters replace the explicit TLS
+  // object. Remove them and enforce the separately supplied CA/hostname.
+  for (const option of ["sslmode", "uselibpqcompat", "sslcert", "sslkey", "sslrootcert"]) url.searchParams.delete(option);
+  return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", databaseProjectFingerprint };
 }
 
 function unwrapOuterTransaction(sql, version) {
@@ -95,6 +98,73 @@ async function catalogFingerprint(client, version) {
   if (rows.length !== 1) throw new Error(`serial_release_precondition_table_missing:${settings.table}`);
   const source = JSON.stringify(rows[0].fingerprint_source);
   return { sha256: sha256(source), source };
+}
+
+async function assertEffectiveReleaseState(client, version, rollback) {
+  const table = version === "20260726171001" ? "community_comments" : "official_post_likes";
+  const { rows } = await client.query(`
+    select
+      c.relrowsecurity as rls,
+      c.relforcerowsecurity as force_rls,
+      coalesce((select jsonb_agg(p.policyname order by p.policyname)
+        from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb) as policies,
+      has_table_privilege('anon', c.oid, 'SELECT') as anon_select,
+      has_table_privilege('anon', c.oid, 'INSERT') as anon_insert,
+      has_table_privilege('anon', c.oid, 'DELETE') as anon_delete,
+      has_table_privilege('anon', c.oid, 'UPDATE') as anon_update,
+      has_table_privilege('authenticated', c.oid, 'SELECT') as auth_select,
+      has_table_privilege('authenticated', c.oid, 'INSERT') as auth_insert,
+      has_table_privilege('authenticated', c.oid, 'DELETE') as auth_delete,
+      has_table_privilege('authenticated', c.oid, 'UPDATE') as auth_update
+    from pg_class c where c.oid = ('public.' || $1)::regclass`, [table]);
+  if (rows.length !== 1) throw new Error(`serial_release_postcondition_table_missing:${table}`);
+  const state = rows[0];
+  const policyNames = state.policies;
+  const expectedPolicies = version === "20260726171001"
+    ? (rollback
+      ? ["public delete comments", "public insert comments", "public update comments"]
+      : ["authenticated delete own or admin comments", "authenticated insert own comments"])
+    : (rollback
+      ? []
+      : ["official_post_likes_authenticated_delete_own_or_admin", "official_post_likes_authenticated_insert_own", "official_post_likes_public_read"]);
+  if (JSON.stringify(policyNames) !== JSON.stringify(expectedPolicies)) throw new Error(`serial_release_postcondition_policy_mismatch:${version}`);
+  if (version === "20260726171001") {
+    const grantsOk = rollback
+      ? state.anon_insert && state.anon_delete && state.anon_update && state.auth_insert && state.auth_delete && state.auth_update
+      : !state.anon_insert && !state.anon_delete && !state.anon_update && state.auth_insert && state.auth_delete && !state.auth_update;
+    if (!state.rls || state.force_rls || !grantsOk) throw new Error(`serial_release_postcondition_rls_or_grant_mismatch:${version}`);
+  } else {
+    const expectedRls = !rollback;
+    const grantsOk = rollback
+      ? state.anon_select && !state.anon_insert && !state.anon_delete && state.auth_select && state.auth_insert && state.auth_delete
+      : state.anon_select && !state.anon_insert && !state.anon_delete && state.auth_select && state.auth_insert && state.auth_delete;
+    if (state.rls !== expectedRls || state.force_rls || !grantsOk) throw new Error(`serial_release_postcondition_rls_or_grant_mismatch:${version}`);
+    const { rows: functions } = await client.query(`
+      with ids as (
+        select to_regprocedure('public.quata_official_like_delete_allowed(uuid)') as helper
+      )
+      select
+        (select not p.prosecdef from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_invoker,
+        ids.helper is not null as helper_exists,
+        case when ids.helper is null then false
+          else (select p.prosecdef
+                and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+                and not has_function_privilege('anon', p.oid, 'EXECUTE')
+                and not has_function_privilege('public', p.oid, 'EXECUTE')
+                from pg_proc p where p.oid = ids.helper)
+        end as helper_acl_ok,
+        exists(select 1 from pg_trigger t
+          where t.tgrelid = 'public.official_post_likes'::regclass
+            and t.tgname = 'quata_guard_official_post_likes_trg'
+            and t.tgfoid = 'public.quata_guard_official_post_likes()'::regprocedure
+            and not t.tgisinternal) as trigger_ok
+      from ids`);
+    const f = functions[0];
+    const functionStateOk = rollback
+      ? !f.guard_invoker && !f.helper_exists && f.trigger_ok
+      : f.guard_invoker && f.helper_exists && f.helper_acl_ok && f.trigger_ok;
+    if (!functionStateOk) throw new Error(`serial_release_postcondition_function_or_trigger_mismatch:${version}`);
+  }
 }
 
 async function assertLedgerShape(client) {
@@ -213,6 +283,9 @@ export async function run(argv = process.argv.slice(2)) {
       const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
       if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
       await client.query(sources[version].body);
+      // Validate the effective catalog, grants and function/trigger binding
+      // independently from the migration's own SQL before the transaction can commit.
+      await assertEffectiveReleaseState(client, version, rollback);
       if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FAIL_BEFORE_LEDGER === "1") throw new Error("serial_release_test_fail_before_ledger");
       if (!rollback) await client.query("insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)", [version, [sources[version].source], sources[version].entry.name]);
       await client.query("commit");

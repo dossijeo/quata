@@ -1,124 +1,97 @@
 # Runbook de release aislado RLS-001 + RLS-002
 
-## Alcance y decisión actual
+## Alcance y decisión
 
 Este runbook cubre exclusivamente:
 
 1. `20260726171001_community_comments_delete_rls.sql`;
 2. `20260726171002_official_post_likes_actor_guard.sql`.
 
-`20260726171003` y `20260726171004` quedan fuera de la rama de integración, del
-paquete selectivo, del dry-run y del despliegue.
+`20260726171003` y `20260726171004` quedan fuera del corte. El historial remoto
+no permite usar con seguridad `supabase db push`: la única vía autorizable es
+`scripts/run-security-release-serial-executor.ps1`, cuya allowlist limita los
+SQL y rollbacks por SHA-256.
 
-Decisión actual: **NO-GO**. Puede cambiar a GO cuando el historial deje de estar
-bloqueado con evidencia semántica o reconciliación aprobada, RLS-002 tenga un
-rollback SQL versionado con prueba rollback/reaplicación, las ramas estén
-integradas en un corte inmutable, el backup/PITR esté confirmado y el baseline
-completo pase.
+La decisión permanece **NO-GO para apply** hasta autorización explícita del
+release manager. El dry-run es read-only.
 
-## Fuentes congeladas
+## Evidencia ya disponible
 
-- release-safety: `codex/db-release-safety`;
-- RLS-001: `origin/codex/fix-rls-communities@46a54b54`;
-- RLS-002 final: `origin/codex/fix-rls-official-likes-release@0aa44614`;
-- gates: `origin/codex/backend-compatibility-gates@61987276`.
-
-Antes de preparar el release, la rama de integración debe contener esas
-fuentes revisadas sin 003/004. Registrar su `git rev-parse HEAD` y no admitir
-cambios durante la ventana.
+- Rama de integración: `codex/security-release-001-002`.
+- Hashes de migración y rollback congelados en
+  `scripts/security-release-serial-allowlist.json`.
+- Regresiones PostgreSQL 17 de 001 y 002 en verde.
+- Rollback y reaplicación de 001/002 ensayados.
+- Compatibilidad pública Web, Android API-37 y contratos 18 tablas/44 RPC en
+  verde.
+- Backup lógico Full real cifrado y clave separada con ACL exclusiva.
+- Drill PostgreSQL 17 de los objetos afectados: TOC, autenticidad, checksums y
+  conteos reales exactos.
+- PITR no está habilitado; el backup lógico no equivale a una restauración
+  integral de todos los servicios gestionados de Supabase.
+- Dry-run remoto serial guardado bajo
+  `build-reports/security-release/remote-dry-run.json`.
 
 ## Puertas GO
 
-- snapshot read-only con `selectivePackageEligible=true`, sin decisiones
-  históricas semánticamente no verificadas;
-- hashes de 001/002 y sus rollbacks congelados;
-- regresiones PostgreSQL desechables de 001 y 002 en verde;
-- rollback/reaplicación en verde para ambas;
-- suite completa de compatibilidad en verde y baseline guardado fuera de los
-  directorios que se sobrescriben;
-- backup administrado/PITR confirmado con timestamp inmediatamente anterior;
-- cuentas SB-07/SB-09 aisladas y hard-cleanup aprobado;
-- una única persona/terminal como release manager;
-- ramas 003/004 ausentes del corte.
+- corte Git inmutable e independiente revisado;
+- backup lógico Full y drill de alcance verificados;
+- hashes de la allowlist sin cambios;
+- dry-run remoto con `status=passed`, 001/002 `ledger=absent` y fingerprints
+  previos archivados;
+- baseline y compatibilidad completos en verde;
+- evidencia encadenada de postflight 001 vigente antes de 002;
+- una única terminal/persona ejecutora;
+- autorización explícita separada para cada apply;
+- 003/004 ausentes de la rama y de la ejecución.
 
 Un solo fallo conserva o devuelve la decisión a NO-GO.
 
 ## Variables de la terminal de release
 
 ```powershell
-$env:SUPABASE_DB_TLS_CA_FILE = 'C:\Users\PC\.quata-supabase-pooler-ca.pem'
 $dbUrlFile = 'C:\Users\PC\.quata-supabase-db-url.txt'
+$tlsCaFile = 'C:\Users\PC\.quata-supabase-pooler-ca.pem'
 $webDist = '<dist Web de producción local>'
-$androidApk = '<APK debug/release aprobado>'
+$androidApk = '<APK aprobado>'
 $deviceId = '<serial API-37>'
 ```
 
-Las variables públicas y las cuentas aisladas exigidas por
-`run-backend-compatibility-gates.ps1`, SB-07 y SB-09 deben estar cargadas en el
-proceso sin imprimirlas. No guardar salidas de entorno en la evidencia.
+La URL nunca se pasa por argv ni se imprime. El ejecutor elimina parámetros
+TLS de la URL y fuerza CA explícita, hostname y `rejectUnauthorized=true`.
 
-Antes del baseline:
-
-```powershell
-.\scripts\check-supabase-backup-readiness.ps1 -DbUrlFile $dbUrlFile
-```
-
-Un resultado `blocked_no_verifiable_restore_point` mantiene NO-GO.
-
-## Baseline pre-release
+## Dry-run remoto read-only
 
 ```powershell
-.\scripts\run-db-release-safety.ps1 `
-  -Phase snapshot `
-  -Output build-reports/db-release-safety/pre-001-snapshot.json `
-  -DbUrlFile $dbUrlFile
-
-.\scripts\run-backend-compatibility-gates.ps1 `
+.\scripts\run-security-release-serial-executor.ps1 `
+  -Action dry-run `
   -DbUrlFile $dbUrlFile `
-  -TlsCaFile $env:SUPABASE_DB_TLS_CA_FILE `
-  -WebDistribution $webDist `
-  -AndroidApk $androidApk `
-  -DeviceId $deviceId `
-  -OutputDirectory build-reports/backend-compatibility/pre-001
-
-.\scripts\run-rls001-community-comments-sql.ps1 -AllowIsolatedDatabase
-.\scripts\test-official-likes-rls-migration.ps1
+  -TlsCaFile $tlsCaFile `
+  -Output build-reports/security-release/remote-dry-run.json
 ```
 
-La regresión 001 requiere además `QUATA_RLS_TEST_SCOPE` y
-`QUATA_RLS_TEST_DB_URL` apuntando a una base aislada aprobada; nunca a
-producción.
+Registrar de ese informe los fingerprints previos de 001 y 002. No sustituir
+este comando por `supabase db push --dry-run`.
 
-## Paquete y dry-run de 001
+## Apply 001
+
+Sólo tras autorización explícita:
 
 ```powershell
-.\scripts\prepare-db-release-package.ps1 `
-  -Snapshot build-reports/db-release-safety/pre-001-snapshot.json `
-  -OutputDirectory build-reports/db-release-safety/release-001 `
-  -MigrationFile 20260726171001_community_comments_delete_rls.sql
-
-npx --yes supabase@2.109.1 link `
-  --workdir build-reports/db-release-safety/release-001 `
-  --project-ref '<project-ref aprobado>'
-
-npx --yes supabase@2.109.1 db push `
-  --linked `
-  --workdir build-reports/db-release-safety/release-001 `
-  --dry-run
+.\scripts\run-security-release-serial-executor.ps1 `
+  -Action apply-001 `
+  -DbUrlFile $dbUrlFile `
+  -TlsCaFile $tlsCaFile `
+  -ExpectedPreconditionSha256 '<fingerprint 001 del dry-run>' `
+  -Output build-reports/security-release/apply-001.json
 ```
 
-El dry-run debe listar exactamente `20260726171001` y ningún fichero
-histórico ni 002/003/004. Capturar el output sanitizado y obtener autorización
-final explícita antes del único comando mutante:
+El ejecutor toma advisory lock y locks de tabla/ledger, vuelve a comprobar
+ledger y catálogo dentro de una transacción serializable, aplica únicamente el
+SQL allowlisted, valida el estado efectivo de RLS/policies/grants y escribe el
+ledger en la misma transacción.
 
-```powershell
-npx --yes supabase@2.109.1 db push `
-  --linked `
-  --workdir build-reports/db-release-safety/release-001 `
-  --yes
-```
-
-## Postflight de 001
+Después deben pasar:
 
 ```powershell
 .\scripts\run-db-release-safety.ps1 `
@@ -129,116 +102,63 @@ npx --yes supabase@2.109.1 db push `
 
 .\scripts\run-backend-compatibility-gates.ps1 `
   -DbUrlFile $dbUrlFile `
-  -TlsCaFile $env:SUPABASE_DB_TLS_CA_FILE `
+  -TlsCaFile $tlsCaFile `
   -WebDistribution $webDist `
   -AndroidApk $androidApk `
   -DeviceId $deviceId `
-  -Baseline build-reports/backend-compatibility/pre-001/contracts.json `
   -OutputDirectory build-reports/backend-compatibility/post-001
-
-.\scripts\run-supabase-e2e-sb07.ps1 `
-  -AllowExistingTestData `
-  -AllowCommunityMutation `
-  -Output build-reports/supabase/sb-07-post-001.json
 ```
 
-No avanzar a 002 si falla ledger, catálogo 18/44, columnas públicas,
-navegación Web, Android API-37, Feed anónimo, SB-07 o limpieza.
+No avanzar si falla ledger, catálogo 18/44, Web, Android, SB-07 o limpieza.
+Construir el JSON de gate 001 según
+`docs/SERIAL_SECURITY_RELEASE_EXECUTOR.md`; debe estar anclado a commit,
+snapshot, destino, precondición y hashes de todos los informes.
 
-## Paquete y dry-run de 002
+## Apply 002
 
-Generar un snapshot nuevo: ahora 001 debe aparecer como tercera ancla real.
-
-```powershell
-.\scripts\run-db-release-safety.ps1 `
-  -Phase snapshot `
-  -Output build-reports/db-release-safety/pre-002-snapshot.json `
-  -DbUrlFile $dbUrlFile
-
-.\scripts\prepare-db-release-package.ps1 `
-  -Snapshot build-reports/db-release-safety/pre-002-snapshot.json `
-  -OutputDirectory build-reports/db-release-safety/release-002 `
-  -MigrationFile 20260726171002_official_post_likes_actor_guard.sql
-
-npx --yes supabase@2.109.1 link `
-  --workdir build-reports/db-release-safety/release-002 `
-  --project-ref '<project-ref aprobado>'
-
-npx --yes supabase@2.109.1 db push `
-  --linked `
-  --workdir build-reports/db-release-safety/release-002 `
-  --dry-run
-```
-
-El dry-run debe listar exactamente `20260726171002`. Tras autorización final:
+Sólo tras autorización explícita y gate 001 válido:
 
 ```powershell
-npx --yes supabase@2.109.1 db push `
-  --linked `
-  --workdir build-reports/db-release-safety/release-002 `
-  --yes
-```
-
-## Postflight de 002
-
-```powershell
-.\scripts\run-db-release-safety.ps1 `
-  -Phase postflight `
-  -Output build-reports/db-release-safety/post-002.json `
+.\scripts\run-security-release-serial-executor.ps1 `
+  -Action apply-002 `
   -DbUrlFile $dbUrlFile `
-  -ExpectedMigration 20260726171001,20260726171002
-
-.\scripts\run-backend-compatibility-gates.ps1 `
-  -DbUrlFile $dbUrlFile `
-  -TlsCaFile $env:SUPABASE_DB_TLS_CA_FILE `
-  -WebDistribution $webDist `
-  -AndroidApk $androidApk `
-  -DeviceId $deviceId `
-  -Baseline build-reports/backend-compatibility/pre-001/contracts.json `
-  -OutputDirectory build-reports/backend-compatibility/post-002
-
-.\scripts\run-supabase-e2e-sb09.ps1 `
-  -AllowExistingTestData `
-  -AllowOfficialLikeMutation `
-  -Output build-reports/supabase/sb-09-post-002.json
+  -TlsCaFile $tlsCaFile `
+  -ExpectedPreconditionSha256 '<fingerprint 002 actualizado>' `
+  -GateEvidence '<gate-001.json>' `
+  -ExpectedGateEvidenceSha256 '<sha256 gate>' `
+  -ExpectedReleaseCommit '<commit de 40 hex>' `
+  -ExpectedSnapshotFingerprint '<sha256 snapshot>' `
+  -ExpectedDatabaseProjectFingerprint '<fingerprint derivado del destino>' `
+  -Output build-reports/security-release/apply-002.json
 ```
 
-Repetir SB-07 tras 002 si la ventana permite mutaciones aisladas; como mínimo
-repetir el gate público/catálogo, Web y Android completo. Confirmar que el
-postflight ya no marca el guard de Official Likes, que `anon SELECT` permanece
-y que spoof/delete ajeno fallan.
+Repetir postflight, compatibilidad, Web, Android y SB-09. Confirmar que
+`anon SELECT` permanece y que spoof y borrado ajeno fallan.
 
 ## Abort y rollback
 
-### Si falla 001
+El rollback siempre usa el ejecutor y el fingerprint obtenido inmediatamente
+antes. Nunca ejecutar SQL manual, `migration repair`, `db push`, un rollback de
+003/004 ni un `DROP` genérico.
 
-Detener la serie. Aplicar únicamente el rollback versionado de 001, en una
-transacción y desde una sesión de operador aprobada. Después ejecutar:
+```powershell
+.\scripts\run-security-release-serial-executor.ps1 `
+  -Action rollback-002 `
+  -DbUrlFile $dbUrlFile `
+  -TlsCaFile $tlsCaFile `
+  -ExpectedPreconditionSha256 '<fingerprint actual 002>'
+```
 
-- postflight esperando que `20260726171001` permanezca en ledger;
-- suite 18/44, Feed/Web/Android;
-- registrar que RLS-001 vuelve a estar abierto.
-
-El ledger es histórico: no se borra ni se repara para fingir que 001 no se
-ejecutó. Una corrección posterior debe usar un timestamp nuevo.
-
-### Si falla 002
-
-Detener la serie. Aplicar únicamente el rollback versionado y ensayado de 002.
-Después repetir postflight y compatibilidad y registrar que RLS-002 vuelve a
-estar abierto. No revertir 001 salvo que la evidencia demuestre que 001 es la
-causa independiente.
-
-Nunca ejecutar un rollback de 003/004, `migration repair`, `DROP` genérico ni
-el backlog histórico.
+Para 001 se usa el mismo comando con `-Action rollback-001`. El ledger es
+histórico y se conserva. Tras cualquier rollback se repiten postflight y todos
+los gates; una corrección posterior requiere un timestamp nuevo.
 
 ## Cierre
 
 El release sólo se declara completado cuando:
 
-- ledger contiene 001 y 002 una vez cada una;
-- segundo dry-run de cada paquete queda “Remote database is up to date”;
+- ledger contiene 001 y 002 exactamente una vez con fuente/nombre allowlisted;
+- informes apply y postflight están encadenados y archivados;
 - todos los gates y hard-cleanup terminan en verde;
-- no hay residuos de cuentas/filas E2E;
-- evidencia y hashes están archivados;
+- no quedan cuentas ni filas E2E temporales;
 - 003/004 continúan fuera de producción.
