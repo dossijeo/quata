@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "purpose": "The only SQL files the serial security release executor may apply.",
+  "migrations": {
+    "20260726171001": {
+      "file": "20260726171001_community_comments_delete_rls.sql",
+      "name": "community_comments_delete_rls",
+      "sha256": "2543c9bda16d7d979a4b2e16f7bff7c7abd3e7668a3a28aacecc721ede35b993"
+    },
+    "20260726171002": {
+      "file": "20260726171002_official_post_likes_actor_guard.sql",
+      "name": "official_post_likes_actor_guard",
+      "sha256": "d978ebc8ca18de9dcc52d0f3549722894812fc0a50649c6c39946d97c9cc53ec"
+    }
+  }
+}
