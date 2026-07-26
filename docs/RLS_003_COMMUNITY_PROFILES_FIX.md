@@ -147,3 +147,21 @@ completar los pasos 1–3 anteriores:
 Una vista pública dedicada es una alternativa válida, pero debe exponerse sólo
 con la proyección anterior y probar explícitamente su comportamiento de
 seguridad; no se debe crear una vista propietaria con `SELECT *`.
+
+La unión exacta que consume hoy `PROFILE_PUBLIC_SELECT` y los repositorios Web
+de Feed/Official/Communities es:
+
+```text
+id, display_name, phone, country_code, phone_local, barrio, neighborhood,
+code, telefono, nombre, avatar_url, avatar, followers_count,
+following_count, is_admin, is_official
+```
+
+Esa lista permite una primera revocación compatible de credenciales, aunque
+`phone`, `phone_local`, `country_code`, `code` y `telefono` siguen siendo PII y
+deben revisarse en una segunda reducción de producto. Los gateways de perfil
+Web/iOS añaden hoy `secret_question`; antes del grant por columnas deberán dejar
+de solicitarla y obtenerla exclusivamente desde el endpoint de recuperación.
+Android debe reemplazar `PROFILE_AUTH_SELECT`, que actualmente añade
+`pass_hash`, `pass_plain`, `secret_answer`, `created_at`, `last_login_at`,
+`phone_e164` y `secret_question`.
