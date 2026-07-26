@@ -274,7 +274,7 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedCommunitiesIfAvailable() {
-        guard let communitiesRuntimeBootstrap else { return }
+        guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
@@ -283,10 +283,17 @@ private final class IosAppCompositionRoot {
                     onOpenConversation: { [weak self] conversationId in
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
-                    onNavigateToProfile: { [weak self] _ in
-                        self?.presentCommunitiesCapabilityNotice(
-                            "Community member profiles are not yet an iOS route."
+                    onNavigateToProfile: { [weak self] profileId in
+                        guard let self else { return }
+                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+                            profileId: profileId,
+                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
                         )
+                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+                            dependencies: dependencies,
+                        )
+                        controller.modalPresentationStyle = .fullScreen
+                        self.authenticatedHost.present(controller, animated: true)
                     },
                 ),
             )
