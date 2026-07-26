@@ -10,6 +10,7 @@ param(
     [string]$ExpectedReleaseCommit,
     [string]$ExpectedSnapshotFingerprint,
     [string]$ExpectedDatabaseProjectFingerprint,
+    [string]$ExpectedForwardPostconditionSha256,
     [string]$Output = ""
 )
 
@@ -32,6 +33,7 @@ try {
     if ($ExpectedReleaseCommit) { $args += @("--expected-release-commit", $ExpectedReleaseCommit) }
     if ($ExpectedSnapshotFingerprint) { $args += @("--expected-snapshot-fingerprint", $ExpectedSnapshotFingerprint) }
     if ($ExpectedDatabaseProjectFingerprint) { $args += @("--expected-database-project-fingerprint", $ExpectedDatabaseProjectFingerprint) }
+    if ($ExpectedForwardPostconditionSha256) { $args += @("--expected-forward-postcondition-sha256", $ExpectedForwardPostconditionSha256) }
     if ($Output) { $args += @("--out", $Output) }
     & node @args
     exit $LASTEXITCODE

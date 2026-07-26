@@ -28,7 +28,7 @@ después de abrir la ventana de release:
 Tras los gates externos post-forward 171005, crear una evidencia JSON revisada con el
 esquema `1`. Debe incluir el `releaseCommit` congelado (40 hex), el
 `snapshotFingerprint` del baseline (SHA-256), `migration`, `status`,
-`preconditionSha256` de 171005 y estos tres informes con `status: "passed"` y SHA-256
+`preconditionSha256` **y** `postconditionSha256` de 171005 y estos tres informes con `status: "passed"` y SHA-256
 del fichero que se revisó: `dbReleaseSafety`, `backendCompatibility` y `sb07`.
 Un aprobador calcula además el SHA-256 de los **bytes** de esta evidencia. El
 segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
@@ -42,7 +42,8 @@ segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
   -ExpectedGateEvidenceSha256 '<SHA-256 aprobado del JSON>' `
   -ExpectedReleaseCommit '<commit de 40 hex>' `
   -ExpectedSnapshotFingerprint '<SHA-256 del snapshot>' `
-  -ExpectedDatabaseProjectFingerprint '<SHA-256 del destino del preflight>'
+  -ExpectedDatabaseProjectFingerprint '<SHA-256 del destino del preflight>' `
+  -ExpectedForwardPostconditionSha256 '<postconditionSha256 emitido por apply-001-forward>'
 ```
 
 Propiedades comprobadas:
@@ -67,6 +68,10 @@ Propiedades comprobadas:
   humana de los tres informes ni una firma externa, pero evita que un fichero
   JSON trivial, no anclado a la ventana/commit/snapshot aprobados, desbloquee
   el segundo cambio.
+- `apply-001-forward` emite su `postconditionSha256` antes de confirmar la
+  transacciÃ³n. El gate y el argumento explÃ­cito de `apply-002` deben coincidir
+  byte a byte con ese valor; tras bloquear ambas tablas, 002 vuelve a calcular
+  el fingerprint efectivo de 171005 y rechaza cualquier drift o gate stale.
 - El executor deriva `databaseProjectFingerprint` de host/puerto/base del URL
   de destino, usuario/project-ref normalizado y la identidad SQL consultada
   (`pg_control_system().system_identifier`, OID/base y rol); sólo conserva su

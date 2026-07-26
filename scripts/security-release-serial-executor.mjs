@@ -20,7 +20,7 @@ const targetForAction = { "apply-001": "20260726171001", "apply-001-forward": "2
 
 function usage(message) {
   if (message) console.error(message);
-  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002|rollback-001|rollback-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE ...] [--out FILE]");
+  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002|rollback-001|rollback-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE --expected-forward-postcondition-sha256 SHA256 ...] [--out FILE]");
   process.exitCode = 2;
 }
 
@@ -295,9 +295,9 @@ function exactLedgerRow(row, source, entry) {
 
 function isSha256(value) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
 
-async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot, expectedProject, actualProject) {
+async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot, expectedProject, expectedForwardPostcondition, actualProject) {
   if (!path) throw new Error("serial_release_gate_evidence_required_for_002");
-  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot) || !isSha256(expectedProject)) {
+  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot) || !isSha256(expectedProject) || !isSha256(expectedForwardPostcondition)) {
     throw new Error("serial_release_gate_evidence_anchor_required_for_002");
   }
   const source = await readFile(resolve(path), "utf8");
@@ -308,6 +308,7 @@ async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnap
   if (value?.schemaVersion !== 1 || value?.migration !== "20260726171005" || value?.status !== "passed"
       || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
       || !isSha256(value?.preconditionSha256)
+      || value?.postconditionSha256 !== expectedForwardPostcondition
       || value?.databaseProjectFingerprint !== expectedProject || value?.databaseProjectFingerprint !== actualProject || !isSha256(value?.postflight?.sha256)
       || !Number.isFinite(Date.parse(value?.generatedAt ?? "")) || !Number.isFinite(Date.parse(value?.expiresAt ?? "")) || Date.parse(value.expiresAt) <= Date.now()
       || value?.postflight?.status !== "passed" || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256) || reports[name]?.databaseProjectFingerprint !== value.databaseProjectFingerprint)) {
@@ -375,7 +376,7 @@ export async function run(argv = process.argv.slice(2)) {
       systemIdentifier: connected.system_identifier
     }));
     if (args.action === "apply-002") {
-      await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], report.databaseProjectFingerprint);
+      await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], args["expected-forward-postcondition-sha256"], report.databaseProjectFingerprint);
     }
     const lock = await client.query("select pg_try_advisory_lock(hashtextextended($1, 0)) acquired", [releaseLock]);
     if (!lock.rows[0].acquired) throw new Error("serial_release_lock_unavailable");
@@ -411,6 +412,10 @@ export async function run(argv = process.argv.slice(2)) {
       if (!rollback && version === "20260726171002") {
         try { await assertEffectiveReleaseState(client, "20260726171005", false); }
         catch { throw new Error("serial_release_002_forward_state_not_hardened"); }
+        const forwardPostcondition = await catalogFingerprint(client, "20260726171005");
+        if (forwardPostcondition.sha256 !== args["expected-forward-postcondition-sha256"]) {
+          throw new Error("serial_release_002_forward_postcondition_fingerprint_mismatch");
+        }
       }
       const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
       if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
@@ -418,6 +423,11 @@ export async function run(argv = process.argv.slice(2)) {
       // Validate the effective catalog, grants and function/trigger binding
       // independently from the migration's own SQL before the transaction can commit.
       await assertEffectiveReleaseState(client, version, rollback);
+      if (!rollback && version === "20260726171005") {
+        // This post-DDL fingerprint is emitted before commit and becomes the
+        // mandatory anchor for 002's separately reviewed gate evidence.
+        report.migrations[0].postconditionSha256 = (await catalogFingerprint(client, version)).sha256;
+      }
       if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FAIL_BEFORE_LEDGER === "1") throw new Error("serial_release_test_fail_before_ledger");
       if (!rollback) await client.query("insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)", [version, [sources[version].source], sources[version].entry.name]);
       await client.query("commit");

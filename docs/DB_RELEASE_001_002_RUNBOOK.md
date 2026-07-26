@@ -143,6 +143,7 @@ Sólo tras autorización explícita y gate 001 válido:
   -ExpectedReleaseCommit '<commit de 40 hex>' `
   -ExpectedSnapshotFingerprint '<sha256 snapshot>' `
   -ExpectedDatabaseProjectFingerprint '<fingerprint derivado del destino>' `
+  -ExpectedForwardPostconditionSha256 '<postconditionSha256 de apply-001-forward>' `
   -Output build-reports/security-release/apply-002.json
 ```
 
