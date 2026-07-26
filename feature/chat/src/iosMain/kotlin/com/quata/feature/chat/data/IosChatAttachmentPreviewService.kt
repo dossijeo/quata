@@ -1,6 +1,8 @@
 package com.quata.feature.chat.data
 
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentPreviewAdmission
+import com.quata.core.platform.DocumentPreviewAdmissions
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
@@ -22,6 +24,11 @@ class IosChatAttachmentPreviewService(
         authSession = authSession,
     ),
 ) {
+    /** Shared admission check used by the UIKit callback before starting a network operation. */
+    fun supportsQuickLook(attachment: PlatformFile): Boolean =
+        DocumentPreviewAdmissions.admit(attachment, DocumentPreviewAdmissions.QuickLook)
+            is DocumentPreviewAdmission.Open
+
     suspend fun openRemoteAttachment(attachment: PlatformFile): PlatformResult<Unit> {
         val downloaded = downloader.download(
             publicUrl = attachment.reference,
@@ -47,6 +54,19 @@ class IosChatAttachmentPreviewService(
                 downloader.discard(localFile)
                 PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
             }
+        }
+    }
+
+    /**
+     * Objective-C/Swift-friendly variant: Kotlin/Native maps a thrown failure to the completion
+     * handler's NSError, so the UIKit edge does not need to inspect a generic sealed result.
+     */
+    suspend fun openRemoteAttachmentOrThrow(attachment: PlatformFile) {
+        when (val result = openRemoteAttachment(attachment)) {
+            is PlatformResult.Success -> Unit
+            is PlatformResult.Failure -> error(result.reason ?: "ios_chat_attachment_preview_failed")
+            PlatformResult.Cancelled -> error("ios_chat_attachment_preview_cancelled")
+            PlatformResult.Unsupported -> error("ios_chat_attachment_preview_unsupported")
         }
     }
 }
