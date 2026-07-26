@@ -40,6 +40,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(IosApnsTokenFormatting.hexString(Data()), "")
     }
 
+    func testWhatsNewMenuDispatcherForwardsOnlyAfterHostAttachment() {
+        let dispatcher = IosWhatsNewRouteDispatcher()
+        let host = CapturingWhatsNewRouteHost()
+
+        _ = dispatcher.openReleaseHistory()
+        XCTAssertNil(host.route)
+
+        dispatcher.attachHost(host: host)
+        _ = dispatcher.openReleaseHistory()
+        XCTAssertEqual(host.route?.name, "ReleaseHistory")
+
+        dispatcher.detachHost(host: host)
+        _ = dispatcher.openPendingReleases()
+        XCTAssertEqual(host.route?.name, "ReleaseHistory")
+    }
+
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
         // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
         // A unique namespace avoids observing or modifying the authenticated app session.
@@ -615,4 +631,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.view.subviews.last === routeButton)
     }
 
+}
+
+private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {
+    var route: IosWhatsNewRoute?
+
+    func open(route: IosWhatsNewRoute) {
+        self.route = route
+    }
 }
