@@ -16,6 +16,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: iosApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: iosApp/QuataIos.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       # The umbrella owns Kotlin/Native exports; do not embed feature frameworks separately.

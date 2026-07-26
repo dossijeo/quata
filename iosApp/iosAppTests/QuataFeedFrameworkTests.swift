@@ -11,6 +11,21 @@ import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testApnsAuthorizationRegistersOnlyForGrantedSystemStates() {
+        XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.notDetermined))
+        XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.denied))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.authorized))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.provisional))
+        XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.ephemeral))
+    }
+
+    func testApnsTokenFormattingProducesCanonicalLowercaseHexWithoutPersistence() {
+        let token = Data([0x00, 0x0A, 0xF0, 0xFF])
+
+        XCTAssertEqual(IosApnsTokenFormatting.hexString(token), "000af0ff")
+        XCTAssertEqual(IosApnsTokenFormatting.hexString(Data()), "")
+    }
+
     func testKeychainStorageCanQueryAnIsolatedNamespaceWithoutCrashing() {
         // This covers the Kotlin/Foundation/CoreFoundation bridge used by SecItemCopyMatching.
         // A unique namespace avoids observing or modifying the authenticated app session.
