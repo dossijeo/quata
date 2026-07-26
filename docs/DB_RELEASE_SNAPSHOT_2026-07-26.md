@@ -8,7 +8,7 @@ preparar el lote, pero no autoriza un despliegue. No se ejecutó DDL, DML,
 
 El snapshot read-only terminó en `passed` con fingerprint:
 
-`b986e88831596883662675b7fb444fbfc166e40be9a6f0a80dc91a2848e896a2`
+`86c9d97fa4b5f88a4b3e02fdd004820761c07b2b4fdcc2eddfab6739f0300eb1`
 
 El informe completo se regenera localmente en
 `build-reports/db-release-safety/snapshot.json`; se excluye de Git porque es
@@ -22,8 +22,10 @@ evidencia de ejecución, no fuente.
   `20260723/0001_multidevice_fcm_and_web_push`;
 - historial local: 31 SQL, con siete prefijos CLI repetidos y 29 ficheros sin
   fila remota;
-- reconciliación de catálogo: 24 `already_applied`, siete
-  `obsolete_superseded`, cero `pending`, cero marcadores ausentes;
+- reconciliación de catálogo: dos `remote_ledger_anchor`, 22
+  `catalog_effects_observed`, siete
+  `catalog_effects_observed_superseded`, 29 decisiones sin evidencia semántica
+  exhaustiva y cero marcadores ausentes;
 - contrato Android: 18 tablas/vistas y 44 RPC observados, cero ausentes;
 - Feed anónimo: grants `SELECT` presentes y al menos un post visible.
 
@@ -32,11 +34,12 @@ migraciones históricas, ledger, reconciliación, políticas, grants, firmas de
 RPC y funciones de trigger. No incluye URL, credenciales, IDs o filas de
 negocio.
 
-## Método de ledger aprobado para ensayo
+## Método de ledger ensayado, no autorizado
 
 El repositorio completo sigue siendo inseguro para `supabase db push`. La vía
-reconciliada es un paquete efímero que contiene únicamente las dos migraciones
-ancla del ledger y los timestamps nuevos seleccionados.
+ensayada es un paquete efímero que contiene únicamente las dos migraciones
+ancla del ledger y los timestamps nuevos seleccionados, pero el estado real
+tiene `selectivePackageEligible=false`.
 
 `scripts/test-db-release-ledger-package.ps1` probó este método en PostgreSQL 17
 desechable con TLS:
@@ -47,15 +50,17 @@ desechable con TLS:
 4. segundo dry-run sin pendientes;
 5. eliminación del contenedor y del directorio temporal.
 
-Esto reconcilia el procedimiento sin falsear las 29 filas históricas. No
-sustituye los tests funcionales de cada candidata.
+Esto prueba la mecánica sin falsear las 29 filas históricas. No demuestra que
+sea seguro excluirlas: los marcadores parciales sólo prueban efectos de
+catálogo, no ejecución íntegra ni equivalencia semántica. El empaquetador
+rechaza el snapshot real hasta resolver esa evidencia.
 
 ## Matriz de migración y rollback
 
 | Orden | Versión | Fuente congelada | Rollback | Decisión |
 |---|---|---|---|---|
 | 1 | `20260726171001` Communities comments | `46a54b54`, blob SQL `d6b847f4da85e7a85ae196b7595d235efe2a1e02` | versionado en el mismo commit, blob `0a6994e70bc6f1ad5f571f813cee58e2c4a7c78b` | Apta para staging; no producción sin gates |
-| 2 | `20260726171002` Official Likes | `77d93da4`, blob SQL `d54abd255ec598621e707864a68caab265fe8e33` | SQL exacto documentado en `docs/RLS_002_OFFICIAL_LIKES_FIX.md`, pero no es un fichero versionado independiente | Bloqueada hasta versionar y probar rollback |
+| 2 | `20260726171002` Official Likes | `47c6abe3`, blob SQL `d54abd255ec598621e707864a68caab265fe8e33` | versionado, blob `fe27738b72c030eb4e3e437f0ce9c53b66145dfd` | Rollback cerrado; release aún bloqueado por ledger/backup/gates |
 | 3 | `20260726171003` Profiles actor guard | `473f2400`, blob SQL `3f7ac5e522347e6abd601af6cb292a6b0c3d2f54` | versionado en el mismo commit, blob `0c464ce00ce478f596b579d49d765c3979df73f8` | Bloqueada por Android legado, admin inactivo y RLS-004 |
 | 4 | `20260726171004` Web registration | `f6266215`, blob SQL `40af62de9671cd41724fd88cea392a94b0806b62` | inexistente | Bloqueada por 003 y por rollback/compatibilidad |
 
@@ -69,8 +74,9 @@ por diseño reabre el hallazgo RLS-001 y sólo es un escape de compatibilidad.
 
 ### Rollback 002
 
-La fuente canónica provisional es el bloque “Rollback de emergencia” de
-`docs/RLS_002_OFFICIAL_LIKES_FIX.md` en `77d93da4`. El SQL:
+La fuente canónica es
+`supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql`
+en `47c6abe3`. El SQL:
 
 - elimina las tres políticas nuevas;
 - desactiva RLS en `official_post_likes`;
@@ -78,8 +84,9 @@ La fuente canónica provisional es el bloque “Rollback de emergencia” de
 - elimina `quata_official_like_delete_allowed(uuid)`;
 - no elimina filas.
 
-No debe entrar al paquete hasta existir como fichero de rollback versionado,
-con hash congelado y prueba de rollback/reaplicación. Ejecutarlo reabre
+La regresión PostgreSQL desechable pasó
+migración→contrato seguro→rollback→reproducción del spoof
+histórico→reaplicación→rechazo del spoof→limpieza. Ejecutarlo reabre
 explícitamente RLS-002.
 
 ### Rollback 003
@@ -139,19 +146,40 @@ También observó políticas públicas de mutación incondicional en
 `community_comments`, `community_post_likes` y `community_profiles`. No se
 intentó explotación ni escritura remota.
 
+## Backup/PITR
+
+El 2026-07-26T19:36:55Z,
+`scripts/check-supabase-backup-readiness.ps1` consultó en modo lectura la CLI
+Supabase 2.109.1 y verificó que la URL del pooler correspondía a un proyecto
+`ACTIVE_HEALTHY`. El resultado fue:
+
+- PITR deshabilitado;
+- WAL-G habilitado, pero sin restore point verificable por sí solo;
+- cero backups listados y cero entradas de backup físico;
+- `releaseReady=false`, decisión
+  `blocked_no_verifiable_restore_point`.
+
+El informe sanitizado está en
+`build-reports/db-release-safety/backup-readiness.json`. No contiene URL,
+credenciales ni project ref en claro. Este bloqueo exige habilitar/confirmar un
+restore point recuperable desde Supabase antes de cualquier release.
+
 ## Condiciones mínimas para pasar a GO
 
-1. integrar 001 y 002 sólo después de sus regresiones aisladas y rollback
+1. resolver las 29 decisiones históricas con evidencia semántica exhaustiva o
+   reconciliación aprobada;
+2. confirmar un backup/PITR recuperable;
+3. integrar 001 y 002 sólo después de sus regresiones aisladas y rollback
    versionado;
-2. ejecutar snapshot, paquete selectivo y dry-run; el listado debe contener
+4. ejecutar snapshot, paquete selectivo y dry-run; el listado debe contener
    exclusivamente la siguiente migración autorizada;
-3. ejecutar después de cada versión la suite 18/44, Feed público, Web y smoke
+5. ejecutar después de cada versión la suite 18/44, Feed público, Web y smoke
    Android API-37;
-4. corregir la candidata 003 para exigir admin activo y coordinarla con un
+6. corregir la candidata 003 para exigir admin activo y coordinarla con un
    reemplazo desplegado del reset Android legado y un contrato de columnas
    públicas seguro;
-5. volver a auditar 004 después de 003, versionar rollback y demostrar la
+7. volver a auditar 004 después de 003, versionar rollback y demostrar la
    transición del secreto interno;
-6. validar iOS mediante CI antes de cerrar el lote;
-7. confirmar backup administrado/PITR inmediatamente antes de cualquier
+8. validar iOS mediante CI antes de cerrar el lote;
+9. confirmar backup administrado/PITR inmediatamente antes de cualquier
    cambio remoto.

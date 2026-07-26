@@ -16,6 +16,12 @@ $snapshotReport = Get-Content -Raw -Encoding utf8 -LiteralPath $Snapshot | Conve
 if ($snapshotReport.check -ne "DB-RELEASE-SAFETY" -or $snapshotReport.phase -ne "snapshot") {
     throw "Snapshot has an unexpected contract."
 }
+if ($snapshotReport.status -ne "passed") {
+    throw "Snapshot status is not passed."
+}
+if ($snapshotReport.historicalReconciliation.selectivePackageEligible -ne $true) {
+    throw "Historical reconciliation does not authorize a selective package."
+}
 
 $repoRoot = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
     (Resolve-Path (Join-Path $PSScriptRoot "..")).Path

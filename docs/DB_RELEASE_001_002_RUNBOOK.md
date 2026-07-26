@@ -10,9 +10,11 @@ Este runbook cubre exclusivamente:
 `20260726171003` y `20260726171004` quedan fuera de la rama de integración, del
 paquete selectivo, del dry-run y del despliegue.
 
-Decisión actual: **NO-GO**. Puede cambiar a GO cuando RLS-002 tenga un rollback
-SQL versionado con prueba rollback/reaplicación, las ramas estén integradas en
-un corte inmutable, el backup/PITR esté confirmado y el baseline completo pase.
+Decisión actual: **NO-GO**. Puede cambiar a GO cuando el historial deje de estar
+bloqueado con evidencia semántica o reconciliación aprobada, RLS-002 tenga un
+rollback SQL versionado con prueba rollback/reaplicación, las ramas estén
+integradas en un corte inmutable, el backup/PITR esté confirmado y el baseline
+completo pase.
 
 ## Fuentes congeladas
 
@@ -27,7 +29,8 @@ cambios durante la ventana.
 
 ## Puertas GO
 
-- snapshot read-only `passed`, reconciliación 24/7/0 sin mismatch;
+- snapshot read-only con `selectivePackageEligible=true`, sin decisiones
+  históricas semánticamente no verificadas;
 - hashes de 001/002 y sus rollbacks congelados;
 - regresiones PostgreSQL desechables de 001 y 002 en verde;
 - rollback/reaplicación en verde para ambas;
@@ -53,6 +56,14 @@ $deviceId = '<serial API-37>'
 Las variables públicas y las cuentas aisladas exigidas por
 `run-backend-compatibility-gates.ps1`, SB-07 y SB-09 deben estar cargadas en el
 proceso sin imprimirlas. No guardar salidas de entorno en la evidencia.
+
+Antes del baseline:
+
+```powershell
+.\scripts\check-supabase-backup-readiness.ps1 -DbUrlFile $dbUrlFile
+```
+
+Un resultado `blocked_no_verifiable_restore_point` mantiene NO-GO.
 
 ## Baseline pre-release
 
@@ -231,4 +242,3 @@ El release sólo se declara completado cuando:
 - no hay residuos de cuentas/filas E2E;
 - evidencia y hashes están archivados;
 - 003/004 continúan fuera de producción.
-

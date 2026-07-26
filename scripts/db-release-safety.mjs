@@ -206,17 +206,31 @@ async function main() {
     const reconciliationResults = reconciliation.manifest.migrations.map((decision) => {
       const local = reconciliation.localByFile.get(decision.file);
       const missingMarkers = decision.markers.filter((marker) => !observedMarkers.has(marker));
+      const semanticEvidenceComplete = [
+        "remote_ledger_anchor",
+        "verified_applied_semantics",
+      ].includes(decision.classification);
       return {
         ...decision,
         sha256: local?.sha256 ?? null,
         markersObserved: decision.markers.length - missingMarkers.length,
         missingMarkers,
-        evidenceStatus: missingMarkers.length === 0 ? "observed" : "mismatch",
+        catalogueEvidenceStatus: missingMarkers.length === 0
+          ? "catalog_effects_observed"
+          : "catalog_marker_mismatch",
+        semanticEvidenceComplete,
       };
     });
     const reconciliationMismatches = reconciliationResults
       .filter((result) => result.missingMarkers.length > 0)
       .map((result) => ({ file: result.file, missingMarkers: result.missingMarkers }));
+    const unverifiedHistoricalDecisions = reconciliationResults
+      .filter((result) => !result.semanticEvidenceComplete)
+      .map((result) => ({
+        file: result.file,
+        classification: result.classification,
+        reason: "Catalogue markers are partial effects, not exhaustive proof of SQL execution or semantic equivalence.",
+      }));
     const localByCliVersion = localMigrations.reduce((groups, migration) => {
       (groups[migration.cliVersion] ??= []).push(migration);
       return groups;
@@ -280,7 +294,8 @@ async function main() {
       && reconciliationMismatches.length === 0;
     const selectivePackageEligible = reconciliation.missingDecisions.length === 0
       && reconciliation.unknownDecisions.length === 0
-      && reconciliationMismatches.length === 0;
+      && reconciliationMismatches.length === 0
+      && unverifiedHistoricalDecisions.length === 0;
     const historyGatePassed = args.phase === "snapshot"
       || historySafeForPush
       || selectivePackageEligible;
@@ -313,9 +328,10 @@ async function main() {
         missingDecisions: reconciliation.missingDecisions,
         unknownDecisions: reconciliation.unknownDecisions,
         mismatches: reconciliationMismatches,
+        unverifiedHistoricalDecisions,
         decisions: reconciliationResults,
         selectivePackageEligible,
-        deploymentRule: "Only remote ledger anchors and reviewed new 14-digit migrations enter the selective package. Historical already-applied/obsolete files never execute.",
+        deploymentRule: "Blocked: catalogue markers alone do not authorize excluding untracked historical SQL. A selective package requires exhaustive semantic verification or an explicitly approved ledger reconciliation for every untracked file.",
       },
       androidCompatibility: {
         source: "SupabaseCommunityApi.kt plus release-history RPC extras",

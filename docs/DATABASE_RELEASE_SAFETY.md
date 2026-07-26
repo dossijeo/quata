@@ -45,20 +45,21 @@ La reserva ordena el paquete, pero no autoriza su aplicación.
 
 ### Reconciliación versionada
 
-`supabase/migration-reconciliation.json` clasifica las 31 migraciones y declara
-marcadores de catálogo duraderos. El snapshot read-only calcula el SHA-256 de
-cada SQL y comprueba los marcadores:
+`supabase/migration-reconciliation.json` inventaría efectos de catálogo de las
+31 migraciones. El snapshot read-only calcula el SHA-256 de cada SQL y
+comprueba esos marcadores, pero no los confunde con prueba de ejecución:
 
-- 24 `already_applied`;
-- 7 `obsolete_superseded`;
-- 0 `pending`;
-- 0 decisiones sin fichero y 0 marcadores ausentes.
+- 2 `remote_ledger_anchor`;
+- 22 `catalog_effects_observed`;
+- 7 `catalog_effects_observed_superseded`;
+- 0 definiciones con evidencia semántica exhaustiva.
 
-Esta clasificación no inserta 29 filas ficticias en el ledger: varias versiones
-históricas colisionan y algunas definiciones fueron reemplazadas. Su registro
-auditable es el manifiesto + fingerprint del snapshot. El ledger Supabase
-continúa con sus dos anclas reales y, en adelante, sólo recibe timestamps
-únicos aplicados por el paquete selectivo.
+Los marcadores parciales no prueban que los 29 SQL sin ledger se ejecutaran
+completos ni que su semántica actual sea equivalente. Por ello
+`selectivePackageEligible=false` y el ledger permanece bloqueado. No se
+insertan filas ficticias, no se ejecuta `migration repair` y no se puede
+preparar un paquete real hasta aportar evidencia exhaustiva o una
+reconciliación aprobada.
 
 ## Evidencia read-only y puertas
 
@@ -81,10 +82,9 @@ Incluyen hashes SHA-256 de los SQL locales, ledger remoto, políticas/grants,
 firmas de RPC y hashes de funciones de trigger.
 
 El `snapshot` captura evidencia aunque exista drift. `preflight` y `postflight`
-sólo pueden pasar el gate de historial si la reconciliación está completa y se
-usa el método de paquete selectivo. El informe conserva
-`safeForSupabaseDbPush=false`: ejecutar desde el repositorio completo continúa
-prohibido aunque `selectivePackageEligible=true`.
+fallan con `blocked_history_reconciliation` mientras exista una decisión
+histórica sin evidencia semántica completa. El informe conserva
+`safeForSupabaseDbPush=false` y `selectivePackageEligible=false`.
 
 ### ANDROID-COMPAT-01
 
@@ -194,9 +194,10 @@ Revisión independiente: **aprobada para staging** por
 método de ledger/release, el ensayo staging/SB-09 y los gates reales
 pre/postflight de Android y Feed.
 
-El rollback de RLS-002 sigue sólo dentro de la documentación de la candidata.
-Antes de integrar debe existir como SQL versionado, con hash congelado y
-regresión rollback/reaplicación.
+La revisión `47c6abe3` añadió rollback SQL versionado, blob
+`fe27738b72c030eb4e3e437f0ce9c53b66145dfd`, y pasó la regresión
+migración→rollback→reaplicación. El rollback reproduce intencionadamente el
+spoof histórico antes de volver a cerrarlo y limpia sus fixtures.
 
 ## Auditoría de la candidata RLS-001
 
@@ -239,6 +240,50 @@ El bloqueo de 003 incluye el reset Android legado y la exposición pública de
 `pass_plain`, `pass_hash` y `secret_answer`. Registration no se puede
 empaquetar antes de resolver ese contrato.
 
+### Secuencia Android Auth → 003/RLS-004
+
+La revisión read-only de
+`origin/codex/migrate-android-auth-boundary@3998fd42` concluyó **NO-GO** para
+003/RLS-004:
+
+- el APK nuevo deja de leer/escribir credenciales directamente y mueve
+  login/registro/recovery/reset al bridge;
+- los APK publicados continúan dependiendo del REST legado y no existe
+  mínimo de versión, kill-switch ni retirada verificable;
+- `3998fd42` y Registration 004 modifican el mismo `quata-auth-bridge`; deben
+  integrarse como un único contrato que preserve `action=register`;
+- Android todavía envía `secret_answer` en claro, mientras 004 introduce
+  `secret_answer_hash`;
+- Android no envía `x-quata-api-key`; configurar
+  `QUATA_AUTH_BRIDGE_API_KEY` rompería todas las acciones;
+- revertir el bridge después de publicar el APK nuevo rompería su registro,
+  porque la versión anterior no conoce esa acción.
+
+Orden seguro: bridge integrado y retrocompatible → E2E aislado y API-37 →
+publicar APK → retirar/forzar salida del legado → 003 → repetir E2E → RLS-004
+con proyección pública, hash/backfill y tests. La telemetría por sí sola no
+demuestra que ningún APK legado siga activo.
+
+### Drift de contadores de perfil
+
+El preflight read-only detectó 74 perfiles cuyos
+`followers_count`/`following_count` no coinciden con las relaciones. Esto es
+deuda de calidad y no bloqueo de migración de datos: 003 no reescribe
+contadores.
+
+La semántica de productores sí requiere corrección antes de 003:
+
+- `community_profile_follows` no tiene trigger que mantenga los contadores;
+- los clientes actuales derivan listas/conteos de las relaciones;
+- `recalculate_profile_follow_counts(uuid)` es `SECURITY INVOKER`, actualiza
+  ambos campos y tiene EXECUTE para `anon`/`authenticated`;
+- el guard de 003 rechazará esa actualización para clientes, mientras
+  `service_role` podrá seguir produciéndola.
+
+No se autoriza backfill remoto. El frente separado debe elegir entre productor
+server-only/trigger seguro o deprecación de columnas, revocar el RPC a
+anon/auth y conservar un snapshot de los 74 mismatches.
+
 ## Backup y rollback
 
 `scripts/backup-supabase-before-chat-migration.ps1` no es apto como backup de
@@ -254,27 +299,44 @@ Antes de autorizar:
    entorno no productivo;
 4. comprobar que el rollback restaura políticas/grants/triggers anteriores y
    no borra datos de negocio;
-5. acordar un método de ledger que aplique sólo los cuatro timestamps reservados.
+5. resolver con evidencia exhaustiva o decisión aprobada las 29 entradas
+   históricas antes de permitir un paquete selectivo.
 
-El método propuesto es generar un workdir efímero con únicamente:
+La comprobación read-only ejecutada el 2026-07-26T19:36:55Z con Supabase CLI
+2.109.1 devolvió proyecto `ACTIVE_HEALTHY`, PITR deshabilitado, WAL-G
+habilitado, cero backups listados y cero entradas de backup físico. WAL-G sin
+un restore point enumerado no satisface la puerta. Estado:
+`blocked_no_verifiable_restore_point`.
+
+Repetir de forma verificable con:
+
+```powershell
+.\scripts\check-supabase-backup-readiness.ps1 `
+  -DbUrlFile 'C:\ruta\db-url.txt'
+```
+
+El método ensayado, todavía **no autorizado**, genera un workdir efímero con:
 
 - los dos SQL que corresponden a las entradas ya presentes en el ledger, como
   anclas;
 - las migraciones nuevas seleccionadas y revisadas, con timestamp único.
 
-`scripts/prepare-db-release-package.ps1` prepara ese paquete, valida versiones,
-calcula hashes y marca `deploymentAuthorized=false`; no conecta ni despliega.
+`scripts/prepare-db-release-package.ps1` rechaza ahora cualquier snapshot con
+`selectivePackageEligible=false`. Sólo tras resolver el ledger preparará el
+paquete, validará versiones, calculará hashes y marcará
+`deploymentAuthorized=false`; no conecta ni despliega.
 Antes de aplicar, el release manager debe enlazar ese workdir de forma segura y
 ejecutar `supabase db push --dry-run`. El dry-run debe listar sólo las
 migraciones nuevas. Si aparece cualquier SQL histórico, se aborta. No se usará
 el workdir completo del repositorio.
 
-`scripts/test-db-release-ledger-package.ps1` validó el procedimiento contra
+`scripts/test-db-release-ledger-package.ps1` validó la mecánica contra
 PostgreSQL 17 desechable con TLS: dos anclas simuladas, dry-run que enumeró sólo
 001-004, aplicación de cuatro probes, ledger final 6/6 y segundo dry-run sin
 pendientes. El contenedor y el clon temporal se eliminaron al terminar. Esto
-prueba selección/registro/idempotencia; las regresiones SQL de cada candidata
-siguen siendo obligatorias porque los probes no sustituyen el esquema Supabase.
+prueba selección/registro/idempotencia en un fixture que declara explícitamente
+su historial elegible. No demuestra que el historial remoto real sea elegible
+ni sustituye las regresiones SQL de cada candidata.
 
 No existe un rollback genérico seguro. Para RLS se restaura la política previa
 en una transacción. Para el endpoint de registro se revocan grants y se

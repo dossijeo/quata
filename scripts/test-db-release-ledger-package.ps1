@@ -44,6 +44,10 @@ try {
     $snapshot = [ordered]@{
         check = "DB-RELEASE-SAFETY"
         phase = "snapshot"
+        status = "passed"
+        historicalReconciliation = [ordered]@{
+            selectivePackageEligible = $true
+        }
         migrationHistory = [ordered]@{
             remote = @(
                 [ordered]@{ version = "20260628"; name = "0001_chat_schema" },
