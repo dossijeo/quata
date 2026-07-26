@@ -209,31 +209,37 @@ Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
   `#communities`;
 - el emulador API-37 autenticado pasó Feed, Chat, Official, Communities y
   Profile, con proceso vivo y cero crash/ANR;
-- la mecánica de paquete desechable volvió a pasar, mientras el empaquetador
-  real rechazó correctamente el snapshot por
-  `selectivePackageEligible=false`;
-- el preflight remoto terminó
-  `blocked_history_reconciliation`, como se exige.
+- el ejecutor serial allowlisted pasó en PostgreSQL 17: atomicidad,
+  concurrencia externa de tablas y funciones, ledger exacto, orden,
+  postcondiciones efectivas y rollback 001/002;
+- el dry-run remoto read-only terminó `passed`; 001 y 002 están ausentes del
+  ledger y sus fingerprints previos quedaron archivados;
+- la identidad del destino se deriva del usuario/project-ref normalizado y se
+  ancla a `pg_control_system().system_identifier`, OID/base y rol consultados,
+  conservando únicamente el SHA-256;
+- el ejecutor no enumera ni aplica el backlog histórico y el runbook prohíbe
+  `supabase db push`.
 
-Los informes permanecen ignorados bajo `build-reports/`. Esta evidencia no
-supera los bloqueos de ledger y backup/PITR.
+Los informes permanecen ignorados bajo `build-reports/`. No se ha ejecutado
+ningún apply remoto.
 
-## Condiciones mínimas para pasar a GO
+## Excepción de gobernanza y condiciones para la ventana
 
-1. resolver las 29 decisiones históricas con evidencia semántica exhaustiva o
-   reconciliación aprobada;
-2. confirmar un backup/PITR recuperable;
-3. integrar 001 y 002 sólo después de sus regresiones aisladas y rollback
-   versionado;
-4. ejecutar snapshot, paquete selectivo y dry-run; el listado debe contener
-   exclusivamente la siguiente migración autorizada;
-5. ejecutar después de cada versión la suite 18/44, Feed público, Web y smoke
-   Android API-37;
-6. corregir la candidata 003 para exigir admin activo y coordinarla con un
-   reemplazo desplegado del reset Android legado y un contrato de columnas
-   públicas seguro;
-7. volver a auditar 004 después de 003, versionar rollback y demostrar la
-   transición del secreto interno;
-8. validar iOS mediante CI antes de cerrar el lote;
-9. confirmar backup administrado/PITR inmediatamente antes de cualquier
-   cambio remoto.
+El release manager acepta expresamente, sólo para 001/002, la ausencia de PITR
+y la falta de reconciliación semántica de 29 migraciones históricas. La
+excepción se basa en que el ejecutor no toca el backlog, ambas migraciones son
+DDL/RLS sin DML, sus rollbacks exactos están probados y existe backup lógico
+Full con drill verificado de los objetos afectados. No se presenta como
+restauración integral de Supabase. Las 29 decisiones siguen abiertas como
+hallazgo: no se marcan, reparan ni aplican.
+
+Antes de abrir la ventana:
+
+1. congelar y revisar de nuevo el commit exacto del corte;
+2. refrescar el backup lógico Full, su clave separada y el drill con conteos;
+3. refrescar snapshot read-only, baseline 18/44, Web y Android API-37;
+4. repetir el dry-run serial y archivar hashes/fingerprints;
+5. designar una sola autoridad y una sola terminal ejecutora;
+6. obtener autorización explícita separada para apply-001 y apply-002;
+7. cerrar cada paso con postflight y gates antes de avanzar;
+8. mantener 003/004 y las 29 históricas fuera de toda ejecución.

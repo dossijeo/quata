@@ -48,6 +48,7 @@ segundo paso exige los tres anchors por argv; no acepta un JSON genérico:
 Propiedades comprobadas:
 
 - TLS usa CA explícita, `rejectUnauthorized=true` y `servername` del host.
+- Los parámetros TLS de la URL no pueden reemplazar esa configuración.
 - `pg_try_advisory_lock(hashtextextended(...))` rechaza otra sesión gestora.
 - Los SHA-256 son de los **bytes exactos** UTF-8 del fichero versionado: no hay
   normalización de EOL. Por tanto un checkout que reescriba CRLF/LF se rechaza
@@ -67,9 +68,14 @@ Propiedades comprobadas:
   JSON trivial, no anclado a la ventana/commit/snapshot aprobados, desbloquee
   el segundo cambio.
 - El executor deriva `databaseProjectFingerprint` de host/puerto/base del URL
-  de destino y sólo conserva su SHA-256. Debe coincidir con el informe,
-  todos los reports post-001 y el anchor explícito; así una evidencia de otro
-  proyecto/pooler no puede desbloquear 002.
+  de destino, usuario/project-ref normalizado y la identidad SQL consultada
+  (`pg_control_system().system_identifier`, OID/base y rol); sólo conserva su
+  SHA-256 y falla cerrado si esa identidad no está disponible. Debe coincidir
+  con el informe, todos los reports post-001 y el anchor explícito.
+- Dentro de la transacción toma locks selectivos `FOR SHARE` sobre las filas
+  `pg_proc` de todos los resolvers/guards afectados. Después revalida el
+  fingerprint y, antes del commit, comprueba definiciones, owner, ACL,
+  policies, grants y binding del trigger del estado resultante.
 
 La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 
@@ -77,10 +83,11 @@ La prueba local se ejecuta así y crea/elimina un PostgreSQL 17 TLS desechable:
 .\scripts\test-security-release-serial-executor.ps1
 ```
 
-Comprueba hash drift, rollback atómico de DDL+ledger, una carrera de escritor
-externo antes del lock (revalidación y aborto limpio), bloqueo de DDL externo
-hasta el commit, exclusión advisory, orden/evidencia de 002, ledger exacto y
-rechazo de drift/idempotencia de rollbacks 001/002.
+Comprueba hash drift, rollback atómico de DDL+ledger, dos usuarios sobre el
+mismo pooler, una carrera de escritor externo antes del lock, bloqueo selectivo
+de DDL externo de tabla/función hasta el commit, exclusión advisory,
+orden/evidencia de 002, ledger exacto y rechazo de drift/idempotencia de
+rollbacks 001/002.
 
 ## Rollback
 

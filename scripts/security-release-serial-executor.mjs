@@ -55,11 +55,19 @@ async function databaseConfig() {
   if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error("serial_release_database_url_scheme_invalid");
   const ca = await readFile(caFile, "utf8");
   if (!ca.trim()) throw new Error("serial_release_tls_ca_empty");
-  const databaseProjectFingerprint = sha256(JSON.stringify({ host: url.hostname.toLowerCase(), port: url.port || "5432", database: decodeURIComponent(url.pathname.replace(/^\//, "")) }));
+  const normalizedUsername = decodeURIComponent(url.username).trim().toLowerCase();
+  if (!normalizedUsername) throw new Error("serial_release_database_username_missing");
+  const targetIdentity = {
+    host: url.hostname.toLowerCase(),
+    port: url.port || "5432",
+    database: decodeURIComponent(url.pathname.replace(/^\//, "")),
+    username: normalizedUsername,
+    projectRefHint: normalizedUsername.includes(".") ? normalizedUsername.split(".").at(-1) : null
+  };
   // pg-connection-string lets URL SSL parameters replace the explicit TLS
   // object. Remove them and enforce the separately supplied CA/hostname.
   for (const option of ["sslmode", "uselibpqcompat", "sslcert", "sslkey", "sslrootcert"]) url.searchParams.delete(option);
-  return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", databaseProjectFingerprint };
+  return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", targetIdentity };
 }
 
 function unwrapOuterTransaction(sql, version) {
@@ -86,13 +94,13 @@ function unwrapOuterTransaction(sql, version) {
 async function catalogFingerprint(client, version) {
   const settings = version === "20260726171001"
     ? { table: "community_comments", funcs: ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"] }
-    : { table: "official_post_likes", funcs: ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()"] };
+    : { table: "official_post_likes", funcs: ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()"] };
   const { rows } = await client.query(`
     select jsonb_build_object(
       'table', jsonb_build_object('rls', c.relrowsecurity, 'forceRls', c.relforcerowsecurity, 'acl', coalesce(c.relacl::text, '')),
       'policies', coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname) from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb),
       'triggers', coalesce((select jsonb_agg(pg_get_triggerdef(t.oid, true) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
-      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce(p.proacl::text, ''), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid::regprocedure::text = any($2::text[])), '[]'::jsonb)
+      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce(p.proacl::text, ''), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
     ) as fingerprint_source
     from pg_class c where c.oid = ('public.' || $1)::regclass`, [settings.table, settings.funcs]);
   if (rows.length !== 1) throw new Error(`serial_release_precondition_table_missing:${settings.table}`);
@@ -145,7 +153,19 @@ async function assertEffectiveReleaseState(client, version, rollback) {
       )
       select
         (select not p.prosecdef from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_invoker,
+        (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_definition,
+        (select md5(coalesce(p.proacl::text, '')) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_acl,
+        (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_owner,
         ids.helper is not null as helper_exists,
+        case when ids.helper is null then null
+          else (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = ids.helper)
+        end as helper_definition,
+        case when ids.helper is null then null
+          else (select md5(coalesce(p.proacl::text, '')) from pg_proc p where p.oid = ids.helper)
+        end as helper_acl,
+        case when ids.helper is null then null
+          else (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = ids.helper)
+        end as helper_owner,
         case when ids.helper is null then false
           else (select p.prosecdef
                 and has_function_privilege('authenticated', p.oid, 'EXECUTE')
@@ -161,8 +181,22 @@ async function assertEffectiveReleaseState(client, version, rollback) {
       from ids`);
     const f = functions[0];
     const functionStateOk = rollback
-      ? !f.guard_invoker && !f.helper_exists && f.trigger_ok
-      : f.guard_invoker && f.helper_exists && f.helper_acl_ok && f.trigger_ok;
+      ? !f.guard_invoker
+        && f.guard_definition === "11bea734f04319ea619ebdf3dbdad869"
+        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && f.guard_owner === "postgres"
+        && !f.helper_exists
+        && f.trigger_ok
+      : f.guard_invoker
+        && f.guard_definition === "c9505e6d5b5fbb818c465cf84a3ebf56"
+        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && f.guard_owner === "postgres"
+        && f.helper_exists
+        && f.helper_definition === "139c75e8a54504468e1861557a681264"
+        && f.helper_acl === "5fc13192159b7c60c3a808895ae2c2c8"
+        && f.helper_owner === "postgres"
+        && f.helper_acl_ok
+        && f.trigger_ok;
     if (!functionStateOk) throw new Error(`serial_release_postcondition_function_or_trigger_mismatch:${version}`);
   }
 }
@@ -180,10 +214,25 @@ async function ledgerRows(client) {
   return (await client.query("select version::text, name, statements from supabase_migrations.schema_migrations where version = any($1::text[]) order by version", [["20260726171001", "20260726171002"]])).rows;
 }
 
-async function lockReleaseObjects(client, version) {
+async function lockReleaseObjects(client, version, rollback) {
   const table = version === "20260726171001" ? "community_comments" : "official_post_likes";
   await client.query("lock table supabase_migrations.schema_migrations in share row exclusive mode");
   await client.query(`lock table public.${table} in share row exclusive mode`);
+  const functions = version === "20260726171001"
+    ? ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"]
+    : ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()",
+      ...(rollback ? ["public.quata_official_like_delete_allowed(uuid)"] : [])];
+  // PostgreSQL has no LOCK FUNCTION command. Row locks on the exact pg_proc
+  // tuples conflict with ALTER/DROP/CREATE OR REPLACE without blocking
+  // unrelated function DDL. A helper created by apply-002 is protected by its
+  // uncommitted catalog insert until this transaction commits.
+  const lockedFunctions = await client.query(
+    `select p.oid
+       from unnest($1::text[]) f(identity)
+       join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
+       for share of p`,
+    [functions]);
+  if (lockedFunctions.rowCount !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
 }
 
 function exactLedgerRow(row, source, entry) {
@@ -244,13 +293,34 @@ export async function run(argv = process.argv.slice(2)) {
   if (args.action !== "dry-run" && !/^[a-f0-9]{64}$/.test(args["expected-precondition-sha256"] ?? "")) throw new Error("serial_release_expected_precondition_sha256_required");
 
   const config = await databaseConfig();
-  if (args.action === "apply-002") {
-    await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], config.databaseProjectFingerprint);
-  }
   const client = new pg.Client(config);
-  const report = { check: "QUATA-SECURITY-RELEASE-SERIAL", action: args.action, status: "failed", releaseLock, databaseProjectFingerprint: config.databaseProjectFingerprint, migrations: [] };
+  const report = { check: "QUATA-SECURITY-RELEASE-SERIAL", action: args.action, status: "failed", releaseLock, databaseProjectFingerprint: null, migrations: [] };
   try {
     await client.connect();
+    let connected;
+    try {
+      connected = (await client.query(`
+        select current_database() as database,
+               current_user as role,
+               d.oid::text as database_oid,
+               pcs.system_identifier::text as system_identifier
+          from pg_database d
+          cross join pg_control_system() pcs
+         where d.datname = current_database()`)).rows[0];
+    } catch {
+      throw new Error("serial_release_database_identity_unavailable");
+    }
+    if (connected.database !== config.targetIdentity.database) throw new Error("serial_release_connected_database_mismatch");
+    report.databaseProjectFingerprint = sha256(JSON.stringify({
+      ...config.targetIdentity,
+      connectedDatabase: connected.database,
+      connectedRole: connected.role,
+      databaseOid: connected.database_oid,
+      systemIdentifier: connected.system_identifier
+    }));
+    if (args.action === "apply-002") {
+      await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], report.databaseProjectFingerprint);
+    }
     const lock = await client.query("select pg_try_advisory_lock(hashtextextended($1, 0)) acquired", [releaseLock]);
     if (!lock.rows[0].acquired) throw new Error("serial_release_lock_unavailable");
     const existing = await ledgerRows(client);
@@ -272,7 +342,7 @@ export async function run(argv = process.argv.slice(2)) {
     if (Number.isSafeInteger(hold) && hold > 0) await new Promise((resolveHold) => setTimeout(resolveHold, hold));
     await client.query("begin isolation level serializable");
     try {
-      await lockReleaseObjects(client, version);
+      await lockReleaseObjects(client, version, rollback);
       // Re-read after table+ledger locks: the externally observed dry-run
       // fingerprint is not trusted until this point immediately before DDL.
       const lockedRows = await ledgerRows(client); const locked = new Map(lockedRows.map((row) => [row.version, row]));

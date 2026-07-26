@@ -102,6 +102,14 @@ try {
     Fixture
     $outputRelative = "build-reports/security-release/serial-executor-disposable-$([guid]::NewGuid().ToString('N')).json"
     $dry = Exec @("--action", "dry-run", "--out", $outputRelative); Assert-True ($dry.code -eq 0) "dry-run failed"; Assert-True (Test-Path (Join-Path $root $outputRelative)) "Windows output path was rejected or not written"; $fp1 = (($dry.output[-1] | ConvertFrom-Json).migrations | Where-Object version -eq "20260726171001").preconditionSha256
+    $primaryProjectFingerprint = ($dry.output[-1] | ConvertFrom-Json).databaseProjectFingerprint
+    Sql "create role release_alt login password 'serial-executor-alt'; grant usage on schema supabase_migrations to release_alt; grant select on supabase_migrations.schema_migrations to release_alt; grant execute on function pg_control_system() to release_alt;"
+    $primaryUrl = $env:SUPABASE_DB_URL
+    $env:SUPABASE_DB_URL = "postgresql://release_alt:serial-executor-alt@localhost:${port}/postgres"
+    $altDry = Exec @("--action", "dry-run"); Assert-True ($altDry.code -eq 0) "same-pooler alternate-user dry-run failed"
+    $altProjectFingerprint = ($altDry.output[-1] | ConvertFrom-Json).databaseProjectFingerprint
+    Assert-True ($altProjectFingerprint -ne $primaryProjectFingerprint) "target fingerprint did not bind the normalized database username"
+    $env:SUPABASE_DB_URL = $primaryUrl
     $failed = Exec @("--action", "apply-001", "--expected-precondition-sha256", $fp1) @{QUATA_SERIAL_EXECUTOR_TEST_FAIL_BEFORE_LEDGER="1"}; Assert-True ($failed.code -ne 0) "injected rollback failure passed"
     $atomic = (& docker exec $container psql -U postgres -A -t -c "select (select count(*) from supabase_migrations.schema_migrations), (select relrowsecurity from pg_class where oid='public.community_comments'::regclass);").Trim(); Assert-True ($atomic -eq "0|f") "migration and ledger were not atomic: $atomic"
     $preLockRace = Start-Job -ScriptBlock { param($file,$fp) $env:QUATA_SERIAL_EXECUTOR_TEST_HOLD_LOCK_MS='1000'; & node $file --action apply-001 --expected-precondition-sha256 $fp; exit $LASTEXITCODE } -ArgumentList (Join-Path $PSScriptRoot "security-release-serial-executor.mjs"),$fp1
@@ -124,13 +132,20 @@ try {
     $guardHash = (& docker exec $container psql -U postgres -A -t -c "select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure));").Trim()
     Assert-True ($guardHash -eq "c9505e6d5b5fbb818c465cf84a3ebf56") "production-like guard fingerprint mismatch: $guardHash"
     $rollback2Dry=Exec @("--action","dry-run"); $rollback2Fp=((($rollback2Dry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
-    $rollback2=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2Fp); Assert-True ($rollback2.code -eq 0) "rollback-002 failed: $($rollback2.output -join "`n")"
+    $rollback2Job=Start-Job -ScriptBlock { param($file,$fp) $env:QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS='1800'; & node $file --action rollback-002 --expected-precondition-sha256 $fp; if($LASTEXITCODE -ne 0){throw "rollback-002 executor failed"} } -ArgumentList (Join-Path $PSScriptRoot "security-release-serial-executor.mjs"),$rollback2Fp
+    Start-Sleep -Milliseconds 350
+    $functionWriter=Start-Job -ScriptBlock { param($name) "begin; alter function public.quata_guard_official_post_likes() cost 5; rollback;" | docker exec -i $name psql -U postgres -X -v ON_ERROR_STOP=1; if($LASTEXITCODE -ne 0){throw "function writer failed"} } -ArgumentList $container
+    Start-Sleep -Milliseconds 300; Assert-True ($functionWriter.State -eq "Running") "external function writer was not blocked by selective pg_proc lock"
+    Wait-Job $rollback2Job | Out-Null; $rollback2StateJob=$rollback2Job.State; $rollback2Output=Receive-Job $rollback2Job; Remove-Job $rollback2Job; Assert-True ($rollback2StateJob -eq "Completed") "rollback-002 failed: $($rollback2Output -join "`n")"
+    Wait-Job $functionWriter | Out-Null; $functionWriterState=$functionWriter.State
+    $oldErrorPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'; $functionWriterOutput=Receive-Job $functionWriter 2>&1; $ErrorActionPreference=$oldErrorPreference; Remove-Job $functionWriter
+    Assert-True ($functionWriterState -eq "Failed" -and ($functionWriterOutput -join "`n") -match "tuple concurrently updated") "external function writer was not rejected after the guarded commit"
     $rollback2State=(& docker exec $container psql -U postgres -A -t -c "select (select relrowsecurity from pg_class where oid='public.official_post_likes'::regclass), to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null;").Trim(); Assert-True ($rollback2State -eq "f|t") "rollback-002 did not restore the production-like fixture: $rollback2State"
     $rollback2AgainDry=Exec @("--action","dry-run"); $rollback2AgainFp=((($rollback2AgainDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
-    $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "rollback_refused") "rollback-002 drift/idempotency was accepted"
+    $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "function_lock_missing") "rollback-002 drift/idempotency was accepted"
     $rollbackDry=Exec @("--action","dry-run"); $rollbackFp=((($rollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
     $rollback=Exec @("--action","rollback-001","--expected-precondition-sha256",$rollbackFp); Assert-True ($rollback.code -eq 0) "rollback 001 failed: $($rollback.output -join "`n")"
     $preserved=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171001';").Trim(); Assert-True ($preserved -eq "1") "rollback repaired/deleted ledger"
     $rollbackAgain=Exec @("--action","rollback-001","--expected-precondition-sha256",$rollbackFp); Assert-True ($rollbackAgain.code -ne 0) "rollback drift/idempotency was accepted"
-    Write-Output "Serial executor PostgreSQL 17 test passed: hash rejection, rollback atomicity, advisory lock, exact ledger, ordering and idempotency."
+    Write-Output "Serial executor PostgreSQL 17 test passed: hash rejection, rollback atomicity, table/function races, exact ledger, ordering and idempotency."
 } finally { $env:NODE_PATH=$oldNodePath; docker rm -f $container *> $null; if(Test-Path $temp){Remove-Item $temp -Recurse -Force}; Get-ChildItem -LiteralPath (Join-Path $root "build-reports/security-release") -Filter "serial-executor-disposable-*.json" -ErrorAction SilentlyContinue | Remove-Item -Force }

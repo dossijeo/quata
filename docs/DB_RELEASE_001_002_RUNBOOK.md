@@ -15,6 +15,16 @@ SQL y rollbacks por SHA-256.
 La decisión permanece **NO-GO para apply** hasta autorización explícita del
 release manager. El dry-run es read-only.
 
+### Autoridad y excepción limitada
+
+El release manager es la única autoridad para abrir la ventana y autorizar por
+separado apply-001/apply-002. Ha aceptado para este lote la ausencia de PITR y
+la no reconciliación de 29 migraciones históricas porque el ejecutor no toca el
+backlog, 001/002 son DDL/RLS sin DML, los rollbacks exactos están probados y
+existe backup lógico Full con restore verificado de los objetos afectados.
+Esas 29 migraciones siguen siendo un hallazgo: no se marcan, reparan ni
+aplican. La recuperación lógica no equivale a restaurar Supabase integralmente.
+
 ## Evidencia ya disponible
 
 - Rama de integración: `codex/security-release-001-002`.
@@ -46,6 +56,10 @@ release manager. El dry-run es read-only.
 - 003/004 ausentes de la rama y de la ejecución.
 
 Un solo fallo conserva o devuelve la decisión a NO-GO.
+
+Inmediatamente antes de la ventana se deben refrescar el backup lógico Full,
+el drill con conteos reales, el snapshot read-only, el baseline de
+compatibilidad y este dry-run remoto.
 
 ## Variables de la terminal de release
 
