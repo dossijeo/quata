@@ -3,7 +3,7 @@ package com.quata.core.auth
 import android.content.Context
 import java.util.UUID
 
-data class RegistrationChallenge(val token: String, val action: String = TurnstileRegisterAction)
+data class RegistrationChallenge(val token: String)
 
 class AndroidRegistrationChallengeService {
     @Volatile private var host: (suspend () -> RegistrationChallenge)? = null

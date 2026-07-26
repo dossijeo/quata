@@ -29,7 +29,6 @@ class SupabaseAuthBridgeRequestTest {
         val payload = json.encodeToString(
             QuataRegistrationRequest(
                 challenge_token = "challenge",
-                challenge_action = "register_android",
                 client_instance_id = "instance-id",
                 idempotency_key = "idempotency-id",
                 country_code = "34",
@@ -43,7 +42,7 @@ class SupabaseAuthBridgeRequestTest {
         )
 
         assertTrue(payload.contains("\"channel\":\"android\""))
-        assertTrue(payload.contains("\"challenge_action\":\"register_android\""))
+        assertFalse(payload.contains("challenge_action"))
         assertFalse(payload.contains("pass_plain"))
         assertFalse(payload.contains("pass_hash"))
     }

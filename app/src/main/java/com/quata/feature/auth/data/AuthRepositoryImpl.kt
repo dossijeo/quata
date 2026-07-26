@@ -77,7 +77,6 @@ class AuthRepositoryImpl(
             supabaseApi.requestRegistration(
                 QuataRegistrationRequest(
                 challenge_token = challenge.token,
-                challenge_action = challenge.action,
                 client_instance_id = registrationIdentityStore.clientInstanceId(),
                 idempotency_key = registrationIdentityStore.idempotencyKey(identity),
                 country_code = countryCode,

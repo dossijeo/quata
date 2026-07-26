@@ -325,7 +325,6 @@ data class QuataRegistrationRequest(
     val version: Int = 1,
     val channel: String = "android",
     val challenge_token: String,
-    val challenge_action: String,
     val client_instance_id: String,
     val idempotency_key: String,
     val country_code: String,
