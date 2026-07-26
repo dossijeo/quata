@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 if (-not $AllowIsolatedDatabase) {
-    throw "This regression applies uncommitted DDL and ephemeral auth rows inside a rollback transaction. Re-run with -AllowIsolatedDatabase against an isolated Supabase database."
+    throw "This regression commits migration DDL, creates and purges ephemeral auth rows, rehearses rollback, and reapplies the secured migration. Re-run with -AllowIsolatedDatabase against a disposable isolated database."
 }
 if ($env:QUATA_RLS_TEST_SCOPE -cne "isolated_rls001_review_database") {
     throw "QUATA_RLS_TEST_SCOPE must equal isolated_rls001_review_database."

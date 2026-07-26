@@ -1,11 +1,10 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- Run only against an isolated Supabase database. The transaction applies the
--- migration, creates three ephemeral auth/profile identities and rolls back
--- every schema/data change after assertions and explicit cleanup checks.
-begin;
+-- Run only against an isolated Supabase database. The migration commits its
+-- DDL; fixture data is then explicitly cleaned and verified before commit.
 \ir ../migrations/20260726171001_community_comments_delete_rls.sql
+begin;
 
 insert into auth.users(id)
 values
@@ -36,7 +35,8 @@ values
     ('40000000-0000-4000-8000-000000171001', '30000000-0000-4000-8000-000000171001', '10000000-0000-4000-8000-000000171001', 'owner-delete'),
     ('40000000-0000-4000-8000-000000171002', '30000000-0000-4000-8000-000000171001', '10000000-0000-4000-8000-000000171001', 'admin-delete');
 
--- Anonymous and authenticated reads remain available.
+-- Anonymous SELECT remains public, while anonymous INSERT/UPDATE/DELETE are
+-- denied at the table privilege boundary (PostgREST reports 42501).
 set local role anon;
 select set_config('request.jwt.claim.sub', '', true) as ignored
 \gset
@@ -49,17 +49,48 @@ where post_id = '30000000-0000-4000-8000-000000171001'
     \echo 'RLS-001 regression: anonymous SELECT no longer sees public comments'
     \quit 1
 \endif
+do $$
+begin
+    begin
+        insert into public.community_comments(post_id, profile_id, body)
+        values (
+            '30000000-0000-4000-8000-000000171001',
+            '10000000-0000-4000-8000-000000171002',
+            'anonymous-spoof'
+        );
+        raise exception 'anonymous INSERT unexpectedly succeeded';
+    exception when insufficient_privilege then null;
+    end;
+    begin
+        update public.community_comments set profile_id = '10000000-0000-4000-8000-000000171002'
+        where id = '40000000-0000-4000-8000-000000171001';
+        raise exception 'anonymous UPDATE unexpectedly succeeded';
+    exception when insufficient_privilege then null;
+    end;
+    begin
+        delete from public.community_comments
+        where id = '40000000-0000-4000-8000-000000171001';
+        raise exception 'anonymous DELETE unexpectedly succeeded';
+    exception when insufficient_privilege then null;
+    end;
+end
+$$;
 reset role;
 
-select not has_table_privilege('anon', 'public.community_comments', 'DELETE') as anon_delete_revoked
+select (
+    not has_table_privilege('anon', 'public.community_comments', 'INSERT')
+    and not has_table_privilege('anon', 'public.community_comments', 'UPDATE')
+    and not has_table_privilege('anon', 'public.community_comments', 'DELETE')
+) as anon_mutations_revoked
 \gset
-\if :anon_delete_revoked
+\if :anon_mutations_revoked
 \else
-    \echo 'RLS-001 regression: anonymous role retained DELETE grant'
+    \echo 'RLS-001 regression: anonymous role retained a mutation grant'
     \quit 1
 \endif
 
--- An authenticated outsider matches the id filter but RLS returns zero rows.
+-- An authenticated outsider cannot spoof INSERT ownership and cannot UPDATE
+-- ownership/post before chaining the formerly permissive DELETE.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000171002', true) as ignored
 \gset
@@ -72,6 +103,28 @@ where post_id = '30000000-0000-4000-8000-000000171001'
     \echo 'RLS-001 regression: authenticated SELECT no longer sees public comments'
     \quit 1
 \endif
+do $$
+begin
+    begin
+        insert into public.community_comments(post_id, profile_id, body)
+        values (
+            '30000000-0000-4000-8000-000000171001',
+            '10000000-0000-4000-8000-000000171001',
+            'authenticated-owner-spoof'
+        );
+        raise exception 'authenticated ownership spoof unexpectedly succeeded';
+    exception when insufficient_privilege then null;
+    end;
+    begin
+        update public.community_comments
+        set profile_id = '10000000-0000-4000-8000-000000171002',
+            post_id = '30000000-0000-4000-8000-000000171001'
+        where id = '40000000-0000-4000-8000-000000171001';
+        raise exception 'outsider UPDATE unexpectedly succeeded';
+    exception when insufficient_privilege then null;
+    end;
+end
+$$;
 with deleted as (
     delete from public.community_comments
     where id = '40000000-0000-4000-8000-000000171001'
@@ -86,20 +139,43 @@ select count(*) = 0 as outsider_deleted_zero from deleted
 \endif
 reset role;
 
-select count(*) = 1 as outsider_target_persisted
-from public.community_comments
-where id = '40000000-0000-4000-8000-000000171001'
+select (
+    select profile_id = '10000000-0000-4000-8000-000000171001'
+       and post_id = '30000000-0000-4000-8000-000000171001'
+    from public.community_comments
+    where id = '40000000-0000-4000-8000-000000171001'
+) is true as outsider_target_persisted_immutable
 \gset
-\if :outsider_target_persisted
+\if :outsider_target_persisted_immutable
 \else
-    \echo 'RLS-001 regression: owner comment did not persist after outsider DELETE'
+    \echo 'RLS-001 regression: outsider changed/deleted owner comment'
     \quit 1
 \endif
 
--- The canonical owner can delete its own row with the existing id-only client contract.
+-- Existing Android contract: authenticated owner supplies its own profile_id
+-- on INSERT and later deletes using only the comment id.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000171001', true) as ignored
 \gset
+insert into public.community_comments(id, post_id, profile_id, body)
+values (
+    '40000000-0000-4000-8000-000000171003',
+    '30000000-0000-4000-8000-000000171001',
+    '10000000-0000-4000-8000-000000171001',
+    'android-id-only-delete'
+);
+with deleted as (
+    delete from public.community_comments
+    where id = '40000000-0000-4000-8000-000000171003'
+    returning id
+)
+select count(*) = 1 as android_owner_deleted_one from deleted
+\gset
+\if :android_owner_deleted_one
+\else
+    \echo 'RLS-001 regression: Android owner id-only DELETE failed'
+    \quit 1
+\endif
 with deleted as (
     delete from public.community_comments
     where id = '40000000-0000-4000-8000-000000171001'
@@ -114,7 +190,10 @@ select count(*) = 1 as owner_deleted_one from deleted
 \endif
 reset role;
 
--- Admin deletion is allowed only through a real active canonical profile with is_admin=true.
+-- is_admin alone is insufficient when the canonical profile is inactive.
+update public.community_profiles
+set account_status = 'deactivated'
+where id = '10000000-0000-4000-8000-000000171003';
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000171003', true) as ignored
 \gset
@@ -123,53 +202,52 @@ with deleted as (
     where id = '40000000-0000-4000-8000-000000171002'
     returning id
 )
-select count(*) = 1 as admin_deleted_one from deleted
+select count(*) = 0 as inactive_admin_deleted_zero from deleted
 \gset
-\if :admin_deleted_one
+\if :inactive_admin_deleted_zero
+\else
+    \echo 'RLS-001 regression: inactive admin deleted a comment'
+    \quit 1
+\endif
+reset role;
+select count(*) = 1 as inactive_admin_target_persisted
+from public.community_comments
+where id = '40000000-0000-4000-8000-000000171002'
+\gset
+\if :inactive_admin_target_persisted
+\else
+    \echo 'RLS-001 regression: comment vanished after inactive-admin DELETE'
+    \quit 1
+\endif
+
+-- A proven active admin can moderate the remaining comment.
+update public.community_profiles
+set account_status = 'active'
+where id = '10000000-0000-4000-8000-000000171003';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000171003', true) as ignored
+\gset
+with deleted as (
+    delete from public.community_comments
+    where id = '40000000-0000-4000-8000-000000171002'
+    returning id
+)
+select count(*) = 1 as active_admin_deleted_one from deleted
+\gset
+\if :active_admin_deleted_one
 \else
     \echo 'RLS-001 regression: proven active admin could not delete comment'
     \quit 1
 \endif
 reset role;
 
--- The emergency rollback is executable and restores the exact observed
--- pre-migration DELETE policy/grants. Roll back this rehearsal immediately.
-savepoint before_rollback_rehearsal;
-\ir ../rollbacks/20260726171001_community_comments_delete_rls.rollback.sql
-select (
-    has_table_privilege('anon', 'public.community_comments', 'DELETE')
-    and exists (
-        select 1
-        from pg_policies
-        where schemaname = 'public'
-          and tablename = 'community_comments'
-          and policyname = 'public delete comments'
-          and cmd = 'DELETE'
-          and roles = array['public'::name]
-          and qual = 'true'
-    )
-) as rollback_restored_observed_contract
-\gset
-\if :rollback_restored_observed_contract
-\else
-    \echo 'RLS-001 rollback rehearsal did not restore the observed contract'
-    \quit 1
-\endif
-rollback to savepoint before_rollback_rehearsal;
-
--- Explicit cleanup is verified before the encompassing transaction rollback.
+-- Explicit fixture cleanup is committed, then absence is checked outside the
+-- transaction so a false rollback-only cleanup cannot pass.
 delete from public.community_posts where id = '30000000-0000-4000-8000-000000171001';
 delete from public.community_walls where id = '20000000-0000-4000-8000-000000171001';
-delete from public.community_profiles where id in (
-    '10000000-0000-4000-8000-000000171001',
-    '10000000-0000-4000-8000-000000171002',
-    '10000000-0000-4000-8000-000000171003'
-);
-delete from auth.users where id in (
-    '00000000-0000-4000-8000-000000171001',
-    '00000000-0000-4000-8000-000000171002',
-    '00000000-0000-4000-8000-000000171003'
-);
+delete from public.community_profiles where id::text like '10000000-0000-4000-8000-00000017100%';
+delete from auth.users where id::text like '00000000-0000-4000-8000-00000017100%';
+commit;
 
 select (
     not exists (select 1 from public.community_comments where id::text like '40000000-0000-4000-8000-00000017100%')
@@ -185,5 +263,41 @@ select (
     \quit 1
 \endif
 
-rollback;
-\echo 'RLS-001 SQL/E2E passed: outsider=0+persisted, owner=1, admin=1, anon/auth-read=preserved, rollback=verified, cleanup=verified'
+-- Rehearse rollback in the isolated database, assert the exact observed
+-- vulnerable contract, then immediately reapply the secured migration.
+\ir ../rollbacks/20260726171001_community_comments_delete_rls.rollback.sql
+select (
+    has_table_privilege('anon', 'public.community_comments', 'DELETE')
+    and has_table_privilege('anon', 'public.community_comments', 'INSERT')
+    and has_table_privilege('anon', 'public.community_comments', 'UPDATE')
+    and exists (
+        select 1 from pg_policies
+        where schemaname = 'public' and tablename = 'community_comments'
+          and policyname = 'public delete comments' and cmd = 'DELETE'
+          and roles = array['public'::name] and qual = 'true'
+    )
+) as rollback_restored_observed_contract
+\gset
+\if :rollback_restored_observed_contract
+\else
+    \echo 'RLS-001 rollback rehearsal did not restore the observed contract'
+    \quit 1
+\endif
+\ir ../migrations/20260726171001_community_comments_delete_rls.sql
+
+select (
+    not has_table_privilege('anon', 'public.community_comments', 'DELETE')
+    and not has_table_privilege('anon', 'public.community_comments', 'INSERT')
+    and not has_table_privilege('anon', 'public.community_comments', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.community_comments', 'DELETE')
+    and has_table_privilege('authenticated', 'public.community_comments', 'INSERT')
+    and not has_table_privilege('authenticated', 'public.community_comments', 'UPDATE')
+) as secured_contract_reapplied
+\gset
+\if :secured_contract_reapplied
+\else
+    \echo 'RLS-001 secured contract was not restored after rollback rehearsal'
+    \quit 1
+\endif
+
+\echo 'RLS-001 SQL/E2E passed: outsider update/delete denied+immutable, insert spoof denied, owner Android flow=green, inactive admin=0, active admin=1, anon/auth SELECT, rollback+cleanup=verified'
