@@ -1,0 +1,37 @@
+name: Supabase E2E SB-01
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-e2e-sb01-production
+  cancel-in-progress: false
+
+jobs:
+  catalogue-read-only:
+    name: Strict TLS catalogue check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-e2e
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_DB_TLS_CA_PEM: ${{ secrets.SUPABASE_DB_TLS_CA_PEM }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify configured production catalogue without mutations
+        shell: pwsh
+        run: |
+          ./scripts/run-supabase-e2e-sb01.ps1 -Output build-reports/supabase/sb-01.json
+
+      - name: Remove local report
+        if: always()
+        shell: pwsh
+        run: Remove-Item -LiteralPath build-reports/supabase/sb-01.json -Force -ErrorAction SilentlyContinue

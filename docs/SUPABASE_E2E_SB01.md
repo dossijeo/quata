@@ -37,6 +37,22 @@ $env:SUPABASE_DB_URL = '<cadena configurada fuera del repositorio>'
 .\scripts\run-supabase-e2e-sb01.ps1
 ```
 
+En estaciones donde la URL se conserva en un archivo local protegido, puede
+pasar **la ruta**, nunca la URL, al runner. El archivo no se versiona ni se
+incluye en el informe:
+
+```powershell
+.\scripts\run-supabase-e2e-sb01.ps1 `
+  -DbUrlFile 'C:\ruta\segura\supabase-db-url.txt' `
+  -Output build-reports/supabase/sb-01.json
+```
+
+En CI, inyecte `SUPABASE_DB_URL` y `SUPABASE_DB_TLS_CA_PEM` como secretos del
+repositorio. No materialice el PEM ni la URL en el workspace ni en los logs.
+El workflow manual `.github/workflows/supabase-e2e-sb01.yml` usa ambos secretos,
+fuerza el mismo runner y elimina el informe local al finalizar; no se dispara en
+push o pull request.
+
 El wrapper descarga temporalmente `pg@8.16.3` fuera del repositorio, con scripts
 de instalación desactivados, valida antes la configuración TLS sin conectar y lo
 elimina al terminar. Para elegir un destino

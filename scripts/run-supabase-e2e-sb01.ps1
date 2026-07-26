@@ -1,9 +1,22 @@
 [CmdletBinding()]
-param([string]$Output = "build-reports/supabase/sb-01.json")
+param(
+    [string]$Output = "build-reports/supabase/sb-01.json",
+    [string]$DbUrlFile
+)
 
 $ErrorActionPreference = "Stop"
+if (-not [string]::IsNullOrWhiteSpace($DbUrlFile)) {
+    if (-not (Test-Path -LiteralPath $DbUrlFile -PathType Leaf)) {
+        throw "SB-01 database URL file was not found."
+    }
+    $databaseUrl = (Get-Content -LiteralPath $DbUrlFile -Raw).Trim()
+    if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
+        throw "SB-01 database URL file is empty."
+    }
+    $env:SUPABASE_DB_URL = $databaseUrl
+}
 if ([string]::IsNullOrWhiteSpace($env:SUPABASE_DB_URL)) {
-    throw "SUPABASE_DB_URL must be set in the current process. This runner never accepts a URL argument."
+    throw "SUPABASE_DB_URL must be set in the current process or supplied through DbUrlFile. This runner never accepts a URL argument."
 }
 if ([string]::IsNullOrWhiteSpace($env:SUPABASE_DB_TLS_CA_FILE) -eq [string]::IsNullOrWhiteSpace($env:SUPABASE_DB_TLS_CA_PEM)) {
     throw "Configure exactly one explicit SB-01 TLS CA source: SUPABASE_DB_TLS_CA_FILE or SUPABASE_DB_TLS_CA_PEM. TLS verification is never disabled."
