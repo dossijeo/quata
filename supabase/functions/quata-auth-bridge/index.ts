@@ -490,7 +490,9 @@ async function isRegistrationQuarantined(
   if (!pepper || pepper.length < 32) throw new Error("quarantine_configuration_missing");
   const country = digitsOnly(profile.country_code || profile.code || "");
   const local = digitsOnly(profile.phone_local || profile.phone_normalized || profile.telefono || "");
-  if (!country || !local) throw new Error("profile_identity_not_canonical");
+  // New registrations are always canonical. A legacy row without both parts
+  // cannot match the new ledger and must keep its existing login behavior.
+  if (!country || !local) return false;
   const phoneHash = await registrationPhoneHash(country, local, pepper);
   const { count, error } = await admin.from("web_registration_requests")
     .select("id", { count: "exact", head: true })

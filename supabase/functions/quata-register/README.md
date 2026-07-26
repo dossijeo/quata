@@ -23,6 +23,11 @@ Required environment variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 fail-closed; the browser also requires the
 public `quata-web-registration-enabled=true` meta flag.
 
+`QUATA_REGISTRATION_QUARANTINE_ENABLED=true` is also mandatory before enabling
+registration. It makes the login bridge reject canonical profiles whose saga is
+`cleanup_required`. Non-canonical legacy profiles cannot belong to the new saga
+and retain their prior login behavior.
+
 Apply `20260726171004_web_registration_contract.sql` only after the
 `community_profiles` actor guard. Then configure secrets and deploy through the
 release workflow. This branch intentionally does not deploy.
