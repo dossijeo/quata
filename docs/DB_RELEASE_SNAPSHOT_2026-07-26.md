@@ -165,6 +165,36 @@ El informe sanitizado está en
 credenciales ni project ref en claro. Este bloqueo exige habilitar/confirmar un
 restore point recuperable desde Supabase antes de cualquier release.
 
+### Alternativa lógica ejecutada
+
+Ante la ausencia de PITR se creó, sin DDL/DML, un backup lógico **Full** real:
+
+- TLS efectivo `verify-full` con CA explícita;
+- `pg_dump` custom completo, grants/ACL incluidos;
+- cifrado streaming AES-256-GCM sin dump plano persistente;
+- clave custodiada separadamente y backup/key con ACL exclusiva del usuario;
+- manifiesto sin conexión ni valores de negocio;
+- SHA-256 cifrado
+  `9f8ff3730575595ffbb8d13c91d98977a16fe4219bec147f207f86f8790910b1`;
+- SHA-256 plano autenticado
+  `ccf93e7eb02ebc6bc27589028eb3855dfd11b84e03423b41843ced90a65f29b8`.
+
+El Full gestionado no restauró íntegramente en PostgreSQL vanilla
+(`pg_cron`) ni sobre una imagen Supabase ya inicializada (conflictos de objetos
+gestionados); esos intentos fallaron cerrados y eliminaron plaintext/contenedor.
+El drill de alcance del lote sí pasó en PostgreSQL 17:
+
+- el TOC confirmó tablas, datos, ACL/grants, funciones y estado previo de
+  policies/RLS;
+- se restauraron `community_comments` y `official_post_likes`;
+- los conteos restaurados coincidieron exactamente con el snapshot read-only:
+  112 y 19;
+- checksum cifrado, tag GCM y checksum plano fueron verificados.
+
+Esto proporciona recuperación lógica de los objetos/datos afectados, pero no
+se presenta como sustituto equivalente de PITR ni como restauración integral de
+todos los servicios gestionados de Supabase.
+
 ## Evidencia local del corte de integración
 
 Sobre `codex/security-release-001-002`, antes de cualquier despliegue:

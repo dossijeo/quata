@@ -49,6 +49,14 @@ La restauración se prueba antes de autorizar DDL:
   -EncryptionKeyFile 'C:\seguro\release-backup.key'
 ```
 
+Para una imagen Supabase desechable que ya inicializa esquemas gestionados, usar
+`-CleanTarget`; sólo afecta al contenedor efímero creado por el propio drill.
+Si un dump Full de Supabase no es portable a PostgreSQL vanilla, usar
+`-AffectedTablesOnly` para restaurar y contar las dos tablas del lote. El drill
+con `-ValidateSecurityReleaseScope` comprueba además en el TOC cifrado que el
+Full capturó sus tablas, datos, estado previo de políticas/RLS, ACL/grants y las
+funciones de autorización requeridas.
+
 El drill crea y borra un PostgreSQL 17 Docker. Durante el drill existe un
 plaintext transitorio únicamente bajo un directorio temporal con herencia ACL
 eliminada y grant exclusivo al usuario actual; se elimina incluso ante error.
