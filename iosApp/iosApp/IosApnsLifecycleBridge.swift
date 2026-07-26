@@ -59,6 +59,10 @@ enum IosApnsAuthorization {
             false
         }
     }
+
+    static func shouldRequestRegistrationAfterPrompt(granted: Bool, error: Error?) -> Bool {
+        granted && error == nil
+    }
 }
 
 enum IosApnsTokenFormatting {

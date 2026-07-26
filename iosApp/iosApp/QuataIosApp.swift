@@ -229,10 +229,18 @@ private final class IosAppCompositionRoot {
                 },
                 onRequestNotificationPermission: {
                     // Permission is a UIKit/system concern. This invokes the real iOS prompt;
-                    // APNs token registration remains the existing AppDelegate bridge.
+                    // APNs token registration remains the existing AppDelegate bridge. Request
+                    // it from this completion as the authorization sheet is not guaranteed to
+                    // produce another applicationDidBecomeActive callback.
                     UNUserNotificationCenter.current().requestAuthorization(
                         options: [.alert, .badge, .sound]
-                    ) { _, _ in }
+                    ) { granted, error in
+                        guard IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(
+                            granted: granted,
+                            error: error
+                        ) else { return }
+                        IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+                    }
                 },
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.

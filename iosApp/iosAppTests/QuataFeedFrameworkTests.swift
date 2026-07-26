@@ -19,6 +19,20 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(IosApnsAuthorization.permitsRegistration(.ephemeral))
     }
 
+    func testApnsAuthorizationPromptRequestsRegistrationOnlyAfterCleanGrant() {
+        let error = NSError(domain: "test", code: 1)
+
+        XCTAssertTrue(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: true, error: nil)
+        )
+        XCTAssertFalse(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: false, error: nil)
+        )
+        XCTAssertFalse(
+            IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: true, error: error)
+        )
+    }
+
     func testApnsTokenFormattingProducesCanonicalLowercaseHexWithoutPersistence() {
         let token = Data([0x00, 0x0A, 0xF0, 0xFF])
 
