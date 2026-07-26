@@ -71,7 +71,7 @@ private enum IosApnsFailureCode {
     static func from(error: Error) -> String {
         let nsError = error as NSError
         // Domains can contain arbitrary values; retain only a bounded, public error number.
-        "ios_apns_\(nsError.code)"
+        return "ios_apns_\(nsError.code)"
     }
 }
 
