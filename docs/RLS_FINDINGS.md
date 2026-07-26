@@ -46,6 +46,14 @@ la política permisiva de `DELETE` y permita borrar sólo al propietario (`profi
 o el mapeo de perfil equivalente) y a administradores explícitos. Antes de aplicarla a producción
 hay que evaluar la Web publicada que hoy depende de las políticas existentes.
 
+**Preparada, no desplegada (2026-07-26):**
+`20260726171001_community_comments_delete_rls.sql` reemplaza exclusivamente la
+política DELETE permisiva por propietario canónico activo/administrador
+explícito, conserva SELECT público y el DELETE Android por `id`, e incluye
+rollback y regresión SQL/E2E transaccional con fixtures efímeros y purga
+verificada. La evidencia y riesgos están en
+`docs/RLS001_COMMUNITY_COMMENTS_DELETE_PLAN.md`.
+
 ### Criterio de cierre
 
 1. SB-07 se repite con dos perfiles nuevos y aislados.
