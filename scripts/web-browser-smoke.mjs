@@ -36,6 +36,8 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+const turnstileScriptPattern = 'https://challenges.cloudflare.com/turnstile/*';
+const turnstileStubSource = 'globalThis.turnstile ??= { render: () => "quata-smoke-turnstile", execute: () => {}, reset: () => {}, remove: () => {} };';
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
@@ -69,6 +71,7 @@ let chrome;
 const browserLogs = [];
 const networkFailures = [];
 const unexpectedDocmentisNetworkRequests = [];
+let stubbedTurnstileRequests = 0;
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory);
@@ -110,6 +113,22 @@ try {
         await cdp.send('Runtime.enable');
         await cdp.send('Log.enable');
         await cdp.send('Network.enable');
+        if (options.docmentis) {
+            await cdp.send('Fetch.enable', { patterns: [{ urlPattern: turnstileScriptPattern, requestStage: 'Request' }] });
+            cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
+                if (request.url.startsWith('https://challenges.cloudflare.com/turnstile/')) {
+                    stubbedTurnstileRequests += 1;
+                    cdp.send('Fetch.fulfillRequest', {
+                        requestId,
+                        responseCode: 200,
+                        responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
+                        body: Buffer.from(turnstileStubSource).toString('base64'),
+                    }).catch(() => {});
+                } else {
+                    cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' }).catch(() => {});
+                }
+            });
+        }
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
 
@@ -138,6 +157,9 @@ try {
         if (unexpectedDocmentisNetworkRequests.length > 0) {
             failures.push(`DocMentis smoke made an external network request(s):\n${unexpectedDocmentisNetworkRequests.join('\n')}`);
         }
+        if (options.docmentis && stubbedTurnstileRequests > 0 && process.env.CI !== 'true') {
+            failures.push('Turnstile stubbing is restricted to the CI DocMentis smoke harness.');
+        }
     } finally {
         cdp.close();
     }
@@ -161,6 +183,8 @@ try {
 function isUnexpectedDocmentisNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
     try {
         const parsed = new URL(url);
+        // This URL is not allowed through: Fetch fulfills it with the local smoke-only stub above.
+        if (parsed.href.startsWith('https://challenges.cloudflare.com/turnstile/')) return false;
         return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
     } catch {
         return true;
