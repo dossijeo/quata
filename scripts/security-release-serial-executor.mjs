@@ -411,7 +411,13 @@ export async function run(argv = process.argv.slice(2)) {
     }
     // Dry-run must reject an unapproved body too; it must never turn a drifted
     // function into a new operator-supplied fingerprint.
-    if (versions.includes("20260726171002")) await assertApprovedGuardAnchor(client);
+    if (versions.includes("20260726171002")) {
+      // The 002 ledger is append-only: absent means the captured baseline must
+      // still be DEFINER; present means the effective release must be INVOKER.
+      // A rollback leaves its ledger evidence behind, so present+DEFINER is
+      // intentionally rejected rather than becoming a new dry-run anchor.
+      await assertApprovedGuardAnchor(client, present.has("20260726171002") ? false : true);
+    }
     if (args.action === "dry-run") { report.status = "passed"; return report; }
 
     const version = versions[0];

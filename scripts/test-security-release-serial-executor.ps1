@@ -118,6 +118,11 @@ drop schema if exists auth cascade;
 drop schema if exists supabase_migrations cascade;
 "@
     Fixture
+    Sql "alter function public.quata_guard_official_post_likes() security invoker;"
+    $absentInvokerDry = Exec @("--action", "dry-run"); Assert-True ($absentInvokerDry.code -ne 0 -and ($absentInvokerDry.output -join "`n") -match "guard_anchor_mismatch") "ledger-absent invoker guard was accepted by dry-run"
+    Sql "alter function public.quata_guard_official_post_likes() security definer; insert into supabase_migrations.schema_migrations(version, statements, name) values ('20260726171002', array['test'], 'test');"
+    $presentDefinerDry = Exec @("--action", "dry-run"); Assert-True ($presentDefinerDry.code -ne 0 -and ($presentDefinerDry.output -join "`n") -match "guard_anchor_mismatch") "ledger-present definer guard was accepted by dry-run"
+    Sql "delete from supabase_migrations.schema_migrations where version='20260726171002';"
     foreach ($mode in @("disable trigger quata_guard_official_post_likes_trg", "enable always trigger quata_guard_official_post_likes_trg", "enable replica trigger quata_guard_official_post_likes_trg")) {
         Sql "alter table public.official_post_likes $mode;"
         $triggerDriftDry = Exec @("--action", "dry-run"); Assert-True ($triggerDriftDry.code -ne 0 -and ($triggerDriftDry.output -join "`n") -match "guard_anchor_mismatch") "trigger mode drift was accepted by dry-run: $mode"
@@ -241,9 +246,8 @@ try {
     $rollback2State=(& docker exec $container psql -U postgres -A -t -c "select (select relrowsecurity from pg_class where oid='public.official_post_likes'::regclass), to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null;").Trim(); Assert-True ($rollback2State -eq "f|t") "rollback-002 did not restore the production-like fixture: $rollback2State"
     $rollbackGuardAcl=(& docker exec $container psql -U postgres -A -t -c "select coalesce(proacl::text, '') from pg_proc where oid='public.quata_guard_official_post_likes()'::regprocedure;").Trim()
     Assert-True ($rollbackGuardAcl -eq "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}") "rollback-002 did not restore exact guard ACL: $rollbackGuardAcl"
-    $rollback2AgainDry=Exec @("--action","dry-run"); $rollback2AgainFp=((($rollback2AgainDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
-    $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "function_lock_missing") "rollback-002 drift/idempotency was accepted"
-    $freshForwardRollbackDry=Exec @("--action","dry-run"); $freshForwardRollbackFp=((($freshForwardRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
+    $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",('0'*64)); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "guard_anchor_mismatch") "rollback-002 drift/idempotency was accepted"
+    $freshForwardRollbackFp=$freshForwardPostcondition
     $freshForwardRollback=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$freshForwardRollbackFp); Assert-True ($freshForwardRollback.code -eq 0) "fresh forward rollback failed"
     $forwardLedger=(& docker exec $container psql -U postgres -A -t -c "select count(*) from supabase_migrations.schema_migrations where version='20260726171005';").Trim(); Assert-True ($forwardLedger -eq "1") "forward rollback repaired ledger"
     $forwardAgain=Exec @("--action","rollback-001-forward","--expected-precondition-sha256",$freshForwardRollbackFp); Assert-True ($forwardAgain.code -ne 0) "second forward rollback was accepted"
