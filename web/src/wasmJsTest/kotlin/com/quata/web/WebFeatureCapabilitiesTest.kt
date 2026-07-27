@@ -45,6 +45,22 @@ class WebFeatureCapabilitiesTest {
     }
 
     @Test
+    fun keepsComposerVisibleAsLocalButFailsClosedForPublication() {
+        val registry = webFeatureCapabilityRegistry(configured, hasAuthenticatedSession = true)
+
+        assertEquals(
+            CapabilityStateOrigin.Local,
+            registry.projection(QuataFeature.Composer, FeatureCapabilityAction.View).origin,
+        )
+        assertFalse(registry.capability(QuataFeature.Composer).backendReal)
+        assertEquals(
+            CapabilityStateOrigin.Unsupported,
+            registry.projection(QuataFeature.Composer, FeatureCapabilityAction.Mutate).origin,
+        )
+        assertFalse(registry.projection(QuataFeature.Composer, FeatureCapabilityAction.Mutate).enabled)
+    }
+
+    @Test
     fun marksProfileRemoteOnlyWithConfiguredBackendAndAuthenticatedSession() {
         val authenticated = webFeatureCapabilityRegistry(
             configuration = configured,

@@ -64,7 +64,14 @@ fun webFeatureCapabilityRegistry(
                 QuataFeature.Profile to capability(profileOrigin, profileOrigin, backend = remoteProfile),
                 QuataFeature.Communities to capability(),
                 QuataFeature.Official to capability(),
-                QuataFeature.Composer to capability(mutation = remoteOrigin),
+                // The composer shell is local, but no Web publication contract currently proves
+                // server-derived actor, membership wall and owner-only Storage authorization.
+                // Keep it visible without advertising or enabling a remote mutation.
+                QuataFeature.Composer to capability(
+                    source = CapabilityStateOrigin.Local,
+                    mutation = CapabilityStateOrigin.Unsupported,
+                    backend = false,
+                ),
             ),
         ),
         text = FeatureCapabilityTextCatalog.forLanguageTag(browserCapabilityLanguageTag()),

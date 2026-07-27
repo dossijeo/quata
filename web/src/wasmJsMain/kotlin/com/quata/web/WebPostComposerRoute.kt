@@ -27,19 +27,10 @@ import org.w3c.dom.HTMLVideoElement
 @Composable
 fun WebPostComposerRoute(
     platformServices: WebPlatformServices,
-    runtimeConfiguration: WebRuntimeConfiguration,
-    authRepository: WebAuthRepository,
 ) {
     val scope = rememberCoroutineScope()
-    val repository = remember(runtimeConfiguration, authRepository) {
-        WebPostComposerRepository(
-            configuration = runtimeConfiguration,
-            authRepository = authRepository,
-            client = WebPostgrestClient(runtimeConfiguration, authRepository),
-        )
-    }
     WebPostComposerHost(
-        repository = repository,
+        repository = WebPostComposerPublicationUnavailableRepository,
         mediaSlots = WebComposerMediaSlots(
             imageGallery = { modifier, onSelected ->
                 BrowserPickerButton("Elegir imagen", modifier) {
