@@ -30,6 +30,12 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+internal enum class WebOfficialReadOperation { Feed, CurrentUser }
+internal fun webOfficialReadAuthMode(operation: WebOfficialReadOperation): WebPostgrestAuthMode = when (operation) {
+    WebOfficialReadOperation.Feed -> WebPostgrestAuthMode.Public
+    WebOfficialReadOperation.CurrentUser -> WebPostgrestAuthMode.SessionRequired
+}
+
 /**
  * Browser implementation of the read-only Official feed contract.
  *
@@ -70,7 +76,7 @@ class WebOfficialRepository(
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: return@runCatching null
-        loadProfiles(listOf(userId), WebPostgrestAuthMode.SessionRequired).firstOrNull()?.toOfficialDomainUser()
+        loadProfiles(listOf(userId), webOfficialReadAuthMode(WebOfficialReadOperation.CurrentUser)).firstOrNull()?.toOfficialDomainUser()
     }
 
     override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
@@ -116,7 +122,7 @@ class WebOfficialRepository(
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
             ),
         ).map(JsonObject::toOfficialRemoteLike)
-        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), WebPostgrestAuthMode.Public)
+        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), webOfficialReadAuthMode(WebOfficialReadOperation.Feed))
         buildOfficialDomainPosts(
             posts = posts,
             comments = comments,
