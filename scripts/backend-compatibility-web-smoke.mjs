@@ -79,6 +79,9 @@ try {
       route,
       { timeout: 30_000 },
     );
+    if (route === "feed") {
+      await page.waitForFunction(() => localStorage.getItem("web.runtime.backend_configured") === "true" && localStorage.getItem("web.feed.observe_started") === "true", { timeout: 30_000 });
+    }
     await page.waitForTimeout(1_000);
     const canvasCount = await page.locator("canvas").count();
     const sessionReady = await page.evaluate(() => localStorage.getItem("web.auth.session_ready"));

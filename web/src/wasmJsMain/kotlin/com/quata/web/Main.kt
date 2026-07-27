@@ -268,6 +268,7 @@ private fun QuataWebApp(
         onDispose(stopObserving)
     }
     LaunchedEffect(navigation, runtimeConfiguration.isBackendConfigured) {
+        platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
         platformServices.preferences.putString("web.navigation.route", navigation.route)
         navigation.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
         platformServices.preferences.putString(
