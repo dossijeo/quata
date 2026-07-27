@@ -3,6 +3,7 @@ package com.quata.feature.auth.presentation
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.presentation.register.RegisterFormStrings
 import platform.UIKit.UIViewController
 
 /**
@@ -15,6 +16,7 @@ import platform.UIKit.UIViewController
 class IosAuthHostDependencies(
     val repository: AuthRepository,
     val locale: AuthCatalogLocale,
+    val registrationEnabled: Boolean,
     val onLoginSuccess: () -> Unit,
 )
 
@@ -22,10 +24,12 @@ class IosAuthHostDependencies(
 fun createIosAuthHostDependencies(
     repository: AuthRepository,
     languageCode: String,
+    registrationEnabled: Boolean,
     onLoginSuccess: () -> Unit,
 ): IosAuthHostDependencies = IosAuthHostDependencies(
     repository = repository,
     locale = AuthCatalogLocale.fromLanguage(languageCode),
+    registrationEnabled = registrationEnabled,
     onLoginSuccess = onLoginSuccess,
 )
 
@@ -43,8 +47,18 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
             recoveryQuestionLoading = catalog.recoveryQuestionLoading,
             passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-            registerStrings = null,
-            registerSubtitle = null,
+            registerStrings = if (dependencies.registrationEnabled) RegisterFormStrings(
+                displayName = catalog.register.displayName,
+                neighborhood = catalog.register.neighborhood,
+                phone = catalog.login.phone,
+                password = catalog.login.password,
+                secretAnswer = catalog.register.secretAnswer,
+                searchPrefix = catalog.login.searchPrefix,
+                creating = catalog.register.creating,
+                createAccount = catalog.register.createAccount,
+                back = catalog.register.back,
+            ) else null,
+            registerSubtitle = catalog.register.title.takeIf { dependencies.registrationEnabled },
             registerUnavailableMessage = null,
             onLoginSuccess = { dependencies.onLoginSuccess() },
         )

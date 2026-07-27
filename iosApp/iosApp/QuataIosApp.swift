@@ -18,6 +18,7 @@ enum IosWhatsNewLocale {
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
+    private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
@@ -33,6 +34,11 @@ enum IosPublicRuntimeConfiguration {
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
+    }
+
+    /// Registration is opt-in and remains unavailable for malformed or absent build settings.
+    static func iosRegistrationEnabled(bundle: Bundle = .main) -> Bool {
+        configuredValue(for: iosRegistrationEnabledKey, infoDictionary: bundle.infoDictionary ?? [:]) == "true"
     }
 
     private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
@@ -462,6 +468,10 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
+            // The shared surface is installed only when every transport gate is present.
+            registrationEnabled: IosAuthRepositoryKt.iosRegistrationAvailable(
+                configuration: authRuntimeConfiguration(from: runtimeConfiguration),
+            ),
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     _ = self?.installRestoredFeedSessionIfAvailable()
@@ -476,11 +486,16 @@ private final class IosAppCompositionRoot {
         bootstrap: IosFeedRuntimeBootstrap,
     ) -> AuthRepository? {
         IosAuthRepositoryKt.createIosAuthRepository(
-            configuration: IosAuthRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            ),
+            configuration: authRuntimeConfiguration(from: configuration),
             session: bootstrap.authSessionForInteractiveLogin(),
+        )
+    }
+
+    private func authRuntimeConfiguration(from configuration: IosFeedRuntimeConfiguration) -> IosAuthRuntimeConfiguration {
+        IosAuthRuntimeConfiguration(
+            supabaseUrl: configuration.supabaseUrl,
+            supabasePublishableKey: configuration.supabasePublishableKey,
+            iosRegistrationEnabled: IosPublicRuntimeConfiguration.iosRegistrationEnabled(),
         )
     }
 }

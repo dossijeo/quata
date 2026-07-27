@@ -7,6 +7,9 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
+import com.quata.feature.auth.domain.buildRegistrationEdgeRequest
+import com.quata.feature.auth.domain.isRegistrationEdgeAccepted
+import com.quata.feature.auth.domain.isRegistrationTransportEnabled
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -48,6 +51,11 @@ import platform.darwin.NSObject
 data class IosAuthRuntimeConfiguration(
     val supabaseUrl: String,
     val supabasePublishableKey: String,
+    /** Kept false until an iOS challenge host and an Edge-supported channel are released together. */
+    val iosRegistrationEnabled: Boolean = false,
+    val registrationApiKey: String? = null,
+    val registrationClientInstanceId: String? = null,
+    val registrationChallengeToken: String? = null,
 )
 
 /** Small injectable URLSession boundary so host tests can exercise auth parsing without a network. */
@@ -79,6 +87,15 @@ fun createIosAuthRepository(
     session: IosRenewableAuthSession,
 ): AuthRepository = IosAuthRepository(configuration = configuration, session = session)
 
+/** Exposes only the default-deny availability decision; it never returns registration inputs. */
+fun iosRegistrationAvailable(configuration: IosAuthRuntimeConfiguration): Boolean =
+    isRegistrationTransportEnabled(
+        enabled = configuration.iosRegistrationEnabled,
+        apiKey = configuration.registrationApiKey,
+        clientInstanceId = configuration.registrationClientInstanceId,
+        challengeToken = configuration.registrationChallengeToken,
+    )
+
 /**
  * Real iOS implementation of the public Auth bridge protocol. It deliberately uses the same
  * unauthenticated bridge actions as Android (`login`, recovery and reset), not the Web Push-only
@@ -104,7 +121,31 @@ class IosAuthRepository(
     }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
-        Result.failure(UnsupportedOperationException("ios_auth_register_not_implemented"))
+        runCatching {
+            check(iosRegistrationAvailable(configuration)) { "ios_registration_unavailable" }
+            val response = transport.post(
+                endpoint = configuration.registrationEndpoint(),
+                headers = mapOf(
+                    "Content-Type" to "application/json",
+                    "Accept" to "application/json",
+                    "apikey" to configuration.registrationApiKey.orEmpty(),
+                ),
+                body = buildRegistrationEdgeRequest(
+                    request = request,
+                    // The deployed Edge contract currently accepts only its existing channels.
+                    // Do not invent an iOS channel client-side; the default-off gate prevents use
+                    // until a coordinated Edge and native challenge-host release is approved.
+                    channel = "web",
+                    clientInstanceId = configuration.registrationClientInstanceId.orEmpty(),
+                    idempotencyKey = newIosRegistrationIdempotencyKey(),
+                    challengeToken = configuration.registrationChallengeToken.orEmpty(),
+                ).toString(),
+            )
+            check(response.statusCode in 200..299 && isRegistrationEdgeAccepted(response.body)) {
+                "ios_registration_unavailable"
+            }
+            login(request.countryCode, request.phone, request.password).getOrThrow()
+        }
 
     override suspend fun getPasswordRecoveryQuestion(
         countryCode: String,
@@ -292,6 +333,10 @@ private fun IosAuthRuntimeConfiguration.authBridgeEndpoint(): String = "${baseUr
 private fun IosAuthRuntimeConfiguration.accountLifecycleEndpoint(): String = "${baseUrl()}/functions/v1/quata-account-lifecycle"
 private fun IosAuthRuntimeConfiguration.supabaseRefreshEndpoint(): String = "${baseUrl()}/auth/v1/token?grant_type=refresh_token"
 private fun IosAuthRuntimeConfiguration.supabaseLogoutEndpoint(): String = "${baseUrl()}/auth/v1/logout"
+private fun IosAuthRuntimeConfiguration.registrationEndpoint(): String = "${baseUrl()}/functions/v1/quata-register"
+
+private fun newIosRegistrationIdempotencyKey(): String = platform.Foundation.NSUUID.UUID().UUIDString
+    .replace("-", "")
 
 private fun String.digitsOrThrow(error: String): String = filter(Char::isDigit).takeIf(String::isNotBlank) ?: throw IllegalArgumentException(error)
 

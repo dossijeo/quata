@@ -34,5 +34,7 @@
     <string>$(QUATA_SUPABASE_URL)</string>
     <key>QUATA_SUPABASE_PUBLISHABLE_KEY</key>
     <string>$(QUATA_SUPABASE_PUBLISHABLE_KEY)</string>
+    <key>QUATA_IOS_REGISTRATION_ENABLED</key>
+    <string>$(QUATA_IOS_REGISTRATION_ENABLED)</string>
 </dict>
 </plist>
