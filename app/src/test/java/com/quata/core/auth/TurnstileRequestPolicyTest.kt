@@ -27,4 +27,14 @@ class TurnstileRequestPolicyTest {
         assertNull(TurnstileRequestPolicy.from("https://user@register.quata.app"))
         assertNull(TurnstileRequestPolicy.from("https://register.quata.app?redirect=evil"))
     }
+
+    @Test
+    fun acceptsOnlyTheExactHttpsOriginForWebMessages() {
+        val policy = requireNotNull(TurnstileRequestPolicy.from("https://register.quata.app"))
+
+        assertTrue(policy.isApplicationOrigin("register.quata.app", -1, "https"))
+        assertFalse(policy.isApplicationOrigin("register.quata.app", 443, "http"))
+        assertFalse(policy.isApplicationOrigin("evil.quata.app", 443, "https"))
+        assertFalse(policy.isApplicationOrigin("register.quata.app", 444, "https"))
+    }
 }

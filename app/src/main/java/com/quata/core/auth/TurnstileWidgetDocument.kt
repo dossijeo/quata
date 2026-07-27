@@ -14,8 +14,12 @@ internal object TurnstileWidgetDocument {
               content="default-src 'none'; script-src 'nonce-$contextNonce' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src https://challenges.cloudflare.com; img-src data: https://challenges.cloudflare.com; style-src 'unsafe-inline'">
             <script nonce="$contextNonce" src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
             <script nonce="$contextNonce">
-              function quataSuccess(token){ $TurnstileJavascriptBridgeName.success('$contextNonce', token); }
-              function quataFailure(code){ $TurnstileJavascriptBridgeName.failure('$contextNonce', code || 'widget_error'); }
+              function quataSuccess(token){
+                $TurnstileWebMessageObjectName.postMessage('success:$contextNonce:' + encodeURIComponent(token));
+              }
+              function quataFailure(code){
+                $TurnstileWebMessageObjectName.postMessage('failure:$contextNonce:' + encodeURIComponent(code || 'widget_error'));
+              }
               function quataExpired(){ quataFailure('expired'); }
               function quataTimeout(){ quataFailure('interactive_timeout'); }
             </script>
@@ -32,5 +36,5 @@ internal object TurnstileWidgetDocument {
     }
 }
 
-internal const val TurnstileJavascriptBridgeName = "QuataTurnstile"
+internal const val TurnstileWebMessageObjectName = "QuataTurnstile"
 internal const val TurnstileChallengeTimeoutMillis = 90_000L

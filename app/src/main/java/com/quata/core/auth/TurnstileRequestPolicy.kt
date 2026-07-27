@@ -10,6 +10,11 @@ internal class TurnstileRequestPolicy private constructor(
         return uri.toOrigin() == applicationOrigin
     }
 
+    fun isApplicationOrigin(host: String?, port: Int, scheme: String?): Boolean =
+        scheme.equals("https", ignoreCase = true) &&
+            host?.lowercase() == applicationOrigin.host &&
+            (if (port == -1) 443 else port) == applicationOrigin.port
+
     fun allowsSubresource(rawUrl: String): Boolean {
         val uri = rawUrl.toHttpsUri() ?: return false
         val origin = uri.toOrigin()

@@ -5,7 +5,6 @@ import android.app.Dialog
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
-import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
@@ -15,6 +14,9 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.quata.core.config.AppConfig
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.ByteArrayInputStream
@@ -30,6 +32,7 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
+    @SuppressWarnings("codeql[java/android/websettings-javascript-enabled]")
     suspend fun request(): RegistrationChallenge = suspendCancellableCoroutine { continuation ->
         val siteKey = AppConfig.TURNSTILE_SITE_KEY.trim()
         val origin = AppConfig.TURNSTILE_ALLOWED_ORIGIN.trim()
@@ -65,7 +68,6 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     dialog.setOnCancelListener(null)
                     dialog.setOnDismissListener(null)
                     if (activeTeardown === closeRequest) activeTeardown = null
-                    webView.removeJavascriptInterface(TurnstileJavascriptBridgeName)
                     webView.stopLoading()
                     webView.webViewClient = WebViewClient()
                     if (dialog.isShowing) dialog.dismiss()
@@ -84,38 +86,10 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
             }
             activeTeardown = closeRequest
 
-            val bridge = object {
-                @JavascriptInterface
-                fun success(callbackContext: String, token: String) {
-                    activity.runOnUiThread {
-                        if (
-                            callbackContext != contextNonce ||
-                            token.isBlank() ||
-                            !requestPolicy.isApplicationOrigin(webView.url.orEmpty())
-                        ) {
-                            finish(failedResult("invalid_callback_context"))
-                        } else {
-                            finish(Result.success(RegistrationChallenge(token.trim())))
-                        }
-                    }
-                }
-
-                @JavascriptInterface
-                fun failure(callbackContext: String, code: String) {
-                    activity.runOnUiThread {
-                        if (
-                            callbackContext != contextNonce ||
-                            !requestPolicy.isApplicationOrigin(webView.url.orEmpty())
-                        ) {
-                            finish(failedResult("invalid_callback_context"))
-                        } else {
-                            finish(failedResult(code.ifBlank { "widget_error" }))
-                        }
-                    }
-                }
-            }
-
             webView.settings.apply {
+                // Turnstile is a JavaScript-only challenge. The page is an in-memory,
+                // nonce-CSP document with a fixed HTTPS base origin and no native JS bridge.
+                // codeql[java/android/websettings-javascript-enabled]
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 allowFileAccess = false
@@ -173,7 +147,32 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     return true
                 }
             }
-            webView.addJavascriptInterface(bridge, TurnstileJavascriptBridgeName)
+            if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                finish(failedResult("web_message_listener_unavailable"))
+                return@runOnUiThread
+            }
+            WebViewCompat.addWebMessageListener(
+                webView,
+                TurnstileWebMessageObjectName,
+                setOf(origin),
+            ) { _, message: WebMessageCompat, sourceOrigin, isMainFrame, _ ->
+                val callback = TurnstileWebMessage.parse(message.data, contextNonce)
+                activity.runOnUiThread {
+                    if (!isMainFrame || !requestPolicy.isApplicationOrigin(
+                            sourceOrigin.host,
+                            sourceOrigin.port,
+                            sourceOrigin.scheme,
+                        ) || callback == null
+                    ) {
+                        finish(failedResult("invalid_callback_context"))
+                    } else when (callback) {
+                        is TurnstileWebMessage.Callback.Success -> finish(
+                            Result.success(RegistrationChallenge(callback.token)),
+                        )
+                        is TurnstileWebMessage.Callback.Failure -> finish(failedResult(callback.code))
+                    }
+                }
+            }
             val html = runCatching { TurnstileWidgetDocument.render(siteKey, contextNonce) }
                 .getOrElse {
                     finish(failedResult("configuration_invalid"))
