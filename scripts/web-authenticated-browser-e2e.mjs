@@ -8,6 +8,10 @@ import { createServer } from "node:http";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { chromium } from "playwright-core";
+import {
+  assertExplicitRefreshTokenRejection,
+  isPublicSupabaseKey,
+} from "./web-authenticated-browser-security.mjs";
 
 const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const STORAGE_KEYS = [
@@ -231,7 +235,7 @@ function loadConfiguration(real) {
   const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, "");
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error("invalid_public_supabase_url");
   const publishableKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim();
-  if (/service_role/i.test(publishableKey)) throw new Error("privileged_key_forbidden");
+  if (!isPublicSupabaseKey(publishableKey)) throw new Error("privileged_or_invalid_publishable_key");
   return {
     baseUrl, publishableKey,
     countryCode: process.env.QUATA_E2E_COUNTRY_CODE.trim(),
@@ -360,7 +364,8 @@ async function revokeAndVerify(baseUrl, key, session) {
     body: JSON.stringify({ refresh_token: session.refreshToken }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (verification.ok) throw new Error("global_session_revocation_unverified");
+  const verificationBody = await verification.text();
+  assertExplicitRefreshTokenRejection(verification.status, verificationBody);
 }
 async function jsonBody(request) {
   const chunks = [];

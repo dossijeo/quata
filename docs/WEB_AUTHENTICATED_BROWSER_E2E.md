@@ -20,6 +20,10 @@ El modo real nunca registra ni elimina cuentas. Requiere una cuenta de prueba pr
 confirmaciones visibles. Tras el logout de producto revoca globalmente sus sesiones y comprueba
 que el refresh token emitido ya no puede renovarse; si esa comprobación falla, el gate falla.
 Credenciales y tokens permanecen en memoria y no se escriben en logs ni en el informe seguro.
+La comprobación sólo acepta un `400`/`401` con un error explícito de refresh token inválido,
+revocado o inexistente. Límites de cuota, errores `5xx`, respuestas transitorias o payloads
+desconocidos fallan de forma cerrada. La clave debe ser `sb_publishable_*` o un JWT cuyo payload
+declare exactamente `role: "anon"`; `sb_secret_*` y cualquier otro rol son rechazados antes de red.
 
 ```powershell
 $env:QUATA_SUPABASE_URL = 'https://<project-ref>.supabase.co'

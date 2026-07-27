@@ -36,6 +36,7 @@ on:
       - "scripts/web-chat-browser-e2e-report.test.mjs"
       - "scripts/web-browser-metrics.test.mjs"
       - "scripts/web-authenticated-browser-e2e.mjs"
+      - "scripts/web-authenticated-browser-security.mjs"
       - "scripts/web-authenticated-browser-e2e.test.mjs"
       - "scripts/run-web-authenticated-browser-e2e.ps1"
       - "package.json"
