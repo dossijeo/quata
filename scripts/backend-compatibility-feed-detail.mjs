@@ -9,6 +9,6 @@ export function detailEvidence(events, postId) {
   return detailEvidenceEvent(events, postId) != null;
 }
 export function detailEvidenceEvent(events, postId) {
-  return events.find((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'posts' &&
+  return events.find((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'community_posts' &&
     new URLSearchParams(event.query).get('id') === `eq.${postId}` && event.payloadPostId === postId);
 }
