@@ -25,10 +25,11 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Browser read adapter for the Communities directory.
  *
- * It deliberately uses the same authenticated PostgREST client as the other Web repositories.
- * Community chat, follow and moderation writes are not exposed by the browser transport yet, so
- * they fail explicitly instead of inventing a local-only community state. SB-07 keeps every
- * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * Public directory reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
+ * omit Authorization. Profile/admin reads stay [WebPostgrestAuthMode.SessionRequired]; community
+ * chat, follow and moderation writes are not exposed by the browser transport and fail closed
+ * instead of inventing a local-only community state. SB-07 keeps every Communities-owned mutation
+ * fail-closed through [CommunityMutationSafety] while RLS-001 is open.
  */
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,

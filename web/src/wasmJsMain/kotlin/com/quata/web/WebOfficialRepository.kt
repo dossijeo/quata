@@ -33,9 +33,10 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Browser implementation of the read-only Official feed contract.
  *
- * Every request uses the user's Supabase bearer token through [WebPostgrestClient]. Authentication
- * and RLS failures remain a [WebPostgrestReadException], rather than being presented as an empty
- * official feed. Browser write flows need a separately reviewed API and therefore fail explicitly.
+ * Its public feed reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
+ * deliberately omit Authorization. Private/admin reads remain [WebPostgrestAuthMode.SessionRequired]
+ * and fail closed without a session; browser write flows need a separately reviewed API and fail
+ * explicitly.
  */
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
