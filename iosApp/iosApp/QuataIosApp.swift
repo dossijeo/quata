@@ -215,6 +215,12 @@ private final class IosAppCompositionRoot {
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
+        if let fixtureRootViewController = uiTestFixtureRootViewControllerIfRequested() {
+            window.rootViewController = fixtureRootViewController
+            window.makeKeyAndVisible()
+            self.window = window
+            return
+        }
         window.rootViewController = authenticatedHost
         window.makeKeyAndVisible()
         self.window = window
@@ -237,6 +243,36 @@ private final class IosAppCompositionRoot {
     func handleDeepLink(_ url: URL) -> Bool {
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
+    }
+
+    /// XCTest fixtures are built before `authenticatedHost` is accessed. They deliberately use
+    /// an independent UIKit root, so no Keychain session, runtime configuration, repository or
+    /// Compose/Metal controller can be created on a fixture launch.
+    private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture"),
+              arguments.indices.contains(fixtureIndex + 1) else { return nil }
+
+        let fixtureRoot = UIViewController()
+        switch arguments[fixtureIndex + 1] {
+        case "anonymous":
+            fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
+            fixtureRoot.view.accessibilityLabel = "Quata iOS anonymous fixture"
+        case "authenticated":
+            if let deepLinkIndex = arguments.firstIndex(of: "-quata-ui-test-deep-link"),
+               arguments.indices.contains(deepLinkIndex + 1),
+               let url = URL(string: arguments[deepLinkIndex + 1]),
+               url.fragment?.hasPrefix("chat-") == true {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-chat-host"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS Chat"
+            } else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-feed-host"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS Feed"
+            }
+        default:
+            return nil
+        }
+        return fixtureRoot
     }
 
     func openChat(conversationId: String, messageId: String?) {
@@ -632,6 +668,24 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             accessibilityIdentifier: "quata-ios-auth-host",
             accessibilityLabel: "Quata iOS authentication",
         )
+    }
+
+    /// XCTest-only controller factories for deterministic launcher and URL routing checks.
+    /// Production callers only install factories backed by the real authenticated KMP runtime.
+    func installUiTestRoutes() {
+        let fixture: () -> UIViewController = { UIViewController() }
+        feedFactory = { _ in fixture() }
+        chatFactory = { _, _ in fixture() }
+        officialFactory = { _ in fixture() }
+        notificationsFactory = fixture
+        profileSosFactory = fixture
+        communitiesFactory = fixture
+        composerFactory = fixture
+        settingsFactory = fixture
+        whatsNewFactory = fixture
+        releaseHistoryFactory = fixture
+        hasAuthenticatedSession = true
+        routeMenuButton.isHidden = false
     }
 
     /// The shared Feed can already expose its Conversations affordance, but the authenticated

@@ -1,26 +1,40 @@
 import XCTest
 
 final class QuataIosHostUITests: XCTestCase {
-    func testLaunchesUIKitCompositionRootWithComposeSurface() {
-        let app = XCUIApplication()
+    func testAnonymousFixtureLaunchesWithoutCreatingASessionOrComposeSurface() {
+        let app = fixtureApp("anonymous")
         app.launch()
 
-        let migrationSurface = QuataIosHostUITestSupport.composeRoot(in: app)
-        XCTAssertEqual(
-            migrationSurface.label,
-            "Quata iOS requires an authenticated Feed session",
+        let anonymousSurface = QuataIosHostUITestSupport.fixtureRoot(
+            in: app,
+            identifier: "quata-ios-test-anonymous-host",
         )
+        XCTAssertEqual(
+            anonymousSurface.label,
+            "Quata iOS anonymous fixture",
+        )
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
     }
 
-    func testRelaunchRestoresTheSingleComposeMigrationSurface() {
+    func testAuthenticatedFixtureRoutesDeepLinkWithoutRemoteSessionOrComposeRendering() {
+        let app = fixtureApp(
+            "authenticated",
+            deepLink: "https://egquata.com/#chat-conversation-7?message=message-4",
+        )
+        app.launch()
+
+        let chatSurface = QuataIosHostUITestSupport.fixtureRoot(
+            in: app,
+            identifier: "quata-ios-chat-host",
+        )
+        XCTAssertEqual(chatSurface.label, "Quata iOS Chat")
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
+    }
+
+    private func fixtureApp(_ fixture: String, deepLink: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launch()
-
-        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "initial launch")
-
-        app.terminate()
-        app.launch()
-
-        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold relaunch")
+        app.launchArguments = ["-quata-ui-test-fixture", fixture]
+        if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
+        return app
     }
 }
