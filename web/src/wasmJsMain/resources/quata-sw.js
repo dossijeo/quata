@@ -65,7 +65,12 @@ async function receiveIncomingShare(request) {
       .filter((value) => typeof value === "string" && value.trim())
       .join("\n")
       .trim();
-    const files = form.getAll("files").filter((value) => typeof File !== "undefined" && value instanceof File);
+    // A multipart form with an unselected <input type=file> carries an empty
+    // File. It is transport noise, not an incoming attachment; otherwise an
+    // empty Share Target request would incorrectly bypass the fail-closed gate.
+    const files = form.getAll("files").filter((value) =>
+      typeof File !== "undefined" && value instanceof File && (value.name || value.size > 0)
+    );
     if ((!text && files.length === 0) || files.length > MAX_SHARED_FILES || files.some((file) => file.size > MAX_SHARED_FILE_BYTES)) {
       return Response.redirect(new URL("/#share-target-error", self.location.origin), 303);
     }
