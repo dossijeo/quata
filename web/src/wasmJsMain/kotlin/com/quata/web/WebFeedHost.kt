@@ -19,7 +19,7 @@ fun WebFeedHost(
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(sharedPostId) {
-        js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', sharedPostId || '')")
+        setWebFeedDetailMarker(sharedPostId)
     }
     val strings = FeedBrowserHostStrings(
         loading = "Cargando publicaciones…",
@@ -61,4 +61,8 @@ fun WebFeedHost(
             modifier = modifier,
         )
     }
+}
+
+private fun setWebFeedDetailMarker(postId: String?) {
+    js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', postId || '')")
 }
