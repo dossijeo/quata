@@ -112,8 +112,13 @@ Si se ejecuta `rollback-001-forward`, 171005 permanece deliberadamente en el
 ledger y esa forward queda cerrada: no puede reaplicarse. Cualquier nueva
 contención exige otra versión forward revisada.
 Los fingerprints de 001/171005 son **v1 legacy** y se conservan byte por byte
-para consumir gates archivadas (incluida la postcondition `2efec424...`). El
-fingerprint v2 canónico de ACL/estado de trigger sólo aplica a 002. Cualquier
-cambio de migration, rollback, executor o `HEAD` invalida una gate: debe
-regenerarse con el executor correspondiente; la gate anterior `0df...` queda
-revocada/stale y no autoriza 002.
+para consumir evidencia histórica (postcondition
+`2efec424eba723a6b13fb9aba0e630e9502d1c1a371de3816f75abef820378b8`).
+El fingerprint v2 canónico de ACL/estado de trigger sólo aplica a 002.
+Cualquier cambio de migration, rollback, executor o `HEAD` invalida una gate:
+debe regenerarse con el executor correspondiente. Las gates con SHA-256
+`335f92ab...` y `0df21931...` quedan definitivamente **revocadas/stale**:
+ninguna autoriza 002. La siguiente gate debe vincular byte-exacto
+`409adae0d0ee8a3d9d8b8ab7b2a5b7dfbeb3465f`, migration
+`8697a16f...`, rollback `fe498b6c...`, precondición productiva
+`f0b60c57...` y postcondición legacy 171005 `2efec424...`.

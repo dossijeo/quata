@@ -17,9 +17,11 @@ El informe completo se regenera localmente en
 `build-reports/db-release-safety/snapshot.json`; se excluye de Git porque es
 evidencia de ejecución, no fuente.
 
-## Corte observado
+## Corte observado y candidato actual
 
-- corte operativo aplicado: `origin/codex/security-release-001-002@8a548d2f`;
+- corte operativo con 171005 aplicado: `origin/codex/security-release-001-002@8a548d2f`;
+- corte candidato actual para preparar la ventana de 002:
+  `409adae0d0ee8a3d9d8b8ab7b2a5b7dfbeb3465f`;
 - evidencia documental postflight: misma rama, validada contra su `HEAD`;
 - servidor: PostgreSQL 17.6 mediante TLS `verify-full` y CA explícita;
 - ledger remoto: anclas `20260628`, `20260723`, RLS-001 171001 y su forward
@@ -65,7 +67,7 @@ rechaza el snapshot real hasta resolver esa evidencia.
 | Orden | Versión | Fuente congelada | Rollback | Decisión |
 |---|---|---|---|---|
 | 1 | `20260726171001` Communities comments | `46a54b54`, blob SQL `d6b847f4da85e7a85ae196b7595d235efe2a1e02` | versionado en el mismo commit, blob `0a6994e70bc6f1ad5f571f813cee58e2c4a7c78b` | Apta para staging; no producción sin gates |
-| 2 | `20260726171002` Official Likes | `0aa44614`, blob SQL `d54abd255ec598621e707864a68caab265fe8e33` | versionado, blob `5967cf2d2023cbdef4b9e0545e0d75718aecb71e` | Rollback cerrado; release aún bloqueado por ledger/backup/gates |
+| 2 | `20260726171002` Official Likes | `409adae0`, SHA-256 SQL `8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4` | SHA-256 `fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79` | Pruebas locales cerradas; NO-GO apply hasta backup, gate nueva y autorización |
 | 3 | `20260726171003` Profiles actor guard | `473f2400`, blob SQL `3f7ac5e522347e6abd601af6cb292a6b0c3d2f54` | versionado en el mismo commit, blob `0c464ce00ce478f596b579d49d765c3979df73f8` | Bloqueada por Android legado, admin inactivo y RLS-004 |
 | 4 | `20260726171004` Web registration | `f6266215`, blob SQL `40af62de9671cd41724fd88cea392a94b0806b62` | inexistente | Bloqueada por 003 y por rollback/compatibilidad |
 
@@ -81,7 +83,9 @@ por diseño reabre el hallazgo RLS-001 y sólo es un escape de compatibilidad.
 
 La fuente canónica es
 `supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql`
-en `0aa44614`. El SQL:
+en `409adae0`, con SHA-256
+`fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79`.
+El SQL:
 
 - elimina las tres políticas nuevas;
 - desactiva RLS en `official_post_likes`;
@@ -201,7 +205,7 @@ todos los servicios gestionados de Supabase.
 
 ## Evidencia local del corte de integración
 
-Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
+Sobre `codex/security-release-001-002@409adae0`, antes de cualquier despliegue:
 
 - RLS-002 pasó en PostgreSQL 17 + PostgREST 12.2.3 el baseline vulnerable, la
   migración segura, ataques spoof/cross-delete `42501`, rechazo atómico de
@@ -216,9 +220,15 @@ Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
 - el ejecutor serial allowlisted pasó en PostgreSQL 17: atomicidad,
   concurrencia externa de tablas y funciones, ledger exacto, orden,
   postcondiciones efectivas y rollback 001/002;
+- el bundle local machine-readable
+  `build-reports/security-release/409adae0-local-release-evidence/report.json`
+  encadena logs y hashes de SB09 exacto PostgreSQL 17 + PostgREST 12.2.3 y de
+  todas las transiciones seriales;
 - el dry-run remoto post-forward terminó `passed`; 171001/171005 están
   presentes con fuente/nombre exactos, 002 está ausente y el fingerprint de
-  `community_comments` coincide con el estado hardened;
+  `community_comments` coincide con el estado hardened. Su SHA-256 es
+  `9cfccbe8...`: legacy 171001/171005 `2efec424...`, 002 ausente con
+  precondición `f0b60c57...` y candidata `8697a16f...`;
 - la identidad del destino se deriva del usuario/project-ref normalizado y se
   ancla a `pg_control_system().system_identifier`, OID/base y rol consultados,
   conservando únicamente el SHA-256;
@@ -228,6 +238,15 @@ Sobre `codex/security-release-001-002`, antes de cualquier despliegue:
 Los informes permanecen ignorados bajo `build-reports/`. Ni 171001 ni 171005
 pueden reaplicarse o repararse. Un rollback futuro de 171005 exigiría otra
 versión forward nueva.
+
+El informe del intento fallido y atómico de 002 tiene SHA-256
+`a15a1bea89fa7b38a6baa6bf8f397841b87ed9ca52e4772c057ef2ede7733e00`.
+Referencia hashes anteriores y se conserva exclusivamente como evidencia
+forense: no habilita retry. Las gates SHA-256 `335f92ab...` y `0df21931...`
+quedan definitivamente revocadas/stale. Antes de cualquier apply se debe crear
+y autorizar una gate nueva vinculada a `409adae0`, forward `8697a16f...`,
+rollback `fe498b6c...`, precondición `f0b60c57...` y postcondición legacy
+171005 `2efec424...`.
 
 ## Excepción de gobernanza y condiciones para la ventana
 

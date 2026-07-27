@@ -34,10 +34,17 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
 ## Evidencia ya disponible
 
 - Rama de integración: `codex/security-release-001-002`.
+- Corte candidato revisado: `409adae0d0ee8a3d9d8b8ab7b2a5b7dfbeb3465f`.
 - Hashes de migración y rollback congelados en
-  `scripts/security-release-serial-allowlist.json`.
+  `scripts/security-release-serial-allowlist.json`: 002 forward
+  `8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4`
+  y rollback
+  `fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79`.
 - Regresiones PostgreSQL 17 de 001 y 002 en verde.
 - Rollback y reaplicación de 001/002 ensayados.
+- Evidencia local exacta de 002 en PostgreSQL 17 + PostgREST 12.2.3 y de las
+  transiciones seriales archivada en
+  `build-reports/security-release/409adae0-local-release-evidence/report.json`.
 - Compatibilidad pública Web, Android API-37 y contratos 18 tablas/44 RPC en
   verde.
 - Backup lógico Full real cifrado y clave separada con ACL exclusiva.
@@ -45,8 +52,14 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
   conteos reales exactos.
 - PITR no está habilitado; el backup lógico no equivale a una restauración
   integral de todos los servicios gestionados de Supabase.
-- Dry-run remoto serial guardado bajo
-  `build-reports/security-release/remote-dry-run.json`.
+- Dry-run remoto serial read-only guardado en
+  `build-reports/security-release/prod-dry-run-v2-20260727.json`: fingerprint
+  legacy 171001/171005 `2efec424...`, 002 ausente y precondición
+  `f0b60c57514fb2a10267cff3f41f830eaffc973845baf76bfa57798791779d55`.
+- El intento fallido y atómico archivado con SHA-256 `a15a1bea...` conserva
+  hashes antiguos y es sólo evidencia forense; no autoriza un reintento.
+- Las gates anteriores SHA-256 `335f92ab...` y `0df21931...` están
+  definitivamente revocadas/stale. Se exige una gate nueva para `409adae0`.
 
 ## Puertas GO
 
@@ -57,6 +70,9 @@ aplican. La recuperación lógica no equivale a restaurar Supabase integralmente
   byte-exacto, 002 `ledger=absent` y fingerprints archivados;
 - baseline y compatibilidad completos en verde;
 - evidencia encadenada de postflight 171005 vigente antes de 002;
+- gate nueva byte-exacta para `409adae0`, migration `8697a16f...`, rollback
+  `fe498b6c...`, precondición `f0b60c57...` y postcondición legacy
+  `2efec424...`; nunca reutilizar `335f92ab...` ni `0df21931...`;
 - una única terminal/persona ejecutora;
 - autorización explícita separada para `apply-002`;
 - 003/004 ausentes de la rama y de la ejecución.

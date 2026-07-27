@@ -177,7 +177,9 @@ eludir las correcciones RLS-001/RLS-002. No se ejecutó explotación remota.
 
 ## Auditoría de la candidata RLS-002
 
-Commit final revisado: `0aa44614`, integrado en esta rama pero no desplegado.
+Commit candidato revisado: `409adae0d0ee8a3d9d8b8ab7b2a5b7dfbeb3465f`,
+integrado en esta rama pero no desplegado. La migration 002 tiene SHA-256
+`8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4`.
 
 - versión `20260726171002`: única y coincide con la reserva;
 - estado remoto compatible: `official_post_likes` tiene RLS desactivado, cero
@@ -191,15 +193,23 @@ Commit final revisado: `0aa44614`, integrado en esta rama pero no desplegado.
   spoof previo, insert propio A/B, rechazo `42501` de spoof/borrado ajeno,
   delete propio y lectura anónima.
 
-Revisión independiente: **aprobada para staging** por
-`review_auxiliary_e2e`. Los únicos bloqueos restantes de esta candidata son el
-método de ledger/release, el ensayo staging/SB-09 y los gates reales
-pre/postflight de Android y Feed.
+Revisión independiente: **aprobada para integración y preparación de una nueva
+ventana**, pero **NO-GO para apply**. SB-09 exacto pasó localmente en PostgreSQL
+17 + PostgREST 12.2.3; permanecen obligatorios el backup/drill refrescado, los
+gates reales pre/postflight de Android y Feed, una gate nueva para `409adae0` y
+la autorización separada del release manager.
 
-La revisión final añadió rollback SQL versionado, blob
-`5967cf2d2023cbdef4b9e0545e0d75718aecb71e`, y pasó la regresión
+La revisión final añadió rollback SQL versionado, SHA-256
+`fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79`,
+y pasó la regresión
 migración→rollback→reaplicación. El rollback reproduce intencionadamente el
 spoof histórico antes de volver a cerrarlo y limpia sus fixtures.
+
+La evidencia read-only productiva conserva 171001/171005 con fingerprint
+legacy `2efec424...` y 002 ausente con precondición `f0b60c57...`. El informe
+del intento fallido atómico SHA-256 `a15a1bea...` es sólo forense. Las gates
+SHA-256 `335f92ab...` y `0df21931...` están revocadas/stale y no autorizan
+ningún retry.
 
 ## Auditoría de la candidata RLS-001
 
