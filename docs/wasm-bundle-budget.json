@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "state": "proposed",
+  "state": "approved",
   "baselineFile": "wasm-bundle-baseline.json",
   "maxGrowthBytes": 1048576,
   "maxGrowthGzipBytes": 262144,
-  "rationale": "Approval is intentionally deferred until CI-001 is merged. Capture must run from a clean detached checkout of trusted origin/main or a trusted tag, then be reviewed in a dedicated PR with no payload, runtime, build, or gate-input changes. The future approved gate retains the reviewed 1 MiB raw and 256 KiB gzip margins."
+  "rationale": "Approved from the clean detached origin/main revision 1801626553022101a66e59ce61f2e7fe3eb81055 in this dedicated baseline-only review. The gate retains the reviewed 1 MiB raw and 256 KiB gzip margins; future payload PRs compare against this attested inventory."
 }

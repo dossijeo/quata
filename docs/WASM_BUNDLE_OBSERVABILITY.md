@@ -42,11 +42,11 @@ regresion, no un limite total y no autoriza retirar DocMentis ni reducir la
 optimizacion.
 
 Los tamanos 35.29 MiB/13.55 MiB anotados en el tablero son redondeados. El
-fichero [wasm-bundle-baseline.json](wasm-bundle-baseline.json) sigue siendo un
-candidato historico y no es aprobable desde esta rama. Despues de integrar
-CI-001, la captura se ejecuta desde un worktree limpio y detached del
-`origin/main` actualizado (o de un tag confiable), nunca desde el commit elegido
-por la rama de aprobacion:
+baseline aprobado corresponde al checkout limpio y detached de
+`origin/main` en `1801626553022101a66e59ce61f2e7fe3eb81055`: 37.066.472 bytes
+raw y 14.227.219 bytes gzip. La captura debe ejecutarse desde ese tipo de
+worktree (o de un tag confiable), nunca desde el commit elegido por la rama de
+aprobacion:
 
 ```powershell
 node .\scripts\wasm-bundle-report.mjs `
@@ -60,8 +60,9 @@ node .\scripts\wasm-bundle-report.mjs `
 
 La captura falla si `HEAD` no coincide con la referencia confiable, si el
 checkout esta en una rama o si hay cambios tracked/untracked. Produce siempre
-`baselineState: candidate`; cambiarlo a `approved` y aprobar el budget exige una
-PR posterior dedicada. El segundo comando es el **gate aprobado** para CI. Rechaza un baseline sin
+`baselineState: candidate`; elevarlo a `approved` y aprobar el budget exige una
+PR posterior dedicada, sin payload ni cambios de runtime/build/gate. El segundo
+comando es el **gate aprobado** para CI. Rechaza un baseline sin
 `baselineState: approved`, sin SHA de revision, ausente, o el crecimiento sobre
 sus margenes. No lee warnings del compilador ni impone un maximo total. El
 baseline incluye hashes, tamanos, distribucion y la presencia efectiva de chunks
