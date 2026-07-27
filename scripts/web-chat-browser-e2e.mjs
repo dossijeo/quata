@@ -6,13 +6,11 @@ import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { recordLogicalCleanupFailure } from "./web-chat-browser-e2e-report.mjs";
+import {
+  assertChatTwoAccountLivePreflight,
+  requireVerifiedHardPurge,
+} from "./web-chat-browser-e2e-policy.mjs";
 
-const required = [
-  "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
-  "QUATA_E2E_CHAT_A_COUNTRY_CODE", "QUATA_E2E_CHAT_A_PHONE", "QUATA_E2E_CHAT_A_PASSWORD",
-  "QUATA_E2E_CHAT_B_COUNTRY_CODE", "QUATA_E2E_CHAT_B_PHONE", "QUATA_E2E_CHAT_B_PASSWORD",
-  "QUATA_E2E_CHAT_A_E2E_SCOPE", "QUATA_E2E_CHAT_B_E2E_SCOPE", "QUATA_E2E_CHAT_EXTERNAL_HARD_CLEANUP",
-];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function parseArgs(argv) {
@@ -35,21 +33,17 @@ function isPublicKey(value) {
   try { return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))?.role !== "service_role"; } catch { return false; }
 }
 function configuration() {
-  const missing = required.filter((name) => !process.env[name]?.trim());
-  if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
+  assertChatTwoAccountLivePreflight();
   const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, "");
   const key = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(key)) throw new Error("invalid_or_privileged_supabase_key");
-  if (process.env.QUATA_E2E_CHAT_EXTERNAL_HARD_CLEANUP !== "approved_isolated_account_purge") throw new Error("safe_cleanup_contract_missing");
-  if (["A", "B"].some((label) => process.env[`QUATA_E2E_CHAT_${label}_E2E_SCOPE`] !== "isolated_sb04_account")) throw new Error("isolated_e2e_account_scope_missing");
   const users = ["A", "B"].map((label) => ({
     label,
     countryCode: process.env[`QUATA_E2E_CHAT_${label}_COUNTRY_CODE`].trim(),
     phone: process.env[`QUATA_E2E_CHAT_${label}_PHONE`].trim(),
     password: process.env[`QUATA_E2E_CHAT_${label}_PASSWORD`],
   }));
-  if (`${users[0].countryCode}|${users[0].phone}` === `${users[1].countryCode}|${users[1].phone}`) throw new Error("isolated_e2e_accounts_must_differ");
   return { baseUrl, key, users };
 }
 function headers(config, token) {
@@ -243,7 +237,7 @@ function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "";
   return [
     "invalid_arguments", "missing_environment", "invalid_public_supabase_url", "invalid_or_privileged_supabase_key",
-    "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "isolated_e2e_accounts_must_differ",
+    "manager_authorization_required", "safe_cleanup_contract_missing", "isolated_e2e_account_scope_missing", "isolated_e2e_accounts_must_differ",
     "public_auth_request_failed", "invalid_auth_response", "chat_rpc_failed", "chat_contract_invalid",
     "distribution_missing", "runtime_configuration_injection_failed", "static_server_start_failed",
     "browser_chat_navigation_failed", "browser_chat_root_missing", "browser_chat_composer_missing",
@@ -312,8 +306,8 @@ try {
   await logout(pageB.page);
   report.steps.push("both_ui_logouts_completed");
   report.phase = "logical_cleanup";
-  report.status = "passed_with_external_hard_cleanup_pending";
-  report.cleanup = { state: "ui_sessions_ended_external_hard_purge_required" };
+  report.status = "passed";
+  report.cleanup = { state: "logical_cleanup_pending" };
   report.pollingContract = "No Realtime is claimed. Each peer message became visible in Compose UI within 45 seconds around the repository's 30-second polling interval.";
 } catch (error) {
   if (error?.safeDiagnostic) report.diagnostic = error.safeDiagnostic;
@@ -326,6 +320,7 @@ try {
       recordLogicalCleanupFailure(report);
     }
   }
+  if (report.status === "passed") requireVerifiedHardPurge(report, { state: "pending" });
   for (const value of [pageA, pageB]) if (value?.context) await value.context.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
   if (server) await server.close().catch(() => {});

@@ -36,6 +36,17 @@ entrega inmediata.
   -AllowChatMutation
 ```
 
+Antes de ejecutar, el manager debe aprobar la corrida en ese mismo proceso:
+
+```powershell
+$env:QUATA_E2E_CHAT_MANAGER_AUTHORIZATION = "MANAGER_APPROVED_ISOLATED_CHAT_E2E"
+```
+
+El runner falla cerrado sin esa autorizacion, incluso cuando las credenciales y
+los dos scopes aislados ya estan presentes. Un recorrido sin una verificacion
+independiente de la purga dura tambien falla: el runner no usa credenciales
+privilegiadas ni borra cuentas o filas por su cuenta.
+
 El wrapper aborta antes de red o DML si falta cualquiera de los dos opt-in, los
 scopes aislados o el contrato `approved_isolated_account_purge`. El informe no
 contiene tokens, contraseñas, teléfonos, IDs ni textos marcadores.
