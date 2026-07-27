@@ -35,7 +35,6 @@ export function assertChatTwoAccountLivePreflight(environment = process.env) {
 
 /** A journey with no independently verified hard purge is evidence, never a pass. */
 export function requireVerifiedHardPurge(report, verification) {
-  if (verification?.state === "verified" && verification?.evidence?.check === "WEB-CHAT-EXACT-PURGE-GATE-001" && verification.evidence.status === "committed" && /^[a-f0-9]{64}$/i.test(verification.evidence.manifestSha256 ?? "")) return report;
   report.status = "failed";
   report.error ??= "external_hard_purge_unverified";
   report.cleanup = {
@@ -47,8 +46,9 @@ export function requireVerifiedHardPurge(report, verification) {
 
 /** Reject hand-written success flags: verified E2E requires the redacted exact-ID gate evidence. */
 export function requireExactPurgeEvidence(evidence) {
-  if (evidence?.check !== "WEB-CHAT-EXACT-PURGE-GATE-001" || evidence?.status !== "committed" ||
-      !/^[a-f0-9]{64}$/i.test(evidence.manifestSha256 ?? "") || !/^[a-f0-9]{64}$/i.test(evidence.databaseFingerprint ?? "") ||
-      evidence.containsIdentifiers !== false) throw new Error("external_hard_purge_evidence_invalid");
-  return evidence;
+  // Gate 001 used a forgeable local JSON success flag. Gate 002 is inspection-only.
+  // Neither can prove destructive cleanup until a separately deployed service verifies an
+  // Actions artifact signature, run id, candidate SHA and one-time nonce server-side.
+  void evidence;
+  throw new Error("external_hard_purge_evidence_unavailable_by_construction");
 }
