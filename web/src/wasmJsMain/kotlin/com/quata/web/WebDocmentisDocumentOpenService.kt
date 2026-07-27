@@ -201,8 +201,7 @@ internal fun installDocmentisSmokeProbe(): Unit = js(
       // This hook is intentionally unavailable outside the local browser smoke. In particular,
       // never expose an arbitrary URL loader from a deployed application merely for testing.
       if (!['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname)) return;
-      globalThis.__quataDocmentisProbe = {
-        async load(fixturePath = '/__quata-smoke-fixtures/legal.docx') {
+      const runWithViewer = async action => {
         const { UDocClient } = await import('@docmentis/udoc-viewer');
         const host = globalThis.document?.createElement?.('div');
         if (!host || !globalThis.document?.body) throw new Error('DocMentis smoke DOM unavailable');
@@ -214,26 +213,57 @@ internal fun installDocmentisSmokeProbe(): Unit = js(
         try {
           client = await UDocClient.create({ disableUpdateCheck: true, googleFonts: false });
           viewer = await client.createViewer({ container: host });
-          const source = new URL(fixturePath, globalThis.location.origin);
-          if (!['http:', 'https:'].includes(source.protocol)) throw new Error('DocMentis smoke URL is not HTTP(S)');
-          await viewer.load(source.href);
-          // Loading resolves only after the SDK accepts the document. Wait for two frames so
-          // this probe also proves that it mounted a render surface, not merely that a fetch
-          // started successfully.
-          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          return {
-            package: '@docmentis/udoc-viewer',
-            version: UDocClient.version,
-            clientCreated: true,
-            loadSucceeded: true,
-            rendered: host.childElementCount > 0 || host.querySelectorAll('*').length > 0,
-          };
+          return await action({ UDocClient, host, viewer });
         } finally {
           try { viewer?.destroy?.(); } catch (_) {}
           try { client?.destroy?.(); } catch (_) {}
           host.remove();
         }
-        }
+      };
+      globalThis.__quataDocmentisProbe = {
+        async mount() {
+          return runWithViewer(async ({ UDocClient, host }) => {
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            return {
+              package: '@docmentis/udoc-viewer',
+              version: UDocClient.version,
+              clientCreated: true,
+              viewerCreated: true,
+              mounted: host.childElementCount > 0 || host.querySelectorAll('*').length > 0,
+            };
+          });
+        },
+        async expectPermitFailClosed(fixturePath = '/__quata-smoke-fixtures/legal.docx') {
+          return runWithViewer(async ({ UDocClient, viewer }) => {
+            const source = new URL(fixturePath, globalThis.location.origin);
+            if (!['http:', 'https:'].includes(source.protocol)) throw new Error('DocMentis smoke URL is not HTTP(S)');
+            let phase = null;
+            let documentLoaded = false;
+            viewer.on('error', event => { phase = event?.phase ?? null; });
+            viewer.on('document:load', () => { documentLoaded = true; });
+            try {
+              await viewer.load(source.href);
+              return {
+                package: '@docmentis/udoc-viewer',
+                version: UDocClient.version,
+                clientCreated: true,
+                blocked: false,
+                phase,
+                documentLoaded,
+              };
+            } catch (error) {
+              return {
+                package: '@docmentis/udoc-viewer',
+                version: UDocClient.version,
+                clientCreated: true,
+                blocked: true,
+                phase,
+                documentLoaded,
+                message: error?.message ?? String(error),
+              };
+            }
+          });
+        },
       };
     })()
     """,

@@ -55,6 +55,28 @@ coinciden; entre dos y cuatro muestras falla por serie insuficiente. No existe u
 de memoria en este contrato:
 adoptarlo exige aprobar por separado una línea base del runner y su tolerancia.
 
+## DocMentis sin credenciales de proveedor
+
+`node .\scripts\web-browser-smoke.mjs --docmentis` añade dos comprobaciones separadas sobre el
+artefacto construido. Primero importa `@docmentis/udoc-viewer` 0.7.9, crea el cliente y monta un
+viewer local, sin abrir documentos. Después intenta abrir un PDF inerte y exige el comportamiento
+`fail-closed` documentado por el SDK cuando no hay permit: evento `phase: "permit"`, error
+`permit unavailable`, ningún evento `document:load` y limpieza completa del host.
+
+El SDK exige que cada apertura gratuita obtenga un permit de corta duración firmado por DocMentis
+y verifica la firma dentro de Wasm. El repositorio no contiene ni simula esa clave privada. El smoke
+satisface localmente sólo el `OPTIONS` exacto de
+`https://www.docmentis.com/api/udoc-viewer/permit`, valida que el `POST` contiene exclusivamente
+`distinct_id`, `host`, `nonce` y `viewer_version`, y corta ese `POST` para probar de forma
+determinista la ruta no disponible. No se fabrica un permit ni se permite tráfico al proveedor.
+
+La política de red tiene pruebas anti-bypass en
+`scripts/web-browser-network-policy.test.mjs`: método, origen, path y query de Turnstile están
+fijados al único bootstrap `GET .../api.js?render=explicit`; DocMentis sólo reconoce el preflight
+`OPTIONS` y el `POST` del endpoint de permit; cualquier variante u otro origen sigue siendo una
+solicitud inesperada y hace fallar el smoke. Un render real sin conexión requiere una licencia
+comercial válida inyectada fuera del repositorio, o un permit auténtico del proveedor.
+
 El resumen rechaza un informe si el smoke falló, falta una de las seis rutas o no identifica el
 artefacto. Cada smoke genera un `sampleId` UUID v4 y un `generatedAt` ISO; una serie rechaza IDs
 o tiempos duplicados, tiempos futuros más de cinco minutos y huellas canónicas de medición

@@ -19,6 +19,10 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { deflateRawSync } from 'node:zlib';
+import {
+    classifyBrowserRequest,
+    validateDocmentisPermitRequest,
+} from './web-browser-network-policy.mjs';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
 // callers only need `node scripts/web-browser-smoke.mjs`; Node versions that expose WebSocket by
@@ -83,6 +87,8 @@ let chrome;
 const browserLogs = [];
 const networkFailures = [];
 const unexpectedNetworkRequests = [];
+const turnstileRequests = [];
+const docmentisPermitRequests = [];
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory);
@@ -122,7 +128,13 @@ try {
         });
         cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
             let command;
-            if (isTurnstileBootstrap(request.url)) {
+            const requestKind = classifyBrowserRequest(
+                request,
+                staticServer.origin,
+                authenticatedStorage?.origin,
+            );
+            if (requestKind === 'turnstile-bootstrap') {
+                turnstileRequests.push(request);
                 // Registration is deliberately unconfigured in this smoke, so Turnstile is not
                 // exercised. Fulfil its unconditional index.html script tag locally to keep the
                 // six-route launcher contract independent from Cloudflare and the public network.
@@ -132,7 +144,28 @@ try {
                     responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }],
                     body: Buffer.from('globalThis.turnstile = globalThis.turnstile ?? {};').toString('base64'),
                 });
-            } else if (isUnexpectedNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
+            } else if (requestKind === 'docmentis-permit-preflight' && options.docmentis) {
+                docmentisPermitRequests.push(request);
+                command = cdp.send('Fetch.fulfillRequest', {
+                    requestId,
+                    responseCode: 204,
+                    responseHeaders: [
+                        { name: 'Access-Control-Allow-Origin', value: staticServer.origin },
+                        { name: 'Access-Control-Allow-Methods', value: 'POST, OPTIONS' },
+                        { name: 'Access-Control-Allow-Headers', value: 'content-type' },
+                    ],
+                });
+            } else if (requestKind === 'docmentis-permit' && options.docmentis) {
+                docmentisPermitRequests.push(request);
+                const permitContractFailures = validateDocmentisPermitRequest(request.postData);
+                if (permitContractFailures.length > 0) {
+                    failures.push(`DocMentis permit request contract changed:\n${permitContractFailures.join('\n')}`);
+                }
+                // SDK 0.7.9 verifies the short-lived permit signature inside Wasm. The repository
+                // does not possess the vendor signing key, so the hermetic gate exercises the
+                // documented unavailable/fail-closed path instead of fabricating a permit.
+                command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
+            } else if (requestKind === 'unexpected') {
                 unexpectedNetworkRequests.push(`${request.method} ${request.url}`);
                 command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
             } else {
@@ -156,14 +189,16 @@ try {
         await assertUnconfiguredAuthBoundary(cdp);
 
         if (options.docmentis) {
-            await navigateAndAssertDocmentisBridge(cdp, staticServer.origin, authenticatedStorage);
+            await navigateAndAssertDocmentisBridge(
+                cdp,
+                staticServer.origin,
+                authenticatedStorage,
+                docmentisPermitRequests,
+            );
         }
 
-        // The remaining hosts are rendered behind the session shell. A session-ready flag is
-        // enough for this visual/browser smoke; no token is invented and repositories still see
-        // an unauthenticated configuration. This verifies route construction and crash safety,
-        // not backend behaviour.
-        await cdp.evaluate("localStorage.setItem('web.auth.session_ready', 'true')");
+        // No session is invented for the remaining hashes. The route contract still records the
+        // requested host while the visible surface correctly stays at Auth until a real login.
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
             // This smoke intentionally does not mint a backend session. It can verify the
@@ -171,6 +206,7 @@ try {
             // Compose state; the authenticated surface belongs to the remote E2E runner.
             await assertWebTestContract(cdp, 'auth', fragment);
         }
+        assertTurnstileBootstrapFlow(turnstileRequests);
 
         if (pageErrors.length > 0) {
             failures.push(`Uncaught browser exception(s):\n${pageErrors.join('\n')}`);
@@ -209,25 +245,6 @@ try {
     }
 }
 
-function isUnexpectedNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
-    try {
-        const parsed = new URL(url);
-        return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
-    } catch {
-        return true;
-    }
-}
-
-function isTurnstileBootstrap(url) {
-    try {
-        const parsed = new URL(url);
-        return parsed.origin === 'https://challenges.cloudflare.com' &&
-            parsed.pathname === '/turnstile/v0/api.js';
-    } catch {
-        return false;
-    }
-}
-
 if (failures.length > 0) {
     console.error(`Web browser smoke failed:\n${failures.join('\n\n')}`);
     process.exitCode = 1;
@@ -258,33 +275,39 @@ function parseArguments(args) {
     return parsed;
 }
 
-async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorage) {
+async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorage, permitRequests) {
     await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
     await waitForShell(cdp, 'auth');
-    const supported = [
-        '/__quata-smoke-fixtures/document.pdf',
-        '/__quata-smoke-fixtures/document.docx',
-        '/__quata-smoke-fixtures/document.pptx',
-        '/__quata-smoke-fixtures/document.xlsx',
-        `${authenticatedStorage.origin}/authenticated/document.docx?temporary_doc_token=${authenticatedStorage.token}`,
-    ];
-    for (const fixture of supported) {
-        const probe = await cdp.evaluate(`globalThis.__quataDocmentisProbe?.load(${JSON.stringify(fixture)})`);
-        const result = probe?.result?.value;
-        if (
-            result?.package !== '@docmentis/udoc-viewer' ||
-            result?.clientCreated !== true ||
-            result?.loadSucceeded !== true ||
-            result?.rendered !== true ||
-            !result?.version
-        ) {
-            throw new Error(`DocMentis ${fixture} load/render/cleanup probe failed: ${JSON.stringify({ result, exception: probe?.exceptionDetails?.exception?.description ?? probe?.exceptionDetails?.text })}`);
-        }
-        await assertDocmentisCleanup(cdp, fixture);
+    const mountProbe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.mount()');
+    const mountResult = mountProbe?.result?.value;
+    if (
+        mountResult?.package !== '@docmentis/udoc-viewer' ||
+        mountResult?.clientCreated !== true ||
+        mountResult?.viewerCreated !== true ||
+        mountResult?.mounted !== true ||
+        !mountResult?.version
+    ) {
+        throw new Error(`DocMentis local mount probe failed: ${JSON.stringify({ result: mountResult, exception: mountProbe?.exceptionDetails?.exception?.description ?? mountProbe?.exceptionDetails?.text })}`);
     }
-    if (authenticatedStorage.requests < 1) {
-        throw new Error('Authenticated CORS document fixture was not requested.');
+    await assertDocmentisCleanup(cdp, 'local mount');
+
+    const fixture = '/__quata-smoke-fixtures/document.pdf';
+    const permitProbe = await cdp.evaluate(
+        `globalThis.__quataDocmentisProbe?.expectPermitFailClosed(${JSON.stringify(fixture)})`,
+    );
+    const permitResult = permitProbe?.result?.value;
+    if (
+        permitResult?.package !== '@docmentis/udoc-viewer' ||
+        permitResult?.clientCreated !== true ||
+        permitResult?.blocked !== true ||
+        permitResult?.phase !== 'permit' ||
+        permitResult?.documentLoaded !== false ||
+        !permitResult?.message?.includes('permit unavailable')
+    ) {
+        throw new Error(`DocMentis fail-closed permit probe failed: ${JSON.stringify({ result: permitResult, exception: permitProbe?.exceptionDetails?.exception?.description ?? permitProbe?.exceptionDetails?.text })}`);
     }
+    await assertDocmentisCleanup(cdp, fixture);
+    assertDocmentisPermitFlow(permitRequests);
 
     // Legacy Office and RTF never reach DocMentis. The browser fallback is deliberately tested
     // through a non-navigating link interceptor; no download is persisted on the workstation.
@@ -293,6 +316,23 @@ async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorag
       return unsupported.every(name => !['pdf', 'docx', 'pptx', 'xlsx'].includes(name.split('.').pop()));
     })()`);
     if (fallback?.result?.value !== true) throw new Error('Legacy/RTF fallback contract changed unexpectedly.');
+}
+
+function assertTurnstileBootstrapFlow(requests) {
+    if (requests.length < 1) {
+        throw new Error('Expected the exact local Turnstile bootstrap fixture, observed none.');
+    }
+}
+
+function assertDocmentisPermitFlow(requests) {
+    const methods = requests.map(({ method }) => method);
+    if (methods.length !== 2 || methods[0] !== 'OPTIONS' || methods[1] !== 'POST') {
+        throw new Error(`DocMentis permit flow changed: ${methods.join(', ') || 'no requests'}.`);
+    }
+    const contractFailures = validateDocmentisPermitRequest(requests[1].postData);
+    if (contractFailures.length > 0) {
+        throw new Error(`DocMentis permit payload changed:\n${contractFailures.join('\n')}`);
+    }
 }
 
 async function assertDocmentisCleanup(cdp, fixture) {
