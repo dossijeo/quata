@@ -132,6 +132,49 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
 
+    func testPublicRuntimeConfigurationKeepsRegistrationFailClosedForMissingOrUnexpandedInputs() {
+        let feedConfiguration = IosFeedRuntimeConfiguration(
+            supabaseUrl: "https://deployment.invalid",
+            supabasePublishableKey: "public-build-setting",
+        )
+        let configuration = IosPublicRuntimeConfiguration.authConfiguration(
+            from: feedConfiguration,
+            infoDictionary: [
+                "QUATA_IOS_REGISTRATION_ENABLED": "true",
+                "QUATA_IOS_REGISTRATION_API_KEY": "$(QUATA_IOS_REGISTRATION_API_KEY)",
+                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": "ios-install",
+            ],
+        )
+
+        XCTAssertTrue(configuration.iosRegistrationEnabled)
+        XCTAssertNil(configuration.registrationApiKey)
+        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
+        XCTAssertNil(configuration.registrationChallengeToken)
+        XCTAssertFalse(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
+    func testPublicRuntimeConfigurationWiresExplicitRegistrationBuildSettings() {
+        let feedConfiguration = IosFeedRuntimeConfiguration(
+            supabaseUrl: "https://deployment.invalid",
+            supabasePublishableKey: "public-build-setting",
+        )
+        let configuration = IosPublicRuntimeConfiguration.authConfiguration(
+            from: feedConfiguration,
+            infoDictionary: [
+                "QUATA_IOS_REGISTRATION_ENABLED": "true",
+                "QUATA_IOS_REGISTRATION_API_KEY": " public-registration-key ",
+                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": " ios-install ",
+                "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN": " challenge-token ",
+            ],
+        )
+
+        XCTAssertTrue(configuration.iosRegistrationEnabled)
+        XCTAssertEqual(configuration.registrationApiKey, "public-registration-key")
+        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
+        XCTAssertEqual(configuration.registrationChallengeToken, "challenge-token")
+        XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
     func testIosContactPickerNormalizesExplicitlySelectedContact() {
         let fields = IosPickedContactFields(
             givenName: "Ada",

@@ -19,6 +19,9 @@ enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
     private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
+    private static let registrationApiKeyKey = "QUATA_IOS_REGISTRATION_API_KEY"
+    private static let registrationClientInstanceIdKey = "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID"
+    private static let registrationChallengeTokenKey = "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
@@ -39,6 +42,41 @@ enum IosPublicRuntimeConfiguration {
     /// Registration is opt-in and remains unavailable for malformed or absent build settings.
     static func iosRegistrationEnabled(bundle: Bundle = .main) -> Bool {
         configuredValue(for: iosRegistrationEnabledKey, infoDictionary: bundle.infoDictionary ?? [:]) == "true"
+    }
+
+    /// Builds the exported Kotlin configuration with every registration gate explicitly wired.
+    /// Missing, empty, or unexpanded inputs remain nil so registration fails closed.
+    static func authConfiguration(
+        from feedConfiguration: IosFeedRuntimeConfiguration,
+        infoDictionary: [String: Any],
+    ) -> IosAuthRuntimeConfiguration {
+        IosAuthRuntimeConfiguration(
+            supabaseUrl: feedConfiguration.supabaseUrl,
+            supabasePublishableKey: feedConfiguration.supabasePublishableKey,
+            iosRegistrationEnabled: configuredValue(
+                for: iosRegistrationEnabledKey,
+                infoDictionary: infoDictionary
+            ) == "true",
+            registrationApiKey: configuredValue(
+                for: registrationApiKeyKey,
+                infoDictionary: infoDictionary
+            ),
+            registrationClientInstanceId: configuredValue(
+                for: registrationClientInstanceIdKey,
+                infoDictionary: infoDictionary
+            ),
+            registrationChallengeToken: configuredValue(
+                for: registrationChallengeTokenKey,
+                infoDictionary: infoDictionary
+            ),
+        )
+    }
+
+    static func authConfiguration(
+        from feedConfiguration: IosFeedRuntimeConfiguration,
+        bundle: Bundle = .main,
+    ) -> IosAuthRuntimeConfiguration {
+        authConfiguration(from: feedConfiguration, infoDictionary: bundle.infoDictionary ?? [:])
     }
 
     private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
@@ -492,11 +530,7 @@ private final class IosAppCompositionRoot {
     }
 
     private func authRuntimeConfiguration(from configuration: IosFeedRuntimeConfiguration) -> IosAuthRuntimeConfiguration {
-        IosAuthRuntimeConfiguration(
-            supabaseUrl: configuration.supabaseUrl,
-            supabasePublishableKey: configuration.supabasePublishableKey,
-            iosRegistrationEnabled: IosPublicRuntimeConfiguration.iosRegistrationEnabled(),
-        )
+        IosPublicRuntimeConfiguration.authConfiguration(from: configuration)
     }
 }
 
