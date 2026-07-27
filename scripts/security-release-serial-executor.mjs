@@ -17,6 +17,7 @@ const root = resolve(dirname(thisFile), "..");
 const allowlistPath = resolve(root, "scripts/security-release-serial-allowlist.json");
 const releaseLock = "quata/security-release/001-002/v1";
 const targetForAction = { "apply-001": "20260726171001", "apply-001-forward": "20260726171005", "apply-002": "20260726171002", "rollback-001": "20260726171001", "rollback-001-forward": "20260726171005", "rollback-002": "20260726171002" };
+const approvedGuardAnchor = { body: "a2248d523b9a3386702018eec65422a4", definer: "a7a42ed79f6f245516ebf9b15aa304c3", invoker: "2e850b71a1f7aa2c1249fe2a0c0ee35d" };
 
 function usage(message) {
   if (message) console.error(message);
@@ -99,13 +100,35 @@ async function catalogFingerprint(client, version) {
     select jsonb_build_object(
       'table', jsonb_build_object('rls', c.relrowsecurity, 'forceRls', c.relforcerowsecurity, 'acl', coalesce(c.relacl::text, '')),
       'policies', coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname) from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb),
-      'triggers', coalesce((select jsonb_agg(pg_get_triggerdef(t.oid, true) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
-      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce(p.proacl::text, ''), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
+      'triggers', coalesce((select jsonb_agg(jsonb_build_object('def', pg_get_triggerdef(t.oid, true), 'enabled', t.tgenabled) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
+      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce((select jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable) from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '[]'::jsonb), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
     ) as fingerprint_source
     from pg_class c where c.oid = ('public.' || $1)::regclass`, [settings.table, settings.funcs]);
   if (rows.length !== 1) throw new Error(`serial_release_precondition_table_missing:${settings.table}`);
   const source = JSON.stringify(rows[0].fingerprint_source);
   return { sha256: sha256(source), source };
+}
+
+async function assertApprovedGuardAnchor(client, expectedDefiner = null) {
+  const { rows } = await client.query(`
+    select md5(p.prosrc) as body, md5(pg_get_functiondef(p.oid)) as definition,
+      p.prosecdef as definer, l.lanname as language, pg_get_function_result(p.oid) as result,
+      pg_get_function_arguments(p.oid) as arguments, p.provolatile as volatility,
+      p.proisstrict as strict, p.proleakproof as leakproof, p.proparallel as parallel,
+      p.prokind as kind, p.proconfig::text as config, pg_get_userbyid(p.proowner) as owner,
+      exists(select 1 from pg_trigger t where t.tgrelid = 'public.official_post_likes'::regclass
+        and t.tgname = 'quata_guard_official_post_likes_trg'
+        and t.tgfoid = p.oid and t.tgenabled = 'O' and not t.tgisinternal) as trigger_enabled
+    from pg_proc p join pg_language l on l.oid = p.prolang
+    where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure`);
+  const g = rows[0];
+  const expectedDefinition = g?.definer ? approvedGuardAnchor.definer : approvedGuardAnchor.invoker;
+  if (g?.body !== approvedGuardAnchor.body || g.definition !== expectedDefinition || g.language !== "plpgsql" || g.result !== "trigger"
+      || g.arguments !== "" || g.volatility !== "v" || g.strict || g.leakproof || g.parallel !== "u"
+      || g.kind !== "f" || g.config !== '{"search_path=public, auth"}' || g.owner !== "postgres"
+      || !g.trigger_enabled || (expectedDefiner !== null && g.definer !== expectedDefiner)) {
+    throw new Error("serial_release_guard_anchor_mismatch");
+  }
 }
 
 async function assertEffectiveReleaseState(client, version, rollback) {
@@ -172,14 +195,14 @@ async function assertEffectiveReleaseState(client, version, rollback) {
       select
         (select not p.prosecdef from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_invoker,
         (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_definition,
-        (select md5(coalesce(p.proacl::text, '')) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_acl,
+        (select coalesce(jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable), '[]'::jsonb) from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_acl,
         (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_owner,
         ids.helper is not null as helper_exists,
         case when ids.helper is null then null
           else (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = ids.helper)
         end as helper_definition,
         case when ids.helper is null then null
-          else (select md5(coalesce(p.proacl::text, '')) from pg_proc p where p.oid = ids.helper)
+          else (select coalesce(jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable), '[]'::jsonb) from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.oid = ids.helper)
         end as helper_acl,
         case when ids.helper is null then null
           else (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = ids.helper)
@@ -195,27 +218,27 @@ async function assertEffectiveReleaseState(client, version, rollback) {
           where t.tgrelid = 'public.official_post_likes'::regclass
             and t.tgname = 'quata_guard_official_post_likes_trg'
             and t.tgfoid = 'public.quata_guard_official_post_likes()'::regprocedure
+            and t.tgenabled = 'O'
             and not t.tgisinternal) as trigger_ok
       from ids`);
     const f = functions[0];
     const functionStateOk = rollback
       ? !f.guard_invoker
-        && f.guard_definition === "11bea734f04319ea619ebdf3dbdad869"
-        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && JSON.stringify(f.guard_acl) === JSON.stringify([{ grantee: "PUBLIC", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "anon", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "authenticated", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "service_role", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
         && f.guard_owner === "postgres"
         && !f.helper_exists
         && f.trigger_ok
       : f.guard_invoker
-        && f.guard_definition === "c9505e6d5b5fbb818c465cf84a3ebf56"
-        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && JSON.stringify(f.guard_acl) === JSON.stringify([{ grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
         && f.guard_owner === "postgres"
         && f.helper_exists
         && f.helper_definition === "139c75e8a54504468e1861557a681264"
-        && f.helper_acl === "5fc13192159b7c60c3a808895ae2c2c8"
+        && JSON.stringify(f.helper_acl) === JSON.stringify([{ grantee: "authenticated", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
         && f.helper_owner === "postgres"
         && f.helper_acl_ok
         && f.trigger_ok;
     if (!functionStateOk) throw new Error(`serial_release_postcondition_function_or_trigger_mismatch:${version}`);
+    await assertApprovedGuardAnchor(client, rollback);
   }
 }
 
@@ -386,6 +409,15 @@ export async function run(argv = process.argv.slice(2)) {
       const fp = await catalogFingerprint(client, version);
       report.migrations.push({ version, name: sources[version].entry.name, sha256: sources[version].entry.sha256, preconditionSha256: fp.sha256, ledger: present.has(version) ? "present" : "absent" });
     }
+    // Dry-run must reject an unapproved body too; it must never turn a drifted
+    // function into a new operator-supplied fingerprint.
+    if (versions.includes("20260726171002")) {
+      // The 002 ledger is append-only: absent means the captured baseline must
+      // still be DEFINER; present means the effective release must be INVOKER.
+      // A rollback leaves its ledger evidence behind, so present+DEFINER is
+      // intentionally rejected rather than becoming a new dry-run anchor.
+      await assertApprovedGuardAnchor(client, present.has("20260726171002") ? false : true);
+    }
     if (args.action === "dry-run") { report.status = "passed"; return report; }
 
     const version = versions[0];
@@ -417,6 +449,7 @@ export async function run(argv = process.argv.slice(2)) {
           throw new Error("serial_release_002_forward_postcondition_fingerprint_mismatch");
         }
       }
+      if (version === "20260726171002") await assertApprovedGuardAnchor(client, !rollback);
       const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
       if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
       await client.query(sources[version].body);

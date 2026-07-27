@@ -13,6 +13,15 @@ begin;
 
 alter function public.quata_guard_official_post_likes() security invoker;
 
+-- A NULL proacl means PostgreSQL's default EXECUTE for PUBLIC.  Do not leave
+-- the trigger function callable by API roles: trigger execution is authorised
+-- by the table trigger binding, not a caller EXECUTE grant.  Rebuild the ACL
+-- explicitly so a production baseline with inherited/public grants converges
+-- to the same owner-only catalog state.
+revoke all on function public.quata_guard_official_post_likes()
+from public, anon, authenticated, service_role;
+grant execute on function public.quata_guard_official_post_likes() to postgres;
+
 alter table public.official_post_likes enable row level security;
 
 -- DELETE policies normally hide a foreign row and PostgREST reports an empty
