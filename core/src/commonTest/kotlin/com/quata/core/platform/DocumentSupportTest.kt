@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertIs
 
 class DocumentSupportTest {
     @Test
@@ -52,5 +53,16 @@ class DocumentSupportTest {
         assertFalse(DocumentThumbnailSupport.hasLocalReference(PlatformFile("file://")))
         assertFalse(DocumentThumbnailSupport.hasLocalReference(PlatformFile("https://cdn.quata.example/report.pdf")))
         assertFalse(DocumentThumbnailSupport.hasLocalReference(PlatformFile("content://quata/report.pdf")))
+    }
+
+    @Test
+    fun inertFixtureFormatMatrixKeepsQuickLookAndBrowserFallbackDistinct() {
+        val fixtures = listOf("fixture.pdf" to "application/pdf", "fixture.docx" to null, "fixture.pptx" to null, "fixture.xlsx" to null, "fixture.rtf" to "text/rtf")
+        fixtures.forEach { (name, mime) ->
+            val file = PlatformFile("https://fixtures.invalid/$name", name, mime)
+            assertIs<DocumentPreviewAdmission.Open>(DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.QuickLook))
+            val browser = DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.BrowserFallback)
+            if (name.endsWith("pdf")) assertIs<DocumentPreviewAdmission.Open>(browser) else assertIs<DocumentPreviewAdmission.Download>(browser)
+        }
     }
 }
