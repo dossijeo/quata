@@ -285,7 +285,7 @@ jobs:
             bash ./gradlew --version
           } | tee build/reports/android-ci/toolchain.log
 
-      - name: Lint Android modules (advisory: inherited lint debt)
+      - name: "Lint Android modules (advisory: inherited lint debt)"
         continue-on-error: true
         timeout-minutes: 25
         shell: bash
@@ -311,8 +311,8 @@ jobs:
           {
             echo "## Android lint (advisory)"
             echo
-            echo "`:app:lintDebug` and `:document-reader:lintDebug` are advisory while inherited debt is remediated."
-            echo "The app unit tests, document-reader unit tests, and `:app:assembleDebug` remain required gates."
+            echo ':app:lintDebug and :document-reader:lintDebug are advisory while inherited debt is remediated.'
+            echo 'The app unit tests, document-reader unit tests, and :app:assembleDebug remain required gates.'
             echo
             echo "### Reports"
             find app/build/reports document-reader/build/reports -iname 'lint-results-debug.*' -print 2>/dev/null || true
