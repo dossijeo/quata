@@ -65,6 +65,16 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
+        buildConfigField(
+            "String",
+            "TURNSTILE_SITE_KEY",
+            "\"${localOrEnvironmentValue("quata.turnstileSiteKey", "QUATA_TURNSTILE_SITE_KEY").orEmpty()}\""
+        )
+        buildConfigField(
+            "String",
+            "TURNSTILE_ALLOWED_ORIGIN",
+            "\"${localOrEnvironmentValue("quata.turnstileAllowedOrigin", "QUATA_TURNSTILE_ALLOWED_ORIGIN") ?: "https://register.quata.app"}\""
+        )
         buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-21\"")
         buildConfigField(
             "String",
@@ -143,6 +153,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.fragment:fragment:1.8.9")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -186,6 +197,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

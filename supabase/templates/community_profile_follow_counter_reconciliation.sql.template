@@ -1,0 +1,335 @@
+begin;
+
+select pg_advisory_xact_lock(
+    hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
+);
+
+create table public.quata_follow_count_reconciliation_batches (
+    batch_id uuid primary key,
+    migration_marker text not null unique,
+    profile_count integer not null,
+    profile_fingerprint text not null,
+    mismatch_count integer not null,
+    edge_count integer not null,
+    edge_fingerprint text not null,
+    created_at timestamptz not null default now()
+);
+
+create table public.quata_follow_count_reconciliation_snapshot (
+    batch_id uuid not null references
+        public.quata_follow_count_reconciliation_batches(batch_id)
+        on delete cascade,
+    profile_id uuid not null references public.community_profiles(id)
+        on delete cascade,
+    old_followers_count integer not null,
+    old_following_count integer not null,
+    derived_followers_count integer not null,
+    derived_following_count integer not null,
+    primary key (batch_id, profile_id)
+);
+
+revoke all on public.quata_follow_count_reconciliation_batches
+from public, anon, authenticated;
+revoke all on public.quata_follow_count_reconciliation_snapshot
+from public, anon, authenticated;
+grant select on public.quata_follow_count_reconciliation_batches to service_role;
+grant select on public.quata_follow_count_reconciliation_snapshot to service_role;
+
+create or replace function public.quata_follow_edges_fingerprint()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select encode(
+        digest(
+            coalesce(string_agg(
+                concat_ws(':', id, follower_profile_id, followed_profile_id),
+                ',' order by id
+            ), ''),
+            'sha256'
+        ),
+        'hex'
+    )
+    from public.community_profile_follows;
+$$;
+
+create or replace function public.quata_follow_profiles_fingerprint()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select encode(
+        digest(
+            coalesce(string_agg(id::text, ',' order by id), ''),
+            'sha256'
+        ),
+        'hex'
+    )
+    from public.community_profiles;
+$$;
+
+revoke all on function public.quata_follow_edges_fingerprint()
+from public, anon, authenticated;
+grant execute on function public.quata_follow_edges_fingerprint()
+to service_role;
+revoke all on function public.quata_follow_profiles_fingerprint()
+from public, anon, authenticated;
+grant execute on function public.quata_follow_profiles_fingerprint()
+to service_role;
+
+do $$
+declare
+    v_batch_id uuid := gen_random_uuid();
+    v_profile_count integer;
+    v_profile_fingerprint text;
+    v_mismatch_count integer;
+    v_edge_count integer;
+    v_edge_fingerprint text;
+begin
+    select count(*)::integer,
+           public.quata_follow_profiles_fingerprint()
+    into v_profile_count, v_profile_fingerprint
+    from public.community_profiles;
+
+    select count(*)::integer,
+           public.quata_follow_edges_fingerprint()
+    into v_edge_count, v_edge_fingerprint
+    from public.community_profile_follows;
+
+    with derived as (
+        select cp.id,
+               cp.followers_count,
+               cp.following_count,
+               (
+                   select count(*)::integer
+                   from public.community_profile_follows f
+                   where f.followed_profile_id = cp.id
+               ) as derived_followers,
+               (
+                   select count(*)::integer
+                   from public.community_profile_follows f
+                   where f.follower_profile_id = cp.id
+               ) as derived_following
+        from public.community_profiles cp
+    )
+    select count(*)::integer
+    into v_mismatch_count
+    from derived
+    where followers_count <> derived_followers
+       or following_count <> derived_following;
+
+    insert into public.quata_follow_count_reconciliation_batches (
+        batch_id,
+        migration_marker,
+        profile_count,
+        profile_fingerprint,
+        mismatch_count,
+        edge_count,
+        edge_fingerprint
+    ) values (
+        v_batch_id,
+        '__MIGRATION_VERSION__',
+        v_profile_count,
+        v_profile_fingerprint,
+        v_mismatch_count,
+        v_edge_count,
+        v_edge_fingerprint
+    );
+
+    insert into public.quata_follow_count_reconciliation_snapshot (
+        batch_id,
+        profile_id,
+        old_followers_count,
+        old_following_count,
+        derived_followers_count,
+        derived_following_count
+    )
+    select v_batch_id,
+           cp.id,
+           cp.followers_count,
+           cp.following_count,
+           (
+               select count(*)::integer
+               from public.community_profile_follows f
+               where f.followed_profile_id = cp.id
+           ),
+           (
+               select count(*)::integer
+               from public.community_profile_follows f
+               where f.follower_profile_id = cp.id
+           )
+    from public.community_profiles cp;
+end;
+$$;
+
+create or replace function public.quata_sync_profile_follow_counts()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_old_follower uuid;
+    v_old_followed uuid;
+    v_new_follower uuid;
+    v_new_followed uuid;
+    v_profile_id uuid;
+begin
+    if tg_op in ('UPDATE', 'DELETE') then
+        v_old_follower := old.follower_profile_id;
+        v_old_followed := old.followed_profile_id;
+    end if;
+    if tg_op in ('INSERT', 'UPDATE') then
+        v_new_follower := new.follower_profile_id;
+        v_new_followed := new.followed_profile_id;
+    end if;
+
+    -- Serialize producers touching the same profiles. UUID ordering is
+    -- mandatory so reciprocal follows cannot lock in opposite order.
+    for v_profile_id in
+        select distinct affected.profile_id
+        from unnest(array_remove(array[
+            v_old_follower,
+            v_old_followed,
+            v_new_follower,
+            v_new_followed
+        ], null)) as affected(profile_id)
+        order by affected.profile_id
+    loop
+        perform 1
+        from public.community_profiles cp
+        where cp.id = v_profile_id
+        -- Compatible with the FK KEY SHARE locks already taken by both edge
+        -- inserts, while still serializing counter updates.
+        for no key update;
+    end loop;
+
+    update public.community_profiles cp
+    set followers_count = (
+            select count(*)::integer
+            from public.community_profile_follows f
+            where f.followed_profile_id = cp.id
+        ),
+        following_count = (
+            select count(*)::integer
+            from public.community_profile_follows f
+            where f.follower_profile_id = cp.id
+        )
+    where cp.id in (
+        v_old_follower, v_old_followed, v_new_follower, v_new_followed
+    );
+
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
+end;
+$$;
+
+revoke all on function public.quata_sync_profile_follow_counts()
+from public, anon, authenticated;
+
+create index if not exists community_profile_follows_followed_profile_idx
+on public.community_profile_follows(followed_profile_id);
+
+drop trigger if exists quata_sync_profile_follow_counts_trg
+on public.community_profile_follows;
+create trigger quata_sync_profile_follow_counts_trg
+after insert or update or delete on public.community_profile_follows
+for each row execute function public.quata_sync_profile_follow_counts();
+
+do $$
+declare
+    v_updated_count integer;
+    v_expected_count integer;
+begin
+    update public.community_profiles cp
+    set followers_count = snapshot.derived_followers_count,
+        following_count = snapshot.derived_following_count
+    from public.quata_follow_count_reconciliation_snapshot snapshot
+    join public.quata_follow_count_reconciliation_batches batch
+      on batch.batch_id = snapshot.batch_id
+    where batch.migration_marker = '__MIGRATION_VERSION__'
+      and snapshot.profile_id = cp.id
+      and (
+          cp.followers_count <> snapshot.derived_followers_count
+          or cp.following_count <> snapshot.derived_following_count
+      );
+    get diagnostics v_updated_count = row_count;
+
+    select mismatch_count into strict v_expected_count
+    from public.quata_follow_count_reconciliation_batches
+    where migration_marker = '__MIGRATION_VERSION__';
+
+    if v_updated_count <> v_expected_count then
+        raise exception 'Follow count update rowcount mismatch (% vs %)',
+            v_updated_count, v_expected_count using errcode = '23514';
+    end if;
+end;
+$$;
+
+do $$
+declare
+    v_batch public.quata_follow_count_reconciliation_batches%rowtype;
+    v_snapshot_count integer;
+    v_remaining_mismatches integer;
+begin
+    select * into strict v_batch
+    from public.quata_follow_count_reconciliation_batches
+    where migration_marker = '__MIGRATION_VERSION__';
+
+    select count(*)::integer into v_snapshot_count
+    from public.quata_follow_count_reconciliation_snapshot
+    where batch_id = v_batch.batch_id;
+
+    if v_snapshot_count <> v_batch.profile_count then
+        raise exception 'Follow count snapshot rowcount changed'
+            using errcode = '23514';
+    end if;
+
+    if (select count(*) from public.community_profiles)
+       <> v_batch.profile_count
+       or public.quata_follow_profiles_fingerprint()
+          <> v_batch.profile_fingerprint then
+        raise exception 'Profile set changed during reconciliation'
+            using errcode = '40001';
+    end if;
+
+    if (select count(*) from public.community_profile_follows)
+       <> v_batch.edge_count
+       or public.quata_follow_edges_fingerprint()
+          <> v_batch.edge_fingerprint then
+        raise exception 'Follow edges changed during reconciliation'
+            using errcode = '40001';
+    end if;
+
+    select count(*)::integer into v_remaining_mismatches
+    from public.community_profiles cp
+    where cp.followers_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.followed_profile_id = cp.id
+          )
+       or cp.following_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.follower_profile_id = cp.id
+          );
+
+    if v_remaining_mismatches <> 0 then
+        raise exception 'Follow count reconciliation is incomplete (%)',
+            v_remaining_mismatches using errcode = '23514';
+    end if;
+end;
+$$;
+
+revoke execute on function public.recalculate_profile_follow_counts(uuid)
+from public, anon, authenticated;
+grant execute on function public.recalculate_profile_follow_counts(uuid)
+to service_role;
+comment on function public.recalculate_profile_follow_counts(uuid) is
+    'Deprecated for clients: counters are maintained by quata_sync_profile_follow_counts_trg.';
+
+commit;

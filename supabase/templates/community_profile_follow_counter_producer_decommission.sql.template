@@ -1,0 +1,20 @@
+begin;
+
+select pg_advisory_xact_lock(
+    hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
+);
+
+drop trigger if exists quata_sync_profile_follow_counts_trg
+on public.community_profile_follows;
+
+-- Forward-safe after live traffic: keep corrected counters, snapshots, function
+-- and indexes. Never restore the historical cache values.
+comment on function public.quata_sync_profile_follow_counts() is
+    'Producer decommissioned; counters preserved at their latest values.';
+
+revoke execute on function public.recalculate_profile_follow_counts(uuid)
+from public, anon, authenticated;
+grant execute on function public.recalculate_profile_follow_counts(uuid)
+to service_role;
+
+commit;

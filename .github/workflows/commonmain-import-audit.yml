@@ -1,0 +1,44 @@
+name: CommonMain Android import audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/**"
+      - "designsystem/**"
+      - "feature/**"
+      - "ios-shared/**"
+      - "iosApp/**"
+      - "web/**"
+      - "scripts/check-commonmain-android-imports.ps1"
+      - ".github/workflows/commonmain-import-audit.yml"
+  push:
+    branches:
+      - main
+      - "codex/next-*"
+    paths:
+      - "app/**"
+      - "core/**"
+      - "designsystem/**"
+      - "feature/**"
+      - "ios-shared/**"
+      - "iosApp/**"
+      - "web/**"
+      - "scripts/check-commonmain-android-imports.ps1"
+      - ".github/workflows/commonmain-import-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: No Android imports in commonMain
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit Quata-owned commonMain Kotlin sources
+        shell: pwsh
+        run: ./scripts/check-commonmain-android-imports.ps1

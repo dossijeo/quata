@@ -22,6 +22,9 @@ Supabase inyecta `SUPABASE_URL` y, segun la generacion del proyecto, claves en f
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SECRET_KEYS`
 - `SUPABASE_PUBLISHABLE_KEYS`
+- `QUATA_INTERNAL_AUTH_PASSWORD_SECRET`
+- `QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION`
+- `QUATA_WEB_REGISTRATION_PEPPER`
 
 La funcion intenta leer ambos formatos. Si tu app usa una publishable key concreta (`sb_publishable_...`) y quieres fijarla explicitamente, define tambien:
 
@@ -36,6 +39,16 @@ supabase secrets set QUATA_AUTH_BRIDGE_API_KEY="sb_publishable_..."
 ```
 
 Si `QUATA_AUTH_BRIDGE_API_KEY` existe, la funcion exigira que el request envie esa key en `apikey`, `Authorization: Bearer ...` o `x-quata-api-key`.
+
+El bridge no expone `action: "register"`. El alta Android debe migrarse al mismo
+orquestador durable que Web mediante un canal con atestación verificable; no se
+admite una segunda inserción pública que omita saga, idempotencia o antiabuso.
+
+Con `QUATA_REGISTRATION_QUARANTINE_ENABLED=true`, login/recovery consultan el
+ledger y bloquean perfiles `cleanup_required`; este flag debe activarse a la vez
+que `quata-register`. `action: "update_recovery_secret"` exige JWT de usuario,
+`version: 1`, pregunta y respuesta; responde `{"ok":true,"version":1}` y guarda
+únicamente `secret_answer_hash` peppered, anulando el valor legacy.
 
 ## Login web y Web Push
 
@@ -56,6 +69,21 @@ persistente de entre 8 y 200 caracteres. La respuesta conserva
 
 La integracion completa, incluido registro del service worker, suscripcion y
 logout aislado, esta documentada en `supabase/WEB_PUSH_INTEGRATION.md`.
+
+## Recuperación Android
+
+Android usa también este límite para que ningún cliente anónimo pueda leer o
+escribir credenciales en `community_profiles`:
+
+- `action: "recovery_question"` devuelve sólo `secret_question`.
+- `action: "reset_password"` valida `secret_answer` en servidor, rota la
+  credencial Auth y guarda `pass_hash` con `pass_plain = null`.
+
+La función no registra el payload ni contraseñas o respuestas secretas.
+
+El registro no pertenece a este bridge público. Web y Android usan
+`quata-register`, protegido por Turnstile y con respuesta anti-enumeración
+`202 { "version": 1, "status": "accepted" }`; después llaman a `login`.
 
 ## Deploy
 

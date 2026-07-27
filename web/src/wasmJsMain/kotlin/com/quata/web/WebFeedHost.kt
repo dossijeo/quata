@@ -2,6 +2,7 @@ package com.quata.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.quata.core.capability.FeatureCapabilityTextCatalog
 import com.quata.feature.feed.presentation.FeedBrowserHostContent
 import com.quata.feature.feed.presentation.FeedBrowserHostStrings
 import com.quata.feature.feed.presentation.FeedPostDetailHostContent
@@ -29,7 +30,9 @@ fun WebFeedHost(
         readMore = "Leer más",
         close = "Cerrar",
         empty = "Aún no hay publicaciones disponibles.",
-        mediaUnavailable = "El contenido multimedia aún no está disponible en Quata Web.",
+        mediaUnavailable = FeatureCapabilityTextCatalog
+            .forLanguageTag(browserCapabilityLanguageTag())
+            .mediaUnavailable(),
         backToFeed = "Volver a publicaciones",
         detailLoading = "Cargando publicación…",
         detailUnavailable = "Esta publicación ya no está disponible.",

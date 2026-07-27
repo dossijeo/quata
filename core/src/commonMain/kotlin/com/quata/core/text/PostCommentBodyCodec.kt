@@ -32,4 +32,4 @@ fun PostComment.toRemoteCommentBody(): String {
     }
 }
 
-private val ReplyShortcodeRegex = Regex("""^\s*\[reply:([^:\]]+):([^\]]+)]\s*""")
+private val ReplyShortcodeRegex = Regex("""^\s*\[reply:([^:\]]+):([^\]]+)\]\s*""")

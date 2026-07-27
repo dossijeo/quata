@@ -5,7 +5,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonElement
-import java.security.MessageDigest
 import java.time.Instant
 
 class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
@@ -96,34 +95,6 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
-    suspend fun getProfileByPhoneLocal(phoneLocal: String): CommunityProfile? = client.getSingleOrNull(
-        "community_profiles",
-        mapOf("select" to PROFILE_AUTH_SELECT, "phone_local" to "eq.${digitsOnly(phoneLocal)}"),
-        cacheMode = SupabaseCacheMode.NETWORK_ONLY
-    )
-
-    suspend fun getProfileByPhoneIdentity(countryCode: String, phoneLocal: String): CommunityProfile? {
-        val normalizedCountryCode = digitsOnly(countryCode)
-        val normalizedPhoneLocal = digitsOnly(phoneLocal)
-        val phoneE164 = "+$normalizedCountryCode$normalizedPhoneLocal"
-        return client.getSingleOrNull(
-            "community_profiles",
-            mapOf(
-                "select" to PROFILE_AUTH_SELECT,
-                "or" to "(phone_e164.eq.$phoneE164,and(country_code.eq.$normalizedCountryCode,phone_local.eq.$normalizedPhoneLocal),and(code.eq.$normalizedCountryCode,telefono.eq.$normalizedPhoneLocal))"
-            ),
-            cacheMode = SupabaseCacheMode.NETWORK_ONLY
-        )
-    }
-
-    suspend fun loginByPhoneLocal(phoneLocal: String, passwordPlain: String, updateLastLogin: Boolean = true): LoginResult? {
-        val profile = getProfileByPhoneLocal(phoneLocal) ?: return null
-        val sha = sha256(passwordPlain)
-        val matches = profile.pass_hash.equals(sha, ignoreCase = true) || profile.pass_plain == passwordPlain
-        if (matches && updateLastLogin) touchLastLogin(profile.id)
-        return LoginResult(profile, matches)
-    }
-
     suspend fun loginWithAuthBridge(
         countryCode: String,
         phone: String,
@@ -133,12 +104,71 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeResponse>(
             "quata-auth-bridge",
             SupabaseAuthBridgeRequest(
+                action = "login",
                 country_code = digitsOnly(countryCode),
                 phone = digitsOnly(phone),
                 password = password,
                 reactivate_deactivated = reactivateDeactivated
             )
         )
+
+    suspend fun requestRegistration(request: QuataRegistrationRequest) {
+        val response = client.invokeFunction<QuataRegistrationRequest, QuataRegistrationAcceptedResponse>(
+            "quata-register",
+            request.copy(
+                country_code = digitsOnly(request.country_code),
+                phone_local = digitsOnly(request.phone_local)
+            )
+        )
+        check(response.version == 1 && response.status == "accepted") {
+            "registration_not_accepted"
+        }
+    }
+
+    suspend fun getRecoveryQuestionWithAuthBridge(countryCode: String, phone: String): String =
+        client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseRecoveryQuestionResponse>(
+            "quata-auth-bridge",
+            SupabaseAuthBridgeRequest(
+                action = "recovery_question",
+                country_code = digitsOnly(countryCode),
+                phone = digitsOnly(phone)
+            )
+        ).secret_question
+
+    suspend fun resetPasswordWithAuthBridge(
+        countryCode: String,
+        phone: String,
+        secretAnswer: String,
+        newPassword: String
+    ) {
+        val response = client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeOkResponse>(
+            "quata-auth-bridge",
+            SupabaseAuthBridgeRequest(
+                action = "reset_password",
+                country_code = digitsOnly(countryCode),
+                phone = digitsOnly(phone),
+                secret_answer = secretAnswer,
+                new_password = newPassword
+            )
+        )
+        check(response.ok) { "password_reset_failed" }
+    }
+
+    suspend fun updateRecoverySecretWithAuthBridge(
+        profileId: String,
+        secretQuestion: String,
+        secretAnswer: String
+    ) {
+        val response = client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeOkResponse>(
+            "quata-auth-bridge",
+            SupabaseAuthBridgeRequest(
+                action = "update_recovery_secret",
+                secret_question = secretQuestion,
+                secret_answer = secretAnswer
+            )
+        )
+        check(response.ok) { "recovery_secret_update_failed:$profileId" }
+    }
 
     suspend fun performAccountLifecycle(action: String, password: String): SupabaseAccountLifecycleResponse =
         client.invokeFunction<SupabaseAccountLifecycleRequest, SupabaseAccountLifecycleResponse>(
@@ -186,9 +216,6 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             mapOf("last_login_at" to atIso),
             select = PROFILE_TOUCH_SELECT
         ).firstOrNull()
-
-    suspend fun createProfile(profile: CommunityProfileCreate): CommunityProfile? =
-        client.post<CommunityProfile, CommunityProfileCreate>("community_profiles", profile, select = PROFILE_AUTH_SELECT)
 
     suspend fun updateProfile(profileId: String, patch: Map<String, String?>): CommunityProfile? =
         client.patch<CommunityProfile, Map<String, String?>>(
@@ -1004,9 +1031,6 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
 
     private fun digitsOnly(value: String): String = value.filter(Char::isDigit)
 
-    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
 
     private fun randomToken(): String = java.util.UUID.randomUUID().toString().replace("-", "").take(7)
 
@@ -1019,7 +1043,6 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         const val WALL_SELECT = "id,slug,name,city,description,sort_order,is_active,created_at,normalized_name"
         const val MEMBER_SELECT = "wall_id,profile_id,created_at"
         const val PROFILE_PUBLIC_SELECT = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
-        const val PROFILE_AUTH_SELECT = "id,display_name,phone,pass_hash,created_at,last_login_at,country_code,phone_local,phone_e164,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,secret_question,secret_answer,pass_plain,is_admin,is_official"
         const val PROFILE_TOUCH_SELECT = "id,last_login_at"
         const val POST_SELECT = "id,wall_id,profile_id,body,image_url,video_url,created_at,community_id,author_id,content"
         const val COMMENT_SELECT = "id,post_id,profile_id,body,created_at"

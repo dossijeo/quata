@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.map
 
 /** Android-only implementations of Profile's portable boundaries. */
 class AndroidProfileRemoteGateway(
-    private val source: ProfileRemoteDataSource
+    private val source: ProfileRemoteDataSource,
+    private val authApi: com.quata.data.supabase.SupabaseCommunityApi
 ) : ProfileRemoteGateway {
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
         source.getProfile(profileId)?.toRemoteRecord()
@@ -43,6 +44,9 @@ class AndroidProfileRemoteGateway(
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) =
         source.saveProfile(profileId, patch)
+
+    override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) =
+        authApi.updateRecoverySecretWithAuthBridge(profileId, secretQuestion, secretAnswer)
 
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) =
         source.saveEmergencyContacts(profileId, contactIds)

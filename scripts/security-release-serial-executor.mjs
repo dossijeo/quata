@@ -1,0 +1,492 @@
+#!/usr/bin/env node
+/*
+ * Applies only the two reviewed RLS migrations without invoking Supabase CLI.
+ * The database URL is deliberately read only from process environment; do not
+ * add a URL command-line option (argv is commonly persisted by CI shells).
+ */
+import { createHash } from "node:crypto";
+import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve, relative, isAbsolute } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import process from "node:process";
+const pg = createRequire(import.meta.url)("pg");
+
+const thisFile = fileURLToPath(import.meta.url);
+const root = resolve(dirname(thisFile), "..");
+const allowlistPath = resolve(root, "scripts/security-release-serial-allowlist.json");
+const releaseLock = "quata/security-release/001-002/v1";
+const targetForAction = { "apply-001": "20260726171001", "apply-001-forward": "20260726171005", "apply-002": "20260726171002", "rollback-001": "20260726171001", "rollback-001-forward": "20260726171005", "rollback-002": "20260726171002" };
+const approvedGuardAnchor = { body: "a2248d523b9a3386702018eec65422a4", definer: "a7a42ed79f6f245516ebf9b15aa304c3", invoker: "2e850b71a1f7aa2c1249fe2a0c0ee35d" };
+
+function usage(message) {
+  if (message) console.error(message);
+  console.error("Usage: node scripts/security-release-serial-executor.mjs --action dry-run|apply-001|apply-002|rollback-001|rollback-002 [--expected-precondition-sha256 SHA256] [--gate-evidence FILE --expected-forward-postcondition-sha256 SHA256 ...] [--out FILE]");
+  process.exitCode = 2;
+}
+
+export function sha256(value) { return createHash("sha256").update(value).digest("hex"); }
+
+export function validateAllowlist(allowlist, version, source, rollback = false) {
+  const entry = allowlist.migrations?.[version];
+  if (!entry) throw new Error(`serial_release_allowlist_missing:${version}`);
+  const actual = sha256(source); const expected = rollback ? entry.rollbackSha256 : entry.sha256;
+  if (actual !== expected) throw new Error(`serial_release_${rollback ? "rollback" : "migration"}_hash_mismatch:${version}`);
+  return entry;
+}
+
+function parseArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const key = argv[i];
+    if (!key.startsWith("--") || i + 1 >= argv.length) throw new Error("invalid_arguments");
+    args[key.slice(2)] = argv[++i];
+  }
+  if (!args.action || !["dry-run", "apply-001", "apply-001-forward", "apply-002", "rollback-001", "rollback-001-forward", "rollback-002"].includes(args.action)) throw new Error("invalid_action");
+  return args;
+}
+
+async function databaseConfig() {
+  const connectionString = process.env.SUPABASE_DB_URL;
+  const caFile = process.env.SUPABASE_DB_TLS_CA_FILE;
+  if (!connectionString) throw new Error("serial_release_database_url_not_configured");
+  if (!caFile) throw new Error("serial_release_tls_ca_file_not_configured");
+  let url;
+  try { url = new URL(connectionString); } catch { throw new Error("serial_release_database_url_invalid"); }
+  if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error("serial_release_database_url_scheme_invalid");
+  const ca = await readFile(caFile, "utf8");
+  if (!ca.trim()) throw new Error("serial_release_tls_ca_empty");
+  const normalizedUsername = decodeURIComponent(url.username).trim().toLowerCase();
+  if (!normalizedUsername) throw new Error("serial_release_database_username_missing");
+  const targetIdentity = {
+    host: url.hostname.toLowerCase(),
+    port: url.port || "5432",
+    database: decodeURIComponent(url.pathname.replace(/^\//, "")),
+    username: normalizedUsername,
+    projectRefHint: normalizedUsername.includes(".") ? normalizedUsername.split(".").at(-1) : null
+  };
+  // pg-connection-string lets URL SSL parameters replace the explicit TLS
+  // object. Remove them and enforce the separately supplied CA/hostname.
+  for (const option of ["sslmode", "uselibpqcompat", "sslcert", "sslkey", "sslrootcert"]) url.searchParams.delete(option);
+  return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname }, application_name: "quata-security-release-serial", targetIdentity };
+}
+
+function unwrapOuterTransaction(sql, version) {
+  // These two reviewed files own one outer BEGIN/COMMIT.  Removing only that
+  // wrapper lets the executor commit DDL and the ledger row atomically.
+  const begin = /^((?:\s*--[^\n]*(?:\n|$))*\s*)begin\s*;\s*/i;
+  const end = /\s*commit\s*;\s*$/i;
+  const withoutBegin = sql.replace(begin, "$1");
+  if (withoutBegin === sql || !end.test(withoutBegin)) throw new Error(`serial_release_transaction_wrapper_invalid:${version}`);
+  const body = withoutBegin.replace(end, "\n");
+  // A transaction command inside a PL/pgSQL dollar-quoted function is data,
+  // not a SQL transaction command. Remove quoted/comment text before refusing
+  // any executable nested transaction control statement.
+  const executable = body
+    .replace(/\$[A-Za-z_0-9]*\$[\s\S]*?\$[A-Za-z_0-9]*\$/g, "")
+    .replace(/'(?:''|[^'])*'/g, "")
+    .replace(/--[^\n]*/g, "");
+  if (/\b(?:begin|commit|rollback|start\s+transaction)\b/i.test(executable)) {
+    throw new Error(`serial_release_nested_transaction_refused:${version}`);
+  }
+  return body;
+}
+
+async function catalogFingerprint(client, version) {
+  const settings = version === "20260726171001" || version === "20260726171005"
+    ? { table: "community_comments", funcs: ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"] }
+    : { table: "official_post_likes", funcs: ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()"] };
+  // 001/171005 fingerprints are archived gate inputs. Preserve their original
+  // JSON shape byte-for-byte; ACL/trigger-state v2 is deliberately scoped to
+  // 002, whose release safety review introduced those invariants.
+  const legacy = version === "20260726171001" || version === "20260726171005";
+  const triggers = legacy
+    ? "jsonb_agg(pg_get_triggerdef(t.oid, true) order by t.tgname)"
+    : "jsonb_agg(jsonb_build_object('def', pg_get_triggerdef(t.oid, true), 'enabled', t.tgenabled) order by t.tgname)";
+  const functionAcl = legacy
+    ? "coalesce(p.proacl::text, '')"
+    : "coalesce((select jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable) from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '[]'::jsonb)";
+  const { rows } = await client.query(`
+    select jsonb_build_object(
+      'table', jsonb_build_object('rls', c.relrowsecurity, 'forceRls', c.relforcerowsecurity, 'acl', coalesce(c.relacl::text, '')),
+      'policies', coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname) from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb),
+      'triggers', coalesce((select ${triggers} from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
+      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', ${functionAcl}, 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
+    ) as fingerprint_source
+    from pg_class c where c.oid = ('public.' || $1)::regclass`, [settings.table, settings.funcs]);
+  if (rows.length !== 1) throw new Error(`serial_release_precondition_table_missing:${settings.table}`);
+  const source = JSON.stringify(rows[0].fingerprint_source);
+  return { sha256: sha256(source), source };
+}
+
+async function assertApprovedGuardAnchor(client, expectedDefiner = null) {
+  const { rows } = await client.query(`
+    select md5(p.prosrc) as body, md5(pg_get_functiondef(p.oid)) as definition,
+      p.prosecdef as definer, l.lanname as language, pg_get_function_result(p.oid) as result,
+      pg_get_function_arguments(p.oid) as arguments, p.provolatile as volatility,
+      p.proisstrict as strict, p.proleakproof as leakproof, p.proparallel as parallel,
+      p.prokind as kind, p.proconfig::text as config, pg_get_userbyid(p.proowner) as owner,
+      exists(select 1 from pg_trigger t where t.tgrelid = 'public.official_post_likes'::regclass
+        and t.tgname = 'quata_guard_official_post_likes_trg'
+        and t.tgfoid = p.oid and t.tgenabled = 'O' and not t.tgisinternal) as trigger_enabled
+    from pg_proc p join pg_language l on l.oid = p.prolang
+    where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure`);
+  const g = rows[0];
+  const expectedDefinition = g?.definer ? approvedGuardAnchor.definer : approvedGuardAnchor.invoker;
+  if (g?.body !== approvedGuardAnchor.body || g.definition !== expectedDefinition || g.language !== "plpgsql" || g.result !== "trigger"
+      || g.arguments !== "" || g.volatility !== "v" || g.strict || g.leakproof || g.parallel !== "u"
+      || g.kind !== "f" || g.config !== '{"search_path=public, auth"}' || g.owner !== "postgres"
+      || !g.trigger_enabled || (expectedDefiner !== null && g.definer !== expectedDefiner)) {
+    throw new Error("serial_release_guard_anchor_mismatch");
+  }
+}
+
+async function assertEffectiveReleaseState(client, version, rollback) {
+  const commentsRelease = version === "20260726171001" || version === "20260726171005";
+  const table = commentsRelease ? "community_comments" : "official_post_likes";
+  const { rows } = await client.query(`
+    select
+      c.relrowsecurity as rls,
+      c.relforcerowsecurity as force_rls,
+      coalesce((select jsonb_agg(p.policyname order by p.policyname)
+        from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb) as policies,
+      coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname)
+        from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb) as policy_details,
+      has_table_privilege('anon', c.oid, 'SELECT') as anon_select,
+      has_table_privilege('anon', c.oid, 'INSERT') as anon_insert,
+      has_table_privilege('anon', c.oid, 'DELETE') as anon_delete,
+      has_table_privilege('anon', c.oid, 'UPDATE') as anon_update,
+      has_table_privilege('authenticated', c.oid, 'SELECT') as auth_select,
+      has_table_privilege('authenticated', c.oid, 'INSERT') as auth_insert,
+      has_table_privilege('authenticated', c.oid, 'DELETE') as auth_delete,
+      has_table_privilege('authenticated', c.oid, 'UPDATE') as auth_update
+    from pg_class c where c.oid = ('public.' || $1)::regclass`, [table]);
+  if (rows.length !== 1) throw new Error(`serial_release_postcondition_table_missing:${table}`);
+  const state = rows[0];
+  const policyNames = state.policies;
+  const expectedPolicies = commentsRelease
+    ? (rollback
+      ? ["public delete comments", "public insert comments", "public read comments", "public update comments"]
+      : ["authenticated delete own or admin comments", "authenticated insert own comments", "public read comments"])
+    : (rollback
+      ? []
+      : ["official_post_likes_authenticated_delete_own_or_admin", "official_post_likes_authenticated_insert_own", "official_post_likes_public_read"]);
+  if (JSON.stringify(policyNames) !== JSON.stringify(expectedPolicies)) throw new Error(`serial_release_postcondition_policy_mismatch:${version}`);
+  if (commentsRelease) {
+    const publicRead = state.policy_details.find((policy) => policy.name === "public read comments");
+    if (!publicRead || publicRead.cmd !== "SELECT" || JSON.stringify(publicRead.roles) !== JSON.stringify(["public"])
+        || publicRead.qual !== "true" || publicRead.check !== null) {
+      throw new Error(`serial_release_postcondition_public_read_policy_mismatch:${version}`);
+    }
+    if (!rollback) {
+      const insertOwn = state.policy_details.find((policy) => policy.name === "authenticated insert own comments");
+      const deleteOwn = state.policy_details.find((policy) => policy.name === "authenticated delete own or admin comments");
+      if (!insertOwn || insertOwn.cmd !== "INSERT" || JSON.stringify(insertOwn.roles) !== JSON.stringify(["authenticated"])
+          || !insertOwn.check?.includes("quata_chat_auth_profile_id")
+          || !deleteOwn || deleteOwn.cmd !== "DELETE" || JSON.stringify(deleteOwn.roles) !== JSON.stringify(["authenticated"])
+          || !deleteOwn.qual?.includes("quata_chat_auth_profile_id") || !deleteOwn.qual?.includes("quata_current_profile_is_admin")) {
+        throw new Error(`serial_release_postcondition_mutation_policy_mismatch:${version}`);
+      }
+    }
+    const grantsOk = rollback
+      ? state.anon_insert && state.anon_delete && state.anon_update && state.auth_insert && state.auth_delete && state.auth_update
+      : !state.anon_insert && !state.anon_delete && !state.anon_update && state.auth_insert && state.auth_delete && !state.auth_update;
+    if (!state.rls || state.force_rls || !grantsOk) throw new Error(`serial_release_postcondition_rls_or_grant_mismatch:${version}`);
+  } else {
+    const expectedRls = !rollback;
+    const grantsOk = rollback
+      ? state.anon_select && !state.anon_insert && !state.anon_delete && state.auth_select && state.auth_insert && state.auth_delete
+      : state.anon_select && !state.anon_insert && !state.anon_delete && state.auth_select && state.auth_insert && state.auth_delete;
+    if (state.rls !== expectedRls || state.force_rls || !grantsOk) throw new Error(`serial_release_postcondition_rls_or_grant_mismatch:${version}`);
+    const { rows: functions } = await client.query(`
+      with ids as (
+        select to_regprocedure('public.quata_official_like_delete_allowed(uuid)') as helper
+      )
+      select
+        (select not p.prosecdef from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_invoker,
+        (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_definition,
+        (select coalesce(jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable), '[]'::jsonb) from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_acl,
+        (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure) as guard_owner,
+        ids.helper is not null as helper_exists,
+        case when ids.helper is null then null
+          else (select md5(pg_get_functiondef(p.oid)) from pg_proc p where p.oid = ids.helper)
+        end as helper_definition,
+        case when ids.helper is null then null
+          else (select coalesce(jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable), '[]'::jsonb) from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.oid = ids.helper)
+        end as helper_acl,
+        case when ids.helper is null then null
+          else (select pg_get_userbyid(p.proowner) from pg_proc p where p.oid = ids.helper)
+        end as helper_owner,
+        case when ids.helper is null then false
+          else (select p.prosecdef
+                and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+                and not has_function_privilege('anon', p.oid, 'EXECUTE')
+                and not has_function_privilege('public', p.oid, 'EXECUTE')
+                from pg_proc p where p.oid = ids.helper)
+        end as helper_acl_ok,
+        exists(select 1 from pg_trigger t
+          where t.tgrelid = 'public.official_post_likes'::regclass
+            and t.tgname = 'quata_guard_official_post_likes_trg'
+            and t.tgfoid = 'public.quata_guard_official_post_likes()'::regprocedure
+            and t.tgenabled = 'O'
+            and not t.tgisinternal) as trigger_ok
+      from ids`);
+    const f = functions[0];
+    const functionStateOk = rollback
+      ? !f.guard_invoker
+        && JSON.stringify(f.guard_acl) === JSON.stringify([{ grantee: "PUBLIC", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "anon", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "authenticated", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "service_role", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
+        && f.guard_owner === "postgres"
+        && !f.helper_exists
+        && f.trigger_ok
+      : f.guard_invoker
+        && JSON.stringify(f.guard_acl) === JSON.stringify([{ grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
+        && f.guard_owner === "postgres"
+        && f.helper_exists
+        && f.helper_definition === "139c75e8a54504468e1861557a681264"
+        && JSON.stringify(f.helper_acl) === JSON.stringify([{ grantee: "authenticated", grantor: "postgres", grantable: false, privilege: "EXECUTE" }, { grantee: "postgres", grantor: "postgres", grantable: false, privilege: "EXECUTE" }])
+        && f.helper_owner === "postgres"
+        && f.helper_acl_ok
+        && f.trigger_ok;
+    if (!functionStateOk) throw new Error(`serial_release_postcondition_function_or_trigger_mismatch:${version}`);
+    await assertApprovedGuardAnchor(client, rollback);
+  }
+}
+
+async function assertLedgerShape(client) {
+  const { rows } = await client.query(`select a.attname, format_type(a.atttypid, a.atttypmod) type
+    from pg_attribute a where a.attrelid = 'supabase_migrations.schema_migrations'::regclass and a.attnum > 0 and not a.attisdropped order by a.attnum`);
+  const expected = "version:text,statements:text[],name:text";
+  const actual = rows.map((r) => `${r.attname}:${r.type}`).join(",");
+  if (actual !== expected) throw new Error(`serial_release_ledger_shape_mismatch:${actual}`);
+}
+
+async function ledgerRows(client) {
+  await assertLedgerShape(client);
+  return (await client.query("select version::text, name, statements from supabase_migrations.schema_migrations where version = any($1::text[]) order by version", [["20260726171001", "20260726171002", "20260726171005"]])).rows;
+}
+
+async function lockReleaseObjects(client, version, rollback) {
+  const commentsRelease = version === "20260726171001" || version === "20260726171005";
+  const table = commentsRelease ? "community_comments" : "official_post_likes";
+  await client.query("lock table supabase_migrations.schema_migrations in share row exclusive mode");
+  await client.query(`lock table public.${table} in share row exclusive mode`);
+  if (version === "20260726171002") await client.query("lock table public.community_comments in share row exclusive mode");
+  const functions = commentsRelease
+    ? ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"]
+    : ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()", "public.quata_chat_auth_profile_id()",
+      ...(rollback ? ["public.quata_official_like_delete_allowed(uuid)"] : [])];
+  // PostgreSQL has no LOCK FUNCTION command. Row locks on the exact pg_proc
+  // tuples conflict with ALTER/DROP/CREATE OR REPLACE without blocking
+  // unrelated function DDL. A helper created by apply-002 is protected by its
+  // uncommitted catalog insert until this transaction commits.
+  await client.query("savepoint function_row_lock_probe");
+  try {
+      if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK === "1") {
+        await client.query("do $$ begin raise insufficient_privilege; end $$");
+      }
+      const lockedFunctions = await client.query(
+        `select p.oid
+           from unnest($1::text[]) f(identity)
+           join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
+           for share of p`,
+        [functions]);
+      if (lockedFunctions.rowCount !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+      await client.query("release savepoint function_row_lock_probe");
+      return "pg_proc_row_share";
+  } catch (error) {
+    if (error.code !== "42501") throw error;
+    await client.query("rollback to savepoint function_row_lock_probe");
+    await client.query("release savepoint function_row_lock_probe");
+  }
+  // Hosted Supabase roles may own these functions while being denied row locks
+  // on system catalogs. Force a real function-catalog tuple update and restore
+  // the exact COST in the same transaction. The tuple lock survives until
+  // commit and is non-cooperative with ALTER/DROP/CREATE OR REPLACE.
+  const { rows: ownedFunctions } = await client.query(`
+    select f.identity, p.procost::float8 as cost, pg_get_userbyid(p.proowner) as owner, current_user as actor
+      from unnest($1::text[]) f(identity)
+      join pg_catalog.pg_proc p on p.oid = to_regprocedure(f.identity)
+     order by f.identity`, [functions]);
+  if (ownedFunctions.length !== functions.length) throw new Error(`serial_release_function_lock_missing:${version}`);
+  for (const fn of ownedFunctions) {
+    if (fn.owner !== fn.actor) throw new Error(`serial_release_function_lock_owner_mismatch:${version}`);
+    const originalCost = Number(fn.cost);
+    if (!Number.isFinite(originalCost) || originalCost <= 0) throw new Error(`serial_release_function_lock_cost_invalid:${version}`);
+    const alternateCost = originalCost === 1 ? 2 : originalCost + 1;
+    const identity = functions.find((candidate) => candidate === fn.identity || candidate.replace(/^public\./, "") === fn.identity);
+    if (!identity) throw new Error(`serial_release_function_lock_identity_mismatch:${version}`);
+    await client.query(`alter function ${identity} cost ${alternateCost}`);
+    await client.query(`alter function ${identity} cost ${originalCost}`);
+  }
+  return "function_cost_roundtrip";
+}
+
+function exactLedgerRow(row, source, entry) {
+  return !!row && row.name === entry.name && Array.isArray(row.statements)
+    && row.statements.length === 1 && row.statements[0] === source;
+}
+
+function isSha256(value) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
+
+async function readGateEvidence(path, expectedHash, expectedCommit, expectedSnapshot, expectedProject, expectedForwardPostcondition, actualProject) {
+  if (!path) throw new Error("serial_release_gate_evidence_required_for_002");
+  if (!isSha256(expectedHash) || !/^[a-f0-9]{40}$/i.test(expectedCommit ?? "") || !isSha256(expectedSnapshot) || !isSha256(expectedProject) || !isSha256(expectedForwardPostcondition)) {
+    throw new Error("serial_release_gate_evidence_anchor_required_for_002");
+  }
+  const source = await readFile(resolve(path), "utf8");
+  if (sha256(source) !== expectedHash) throw new Error("serial_release_gate_evidence_hash_mismatch");
+  const value = JSON.parse(source);
+  const reports = value?.reports;
+  const requiredReports = ["dbReleaseSafety", "backendCompatibility", "sb07"];
+  if (value?.schemaVersion !== 1 || value?.migration !== "20260726171005" || value?.status !== "passed"
+      || value?.releaseCommit !== expectedCommit || value?.snapshotFingerprint !== expectedSnapshot
+      || !isSha256(value?.preconditionSha256)
+      || value?.postconditionSha256 !== expectedForwardPostcondition
+      || value?.databaseProjectFingerprint !== expectedProject || value?.databaseProjectFingerprint !== actualProject || !isSha256(value?.postflight?.sha256)
+      || !Number.isFinite(Date.parse(value?.generatedAt ?? "")) || !Number.isFinite(Date.parse(value?.expiresAt ?? "")) || Date.parse(value.expiresAt) <= Date.now()
+      || value?.postflight?.status !== "passed" || !reports || requiredReports.some((name) => reports[name]?.status !== "passed" || !isSha256(reports[name]?.sha256) || reports[name]?.databaseProjectFingerprint !== value.databaseProjectFingerprint)) {
+    throw new Error("serial_release_gate_evidence_invalid");
+  }
+  return value;
+}
+
+async function writeReport(file, report) {
+  if (!file) return;
+  const destination = resolve(file);
+  const allowed = resolve(root, "build-reports");
+  const relation = relative(allowed, destination);
+  if (!relation || relation.startsWith("..") || isAbsolute(relation)) throw new Error("serial_release_output_must_be_under_build_reports");
+  await mkdir(dirname(destination), { recursive: true });
+  await writeFile(destination, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+
+export async function run(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
+  const allowlist = JSON.parse(await readFile(allowlistPath, "utf8"));
+  const rollback = args.action.startsWith("rollback-");
+  const versions = args.action === "dry-run" ? ["20260726171001", "20260726171005", "20260726171002"] : [targetForAction[args.action]];
+  const sources = {};
+  for (const version of versions) {
+    const entry = allowlist.migrations[version];
+    const source = await readFile(resolve(root, rollback ? "supabase/rollbacks" : "supabase/migrations", rollback ? entry.rollbackFile : entry.file), "utf8");
+    validateAllowlist(allowlist, version, source, rollback);
+    const migrationSource = await readFile(resolve(root, "supabase/migrations", entry.file), "utf8");
+    validateAllowlist(allowlist, version, migrationSource);
+    sources[version] = { entry, source, migrationSource, body: unwrapOuterTransaction(source, version) };
+  }
+  const approved001 = allowlist.migrations["20260726171001"];
+  const approved001Source = await readFile(resolve(root, "supabase/migrations", approved001.file), "utf8");
+  validateAllowlist(allowlist, "20260726171001", approved001Source);
+  const approvedForward = allowlist.migrations["20260726171005"];
+  const approvedForwardSource = await readFile(resolve(root, "supabase/migrations", approvedForward.file), "utf8");
+  validateAllowlist(allowlist, "20260726171005", approvedForwardSource);
+  if (args.action !== "dry-run" && !/^[a-f0-9]{64}$/.test(args["expected-precondition-sha256"] ?? "")) throw new Error("serial_release_expected_precondition_sha256_required");
+
+  const config = await databaseConfig();
+  const client = new pg.Client(config);
+  const report = { check: "QUATA-SECURITY-RELEASE-SERIAL", action: args.action, status: "failed", releaseLock, databaseProjectFingerprint: null, migrations: [] };
+  try {
+    await client.connect();
+    let connected;
+    try {
+      connected = (await client.query(`
+        select current_database() as database,
+               current_user as role,
+               d.oid::text as database_oid,
+               pcs.system_identifier::text as system_identifier
+          from pg_database d
+          cross join pg_control_system() pcs
+         where d.datname = current_database()`)).rows[0];
+    } catch {
+      throw new Error("serial_release_database_identity_unavailable");
+    }
+    if (connected.database !== config.targetIdentity.database) throw new Error("serial_release_connected_database_mismatch");
+    report.databaseProjectFingerprint = sha256(JSON.stringify({
+      ...config.targetIdentity,
+      connectedDatabase: connected.database,
+      connectedRole: connected.role,
+      databaseOid: connected.database_oid,
+      systemIdentifier: connected.system_identifier
+    }));
+    if (args.action === "apply-002") {
+      await readGateEvidence(args["gate-evidence"], args["expected-gate-evidence-sha256"], args["expected-release-commit"], args["expected-snapshot-fingerprint"], args["expected-database-project-fingerprint"], args["expected-forward-postcondition-sha256"], report.databaseProjectFingerprint);
+    }
+    const lock = await client.query("select pg_try_advisory_lock(hashtextextended($1, 0)) acquired", [releaseLock]);
+    if (!lock.rows[0].acquired) throw new Error("serial_release_lock_unavailable");
+    const existing = await ledgerRows(client);
+    const present = new Map(existing.map((row) => [row.version, row]));
+    for (const version of versions) {
+      const fp = await catalogFingerprint(client, version);
+      report.migrations.push({ version, name: sources[version].entry.name, sha256: sources[version].entry.sha256, preconditionSha256: fp.sha256, ledger: present.has(version) ? "present" : "absent" });
+    }
+    // Dry-run must reject an unapproved body too; it must never turn a drifted
+    // function into a new operator-supplied fingerprint.
+    if (versions.includes("20260726171002")) {
+      // The 002 ledger is append-only: absent means the captured baseline must
+      // still be DEFINER; present means the effective release must be INVOKER.
+      // A rollback leaves its ledger evidence behind, so present+DEFINER is
+      // intentionally rejected rather than becoming a new dry-run anchor.
+      await assertApprovedGuardAnchor(client, present.has("20260726171002") ? false : true);
+    }
+    if (args.action === "dry-run") { report.status = "passed"; return report; }
+
+    const version = versions[0];
+    if (!rollback && present.has(version)) throw new Error(`serial_release_duplicate_ledger_version:${version}`);
+    if (!rollback && version === "20260726171001" && present.has("20260726171002")) throw new Error("serial_release_order_violation_002_exists_before_001");
+    if (!rollback && version === "20260726171005" && !exactLedgerRow(present.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_forward_requires_exact_001_ledger");
+    if (!rollback && version === "20260726171002" && !exactLedgerRow(present.get("20260726171005"), approvedForwardSource, approvedForward)) throw new Error("serial_release_002_requires_exact_001_forward_ledger");
+    if (rollback && !exactLedgerRow(present.get(version), sources[version].migrationSource, sources[version].entry)) throw new Error(`serial_release_rollback_ledger_drift_or_missing:${version}`);
+    const expected = args["expected-precondition-sha256"];
+    if (report.migrations[0].preconditionSha256 !== expected) throw new Error("serial_release_precondition_fingerprint_mismatch");
+    const hold = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_LOCK_MS ?? 0);
+    if (Number.isSafeInteger(hold) && hold > 0) await new Promise((resolveHold) => setTimeout(resolveHold, hold));
+    await client.query("begin isolation level serializable");
+    try {
+      report.migrations[0].functionLockMode = await lockReleaseObjects(client, version, rollback);
+      // Re-read after table+ledger locks: the externally observed dry-run
+      // fingerprint is not trusted until this point immediately before DDL.
+      const lockedRows = await ledgerRows(client); const locked = new Map(lockedRows.map((row) => [row.version, row]));
+      const lockedFingerprint = await catalogFingerprint(client, version);
+      if (lockedFingerprint.sha256 !== expected) throw new Error("serial_release_precondition_fingerprint_changed_after_lock");
+      if ((!rollback && locked.has(version)) || (rollback && !exactLedgerRow(locked.get(version), sources[version].migrationSource, sources[version].entry))) throw new Error("serial_release_ledger_changed_after_lock");
+      if (!rollback && version === "20260726171005" && !exactLedgerRow(locked.get("20260726171001"), approved001Source, approved001)) throw new Error("serial_release_001_ledger_changed_after_lock");
+      if (!rollback && version === "20260726171002" && !exactLedgerRow(locked.get("20260726171005"), approvedForwardSource, approvedForward)) throw new Error("serial_release_forward_ledger_changed_after_lock");
+      if (!rollback && version === "20260726171002") {
+        try { await assertEffectiveReleaseState(client, "20260726171005", false); }
+        catch { throw new Error("serial_release_002_forward_state_not_hardened"); }
+        const forwardPostcondition = await catalogFingerprint(client, "20260726171005");
+        if (forwardPostcondition.sha256 !== args["expected-forward-postcondition-sha256"]) {
+          throw new Error("serial_release_002_forward_postcondition_fingerprint_mismatch");
+        }
+      }
+      if (version === "20260726171002") await assertApprovedGuardAnchor(client, !rollback);
+      const holdAfterLock = Number(process.env.QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS ?? 0);
+      if (Number.isSafeInteger(holdAfterLock) && holdAfterLock > 0) await new Promise((resolveHold) => setTimeout(resolveHold, holdAfterLock));
+      await client.query(sources[version].body);
+      // Validate the effective catalog, grants and function/trigger binding
+      // independently from the migration's own SQL before the transaction can commit.
+      await assertEffectiveReleaseState(client, version, rollback);
+      if (!rollback && version === "20260726171005") {
+        // This post-DDL fingerprint is emitted before commit and becomes the
+        // mandatory anchor for 002's separately reviewed gate evidence.
+        report.migrations[0].postconditionSha256 = (await catalogFingerprint(client, version)).sha256;
+      }
+      if (process.env.QUATA_SERIAL_EXECUTOR_TEST_FAIL_BEFORE_LEDGER === "1") throw new Error("serial_release_test_fail_before_ledger");
+      if (!rollback) await client.query("insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)", [version, [sources[version].source], sources[version].entry.name]);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    report.status = "passed";
+    report.migrations[0].ledger = rollback ? "preserved" : "inserted";
+    return report;
+  } finally {
+    await client.end().catch(() => {});
+    await writeReport(args.out, report);
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
+  run().then((report) => console.log(JSON.stringify(report))).catch((error) => { console.error(error.message); process.exitCode = 1; });
+}

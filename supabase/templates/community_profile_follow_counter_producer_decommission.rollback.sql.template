@@ -1,0 +1,90 @@
+begin;
+
+select pg_advisory_xact_lock(
+    hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
+);
+
+-- Block edge mutations until the authoritative edge set has been reconciled
+-- and the producer is active again. Reads remain available.
+lock table public.community_profile_follows in share row exclusive mode;
+
+drop trigger if exists quata_sync_profile_follow_counts_trg
+on public.community_profile_follows;
+
+do $$
+declare
+    v_mismatch_count bigint;
+    v_updated_count bigint;
+begin
+    select count(*)
+    into v_mismatch_count
+    from public.community_profiles cp
+    where cp.followers_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.followed_profile_id = cp.id
+          )
+       or cp.following_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.follower_profile_id = cp.id
+          );
+
+    update public.community_profiles cp
+    set followers_count = (
+            select count(*)::integer
+            from public.community_profile_follows f
+            where f.followed_profile_id = cp.id
+        ),
+        following_count = (
+            select count(*)::integer
+            from public.community_profile_follows f
+            where f.follower_profile_id = cp.id
+        )
+    where cp.followers_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.followed_profile_id = cp.id
+          )
+       or cp.following_count <> (
+              select count(*)::integer
+              from public.community_profile_follows f
+              where f.follower_profile_id = cp.id
+          );
+
+    get diagnostics v_updated_count = row_count;
+
+    if v_updated_count <> v_mismatch_count then
+        raise exception
+            'Producer rollback reconciliation rowcount mismatch: expected %, updated %',
+            v_mismatch_count, v_updated_count
+            using errcode = '40001';
+    end if;
+
+    if exists (
+        select 1
+        from public.community_profiles cp
+        where cp.followers_count <> (
+                  select count(*)::integer
+                  from public.community_profile_follows f
+                  where f.followed_profile_id = cp.id
+              )
+           or cp.following_count <> (
+                  select count(*)::integer
+                  from public.community_profile_follows f
+                  where f.follower_profile_id = cp.id
+              )
+    ) then
+        raise exception 'Producer rollback reconciliation did not converge'
+            using errcode = '40001';
+    end if;
+end;
+$$;
+
+create trigger quata_sync_profile_follow_counts_trg
+after insert or update or delete on public.community_profile_follows
+for each row execute function public.quata_sync_profile_follow_counts();
+
+comment on function public.quata_sync_profile_follow_counts() is null;
+
+commit;
