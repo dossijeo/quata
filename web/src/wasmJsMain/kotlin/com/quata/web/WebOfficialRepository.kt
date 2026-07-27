@@ -70,7 +70,7 @@ class WebOfficialRepository(
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: return@runCatching null
-        loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
+        loadProfiles(listOf(userId), WebPostgrestAuthMode.SessionRequired).firstOrNull()?.toOfficialDomainUser()
     }
 
     override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
@@ -116,7 +116,7 @@ class WebOfficialRepository(
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
             ),
         ).map(JsonObject::toOfficialRemoteLike)
-        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes))
+        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), WebPostgrestAuthMode.Public)
         buildOfficialDomainPosts(
             posts = posts,
             comments = comments,
@@ -128,7 +128,10 @@ class WebOfficialRepository(
         )
     }
 
-    private suspend fun loadProfiles(ids: Collection<String>): List<OfficialRemoteProfile> {
+    private suspend fun loadProfiles(
+        ids: Collection<String>,
+        authMode: WebPostgrestAuthMode,
+    ): List<OfficialRemoteProfile> {
         if (ids.isEmpty()) return emptyList()
         return client.rows(
             table = "community_profiles",
@@ -136,6 +139,7 @@ class WebOfficialRepository(
                 "select" to ProfileSelect,
                 "id" to ids.toOfficialPostgrestInFilter(),
             ),
+            authMode = authMode,
         ).map(JsonObject::toOfficialRemoteProfile)
     }
 
@@ -143,7 +147,8 @@ class WebOfficialRepository(
         table: String,
         query: Map<String, String>,
         limit: Int? = null,
-    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit, authMode = WebPostgrestAuthMode.Public)) {
+        authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.Public,
+    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit, authMode = authMode)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }
