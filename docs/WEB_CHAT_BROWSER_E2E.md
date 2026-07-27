@@ -67,19 +67,20 @@ y el hash canónico del manifiesto. El script
 `scripts/run-web-chat-exact-purge-gate.ps1` no acepta teléfonos, marcadores,
 prefijos, filtros temporales ni una URL de base de datos como argumento.
 
-Su modo por defecto sólo inspecciona catálogo y conteos exactos y finaliza una
-transacción `READ ONLY` con `ROLLBACK`. Un commit exige a la vez `-Commit`,
-`-ApproveExactIdPurge` y la autorización de proceso
-`QUATA_E2E_CHAT_PURGE_COMMIT_AUTHORIZATION=MANAGER_APPROVED_EXACT_ID_PURGE`.
-Para cada par exacto llama al RPC de ciclo de vida; `auth.users` queda como
-última relación destructiva y su ausencia se comprueba dentro de la misma
-transacción. FKs desconocidas, `RESTRICT`/`NO ACTION` o adjuntos sin inventario
-abortan antes de un commit.
+Su modo actual sólo inspecciona: congela y valida el manifiesto antes de
+resolver secretos, carga UUIDs normalizados en tablas temporales y abre una
+única transacción `SERIALIZABLE READ ONLY` con advisory lock y timeouts, que
+siempre termina en `ROLLBACK`. `-Commit` se rechaza por construcción. La
+purga destructiva sigue bloqueada hasta disponer de un servicio separado con
+firma/nonce de servidor y una atestación de artifact de GitHub Actions ligada
+a `run_id`, hash de manifiesto, SHA candidato y proyecto Supabase. Un JSON
+local, incluso con el formato antiguo, no puede acreditar una purga.
 
 La URL y la CA sólo se cargan desde los ficheros configurados por
 `QUATA_E2E_PURGE_DB_URL_FILE` y `QUATA_E2E_PURGE_DB_CA_FILE`; no se imprimen.
-Tras un commit, `scripts/attest-web-chat-exact-purge.mjs` une el informe de UI y
-la evidencia redacted. Una bandera manual `verified` no puede acreditar el E2E.
+`scripts/attest-web-chat-exact-purge.mjs` permanece bloqueado por construcción
+hasta que exista esa integración de firma. Una bandera manual `verified` no
+puede acreditar el E2E.
 
 ## Estado de validación local
 
