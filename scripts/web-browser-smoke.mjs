@@ -50,6 +50,9 @@ const browserMetrics = {
     // Never persist an absolute workstation path in an evidence report.
     distribution: relativeProcessDirectory(distribution),
     browser: null,
+    advisories: {
+        chromeGpuReadPixelsWarnings: 0,
+    },
     // Each sample uses a disposable Chrome profile on the current machine. It
     // is evidence for regressions, not a cross-machine performance SLO.
     navigations: [],
@@ -98,7 +101,10 @@ try {
             const isLocalDocmentisLicenseNotice = entry.level === 'warning' && entry.text.startsWith(
                 '[@docMentis/udoc-viewer] This document is opened with free/unlicensed docMentis usage.',
             );
-            if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe && !isLocalDocmentisLicenseNotice) {
+            const isChromeGpuReadPixelsPerformanceWarning = entry.level === 'warning' && /^\[\.WebGL-0x[0-9a-f]+\]GL Driver Message \(OpenGL, Performance, GL_CLOSE_PATH_NV, High\): GPU stall due to ReadPixels(?: \(this message will no longer repeat\))?$/i.test(entry.text);
+            if (isChromeGpuReadPixelsPerformanceWarning) {
+                browserMetrics.advisories.chromeGpuReadPixelsWarnings += 1;
+            } else if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe && !isLocalDocmentisLicenseNotice) {
                 browserLogs.push(`${entry.level}: ${entry.text}`);
             }
         });
@@ -196,6 +202,7 @@ if (failures.length > 0) {
     process.exitCode = 1;
 } else {
     console.log(`Web browser smoke passed for ${routeFragments.join(', ')}.`);
+    console.log(`Advisory Chrome GPU ReadPixels warnings: ${browserMetrics.advisories.chromeGpuReadPixelsWarnings}.`);
 }
 }
 
