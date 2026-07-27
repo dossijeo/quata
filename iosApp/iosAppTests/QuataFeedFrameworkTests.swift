@@ -181,6 +181,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
         XCTAssertEqual(configuration.registrationChallengeToken, "challenge-token")
         XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
