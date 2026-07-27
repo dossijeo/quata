@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           test -x "$CHROME_BIN"
           "$CHROME_BIN" --version
-          bash ./gradlew :web:wasmJsBrowserTest --no-daemon --stacktrace --console=plain \
+          bash ./gradlew :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/web-ci/wasm-test.log
 
       - name: Build Wasm production distribution
@@ -177,7 +177,7 @@ jobs:
           - name: kmp-wasm-common
             timeout_minutes: 65
             browser: true
-            gradle_tasks: ":core:wasmJsNodeTest :designsystem:wasmJsNodeTest :feature:auth:wasmJsNodeTest :feature:chat:wasmJsNodeTest :feature:externalshare:wasmJsNodeTest :feature:feed:wasmJsNodeTest :feature:neighborhoods:wasmJsNodeTest :feature:notifications:wasmJsNodeTest :feature:official:wasmJsNodeTest :feature:profile:wasmJsNodeTest :feature:whatsnew:wasmJsNodeTest"
+            gradle_tasks: ":core:wasmJsNodeTest :feature:auth:wasmJsNodeTest :feature:chat:wasmJsNodeTest :feature:externalshare:wasmJsNodeTest :feature:feed:wasmJsNodeTest :feature:neighborhoods:wasmJsNodeTest :feature:notifications:wasmJsNodeTest :feature:official:wasmJsNodeTest :feature:profile:wasmJsNodeTest :feature:whatsnew:wasmJsNodeTest"
             gradle_args: "-Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1"
 
     steps:

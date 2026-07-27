@@ -470,7 +470,7 @@ async function launchChrome(executable, profile) {
     const process = spawn(executable, [
         '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
         '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
-        `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`,
+        `--user-data-dir=${profile}`, '--remote-debugging-address=127.0.0.1', `--remote-debugging-port=${debugPort}`,
         'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
     process.stderr.setEncoding('utf8');
@@ -478,8 +478,11 @@ async function launchChrome(executable, profile) {
     const startupFailure = new Promise((_, reject) =>
         process.once('error', error => reject(new Error(`Could not start Chrome (${executable}): ${error.message}`))),
     );
+    const prematureExit = new Promise((_, reject) =>
+        process.once('exit', (code, signal) => reject(new Error(`Chrome exited before exposing DevTools (code=${code ?? 'null'}, signal=${signal ?? 'none'}).`))),
+    );
     try {
-        await Promise.race([waitForDebugger(debugPort), startupFailure]);
+        await Promise.race([waitForDebugger(debugPort), startupFailure, prematureExit]);
     } catch (error) {
         await stopProcess(process);
         const stderr = chromeStderr.join('').trim();
