@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
-import { inspectBackendRequest, publicMediaUrlsFromPayload } from "./backend-compatibility-request-policy.mjs";
+import { accreditPublicMediaUrlsFromResponse, inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
 import { publicPostIdFromPayload, detailEvidence, detailEvidenceEvent } from "./backend-compatibility-feed-detail.mjs";
 import { sanitizeWebSmokeRequest, webSmokePhase } from "./backend-compatibility-web-smoke-report.mjs";
 
@@ -43,6 +43,10 @@ try {
   });
   const page = context.pages()[0] ?? await context.newPage();
   const requestDiagnostics = new WeakMap();
+  // A response must prove that its Request crossed the route policy.  Do not
+  // infer this from the URL in the response listener: redirects and service
+  // workers can otherwise create an accreditation bypass.
+  const requestDecisions = new WeakMap();
   const recordRequest = (request) => {
     const existing = requestDiagnostics.get(request);
     if (existing) return existing;
@@ -63,30 +67,44 @@ try {
   page.on("response", async (response) => {
     const match = response.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (!match) return;
-    const headers = await response.request().allHeaders();
+    const responseRequest = response.request();
+    const headers = await responseRequest.allHeaders();
     const responseUrl = new URL(response.url());
     const payload = await response.text().catch(() => "");
     const payloadPostId = publicPostIdFromPayload(payload);
     backendResponses.push({
       table: match[1],
       status: response.status(),
-      method: response.request().method(),
+      method: responseRequest.method(),
       hasApiKey: typeof headers.apikey === "string" && headers.apikey.trim() !== "",
       hasBearerAuthorization: typeof headers.authorization === "string" && headers.authorization.trim() !== "",
       query: responseUrl.searchParams.toString(),
       payloadPostId,
     });
-    if (match[1] === "community_posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
+    if (match[1] === "community_posts" && responseRequest.method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
       observedPostId = payloadPostId;
     }
     // The response listener runs before the app can use this response body to
     // render a Compose image.  If an implementation ever races it, the route
     // gate below rejects the media request instead of opening Storage.
-    const requestRoute = recordRequest(response.request()).route;
-    if (match[1] === "community_posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 &&
-        (requestRoute === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(requestRoute))) {
-      for (const mediaUrl of publicMediaUrlsFromPayload(payload, baseUrl)) accreditedMediaUrls.add(mediaUrl);
+    const requestRoute = recordRequest(responseRequest).route;
+    let serviceWorker = true;
+    try {
+      serviceWorker = typeof responseRequest.serviceWorker === "function" ? Boolean(responseRequest.serviceWorker()) : true;
+    } catch {
+      // Unknown provenance is not enough to accredit a Storage object.
+      serviceWorker = true;
     }
+    const accredited = (requestRoute === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(requestRoute))
+      ? accreditPublicMediaUrlsFromResponse({
+        url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(), headers,
+        status: response.status(), contentType: response.headers()["content-type"], resourceType: responseRequest.resourceType(),
+        serviceWorker, redirectedFromUrl: responseRequest.redirectedFrom()?.url(),
+        redirectedToUrl: responseRequest.redirectedTo()?.url(), requestAllowed: requestDecisions.get(responseRequest)?.allowed,
+        payload,
+      }, baseUrl)
+      : [];
+    for (const mediaUrl of accredited) accreditedMediaUrls.add(mediaUrl);
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
@@ -102,7 +120,9 @@ try {
       resourceType: request.resourceType(),
       accreditedMediaUrls,
       redirectedFromUrl: redirectedFrom?.url(),
+      applicationOrigin: server.origin,
     }, baseUrl);
+    requestDecisions.set(request, decision);
     if (!decision.allowed) {
       blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
       return route.abort("blockedbyclient");
