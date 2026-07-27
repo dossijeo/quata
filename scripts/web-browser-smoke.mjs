@@ -188,15 +188,6 @@ try {
         await assertWebTestContract(cdp, 'auth', 'auth');
         await assertUnconfiguredAuthBoundary(cdp);
 
-        if (options.docmentis) {
-            await navigateAndAssertDocmentisBridge(
-                cdp,
-                staticServer.origin,
-                authenticatedStorage,
-                docmentisPermitRequests,
-            );
-        }
-
         // No session is invented for the remaining hashes. The route contract still records the
         // requested host while the visible surface correctly stays at Auth until a real login.
         for (const fragment of routeFragments.slice(1)) {
@@ -205,6 +196,18 @@ try {
             // requested hash route but remains on the Auth surface until a real login changes
             // Compose state; the authenticated surface belongs to the remote E2E runner.
             await assertWebTestContract(cdp, 'auth', fragment);
+        }
+
+        // Keep the measured six-route series on one stable base document. DocMentis opts into its
+        // localhost-only product bridge with a query parameter, so it runs after route metrics
+        // rather than turning the following #feed transition into a full-document navigation.
+        if (options.docmentis) {
+            await navigateAndAssertDocmentisBridge(
+                cdp,
+                staticServer.origin,
+                authenticatedStorage,
+                docmentisPermitRequests,
+            );
         }
         assertTurnstileBootstrapFlow(turnstileRequests);
 

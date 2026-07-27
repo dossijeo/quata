@@ -32,3 +32,10 @@ test('browser gate cannot pass on SDK mount alone or a hardcoded file extension'
     assert.doesNotMatch(smokeSource, /expectPermitFailClosed/);
     assert.doesNotMatch(smokeSource, /fixture = '[^']+\.pdf'/);
 });
+
+test('DocMentis query opt-in runs only after the stable six-route metric series', () => {
+    const routeSeries = smokeSource.indexOf('for (const fragment of routeFragments.slice(1))');
+    const docmentisProbe = smokeSource.indexOf('if (options.docmentis)', routeSeries);
+    const metricsAssertion = smokeSource.indexOf('assertTurnstileBootstrapFlow', docmentisProbe);
+    assert.ok(routeSeries >= 0 && docmentisProbe > routeSeries && metricsAssertion > docmentisProbe);
+});
