@@ -141,6 +141,7 @@ try {
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
         browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
+        await assertWebTestContract(cdp, 'auth', 'auth');
         await assertUnconfiguredAuthBoundary(cdp);
 
         if (options.docmentis) {
@@ -154,6 +155,10 @@ try {
         await cdp.evaluate("localStorage.setItem('web.auth.session_ready', 'true')");
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
+            // This smoke intentionally does not mint a backend session. It can verify the
+            // requested hash route but remains on the Auth surface until a real login changes
+            // Compose state; the authenticated surface belongs to the remote E2E runner.
+            await assertWebTestContract(cdp, 'auth', fragment);
         }
 
         if (pageErrors.length > 0) {
@@ -583,6 +588,32 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
         throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
     }
+}
+
+async function assertWebTestContract(cdp, expectedSurface, expectedRoute) {
+    let value;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const contract = await cdp.evaluate(`(() => {
+        const host = document.querySelector('quata-test-contract');
+        const root = host?.shadowRoot;
+        const node = root?.querySelector('[data-testid="web-test-contract"]');
+        return node ? {
+            version: node.dataset.contractVersion,
+            surface: node.dataset.surface,
+            route: node.dataset.route,
+            authSubmit: !!root.querySelector('[data-testid="auth-submit"]'),
+            chatSend: !!root.querySelector('[data-testid="chat-send"]'),
+        } : null;
+        })()`);
+        value = contract.result?.value;
+        const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
+        const expected = ['1', expectedSurface, expectedRoute, true, true];
+        if (JSON.stringify(observed) === JSON.stringify(expected)) return;
+        await delay(100);
+    }
+    const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
+    const expected = ['1', expectedSurface, expectedRoute, true, true];
+    throw new Error(`WEB-TEST-001 contract mismatch: ${JSON.stringify({ observed, expected })}.`);
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs) {

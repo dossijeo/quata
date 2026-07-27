@@ -24,6 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Message
 import com.quata.core.platform.AudioPlaybackState
@@ -122,11 +124,14 @@ private fun ChatBrowserConversationList(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Conversaciones", style = MaterialTheme.typography.titleLarge)
                 Text(navigationMessage, style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { viewModel.onEvent(ConversationsUiEvent.Refresh) }) { Text("Actualizar") }
+                Button(
+                    onClick = { viewModel.onEvent(ConversationsUiEvent.Refresh) },
+                    modifier = Modifier.semantics { testTag = "chat.refresh" },
+                ) { Text("Actualizar") }
                 Button(onClick = {
                     isGroupComposerOpen = false
                     viewModel.openNewConversationPicker()
-                }) { Text("Nuevo chat") }
+                }, modifier = Modifier.semantics { testTag = "chat.new-conversation" }) { Text("Nuevo chat") }
             }
         }
         if (state.isNewConversationPickerOpen) {
@@ -300,7 +305,10 @@ private fun ChatBrowserConversationDetail(
     Column(modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(onClick = onBackToList) { Text("Volver a conversaciones") }
+                Button(
+                    onClick = onBackToList,
+                    modifier = Modifier.semantics { testTag = "chat.back" },
+                ) { Text("Volver a conversaciones") }
                 Text(state.conversation?.title ?: "Conversación", style = MaterialTheme.typography.titleLarge)
                 Text(navigationMessage, style = MaterialTheme.typography.bodySmall)
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -327,7 +335,7 @@ private fun ChatBrowserConversationDetail(
                             value = state.messageText,
                             onValueChange = { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) },
                             label = { Text("Mensaje") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().semantics { testTag = "chat.message" },
                         )
                         state.replyToMessage?.let { message ->
                             Text(
@@ -449,6 +457,7 @@ private fun ChatBrowserConversationDetail(
                         Button(
                             onClick = { viewModel.onEvent(ChatUiEvent.Send) },
                             enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
+                            modifier = Modifier.semantics { testTag = "chat.send" },
                         ) { Text("Enviar") }
                     }
                 }
