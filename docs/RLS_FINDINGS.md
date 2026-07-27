@@ -158,3 +158,8 @@ la UI.
   Requiere migración aislada owner/actor-active, pruebas PostgREST y Android, y
   coordinación con el backfill reversible descrito en
   `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
+
+  **Corrección preparada, no desplegada:** las plantillas separadas de guardia
+  de actor y reconciliación reversible están en `supabase/templates/`, pendientes
+  de timestamps por el ledger bloqueado. Véase
+  `docs/RLS_005_COMMUNITY_PROFILE_FOLLOWS_FIX.md`.
