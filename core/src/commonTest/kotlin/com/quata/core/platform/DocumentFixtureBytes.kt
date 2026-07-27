@@ -1,4 +1,4 @@
-﻿package com.quata.core.platform
+package com.quata.core.platform
 
 /**
  * Small, self-owned documents that every Kotlin target can inspect without filesystem fixtures.

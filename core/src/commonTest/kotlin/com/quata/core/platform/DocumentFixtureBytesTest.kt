@@ -1,4 +1,4 @@
-﻿package com.quata.core.platform
+package com.quata.core.platform
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
