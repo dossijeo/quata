@@ -19,6 +19,8 @@ object AppConfig {
     /** Supabase */
     const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"
     const val SUPABASE_ANON_KEY = "sb_publishable_dQILq4zEe6xW1TpJPQwMHw_gk6ZlaX3"
+    val TURNSTILE_SITE_KEY: String get() = BuildConfig.TURNSTILE_SITE_KEY
+    val TURNSTILE_ALLOWED_ORIGIN: String get() = BuildConfig.TURNSTILE_ALLOWED_ORIGIN
 
     const val FEED_SOURCE = "supabase"
 

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ProfileRemoteDataSource(
-    private val api: SupabaseCommunityApi
+    internal val api: SupabaseCommunityApi
 ) {
     suspend fun getProfile(userId: String) = api.getProfiles(ids = listOf(userId)).firstOrNull()
 

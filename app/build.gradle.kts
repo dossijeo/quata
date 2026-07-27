@@ -65,6 +65,16 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
+        buildConfigField(
+            "String",
+            "TURNSTILE_SITE_KEY",
+            "\"${localOrEnvironmentValue("quata.turnstileSiteKey", "QUATA_TURNSTILE_SITE_KEY").orEmpty()}\""
+        )
+        buildConfigField(
+            "String",
+            "TURNSTILE_ALLOWED_ORIGIN",
+            "\"${localOrEnvironmentValue("quata.turnstileAllowedOrigin", "QUATA_TURNSTILE_ALLOWED_ORIGIN") ?: "https://register.quata.app"}\""
+        )
         buildConfigField("String", "APP_VERSION_DATE", "\"2026-07-21\"")
         buildConfigField(
             "String",

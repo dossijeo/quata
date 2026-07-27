@@ -1,4 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  constantTimeEqualHex,
+  hashRecoveryAnswer,
+  hashRegistrationPassword,
+  verifyRegistrationPassword,
+  recoverySecretPatch,
+  registrationPhoneHash,
+} from "../_shared/web-registration-security.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +15,8 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
-  action?: "login" | "web_login" | "recovery_question" | "reset_password";
+  action?: "login" | "web_login" | "recovery_question" | "reset_password" | "update_recovery_secret";
+  version?: number;
   profile_id?: string;
   country_code?: string;
   phone?: string;
@@ -17,6 +26,7 @@ type BridgeRequest = {
   new_password?: string;
   reactivate_deactivated?: boolean;
   client_instance_id?: string;
+  secret_question?: string;
 };
 
 type CommunityProfile = {
@@ -39,6 +49,7 @@ type CommunityProfile = {
   neighborhood?: string | null;
   secret_question?: string | null;
   secret_answer?: string | null;
+  secret_answer_hash?: string | null;
   account_status?: "active" | "deactivated" | null;
   deactivated_at?: string | null;
 };
@@ -63,6 +74,7 @@ const profileSelect = [
   "neighborhood",
   "secret_question",
   "secret_answer",
+  "secret_answer_hash",
   "account_status",
   "deactivated_at",
 ].join(",");
@@ -71,11 +83,10 @@ Deno.serve(async (req) => {
   try {
     return await handleRequest(req);
   } catch (error) {
-    console.error(error);
+    console.error(JSON.stringify({ event: "auth_bridge_failed", code: "internal_error" }));
     return jsonResponse(
       {
         error: "internal_error",
-        detail: error instanceof Error ? error.message : "Unexpected error",
       },
       500,
     );
@@ -111,11 +122,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const expectedBridgeKey = Deno.env.get("QUATA_AUTH_BRIDGE_API_KEY");
   if (expectedBridgeKey) {
-    const providedKey =
-      req.headers.get("x-quata-api-key") ||
-      req.headers.get("apikey") ||
+    const dedicated = req.headers.get("x-quata-api-key");
+    const publishable = req.headers.get("apikey") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (providedKey !== expectedBridgeKey) {
+    if (dedicated !== expectedBridgeKey && publishable !== publicKey) {
       return jsonResponse({ error: "invalid_api_key" }, 401);
     }
   }
@@ -132,8 +142,29 @@ async function handleRequest(req: Request): Promise<Response> {
     global: { headers: { "X-Client-Info": "quata-auth-bridge" } },
   });
 
-  const profile = await findProfile(admin, payload);
   const action = payload.action || "login";
+  if (action === "update_recovery_secret") {
+    if (payload.version !== 1) return jsonResponse({ error: "unsupported_version" }, 400);
+    const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!bearer) return jsonResponse({ error: "authentication_required" }, 401);
+    const { data: identity, error: identityError } = await admin.auth.getUser(bearer);
+    if (identityError || !identity.user) return jsonResponse({ error: "authentication_required" }, 401);
+    const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+    let patch;
+    try {
+      patch = await recoverySecretPatch(payload.secret_question, payload.secret_answer, pepper);
+    } catch {
+      return jsonResponse({ error: "recovery_secret_invalid" }, 400);
+    }
+    const { error: updateError } = await admin.from("community_profiles").update(patch)
+      .eq("auth_user_id", identity.user.id);
+    if (updateError) throw updateError;
+    return jsonResponse({ ok: true, version: 1 });
+  }
+  const profile = await findProfile(admin, payload);
+  if (profile && await isRegistrationQuarantined(admin, profile)) {
+    return jsonResponse({ error: "account_unavailable" }, 503);
+  }
   if (action === "recovery_question") {
     if (!profile?.secret_question?.trim()) {
       return jsonResponse({ error: "recovery_profile_not_found" }, 404);
@@ -171,6 +202,7 @@ async function handleRequest(req: Request): Promise<Response> {
     avatar_url: profile.avatar_url || profile.avatar || null,
     neighborhood: profile.neighborhood || profile.barrio || null,
     auth_source: "quata_legacy_bridge",
+    auth_password_secret_version: Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION") || "legacy",
   };
 
   const authUserId = await ensureAuthUser(admin, {
@@ -199,6 +231,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if ((signInError || !signInData.session) && isInvalidAuthPassword(signInError)) {
     const { error: updatePasswordError } = await admin.auth.admin.updateUserById(authUserId, {
       password: authPassword,
+      user_metadata: userMetadata,
     });
     if (updatePasswordError) {
       return jsonResponse({ error: "auth_session_failed", detail: updatePasswordError.message }, 500);
@@ -231,6 +264,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (linkProfileError) throw linkProfileError;
 
   const response: Record<string, unknown> = {
+    version: 1,
     profile: publicProfile(profile, authUserId),
     session: signInData.session,
     user: signInData.user,
@@ -251,7 +285,7 @@ async function handleRequest(req: Request): Promise<Response> {
 }
 
 async function createWebClientSession(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   params: { profileId: string; authUserId: string; clientInstanceId: string },
 ) {
   const token = randomBase64Url(32);
@@ -278,7 +312,7 @@ async function createWebClientSession(
 }
 
 async function handlePasswordReset(params: {
-  admin: ReturnType<typeof createClient>;
+  admin: any;
   profile: CommunityProfile | null;
   payload: BridgeRequest;
   serviceRoleKey: string;
@@ -286,13 +320,26 @@ async function handlePasswordReset(params: {
   const { admin, profile, payload, serviceRoleKey } = params;
   const newPassword = payload.new_password?.trim() || "";
   const secretAnswer = payload.secret_answer?.trim() || "";
-  if (!profile?.secret_question?.trim() || !profile.secret_answer?.trim()) {
+  if (
+    !profile?.secret_question?.trim() ||
+    (!profile.secret_answer?.trim() && !profile.secret_answer_hash?.trim())
+  ) {
     return jsonResponse({ error: "recovery_profile_not_found" }, 404);
   }
   if (!newPassword || newPassword.length < 6) {
     return jsonResponse({ error: "invalid_new_password" }, 400);
   }
-  if (!secretAnswer || profile.secret_answer.trim().localeCompare(secretAnswer.trim(), undefined, { sensitivity: "accent" }) !== 0) {
+  let answerMatches = false;
+  if (secretAnswer && profile.secret_answer_hash?.startsWith("v1:")) {
+    const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+    if (!pepper) return jsonResponse({ error: "recovery_not_configured" }, 503);
+    const candidate = await hashRecoveryAnswer(secretAnswer, pepper);
+    answerMatches = constantTimeEqualHex(profile.secret_answer_hash, candidate);
+  } else if (secretAnswer && profile.secret_answer?.trim()) {
+    answerMatches =
+      profile.secret_answer.trim().localeCompare(secretAnswer.trim(), undefined, { sensitivity: "accent" }) === 0;
+  }
+  if (!answerMatches) {
     return jsonResponse({ error: "invalid_secret_answer" }, 401);
   }
 
@@ -314,14 +361,14 @@ async function handlePasswordReset(params: {
   if (authError) throw authError;
   const { error: profileError } = await admin.from("community_profiles").update({
     auth_user_id: authUserId,
-    pass_hash: await sha256(newPassword),
+    pass_hash: await hashRegistrationPassword(newPassword),
     pass_plain: null,
   }).eq("id", profile.id);
   if (profileError) throw profileError;
   return jsonResponse({ ok: true });
 }
 
-async function findProfile(admin: ReturnType<typeof createClient>, payload: BridgeRequest): Promise<CommunityProfile | null> {
+async function findProfile(admin: any, payload: BridgeRequest): Promise<CommunityProfile | null> {
   const profileId = payload.profile_id?.trim();
   if (profileId) {
     const { data, error } = await admin
@@ -353,7 +400,7 @@ async function findProfile(admin: ReturnType<typeof createClient>, payload: Brid
 }
 
 async function ensureAuthUser(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   params: {
     profile: CommunityProfile;
     email: string;
@@ -401,13 +448,13 @@ function isInvalidAuthPassword(error: { code?: string | null; message?: string |
   return error?.code === "invalid_credentials" || /invalid login credentials/i.test(error?.message || "");
 }
 
-async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+async function findAuthUserByEmail(admin: any, email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const perPage = 1000;
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
-    const found = data.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    const found = data.users.find((user: any) => user.email?.toLowerCase() === normalizedEmail);
     if (found) return found;
     if (data.users.length < perPage) return null;
   }
@@ -417,6 +464,9 @@ async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email
 async function validateLegacyPassword(profile: CommunityProfile, password: string): Promise<boolean> {
   const passHash = profile.pass_hash?.trim();
   if (passHash) {
+    if (passHash.startsWith("pbkdf2_sha256$")) {
+      return verifyRegistrationPassword(passHash, password);
+    }
     const sha = await sha256(password);
     if (sha.toLowerCase() === passHash.toLowerCase()) return true;
   }
@@ -431,6 +481,27 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
+async function isRegistrationQuarantined(
+  admin: any,
+  profile: CommunityProfile,
+): Promise<boolean> {
+  if (Deno.env.get("QUATA_REGISTRATION_QUARANTINE_ENABLED") !== "true") return false;
+  const pepper = Deno.env.get("QUATA_WEB_REGISTRATION_PEPPER");
+  if (!pepper || pepper.length < 32) throw new Error("quarantine_configuration_missing");
+  const country = digitsOnly(profile.country_code || profile.code || "");
+  const local = digitsOnly(profile.phone_local || profile.phone_normalized || profile.telefono || "");
+  // New registrations are always canonical. A legacy row without both parts
+  // cannot match the new ledger and must keep its existing login behavior.
+  if (!country || !local) return false;
+  const phoneHash = await registrationPhoneHash(country, local, pepper);
+  const { count, error } = await admin.from("web_registration_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_hash", phoneHash)
+    .eq("status", "cleanup_required");
+  if (error) throw error;
+  return (count || 0) > 0;
+}
+
 function randomBase64Url(byteLength: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
   let binary = "";
@@ -439,7 +510,10 @@ function randomBase64Url(byteLength: number): string {
 }
 
 async function supabaseAuthPassword(profileId: string, legacyPassword: string, serviceRoleKey: string): Promise<string> {
-  const hash = await sha256(`${profileId}:${legacyPassword}:${serviceRoleKey}`);
+  // A dedicated stable secret prevents service-role rotation from invalidating every Auth password.
+  // The fallback preserves already-deployed legacy identities until the release config is migrated.
+  const stableSecret = Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET") || serviceRoleKey;
+  const hash = await sha256(`${profileId}:${legacyPassword}:${stableSecret}`);
   return `Qa-${hash}`;
 }
 

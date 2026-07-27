@@ -3,6 +3,8 @@ package com.quata.feature.auth.data
 import android.content.Context
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
+import com.quata.core.auth.AndroidRegistrationChallengeService
+import com.quata.core.auth.RegistrationClientIdentityStore
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.common.UserFacingException
 import com.quata.core.config.AppConfig
@@ -13,16 +15,15 @@ import com.quata.core.notifications.PushTokenManager
 import com.quata.core.moderation.UgcTermsAcceptanceStore
 import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.data.supabase.CommunityProfile
-import com.quata.data.supabase.CommunityProfileCreate
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseResponseCacheStore
+import com.quata.data.supabase.QuataRegistrationRequest
 import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
-import java.security.MessageDigest
 import androidx.core.app.NotificationManagerCompat
 
 class AuthRepositoryImpl(
@@ -30,7 +31,9 @@ class AuthRepositoryImpl(
     private val supabaseApi: SupabaseCommunityApi,
     private val sessionManager: SessionManager,
     private val googleAuthHelper: GoogleAuthHelper,
-    private val pushTokenManager: PushTokenManager
+    private val pushTokenManager: PushTokenManager,
+    private val registrationChallengeService: AndroidRegistrationChallengeService,
+    private val registrationIdentityStore: RegistrationClientIdentityStore
 ) : AuthRepository {
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
@@ -69,45 +72,25 @@ class AuthRepositoryImpl(
         } else {
             val phoneLocal = request.phone.onlyDigits()
             val countryCode = request.countryCode.onlyDigits()
-            val phoneE164 = "+$countryCode$phoneLocal"
-
-            val existingProfile = supabaseApi.getProfileByPhoneIdentity(countryCode, phoneLocal)
-            if (existingProfile != null) {
-                if (existingProfile.matchesPassword(request.password)) {
-                    return@runCatching supabaseApi.loginWithAuthBridge(
-                        countryCode,
-                        phoneLocal,
-                        request.password,
-                        reactivateDeactivated = true
-                    )
-                        .toSession(fallbackProfile = existingProfile)
-                }
-                error("Ya existe una cuenta con ese telefono")
-            }
-
-            val profile = supabaseApi.createProfile(
-                CommunityProfileCreate(
-                    display_name = request.displayName,
-                    phone = phoneE164,
-                    pass_hash = sha256(request.password),
-                    phone_normalized = phoneLocal,
-                    country_code = countryCode,
-                    phone_local = phoneLocal,
-                    phone_e164 = phoneE164,
-                    barrio = request.neighborhood,
-                    neighborhood = request.neighborhood,
-                    code = countryCode,
-                    telefono = phoneLocal,
-                    nombre = request.displayName,
-                    secret_question = request.secretQuestion,
-                    secret_answer = request.secretAnswer,
-                    pass_plain = request.password
+            val identity = "$countryCode$phoneLocal"
+            val challenge = registrationChallengeService.acquire()
+            supabaseApi.requestRegistration(
+                QuataRegistrationRequest(
+                challenge_token = challenge.token,
+                client_instance_id = registrationIdentityStore.clientInstanceId(),
+                idempotency_key = registrationIdentityStore.idempotencyKey(identity),
+                country_code = countryCode,
+                phone_local = phoneLocal,
+                password = request.password,
+                display_name = request.displayName,
+                neighborhood = request.neighborhood,
+                secret_question = request.secretQuestion,
+                secret_answer = request.secretAnswer
                 )
-            ) ?: error("No se pudo crear el perfil")
-
-            supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession(
-                fallbackProfile = profile
             )
+            val session = supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession()
+            registrationIdentityStore.complete(identity)
+            session
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
         .onSuccess { sessionManager.setSession(it) }
@@ -118,9 +101,15 @@ class AuthRepositoryImpl(
                 PasswordRecoveryQuestion(userId = it.id, secretQuestion = it.secretQuestion)
             }
         } else {
-            supabaseApi.getProfileByPhoneLocal(phone)?.let { profile ->
-                profile.secret_question?.takeIf { it.isNotBlank() }?.let {
-                    PasswordRecoveryQuestion(userId = profile.id, secretQuestion = it)
+            try {
+                PasswordRecoveryQuestion(
+                    secretQuestion = supabaseApi.getRecoveryQuestionWithAuthBridge(countryCode, phone)
+                )
+            } catch (error: SupabaseApiException) {
+                if (error.responseBody?.contains("recovery_profile_not_found", ignoreCase = true) == true) {
+                    null
+                } else {
+                    throw error
                 }
             }
         }
@@ -140,16 +129,11 @@ class AuthRepositoryImpl(
             }
             MockData.updatePassword(profile.id, newPassword)
         } else {
-            val profile = supabaseApi.getProfileByPhoneLocal(phone) ?: error("Telefono no registrado")
-            if (!profile.secret_answer.orEmpty().trim().equals(secretAnswer.trim(), ignoreCase = true)) {
-                error("La respuesta secreta no es correcta")
-            }
-            supabaseApi.updateProfile(
-                profileId = profile.id,
-                patch = mapOf(
-                    "pass_hash" to sha256(newPassword),
-                    "pass_plain" to newPassword
-                )
+            supabaseApi.resetPasswordWithAuthBridge(
+                countryCode = countryCode,
+                phone = phone,
+                secretAnswer = secretAnswer,
+                newPassword = newPassword
             )
         }
         Unit
@@ -249,15 +233,9 @@ class AuthRepositoryImpl(
         )
     }
 
-    private fun CommunityProfile.matchesPassword(password: String): Boolean =
-        pass_hash.equals(sha256(password), ignoreCase = true) || pass_plain == password
-
     private fun phoneEmail(countryCode: String, phone: String): String =
         "${countryCode.onlyDigits()}${phone.onlyDigits()}@phone.quata.app"
 
     private fun String.onlyDigits(): String = filter(Char::isDigit)
 
-    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
 }

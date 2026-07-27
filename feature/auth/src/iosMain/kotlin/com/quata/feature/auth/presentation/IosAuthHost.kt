@@ -43,6 +43,8 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
             recoveryQuestionLoading = catalog.recoveryQuestionLoading,
             passwordUpdatedMessage = catalog.passwordUpdatedMessage,
+            registerStrings = null,
+            registerSubtitle = null,
             registerUnavailableMessage = null,
             onLoginSuccess = { dependencies.onLoginSuccess() },
         )

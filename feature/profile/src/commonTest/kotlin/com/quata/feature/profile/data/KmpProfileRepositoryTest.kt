@@ -4,6 +4,7 @@ import com.quata.feature.profile.domain.ProfileUpdate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertFalse
 
 class KmpProfileRepositoryTest {
     @Test
@@ -26,7 +27,8 @@ class KmpProfileRepositoryTest {
         assertEquals("Ada", patch["display_name"])
         assertEquals("Ada", patch["nombre"])
         assertEquals("https://cdn.example/avatar.jpg", patch["avatar_url"])
-        assertEquals("Luna", patch["secret_answer"])
+        assertFalse(patch.containsKey("secret_question"))
+        assertFalse(patch.containsKey("secret_answer"))
     }
 
     @Test

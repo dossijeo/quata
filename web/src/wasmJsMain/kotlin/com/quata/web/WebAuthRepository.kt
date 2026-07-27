@@ -44,16 +44,7 @@ class WebAuthRepository(
             put("client_instance_id", ensureWebClientInstanceId())
         }
         val payload = webPostJson(endpoint, apiKey, request.toString())
-        val session = payload.toWebAuthSession()
-        session.persist(preferences, payload.webSessionToken())
-        activeSession = WebLocalSession(
-            accessToken = session.accessToken ?: session.token,
-            refreshToken = session.refreshToken.orEmpty(),
-            webSessionToken = payload.webSessionToken(),
-            userId = session.userId,
-            expiresAt = session.expiresAt ?: currentEpochSeconds(),
-        )
-        session
+        acceptAuthenticationPayload(payload)
     }
 
     override suspend fun logout() {
@@ -100,8 +91,34 @@ class WebAuthRepository(
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
 
-    override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
-        webRegistrationUnavailable()
+    override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
+        require(configuration.webRegistrationEnabled) { "web_registration_unavailable" }
+        val challengeToken = requestTurnstileChallenge(
+            configuration.turnstileSiteKey.requireConfigured("turnstile_site_key_missing"),
+        )
+        val apiKey = configuration.webRegistrationApiKey.requireConfigured("web_registration_api_key_missing")
+        val countryCode = request.countryCode.filter(Char::isDigit)
+        val phoneLocal = request.phone.filter(Char::isDigit)
+        val identity = "$countryCode:$phoneLocal"
+        val idempotencyKey = registrationKeyFor(identity)
+        val payload = webPostJson(
+            endpoint = configuration.webRegistrationEndpoint(),
+            apiKey = apiKey,
+            body = buildWebRegistrationRequest(
+                request = request,
+                clientInstanceId = ensureWebClientInstanceId(),
+                idempotencyKey = idempotencyKey,
+                challengeToken = challengeToken,
+            ).toString(),
+        )
+        require(Json.parseToJsonElement(payload).jsonObject["status"]?.jsonPrimitive?.contentOrNull == "accepted") {
+            "web_registration_unavailable"
+        }
+        login(request.countryCode, request.phone, request.password).getOrThrow().also {
+            preferences.remove(PendingRegistrationIdentity)
+            preferences.remove(PendingRegistrationKey)
+        }
+    }
 
     override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> = runCatching {
         require(countryCode.any(Char::isDigit)) { "web_auth_country_code_required" }
@@ -213,7 +230,36 @@ class WebAuthRepository(
         activeSession = refreshed
         return refreshed
     }
+
+    private suspend fun acceptAuthenticationPayload(payload: String): AuthSession {
+        val session = payload.toWebAuthSession()
+        val webSessionToken = payload.webSessionToken()
+        session.persist(preferences, webSessionToken)
+        activeSession = WebLocalSession(
+            accessToken = session.accessToken ?: session.token,
+            refreshToken = session.refreshToken.orEmpty(),
+            webSessionToken = webSessionToken,
+            userId = session.userId,
+            expiresAt = session.expiresAt ?: currentEpochSeconds(),
+        )
+        return session
+    }
+
+    private suspend fun registrationKeyFor(identity: String): String {
+        val storedIdentity = preferences.getString(PendingRegistrationIdentity)
+        val storedKey = preferences.getString(PendingRegistrationKey)
+        if (storedIdentity == identity && !storedKey.isNullOrBlank()) {
+            return storedKey
+        }
+        return newWebRegistrationIdempotencyKey().also {
+            preferences.putString(PendingRegistrationIdentity, identity)
+            preferences.putString(PendingRegistrationKey, it)
+        }
+    }
 }
+
+private const val PendingRegistrationIdentity = "web.auth.registration.identity"
+private const val PendingRegistrationKey = "web.auth.registration.idempotency_key"
 
 data class WebPushCredentials(
     val accessToken: String,
@@ -266,6 +312,9 @@ private fun String?.requireConfigured(error: String): String =
 
 private fun WebRuntimeConfiguration.authBridgeEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-auth-bridge"
+
+private fun WebRuntimeConfiguration.webRegistrationEndpoint(): String =
+    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-register"
 
 internal fun WebRuntimeConfiguration.webPushEndpoint(): String =
     supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-web-push"
@@ -323,6 +372,60 @@ private fun JsonObject.requiredString(name: String): String =
 private fun JsonObject.stringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
 private fun countryCodeDigits(value: String?): String = value.orEmpty().filter(Char::isDigit)
+
+internal fun buildWebRegistrationRequest(
+    request: RegisterAccountRequest,
+    clientInstanceId: String,
+    idempotencyKey: String,
+    challengeToken: String,
+): JsonObject = buildJsonObject {
+    put("version", 1)
+    put("channel", "web")
+    put("display_name", request.displayName.trim())
+    put("neighborhood", request.neighborhood.trim())
+    put("country_code", request.countryCode.filter(Char::isDigit))
+    put("phone_local", request.phone.filter(Char::isDigit))
+    put("password", request.password)
+    put("secret_question", request.secretQuestion.trim())
+    put("secret_answer", request.secretAnswer.trim())
+    put("client_instance_id", clientInstanceId)
+    put("idempotency_key", idempotencyKey)
+    put("challenge_token", challengeToken)
+}
+
+private suspend fun requestTurnstileChallenge(siteKey: String): String = suspendCoroutine { continuation ->
+    requestTurnstileWidget(
+        siteKey.toJsString(),
+        { token -> continuation.resume(token.toString()) },
+        { continuation.resumeWith(Result.failure(IllegalStateException("turnstile_challenge_failed"))) },
+    )
+}
+
+@JsFun("""(siteKey, resolve, reject) => {
+  let attempts = 0;
+  const run = () => {
+    if (!globalThis.turnstile) {
+      if (++attempts < 40) { setTimeout(run, 250); return; }
+      reject(); return;
+    }
+    const node = document.createElement('div');
+    node.style.position = 'fixed'; node.style.left = '-10000px';
+    document.body.appendChild(node);
+    const widgetId = globalThis.turnstile.render(node, {
+      sitekey: siteKey, size: 'invisible', execution: 'execute', action: 'register_web',
+      callback: token => { node.remove(); resolve(token); },
+      'error-callback': () => { node.remove(); reject(); },
+      'expired-callback': () => { node.remove(); reject(); }
+    });
+    globalThis.turnstile.execute(widgetId);
+  };
+  run();
+}""")
+private external fun requestTurnstileWidget(
+    siteKey: JsString,
+    resolve: (JsString) -> Unit,
+    reject: () -> Unit,
+)
 
 private const val WebSessionRefreshLeewaySeconds = 60L
 
@@ -384,6 +487,19 @@ internal fun ensureWebClientInstanceId(): String = js(
         (String(Date.now()) + '-' + Math.random().toString(36).slice(2));
       globalThis.localStorage?.setItem(key, created);
       return created;
+    })()
+    """,
+)
+
+private fun newWebRegistrationIdempotencyKey(): String = js(
+    """
+    (() => {
+      const random = globalThis.crypto?.randomUUID?.();
+      if (random) return random.replaceAll('-', '');
+      if (!globalThis.crypto?.getRandomValues) throw new Error('web_registration_secure_random_unavailable');
+      const bytes = new Uint8Array(24);
+      globalThis.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
     })()
     """,
 )

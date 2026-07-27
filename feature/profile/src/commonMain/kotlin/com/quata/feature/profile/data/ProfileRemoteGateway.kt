@@ -20,6 +20,9 @@ interface ProfileRemoteGateway {
     ): List<String>
 
     suspend fun saveProfile(profileId: String, patch: Map<String, String?>)
+    suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
+        error("profile_recovery_secret_update_unavailable")
+    }
     suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>)
 }
 

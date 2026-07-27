@@ -2,6 +2,8 @@ package com.quata.core.di
 
 import android.content.Context
 import com.quata.core.auth.GoogleAuthHelper
+import com.quata.core.auth.AndroidRegistrationChallengeService
+import com.quata.core.auth.RegistrationClientIdentityStore
 import com.quata.core.camera.CameraCaptureManager
 import com.quata.core.camera.ImageCompressor
 import com.quata.core.camera.ImagePickerManager
@@ -110,6 +112,8 @@ class AppContainer(context: Context) {
         supabaseApi = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager
     )
+    val registrationChallengeService = AndroidRegistrationChallengeService()
+    val registrationClientIdentityStore = RegistrationClientIdentityStore(appContext)
     val chatRemoteDataSource = ChatRemoteDataSource(networkModule.supabaseCommunityApi)
     val moderationRepository = ModerationRepository(
         api = networkModule.supabaseCommunityApi,
@@ -136,7 +140,9 @@ class AppContainer(context: Context) {
         supabaseApi = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager,
         googleAuthHelper = GoogleAuthHelper(),
-        pushTokenManager = pushTokenManager
+        pushTokenManager = pushTokenManager,
+        registrationChallengeService = registrationChallengeService,
+        registrationIdentityStore = registrationClientIdentityStore
     )
 
     val feedRepository: FeedRepository = FeedRepositoryImpl(
