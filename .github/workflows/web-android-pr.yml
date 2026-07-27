@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           test -x "$CHROME_BIN"
           "$CHROME_BIN" --version
-          bash ./gradlew :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest :feature:auth:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :feature:externalshare:wasmJsBrowserTest :feature:feed:wasmJsBrowserTest :feature:neighborhoods:wasmJsBrowserTest :feature:notifications:wasmJsBrowserTest :feature:official:wasmJsBrowserTest :feature:profile:wasmJsBrowserTest :feature:whatsnew:wasmJsBrowserTest --no-daemon --stacktrace --console=plain \
+          bash ./gradlew :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest :feature:auth:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :feature:externalshare:wasmJsBrowserTest :feature:feed:wasmJsBrowserTest :feature:neighborhoods:wasmJsBrowserTest :feature:notifications:wasmJsBrowserTest :feature:official:wasmJsBrowserTest :feature:profile:wasmJsBrowserTest :feature:whatsnew:wasmJsBrowserTest -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1 --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/web-ci/wasm-test.log
 
       - name: Build Wasm production distribution
