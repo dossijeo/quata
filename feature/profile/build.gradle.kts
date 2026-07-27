@@ -9,7 +9,7 @@ kotlin {
     androidLibrary { namespace = "com.quata.feature.profile"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
     js(IR) { browser() }
-    wasmJs { browser() }
+    wasmJs { browser(); nodejs() }
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
@@ -21,6 +21,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
         iosMain.dependencies { }

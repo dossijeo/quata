@@ -13,7 +13,7 @@
  */
 import { createServer } from 'node:http';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -36,6 +36,8 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+const turnstileScriptPattern = 'https://challenges.cloudflare.com/turnstile/*';
+const turnstileStubSource = 'globalThis.turnstile ??= { render: () => "quata-smoke-turnstile", execute: () => {}, reset: () => {}, remove: () => {} };';
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
@@ -48,6 +50,9 @@ const browserMetrics = {
     // Never persist an absolute workstation path in an evidence report.
     distribution: relativeProcessDirectory(distribution),
     browser: null,
+    advisories: {
+        chromeGpuReadPixelsWarnings: 0,
+    },
     // Each sample uses a disposable Chrome profile on the current machine. It
     // is evidence for regressions, not a cross-machine performance SLO.
     navigations: [],
@@ -69,6 +74,7 @@ let chrome;
 const browserLogs = [];
 const networkFailures = [];
 const unexpectedDocmentisNetworkRequests = [];
+let stubbedTurnstileRequests = 0;
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory);
@@ -95,7 +101,10 @@ try {
             const isLocalDocmentisLicenseNotice = entry.level === 'warning' && entry.text.startsWith(
                 '[@docMentis/udoc-viewer] This document is opened with free/unlicensed docMentis usage.',
             );
-            if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe && !isLocalDocmentisLicenseNotice) {
+            const isChromeGpuReadPixelsPerformanceWarning = entry.level === 'warning' && /^\[\.WebGL-0x[0-9a-f]+\]GL Driver Message \(OpenGL, Performance, GL_CLOSE_PATH_NV, High\): GPU stall due to ReadPixels(?: \(this message will no longer repeat\))?$/i.test(entry.text);
+            if (isChromeGpuReadPixelsPerformanceWarning) {
+                browserMetrics.advisories.chromeGpuReadPixelsWarnings += 1;
+            } else if ((entry.level === 'error' || entry.level === 'warning') && !isChromeWebGlProbe && !isLocalDocmentisLicenseNotice) {
                 browserLogs.push(`${entry.level}: ${entry.text}`);
             }
         });
@@ -110,6 +119,22 @@ try {
         await cdp.send('Runtime.enable');
         await cdp.send('Log.enable');
         await cdp.send('Network.enable');
+        if (options.docmentis) {
+            await cdp.send('Fetch.enable', { patterns: [{ urlPattern: turnstileScriptPattern, requestStage: 'Request' }] });
+            cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
+                if (request.url.startsWith('https://challenges.cloudflare.com/turnstile/')) {
+                    stubbedTurnstileRequests += 1;
+                    cdp.send('Fetch.fulfillRequest', {
+                        requestId,
+                        responseCode: 200,
+                        responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
+                        body: Buffer.from(turnstileStubSource).toString('base64'),
+                    }).catch(() => {});
+                } else {
+                    cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' }).catch(() => {});
+                }
+            });
+        }
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
 
@@ -138,6 +163,9 @@ try {
         if (unexpectedDocmentisNetworkRequests.length > 0) {
             failures.push(`DocMentis smoke made an external network request(s):\n${unexpectedDocmentisNetworkRequests.join('\n')}`);
         }
+        if (options.docmentis && stubbedTurnstileRequests > 0 && process.env.CI !== 'true') {
+            failures.push('Turnstile stubbing is restricted to the CI DocMentis smoke harness.');
+        }
     } finally {
         cdp.close();
     }
@@ -161,6 +189,8 @@ try {
 function isUnexpectedDocmentisNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
     try {
         const parsed = new URL(url);
+        // This URL is not allowed through: Fetch fulfills it with the local smoke-only stub above.
+        if (parsed.href.startsWith('https://challenges.cloudflare.com/turnstile/')) return false;
         return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
     } catch {
         return true;
@@ -172,6 +202,7 @@ if (failures.length > 0) {
     process.exitCode = 1;
 } else {
     console.log(`Web browser smoke passed for ${routeFragments.join(', ')}.`);
+    console.log(`Advisory Chrome GPU ReadPixels warnings: ${browserMetrics.advisories.chromeGpuReadPixelsWarnings}.`);
 }
 }
 
@@ -421,7 +452,8 @@ async function startStaticServer(rootDirectory, extraFiles) {
                 response.end(bytes);
                 return;
             }
-            if (!candidate.startsWith(`${root}\\`) && candidate !== root) {
+            const relativeCandidate = relative(root, candidate);
+            if (relativeCandidate === '..' || relativeCandidate.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(relativeCandidate)) {
                 response.writeHead(403).end();
                 return;
             }
@@ -466,15 +498,28 @@ function contentType(path) {
 
 async function launchChrome(executable, profile) {
     const debugPort = await availablePort();
+    const chromeStderr = [];
     const process = spawn(executable, [
-        '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
-        `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`,
+        '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+        '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
+        `--user-data-dir=${profile}`, '--remote-debugging-address=127.0.0.1', `--remote-debugging-port=${debugPort}`,
         'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    process.stderr.setEncoding('utf8');
+    process.stderr.on('data', chunk => chromeStderr.push(chunk));
     const startupFailure = new Promise((_, reject) =>
         process.once('error', error => reject(new Error(`Could not start Chrome (${executable}): ${error.message}`))),
     );
-    await Promise.race([waitForDebugger(debugPort), startupFailure]);
+    const prematureExit = new Promise((_, reject) =>
+        process.once('exit', (code, signal) => reject(new Error(`Chrome exited before exposing DevTools (code=${code ?? 'null'}, signal=${signal ?? 'none'}).`))),
+    );
+    try {
+        await Promise.race([waitForDebugger(debugPort), startupFailure, prematureExit]);
+    } catch (error) {
+        await stopProcess(process);
+        const stderr = chromeStderr.join('').trim();
+        throw new Error(`${error instanceof Error ? error.message : String(error)}${stderr ? ` Chrome stderr: ${stderr}` : ''}`);
+    }
     return { process, debugPort };
 }
 
@@ -491,14 +536,14 @@ async function availablePort() {
 }
 
 async function waitForDebugger(port) {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
         try {
             const response = await fetch(`http://127.0.0.1:${port}/json/version`);
             if (response.ok) return;
         } catch { /* Chrome is still starting. */ }
         await delay(100);
     }
-    throw new Error('Chrome did not expose its DevTools endpoint within eight seconds.');
+    throw new Error('Chrome did not expose its DevTools endpoint within twenty seconds.');
 }
 
 async function waitForPageTarget(port) {

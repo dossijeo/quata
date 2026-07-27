@@ -8,7 +8,7 @@ plugins {
 kotlin {
     androidLibrary { namespace = "com.quata.feature.whatsnew"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
-    wasmJs { browser() }
+    wasmJs { browser(); nodejs() }
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))

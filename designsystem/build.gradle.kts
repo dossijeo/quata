@@ -18,7 +18,15 @@ kotlin {
         browser()
     }
     wasmJs {
-        browser()
+        browser {
+            testTask {
+                useKarma {
+                    useChromeHeadless()
+                    useConfigDirectory(rootProject.file("web/karma.config.d"))
+                }
+            }
+        }
+        nodejs()
     }
 
     sourceSets {

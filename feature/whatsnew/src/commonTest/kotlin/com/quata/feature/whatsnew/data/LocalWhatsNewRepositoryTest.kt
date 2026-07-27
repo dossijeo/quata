@@ -23,8 +23,10 @@ class LocalWhatsNewRepositoryTest {
     fun localizationFallsBackToLanguageThenEnglish() = runTest {
         val repository = LocalWhatsNewRepository(catalog(), MemorySeenStore(UserReleaseState(null, null)))
 
-        assertEquals("Segunda version", repository.getReleaseHistory(listOf("es-MX")).getOrThrow().first().localizedNote)
-        assertEquals("Second release", repository.getReleaseHistory(listOf("fr-FR")).getOrThrow().first().localizedNote)
+        val release = repository.getReleaseHistory(listOf("es-MX")).getOrThrow().first { it.releaseId == "ios-2" }
+        assertEquals("Segunda version", release.localizedNote)
+        assertEquals("Segunda version", repository.getReleaseHistory(listOf(" ES_mx ")).getOrThrow().first { it.releaseId == "ios-2" }.localizedNote)
+        assertEquals("Second release", repository.getReleaseHistory(listOf("fr_FR")).getOrThrow().first { it.releaseId == "ios-2" }.localizedNote)
     }
 
     @Test
