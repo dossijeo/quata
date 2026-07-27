@@ -81,6 +81,25 @@ assert.equal(inspectBackendRequest({
 assert.equal(inspectBackendRequest({
   url: `${base}/rest/v1/community_posts?select%3D*`, method: 'GET', headers: { apikey: 'public' }, applicationOrigin: app,
 }, base).reason, 'supabase_credentials_forbidden', 'encoded query delimiter fails closed');
+for (const query of [
+  'x=%2526access_token%253Dx',
+  'x=%252526access_token%25253Dx',
+  'x=%2523access_token%253Dx',
+  'x=%2526AcCeSs_ToKeN%253Dx',
+]) {
+  assert.equal(inspectBackendRequest({
+    url: `${base}/rest/v1/community_posts?${query}`, method: 'GET', headers: { apikey: 'public' }, applicationOrigin: app,
+  }, base).reason, 'supabase_credentials_forbidden', `nested query delimiter fails closed: ${query}`);
+}
+for (const query of [
+  'select=id%2Cimage_url&limit=20',
+  'id=eq.post_7&order=created_at.desc',
+  'title=eq.Hola%20mundo&offset=0',
+]) {
+  assert.equal(inspectBackendRequest({
+    url: `${base}/rest/v1/community_posts?${query}`, method: 'GET', headers: { apikey: 'public' }, applicationOrigin: app,
+  }, base).allowed, true, `ordinary public PostgREST query remains allowed: ${query}`);
+}
 assert.equal(inspectBackendRequest({
   url: `${app}/bundle.js`, method: 'GET', headers: {}, applicationOrigin: app,
 }, base).allowed, true, 'the local application origin remains permitted');
