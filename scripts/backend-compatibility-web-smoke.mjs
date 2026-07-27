@@ -102,6 +102,7 @@ try {
     await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
     await page.waitForFunction((id) => localStorage.getItem("web.navigation.route") === `post/${id}`, observedPostId, { timeout: 30_000 });
+    await page.waitForFunction((id) => document.documentElement.getAttribute("data-quata-feed-detail") === id, observedPostId, { timeout: 30_000 });
     await page.waitForTimeout(1_000);
     const detailResponses = backendResponses.slice(start);
     checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: detailResponses.filter((event) => event.query === `id=eq.${observedPostId}`).map(({ table, method, status, query, payloadPostId }) => ({ table, method, status, query, payloadMatch: payloadPostId === observedPostId })), passed: detailEvidence(detailResponses, observedPostId) });
