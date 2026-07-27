@@ -369,9 +369,9 @@ private fun QuataWebApp(
 }
 
 /**
- * Every authenticated Web vertical that can persist data must be reachable from the normal
- * navigation, not only through a hand-written hash URL. In particular, Composer performs a real
- * authenticated PostgREST write and is intentionally exposed alongside the read routes.
+ * Every authenticated Web vertical remains reachable from normal navigation, not only through a
+ * hand-written hash URL. Composer exposes its local shell here, while publication stays
+ * fail-closed until the actor, wall-membership and Storage authorization contract is verified.
  */
 internal val webNavigationItems = listOf(
     QuataNavigationItem("", "Inicio", Icons.Filled.Home),
