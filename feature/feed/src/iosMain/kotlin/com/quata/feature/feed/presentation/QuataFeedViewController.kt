@@ -1,6 +1,10 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.quata.core.capability.DefaultFeatureCapabilityText
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
@@ -78,10 +82,17 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
  */
 fun QuataIosMigrationStatusViewController(): UIViewController = ComposeUIViewController {
     QuataTheme {
+        var acknowledged by remember { mutableStateOf(false) }
         FeedStatusContent(
-            message = "Quata para iOS necesita una configuración pública válida para iniciar.",
-            retryLabel = "Entendido",
-            onRetry = {},
+            message = if (acknowledged) {
+                "La configuración pública sigue sin estar disponible."
+            } else {
+                "Quata para iOS necesita una configuración pública válida para iniciar."
+            },
+            retryLabel = if (acknowledged) "Comprobar de nuevo" else "Entendido",
+            onRetry = { acknowledged = true },
+            messageTag = "migration-message",
+            actionTag = "migration-action",
         )
     }
 }

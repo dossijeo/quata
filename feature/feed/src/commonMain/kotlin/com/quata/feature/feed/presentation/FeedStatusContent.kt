@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.QuataSecondaryButton
 
@@ -20,16 +21,18 @@ fun FeedStatusContent(
     message: String,
     retryLabel: String,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    messageTag: String? = null,
+    actionTag: String? = null,
 ) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(message, color = MaterialTheme.colorScheme.onBackground)
+            Text(message, color = MaterialTheme.colorScheme.onBackground, modifier = messageTag?.let { Modifier.testTag(it) } ?: Modifier)
             Spacer(Modifier.height(12.dp))
-            QuataSecondaryButton(text = retryLabel, onClick = onRetry)
+            QuataSecondaryButton(text = retryLabel, onClick = onRetry, modifier = actionTag?.let { Modifier.testTag(it) } ?: Modifier)
         }
     }
 }

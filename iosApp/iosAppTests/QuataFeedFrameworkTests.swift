@@ -7,10 +7,18 @@ import QuataShared
 import QuickLookThumbnailing
 import AVFoundation
 import CoreLocation
+import Metal
 import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testSimulatorExposesMetalDevice() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice(), "The iOS Simulator did not expose a Metal device.")
+        let attachment = XCTAttachment(string: "Metal device: \(device.name)")
+        attachment.name = "simulator-metal-device.txt"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
     func testApnsAuthorizationRegistersOnlyForGrantedSystemStates() {
         XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.notDetermined))
         XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.denied))
