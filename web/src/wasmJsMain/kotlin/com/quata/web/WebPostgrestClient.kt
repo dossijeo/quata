@@ -155,7 +155,10 @@ internal fun recordWebFeedReadState(table: String, state: String, errorCode: Str
     writeWebFeedReadState(state, errorCode)
 }
 
-private fun writeWebFeedReadState(state: String, errorCode: String?): Unit = js("globalThis.localStorage?.setItem('web.feed.remote_read_state', state); globalThis.localStorage?.setItem('web.feed.remote_read_error', errorCode || '')")
+// `js` used from an expression-bodied Kotlin function must itself be one JavaScript expression.
+// Keep both diagnostics in a comma expression so the Wasm production backend never receives two
+// statements where it is expecting one expression.
+private fun writeWebFeedReadState(state: String, errorCode: String?): Unit = js("(globalThis.localStorage?.setItem('web.feed.remote_read_state', state), globalThis.localStorage?.setItem('web.feed.remote_read_error', errorCode || ''))")
 
 internal fun recordWebFeedCollectorStarted(): Unit = js("globalThis.localStorage?.setItem('web.feed.collector_started', 'true')")
 
