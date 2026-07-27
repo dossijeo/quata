@@ -4,14 +4,14 @@ import com.quata.feature.profile.domain.ProfileViewerResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class RemoteProfileViewerRepositoryTest {
     @Test
-    fun `member viewer keeps selected id and marks only session owner as current`() = runBlocking {
+    fun `member viewer keeps selected id and marks only session owner as current`() = runTest {
         val result = RemoteProfileViewerRepository(
             remote = FakeGateway(ProfileRemoteRecord(id = "member-42", displayName = " Member ", neighborhood = " Centro ")),
             sessions = FakeSessionProvider(ProfileSession(profileId = "self-1", displayName = "Self")),
@@ -25,7 +25,7 @@ class RemoteProfileViewerRepositoryTest {
     }
 
     @Test
-    fun `unreadable member profile is unavailable rather than fabricated`() = runBlocking {
+    fun `unreadable member profile is unavailable rather than fabricated`() = runTest {
         val result = RemoteProfileViewerRepository(
             remote = FakeGateway(null),
             sessions = FakeSessionProvider(ProfileSession(profileId = "self-1", displayName = "Self")),
