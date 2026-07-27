@@ -96,12 +96,22 @@ async function catalogFingerprint(client, version) {
   const settings = version === "20260726171001" || version === "20260726171005"
     ? { table: "community_comments", funcs: ["public.quata_chat_auth_profile_id()", "public.quata_current_profile_is_admin()"] }
     : { table: "official_post_likes", funcs: ["public.quata_guard_official_post_likes()", "public.quata_current_profile_id()", "public.quata_current_profile_is_admin()", "public.quata_current_role_is_service()"] };
+  // 001/171005 fingerprints are archived gate inputs. Preserve their original
+  // JSON shape byte-for-byte; ACL/trigger-state v2 is deliberately scoped to
+  // 002, whose release safety review introduced those invariants.
+  const legacy = version === "20260726171001" || version === "20260726171005";
+  const triggers = legacy
+    ? "jsonb_agg(pg_get_triggerdef(t.oid, true) order by t.tgname)"
+    : "jsonb_agg(jsonb_build_object('def', pg_get_triggerdef(t.oid, true), 'enabled', t.tgenabled) order by t.tgname)";
+  const functionAcl = legacy
+    ? "coalesce(p.proacl::text, '')"
+    : "coalesce((select jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable) from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '[]'::jsonb)";
   const { rows } = await client.query(`
     select jsonb_build_object(
       'table', jsonb_build_object('rls', c.relrowsecurity, 'forceRls', c.relforcerowsecurity, 'acl', coalesce(c.relacl::text, '')),
       'policies', coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname) from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb),
-      'triggers', coalesce((select jsonb_agg(jsonb_build_object('def', pg_get_triggerdef(t.oid, true), 'enabled', t.tgenabled) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
-      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce((select jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable) from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '[]'::jsonb), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
+      'triggers', coalesce((select ${triggers} from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
+      'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', ${functionAcl}, 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
     ) as fingerprint_source
     from pg_class c where c.oid = ('public.' || $1)::regclass`, [settings.table, settings.funcs]);
   if (rows.length !== 1) throw new Error(`serial_release_precondition_table_missing:${settings.table}`);
