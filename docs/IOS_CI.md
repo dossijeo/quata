@@ -197,6 +197,22 @@ URL/ruta/host; no acredita restauración de Keychain, autenticación, RLS,
 PostgREST, APNs ni una navegación autenticada E2E. Esas validaciones siguen
 siendo carriles separados y requieren sus dependencias operativas.
 
+## Deep links de arranque en UI tests
+
+`QuataIosHostUITests` inicia una fixture autenticada inerte con los argumentos
+`-quata-ui-test-fixture authenticated` y `-quata-ui-test-deep-link <URL>`.
+La fixture no interpreta fragmentos en Swift: entrega el URL a
+`IosDeepLinkDispatcher` y a `IosAuthenticatedRouteDispatcher`, por lo que el
+parser compartido Kotlin y la conversiÃ³n a las rutas UIKit se ejercitan en el
+proceso de la aplicaciÃ³n. La prueba cubre los arranques en frÃ­o de Chat, Feed y
+Official y comprueba que no se presenta una superficie Compose residual.
+
+Las superficies de destino de esta fixture son controladores UIKit sin sesiÃ³n,
+repositorio ni red. La evidencia demuestra sÃ³lo el contrato determinista de
+URL/ruta/host; no acredita restauraciÃ³n de Keychain, autenticaciÃ³n, RLS,
+PostgREST, APNs ni una navegaciÃ³n autenticada E2E. Esas validaciones siguen
+siendo carriles separados y requieren sus dependencias operativas.
+
 La CI sigue en Apple Silicon con `iosSimulatorArm64`. En un Mac Intel usa
 `iosX64`; no cambies el `ARCHS=arm64` de CI ni del archive de dispositivo.
 
