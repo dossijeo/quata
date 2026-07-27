@@ -35,9 +35,13 @@ on:
       - "scripts/web-test-contract.test.mjs"
       - "scripts/web-chat-browser-e2e-report.test.mjs"
       - "scripts/web-browser-metrics.test.mjs"
+      - "scripts/web-authenticated-browser-e2e.mjs"
+      - "scripts/web-authenticated-browser-e2e.test.mjs"
+      - "scripts/run-web-authenticated-browser-e2e.ps1"
       - "package.json"
       - "package-lock.json"
       - "docs/CI_WEB_ANDROID.md"
+      - "docs/WEB_AUTHENTICATED_BROWSER_E2E.md"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
 
@@ -79,6 +83,15 @@ jobs:
       - name: Install pinned browser E2E dependencies
         shell: bash
         run: npm ci --ignore-scripts
+
+      - name: Run authenticated browser contract
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/web-ci
+          npm run test:web-auth-browser-contract \
+            2>&1 | tee build/reports/web-ci/auth-browser-contract.log
 
       - name: Configure Chrome launcher for Karma
         shell: bash
@@ -165,8 +178,8 @@ jobs:
             --report build/reports/wasm-bundle/wasm-bundle-report.json \
             2>&1 | tee build/reports/web-ci/wasm-bundle-report.log
 
-      - name: Smoke production launcher and DocMentis in Chrome
-        timeout-minutes: 10
+      - name: Smoke production launcher, DocMentis and Auth in Chrome
+        timeout-minutes: 12
         shell: bash
         run: |
           set -euo pipefail
@@ -181,6 +194,10 @@ jobs:
           QUATA_CHROME_PATH="${{ steps.chrome.outputs.chrome-path }}" \
             node scripts/web-share-target-pwa-e2e.mjs \
             2>&1 | tee build/reports/web-ci/share-target-e2e.log
+          node scripts/web-authenticated-browser-e2e.mjs \
+            --chrome "${{ steps.chrome.outputs.chrome-path }}" \
+            --out build/reports/web-ci/authenticated-browser-e2e.json \
+            2>&1 | tee build/reports/web-ci/authenticated-browser-e2e.log
 
       - name: Upload Web/Wasm JUnit, smoke, logs and distribution
         if: always()
