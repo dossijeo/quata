@@ -106,7 +106,7 @@ const report = {
   failedBackendRequests,
   blockedRequests,
   backendResponses,
-  mutationPolicy: "Only credential-free navigation and public GET responses are accepted; any POST/PATCH/PUT/DELETE or bearer authorization fails the smoke. The disposable browser profile is removed.",
+  mutationPolicy: "Only credential-free public GET responses are accepted; every other Supabase method or credential fails the smoke. The disposable browser profile is removed.",
 };
 console.log(JSON.stringify(report, null, 2));
 process.exitCode = report.status === "passed" ? 0 : 1;
