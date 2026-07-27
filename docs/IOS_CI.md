@@ -159,6 +159,16 @@ aprovisionamiento como una fase independiente. Vease
 
 ## Mac Intel (simulador x86_64)
 
+## Compose 1.10 accessibility evidence
+
+Compose Multiplatform 1.10 renders the migration status screen through the real
+Compose controller and the iOS lane proves a single UIKit composition root,
+Simulator Metal availability, screenshots, and a visible state transition after
+a coordinate tap on the rendered Compose action. Its iOS accessibility bridge
+does not project descendant Compose semantics into XCTest/VoiceOver on this
+toolchain. The lane therefore deliberately does not claim descendant UIKit
+accessibility coverage and does not install UIKit accessibility proxies.
+
 La CI sigue en Apple Silicon con `iosSimulatorArm64`. En un Mac Intel usa
 `iosX64`; no cambies el `ARCHS=arm64` de CI ni del archive de dispositivo.
 
