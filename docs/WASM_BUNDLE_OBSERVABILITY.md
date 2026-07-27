@@ -100,11 +100,60 @@ repeticiones en runner controlado, con version de Chrome y hardware fijados.
 Kotlin/Compose invoca `wasm-opt` internamente durante la distribucion. No hay
 un timeout Gradle estable y soportado que permita interrumpir exclusivamente
 esa herramienta sin matar el build entero. `run-wasm-production-observed.ps1`
-es el workaround seguro: sigue el arbol Gradle/JVM/Node, conserva stdout,
-stderr, CPU, memoria y artefactos en `gradle-production-observation.json`, y
-detiene **solo el proceso de diagnostico** por inactividad o limite explicito.
+crea el lanzador PowerShell suspendido, lo asigna a un Windows Job Object con
+`KILL_ON_JOB_CLOSE` y solo entonces lo reanuda. Gradle, JVM, Node y cualquier
+descendiente heredan esa pertenencia antes de poder ejecutar. El script conserva
+stdout, stderr, CPU, memoria y artefactos en
+`gradle-production-observation.json`, y detiene **solo el Job Object de ese
+diagnostico** por inactividad o limite explicito. El polling de procesos aporta
+metricas; no decide ownership ni autoriza terminaciones por PID.
+
+El cierre del Job Object se ejecuta en `finally` en salida correcta, fallo del
+comando, timeout, cancelacion y error del propio watchdog. Si Windows devuelve
+estado desconocido, `AccessDenied`, falla una consulta nativa o no confirma que
+el Job Object quedo vacio, el resultado falla de forma cerrada y no certifica
+el bundle. `KILL_ON_JOB_CLOSE` queda como backstop del kernel si el cleanup
+explicito se interrumpe.
 No se debe cambiar `wasmJs {}` para desactivar optimizacion o bajar la
 toolchain.
+
+Antes de cambiar ese watchdog se puede ejecutar su contrato local, sin lanzar
+Gradle ni modificar el bundle:
+
+```powershell
+.\scripts\run-wasm-production-observed.ps1 -ContractTest
+```
+
+El contrato ejecuta rutas reproducibles de exito, fallo del comando, timeout,
+cancelacion, error interno y estado `unknown/AccessDenied`. Cada ruta crea un
+hijo duradero y exige que el Job Object quede vacio. Tambien mantiene un proceso
+ajeno durante toda la suite y presenta una identidad PID/hora obsoleta: ambos
+sobreviven porque el cleanup solo opera sobre pertenencia kernel al Job Object,
+no sobre PPID, PID observado o una identidad reconstruida despues.
+
+Las negativas nativas usan seams deterministas del interop embebido. Una fuerza
+`AssignProcessToJobObject` a devolver el equivalente a Win32 error 5 despues de
+crear los handles de Job, proceso suspendido e hilo; el contrato exige una sola
+clausura por handle y confirma `TerminateProcess` mas espera del proceso
+suspendido. Otra fuerza error 5 en `QueryInformationJobObject` y exige resultado
+fail-closed, `TerminateJobObject`, Job vacio y una sola clausura por handle. Es
+evidencia de esas ramas de cleanup, no una afirmacion de haber reproducido en
+esta maquina todas las politicas posibles de nested Jobs de un runner externo.
+
+La ruta de cancelacion no usa un booleano simulado: inicia el script en un
+runspace, espera un hijo real y llama a `PowerShell.Stop()`. El runspace debe
+terminar con `PipelineStoppedException`, mientras un marcador escrito por el
+mismo `finally` de produccion confirma Job vacio y el hijo deja de existir. La
+identidad PID/hora obsoleta se pasa al cleanup productivo como hint diagnostico;
+el contrato confirma que fue recibida e ignorada y que el proceso ajeno sigue
+vivo.
+
+La validacion de este cambio se realizo con Windows PowerShell 5.1. PowerShell 7
+no estaba instalado en el entorno de validacion, por lo que no se afirma aqui
+que esa edicion haya sido ejecutada. El script conserva sintaxis compatible con
+5.1 y rechaza plataformas no Windows antes de intentar el interop; una futura
+afirmacion sobre PowerShell 7 requiere ejecutar este mismo contrato con
+`pwsh.exe`, sin instalar herramientas globales como parte del gate.
 
 Al registrar una incidencia, separar estos hitos del log:
 
