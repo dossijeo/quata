@@ -118,6 +118,11 @@ drop schema if exists auth cascade;
 drop schema if exists supabase_migrations cascade;
 "@
     Fixture
+    foreach ($mode in @("disable trigger quata_guard_official_post_likes_trg", "enable always trigger quata_guard_official_post_likes_trg", "enable replica trigger quata_guard_official_post_likes_trg")) {
+        Sql "alter table public.official_post_likes $mode;"
+        $triggerDriftDry = Exec @("--action", "dry-run"); Assert-True ($triggerDriftDry.code -ne 0 -and ($triggerDriftDry.output -join "`n") -match "guard_anchor_mismatch") "trigger mode drift was accepted by dry-run: $mode"
+        Sql "alter table public.official_post_likes enable trigger quata_guard_official_post_likes_trg;"
+    }
 }
 try {
     New-Item -ItemType Directory -Path $temp | Out-Null

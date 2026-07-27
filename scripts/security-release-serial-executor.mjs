@@ -100,7 +100,7 @@ async function catalogFingerprint(client, version) {
     select jsonb_build_object(
       'table', jsonb_build_object('rls', c.relrowsecurity, 'forceRls', c.relforcerowsecurity, 'acl', coalesce(c.relacl::text, '')),
       'policies', coalesce((select jsonb_agg(jsonb_build_object('name', p.policyname, 'cmd', p.cmd, 'roles', p.roles, 'qual', p.qual, 'check', p.with_check) order by p.policyname) from pg_policies p where p.schemaname = 'public' and p.tablename = $1), '[]'::jsonb),
-      'triggers', coalesce((select jsonb_agg(pg_get_triggerdef(t.oid, true) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
+      'triggers', coalesce((select jsonb_agg(jsonb_build_object('def', pg_get_triggerdef(t.oid, true), 'enabled', t.tgenabled) order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '[]'::jsonb),
       'functions', coalesce((select jsonb_agg(jsonb_build_object('identity', p.oid::regprocedure::text, 'def', pg_get_functiondef(p.oid), 'acl', coalesce((select jsonb_agg(jsonb_build_object('grantee', case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, 'grantor', case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, 'privilege', a.privilege_type, 'grantable', a.is_grantable) order by case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end, case when a.grantor = 0 then 'PUBLIC' else pg_get_userbyid(a.grantor) end, a.privilege_type, a.is_grantable) from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '[]'::jsonb), 'definer', p.prosecdef) order by p.oid::regprocedure::text) from pg_proc p where p.oid = any($2::regprocedure[])), '[]'::jsonb)
     ) as fingerprint_source
     from pg_class c where c.oid = ('public.' || $1)::regclass`, [settings.table, settings.funcs]);
@@ -115,7 +115,10 @@ async function assertApprovedGuardAnchor(client, expectedDefiner = null) {
       p.prosecdef as definer, l.lanname as language, pg_get_function_result(p.oid) as result,
       pg_get_function_arguments(p.oid) as arguments, p.provolatile as volatility,
       p.proisstrict as strict, p.proleakproof as leakproof, p.proparallel as parallel,
-      p.prokind as kind, p.proconfig::text as config, pg_get_userbyid(p.proowner) as owner
+      p.prokind as kind, p.proconfig::text as config, pg_get_userbyid(p.proowner) as owner,
+      exists(select 1 from pg_trigger t where t.tgrelid = 'public.official_post_likes'::regclass
+        and t.tgname = 'quata_guard_official_post_likes_trg'
+        and t.tgfoid = p.oid and t.tgenabled = 'O' and not t.tgisinternal) as trigger_enabled
     from pg_proc p join pg_language l on l.oid = p.prolang
     where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure`);
   const g = rows[0];
@@ -123,7 +126,7 @@ async function assertApprovedGuardAnchor(client, expectedDefiner = null) {
   if (g?.body !== approvedGuardAnchor.body || g.definition !== expectedDefinition || g.language !== "plpgsql" || g.result !== "trigger"
       || g.arguments !== "" || g.volatility !== "v" || g.strict || g.leakproof || g.parallel !== "u"
       || g.kind !== "f" || g.config !== '{"search_path=public, auth"}' || g.owner !== "postgres"
-      || (expectedDefiner !== null && g.definer !== expectedDefiner)) {
+      || !g.trigger_enabled || (expectedDefiner !== null && g.definer !== expectedDefiner)) {
     throw new Error("serial_release_guard_anchor_mismatch");
   }
 }

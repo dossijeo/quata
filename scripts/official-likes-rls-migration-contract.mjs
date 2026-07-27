@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const migration = resolve("supabase/migrations/20260726171002_official_post_likes_actor_guard.sql");
+const productionSource = resolve("supabase/migrations/20260702_0003_official_accounts.sql");
+const fixtureSource = resolve("scripts/official-likes-rls-migration-test.sql");
 const sql = (await readFile(migration, "utf8"))
   .replace(/--.*$/gm, "")
   .replace(/\s+/g, " ")
@@ -52,6 +54,12 @@ requireContract(
 
 if (sql.includes("alter table public.official_post_likes force row level security")) {
   throw new Error("official_likes_rls_contract_invalid:force_rls_would_change_service_maintenance");
+}
+
+const extractGuardBody = (source) => source.match(/create(?:\s+or\s+replace)?\s+function public\.quata_guard_official_post_likes\(\)[\s\S]*?\bas \$\$([\s\S]*?)\$\$;/i)?.[1];
+const [productionGuard, fixtureGuard] = await Promise.all([productionSource, fixtureSource].map((file) => readFile(file, "utf8").then(extractGuardBody)));
+if (!productionGuard || !fixtureGuard || productionGuard !== fixtureGuard) {
+  throw new Error("official_likes_rls_contract_invalid:fixture_guard_source_not_exact_20260702_0003");
 }
 
 console.log("Official likes RLS migration contract passed.");
