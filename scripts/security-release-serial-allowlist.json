@@ -14,7 +14,7 @@
       "name": "official_post_likes_actor_guard",
       "sha256": "8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4"
       ,"rollbackFile": "20260726171002_official_post_likes_actor_guard.rollback.sql",
-      "rollbackSha256": "11111cd50ad5b175b228fa09c650a6eab2f51f29a216ef8e12763871274fd1e7"
+      "rollbackSha256": "fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79"
     },
     "20260726171005": {
       "file": "20260726171005_community_comments_reapply_rls.sql",

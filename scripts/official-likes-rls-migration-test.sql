@@ -61,23 +61,42 @@ create table public.official_post_likes (
     unique (official_post_id, profile_id)
 );
 
+-- Keep this byte-for-byte aligned with 20260702_0003_official_accounts.sql:
+-- it is the production guard whose prosrc anchor is allowlisted by 002.
 create function public.quata_guard_official_post_likes()
-returns trigger language plpgsql security definer set search_path = public, auth
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
 as $$
-declare v_actor uuid := public.quata_current_profile_id();
+declare
+    v_actor uuid := public.quata_current_profile_id();
 begin
     if public.quata_current_role_is_service() then
-        if tg_op = 'DELETE' then return old; end if;
+        if tg_op = 'DELETE' then
+            return old;
+        end if;
         return new;
     end if;
-    if v_actor is null then raise exception 'Authentication required' using errcode = '42501'; end if;
+
+    if v_actor is null then
+        raise exception 'Authentication required'
+            using errcode = '42501';
+    end if;
+
     if tg_op = 'INSERT' and new.profile_id <> v_actor then
-        raise exception 'Likes must be created by the current profile' using errcode = '42501';
+        raise exception 'Likes must be created by the current profile'
+            using errcode = '42501';
     end if;
+
     if tg_op = 'DELETE' and old.profile_id <> v_actor and not public.quata_current_profile_is_admin() then
-        raise exception 'Only the like owner or an administrator can remove this like' using errcode = '42501';
+        raise exception 'Only the like owner or an administrator can remove this like'
+            using errcode = '42501';
     end if;
-    if tg_op = 'DELETE' then return old; end if;
+
+    if tg_op = 'DELETE' then
+        return old;
+    end if;
     return new;
 end;
 $$;

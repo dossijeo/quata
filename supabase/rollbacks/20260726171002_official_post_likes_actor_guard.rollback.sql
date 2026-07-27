@@ -16,9 +16,12 @@ do $$
 declare
     v_policy_fingerprint text;
     v_guard_acl_fingerprint text;
+    v_guard_body_fingerprint text;
+    v_guard_definition_fingerprint text;
     v_helper_fingerprint text;
     v_helper_acl_fingerprint text;
     v_trigger_fingerprint text;
+    v_trigger_enabled "char";
     v_table_acl_fingerprint text;
 begin
     -- Fingerprints are calculated from the exact release DDL on PostgreSQL 17.
@@ -34,14 +37,30 @@ begin
        or to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null then
         raise exception 'official_post_likes_rollback_refused:release_function_missing';
     end if;
-    select md5(coalesce(proacl::text, ''))
+    select md5(coalesce(string_agg(
+        coalesce(pg_get_userbyid(a.grantee), 'PUBLIC') || '|' ||
+        coalesce(pg_get_userbyid(a.grantor), 'PUBLIC') || '|' ||
+        a.privilege_type || '|' || a.is_grantable::text,
+        E'\n' order by coalesce(pg_get_userbyid(a.grantee), 'PUBLIC'),
+                         coalesce(pg_get_userbyid(a.grantor), 'PUBLIC'),
+                         a.privilege_type, a.is_grantable), ''))
     into v_guard_acl_fingerprint
-    from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure;
+    from pg_proc p
+    cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure;
     select md5(pg_get_functiondef('public.quata_official_like_delete_allowed(uuid)'::regprocedure)),
-           md5(coalesce(proacl::text, ''))
+           md5(coalesce(string_agg(
+               coalesce(pg_get_userbyid(a.grantee), 'PUBLIC') || '|' ||
+               coalesce(pg_get_userbyid(a.grantor), 'PUBLIC') || '|' ||
+               a.privilege_type || '|' || a.is_grantable::text,
+               E'\n' order by coalesce(pg_get_userbyid(a.grantee), 'PUBLIC'),
+                                coalesce(pg_get_userbyid(a.grantor), 'PUBLIC'),
+                                a.privilege_type, a.is_grantable), ''))
     into v_helper_fingerprint, v_helper_acl_fingerprint
-    from pg_proc where oid = 'public.quata_official_like_delete_allowed(uuid)'::regprocedure;
-    select md5(pg_get_triggerdef(t.oid, true)) into v_trigger_fingerprint
+    from pg_proc p
+    cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    where p.oid = 'public.quata_official_like_delete_allowed(uuid)'::regprocedure;
+    select md5(pg_get_triggerdef(t.oid, true)), t.tgenabled into v_trigger_fingerprint, v_trigger_enabled
     from pg_trigger t
     where t.tgrelid = 'public.official_post_likes'::regclass
       and t.tgname = 'quata_guard_official_post_likes_trg' and not t.tgisinternal;
@@ -59,6 +78,21 @@ begin
        or (select pg_get_userbyid(proowner) from pg_proc where oid = 'public.quata_official_like_delete_allowed(uuid)'::regprocedure) <> 'postgres' then
         raise exception 'official_post_likes_rollback_refused:function_owner_mismatch';
     end if;
+    select md5(prosrc), md5(pg_get_functiondef(oid))
+    into v_guard_body_fingerprint, v_guard_definition_fingerprint
+    from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure;
+    if (select prosecdef from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure)
+       or not exists (
+           select 1 from pg_proc p join pg_language l on l.oid = p.prolang
+           where p.oid = 'public.quata_guard_official_post_likes()'::regprocedure
+             and l.lanname = 'plpgsql' and pg_get_function_result(p.oid) = 'trigger'
+             and pg_get_function_arguments(p.oid) = '' and p.provolatile = 'v'
+             and not p.proisstrict and not p.proleakproof and p.proparallel = 'u'
+             and p.prokind = 'f' and p.proconfig::text = '{"search_path=public, auth"}')
+       or v_guard_body_fingerprint is distinct from 'a2248d523b9a3386702018eec65422a4'
+       or v_guard_definition_fingerprint is distinct from '2e850b71a1f7aa2c1249fe2a0c0ee35d' then
+        raise exception 'official_post_likes_rollback_refused:guard_anchor_mismatch';
+    end if;
     if v_policy_fingerprint is distinct from 'd046ca9fab6ca48f72bd0c5eb03981ac' then
         raise exception 'official_post_likes_rollback_refused:policy_fingerprint_mismatch';
     end if;
@@ -66,14 +100,15 @@ begin
     -- fingerprint. This release changes only prosecdef, so do not reject the
     -- production baseline merely because its pre-existing body differs from
     -- the disposable test fixture.
-    if v_guard_acl_fingerprint is distinct from 'dfda960bf9e0be03ea7516906ee58e3b' then
+    if v_guard_acl_fingerprint is distinct from 'bdadd35f53ba42be34057c3354b5adc2' then
         raise exception 'official_post_likes_rollback_refused:guard_fingerprint_mismatch';
     end if;
     if v_helper_fingerprint is distinct from '139c75e8a54504468e1861557a681264'
-       or v_helper_acl_fingerprint is distinct from '5fc13192159b7c60c3a808895ae2c2c8' then
+       or v_helper_acl_fingerprint is distinct from 'f68c8117f92737941988fa4a4d629d92' then
         raise exception 'official_post_likes_rollback_refused:helper_fingerprint_mismatch';
     end if;
-    if v_trigger_fingerprint is distinct from 'abba4fbe811d7c60f8973aafeb46c845' then
+    if v_trigger_fingerprint is distinct from 'abba4fbe811d7c60f8973aafeb46c845'
+       or v_trigger_enabled is distinct from 'O' then
         raise exception 'official_post_likes_rollback_refused:trigger_binding_mismatch';
     end if;
     if v_table_acl_fingerprint is distinct from 'c7df1252ee777b76dbef7e2f5ce23b2c' then

@@ -131,6 +131,11 @@ try {
     $probe = "import {readFile} from 'node:fs/promises'; import {validateAllowlist} from './scripts/security-release-serial-executor.mjs'; const a=JSON.parse(await readFile('./scripts/security-release-serial-allowlist.json')); const s=await readFile('./supabase/migrations/20260726171001_community_comments_delete_rls.sql','utf8'); let ok=false; try{validateAllowlist(a,'20260726171001',s+'x')}catch{ok=true}; if(!ok)process.exit(7)"
     $probe | node --input-type=module -; if ($LASTEXITCODE -ne 0) { throw "Hash drift was accepted" }
     Fixture
+    # An operator must not be able to bless an edited guard by taking a new
+    # dry-run fingerprint: only the production prosrc/attribute anchor passes.
+    Sql "create or replace function public.quata_guard_official_post_likes() returns trigger language plpgsql security definer set search_path = public, auth as `$drift`$ begin return new; end; `$drift`$;"
+    $bodyDriftDry = Exec @("--action", "dry-run"); Assert-True ($bodyDriftDry.code -ne 0 -and ($bodyDriftDry.output -join "`n") -match "guard_anchor_mismatch") "body drift was accepted by dry-run"
+    Reset-Fixture
     $env:QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK = "1"
     $outputRelative = "build-reports/security-release/serial-executor-disposable-$([guid]::NewGuid().ToString('N')).json"
     $dry = Exec @("--action", "dry-run", "--out", $outputRelative); Assert-True ($dry.code -eq 0) "dry-run failed"; Assert-True (Test-Path (Join-Path $root $outputRelative)) "Windows output path was rejected or not written"; $fp1 = (($dry.output[-1] | ConvertFrom-Json).migrations | Where-Object version -eq "20260726171001").preconditionSha256
@@ -206,7 +211,7 @@ try {
     $twoReport=$two.output[-1]|ConvertFrom-Json; Assert-True ($twoReport.migrations[0].functionLockMode -eq "function_cost_roundtrip") "managed-role function lock fallback was not reported"
     $ledger = (& docker exec $container psql -U postgres -A -t -c "select string_agg(version||'|'||name||'|'||cardinality(statements),',' order by version) from supabase_migrations.schema_migrations;").Trim(); Assert-True ($ledger -eq "20260726171001|community_comments_delete_rls|1,20260726171002|official_post_likes_actor_guard|1,20260726171005|community_comments_reapply_rls|1") "ledger mismatch: $ledger"
     $guardHash = (& docker exec $container psql -U postgres -A -t -c "select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure));").Trim()
-    Assert-True ($guardHash -eq "c9505e6d5b5fbb818c465cf84a3ebf56") "production-like guard fingerprint mismatch: $guardHash"
+    Assert-True ($guardHash -eq "2e850b71a1f7aa2c1249fe2a0c0ee35d") "production-like guard fingerprint mismatch: $guardHash"
     $guardAcl = (& docker exec $container psql -U postgres -A -t -c "select coalesce(proacl::text, '') from pg_proc where oid='public.quata_guard_official_post_likes()'::regprocedure;").Trim()
     Assert-True ($guardAcl -eq "{postgres=X/postgres}") "hardened guard ACL was not deterministic owner-only: $guardAcl"
     # ACL drift is security-relevant even though trigger execution remains
