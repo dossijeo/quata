@@ -10,6 +10,13 @@ object AppConfig {
     val USE_MOCK_BACKEND: Boolean
         get() = BuildConfig.USE_MOCK_BACKEND
 
+    /**
+     * Enables local-only observation of the existing auth-bridge response contract.
+     * This is deliberately shadow-only: it cannot route traffic or reject a login.
+     */
+    val AUTH_BOUNDARY_SHADOW: Boolean
+        get() = BuildConfig.AUTH_BOUNDARY_SHADOW
+
     /** WordPress */
     const val WORDPRESS_BASE_URL = "https://egquata.com/"
     const val WORDPRESS_JWT_LOGIN_PATH = "wp-json/jwt-auth/v1/token"

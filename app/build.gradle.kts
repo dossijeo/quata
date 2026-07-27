@@ -65,6 +65,9 @@ android {
         // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
         val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
         buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
+        // Shadow-only boundary validation. It never changes the endpoint, request, or login result.
+        val authBoundaryShadow = providers.gradleProperty("quata.authBoundaryShadow").orElse("false").get()
+        buildConfigField("boolean", "AUTH_BOUNDARY_SHADOW", authBoundaryShadow)
         buildConfigField(
             "String",
             "TURNSTILE_SITE_KEY",

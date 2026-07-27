@@ -15,6 +15,8 @@ import com.quata.core.notifications.PushTokenManager
 import com.quata.core.moderation.UgcTermsAcceptanceStore
 import com.quata.core.preferences.TouchFlowPreferences
 import com.quata.data.supabase.CommunityProfile
+import com.quata.data.supabase.AuthBridgeBoundary
+import com.quata.data.supabase.AuthBridgeShadowVerifier
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseResponseCacheStore
@@ -26,14 +28,21 @@ import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import androidx.core.app.NotificationManagerCompat
 
-class AuthRepositoryImpl(
+internal class AuthRepositoryImpl(
     private val appContext: Context,
     private val supabaseApi: SupabaseCommunityApi,
     private val sessionManager: SessionManager,
     private val googleAuthHelper: GoogleAuthHelper,
     private val pushTokenManager: PushTokenManager,
     private val registrationChallengeService: AndroidRegistrationChallengeService,
-    private val registrationIdentityStore: RegistrationClientIdentityStore
+    private val registrationIdentityStore: RegistrationClientIdentityStore,
+    private val authBridgeBoundary: AuthBridgeBoundary = AuthBridgeBoundary(
+        api = supabaseApi,
+        shadowVerifier = AuthBridgeShadowVerifier(
+            enabled = AppConfig.AUTH_BOUNDARY_SHADOW,
+            report = { issue -> android.util.Log.w(AUTH_BOUNDARY_TAG, "Auth bridge contract mismatch: $issue") }
+        )
+    )
 ) : AuthRepository {
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
@@ -42,7 +51,7 @@ class AuthRepositoryImpl(
             if (!MockData.validatePassword(profile, password)) error("Contrasena incorrecta")
             profile.toSession(token = "mock-phone-token")
         } else {
-            val auth = supabaseApi.loginWithAuthBridge(countryCode, phone, password)
+            val auth = authBridgeBoundary.login(countryCode, phone, password)
             auth.toSession()
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
@@ -88,7 +97,7 @@ class AuthRepositoryImpl(
                 secret_answer = request.secretAnswer
                 )
             )
-            val session = supabaseApi.loginWithAuthBridge(countryCode, phoneLocal, request.password).toSession()
+            val session = authBridgeBoundary.login(countryCode, phoneLocal, request.password).toSession()
             registrationIdentityStore.complete(identity)
             session
         }
@@ -237,5 +246,9 @@ class AuthRepositoryImpl(
         "${countryCode.onlyDigits()}${phone.onlyDigits()}@phone.quata.app"
 
     private fun String.onlyDigits(): String = filter(Char::isDigit)
+
+    private companion object {
+        const val AUTH_BOUNDARY_TAG = "AuthBridgeBoundary"
+    }
 
 }
