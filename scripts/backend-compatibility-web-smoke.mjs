@@ -50,7 +50,7 @@ try {
       query: responseUrl.searchParams.toString(),
       payloadPostId,
     });
-    if (match[1] === "posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
+    if (match[1] === "community_posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
       observedPostId = payloadPostId;
     }
   });
