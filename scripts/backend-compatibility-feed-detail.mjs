@@ -7,5 +7,5 @@ export function publicPostIdFromPayload(text) {
 }
 export function detailEvidence(events, postId) {
   return events.some((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'posts' &&
-    event.query === `id=eq.${postId}` && event.payloadPostId === postId);
+    new URLSearchParams(event.query).get('id') === `eq.${postId}` && event.payloadPostId === postId);
 }
