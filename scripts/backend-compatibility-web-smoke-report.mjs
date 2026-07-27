@@ -10,7 +10,10 @@ export function sanitizeWebSmokeRequest({ url, method, resourceType, frame, phas
   return {
     method: safeMethod(method),
     originMatch: parsed != null && base != null && parsed.origin === base.origin,
-    pathname: parsed?.pathname || "/<invalid>",
+    // Pathnames can contain object names, email addresses, opaque tokens, or
+    // user-controlled Unicode.  This is a diagnostic label, never a copy of
+    // a request path.  Keep only known, non-sensitive API categories.
+    pathname: safePathname(parsed),
     resourceType: safeResourceType(resourceType),
     frame: safeFrame(frame),
     phase: safePhase(phase),
@@ -25,6 +28,33 @@ export function webSmokePhase(route, resourceType) {
 
 function safeUrl(value) {
   try { return new URL(value); } catch { return null; }
+}
+
+const SAFE_REST_TABLES = new Set([
+  "community_posts",
+  "community_profiles",
+  "official_posts",
+]);
+
+function safePathname(parsed) {
+  if (parsed == null) return "/<invalid>";
+
+  // Do not decode or return a URL segment here.  Besides avoiding accidental
+  // disclosure, this makes percent-encoded and Unicode input follow exactly
+  // the same redaction path as plain text.
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const [service, version, first, ...remaining] = segments;
+
+  if (service === "rest" && version === "v1") {
+    if (!SAFE_REST_TABLES.has(first)) return "/rest/v1/<redacted>";
+    return remaining.length === 0
+      ? `/rest/v1/${first}`
+      : `/rest/v1/${first}/<redacted>`;
+  }
+  if (service === "storage" && version === "v1") return "/storage/v1/<redacted>";
+  if (service === "auth" && version === "v1") return "/auth/v1/<redacted>";
+  if (service === "functions" && version === "v1") return "/functions/v1/<redacted>";
+  return "/<other>";
 }
 
 function safeMethod(value) {
