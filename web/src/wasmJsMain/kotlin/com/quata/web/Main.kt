@@ -169,6 +169,45 @@ private fun QuataWebApp(
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
+    DisposableEffect(authRepository, sessionCoordinator, platformServices.preferences) {
+        val removeBridge = installWebAuthE2eBridge(
+            login = { countryCode, phone, password, resolve, reject ->
+                scope.launch {
+                    authRepository.login(countryCode, phone, password).fold(
+                        onSuccess = {
+                            platformServices.preferences.putString(WebSessionReadyKey, "true")
+                            isSessionReady = true
+                            currentUserId = authRepository.activeProfileSessionOrNull()?.userId
+                            resolve("authenticated")
+                        },
+                        onFailure = { reject("login_failed") },
+                    )
+                }
+            },
+            restore = { resolve, reject ->
+                scope.launch {
+                    val restored = authRepository.restoreLocalSession()
+                    if (restored == null) {
+                        reject("restore_failed")
+                    } else {
+                        isSessionReady = true
+                        currentUserId = restored.userId
+                        resolve("restored")
+                    }
+                }
+            },
+            logout = { resolve, reject ->
+                scope.launch {
+                    val result = sessionCoordinator.logoutCurrentSession()
+                    platformServices.preferences.remove(WebSessionReadyKey)
+                    isSessionReady = false
+                    currentUserId = null
+                    if (result is WebPushSessionResult.Success) resolve("logged_out") else reject("logout_failed")
+                }
+            },
+        )
+        onDispose(removeBridge)
+    }
     val capabilityRegistry = remember(runtimeConfiguration, isSessionReady, currentUserId) {
         webFeatureCapabilityRegistry(
             configuration = runtimeConfiguration,

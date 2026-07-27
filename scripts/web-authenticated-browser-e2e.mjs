@@ -1,279 +1,408 @@
 #!/usr/bin/env node
 /**
- * Authenticated browser E2E for the already-built Compose/Wasm launcher.
- *
- * It authenticates an explicitly isolated account through the same public Web bridge, serves a
- * throw-away copy of the distribution with its public runtime metadata, restores the exact
- * localStorage shape used by WebAuthRepository, and verifies an authenticated PostgREST request
- * from Chrome. Credentials and tokens stay in memory and never enter the JSON report.
+ * Real-browser Auth journey. Fixture mode is the default and is fully hermetic. Remote mode is
+ * explicit, uses an already-provisioned account, and cannot pass until its issued sessions have
+ * been globally revoked and that revocation has been verified.
  */
-import { createServer } from 'node:http';
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
-import { setTimeout as delay } from 'node:timers/promises';
+import { createServer } from "node:http";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { chromium } from "playwright-core";
+import {
+  assertExplicitRefreshTokenRejection,
+  isPublicSupabaseKey,
+} from "./web-authenticated-browser-security.mjs";
 
-if (typeof WebSocket === 'undefined' && process.env.QUATA_WEB_E2E_WEBSOCKET !== 'enabled') {
-    const child = spawnSync(process.execPath, ['--experimental-websocket', process.argv[1], ...process.argv.slice(2)], {
-        stdio: 'inherit', env: { ...process.env, QUATA_WEB_E2E_WEBSOCKET: 'enabled' },
-    });
-    process.exit(child.status ?? 1);
-}
-
-const requiredEnvironment = [
-    'QUATA_SUPABASE_URL', 'QUATA_SUPABASE_PUBLISHABLE_KEY',
-    'QUATA_E2E_COUNTRY_CODE', 'QUATA_E2E_PHONE', 'QUATA_E2E_PASSWORD',
+const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const STORAGE_KEYS = [
+  "quata_web_access_token", "quata_web_refresh_token", "quata_web_session_token",
+  "quata_web_user_id", "quata_web_expires_at", "web.auth.session_ready",
 ];
-const defaultDistribution = 'web/build/dist/wasmJs/productionExecutable';
-const defaultChrome = process.platform === 'win32'
-    ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-    : 'google-chrome';
+const REAL_OPT_IN = "I_ACCEPT_SESSION_REVOCATION";
+const FIXTURE = Object.freeze({
+  countryCode: "34",
+  phone: "600000001",
+  password: "fixture-only-password",
+  profileId: "11111111-1111-4111-8111-111111111111",
+  accessToken: "fixture.access.token",
+  refreshToken: "fixture-refresh-token",
+  webSessionToken: "fixture-web-session-token",
+});
 
 const options = parseArguments(process.argv.slice(2));
-const startedAt = new Date().toISOString();
 const report = {
-    check: 'WEB-AUTH-BROWSER-01',
-    status: 'failed',
-    startedAt,
-    mode: 'public_key_isolated_user_browser_session_restore',
-    steps: [],
-    cleanup: { state: 'not_started' },
+  check: "WEB-AUTH-BROWSER-02",
+  mode: options.real ? "real_existing_account_opt_in" : "hermetic_local_fixture",
+  status: "failed",
+  steps: [],
+  cleanup: { state: "not_started" },
 };
+const fixtureState = { login: 0, profileReads: 0, webLogout: 0, globalLogout: 0 };
+const unexpectedNetwork = [];
+let server;
+let browser;
+let context;
+let page;
+let cleanupSession;
+let backend;
+let stage = "initializing";
 
-let temporaryDistribution;
-let staticServer;
-let chrome;
-let profileDirectory;
-let cdp;
-let activeSession;
-let stage = 'initializing';
-
-async function run() {
 try {
-    stage = 'reading_environment';
-    const configuration = requireEnvironment();
-    stage = 'public_login';
-    activeSession = await login(configuration);
-    report.steps.push('public_web_login');
+  const configuration = loadConfiguration(options.real);
+  server = await startServer(options.distribution, fixtureState, configuration);
+  backend = options.real ? configuration.baseUrl : server.origin;
+  const credentials = options.real ? configuration : FIXTURE;
 
-    stage = 'configuring_temporary_distribution';
-    temporaryDistribution = await copyConfiguredDistribution(options.distribution, configuration);
-    stage = 'starting_static_server';
-    staticServer = await startStaticServer(temporaryDistribution);
-    stage = 'launching_chrome';
-    profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-auth-e2e-chrome-'));
-    chrome = await launchChrome(options.chrome, profileDirectory);
-    stage = 'connecting_cdp';
-    cdp = await connectToPage(chrome.debugPort);
+  stage = "launching_browser";
+  browser = await chromium.launch({
+    executablePath: options.chrome,
+    headless: true,
+    args: [
+      "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run",
+      ...(options.real ? [] : [
+        "--proxy-server=http://127.0.0.1:9",
+        "--proxy-bypass-list=127.0.0.1;localhost",
+      ]),
+    ],
+  });
+  context = await browser.newContext();
+  await context.route("**/*", async route => {
+    const url = route.request().url();
+    if (url.startsWith(`${server.origin}/`)) return route.continue();
+    if (url === TURNSTILE_BOOTSTRAP) {
+      return route.fulfill({ status: 200, contentType: "text/javascript", body: "globalThis.turnstile={};" });
+    }
+    if (options.real && url === `${backend}/functions/v1/quata-auth-bridge` &&
+        route.request().method() === "POST") {
+      const response = await route.fetch();
+      const body = await response.body();
+      if (response.ok()) {
+        const captured = sessionFromLoginPayload(body);
+        if (captured) cleanupSession = captured;
+      }
+      return route.fulfill({ response, body });
+    }
+    if (options.real && url.startsWith(`${backend}/`)) return route.continue();
+    unexpectedNetwork.push(safeOrigin(url));
+    return route.abort("blockedbyclient");
+  });
+  context.on("request", request => {
+    const url = request.url();
+    if (!url.startsWith(`${server.origin}/`) && url !== TURNSTILE_BOOTSTRAP &&
+        !(options.real && url.startsWith(`${backend}/`))) {
+      unexpectedNetwork.push(safeOrigin(url));
+    }
+  });
+  page = context.pages()[0] ?? await context.newPage();
 
-    const browserFaults = [];
-    cdp.on('Runtime.exceptionThrown', event => browserFaults.push(describeException(event.exceptionDetails)));
-    // Chrome emits benign WebGL warnings under headless SwiftShader. Warnings do not indicate a
-    // launcher fault; uncaught exceptions and console errors remain hard failures.
-    cdp.on('Log.entryAdded', event => {
-        if (event.entry?.level === 'error') browserFaults.push('console_error');
+  stage = "mounting_real_product";
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    return globalThis.__quataAuthE2eProduct?.version === 1 && root &&
+      (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
+  });
+  report.steps.push("real_compose_auth_shell_mounted");
+
+  stage = "product_login";
+  await page.evaluate(
+    ({ countryCode, phone, password }) =>
+      globalThis.__quataAuthE2eProduct.login(countryCode, phone, password),
+    credentials,
+  );
+  cleanupSession = await readSession(page);
+  assertCompleteSession(cleanupSession);
+  await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
+  report.steps.push("product_repository_login_persisted_session");
+
+  stage = "browser_restart_restore";
+  await page.reload();
+  await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
+  await page.evaluate(() => globalThis.__quataAuthE2eProduct.restore());
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#feed`);
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    return localStorage.getItem("web.auth.session_ready") === "true" && root &&
+      (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
+  });
+  report.steps.push("product_session_restored_after_reload");
+
+  stage = "authenticated_profile_read";
+  const profileRead = await page.evaluate(async ({ backend, key, profileId }) => {
+    const response = await fetch(`${backend}/rest/v1/community_profiles?select=id&id=eq.${profileId}`, {
+      headers: {
+        apikey: key,
+        authorization: `Bearer ${localStorage.getItem("quata_web_access_token")}`,
+      },
     });
-    await cdp.send('Runtime.enable');
-    await cdp.send('Log.enable');
+    const rows = response.ok ? await response.json() : [];
+    return { ok: response.ok, exact: rows.length === 1 && rows[0]?.id === profileId };
+  }, { backend, key: credentials.publishableKey ?? "fixture-public-key", profileId: cleanupSession.profileId });
+  if (!profileRead.ok || !profileRead.exact) throw new Error("authenticated_profile_read_failed");
+  report.steps.push("authenticated_browser_profile_read");
 
-    stage = 'mounting_auth_shell';
-    await navigateAndWait(cdp, `${staticServer.origin}/#auth`, 'auth');
-    stage = 'persisting_browser_session';
-    await restoreBrowserSession(cdp, activeSession);
-    report.steps.push('browser_session_persisted');
-    stage = 'mounting_authenticated_shell';
-    await navigateAndWait(cdp, `${staticServer.origin}/#feed`, 'feed');
-    report.steps.push('authenticated_shell_restored');
+  stage = "product_logout";
+  await page.evaluate(() => globalThis.__quataAuthE2eProduct.logout());
+  if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
+    throw new Error("product_logout_storage_remains");
+  }
+  report.steps.push("product_coordinator_logout_cleared_session");
 
-    stage = 'authenticated_browser_read';
-    const browserContract = await assertBrowserContract(cdp, configuration, activeSession.profileId);
-    if (!browserContract) throw new Error('browser_authenticated_profile_read_failed');
-    report.steps.push('browser_authenticated_profile_read');
-    stage = 'mounting_authenticated_profile';
-    await navigateAndWait(cdp, `${staticServer.origin}/#profile`, 'profile');
-    report.steps.push('authenticated_profile_shell_restored');
-    if (browserFaults.length) throw new Error('browser_runtime_fault');
+  stage = "global_session_cleanup";
+  await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
+  cleanupSession = null;
+  report.cleanup = { state: "sessions_revoked_and_verified" };
 
-    stage = 'web_logout';
-    await webLogout(configuration, activeSession);
-    await revokeSessions(configuration, activeSession);
-    activeSession = null;
-    report.cleanup = { state: 'sessions_revoked' };
-    report.status = 'passed';
+  if (!options.real) {
+    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 ||
+        fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
+      throw new Error("fixture_journey_incomplete");
+    }
+    if (unexpectedNetwork.length !== 0) throw new Error("unexpected_external_network");
+  }
+  report.status = "passed";
 } catch (error) {
-    report.error = safeErrorCode(error);
-    report.failureStage = stage;
-    if (activeSession) {
-        try {
-            await revokeSessions(requireEnvironment(), activeSession);
-            report.cleanup = { state: 'sessions_revoked_after_failure' };
-        } catch {
-            report.cleanup = { state: 'rollback_pending', action: 'revoke_sessions_for_isolated_user' };
-        }
-    }
+  report.error = safeError(error);
+  report.failureStage = stage;
+  if (page) {
+    report.browserState = await page.evaluate(() => ({
+      productBridge: globalThis.__quataAuthE2eProduct?.version === 1,
+      rootPresent: document.querySelector("#quata-root") !== null,
+      canvasCount: document.querySelectorAll("#quata-root canvas").length,
+      rootChildren: document.querySelector("#quata-root")?.childElementCount ?? 0,
+      shadowChildren: document.querySelector("#quata-root")?.shadowRoot?.childElementCount ?? 0,
+      hash: location.hash,
+    })).catch(() => ({ unavailable: true }));
+  }
 } finally {
-    if (cdp) cdp.close();
-    if (chrome) await stopProcess(chrome.process);
-    if (staticServer) await staticServer.close();
-    if (profileDirectory) await removeTemporaryDirectory(profileDirectory);
-    if (temporaryDistribution) await removeTemporaryDirectory(temporaryDistribution);
-    report.finishedAt = new Date().toISOString();
-    await writeSafeReport(options.output, report);
+  if (cleanupSession && backend) {
+    try {
+      const key = options.real ? process.env.QUATA_SUPABASE_PUBLISHABLE_KEY?.trim() : "fixture-public-key";
+      await revokeAndVerify(backend, key, cleanupSession);
+      report.cleanup = { state: "sessions_revoked_and_verified_after_failure" };
+      cleanupSession = null;
+    } catch {
+      report.cleanup = { state: "revocation_unverified", action: "revoke_existing_test_account_sessions" };
+      report.status = "failed";
+    }
+  }
+  await context?.close().catch(() => {});
+  await browser?.close().catch(() => {});
+  await server?.close().catch(() => {});
+  report.finishedAt = new Date().toISOString();
+  report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
+  await writeSafeReport(options.output, report);
 }
 
-if (report.status !== 'passed') {
-    console.error(`Authenticated browser E2E failed: ${report.error ?? 'unknown_failure'}.`);
-    process.exitCode = 1;
+if (report.status !== "passed") {
+  console.error(`Authenticated browser E2E failed: ${report.error ?? "unknown_failure"}.`);
+  process.exitCode = 1;
 } else {
-    console.log('Authenticated browser E2E passed: session restore and authenticated browser request verified.');
-}
+  console.log(`Authenticated browser E2E passed (${report.mode}).`);
 }
 
-function parseArguments(argumentsList) {
-    const parsed = { distribution: resolve(defaultDistribution), chrome: defaultChrome, output: 'build-reports/web/authenticated-browser-e2e.json' };
-    for (let index = 0; index < argumentsList.length; index += 1) {
-        const argument = argumentsList[index];
-        if (argument === '--dist' || argument === '--chrome' || argument === '--out') {
-            const value = argumentsList[++index];
-            if (!value || value.startsWith('--')) throw new Error('invalid_arguments');
-            parsed[argument === '--dist' ? 'distribution' : argument === '--chrome' ? 'chrome' : 'output'] = resolve(value);
-        } else if (argument === '--help' || argument === '-h') {
-            console.log('Usage: node scripts/web-authenticated-browser-e2e.mjs [--dist DIR] [--chrome PATH] [--out SAFE_REPORT]');
-            process.exit(0);
-        } else throw new Error('invalid_arguments');
+function parseArguments(args) {
+  const parsed = {
+    real: false,
+    distribution: resolve("web/build/dist/wasmJs/productionExecutable"),
+    chrome: process.env.QUATA_CHROME_PATH || (process.platform === "win32"
+      ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "google-chrome"),
+    output: resolve("build-reports/web/authenticated-browser-e2e.json"),
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--real") parsed.real = true;
+    else if (["--dist", "--chrome", "--out"].includes(argument)) {
+      const value = args[++index];
+      if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
+      parsed[argument === "--dist" ? "distribution" : argument === "--chrome" ? "chrome" : "output"] = resolve(value);
+    } else if (argument === "--help" || argument === "-h") {
+      console.log("Usage: node scripts/web-authenticated-browser-e2e.mjs [--real] [--dist DIR] [--chrome PATH] [--out REPORT]");
+      process.exit(0);
+    } else throw new Error("invalid_arguments");
+  }
+  return parsed;
+}
+
+function loadConfiguration(real) {
+  if (!real) return {};
+  if (process.env.QUATA_AUTH_E2E_REAL_OPT_IN !== REAL_OPT_IN) throw new Error("real_mode_opt_in_required");
+  const required = [
+    "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
+    "QUATA_E2E_COUNTRY_CODE", "QUATA_E2E_PHONE", "QUATA_E2E_PASSWORD",
+  ];
+  if (required.some(name => !process.env[name]?.trim())) throw new Error("real_mode_environment_missing");
+  const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, "");
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error("invalid_public_supabase_url");
+  const publishableKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim();
+  if (!isPublicSupabaseKey(publishableKey)) throw new Error("privileged_or_invalid_publishable_key");
+  return {
+    baseUrl, publishableKey,
+    countryCode: process.env.QUATA_E2E_COUNTRY_CODE.trim(),
+    phone: process.env.QUATA_E2E_PHONE.trim(),
+    password: process.env.QUATA_E2E_PASSWORD,
+  };
+}
+
+async function startServer(distribution, state, configuration) {
+  if (!(await stat(distribution).catch(() => null))?.isDirectory()) throw new Error("distribution_missing");
+  let origin;
+  const server = createServer(async (request, response) => {
+    try {
+      const url = new URL(request.url ?? "/", "http://localhost");
+      if (url.pathname === "/functions/v1/quata-auth-bridge") {
+        const body = await jsonBody(request);
+        if (request.method !== "POST" || body.action !== "web_login" ||
+            body.country_code !== FIXTURE.countryCode || body.phone_local !== FIXTURE.phone ||
+            body.password !== FIXTURE.password || typeof body.client_instance_id !== "string") {
+          return json(response, 401, { error: "invalid_fixture_login" });
+        }
+        state.login += 1;
+        return json(response, 200, {
+          profile: { id: FIXTURE.profileId, display_name: "Fixture User" },
+          user: { id: "22222222-2222-4222-8222-222222222222" },
+          session: {
+            access_token: FIXTURE.accessToken, refresh_token: FIXTURE.refreshToken,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+          },
+          web_session: { token: FIXTURE.webSessionToken },
+        });
+      }
+      if (url.pathname === "/functions/v1/quata-web-push") {
+        const body = await jsonBody(request);
+        if (body.action === "logout" && request.headers.authorization === `Bearer ${FIXTURE.accessToken}` &&
+            request.headers["x-quata-web-session"] === FIXTURE.webSessionToken) state.webLogout += 1;
+        return json(response, 200, { ok: true });
+      }
+      if (url.pathname === "/auth/v1/logout") {
+        if (request.headers.authorization === `Bearer ${FIXTURE.accessToken}`) state.globalLogout += 1;
+        return json(response, 204, null);
+      }
+      if (url.pathname === "/auth/v1/user") {
+        return json(response, state.globalLogout > 0 ? 401 : 200, state.globalLogout > 0 ? { error: "revoked" } : { id: FIXTURE.profileId });
+      }
+      if (url.pathname === "/auth/v1/token" && url.searchParams.get("grant_type") === "refresh_token") {
+        return json(response, state.globalLogout > 0 ? 400 : 200, state.globalLogout > 0
+          ? { error: "refresh_token_revoked" }
+          : { access_token: FIXTURE.accessToken, refresh_token: FIXTURE.refreshToken, expires_in: 3600 });
+      }
+      if (url.pathname === "/rest/v1/community_profiles") {
+        state.profileReads += 1;
+        return json(response, 200, [{ id: FIXTURE.profileId }]);
+      }
+      if (url.pathname.startsWith("/rest/v1/") || url.pathname.startsWith("/rest/v1/rpc/")) return json(response, 200, []);
+      if (url.pathname === "/favicon.ico") return response.writeHead(204).end();
+
+      const pathname = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
+      const file = resolve(distribution, `.${pathname}`);
+      const rel = relative(distribution, file);
+      if (rel.startsWith(`..${sep}`) || rel === ".." || isAbsolute(rel)) return response.writeHead(403).end();
+      if (!(await stat(file).catch(() => null))?.isFile()) return response.writeHead(404).end();
+      let content = await readFile(file);
+      if (pathname === "/index.html") {
+        const backendFromQuery = url.searchParams.get("backend") || origin;
+        const publishableKey = configuration.publishableKey || "fixture-public-key";
+        content = Buffer.from(content.toString("utf8")
+          .replace('name="quata-supabase-url" content=""', `name="quata-supabase-url" content="${escapeHtml(backendFromQuery)}"`)
+          .replace('name="quata-supabase-publishable-key" content=""', `name="quata-supabase-publishable-key" content="${escapeHtml(publishableKey)}"`));
+      }
+      response.writeHead(200, {
+        "Content-Type": contentType(file), "Cache-Control": "no-store",
+        "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp",
+      }).end(content);
+    } catch {
+      response.writeHead(500).end();
     }
-    return parsed;
+  });
+  await new Promise((resolveServer, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolveServer);
+  });
+  origin = `http://127.0.0.1:${server.address().port}`;
+  return {
+    origin,
+    close: () => new Promise((resolveServer, reject) => server.close(error => error ? reject(error) : resolveServer())),
+  };
 }
 
-function requireEnvironment() {
-    const missing = requiredEnvironment.filter(name => !process.env[name]?.trim());
-    if (missing.length) throw new Error('missing_environment');
-    const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, '');
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error('invalid_public_supabase_url');
-    return {
-        baseUrl,
-        publishableKey: process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim(),
-        countryCode: process.env.QUATA_E2E_COUNTRY_CODE.trim(),
-        phone: process.env.QUATA_E2E_PHONE.trim(),
-        password: process.env.QUATA_E2E_PASSWORD,
+async function readSession(page) {
+  return page.evaluate(() => ({
+    accessToken: localStorage.getItem("quata_web_access_token"),
+    refreshToken: localStorage.getItem("quata_web_refresh_token"),
+    webSessionToken: localStorage.getItem("quata_web_session_token"),
+    profileId: localStorage.getItem("quata_web_user_id"),
+  }));
+}
+function assertCompleteSession(session) {
+  if (!session?.accessToken || !session.refreshToken || !session.webSessionToken ||
+      !/^[0-9a-f-]{36}$/i.test(session.profileId ?? "")) throw new Error("product_session_incomplete");
+}
+function sessionFromLoginPayload(body) {
+  try {
+    const payload = JSON.parse(body.toString("utf8"));
+    const session = {
+      accessToken: payload?.session?.access_token,
+      refreshToken: payload?.session?.refresh_token,
+      webSessionToken: payload?.web_session?.token,
+      profileId: payload?.profile?.id,
     };
+    assertCompleteSession(session);
+    return session;
+  } catch {
+    return null;
+  }
 }
-
-async function login(configuration) {
-    const payload = await jsonRequest(`${configuration.baseUrl}/functions/v1/quata-auth-bridge`, {
-        method: 'POST', headers: publicHeaders(configuration.publishableKey),
-        body: JSON.stringify({ action: 'web_login', country_code: configuration.countryCode, phone_local: configuration.phone, password: configuration.password, client_instance_id: `web-browser-e2e-${crypto.randomUUID()}` }),
-    }, 'public_web_login_failed');
-    const session = payload?.session;
-    const profileId = payload?.profile?.id;
-    const webSessionToken = payload?.web_session?.token;
-    if (!isUuid(profileId) || !session?.access_token || !session?.refresh_token || !Number.isFinite(session?.expires_at) || !webSessionToken) {
-        throw new Error('invalid_auth_response');
-    }
-    return { profileId, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
+async function revokeAndVerify(baseUrl, key, session) {
+  const headers = { apikey: key, authorization: `Bearer ${session.accessToken}`, "content-type": "application/json" };
+  const logout = await fetch(`${baseUrl}/auth/v1/logout?scope=global`, {
+    method: "POST", headers, signal: AbortSignal.timeout(20_000),
+  });
+  if (!logout.ok) throw new Error("global_session_revocation_failed");
+  const verification = await fetch(`${baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: key, "content-type": "application/json" },
+    body: JSON.stringify({ refresh_token: session.refreshToken }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const verificationBody = await verification.text();
+  assertExplicitRefreshTokenRejection(verification.status, verificationBody);
 }
-
-async function webLogout(configuration, session) {
-    await jsonRequest(`${configuration.baseUrl}/functions/v1/quata-web-push`, {
-        method: 'POST', headers: { ...publicHeaders(configuration.publishableKey), authorization: `Bearer ${session.accessToken}`, 'x-quata-web-session': session.webSessionToken },
-        body: JSON.stringify({ action: 'logout' }),
-    }, 'web_logout_failed');
+async function jsonBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { return {}; }
 }
-
-async function revokeSessions(configuration, session) {
-    await jsonRequest(`${configuration.baseUrl}/auth/v1/logout`, {
-        method: 'POST', headers: { ...publicHeaders(configuration.publishableKey), authorization: `Bearer ${session.accessToken}` }, body: JSON.stringify({ scope: 'global' }),
-    }, 'session_revocation_failed');
+function json(response, status, value) {
+  const body = value == null ? "" : JSON.stringify(value);
+  response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" }).end(body);
 }
-
-function publicHeaders(key) { return { apikey: key, 'content-type': 'application/json', 'x-client-info': 'quata-web-browser-e2e' }; }
-async function jsonRequest(url, options, prefix) {
-    let response;
-    try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); }
-    catch { throw new Error(`${prefix}:network`); }
-    if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
-    try { return await response.json(); } catch { return {}; }
+function contentType(path) {
+  return new Map([
+    [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
+    [".mjs", "text/javascript; charset=utf-8"], [".wasm", "application/wasm"],
+    [".json", "application/json"], [".css", "text/css"], [".svg", "image/svg+xml"],
+    [".webp", "image/webp"], [".png", "image/png"],
+  ]).get(extname(path).toLowerCase()) ?? "application/octet-stream";
 }
-
-async function copyConfiguredDistribution(distribution, configuration) {
-    if (!(await stat(distribution).catch(() => null))?.isDirectory()) throw new Error('distribution_missing');
-    const target = await mkdtemp(join(tmpdir(), 'quata-web-auth-e2e-dist-'));
-    await cp(distribution, target, { recursive: true });
-    const index = join(target, 'index.html');
-    let html = await readFile(index, 'utf8');
-    html = html.replace('name="quata-supabase-url" content=""', `name="quata-supabase-url" content="${escapeHtml(configuration.baseUrl)}"`)
-        .replace('name="quata-supabase-publishable-key" content=""', `name="quata-supabase-publishable-key" content="${escapeHtml(configuration.publishableKey)}"`);
-    if (!html.includes('quata-supabase-url') || !html.includes(escapeHtml(configuration.publishableKey))) throw new Error('runtime_configuration_injection_failed');
-    await writeFile(index, html, 'utf8');
-    return target;
+function escapeHtml(value) {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function escapeHtml(value) { return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
-
-async function startStaticServer(root) {
-    const server = createServer(async (request, response) => {
-        try {
-            const pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname);
-            if (pathname === '/favicon.ico') return response.writeHead(204).end();
-            const file = resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-            if (!file.startsWith(`${root}\\`) && file !== root) return response.writeHead(403).end();
-            if (!(await stat(file).catch(() => null))?.isFile()) return response.writeHead(404).end();
-            response.writeHead(200, { 'Content-Type': contentType(file), 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cache-Control': 'no-store' });
-            response.end(await readFile(file));
-        } catch { response.writeHead(500).end(); }
-    });
-    await new Promise((resolveServer, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveServer); });
-    const address = server.address();
-    if (!address || typeof address === 'string') throw new Error('static_server_start_failed');
-    return { origin: `http://127.0.0.1:${address.port}`, close: () => new Promise((resolveServer, reject) => server.close(error => error ? reject(error) : resolveServer())) };
+function safeOrigin(url) {
+  try { return new URL(url).origin; } catch { return "invalid-origin"; }
 }
-function contentType(path) { return new Map([['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'], ['.mjs', 'text/javascript; charset=utf-8'], ['.wasm', 'application/wasm'], ['.json', 'application/json'], ['.css', 'text/css'], ['.svg', 'image/svg+xml'], ['.webp', 'image/webp']]).get(extname(path).toLowerCase()) ?? 'application/octet-stream'; }
-
-async function launchChrome(executable, profile) {
-    const port = await availablePort();
-    const process = spawn(executable, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check', `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'ignore'] });
-    await waitForDebugger(port);
-    return { process, debugPort: port };
+function safeError(error) {
+  const value = typeof error?.message === "string" ? error.message : "";
+  return [
+    "invalid_arguments", "distribution_missing", "real_mode_opt_in_required",
+    "real_mode_environment_missing", "invalid_public_supabase_url", "privileged_key_forbidden",
+    "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
+    "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
+    "global_session_revocation_unverified",
+  ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";
 }
-async function availablePort() { const server = createServer(); await new Promise((resolveServer, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveServer); }); const port = server.address().port; await new Promise(resolveServer => server.close(resolveServer)); return port; }
-async function waitForDebugger(port) { for (let attempt = 0; attempt < 80; attempt += 1) { try { if ((await fetch(`http://127.0.0.1:${port}/json/version`)).ok) return; } catch {} await delay(100); } throw new Error('chrome_debugger_timeout'); }
-async function connectToPage(port) { for (let attempt = 0; attempt < 80; attempt += 1) { const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); const page = pages.find(item => item.type === 'page' && item.webSocketDebuggerUrl); if (page) return CdpClient.connect(page.webSocketDebuggerUrl); await delay(100); } throw new Error('chrome_page_timeout'); }
-
-async function navigateAndWait(cdpClient, url, fragment) { await cdpClient.send('Page.navigate', { url }); await waitForShell(cdpClient, fragment); }
-async function restoreBrowserSession(cdpClient, session) {
-    const global = await cdpClient.send('Runtime.evaluate', { expression: 'globalThis', returnByValue: false });
-    await cdpClient.send('Runtime.callFunctionOn', {
-        objectId: global.result.objectId,
-        functionDeclaration: `function(values) { for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value); return true; }`,
-        arguments: [{ value: {
-            quata_web_access_token: session.accessToken, quata_web_refresh_token: session.refreshToken,
-            quata_web_session_token: session.webSessionToken, quata_web_user_id: session.profileId,
-            quata_web_expires_at: String(session.expiresAt), 'web.auth.session_ready': 'true',
-            quata_web_client_instance_id: `web-browser-e2e-${crypto.randomUUID()}`,
-        } }], returnByValue: true, awaitPromise: true,
-    });
+async function writeSafeReport(path, value) {
+  const target = resolve(path);
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  console.log(`Authenticated browser report written: ${target}`);
 }
-async function assertBrowserContract(cdpClient, configuration, profileId) {
-    const response = await cdpClient.send('Runtime.evaluate', { expression: `fetch(${JSON.stringify(`${configuration.baseUrl}/rest/v1/community_profiles?select=id&id=eq.${profileId}`)}, { headers: { apikey: localStorage.getItem('quata_web_access_token') ? ${JSON.stringify(configuration.publishableKey)} : '', authorization: 'Bearer ' + localStorage.getItem('quata_web_access_token') } }).then(async response => ({ ok: response.ok, rows: response.ok ? (await response.json()).length : -1, configured: localStorage.getItem('web.runtime.backend_configured'), sessionReady: localStorage.getItem('web.auth.session_ready') }))`, returnByValue: true, awaitPromise: true });
-    const value = response.result?.value;
-    return value?.ok === true && value?.rows === 1 && value?.configured === 'true' && value?.sessionReady === 'true';
-}
-async function waitForShell(cdpClient, fragment) { for (let attempt = 0; attempt < 120; attempt += 1) { const result = await cdpClient.send('Runtime.evaluate', { expression: `(() => { const root = document.querySelector('#quata-root'); return { hash: location.hash, root: Boolean(root), children: root?.childElementCount ?? 0, canvases: root?.querySelectorAll('canvas').length ?? 0, shadowChildren: root?.shadowRoot?.childElementCount ?? 0, shadowCanvases: root?.shadowRoot?.querySelectorAll('canvas').length ?? 0 }; })()`, returnByValue: true }); const value = result.result?.value; if (value?.hash === `#${fragment}` && value.root && (value.children > 0 || value.canvases > 0 || value.shadowChildren > 0 || value.shadowCanvases > 0)) return; await delay(100); } throw new Error('compose_shell_mount_timeout'); }
-
-function isUuid(value) { return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value); }
-function safeErrorCode(error) { const message = typeof error?.message === 'string' ? error.message : ''; return ['missing_environment', 'invalid_public_supabase_url', 'distribution_missing', 'runtime_configuration_injection_failed', 'public_web_login_failed', 'invalid_auth_response', 'chrome_debugger_timeout', 'chrome_page_timeout', 'cdp_connect_failed', 'cdp_command_failed', 'browser_authenticated_profile_read_failed', 'browser_runtime_fault', 'compose_shell_mount_timeout', 'web_logout_failed', 'session_revocation_failed'].find(code => message.startsWith(code)) ?? 'unexpected_browser_e2e_failure'; }
-function describeException(details) { return details?.exception?.description ? 'uncaught_exception' : 'runtime_log'; }
-async function writeSafeReport(output, value) { const target = resolve(output); await mkdir(dirname(target), { recursive: true }); await writeFile(target, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 }); console.log(`Authenticated browser report written: ${target}`); }
-async function stopProcess(child) { if (process.platform === 'win32' && child.pid) { await new Promise(resolveProcess => spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' }).once('exit', resolveProcess)); } else if (child.exitCode === null) child.kill(); }
-async function removeTemporaryDirectory(path) { await rm(path, { recursive: true, force: true, maxRetries: 3, retryDelay: 150 }).catch(() => {}); }
-
-class CdpClient {
-    static async connect(url) { const socket = new WebSocket(url); await new Promise((resolveSocket, reject) => { socket.addEventListener('open', resolveSocket, { once: true }); socket.addEventListener('error', () => reject(new Error('cdp_connect_failed')), { once: true }); }); return new CdpClient(socket); }
-    constructor(socket) { this.socket = socket; this.nextId = 1; this.pending = new Map(); this.listeners = new Map(); socket.addEventListener('message', event => this.receive(JSON.parse(event.data))); }
-    send(method, params = {}) { const id = this.nextId++; const result = new Promise((resolveCommand, reject) => this.pending.set(id, { resolve: resolveCommand, reject })); this.socket.send(JSON.stringify({ id, method, params })); return result; }
-    on(method, listener) { const values = this.listeners.get(method) ?? []; values.push(listener); this.listeners.set(method, values); }
-    receive(message) { if (message.id) { const pending = this.pending.get(message.id); if (!pending) return; this.pending.delete(message.id); if (message.error) pending.reject(new Error('cdp_command_failed')); else pending.resolve(message.result); return; } for (const listener of this.listeners.get(message.method) ?? []) listener(message.params ?? {}); }
-    close() { this.socket.close(); }
-}
-
-await run();
