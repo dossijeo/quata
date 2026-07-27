@@ -50,6 +50,15 @@ test('approved bundle budget enforces raw and gzip growth independently', async 
   });
 });
 
+test('pull request CI requires an explicit policy base for an approved budget', async () => {
+  const fixture = await preparedFixture();
+  fixture.environment = { GITHUB_EVENT_NAME: 'pull_request' };
+  assert.throws(
+    () => run(fixture, '--budget', fixture.budget),
+    /requires --policy-base for pull_request CI/,
+  );
+});
+
 test('baseline capture cannot approve the current feature branch', async () => {
   const fixture = await createFeatureBranchFixture();
   assert.throws(
@@ -118,9 +127,12 @@ async function mutateBaseline(fixture, mutate) {
 }
 
 function run(fixture, ...args) {
+  const environment = { ...process.env };
+  delete environment.GITHUB_EVENT_NAME;
   const result = spawnSync(process.execPath, [fixture.script ?? script, '--dist', fixture.dist, '--report', fixture.report, ...args], {
     cwd: fixture.repositoryRoot ?? root,
     encoding: 'utf8',
+    env: { ...environment, ...fixture.environment },
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(result.stderr);
