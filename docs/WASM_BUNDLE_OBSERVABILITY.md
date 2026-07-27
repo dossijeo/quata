@@ -106,6 +106,19 @@ detiene **solo el proceso de diagnostico** por inactividad o limite explicito.
 No se debe cambiar `wasmJs {}` para desactivar optimizacion o bajar la
 toolchain.
 
+Antes de cambiar ese watchdog se puede ejecutar su contrato local, sin lanzar
+Gradle ni modificar el bundle:
+
+```powershell
+.\scripts\run-wasm-production-observed.ps1 -ContractTest
+```
+
+El contrato provoca un hijo que queda sin padre y comprueba que se termina por
+su identidad completa (PID y hora de creacion), sin terminar un proceso ajeno
+ni aceptar un PID reutilizado. Una captura normal conserva esa misma lista de
+identidades y no certifica el bundle si algun descendiente registrado sigue
+vivo al terminar el lanzador.
+
 Al registrar una incidencia, separar estos hitos del log:
 
 1. `compileProductionExecutableKotlinWasmJs` (compilador Kotlin),
