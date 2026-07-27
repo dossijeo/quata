@@ -1,16 +1,18 @@
 # Evidencia verificable de validacion multiplataforma
 
-**Corte de este registro:** ola 1 integrada en `main`
+**Corte de este registro:** `main`
+`ea0322c159be61018a60604f6b9134bd4f290787`. La ola 1 integrada es
 `587789ff03df0c1b83baa2b6ca74babc4e4d3499`
-([PR #46](https://github.com/dossijeo/quata/pull/46)) y candidato de ola 2
+([PR #46](https://github.com/dossijeo/quata/pull/46)) y la ola 2 integrada es
 `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220`
-(`codex/integration-wave2`, todavía no integrado).
+([PR #47](https://github.com/dossijeo/quata/pull/47)). La rama histórica
+`codex/integration-wave2` no existe.
 
 Este documento reconcilia evidencia ya obtenida; no ejecuta compilaciones ni
 convierte documentacion de intencion en un resultado nuevo. Un SHA aparece como
-integrado sólo cuando es ancestro de `587789ff`. La ola 2 se etiqueta como
-candidata y no hereda el estado de `main`. Los enlaces de Actions apuntan al
-run y al `headSha` exactos, no a una ejecución posterior de `main`.
+integrado sólo cuando es ancestro del corte de `main` indicado. Las dos olas lo
+son en este corte. Los enlaces de Actions apuntan al run y al `headSha` exactos,
+no a una ejecución posterior de `main`.
 
 El resumen mecanizable del corte MP-A14 está en
 [`mp-a14-final-evidence.json`](mp-a14-final-evidence.json).
@@ -45,7 +47,7 @@ firma; eso no es un IPA firmado ni una prueba en dispositivo fisico.
 | `3d496f800d8c4cdb80cd30c6709292d091a9c964` | Shell Communities | [#30170903885](https://github.com/dossijeo/quata/actions/runs/30170903885) | Host/ruta autenticada estructural; no mutaciones, media, roles ni E2E. |
 | `a6a11baacc2b5412e80040e54f9a90b165c4ee80` | Archive iOS sin firma | [#30171716978](https://github.com/dossijeo/quata/actions/runs/30171716978) | Ademas del smoke XCTest, archive generico y comprobacion de `QuataShared.framework`. |
 | `e9e09c5a9c9deaf662ce52a78137a4d6fe6170ce` | Transporte escalar Official comun | [#30172609978](https://github.com/dossijeo/quata/actions/runs/30172609978) | Compilacion/enlace/host/XCTest; no lectura remota E2E. |
-| `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` | Candidato ola 2 completo | [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde** (2026-07-26 16:59:46Z): Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. No acredita firma, dispositivo, App Group operativo ni APNs entregado. |
+| `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` | Ola 2 integrada por [PR #47](https://github.com/dossijeo/quata/pull/47) | [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde** (2026-07-26 16:59:46Z): Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. No acredita firma, dispositivo, App Group operativo ni APNs entregado. |
 
 La definicion concreta de esos pasos, artefactos y limites se mantiene en
 [IOS_CI.md](IOS_CI.md) y [IOS_UNSIGNED_ARCHIVE.md](IOS_UNSIGNED_ARCHIVE.md).
@@ -96,7 +98,7 @@ resto de verticales. Los runners disponibles no sustituyen evidencia ejecutada:
 | iOS funcional | XCTest/UI de rutas autenticadas y adaptadores reales (permisos, contactos, archivos/media) en simulador o dispositivo configurado. El XCTest actual solo acredita el smoke de frontera del host. |
 | Push | Registro/entrega y limpieza real de Web Push/APNs; service worker o bridge por si solos no acreditan entrega. |
 | Android cierre | `assembleDebug`, instalacion, arranque API-37, crash buffer y PID sobre el SHA final, especialmente despues de cada lote Android. |
-| Seguridad RLS | RLS-001/SB-07 y RLS-002/SB-09 siguen abiertos. Las mutaciones Communities y Official permanecen fail-closed; no se ha aplicado RLS/DDL para no romper la Web publicada. |
+| Seguridad RLS | RLS-001 está desplegada y hardened mediante el forward `20260726171005`, pero sigue pendiente el SB-07 remoto mutante completo. RLS-002/SB-09, RLS-003, RLS-004 y RLS-005 siguen abiertos. Las mutaciones Communities y Official permanecen fail-closed. |
 
 Por estas ausencias, Web e iOS permanecen **parciales**. Esta tabla debe
 actualizarse por lote con el SHA, enlace de run o salida local conservada, el

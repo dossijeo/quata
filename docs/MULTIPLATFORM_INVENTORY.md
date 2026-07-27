@@ -3,8 +3,9 @@
 > El estado operativo, las dependencias, PRs y tareas despachables se mantienen en
 > `docs/MULTIPLATFORM_MIGRATION_BOARD.md`. Este documento conserva el detalle arquitectónico.
 
-Reconciliado el 2026-07-26 contra ola 1 integrada en `main`
-(`587789ff`, PR #46) y ola 2 candidata (`9cc84dc2`). Este documento separa
+Reconciliado el 2026-07-27 contra `main` `ea0322c1`: ola 1 (`587789ff`, PR #46)
+y ola 2 (`9cc84dc2`, PR #47) están integradas; la rama histórica de ola 2 ya no
+existe. Este documento separa
 lógica compartible de adaptadores de plataforma; no autoriza mover varias
 áreas a la vez ni declara completa la migración.
 

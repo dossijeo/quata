@@ -10,16 +10,19 @@ con service-role. El endurecimiento corresponde a la migración coordinada
 Este registro reúne hallazgos confirmados por pruebas E2E. No es una migración
 y no autoriza cambios de esquema, funciones, políticas ni datos de producción.
 
-Reconciliación MP-A14 (`9cc84dc2`): RLS-001/SB-07 y RLS-002/SB-09 continúan
-abiertos. Communities y Official mantienen sus mutaciones afectadas
-`fail-closed`; no se aplicó ninguna política ni cambio remoto.
+Reconciliación DOC-001 (`ea0322c1`): RLS-001 está desplegada y hardened mediante
+el forward `20260726171005`; queda pendiente acreditar el SB-07 remoto mutante
+completo antes de retirar la contención de producto. RLS-002/SB-09, RLS-003,
+RLS-004 y RLS-005 continúan abiertas. Communities y Official mantienen sus
+mutaciones afectadas `fail-closed`.
 
 ## RLS-001 — Un outsider puede borrar un comentario ajeno
 
 - **Detectado:** 2026-07-26, SB-07 de Communities.
 - **Severidad:** alta.
-- **Estado de producto:** contenido en los clientes KMP; abierto en el servicio hasta una
-  corrección RLS coordinada que no rompa la Web ya publicada.
+- **Estado remoto:** forward `20260726171005` desplegado y catálogo hardened; falta
+  ejecutar el SB-07 remoto mutante completo con fixtures y purga autorizados.
+- **Estado de producto:** contenido en los clientes KMP hasta acreditar ese gate.
 - **Superficie:** `public.community_comments`, operación `DELETE` mediante la clave
   publicable y un JWT autenticado.
 - **Reproducción segura:** crear dos perfiles E2E aislados, un wall y post del actor; crear un
@@ -32,10 +35,13 @@ abiertos. Communities y Official mantienen sus mutaciones afectadas
 - **Impacto:** cualquier usuario autenticado que alcance el endpoint puede eliminar comentarios
   de otro perfil, con independencia de la UI.
 
-### Contención de clientes (2026-07-26)
+### Despliegue y contención de clientes (reconciliado 2026-07-27)
 
-No se ha modificado ninguna política RLS, esquema, función ni despliegue. Mientras RLS-001 esté
-abierto, `CommunityMutationSafety` en `feature:neighborhoods` mantiene fallos cerrados para crear
+El forward `20260726171005_community_comments_reapply_rls` está desplegado: conserva 171001 en
+el ledger y deja hardened el catálogo de comentarios. No se debe reaplicar ni reparar ese
+timestamp. Esto acredita el despliegue de RLS-001, pero no el recorrido remoto mutante completo
+de SB-07. Mientras ese gate permanezca pendiente, `CommunityMutationSafety` en
+`feature:neighborhoods` mantiene fallos cerrados para crear
 o borrar comentarios, seguir usuarios, reportar posts y cambiar roles. Los adaptadores Web e iOS
 usan esa misma barrera para las mutaciones que exponen; las capacidades Web conservan
 `Communities/Mutate` deshabilitado. La creación de conversaciones no se incluye en esta barrera:
@@ -43,24 +49,19 @@ pertenece al contrato Chat, que cuenta con la evidencia independiente SB-04.
 
 La regresión común `CommunityMutationSafetyTest` verifica que ninguna de esas operaciones pueda
 activarse accidentalmente mientras el identificador de evidencia siga siendo `RLS-001`. Esto es
-contención de producto, no una corrección de autorización del servidor: clientes antiguos,
-llamadas directas o futuras integraciones siguen expuestos hasta corregir la política.
+contención de producto adicional al endurecimiento del servidor: clientes antiguos,
+llamadas directas o futuras integraciones no habilitan el gate pendiente hasta que SB-07 remoto
+complete su matriz mutante y purga verificable.
 
-### Corrección requerida
+### Estado de la corrección
 
-Preparar una migración revisada y reversible en un entorno no productivo que elimine o restrinja
-la política permisiva de `DELETE` y permita borrar sólo al propietario (`profile_id = auth.uid()`
-o el mapeo de perfil equivalente) y a administradores explícitos. Antes de aplicarla a producción
-hay que evaluar la Web publicada que hoy depende de las políticas existentes.
-
-**Preparada, no desplegada (2026-07-26):**
-`20260726171001_community_comments_delete_rls.sql` reemplaza la política DELETE
-permisiva por propietario canónico activo/administrador explícito. También
-cierra la cadena de evasión `UPDATE → DELETE` haciendo inmutable la fila y
-limita `INSERT` al perfil canónico activo para impedir suplantación. Conserva
-SELECT público y los contratos Android de alta y borrado por `id`; incluye
-rollback y regresión SQL/E2E aislada con fixtures efímeros y purga verificada.
-La evidencia y riesgos están en
+La corrección preparada como `20260726171001_community_comments_delete_rls.sql`
+restringe DELETE a propietario canónico activo/administrador explícito, cierra
+la evasión `UPDATE → DELETE` y limita INSERT al perfil canónico activo. El
+forward desplegado `20260726171005_community_comments_reapply_rls.sql` la
+reaplicó sobre la base de release vigente. Conserva SELECT público y los
+contratos Android de alta y borrado por `id`; los artefactos incluyen rollback
+y regresión SQL/E2E aislada. La evidencia y riesgos están en
 `docs/RLS001_COMMUNITY_COMMENTS_DELETE_PLAN.md`.
 
 ### Criterio de cierre
@@ -69,7 +70,8 @@ La evidencia y riesgos están en
 2. El outsider recibe una denegación HTTP o una representación vacía.
 3. El actor sigue viendo su comentario y puede borrar únicamente el suyo.
 4. Se purgan y verifican todos los datos E2E.
-5. Se registra el SHA de migración y la evidencia sin IDs, tokens, teléfonos ni secretos.
+5. Se registra la evidencia remota sin IDs, tokens, teléfonos ni secretos, vinculada al forward
+   `20260726171005` ya desplegado.
 6. Sólo tras los cinco puntos anteriores se retira la contención por operación y se añaden
    pruebas de cliente específicas para el flujo habilitado.
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-07-26",
+  "recordedAt": "2026-07-27",
   "scope": "MP-A14 final evidence reconciliation",
   "integration": {
     "wave1": {
@@ -10,9 +10,12 @@
       "url": "https://github.com/dossijeo/quata/pull/46"
     },
     "wave2": {
-      "status": "candidate_not_merged",
+      "status": "merged",
       "sha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
-      "branch": "codex/integration-wave2"
+      "pullRequest": 47,
+      "url": "https://github.com/dossijeo/quata/pull/47",
+      "integratedInMain": "ea0322c159be61018a60604f6b9134bd4f290787",
+      "historicalBranch": "deleted"
     }
   },
   "wave2LocalGates": {
@@ -113,9 +116,11 @@
     },
     "rls001": {
       "gate": "SB-07",
-      "status": "confirmed_open",
+      "status": "forward_deployed_hardened_sb07_mutating_remote_pending",
       "clientMutationCapability": "blocked_fail_closed",
-      "serverMutationApplied": false
+      "forwardMigration": "20260726171005",
+      "serverMutationApplied": true,
+      "fullRemoteMutatingSb07Accredited": false
     },
     "rls002": {
       "gate": "SB-09",

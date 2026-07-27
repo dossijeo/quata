@@ -1,11 +1,12 @@
 # Matriz de evidencia para la auditoría final KMP
 
-**Corte integrado:** ola 1 en `origin/main`,
+**Corte integrado:** `main` `ea0322c159be61018a60604f6b9134bd4f290787`.
+La ola 1 permanece acreditada por
 `587789ff03df0c1b83baa2b6ca74babc4e4d3499`
-([PR #46](https://github.com/dossijeo/quata/pull/46), 2026-07-26).
-**Candidato reconciliado:** ola 2,
+([PR #46](https://github.com/dossijeo/quata/pull/46), 2026-07-26) y la ola 2 por
 `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220`
-(`codex/integration-wave2`, todavía no integrado).
+([PR #47](https://github.com/dossijeo/quata/pull/47)); ambas son ancestros de
+este corte. La rama histórica `codex/integration-wave2` ya no existe.
 **Método de esta corrección:** se reconciliaron las evidencias de gates ya
 realizados contra el historial integrado. No se ejecutaron Gradle, emulador,
 navegador, Supabase ni GitHub Actions en este lote documental; no acredita
@@ -24,8 +25,8 @@ un cambio posterior.
 
 | Superficie | SHA / ejecución | Evidencia acreditada | Alcance que no acredita |
 | --- | --- | --- | --- |
-| Ola 1 integrada | `587789ff03df0c1b83baa2b6ca74babc4e4d3499`, [PR #46](https://github.com/dossijeo/quata/pull/46) | Merge confirmado en `main`; conserva la evidencia histórica por SHA de sus lotes. | No acredita automáticamente la ola 2. |
-| Android ola 2 | `9cc84dc2` | `assembleDebug` verde; APK 79.029.367 bytes/SHA-256 registrado. A/B API-37 contra ola 1 recorrió cinco áreas, con crash buffer limpio, sin ANR: 25,392 s ola 1 y 21,159 s ola 2. | Smoke comparativo, no benchmark; ambos hosts lentos se clasificaron `environment_both_slow`. |
+| Ola 1 integrada | `587789ff03df0c1b83baa2b6ca74babc4e4d3499`, [PR #46](https://github.com/dossijeo/quata/pull/46) | Merge confirmado en `main`; conserva la evidencia histórica por SHA de sus lotes. | No acredita automáticamente cambios posteriores. |
+| Android ola 2 integrada | `9cc84dc2`, [PR #47](https://github.com/dossijeo/quata/pull/47) | `assembleDebug` verde; APK 79.029.367 bytes/SHA-256 registrado. A/B API-37 contra ola 1 recorrió cinco áreas, con crash buffer limpio, sin ANR: 25,392 s ola 1 y 21,159 s ola 2. | Smoke comparativo, no benchmark; ambos hosts lentos se clasificaron `environment_both_slow`. |
 | Web/Wasm ola 2 | `9cc84dc2` | Tests/compilaciones acotados verdes, distribución Wasm verde y smoke DocMentis de seis rutas en 29 s, sin fixtures remotos. | Dos `compileTest` agotaron timeout sin diagnóstico; el smoke no es E2E autenticado. Chat UI sigue bloqueado por AX aunque el preflight remoto y la purga pasaron. |
 | iOS ola 2 | `9cc84dc2`, [CI #30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde**, completada 2026-07-26 16:59:46Z: Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. | No acredita firma, dispositivo físico, App Group operativo, entrega APNs ni E2E autenticado. |
 | Evidencia mecanizable | [`mp-a14-final-evidence.json`](mp-a14-final-evidence.json) | SHAs, gates locales, hash del APK, run iOS y límites funcionales del corte. | Es documentación; no ejecuta ni transforma un smoke en E2E. |
@@ -55,9 +56,9 @@ un cambio posterior.
 | Visor Web de documentos mediante DocMentis | El inventario declara carga perezosa de `@docmentis/udoc-viewer` para PDF/DOCX/PPTX/XLSX y fallback seguro para RTF/legacy; MP-A13 registra smoke DocMentis. | Falta prueba funcional con documentos propios, CORS y Storage autenticado. Licencia, telemetría, actualizaciones, fuentes y CSP de DocMentis requieren aprobación de producto/legal antes de despliegue. |
 | Host iOS real y `iosMain` presente | `iosApp` UIKit y `:ios-shared` existen; `#30210875187` pasó sobre `9cc84dc2`, incluidos host Swift, Share Extension y archive sin firma. | iOS **no está lista** aunque compile: faltan firma/dispositivo, App Group físico, entrega APNs, permisos y E2E funcional. El Mac virtual con Xcode 16 es incompatible con las platform libraries actuales de Kotlin/Native/Xcode 26. |
 | Pruebas iOS | `#30210875187` pasó Kotlin/Native, framework/XCFramework, host Swift, simulador/XCTest, archive genérico sin firma y publicación de artefacto. | No sustituye App Group firmado, APNs entregado ni recorrido real de External Share. |
-| Backend y E2E con Supabase | SB-01..SB-06 conservan evidencia y limpieza. SB-07 confirmó RLS-001 (outsider borra comentario ajeno) y SB-09 confirmó RLS-002 (suplantación de `profile_id` en like Official); ambos lotes terminaron sin residuos. | Communities/Official Web permanecen fail-closed. No se ha endurecido RLS ni aplicado DDL porque podría romper la Web publicada; una corrección coordinada debe hacer verdes SB-07/SB-09 antes de habilitar mutaciones. |
+| Backend y E2E con Supabase | SB-01..SB-06 conservan evidencia y limpieza. El forward RLS-001 `20260726171005` está desplegado y hardened; su postflight compuesto no equivale al SB-07 remoto mutante completo. SB-09 confirmó RLS-002 (suplantación de `profile_id` en like Official). | Communities/Official Web permanecen fail-closed. Falta ejecutar el alcance mutante completo de SB-07 en remoto con fixtures/purga autorizados y cerrar SB-09 antes de habilitar mutaciones. RLS-002/003/004/005 permanecen abiertos. |
 | Bundle, warnings y rendimiento Web | MP-A07/MP-A13 conservan medición 35,29 MiB / 13,55 MiB gzip, análisis de DocMentis/Skiko y métricas locales de Chrome. | El budget está `proposed`, no es gate aprobado; faltan baseline certificado, runner controlado y resolución de avisos sin suprimirlos globalmente. |
-| Inventario y documentación honestos | MP-A14 reconcilia ola 1, candidato ola 2, gates locales, CI iOS verde y límites en Markdown/JSON. | Reconciliación documental completada; la migración no se declara completa. |
+| Inventario y documentación honestos | MP-A14 reconcilia olas 1 y 2 integradas, gates locales, CI iOS verde y límites en Markdown/JSON. | Reconciliación documental completada; la migración no se declara completa. |
 
 ## Matriz de plataformas: condición de salida
 
