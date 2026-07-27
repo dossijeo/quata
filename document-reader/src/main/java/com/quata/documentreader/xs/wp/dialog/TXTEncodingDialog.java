@@ -19,6 +19,7 @@ import com.quata.documentreader.xs.system.beans.ADialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.res.Configuration;
+import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.WebView;
@@ -111,6 +112,10 @@ public class TXTEncodingDialog extends ADialog
         
         // 预览文本
         previewText = new WebView(context);
+        previewText.getSettings().setJavaScriptEnabled(false);
+        previewText.getSettings().setAllowContentAccess(false);
+        previewText.getSettings().setAllowFileAccess(false);
+        previewText.getSettings().setBlockNetworkLoads(true);
         previewText.setPadding(5, 2, 5, 2);
         scrollView = new ScrollView(context);
         scrollView.setFillViewport(true);
@@ -192,9 +197,9 @@ public class TXTEncodingDialog extends ADialog
                 int len = br.read(buffer);
                 if (len > 0)
                 {
-                    String str = "<a>" + new String(buffer, 0, len) + "</a>";
-                    //previewText.loadData(new String(str.getBytes("UTF-8")), "text/html", "UTF-8");
-                    previewText.loadDataWithBaseURL(null, str.replaceAll("\\r\\n", "<br />"), "text/html", "UTF-8", null);
+                    String escapedText = TextUtils.htmlEncode(new String(buffer, 0, len));
+                    String html = "<pre style=\"white-space:pre-wrap\">" + escapedText + "</pre>";
+                    previewText.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
                 }
                 br.close();                 
             }
