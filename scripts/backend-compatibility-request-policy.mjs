@@ -9,7 +9,7 @@ export function inspectBackendRequest({ url, method, headers }, supabaseBaseUrl)
       [...requestUrl.searchParams.keys()].some((key) => /token|session|apikey|key/i.test(key))) {
     return { allowed: false, reason: 'supabase_credentials_forbidden' };
   }
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) return { allowed: false, reason: 'supabase_method_forbidden' };
+  if (method.toUpperCase() !== 'GET') return { allowed: false, reason: 'supabase_method_forbidden' };
   if (!requestUrl.pathname.startsWith('/rest/v1/')) return { allowed: false, reason: 'supabase_path_forbidden' };
   return { allowed: true };
 }
