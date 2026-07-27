@@ -173,9 +173,14 @@ async function startServer(root, supabaseUrl, key) {
       let body = await readFile(path);
       if (requested === "index.html") {
         const html = body.toString("utf8");
-        const meta = `<meta name="quata-supabase-url" content="${escapeHtml(supabaseUrl)}">` +
-          `<meta name="quata-supabase-publishable-key" content="${escapeHtml(key)}">`;
-        body = Buffer.from(html.replace(/<head([^>]*)>/i, `<head$1>${meta}`), "utf8");
+        const replaceMeta = (source, name, value) => source.replace(
+          new RegExp(`(<meta\\s+name=["']${name}["']\\s+content=["'])[^"']*(["'][^>]*>)`, "i"),
+          `$1${escapeHtml(value)}$2`,
+        );
+        body = Buffer.from(
+          replaceMeta(replaceMeta(html, "quata-supabase-url", supabaseUrl), "quata-supabase-publishable-key", key),
+          "utf8",
+        );
       }
       response.writeHead(200, {
         "content-type": contentType(path),
