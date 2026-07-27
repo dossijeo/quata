@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const root = resolve(import.meta.dirname, '..');
 const script = join(root, 'scripts', 'wasm-bundle-report.mjs');
+const approvalPolicyScript = join(root, 'scripts', 'wasm-bundle-approval-policy.mjs');
 const fixtureRevision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const fixtureTreeSha256 = createHash('sha256').update(execFileSync('git', ['ls-tree', '-r', '--full-tree', '-z', fixtureRevision], { cwd: root })).digest('hex');
 
@@ -50,10 +51,10 @@ test('approved bundle budget enforces raw and gzip growth independently', async 
 });
 
 test('baseline capture cannot approve the current feature branch', async () => {
-  const fixture = await createFixture();
+  const fixture = await createFeatureBranchFixture();
   assert.throws(
     () => run(fixture, '--write-baseline', fixture.baseline, '--trusted-ref', 'origin/main'),
-    /HEAD must equal|detached checkout/,
+    /HEAD must equal/,
   );
 });
 
@@ -69,6 +70,27 @@ async function createFixture() {
   await mkdir(dist);
   await writeFile(join(dist, 'app.wasm'), Buffer.alloc(256, 1));
   return { dist, report: join(directory, 'report.json'), baseline: join(directory, 'baseline.json'), budget: join(directory, 'budget.json') };
+}
+
+async function createFeatureBranchFixture() {
+  const repositoryRoot = await mkdtemp(join(tmpdir(), 'quata-wasm-bundle-feature-'));
+  const fixtureScript = join(repositoryRoot, 'scripts', 'wasm-bundle-report.mjs');
+  await mkdir(join(repositoryRoot, 'scripts'));
+  await copyFile(script, fixtureScript);
+  await copyFile(approvalPolicyScript, join(repositoryRoot, 'scripts', 'wasm-bundle-approval-policy.mjs'));
+  await writeFile(join(repositoryRoot, 'base.txt'), 'trusted base\n');
+  git(repositoryRoot, 'init', '--quiet');
+  git(repositoryRoot, 'config', 'user.name', 'Quata contract fixture');
+  git(repositoryRoot, 'config', 'user.email', 'quata-contract@example.invalid');
+  git(repositoryRoot, 'add', 'scripts/wasm-bundle-report.mjs', 'scripts/wasm-bundle-approval-policy.mjs', 'base.txt');
+  git(repositoryRoot, 'commit', '--quiet', '-m', 'trusted base');
+  git(repositoryRoot, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  await writeFile(join(repositoryRoot, 'feature.txt'), 'feature branch\n');
+  git(repositoryRoot, 'add', 'feature.txt');
+  git(repositoryRoot, 'commit', '--quiet', '-m', 'feature branch');
+
+  const fixture = await createFixture();
+  return { ...fixture, repositoryRoot, script: fixtureScript };
 }
 
 async function reportFor(fixture) {
@@ -96,11 +118,15 @@ async function mutateBaseline(fixture, mutate) {
 }
 
 function run(fixture, ...args) {
-  const result = spawnSync(process.execPath, [script, '--dist', fixture.dist, '--report', fixture.report, ...args], {
-    cwd: root,
+  const result = spawnSync(process.execPath, [fixture.script ?? script, '--dist', fixture.dist, '--report', fixture.report, ...args], {
+    cwd: fixture.repositoryRoot ?? root,
     encoding: 'utf8',
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(result.stderr);
   return result.stdout;
+}
+
+function git(repositoryRoot, ...args) {
+  execFileSync('git', args, { cwd: repositoryRoot, stdio: 'ignore' });
 }
