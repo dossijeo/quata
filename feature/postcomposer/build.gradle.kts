@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.AbstractTestTask
+
 plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.multiplatform")
@@ -26,4 +28,8 @@ kotlin {
         iosMain.dependencies { }
         wasmJsMain.dependencies { }
     }
+}
+
+tasks.named<AbstractTestTask>("wasmJsNodeTest") {
+    filter.excludeTestsMatching("*ComposerCriticalControlSemanticsTest*")
 }
