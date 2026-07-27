@@ -97,11 +97,13 @@ private fun Map<String, String>.hasUsableNote(): Boolean = values.any { it.isNot
 /** Exact tag, language-only tag, English and finally the first stable catalog translation. */
 private fun Map<String, String>.resolve(languageTags: List<String>): String? {
     languageTags.firstNotNullOfOrNull { requested ->
-        entries.firstOrNull { it.key.equals(requested, ignoreCase = true) }?.value
+        entries.firstOrNull { it.key.normalizedLanguageTag() == requested.normalizedLanguageTag() }?.value
     }?.let { return it }
-    languageTags.map { it.substringBefore('-') }.firstNotNullOfOrNull { language ->
-        entries.firstOrNull { it.key.substringBefore('-').equals(language, ignoreCase = true) }?.value
+    languageTags.map { it.normalizedLanguageTag().substringBefore('-') }.firstNotNullOfOrNull { language ->
+        entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == language }?.value
     }?.let { return it }
-    entries.firstOrNull { it.key.substringBefore('-').equals("en", ignoreCase = true) }?.value?.let { return it }
+    entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == "en" }?.value?.let { return it }
     return entries.sortedBy { it.key.lowercase() }.firstOrNull()?.value
 }
+
+private fun String.normalizedLanguageTag(): String = trim().replace('_', '-').lowercase()
