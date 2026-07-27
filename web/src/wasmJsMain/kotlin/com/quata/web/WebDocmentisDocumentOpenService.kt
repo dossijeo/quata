@@ -141,18 +141,44 @@ private fun docmentisOpen(
         let viewer = null;
         let opened = false;
         let active = true;
+        let documentLoaded = false;
+        let pageSlotRendered = false;
+        let renderedPageCount = 0;
+        let renderFailure = null;
+        let resolveRenderReady;
+        let rejectRenderReady;
+        const renderReady = new Promise((resolve, reject) => {
+          resolveRenderReady = resolve;
+          rejectRenderReady = reject;
+        });
+        // `viewer.load()` can reject in the same turn as the vendor error callback. Keep that
+        // expected failure observed until the load chain reaches its fail-closed handler.
+        renderReady.catch(() => {});
+        const markRenderReady = () => {
+          // `viewer.load()` only proves that the SDK accepted the source. A page-slot callback is
+          // invoked by the real DocMentis renderer when it mounts a visible page, so require both
+          // signals before reporting an integrated preview as opened.
+          if (!active || !documentLoaded || !pageSlotRendered || viewer?.isLoaded !== true || viewer?.pageCount < 1) return;
+          overlay.dataset.quataDocmentisRenderReady = 'true';
+          resolveRenderReady();
+        };
+        const renderReadyTimeout = globalThis.setTimeout(() => {
+          if (!active || overlay.dataset.quataDocmentisRenderReady === 'true') return;
+          rejectRenderReady(new Error(renderFailure || 'docmentis_render_ready_timeout'));
+        }, 10_000);
         const onKeyDown = (event) => {
           if (event.key === 'Escape') close('cancelled');
         };
-        const close = (reason) => {
+        const close = (reason, completeOnClose = true) => {
           if (!active) return;
           active = false;
           document.removeEventListener('keydown', onKeyDown);
           try { viewer?.destroy?.(); } catch (_) {}
           try { client?.destroy?.(); } catch (_) {}
+          globalThis.clearTimeout(renderReadyTimeout);
           overlay.remove();
           if (globalThis.__quataDocmentisActive?.close === close) delete globalThis.__quataDocmentisActive;
-          if (!opened) complete(reason === 'cancelled' ? 'cancelled' : 'unsupported', 'docmentis_' + reason);
+          if (!opened && completeOnClose) complete(reason === 'cancelled' ? 'cancelled' : 'unsupported', 'docmentis_' + reason);
         };
         closeButton.addEventListener('click', () => close('cancelled'));
         document.addEventListener('keydown', onKeyDown);
@@ -168,22 +194,43 @@ private fun docmentisOpen(
           .then((createdClient) => {
             if (!active) { createdClient.destroy?.(); return null; }
             client = createdClient;
-            return client.createViewer({ container });
+            return client.createViewer({
+              container,
+              // The SDK documents this hook as running when a page slot is mounted by its
+              // renderer. It is deliberately not a Quata DOM heuristic or a load-promise proxy.
+              customPageOverlay: (_pageIndex, _pageContainer, _scale) => {
+                pageSlotRendered = true;
+                markRenderReady();
+              },
+            });
           })
           .then((createdViewer) => {
             if (!createdViewer) return null;
             if (!active) { createdViewer.destroy?.(); return null; }
             viewer = createdViewer;
+            viewer.on?.('document:load', ({ pageCount }) => {
+              documentLoaded = Number.isInteger(pageCount) && pageCount > 0;
+              renderedPageCount = pageCount || 0;
+              markRenderReady();
+            });
+            viewer.on?.('error', ({ error, phase }) => {
+              renderFailure = 'docmentis_' + (phase || 'render') + '_' + (error?.message || error?.name || 'failed');
+              rejectRenderReady(new Error(renderFailure));
+            });
             return viewer.load(parsed.href);
           })
           .then(() => {
             if (!active) return;
+            return renderReady;
+          })
+          .then(() => {
+            if (!active || renderedPageCount < 1) return;
             opened = true;
             complete('opened', null);
           })
           .catch((error) => {
             if (!active) return;
-            close('failed');
+            close('failed', false);
             complete('failed', error?.message ?? error?.name ?? 'docmentis_load_failed');
           });
       } catch (error) {
