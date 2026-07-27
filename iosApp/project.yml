@@ -1,6 +1,9 @@
 name: QuataIos
 options:
   bundleIdPrefix: com.quata
+configs:
+  Debug: debug
+  Release: release
 targets:
   QuataIos:
     type: application
@@ -18,6 +21,16 @@ targets:
         INFOPLIST_FILE: iosApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: iosApp/QuataIos.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
+      configs:
+        Release:
+          # These values are deliberately supplied only by the signing environment.
+          # A signed Release build with any missing value must fail in Xcode instead
+          # of falling back to automatic signing or an arbitrary local team.
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          DEVELOPMENT_TEAM: $(QUATA_DEVELOPMENT_TEAM)
+          PROVISIONING_PROFILE_SPECIFIER: $(QUATA_IOS_APP_PROVISIONING_PROFILE)
+          QUATA_APNS_ENVIRONMENT: production
     dependencies:
       # The umbrella owns Kotlin/Native exports; do not embed feature frameworks separately.
       - framework: ../ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
@@ -41,6 +54,12 @@ targets:
         CODE_SIGN_ENTITLEMENTS: iosShareExtension/QuataShareExtension.entitlements
         APPLICATION_EXTENSION_API_ONLY: "YES"
         SKIP_INSTALL: "YES"
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          DEVELOPMENT_TEAM: $(QUATA_DEVELOPMENT_TEAM)
+          PROVISIONING_PROFILE_SPECIFIER: $(QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE)
   QuataIosUITests:
     type: bundle.ui-testing
     platform: iOS

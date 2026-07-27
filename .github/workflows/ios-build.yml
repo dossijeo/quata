@@ -219,6 +219,10 @@ jobs:
             --warning-mode all \
             --console=plain
 
+      - name: Validate iOS signing and runtime contract
+        shell: bash
+        run: bash scripts/check-ios-release-readiness.sh
+
       - name: Generate Xcode project
         working-directory: iosApp
         run: xcodegen generate
