@@ -32,6 +32,7 @@ on:
       - "scripts/wasm-bundle-report.test.mjs"
       - "scripts/wasm-bundle-approval-policy.mjs"
       - "scripts/wasm-bundle-approval-policy.test.mjs"
+      - "scripts/web-android-pr-workflow-contract.test.mjs"
       - "scripts/web-test-contract.test.mjs"
       - "scripts/web-chat-browser-e2e-report.test.mjs"
       - "scripts/web-browser-metrics.test.mjs"
@@ -62,6 +63,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -177,6 +180,7 @@ jobs:
           node scripts/wasm-bundle-report.mjs \
             --budget docs/wasm-bundle-budget.json \
             --report build/reports/wasm-bundle/wasm-bundle-report.json \
+            --policy-base "${{ github.event.pull_request.base.sha }}" \
             2>&1 | tee build/reports/web-ci/wasm-bundle-report.log
 
       - name: Smoke production launcher, DocMentis and Auth in Chrome
