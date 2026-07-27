@@ -6,6 +6,6 @@ export function publicPostIdFromPayload(text) {
   return value && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
 }
 export function detailEvidence(events, postId) {
-  return events.filter((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'posts')
-    .some((event) => event.postId === postId);
+  return events.some((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'posts' &&
+    event.query === `id=eq.${postId}` && event.payloadPostId === postId);
 }
