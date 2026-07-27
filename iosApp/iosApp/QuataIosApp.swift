@@ -179,6 +179,7 @@ private final class IosAppCompositionRoot {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.authenticatedHost.restoreRouteAfterForeground()
             self?.presentPendingExternalShareIfAvailable()
         }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
@@ -555,7 +556,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
-        feedFactory = { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+        installFeedFactory { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+    }
+
+    /// Installs the authenticated root route. Kept separate from dependency composition so the
+    /// UIKit routing contract can be verified without credentials, network traffic or a backend.
+    func installFeedFactory(_ factory: @escaping (String?) -> UIViewController) {
+        feedFactory = factory
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
         renderPendingRouteIfPossible()
@@ -767,6 +774,19 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showReleaseHistory() { route(.releaseHistory) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
+
+    /// Feature back actions always return to the real authenticated Feed root. A route is never
+    /// fabricated if the session/root factory is not ready yet.
+    func returnToAuthenticatedFeed() {
+        guard hasAuthenticatedSession, feedFactory != nil else { return }
+        showFeed(postId: nil)
+    }
+
+    /// Lifecycle re-entry must retain the current route (or its deferred target). This is an
+    /// intentionally idempotent UIKit boundary used after foregrounding, not a data refresh.
+    func restoreRouteAfterForeground() {
+        renderPendingRouteIfPossible()
+    }
 
     @objc private func presentAuthenticatedRouteMenu() {
         guard hasAuthenticatedSession else { return }
