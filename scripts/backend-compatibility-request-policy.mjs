@@ -3,6 +3,7 @@ export function inspectBackendRequest({ url, method, headers }, supabaseBaseUrl)
   const requestUrl = new URL(url);
   const base = new URL(supabaseBaseUrl);
   const authorization = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === 'authorization')?.[1] ?? '';
+  const apiKey = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === 'apikey')?.[1] ?? '';
   const isSupabase = requestUrl.origin === base.origin;
   if (!isSupabase) return { allowed: true };
   if (/^bearer\s+/i.test(authorization) || /session|access.?token|refresh.?token/i.test(JSON.stringify(headers ?? {})) ||
@@ -11,5 +12,6 @@ export function inspectBackendRequest({ url, method, headers }, supabaseBaseUrl)
   }
   if (method.toUpperCase() !== 'GET') return { allowed: false, reason: 'supabase_method_forbidden' };
   if (!requestUrl.pathname.startsWith('/rest/v1/')) return { allowed: false, reason: 'supabase_path_forbidden' };
+  if (typeof apiKey !== 'string' || apiKey.trim() === '') return { allowed: false, reason: 'supabase_publishable_key_missing' };
   return { allowed: true };
 }

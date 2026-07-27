@@ -46,6 +46,7 @@ try {
       table: match[1],
       status: response.status(),
       method: response.request().method(),
+      hasApiKey: typeof headers.apikey === "string" && headers.apikey.trim() !== "",
       hasBearerAuthorization: typeof headers.authorization === "string" && headers.authorization.trim() !== "",
       query: responseUrl.searchParams.toString(),
       payloadPostId,
@@ -97,7 +98,7 @@ try {
       remoteReadError: localStorage.getItem("web.feed.remote_read_error"),
     })) : undefined;
     const unsafeBackend = observedBackend.filter((response) =>
-      response.method !== "GET" || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
+      response.method !== "GET" || !response.hasApiKey || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
     checks.push({
       route,
@@ -136,7 +137,7 @@ const report = {
     failedBackendRequests.length === 0 &&
     blockedRequests.length === 0 &&
     backendResponses.every((response) =>
-      response.method === "GET" && !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
+      response.method === "GET" && response.hasApiKey && !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
     ) ? "passed" : "failed",
   checks,
   browserErrorCount: browserErrors.length,

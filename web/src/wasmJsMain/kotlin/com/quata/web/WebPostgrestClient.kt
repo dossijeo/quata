@@ -36,6 +36,18 @@ enum class WebPostgrestAuthMode {
     Public,
 }
 
+/** Pure request decision used before any browser fetch is constructed. */
+internal fun webPostgrestReadAccessToken(
+    authMode: WebPostgrestAuthMode,
+    accessToken: String?,
+): Result<String?> = when (authMode) {
+    WebPostgrestAuthMode.Public -> Result.success(null)
+    WebPostgrestAuthMode.SessionRequired -> accessToken
+        ?.takeIf(String::isNotBlank)
+        ?.let(Result.Companion::success)
+        ?: Result.failure(IllegalStateException("web_session_missing"))
+}
+
 /**
  * PostgREST transport for WASM repositories. Public GETs can run without a session; mutations
  * still require one. Endpoint models stay at gateways.
@@ -59,8 +71,10 @@ class WebPostgrestClient(
         if (!table.matches(PostgrestTableName)) {
             return feedReadFailure(table, WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
         }
-        val accessToken = authRepository.currentWebPushCredentials()?.accessToken
-        if (authMode == WebPostgrestAuthMode.SessionRequired && accessToken == null) {
+        val accessToken = webPostgrestReadAccessToken(
+            authMode = authMode,
+            accessToken = authRepository.currentWebPushCredentials()?.accessToken,
+        ).getOrElse {
             return feedReadFailure(table, WebPostgrestFailureKind.Session, "web_session_missing")
         }
         val parameters = buildMap {
@@ -72,7 +86,7 @@ class WebPostgrestClient(
         val result = browserPostgrestGet(
             url = "$baseUrl/rest/v1/$table${parameters.toQueryString()}",
             apiKey = apiKey,
-            accessToken = accessToken.takeIf { authMode == WebPostgrestAuthMode.SessionRequired },
+            accessToken = accessToken,
         )
         recordWebFeedReadResult(table, result)
         return result
