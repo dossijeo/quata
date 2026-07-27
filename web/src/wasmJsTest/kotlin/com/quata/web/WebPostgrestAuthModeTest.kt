@@ -27,4 +27,12 @@ class WebPostgrestAuthModeTest {
             webPostgrestReadAccessToken(WebPostgrestAuthMode.SessionRequired, "session-token").getOrThrow(),
         )
     }
+
+    @Test
+    fun mutationsRemainSessionOnly() {
+        assertFailsWith<IllegalStateException> {
+            webPostgrestSessionAccessToken(null).getOrThrow()
+        }
+        assertEquals("session-token", webPostgrestSessionAccessToken("session-token").getOrThrow())
+    }
 }

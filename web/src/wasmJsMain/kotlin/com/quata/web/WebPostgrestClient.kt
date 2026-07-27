@@ -42,11 +42,13 @@ internal fun webPostgrestReadAccessToken(
     accessToken: String?,
 ): Result<String?> = when (authMode) {
     WebPostgrestAuthMode.Public -> Result.success(null)
-    WebPostgrestAuthMode.SessionRequired -> accessToken
-        ?.takeIf(String::isNotBlank)
-        ?.let(Result.Companion::success)
-        ?: Result.failure(IllegalStateException("web_session_missing"))
+    WebPostgrestAuthMode.SessionRequired -> webPostgrestSessionAccessToken(accessToken)
 }
+
+internal fun webPostgrestSessionAccessToken(accessToken: String?): Result<String> = accessToken
+    ?.takeIf(String::isNotBlank)
+    ?.let(Result.Companion::success)
+    ?: Result.failure(IllegalStateException("web_session_missing"))
 
 /**
  * PostgREST transport for WASM repositories. Public GETs can run without a session; mutations
@@ -119,8 +121,11 @@ class WebPostgrestClient(
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
         val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
-        val accessToken = authRepository.currentWebPushCredentials()?.accessToken
-            ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
+        val accessToken = webPostgrestSessionAccessToken(
+            authRepository.currentWebPushCredentials()?.accessToken,
+        ).getOrElse {
+            return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
+        }
         if (!table.matches(PostgrestTableName)) {
             return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
         }
