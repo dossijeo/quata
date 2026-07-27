@@ -24,6 +24,7 @@ const browserErrors = [];
 const checks = [];
 const backendResponses = [];
 const failedBackendRequests = [];
+const blockedRequests = [];
 let context;
 try {
   context = await chromium.launchPersistentContext(profile, {
@@ -51,7 +52,7 @@ try {
   await page.route("**/*", async (route) => {
     const request = route.request();
     const decision = inspectBackendRequest({ url: request.url(), method: request.method(), headers: request.headers() }, baseUrl);
-    if (!decision.allowed) return route.abort("blockedbyclient");
+    if (!decision.allowed) { blockedRequests.push({ method: request.method(), reason: decision.reason }); return route.abort("blockedbyclient"); }
     return route.continue();
   });
   await page.addInitScript(() => {
@@ -96,12 +97,14 @@ const report = {
   mode: "credential_free_route_shell",
   status: checks.every((check) => check.passed) && browserErrors.length === 0 &&
     failedBackendRequests.length === 0 &&
+    blockedRequests.length === 0 &&
     backendResponses.every((response) =>
       response.method === "GET" && !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
     ) ? "passed" : "failed",
   checks,
   browserErrorCount: browserErrors.length,
   failedBackendRequests,
+  blockedRequests,
   backendResponses,
   mutationPolicy: "Only credential-free navigation and public GET responses are accepted; any POST/PATCH/PUT/DELETE or bearer authorization fails the smoke. The disposable browser profile is removed.",
 };

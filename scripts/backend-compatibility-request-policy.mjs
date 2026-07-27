@@ -5,7 +5,8 @@ export function inspectBackendRequest({ url, method, headers }, supabaseBaseUrl)
   const authorization = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === 'authorization')?.[1] ?? '';
   const isSupabase = requestUrl.origin === base.origin;
   if (!isSupabase) return { allowed: true };
-  if (/^bearer\s+/i.test(authorization) || /session|access.?token|refresh.?token/i.test(JSON.stringify(headers ?? {}))) {
+  if (/^bearer\s+/i.test(authorization) || /session|access.?token|refresh.?token/i.test(JSON.stringify(headers ?? {})) ||
+      [...requestUrl.searchParams.keys()].some((key) => /token|session|apikey|key/i.test(key))) {
     return { allowed: false, reason: 'supabase_credentials_forbidden' };
   }
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) return { allowed: false, reason: 'supabase_method_forbidden' };
