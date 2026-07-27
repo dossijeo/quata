@@ -42,29 +42,44 @@ regresion, no un limite total y no autoriza retirar DocMentis ni reducir la
 optimizacion.
 
 Los tamanos 35.29 MiB/13.55 MiB anotados en el tablero son redondeados. El
-candidato versionado [wasm-bundle-baseline.json](wasm-bundle-baseline.json)
-contiene en cambio el inventario y hashes exactos del artefacto local observado.
-Su procedencia de SHA aun no esta certificada y por ello el presupuesto se
-mantiene en `proposed`: ejecutarlo compara e informa, pero no bloquea. El
-integrador que produzca una distribucion completa en el SHA que vaya a integrar
-debe regenerar el candidato, revisar el diff y, en un commit separado, cambiar
-`state` de `proposed` a `approved`:
+fichero [wasm-bundle-baseline.json](wasm-bundle-baseline.json) sigue siendo un
+candidato historico y no es aprobable desde esta rama. Despues de integrar
+CI-001, la captura se ejecuta desde un worktree limpio y detached del
+`origin/main` actualizado (o de un tag confiable), nunca desde el commit elegido
+por la rama de aprobacion:
 
 ```powershell
 node .\scripts\wasm-bundle-report.mjs `
-  --write-baseline .\docs\wasm-bundle-baseline.json
-# Revisar el JSON y aprobar el cambio de state en docs/wasm-bundle-budget.json.
+  --write-baseline .\docs\wasm-bundle-baseline.json `
+  --trusted-ref origin/main
+$baseSha = '<sha-base-del-pr>'
 node .\scripts\wasm-bundle-report.mjs `
-  --budget .\docs\wasm-bundle-budget.json
+  --budget .\docs\wasm-bundle-budget.json `
+  --policy-base $baseSha
 ```
 
-El segundo comando es el **gate opt-in** previsto para CI. Con estado `proposed`
-emite la comparacion sin bloquear; con `approved` rechaza solo el crecimiento
-sobre ese baseline y un baseline ausente. No lee warnings del compilador ni
-impone un maximo total. El baseline incluye hashes, tamanos, distribucion y la
-presencia efectiva de chunks DocMentis. Si un cambio deliberado supera el margen,
-se revisa y actualiza baseline/presupuesto en un commit documentado, nunca se
-desactiva el gate silenciosamente.
+La captura falla si `HEAD` no coincide con la referencia confiable, si el
+checkout esta en una rama o si hay cambios tracked/untracked. Produce siempre
+`baselineState: candidate`; cambiarlo a `approved` y aprobar el budget exige una
+PR posterior dedicada. El segundo comando es el **gate aprobado** para CI. Rechaza un baseline sin
+`baselineState: approved`, sin SHA de revision, ausente, o el crecimiento sobre
+sus margenes. No lee warnings del compilador ni impone un maximo total. El
+baseline incluye hashes, tamanos, distribucion y la presencia efectiva de chunks
+DocMentis. Ademas, el baseline conserva una atestacion reproducible: SHA-256
+del arbol Git completo del SHA indicado y SHA-256 del inventario canonico de
+assets (ruta, hash, tamanos y clasificacion). El gate recalcula ambos y tambien
+los totales desde los assets antes de comparar tamanos; rechaza SHA invalido,
+arbol distinto, inventario/totales manipulados o baseline ausente. No contiene
+secretos ni depende de un token de GitHub. Nunca se desactiva el gate
+silenciosamente.
+
+En una PR que modifica baseline o budget aprobados, CI pasa el SHA base mediante
+`--policy-base`. El gate exige que `capture.sourceRevision` sea exactamente ese
+SHA y que el inventario de la distribucion construida por la PR coincida con el
+baseline. Rechaza la aprobacion si el mismo diff toca `web`, `core`,
+`designsystem`, `feature`, Gradle, lockfiles/package, build logic o el propio
+gate. Una PR ordinaria de payload conserva la comparacion de crecimiento, pero
+no puede autoaprobar un baseline nuevo.
 
 ## Arranque y memoria de navegador
 

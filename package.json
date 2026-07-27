@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:web-test-contract": "node --test scripts/web-test-contract.test.mjs",
+    "test:wasm-bundle-budget": "node --test scripts/wasm-bundle-report.test.mjs scripts/wasm-bundle-approval-policy.test.mjs",
     "test:web-chat-report": "node --test scripts/web-chat-browser-e2e-report.test.mjs",
     "test:web-browser-metrics-contract": "node --test scripts/web-browser-metrics.test.mjs",
     "test:web-registration-contract": "node --test supabase/functions/quata-register/contract.test.mjs supabase/functions/quata-register/cleanup-contract.test.mjs supabase/functions/quata-register/response-policy.test.mjs supabase/functions/quata-register/http-policy.test.mjs supabase/functions/quata-register/isolated-e2e.test.mjs"

@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { execFileSync } from 'node:child_process';
 import { extname, join, relative, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { validatePullRequestApprovalPolicy } from './wasm-bundle-approval-policy.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const defaults = {
@@ -31,12 +32,14 @@ const totals = files.reduce((result, file) => ({
     bytes: result.bytes + file.bytes,
     gzipBytes: result.gzipBytes + file.gzipBytes,
 }), { bytes: 0, gzipBytes: 0 });
+const revision = repositoryRevision();
 const report = {
     schemaVersion: 1,
-    revision: repositoryRevision(),
+    revision,
     distribution: relative(repositoryRoot, distribution).replaceAll('\\', '/'),
     files,
     totals,
+    inventorySha256: inventoryFingerprint(files),
     contributors: contributors(files),
     notes: [
         'DocMentis is dynamically imported; its emitted chunk(s) are identified by file-name hints when webpack preserves them.',
@@ -54,13 +57,26 @@ for (const group of report.contributors) console.log(`  ${formatBytes(group.byte
 console.log(`JSON report: ${relative(repositoryRoot, resolve(options.report ?? defaults.report)).replaceAll('\\', '/')}`);
 
 if (options.writeBaseline) {
-    writeJson(options.writeBaseline, report);
-    console.log(`Certified baseline candidate: ${relative(repositoryRoot, resolve(options.writeBaseline)).replaceAll('\\', '/')}`);
+    const capture = trustedBaselineCapture(options.trustedRef, files);
+    writeJson(options.writeBaseline, { ...report, baselineState: 'candidate', revision: capture.sourceRevision, capture });
+    console.log(`Trusted baseline candidate: ${relative(repositoryRoot, resolve(options.writeBaseline)).replaceAll('\\', '/')}`);
 }
 
 const budget = options.budget ? readBudget(options.budget) : undefined;
 const baselinePath = options.baseline ?? budget?.baselineFile;
-const baseline = baselinePath ? JSON.parse(readFileSync(resolveBudgetPath(baselinePath, options.budget), 'utf8')) : undefined;
+const baseline = baselinePath ? readBaseline(resolveBudgetPath(baselinePath, options.budget)) : undefined;
+if (budget?.state === 'approved') validateApprovedBaseline(baseline);
+if (options.policyBase) {
+    validatePullRequestApprovalPolicy({
+        budget,
+        baseline,
+        baseRevision: resolveRevision(options.policyBase),
+        changedFiles: changedFiles(options.policyBase),
+        currentInventorySha256: inventoryFingerprint(files),
+    });
+} else if (budget?.state === 'approved' && process.env.GITHUB_EVENT_NAME === 'pull_request') {
+    throw new Error('Approved bundle budget requires --policy-base for pull_request CI');
+}
 const maxGrowthBytes = options.maxGrowthBytes ?? budget?.maxGrowthBytes;
 const maxGrowthGzipBytes = options.maxGrowthGzipBytes ?? budget?.maxGrowthGzipBytes;
 const failures = [];
@@ -93,11 +109,11 @@ function parseArguments(argumentsList) {
     for (let index = 0; index < argumentsList.length; index += 1) {
         const token = argumentsList[index];
         if (token === '--help') {
-            console.log('Usage: node scripts/wasm-bundle-report.mjs [--dist DIR] [--report FILE] [--write-baseline FILE] [--baseline FILE] [--budget FILE] [--max-total-bytes N] [--max-growth-bytes N] [--max-growth-gzip-bytes N]');
+            console.log('Usage: node scripts/wasm-bundle-report.mjs [--dist DIR] [--report FILE] [--write-baseline FILE --trusted-ref origin/main|refs/tags/TAG] [--baseline FILE] [--budget FILE] [--policy-base REV] [--max-total-bytes N] [--max-growth-bytes N] [--max-growth-gzip-bytes N]');
             process.exit(0);
         }
         const key = {
-            '--dist': 'dist', '--report': 'report', '--write-baseline': 'writeBaseline', '--baseline': 'baseline', '--budget': 'budget',
+            '--dist': 'dist', '--report': 'report', '--write-baseline': 'writeBaseline', '--trusted-ref': 'trustedRef', '--baseline': 'baseline', '--budget': 'budget', '--policy-base': 'policyBase',
             '--max-total-bytes': 'maxTotalBytes', '--max-growth-bytes': 'maxGrowthBytes', '--max-growth-gzip-bytes': 'maxGrowthGzipBytes',
         }[token];
         if (!key || index + 1 >= argumentsList.length) throw new Error(`Unknown or incomplete argument: ${token}`);
@@ -127,12 +143,128 @@ function resolveBudgetPath(path, budgetPath) {
         : resolve(path);
 }
 
+function validateApprovedBaseline(baseline) {
+    if (baseline?.schemaVersion !== 1 || baseline?.baselineState !== 'approved') {
+        throw new Error('An approved bundle budget requires a schemaVersion 1 baselineState approved baseline');
+    }
+    if (typeof baseline.revision !== 'string' || !/^[0-9a-f]{40}$/i.test(baseline.revision)) {
+        throw new Error('An approved bundle budget requires a baseline revision SHA');
+    }
+    const capture = baseline.capture;
+    if (capture?.schemaVersion !== 2 || capture?.sourceRevision !== baseline.revision ||
+        !isTrustedRef(capture?.trustedRef) || capture?.sourceTree?.revision !== baseline.revision ||
+        !/^[0-9a-f]{64}$/i.test(capture?.sourceTree?.sha256 ?? '') ||
+        !/^[0-9a-f]{64}$/i.test(capture?.inventorySha256 ?? '')) {
+        throw new Error('An approved bundle budget requires a reproducible source-tree and inventory attestation');
+    }
+    const expectedSourceTree = sourceTreeFingerprint(baseline.revision);
+    if (capture.sourceTree.sha256 !== expectedSourceTree.sha256) {
+        throw new Error('Approved baseline source-tree fingerprint does not match its revision');
+    }
+    if (capture.inventorySha256 !== inventoryFingerprint(baseline.files)) {
+        throw new Error('Approved baseline inventory fingerprint does not match its files');
+    }
+    const computedTotals = sumTotals(baseline.files);
+    if (baseline.totals?.bytes !== computedTotals.bytes || baseline.totals?.gzipBytes !== computedTotals.gzipBytes) {
+        throw new Error('Approved baseline totals do not match its attested inventory');
+    }
+}
+
+function readBaseline(path) {
+    try {
+        return JSON.parse(readFileSync(path, 'utf8'));
+    } catch (error) {
+        throw new Error(`Bundle baseline is unavailable or invalid: ${path}`, { cause: error });
+    }
+}
+
 function repositoryRevision() {
     try {
         return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     } catch {
         return null;
     }
+}
+
+function trustedBaselineCapture(trustedRef, files) {
+    if (!isTrustedRef(trustedRef)) throw new Error('--write-baseline requires --trusted-ref origin/main or refs/tags/TAG');
+    const sourceRevision = resolveRevision(trustedRef);
+    const headRevision = resolveRevision('HEAD');
+    if (headRevision !== sourceRevision) throw new Error('Baseline capture HEAD must equal the trusted ref revision');
+    if (isAttachedCheckout()) throw new Error('Baseline capture requires a detached checkout');
+    if (gitOutput(['status', '--porcelain', '--untracked-files=all']).length > 0) {
+        throw new Error('Baseline capture requires a clean checkout');
+    }
+    return {
+        schemaVersion: 2,
+        trustedRef,
+        sourceRevision,
+        sourceTree: sourceTreeFingerprint(sourceRevision),
+        inventorySha256: inventoryFingerprint(files),
+        command: ':web:wasmJsBrowserDistribution',
+    };
+}
+
+function isTrustedRef(ref) {
+    return ref === 'origin/main' || ref === 'refs/remotes/origin/main' || /^refs\/tags\/[A-Za-z0-9._/-]+$/.test(ref ?? '');
+}
+
+function isAttachedCheckout() {
+    try {
+        return gitOutput(['symbolic-ref', '-q', 'HEAD']).trim().length > 0;
+    } catch {
+        return false;
+    }
+}
+
+function resolveRevision(ref) {
+    const revision = gitOutput(['rev-parse', `${ref}^{commit}`]).trim();
+    if (!/^[0-9a-f]{40}$/i.test(revision)) throw new Error(`Cannot resolve trusted revision: ${ref}`);
+    return revision;
+}
+
+function changedFiles(baseRevision) {
+    return gitOutput(['diff', '--name-only', `${baseRevision}...HEAD`]).split(/\r?\n/).filter(Boolean);
+}
+
+function gitOutput(argumentsList) {
+    try {
+        return execFileSync('git', argumentsList, { cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch (error) {
+        throw new Error(`Git command failed while verifying bundle provenance: git ${argumentsList.join(' ')}`, { cause: error });
+    }
+}
+
+function sourceTreeFingerprint(revision) {
+    if (typeof revision !== 'string' || !/^[0-9a-f]{40}$/i.test(revision)) {
+        throw new Error('Cannot attest a bundle without a Git revision SHA');
+    }
+    try {
+        const tree = execFileSync('git', ['ls-tree', '-r', '--full-tree', '-z', revision], {
+            cwd: repositoryRoot,
+            encoding: null,
+            stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        return { algorithm: 'git-ls-tree-sha256-v1', revision, sha256: createHash('sha256').update(tree).digest('hex') };
+    } catch (error) {
+        throw new Error(`Cannot verify the source tree for baseline revision ${revision}`, { cause: error });
+    }
+}
+
+function inventoryFingerprint(files) {
+    const inventory = [...files]
+        .sort((left, right) => left.path.localeCompare(right.path))
+        .map(({ path, extension, bytes, gzipBytes, sha256, contributor }) => ({ path, extension, bytes, gzipBytes, sha256, contributor }));
+    return createHash('sha256').update(JSON.stringify(inventory)).digest('hex');
+}
+
+function sumTotals(files) {
+    if (!Array.isArray(files) || files.length === 0 || files.some(file =>
+        typeof file?.path !== 'string' || file.path.length === 0 || file.path.includes('..') ||
+        !Number.isSafeInteger(file.bytes) || file.bytes < 0 || !Number.isSafeInteger(file.gzipBytes) || file.gzipBytes < 0 ||
+        !/^[0-9a-f]{64}$/i.test(file.sha256 ?? ''),
+    )) throw new Error('Approved baseline has an invalid asset inventory');
+    return files.reduce((total, file) => ({ bytes: total.bytes + file.bytes, gzipBytes: total.gzipBytes + file.gzipBytes }), { bytes: 0, gzipBytes: 0 });
 }
 
 function positiveInteger(value, flag) {
