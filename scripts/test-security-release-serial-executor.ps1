@@ -21,6 +21,11 @@ function Exec([string[]]$a, [hashtable]$env = @{}) {
     try { $PSNativeCommandUseErrorActionPreference = $false; $ErrorActionPreference = "Continue"; $o = @(& node (Join-Path $PSScriptRoot "security-release-serial-executor.mjs") @a 2>&1); return [pscustomobject]@{ code=$LASTEXITCODE; output=$o } }
     finally { $ErrorActionPreference = $oldErrorPreference; $PSNativeCommandUseErrorActionPreference = $oldNativePreference; foreach ($k in $env.Keys) { [Environment]::SetEnvironmentVariable($k, $old[$k]) } }
 }
+function Exec-OldRelease([string]$file, [string[]]$a) {
+    $oldNativePreference = $PSNativeCommandUseErrorActionPreference; $oldErrorPreference = $ErrorActionPreference
+    try { $PSNativeCommandUseErrorActionPreference = $false; $ErrorActionPreference = "Continue"; $o = @(& node $file @a 2>&1); return [pscustomobject]@{ code=$LASTEXITCODE; output=$o } }
+    finally { $ErrorActionPreference = $oldErrorPreference; $PSNativeCommandUseErrorActionPreference = $oldNativePreference }
+}
 function Fixture {
     Sql @"
 create schema if not exists auth;
@@ -133,6 +138,21 @@ try {
     New-Item -ItemType Directory -Path $temp | Out-Null
     npm --prefix $temp install --ignore-scripts --no-save --package-lock=false --fund=false --audit=false pg@8.16.3
     if ($LASTEXITCODE -ne 0) { throw "Unable to install pg" }; $env:NODE_PATH = Join-Path $temp "node_modules"
+    # Freeze the actual dc952 release artifacts, rather than reproducing their
+    # fingerprint algorithm in this test. This proves old-forward/new-002 gate
+    # compatibility against the same PostgreSQL 17 catalog.
+    $oldRoot = Join-Path $temp "dc952-release"
+    New-Item -ItemType Directory -Path $oldRoot | Out-Null
+    $oldPaths = @("scripts/security-release-serial-executor.mjs", "scripts/security-release-serial-allowlist.json", "supabase/migrations/20260726171001_community_comments_delete_rls.sql", "supabase/migrations/20260726171002_official_post_likes_actor_guard.sql", "supabase/migrations/20260726171005_community_comments_reapply_rls.sql", "supabase/rollbacks/20260726171001_community_comments_delete_rls.rollback.sql", "supabase/rollbacks/20260726171002_official_post_likes_actor_guard.rollback.sql", "supabase/rollbacks/20260726171005_community_comments_reapply_rls.rollback.sql")
+    foreach ($oldPath in $oldPaths) {
+        $oldTarget = Join-Path $oldRoot $oldPath
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $oldTarget) | Out-Null
+        # cmd redirection keeps git's bytes intact; PowerShell's text pipeline
+        # would rewrite line endings and invalidate the frozen allowlist hashes.
+        cmd /c "git show dc952f7547b261a7b83aa8e31fc8e487919445e0`:$oldPath > `"$oldTarget`""
+        if ($LASTEXITCODE -ne 0) { throw "Could not extract frozen dc952 artifact: $oldPath" }
+    }
+    $oldExecutor = Join-Path $oldRoot "scripts/security-release-serial-executor.mjs"
     $password = "serial-executor-disposable-only"
     docker run -d --rm --name $container -e "POSTGRES_PASSWORD=$password" -p "${port}:5432" postgres:17 sh -c "openssl req -new -x509 -days 1 -nodes -subj /CN=localhost -out /tmp/server.crt -keyout /tmp/server.key >/dev/null 2>&1 && chown postgres:postgres /tmp/server.crt /tmp/server.key && chmod 600 /tmp/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key" | Out-Null
     for ($i=0; $i -lt 40; $i++) { docker exec $container pg_isready -U postgres *> $null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Milliseconds 250 }; if ($LASTEXITCODE -ne 0) { throw "PostgreSQL not ready" }
@@ -145,6 +165,27 @@ try {
     # dry-run fingerprint: only the production prosrc/attribute anchor passes.
     Sql "create or replace function public.quata_guard_official_post_likes() returns trigger language plpgsql security definer set search_path = public, auth as `$drift`$ begin return new; end; `$drift`$;"
     $bodyDriftDry = Exec @("--action", "dry-run"); Assert-True ($bodyDriftDry.code -ne 0 -and ($bodyDriftDry.output -join "`n") -match "guard_anchor_mismatch") "body drift was accepted by dry-run"
+    Reset-Fixture
+    # Asymmetric transition: dc952 produces 001 -> rollback -> 171005 and its
+    # archived postcondition; HEAD must accept that legacy gate for 002.
+    $oldDry1=Exec-OldRelease $oldExecutor @("--action","dry-run"); Assert-True ($oldDry1.code -eq 0) "dc952 dry-run failed"
+    $oldFp1=((($oldDry1.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
+    $oldOne=Exec-OldRelease $oldExecutor @("--action","apply-001","--expected-precondition-sha256",$oldFp1); Assert-True ($oldOne.code -eq 0) "dc952 apply-001 failed"
+    $oldDryRollback=Exec-OldRelease $oldExecutor @("--action","dry-run"); $oldRollbackFp=((($oldDryRollback.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171001").preconditionSha256)
+    $oldRollback=Exec-OldRelease $oldExecutor @("--action","rollback-001","--expected-precondition-sha256",$oldRollbackFp); Assert-True ($oldRollback.code -eq 0) "dc952 rollback-001 failed"
+    $oldDryForward=Exec-OldRelease $oldExecutor @("--action","dry-run"); $oldForwardFp=((($oldDryForward.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)
+    $oldForward=Exec-OldRelease $oldExecutor @("--action","apply-001-forward","--expected-precondition-sha256",$oldForwardFp); Assert-True ($oldForward.code -eq 0) "dc952 forward 171005 failed"
+    $oldForwardPost=($oldForward.output[-1]|ConvertFrom-Json).migrations[0].postconditionSha256
+    # The disposable fixture has its own frozen v1 value; production's
+    # archived v1 gate is 2efec424..., and must retain the same JSON algorithm.
+    Assert-True ($oldForwardPost -eq "92fcefd209a61da05a93574a75f0427d62f3021d3659e3303199d9460b7d9ad2") "dc952 legacy fixture fingerprint changed: $oldForwardPost"
+    $newLegacyDry=Exec @("--action","dry-run"); $newLegacyReport=$newLegacyDry.output[-1]|ConvertFrom-Json; Assert-True ($newLegacyDry.code -eq 0) "HEAD did not preflight dc952 state"
+    $newLegacyFp=($newLegacyReport.migrations|Where-Object version -eq "20260726171002").preconditionSha256; $legacyProject=$newLegacyReport.databaseProjectFingerprint; $legacyGate=Join-Path $temp "dc952-legacy-gate.json"; $shaA=('a'*64)
+    @{schemaVersion=1;releaseCommit=('b'*40);snapshotFingerprint=('c'*64);databaseProjectFingerprint=$legacyProject;generatedAt=(Get-Date).ToUniversalTime().ToString('o');expiresAt=(Get-Date).AddHours(1).ToUniversalTime().ToString('o');migration="20260726171005";status="passed";preconditionSha256=$oldForwardFp;postconditionSha256=$oldForwardPost;postflight=@{status="passed";sha256=$shaA};reports=@{dbReleaseSafety=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$legacyProject};backendCompatibility=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$legacyProject};sb07=@{status="passed";sha256=$shaA;databaseProjectFingerprint=$legacyProject}}}|ConvertTo-Json -Depth 4|Set-Content $legacyGate
+    $legacyGateHash=(Get-FileHash -LiteralPath $legacyGate -Algorithm SHA256).Hash.ToLowerInvariant()
+    $newLegacyTwo=Exec @("--action","apply-002","--expected-precondition-sha256",$newLegacyFp,"--gate-evidence",$legacyGate,"--expected-gate-evidence-sha256",$legacyGateHash,"--expected-release-commit",('b'*40),"--expected-snapshot-fingerprint",('c'*64),"--expected-database-project-fingerprint",$legacyProject,"--expected-forward-postcondition-sha256",$oldForwardPost); Assert-True ($newLegacyTwo.code -eq 0) "HEAD rejected dc952 legacy forward gate: $($newLegacyTwo.output -join "`n")"
+    $legacyRollbackDry=Exec @("--action","dry-run"); $legacyRollbackFp=((($legacyRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
+    $legacyRollback=Exec @("--action","rollback-002","--expected-precondition-sha256",$legacyRollbackFp); Assert-True ($legacyRollback.code -eq 0) "HEAD rollback-002 after dc952 gate failed"
     Reset-Fixture
     $env:QUATA_SERIAL_EXECUTOR_TEST_FORCE_FUNCTION_DDL_LOCK = "1"
     $outputRelative = "build-reports/security-release/serial-executor-disposable-$([guid]::NewGuid().ToString('N')).json"

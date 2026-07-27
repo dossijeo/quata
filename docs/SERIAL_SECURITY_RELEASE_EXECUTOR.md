@@ -111,3 +111,9 @@ byte-exacto, inserta 171005 y exige 171005 byte-exacto antes de permitir 002.
 Si se ejecuta `rollback-001-forward`, 171005 permanece deliberadamente en el
 ledger y esa forward queda cerrada: no puede reaplicarse. Cualquier nueva
 contención exige otra versión forward revisada.
+Los fingerprints de 001/171005 son **v1 legacy** y se conservan byte por byte
+para consumir gates archivadas (incluida la postcondition `2efec424...`). El
+fingerprint v2 canónico de ACL/estado de trigger sólo aplica a 002. Cualquier
+cambio de migration, rollback, executor o `HEAD` invalida una gate: debe
+regenerarse con el executor correspondiente; la gate anterior `0df...` queda
+revocada/stale y no autoriza 002.
