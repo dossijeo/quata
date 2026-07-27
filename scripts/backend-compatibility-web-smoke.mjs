@@ -7,6 +7,10 @@ import { chromium } from "playwright-core";
 import { accreditPublicMediaUrlsFromResponse, inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
 import { publicPostIdFromPayload, detailEvidence, detailEvidenceEvent } from "./backend-compatibility-feed-detail.mjs";
 import { sanitizeWebSmokeRequest, webSmokePhase } from "./backend-compatibility-web-smoke-report.mjs";
+import {
+  expectedLocalStub,
+  inspectAccreditedPublicMediaResponse,
+} from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? "web/build/dist/wasmJs/productionExecutable");
@@ -28,10 +32,13 @@ const backendResponses = [];
 const failedBackendRequests = [];
 const blockedRequests = [];
 const requests = [];
+const localStubs = [];
+const mediaResponses = [];
 // This is intentionally process-memory only: it contains object URLs, which
 // must not be copied into CI output.  It starts empty, so a media race fails
 // closed until a successful feed/detail response accredits that exact URL.
 const accreditedMediaUrls = new Set();
+const accreditedMediaByRoute = new Map();
 let observedPostId = null;
 let context;
 let currentRoute = "<unknown>";
@@ -65,9 +72,21 @@ try {
   page.on("pageerror", (error) => browserErrors.push(error.message));
   page.on("request", recordRequest);
   page.on("response", async (response) => {
+    const responseRequest = response.request();
+    const requestRoute = recordRequest(responseRequest).route;
+    const requestDecision = requestDecisions.get(responseRequest);
+    if (isPublicStorageResponse(response.url())) {
+      const mediaResponse = inspectAccreditedPublicMediaResponse({
+        url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(),
+        status: response.status(), contentType: response.headers()["content-type"],
+        resourceType: responseRequest.resourceType(), requestAllowed: requestDecision?.allowed,
+        accreditedMediaUrls,
+      });
+      mediaResponses.push({ route: requestRoute, ...mediaResponse });
+      return;
+    }
     const match = response.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (!match) return;
-    const responseRequest = response.request();
     const headers = await responseRequest.allHeaders();
     const responseUrl = new URL(response.url());
     const payload = await response.text().catch(() => "");
@@ -87,7 +106,6 @@ try {
     // The response listener runs before the app can use this response body to
     // render a Compose image.  If an implementation ever races it, the route
     // gate below rejects the media request instead of opening Storage.
-    const requestRoute = recordRequest(responseRequest).route;
     let serviceWorker = true;
     try {
       serviceWorker = typeof responseRequest.serviceWorker === "function" ? Boolean(responseRequest.serviceWorker()) : true;
@@ -100,11 +118,18 @@ try {
         url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(), headers,
         status: response.status(), contentType: response.headers()["content-type"], resourceType: responseRequest.resourceType(),
         serviceWorker, redirectedFromUrl: responseRequest.redirectedFrom()?.url(),
-        redirectedToUrl: responseRequest.redirectedTo()?.url(), requestAllowed: requestDecisions.get(responseRequest)?.allowed,
+        redirectedToUrl: responseRequest.redirectedTo()?.url(), requestAllowed: requestDecision?.allowed,
         payload,
       }, baseUrl)
       : [];
-    for (const mediaUrl of accredited) accreditedMediaUrls.add(mediaUrl);
+    if (accredited.length > 0) {
+      const routeMedia = accreditedMediaByRoute.get(requestRoute) ?? new Set();
+      for (const mediaUrl of accredited) {
+        accreditedMediaUrls.add(mediaUrl);
+        routeMedia.add(mediaUrl);
+      }
+      accreditedMediaByRoute.set(requestRoute, routeMedia);
+    }
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
@@ -112,6 +137,17 @@ try {
   });
   await page.route("**/*", async (route) => {
     const request = route.request();
+    // This must precede the generic policy.  It is a byte-for-byte URL
+    // match, fulfilled locally, and therefore is never a Cloudflare request.
+    const localStub = expectedLocalStub({ method: request.method(), url: request.url() });
+    if (localStub) {
+      localStubs.push(localStub);
+      return route.fulfill({
+        status: 200,
+        contentType: "text/javascript; charset=utf-8",
+        body: "globalThis.turnstile = globalThis.turnstile ?? {};",
+      });
+    }
     const redirectedFrom = request.redirectedFrom();
     const decision = inspectBackendRequest({
       url: request.url(),
@@ -165,6 +201,8 @@ try {
     const unsafeBackend = observedBackend.filter((response) =>
       response.method !== "GET" || !response.hasApiKey || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
+    const expectedMedia = (accreditedMediaByRoute.get(route)?.size ?? 0) > 0;
+    const acceptedMedia = mediaResponses.some((response) => response.route === route && response.accepted);
     checks.push({
       route,
       canvasCount,
@@ -172,8 +210,9 @@ try {
       navigationRoute: await page.evaluate(() => localStorage.getItem("web.navigation.route")),
       observedBackendRequestCount: observedBackend.length,
       ...(feedDiagnostics ? { diagnostics: feedDiagnostics } : {}),
+      ...(route === "feed" ? { expectedMedia, acceptedMedia } : {}),
       passed: canvasCount > 0 && sessionReady === "true" && unsafeBackend.length === 0 &&
-        (route !== "feed" || feedDiagnostics.remoteReadState === "request_succeeded"),
+        (route !== "feed" || (feedDiagnostics.remoteReadState === "request_succeeded" && (!expectedMedia || acceptedMedia))),
     });
   }
   if (!observedPostId) {
@@ -188,7 +227,9 @@ try {
     await page.waitForTimeout(1_000);
     const detailResponses = backendResponses.slice(start);
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
-    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadPostId: evidence.payloadPostId }, passed: detailEvidence(detailResponses, observedPostId) });
+    const detailExpectedMedia = (accreditedMediaByRoute.get(currentRoute)?.size ?? 0) > 0;
+    const detailAcceptedMedia = mediaResponses.some((response) => response.route === currentRoute && response.accepted);
+    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadPostId: evidence.payloadPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
   }
 } finally {
   await context?.close().catch(() => undefined);
@@ -202,6 +243,8 @@ const report = {
   status: checks.every((check) => check.passed) && browserErrors.length === 0 &&
     failedBackendRequests.length === 0 &&
     blockedRequests.length === 0 &&
+    localStubs.some((stub) => stub.expected === "turnstile-bootstrap") &&
+    mediaResponses.every((response) => response.accepted) &&
     backendResponses.every((response) =>
       response.method === "GET" && response.hasApiKey && !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
     ) ? "passed" : "failed",
@@ -210,6 +253,13 @@ const report = {
   failedBackendRequests,
   blockedRequests,
   requests,
+  localStubs: {
+    kind: "localStub",
+    expected: "turnstile-bootstrap",
+    interceptedCount: localStubs.length,
+    networkRequestCount: 0,
+  },
+  mediaResponses,
   detail: { observedPostId, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
   // query is intentionally retained only in process memory to accredit the
   // detail request.  It is never emitted because reports must be safe even
@@ -303,4 +353,13 @@ function contentType(path) {
     ".css": "text/css; charset=utf-8",
     ".json": "application/json",
   }[extname(path).toLowerCase()] ?? "application/octet-stream";
+}
+
+function isPublicStorageResponse(url) {
+  try {
+    const parsed = new URL(url);
+    return /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
 }
