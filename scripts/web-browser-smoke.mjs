@@ -133,7 +133,7 @@ try {
                     body: Buffer.from('globalThis.turnstile = globalThis.turnstile ?? {};').toString('base64'),
                 });
             } else if (isUnexpectedNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
-                unexpectedNetworkRequests.push(request.url);
+                unexpectedNetworkRequests.push(`${request.method} ${request.url}`);
                 command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
             } else {
                 command = cdp.send('Fetch.continueRequest', { requestId });
@@ -191,6 +191,9 @@ try {
     failures.push(error instanceof Error ? error.stack ?? error.message : String(error));
     if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
     if (networkFailures.length > 0) failures.push(`Network failure(s):\n${networkFailures.join('\n')}`);
+    if (unexpectedNetworkRequests.length > 0) {
+        failures.push(`Smoke made an external network request(s):\n${unexpectedNetworkRequests.join('\n')}`);
+    }
 } finally {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
