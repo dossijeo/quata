@@ -39,6 +39,7 @@ try {
     backendResponses.push({
       table: match[1],
       status: response.status(),
+      method: response.request().method(),
       hasBearerAuthorization: typeof headers.authorization === "string" && headers.authorization.trim() !== "",
     });
   });
@@ -66,7 +67,7 @@ try {
     const sessionReady = await page.evaluate(() => localStorage.getItem("web.auth.session_ready"));
     const observedBackend = backendResponses.slice(backendEventStart);
     const unsafeBackend = observedBackend.filter((response) =>
-      response.hasBearerAuthorization || response.status < 200 || response.status >= 300
+      response.method !== "GET" || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
     checks.push({
       route,
@@ -89,13 +90,13 @@ const report = {
   status: checks.every((check) => check.passed) && browserErrors.length === 0 &&
     failedBackendRequests.length === 0 &&
     backendResponses.every((response) =>
-      !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
+      response.method === "GET" && !response.hasBearerAuthorization && response.status >= 200 && response.status < 300
     ) ? "passed" : "failed",
   checks,
   browserErrorCount: browserErrors.length,
   failedBackendRequests,
   backendResponses,
-  mutationPolicy: "Only local credential-free navigation is performed. Public API GET coverage is provided by backend-compatibility-contracts.mjs. The disposable browser profile is removed.",
+  mutationPolicy: "Only credential-free navigation and public GET responses are accepted; any POST/PATCH/PUT/DELETE or bearer authorization fails the smoke. The disposable browser profile is removed.",
 };
 console.log(JSON.stringify(report, null, 2));
 process.exitCode = report.status === "passed" ? 0 : 1;
