@@ -10,6 +10,7 @@ import { sanitizeWebSmokeRequest, webSmokePhase } from "./backend-compatibility-
 import {
   expectedLocalStub,
   inspectAccreditedPublicMediaResponse,
+  isMediaAccreditationRoute,
 } from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -36,8 +37,8 @@ const localStubs = [];
 const mediaResponses = [];
 // This is intentionally process-memory only: it contains object URLs, which
 // must not be copied into CI output.  It starts empty, so a media race fails
-// closed until a successful feed/detail response accredits that exact URL.
-const accreditedMediaUrls = new Set();
+// closed until a successful feed/detail response accredits that exact URL for
+// the same navigation route.
 const accreditedMediaByRoute = new Map();
 let observedPostId = null;
 let context;
@@ -80,7 +81,8 @@ try {
         url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(),
         status: response.status(), contentType: response.headers()["content-type"],
         resourceType: responseRequest.resourceType(), requestAllowed: requestDecision?.allowed,
-        accreditedMediaUrls,
+        route: requestRoute,
+        accreditedMediaUrls: accreditedMediaByRoute.get(requestRoute),
       });
       mediaResponses.push({ route: requestRoute, ...mediaResponse });
       return;
@@ -113,7 +115,7 @@ try {
       // Unknown provenance is not enough to accredit a Storage object.
       serviceWorker = true;
     }
-    const accredited = (requestRoute === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(requestRoute))
+    const accredited = isMediaAccreditationRoute(requestRoute)
       ? accreditPublicMediaUrlsFromResponse({
         url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(), headers,
         status: response.status(), contentType: response.headers()["content-type"], resourceType: responseRequest.resourceType(),
@@ -125,7 +127,6 @@ try {
     if (accredited.length > 0) {
       const routeMedia = accreditedMediaByRoute.get(requestRoute) ?? new Set();
       for (const mediaUrl of accredited) {
-        accreditedMediaUrls.add(mediaUrl);
         routeMedia.add(mediaUrl);
       }
       accreditedMediaByRoute.set(requestRoute, routeMedia);
@@ -154,7 +155,7 @@ try {
       method: request.method(),
       headers: request.headers(),
       resourceType: request.resourceType(),
-      accreditedMediaUrls,
+      accreditedMediaUrls: accreditedMediaByRoute.get(currentRoute),
       redirectedFromUrl: redirectedFrom?.url(),
       applicationOrigin: server.origin,
     }, baseUrl);
