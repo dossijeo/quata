@@ -140,6 +140,9 @@ jobs:
             sw_vers
           } | tee build/reports/ios/toolchain.log
 
+      - name: Parse Swift framework tests
+        run: xcrun swiftc -frontend -parse iosApp/iosAppTests/QuataFeedFrameworkTests.swift
+
       - name: Compile all Kotlin iOS targets
         shell: bash
         run: |
