@@ -123,15 +123,28 @@ function isJsonContentType(value) { return /^(?:application\/json|application\/[
 
 function hasSensitiveQuery(url, rawUrl) {
   const rawQuery = rawQueryFromUrl(rawUrl, url);
-  if (rawQuery === null || hasUnsafeText(rawQuery)) return true;
-  // Encoded separators change the server's eventual query structure.  Do not
-  // normalize them into a different request after the policy has inspected it.
-  if (/%(?:26|3d|3f|23|2f|5c|40)/i.test(rawQuery)) return true;
-  return rawQuery.split('&').some((part) => {
-    const key = part.split('=', 1)[0].replaceAll('+', ' ');
-    const decoded = decodeRepeatedly(key);
-    return decoded === null || /(?:token|signature|sign(?:ed)?|access|auth|api(?:key)?|key|credential|session|expires?)/i.test(decoded);
+  const layers = decodedUrlLayers(rawQuery);
+  if (!layers) return true;
+  // Inspect every bounded decoding layer.  A single-pass check of the raw
+  // query misses `%2526`/`%2523`: after one or more downstream decodes those
+  // values become delimiters and can create a new credential-bearing field.
+  // Literal `&` and `=` remain valid for an ordinary PostgREST query; only an
+  // escape which would materialize a structural character is refused.
+  return layers.some((query) => {
+    if (hasUnsafeText(query) || hasEncodedQueryDelimiter(query)) return true;
+    return query.split('&').some((part) => {
+      const key = part.split('=', 1)[0].replaceAll('+', ' ');
+      const decoded = decodeRepeatedly(key);
+      return decoded === null || /(?:token|signature|sign(?:ed)?|access|auth|api(?:key)?|key|credential|session|expires?)/i.test(decoded);
+    });
   });
+}
+
+function hasEncodedQueryDelimiter(value) {
+  // `;` is included because it is accepted as a query separator by some
+  // intermediaries.  The remaining characters either split query structure or
+  // change the URL component being interpreted.
+  return /%(?:26|3b|3d|3f|23|2f|5c|40)/i.test(value);
 }
 
 function hasUnsafeUrlEncoding(rawUrl, parsedUrl) {
@@ -161,6 +174,20 @@ function decodeRepeatedly(value) {
   // Four layers is intentionally the bounded maximum.  A remaining escape is
   // ambiguous, so fail closed rather than attempting an unbounded decode.
   return /%[0-9a-f]{2}/i.test(current) ? null : current;
+}
+function decodedUrlLayers(value) {
+  const layers = [];
+  let current = String(value);
+  for (let index = 0; index < 4; index += 1) {
+    layers.push(current);
+    let next;
+    try { next = decodeURIComponent(current); } catch { return null; }
+    if (next === current) return layers;
+    current = next;
+  }
+  // A fifth unresolved escape is intentionally ambiguous.  Do not rely on a
+  // consumer agreeing with this policy about how many times to decode it.
+  return /%[0-9a-f]{2}/i.test(current) ? null : [...layers, current];
 }
 function rawPathFromUrl(rawUrl, parsedUrl) {
   const text = String(rawUrl);
