@@ -82,13 +82,19 @@ export async function verifyRegistrationPassword(stored, candidate) {
 export async function verifyProfilePassword(profile, candidate) {
   if (!isPasswordCandidate(candidate)) return false;
   const passHash = typeof profile?.pass_hash === "string" ? profile.pass_hash.trim() : "";
-  // A row claiming any PBKDF2 variant is never allowed to silently downgrade
-  // to pass_plain if its structured value is corrupt or unsupported.
-  if (passHash.toLowerCase().startsWith("pbkdf2")) {
-    return verifyRegistrationPassword(passHash, candidate);
-  }
-  if (/^[0-9a-f]{64}$/i.test(passHash)) {
-    return constantTimeEqualHex(passHash, await sha256Hex(candidate));
+  // pass_hash is authoritative whenever it is present. In particular, a
+  // malformed or unknown hash must not silently downgrade to pass_plain:
+  // otherwise anyone who can corrupt a stored hash could still authenticate
+  // with a legacy plaintext value. pass_plain is only a bridge for rows whose
+  // pass_hash is genuinely absent (or whitespace).
+  if (passHash) {
+    if (passHash.toLowerCase().startsWith("pbkdf2")) {
+      return verifyRegistrationPassword(passHash, candidate);
+    }
+    if (/^[0-9a-f]{64}$/i.test(passHash)) {
+      return constantTimeEqualHex(passHash, await sha256Hex(candidate));
+    }
+    return false;
   }
   const passPlain = typeof profile?.pass_plain === "string" ? profile.pass_plain : "";
   return passPlain.length > 0 && constantTimeEqual(passPlain, candidate);
