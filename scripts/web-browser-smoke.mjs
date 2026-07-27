@@ -13,7 +13,7 @@
  */
 import { createServer } from 'node:http';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -421,7 +421,8 @@ async function startStaticServer(rootDirectory, extraFiles) {
                 response.end(bytes);
                 return;
             }
-            if (!candidate.startsWith(`${root}\\`) && candidate !== root) {
+            const relativeCandidate = relative(root, candidate);
+            if (relativeCandidate === '..' || relativeCandidate.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(relativeCandidate)) {
                 response.writeHead(403).end();
                 return;
             }
