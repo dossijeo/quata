@@ -35,6 +35,7 @@ enum class FeatureCapabilityAction { View, Mutate }
 interface FeatureCapabilityText {
     fun title(origin: CapabilityStateOrigin): String
     fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean): String?
+    fun mediaUnavailable(): String
 }
 
 /**
@@ -61,6 +62,9 @@ object SpanishFeatureCapabilityText : FeatureCapabilityText {
         CapabilityStateOrigin.Unsupported ->
             "Esta acci\u00f3n a\u00fan no est\u00e1 disponible en esta plataforma."
     }
+
+    override fun mediaUnavailable(): String =
+        "El contenido multimedia a\u00fan no est\u00e1 disponible en esta plataforma."
 }
 
 object EnglishFeatureCapabilityText : FeatureCapabilityText {
@@ -78,6 +82,9 @@ object EnglishFeatureCapabilityText : FeatureCapabilityText {
         CapabilityStateOrigin.Unsupported ->
             "This action is not available on this platform yet."
     }
+
+    override fun mediaUnavailable(): String =
+        "Media content is not available on this platform yet."
 }
 
 /**

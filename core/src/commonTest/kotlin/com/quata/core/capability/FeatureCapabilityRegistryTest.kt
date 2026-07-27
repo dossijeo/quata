@@ -83,10 +83,23 @@ class FeatureCapabilityRegistryTest {
     }
 
     @Test
+    fun capabilityTextCatalogueLocalizesFeedMediaAvailabilityWithSpanishFallback() {
+        assertEquals(
+            "Media content is not available on this platform yet.",
+            FeatureCapabilityTextCatalog.forLanguageTag("en-GB").mediaUnavailable(),
+        )
+        assertEquals(
+            "El contenido multimedia a\u00fan no est\u00e1 disponible en esta plataforma.",
+            FeatureCapabilityTextCatalog.forLanguageTag("fr-FR").mediaUnavailable(),
+        )
+    }
+
+    @Test
     fun registryUsesInjectedCapabilityText() {
         val text = object : FeatureCapabilityText {
             override fun title(origin: CapabilityStateOrigin) = "custom-title"
             override fun message(origin: CapabilityStateOrigin, e2eVerified: Boolean) = "custom-message"
+            override fun mediaUnavailable() = "custom-media-unavailable"
         }
         val registry = StaticFeatureCapabilityRegistry(
             manifest = FeatureCapabilityManifest(

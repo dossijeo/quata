@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.capability.DefaultFeatureCapabilityText
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
@@ -98,5 +99,5 @@ private val IosFeedHostStrings = FeedBrowserHostStrings(
     readMore = "Leer más",
     close = "Cerrar",
     empty = "Aún no hay publicaciones disponibles.",
-    mediaUnavailable = "El contenido multimedia aún no está disponible en Quata iOS.",
+    mediaUnavailable = DefaultFeatureCapabilityText.mediaUnavailable(),
 )
