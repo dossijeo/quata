@@ -132,6 +132,49 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
 
+    func testPublicRuntimeConfigurationKeepsRegistrationFailClosedForMissingOrUnexpandedInputs() {
+        let feedConfiguration = IosFeedRuntimeConfiguration(
+            supabaseUrl: "https://deployment.invalid",
+            supabasePublishableKey: "public-build-setting",
+        )
+        let configuration = IosPublicRuntimeConfiguration.authConfiguration(
+            from: feedConfiguration,
+            infoDictionary: [
+                "QUATA_IOS_REGISTRATION_ENABLED": "true",
+                "QUATA_IOS_REGISTRATION_API_KEY": "$(QUATA_IOS_REGISTRATION_API_KEY)",
+                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": "ios-install",
+            ],
+        )
+
+        XCTAssertTrue(configuration.iosRegistrationEnabled)
+        XCTAssertNil(configuration.registrationApiKey)
+        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
+        XCTAssertNil(configuration.registrationChallengeToken)
+        XCTAssertFalse(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
+    func testPublicRuntimeConfigurationWiresExplicitRegistrationBuildSettings() {
+        let feedConfiguration = IosFeedRuntimeConfiguration(
+            supabaseUrl: "https://deployment.invalid",
+            supabasePublishableKey: "public-build-setting",
+        )
+        let configuration = IosPublicRuntimeConfiguration.authConfiguration(
+            from: feedConfiguration,
+            infoDictionary: [
+                "QUATA_IOS_REGISTRATION_ENABLED": "true",
+                "QUATA_IOS_REGISTRATION_API_KEY": " public-registration-key ",
+                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": " ios-install ",
+                "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN": " challenge-token ",
+            ],
+        )
+
+        XCTAssertTrue(configuration.iosRegistrationEnabled)
+        XCTAssertEqual(configuration.registrationApiKey, "public-registration-key")
+        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
+        XCTAssertEqual(configuration.registrationChallengeToken, "challenge-token")
+        XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
     func testIosContactPickerNormalizesExplicitlySelectedContact() {
         let fields = IosPickedContactFields(
             givenName: "Ada",
@@ -678,6 +721,67 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertTrue(afterInstall.actions.contains { $0.title == "Novedades" })
         XCTAssertTrue(afterInstall.actions.contains { $0.title == "Acerca de Quata" })
+    }
+
+    func testAuthenticatedRouteMenuContainsOnlyInstalledVerticals() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
+        router.installChatFactory { _, _ in UIViewController() }
+        router.installOfficialFactory { _ in UIViewController() }
+        router.installNotificationsFactory { UIViewController() }
+        router.installProfileSosFactory { UIViewController() }
+        router.installCommunitiesFactory { UIViewController() }
+        router.installComposerFactory { UIViewController() }
+        router.installSettingsFactory { UIViewController() }
+
+        let menu = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(menu)
+
+        let titles = menu.actions.compactMap(\.title)
+        ["Inicio", "Conversaciones", "Oficial", "Notificaciones", "Perfil y SOS", "Comunidades", "Ajustes", "Cerrar"].forEach {
+            XCTAssertTrue(titles.contains($0), "Missing installed route menu item: \($0)")
+        }
+        XCTAssertEqual(titles.count, 9)
+    }
+
+    func testBackReturnsToInstalledAuthenticatedFeedWithoutCreatingAFallback() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let communities = UIViewController()
+        router.installFeedFactory { _ in feed }
+        router.installCommunitiesFactory { communities }
+
+        router.showCommunities()
+        XCTAssertTrue(router.children.contains { $0 === communities })
+
+        router.returnToAuthenticatedFeed()
+        XCTAssertTrue(router.children.contains { $0 === feed })
+        XCTAssertEqual(feed.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertFalse(router.children.contains { $0 === communities })
+    }
+
+    func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let dispatcher = IosDeepLinkDispatcher()
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#official-public-post-9")
+        router.restoreRouteAfterForeground()
+        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-compose-root")
+
+        let official = UIViewController()
+        router.installOfficialFactory { _ in official }
+        XCTAssertTrue(router.children.contains { $0 === official })
+        XCTAssertEqual(official.view.accessibilityIdentifier, "quata-ios-official-host")
+    }
+
+    func testDeepLinkWithoutHostReportsExplicitUnsupportedCapability() {
+        let result = IosDeepLinkDispatcher().handleUrl(url: "https://egquata.com/#chat-sb%3A7")
+
+        XCTAssertTrue(String(describing: result).contains("Unsupported"))
     }
 
 }

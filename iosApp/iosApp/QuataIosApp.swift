@@ -18,6 +18,10 @@ enum IosWhatsNewLocale {
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
+    private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
+    private static let registrationApiKeyKey = "QUATA_IOS_REGISTRATION_API_KEY"
+    private static let registrationClientInstanceIdKey = "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID"
+    private static let registrationChallengeTokenKey = "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
@@ -33,6 +37,46 @@ enum IosPublicRuntimeConfiguration {
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
+    }
+
+    /// Registration is opt-in and remains unavailable for malformed or absent build settings.
+    static func iosRegistrationEnabled(bundle: Bundle = .main) -> Bool {
+        configuredValue(for: iosRegistrationEnabledKey, infoDictionary: bundle.infoDictionary ?? [:]) == "true"
+    }
+
+    /// Builds the exported Kotlin configuration with every registration gate explicitly wired.
+    /// Missing, empty, or unexpanded inputs remain nil so registration fails closed.
+    static func authConfiguration(
+        from feedConfiguration: IosFeedRuntimeConfiguration,
+        infoDictionary: [String: Any],
+    ) -> IosAuthRuntimeConfiguration {
+        IosAuthRuntimeConfiguration(
+            supabaseUrl: feedConfiguration.supabaseUrl,
+            supabasePublishableKey: feedConfiguration.supabasePublishableKey,
+            iosRegistrationEnabled: configuredValue(
+                for: iosRegistrationEnabledKey,
+                infoDictionary: infoDictionary
+            ) == "true",
+            registrationApiKey: configuredValue(
+                for: registrationApiKeyKey,
+                infoDictionary: infoDictionary
+            ),
+            registrationClientInstanceId: configuredValue(
+                for: registrationClientInstanceIdKey,
+                infoDictionary: infoDictionary
+            ),
+            registrationChallengeToken: configuredValue(
+                for: registrationChallengeTokenKey,
+                infoDictionary: infoDictionary
+            ),
+        )
+    }
+
+    static func authConfiguration(
+        from feedConfiguration: IosFeedRuntimeConfiguration,
+        bundle: Bundle = .main,
+    ) -> IosAuthRuntimeConfiguration {
+        authConfiguration(from: feedConfiguration, infoDictionary: bundle.infoDictionary ?? [:])
     }
 
     private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
@@ -179,6 +223,7 @@ private final class IosAppCompositionRoot {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.authenticatedHost.restoreRouteAfterForeground()
             self?.presentPendingExternalShareIfAvailable()
         }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
@@ -461,6 +506,10 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
+            // The shared surface is installed only when every transport gate is present.
+            registrationEnabled: IosAuthRepositoryKt.iosRegistrationAvailable(
+                configuration: authRuntimeConfiguration(from: runtimeConfiguration),
+            ),
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     _ = self?.installRestoredFeedSessionIfAvailable()
@@ -475,12 +524,13 @@ private final class IosAppCompositionRoot {
         bootstrap: IosFeedRuntimeBootstrap,
     ) -> AuthRepository? {
         IosAuthRepositoryKt.createIosAuthRepository(
-            configuration: IosAuthRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            ),
+            configuration: authRuntimeConfiguration(from: configuration),
             session: bootstrap.authSessionForInteractiveLogin(),
         )
+    }
+
+    private func authRuntimeConfiguration(from configuration: IosFeedRuntimeConfiguration) -> IosAuthRuntimeConfiguration {
+        IosPublicRuntimeConfiguration.authConfiguration(from: configuration)
     }
 }
 
@@ -555,7 +605,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
-        feedFactory = { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+        installFeedFactory { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
+    }
+
+    /// Installs the authenticated root route. Kept separate from dependency composition so the
+    /// UIKit routing contract can be verified without credentials, network traffic or a backend.
+    func installFeedFactory(_ factory: @escaping (String?) -> UIViewController) {
+        feedFactory = factory
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
         renderPendingRouteIfPossible()
@@ -767,6 +823,19 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showReleaseHistory() { route(.releaseHistory) }
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
+
+    /// Feature back actions always return to the real authenticated Feed root. A route is never
+    /// fabricated if the session/root factory is not ready yet.
+    func returnToAuthenticatedFeed() {
+        guard hasAuthenticatedSession, feedFactory != nil else { return }
+        showFeed(postId: nil)
+    }
+
+    /// Lifecycle re-entry must retain the current route (or its deferred target). This is an
+    /// intentionally idempotent UIKit boundary used after foregrounding, not a data refresh.
+    func restoreRouteAfterForeground() {
+        renderPendingRouteIfPossible()
+    }
 
     @objc private func presentAuthenticatedRouteMenu() {
         guard hasAuthenticatedSession else { return }

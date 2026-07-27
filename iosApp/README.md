@@ -60,6 +60,20 @@ repositorio, al bundle o a este archivo.
 Sin esos valores, el host conserva una pantalla Compose honesta de configuración
 pendiente. No fabrica datos, URL ni sesiones Swift para aparentar funcionalidad.
 
+El registro iOS está desactivado por defecto (`QUATA_IOS_REGISTRATION_ENABLED=false`).
+Su activación requiere que el entorno de firma inyecte, además, estos valores
+públicos y efímeros; cualquier valor ausente, vacío o sin expandir mantiene el
+registro inaccesible:
+
+```text
+QUATA_IOS_REGISTRATION_API_KEY
+QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID
+QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN
+```
+
+No se almacenan secretos de servicio ni tokens de usuario en el repositorio o
+en los valores predeterminados del proyecto.
+
 ## Construcción local en macOS
 
 Se requiere Xcode 16.3, JDK 17 y XcodeGen. Este flujo local enlaza el
