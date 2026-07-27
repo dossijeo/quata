@@ -12,9 +12,9 @@
     "20260726171002": {
       "file": "20260726171002_official_post_likes_actor_guard.sql",
       "name": "official_post_likes_actor_guard",
-      "sha256": "d978ebc8ca18de9dcc52d0f3549722894812fc0a50649c6c39946d97c9cc53ec"
+      "sha256": "8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4"
       ,"rollbackFile": "20260726171002_official_post_likes_actor_guard.rollback.sql",
-      "rollbackSha256": "2687317b6bcbef69bb5f6c5f4a86c272bbcd4908f82e35d52e4db9e267eab12a"
+      "rollbackSha256": "11111cd50ad5b175b228fa09c650a6eab2f51f29a216ef8e12763871274fd1e7"
     },
     "20260726171005": {
       "file": "20260726171005_community_comments_reapply_rls.sql",

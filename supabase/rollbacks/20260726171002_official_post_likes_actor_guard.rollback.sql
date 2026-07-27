@@ -2,8 +2,9 @@
 --
 -- This script intentionally restores the catalog captured immediately before
 -- that migration: RLS disabled, no policies on this table, the guard function
--- SECURITY DEFINER, no delete-policy helper, and the original anon/authenticated
--- grants. It never deletes or updates rows.
+-- SECURITY DEFINER with its captured PUBLIC/API ACL, no delete-policy helper,
+-- and the original anon/authenticated table grants. It never deletes or updates
+-- rows.
 --
 -- It is deliberately fail-closed on schema drift. Do not use it as a general
 -- policy reset: if another release has changed this table, take a fresh backup
@@ -14,7 +15,6 @@ begin;
 do $$
 declare
     v_policy_fingerprint text;
-    v_guard_fingerprint text;
     v_guard_acl_fingerprint text;
     v_helper_fingerprint text;
     v_helper_acl_fingerprint text;
@@ -34,9 +34,8 @@ begin
        or to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null then
         raise exception 'official_post_likes_rollback_refused:release_function_missing';
     end if;
-    select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure)),
-           md5(coalesce(proacl::text, ''))
-    into v_guard_fingerprint, v_guard_acl_fingerprint
+    select md5(coalesce(proacl::text, ''))
+    into v_guard_acl_fingerprint
     from pg_proc where oid = 'public.quata_guard_official_post_likes()'::regprocedure;
     select md5(pg_get_functiondef('public.quata_official_like_delete_allowed(uuid)'::regprocedure)),
            md5(coalesce(proacl::text, ''))
@@ -63,8 +62,11 @@ begin
     if v_policy_fingerprint is distinct from 'd046ca9fab6ca48f72bd0c5eb03981ac' then
         raise exception 'official_post_likes_rollback_refused:policy_fingerprint_mismatch';
     end if;
-    if v_guard_fingerprint is distinct from 'c9505e6d5b5fbb818c465cf84a3ebf56'
-       or v_guard_acl_fingerprint is distinct from 'd41d8cd98f00b204e9800998ecf8427e' then
+    -- The body is bound byte-for-byte by the executor's locked catalog
+    -- fingerprint. This release changes only prosecdef, so do not reject the
+    -- production baseline merely because its pre-existing body differs from
+    -- the disposable test fixture.
+    if v_guard_acl_fingerprint is distinct from 'dfda960bf9e0be03ea7516906ee58e3b' then
         raise exception 'official_post_likes_rollback_refused:guard_fingerprint_mismatch';
     end if;
     if v_helper_fingerprint is distinct from '139c75e8a54504468e1861557a681264'
@@ -89,6 +91,12 @@ drop policy official_post_likes_public_read
 
 alter table public.official_post_likes disable row level security;
 alter function public.quata_guard_official_post_likes() security definer;
+-- Reset the explicit owner entry too, then replay the captured grant order.
+-- Ownership itself is unchanged; this only makes proacl byte-stable on PG17.
+revoke all on function public.quata_guard_official_post_likes()
+from public, anon, authenticated, service_role, postgres;
+grant execute on function public.quata_guard_official_post_likes()
+to public, postgres, anon, authenticated, service_role;
 
 revoke all privileges on public.official_post_likes from anon;
 grant select on public.official_post_likes to anon;

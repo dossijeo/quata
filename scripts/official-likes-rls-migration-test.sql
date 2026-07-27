@@ -10,6 +10,13 @@ create role authenticator login noinherit password 'isolated-postgrest-password'
 grant anon, authenticated, service_role to authenticator;
 create schema auth;
 
+do $$
+begin
+    create role service_role nologin;
+exception when duplicate_object then null;
+end;
+$$;
+
 create function auth.uid()
 returns uuid language sql stable
 as $$
@@ -74,6 +81,12 @@ begin
     return new;
 end;
 $$;
+
+-- Production baseline captured before RLS-002: the guard was directly
+-- executable by PUBLIC and API roles.  The migration must converge this to a
+-- deterministic owner-only ACL, and rollback must restore it byte-for-byte.
+grant execute on function public.quata_guard_official_post_likes()
+to public, anon, authenticated, service_role;
 
 create trigger quata_guard_official_post_likes_trg
 before insert or delete on public.official_post_likes

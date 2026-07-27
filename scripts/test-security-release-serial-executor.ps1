@@ -33,6 +33,10 @@ do `$roles`$ begin
   create role authenticated nologin;
 exception when duplicate_object then null;
 end `$roles`$;
+do `$roles`$ begin
+  create role service_role nologin;
+exception when duplicate_object then null;
+end `$roles`$;
 create table supabase_migrations.schema_migrations(version text primary key, statements text[], name text);
 create function auth.uid() returns uuid language sql stable as 'select null::uuid';
 create table public.community_comments(id uuid primary key, profile_id uuid not null, post_id uuid not null, body text);
@@ -78,6 +82,7 @@ begin
     return new;
 end;
 `$guard`$;
+grant execute on function public.quata_guard_official_post_likes() to public, anon, authenticated, service_role;
 create trigger quata_guard_official_post_likes_trg before insert or delete on public.official_post_likes for each row execute function public.quata_guard_official_post_likes();
 grant select, insert, delete on public.official_post_likes to anon, authenticated;
 grant select, insert, delete, update on public.community_comments to anon, authenticated;
@@ -202,6 +207,17 @@ try {
     $ledger = (& docker exec $container psql -U postgres -A -t -c "select string_agg(version||'|'||name||'|'||cardinality(statements),',' order by version) from supabase_migrations.schema_migrations;").Trim(); Assert-True ($ledger -eq "20260726171001|community_comments_delete_rls|1,20260726171002|official_post_likes_actor_guard|1,20260726171005|community_comments_reapply_rls|1") "ledger mismatch: $ledger"
     $guardHash = (& docker exec $container psql -U postgres -A -t -c "select md5(pg_get_functiondef('public.quata_guard_official_post_likes()'::regprocedure));").Trim()
     Assert-True ($guardHash -eq "c9505e6d5b5fbb818c465cf84a3ebf56") "production-like guard fingerprint mismatch: $guardHash"
+    $guardAcl = (& docker exec $container psql -U postgres -A -t -c "select coalesce(proacl::text, '') from pg_proc where oid='public.quata_guard_official_post_likes()'::regprocedure;").Trim()
+    Assert-True ($guardAcl -eq "{postgres=X/postgres}") "hardened guard ACL was not deterministic owner-only: $guardAcl"
+    # ACL drift is security-relevant even though trigger execution remains
+    # compatible without direct EXECUTE. The rollback must refuse it atomically.
+    Sql "grant execute on function public.quata_guard_official_post_likes() to authenticated;"
+    $aclDriftDry=Exec @("--action","dry-run"); $aclDriftFp=((($aclDriftDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
+    $aclDriftRollback=Exec @("--action","rollback-002","--expected-precondition-sha256",$aclDriftFp)
+    Assert-True ($aclDriftRollback.code -ne 0 -and ($aclDriftRollback.output -join "`n") -match "guard_fingerprint_mismatch") "rollback-002 accepted guard EXECUTE ACL drift"
+    $aclDriftStillThere=(& docker exec $container psql -U postgres -A -t -c "select has_function_privilege('authenticated', 'public.quata_guard_official_post_likes()', 'execute');").Trim()
+    Assert-True ($aclDriftStillThere -eq "t") "rejected rollback modified guard ACL drift"
+    Sql "revoke execute on function public.quata_guard_official_post_likes() from authenticated;"
     $rollback2Dry=Exec @("--action","dry-run"); $rollback2Fp=((($rollback2Dry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
     $rollback2Job=Start-Job -ScriptBlock { param($file,$fp) $env:QUATA_SERIAL_EXECUTOR_TEST_HOLD_AFTER_LOCK_MS='1800'; & node $file --action rollback-002 --expected-precondition-sha256 $fp; if($LASTEXITCODE -ne 0){throw "rollback-002 executor failed"} } -ArgumentList (Join-Path $PSScriptRoot "security-release-serial-executor.mjs"),$rollback2Fp
     Start-Sleep -Milliseconds 350
@@ -213,6 +229,8 @@ try {
     $oldErrorPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'; $functionWriterOutput=Receive-Job $functionWriter 2>&1; $ErrorActionPreference=$oldErrorPreference; Remove-Job $functionWriter
     Assert-True ($functionWriterState -eq "Failed" -and ($functionWriterOutput -join "`n") -match "tuple concurrently updated") "external function writer was not rejected after the guarded commit"
     $rollback2State=(& docker exec $container psql -U postgres -A -t -c "select (select relrowsecurity from pg_class where oid='public.official_post_likes'::regclass), to_regprocedure('public.quata_official_like_delete_allowed(uuid)') is null;").Trim(); Assert-True ($rollback2State -eq "f|t") "rollback-002 did not restore the production-like fixture: $rollback2State"
+    $rollbackGuardAcl=(& docker exec $container psql -U postgres -A -t -c "select coalesce(proacl::text, '') from pg_proc where oid='public.quata_guard_official_post_likes()'::regprocedure;").Trim()
+    Assert-True ($rollbackGuardAcl -eq "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}") "rollback-002 did not restore exact guard ACL: $rollbackGuardAcl"
     $rollback2AgainDry=Exec @("--action","dry-run"); $rollback2AgainFp=((($rollback2AgainDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171002").preconditionSha256)
     $rollback2Again=Exec @("--action","rollback-002","--expected-precondition-sha256",$rollback2AgainFp); Assert-True ($rollback2Again.code -ne 0 -and ($rollback2Again.output -join "`n") -match "function_lock_missing") "rollback-002 drift/idempotency was accepted"
     $freshForwardRollbackDry=Exec @("--action","dry-run"); $freshForwardRollbackFp=((($freshForwardRollbackDry.output[-1]|ConvertFrom-Json).migrations|Where-Object version -eq "20260726171005").preconditionSha256)

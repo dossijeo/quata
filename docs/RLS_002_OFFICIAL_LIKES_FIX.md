@@ -15,6 +15,10 @@ cuando la petición original llega con un JWT `authenticated`.
 
 - El trigger pasa a `SECURITY INVOKER`, por lo que queda como defensa fail-loud
   y ve el rol real de PostgREST.
+- Su ACL queda explícitamente en `postgres` solamente. Una `proacl` nula no es
+  equivalente a “sin acceso”: devuelve el `EXECUTE` por defecto a `PUBLIC`.
+  Los roles cliente no necesitan `EXECUTE` directo para que PostgreSQL invoque
+  la función desde el trigger ligado a `official_post_likes`.
 - RLS se convierte en la frontera principal.
 - INSERT exige que `profile_id` coincida con
   `quata_current_profile_id()`, el mapeo canónico de `auth.uid()`.
@@ -60,15 +64,23 @@ El rollback versionado es
 Reabre RLS-002 y sólo debe usarse si la compatibilidad de producción lo exige.
 No borra ni modifica filas. Restaura exactamente el catálogo capturado antes de
 la migración: RLS desactivado, cero políticas en la tabla, trigger
-`SECURITY DEFINER`, helper de DELETE ausente y grants `anon`/`authenticated`
-originales.
+`SECURITY DEFINER`, ACL explícita original (`PUBLIC`, `anon`, `authenticated`
+y `service_role`), helper de DELETE ausente y grants de tabla
+`anon`/`authenticated` originales.
 
-Es un rollback *fail-closed*: exige el fingerprint exacto del estado de esta
-release: definición y ACL de guard/helper, dueño de tabla/funciones, binding del
-trigger, RLS sin `FORCE`, ACL de tabla y cada nombre/rol/`USING`/`WITH CHECK` de
-las tres políticas. Si detecta incluso una política con el mismo nombre pero
-otro cuerpo, aborta la transacción sin tocar catálogo ni datos; se debe tomar un
-backup nuevo y preparar una reversión específica.
+La ACL de baseline se materializa explícitamente como
+`{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}`.
+El rollback reinicia incluso la entrada ACL explícita de `postgres` y repone
+los grants en ese orden; no cambia el propietario ni el OID del trigger.
+
+Es un rollback *fail-closed*: el executor exige el fingerprint completo del
+catálogo tanto antes como después de adquirir sus locks, y el SQL comprueba ACL
+de guard/helper, dueño de tabla/funciones, binding del trigger, RLS sin `FORCE`,
+ACL de tabla y cada nombre/rol/`USING`/`WITH CHECK` de las tres políticas. La
+definición baseline del guard queda cubierta por ese fingerprint externo, pues
+la release sólo cambia su modo de seguridad. Si detecta drift, aborta la
+transacción sin tocar catálogo ni datos; se debe tomar un backup nuevo y
+preparar una reversión específica.
 
 Para ensayar de forma aislada PostgreSQL **y** PostgREST:
 

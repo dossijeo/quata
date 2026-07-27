@@ -18,6 +18,14 @@ requireContract(
   "trigger_security_invoker",
 );
 requireContract(
+  "revoke all on function public.quata_guard_official_post_likes() from public, anon, authenticated, service_role",
+  "trigger_public_execute_revoked",
+);
+requireContract(
+  "grant execute on function public.quata_guard_official_post_likes() to postgres",
+  "trigger_owner_only_execute",
+);
+requireContract(
   "alter table public.official_post_likes enable row level security",
   "rls_enabled",
 );

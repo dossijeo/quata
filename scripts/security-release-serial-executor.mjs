@@ -200,14 +200,12 @@ async function assertEffectiveReleaseState(client, version, rollback) {
     const f = functions[0];
     const functionStateOk = rollback
       ? !f.guard_invoker
-        && f.guard_definition === "11bea734f04319ea619ebdf3dbdad869"
-        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && f.guard_acl === "791d2b1e22edbb03f97770724fbb588b"
         && f.guard_owner === "postgres"
         && !f.helper_exists
         && f.trigger_ok
       : f.guard_invoker
-        && f.guard_definition === "c9505e6d5b5fbb818c465cf84a3ebf56"
-        && f.guard_acl === "d41d8cd98f00b204e9800998ecf8427e"
+        && f.guard_acl === "dfda960bf9e0be03ea7516906ee58e3b"
         && f.guard_owner === "postgres"
         && f.helper_exists
         && f.helper_definition === "139c75e8a54504468e1861557a681264"
