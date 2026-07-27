@@ -62,6 +62,20 @@ jobs:
           chrome-version: "150"
           install-dependencies: true
 
+      - name: Configure Chrome launcher for Karma
+        shell: bash
+        run: |
+          set -euo pipefail
+          launcher="$RUNNER_TEMP/quata-chrome-no-sandbox"
+          cat > "$launcher" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec "$QUATA_REAL_CHROME_BIN" --no-sandbox --disable-dev-shm-usage "$@"
+          EOF
+          chmod +x "$launcher"
+          echo "QUATA_REAL_CHROME_BIN=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
+          echo "CHROME_BIN=$launcher" >> "$GITHUB_ENV"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -100,8 +114,6 @@ jobs:
       - name: Test Web/Wasm
         timeout-minutes: 12
         shell: bash
-        env:
-          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: |
           set -euo pipefail
           test -x "$CHROME_BIN"
