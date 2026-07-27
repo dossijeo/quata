@@ -16,6 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
+import com.quata.core.accessibility.CriticalControlsAccessibilityCopy
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.CameraCaptureService
@@ -41,6 +43,7 @@ class IosComposerHostDependencies(
     val repository: PostComposerRepository,
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
+    val languageTag: String?,
     val onClose: () -> Unit,
 )
 
@@ -49,8 +52,9 @@ fun createIosComposerHostDependencies(
     repository: PostComposerRepository,
     filePicker: FilePickerService,
     cameraCapture: CameraCaptureService,
+    languageTag: String?,
     onClose: () -> Unit,
-): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, onClose)
+): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, languageTag, onClose)
 
 /**
  * Explicit iOS publication boundary until the authenticated PostgREST/storage write flow has
@@ -76,15 +80,19 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var type by remember { mutableStateOf(PostComposerType.Text) }
+    val accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag)
+    val copy = accessibility.composer
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
 
     ComposerScreenLayoutContent(
-        title = "Crear publicación",
+        title = copy.title,
         scrollState = rememberScrollState(),
         form = {
             ComposerTypePickerContent(
                 isLandscapeLayout = false,
-                strings = ComposerTypePickerStrings("Texto", "Imagen", "Vídeo"),
+                strings = ComposerTypePickerStrings(copy.textType, copy.imageType, copy.videoType),
+                selectedType = type,
+                accessibility = accessibility,
                 onText = { type = PostComposerType.Text },
                 onImage = { type = PostComposerType.Image },
                 onVideo = { type = PostComposerType.Video },
@@ -94,7 +102,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                     state = state,
                     onTextChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it)) },
                     onPublish = { viewModel.submit(PostComposerType.Text) },
-                    onClose = dependencies.onClose,
+                    accessibility = accessibility,
                 )
                 PostComposerType.Image -> IosImageComposerForm(
                     state = state,
@@ -112,6 +120,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         }
                     },
                     onPublish = { viewModel.submit(PostComposerType.Image) },
+                    accessibility = accessibility,
                 )
                 PostComposerType.Video -> IosVideoComposerForm(
                     state = state,
@@ -123,8 +132,14 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         }
                     },
                     onPublish = { viewModel.submit(PostComposerType.Video) },
+                    accessibility = accessibility,
                 )
             }
+            ComposerBackButtonContent(
+                label = copy.backToFeed,
+                onBack = dependencies.onClose,
+                accessibility = accessibility,
+            )
         },
         feedback = { ComposerSubmissionFeedbackContent(state.error, state.successMessage) },
     )
@@ -135,14 +150,15 @@ private fun ColumnScope.IosTextComposerForm(
     state: CreatePostUiState,
     onTextChange: (String) -> Unit,
     onPublish: () -> Unit,
-    onClose: () -> Unit,
+    accessibility: CriticalControlsAccessibilityCopy,
 ) {
+    val copy = accessibility.composer
     ComposerTextPostFormContent(
         isLandscapeLayout = false,
         textValue = TextFieldValue(state.text),
-        contentTitle = "Tu publicación",
-        placeholder = "Escribe algo…",
-        wordCountText = "${state.text.length} caracteres",
+        contentTitle = copy.contentTitle,
+        placeholder = copy.placeholder,
+        wordCountText = copy.characters(state.text.length),
         minLines = 6,
         onTextChange = { onTextChange(it.text) },
         trailingInputAction = {},
@@ -152,15 +168,14 @@ private fun ColumnScope.IosTextComposerForm(
                 text = state.text,
                 patternId = state.textPatternId,
                 compact = true,
-                emptyText = "Vista previa",
-                readMoreText = "Leer más",
-                readerDismissButton = { _, dismiss -> Button(onClick = dismiss) { Text("Cerrar") } },
+                emptyText = copy.preview,
+                readMoreText = copy.readMore,
+                readerDismissButton = { _, dismiss -> Button(onClick = dismiss) { Text(copy.close) } },
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         publish = {
-            ComposerPublishButtonContent(state.isLoading, "Publicar", "Publicando…", onPublish)
-            Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Volver al feed") }
+            ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, onPublish, accessibility = accessibility)
         },
     )
 }
@@ -171,26 +186,27 @@ private fun ColumnScope.IosImageComposerForm(
     onGallery: () -> Unit,
     onCamera: () -> Unit,
     onPublish: () -> Unit,
+    accessibility: CriticalControlsAccessibilityCopy,
 ) {
+    val copy = accessibility.composer
     ComposerMediaPostFormContent(
         isLandscapeLayout = false,
         mediaSource = {
             ComposerMediaSourceFormContent(
-                title = "Imagen",
+                title = copy.imageType,
                 isLandscapeLayout = false,
-                primarySourceAction = { modifier -> Button(onClick = onGallery, modifier = modifier) { Text("Elegir imagen") } },
-                secondarySourceAction = { modifier -> Button(onClick = onCamera, modifier = modifier) { Text("Tomar foto") } },
+                primarySourceAction = { modifier -> Button(onClick = onGallery, modifier = modifier) { Text(copy.chooseImage) } },
+                secondarySourceAction = { modifier -> Button(onClick = onCamera, modifier = modifier) { Text(copy.takePhoto) } },
             )
         },
         preview = {
             ComposerEmptyPreviewContent(
-                title = "Vista previa de imagen",
+                title = copy.imagePreview,
                 tag = "iOS",
-                body = state.imageUri?.let { "Imagen seleccionada: $it" }
-                    ?: "El renderizado y la edición de bitmap aún no están disponibles en iOS.",
+                body = state.imageUri?.let(copy.selectedImage) ?: copy.imageUnavailable,
             )
         },
-        publish = { ComposerPublishButtonContent(state.isLoading, "Publicar", "Publicando…", onPublish) },
+        publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, onPublish, accessibility = accessibility) },
     )
 }
 
@@ -199,26 +215,27 @@ private fun ColumnScope.IosVideoComposerForm(
     state: CreatePostUiState,
     onGallery: () -> Unit,
     onPublish: () -> Unit,
+    accessibility: CriticalControlsAccessibilityCopy,
 ) {
+    val copy = accessibility.composer
     ComposerMediaPostFormContent(
         isLandscapeLayout = false,
         mediaSource = {
             ComposerMediaSourceFormContent(
-                title = "Vídeo",
+                title = copy.videoType,
                 isLandscapeLayout = false,
-                primarySourceAction = { modifier -> Button(onClick = onGallery, modifier = modifier) { Text("Elegir vídeo") } },
-                secondarySourceAction = { modifier -> Button(onClick = {}, enabled = false, modifier = modifier) { Text("Grabar vídeo no disponible") } },
+                primarySourceAction = { modifier -> Button(onClick = onGallery, modifier = modifier) { Text(copy.chooseVideo) } },
+                secondarySourceAction = { modifier -> Button(onClick = {}, enabled = false, modifier = modifier) { Text(copy.recordVideoUnavailable) } },
             )
         },
         preview = {
             ComposerEmptyPreviewContent(
-                title = "Vista previa de vídeo",
+                title = copy.videoPreview,
                 tag = "iOS",
-                body = state.videoUri?.let { "Vídeo seleccionado: $it" }
-                    ?: "La reproducción, edición y exportación de vídeo aún no están disponibles en iOS.",
+                body = state.videoUri?.let(copy.selectedVideo) ?: copy.videoUnavailable,
             )
         },
-        publish = { ComposerPublishButtonContent(state.isLoading, "Publicar", "Publicando…", onPublish) },
+        publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, onPublish, accessibility = accessibility) },
     )
 }
 
