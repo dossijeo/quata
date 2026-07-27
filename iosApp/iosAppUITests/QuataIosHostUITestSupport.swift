@@ -52,4 +52,12 @@ enum QuataIosHostUITestSupport {
         XCTAssertEqual(roots.count, 1, "The UIKit fixture must not retain duplicate route surfaces.", file: file, line: line)
         return root
     }
+
+    static func attachRenderedSurface(named name: String) -> XCTAttachment {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        XCTContext.runActivity(named: name) { $0.add(attachment) }
+        return attachment
+    }
 }

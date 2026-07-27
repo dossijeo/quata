@@ -10,10 +10,28 @@ final class QuataIosHostUITests: XCTestCase {
             identifier: "quata-ios-test-anonymous-host",
         )
         XCTAssertEqual(
-            anonymousSurface.label,
-            "Quata iOS anonymous fixture",
+            anonymousSurface.label, "Quata iOS anonymous fixture",
         )
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
+
+    }
+
+    func testLaunchesUIKitCompositionRootWithComposeSurface() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let migrationSurface = QuataIosHostUITestSupport.composeRoot(in: app)
+        XCTAssertEqual(
+            migrationSurface.label,
+            "Quata iOS requires an authenticated Feed session",
+        )
+        let before = migrationSurface.screenshot().pngRepresentation
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-before-action")
+        migrationSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.56)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let after = migrationSurface.screenshot().pngRepresentation
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-after-action")
+        XCTAssertNotEqual(before, after, "The stable Compose root rendering must change after its real action.")
     }
 
     func testAuthenticatedFixtureRoutesDeepLinkWithoutRemoteSessionOrComposeRendering() {
