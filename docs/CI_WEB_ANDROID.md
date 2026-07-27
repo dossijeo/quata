@@ -6,8 +6,11 @@ los siguientes gates sin credenciales ni acceso a Supabase:
 
 - contratos Node de Web Wave 2, incluidos anti-bypass de red, bundle y observación DOM;
 - `:web:wasmJsBrowserTest`, distribución Web de producción y smoke local con DocMentis;
-- Share Target sobre la PWA instalada, con proxy cerrado, stub Turnstile exacto y cero orígenes
-  externos inesperados;
+- Share Target sobre HTTPS local efímero con perfil Chrome persistente, registro/controlador del
+  service worker que sobrevive a un reinicio frío, claim único y limpieza de IndexedDB; mantiene
+  proxy cerrado, stub Turnstile exacto y cero orígenes externos inesperados. Esto no equivale a
+  instalar la PWA como aplicación del SO ni a invocar la hoja de compartir del navegador;
+  ambas verificaciones siguen requiriendo staging HTTPS y un navegador/dispositivo compatible.
 - matriz explícita de `:app:testDebugUnitTest`, host test Android de `core` y
   los `wasmJsNodeTest` de los módulos que contienen pruebas comunes;
 - los tests de `app` y `document-reader`, y `:app:assembleDebug`.
