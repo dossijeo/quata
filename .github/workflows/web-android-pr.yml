@@ -14,11 +14,16 @@ on:
       - "app/**"
       - "core/**"
       - "designsystem/**"
+      - "document-reader/**"
       - "feature/**"
+      - "vosk_model_en/**"
+      - "vosk_model_es/**"
+      - "vosk_model_fr/**"
       - "web/**"
       - "scripts/web-browser-smoke.mjs"
       - "scripts/web-browser-metrics.mjs"
       - "scripts/wasm-bundle-report.mjs"
+      - "docs/CI_WEB_ANDROID.md"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
 
@@ -31,9 +36,9 @@ permissions:
 
 jobs:
   web-wasm:
-    name: Web/Wasm production bundle and Chrome smoke
+    name: Web/Wasm test, bundle and Chrome smoke
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
 
     steps:
       - name: Check out source
@@ -61,6 +66,24 @@ jobs:
         with:
           cache-provider: basic
 
+      - name: Install Android SDK 36.1 for KMP configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          set +e
+          yes | "$sdkmanager" --licenses >/dev/null
+          license_status=("${PIPESTATUS[@]}")
+          set -e
+          if [[ "${license_status[1]}" -ne 0 ]]; then
+            exit "${license_status[1]}"
+          fi
+          if [[ "${license_status[0]}" -ne 0 && "${license_status[0]}" -ne 141 ]]; then
+            exit "${license_status[0]}"
+          fi
+          "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
+
       - name: Record Web toolchain
         shell: bash
         run: |
@@ -70,15 +93,25 @@ jobs:
             java -version 2>&1
             node --version
             "${{ steps.chrome.outputs.chrome-path }}" --version
-            ./gradlew --version
+            bash ./gradlew --version
           } | tee build/reports/web-ci/toolchain.log
 
+      - name: Test Web/Wasm
+        timeout-minutes: 12
+        shell: bash
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -euo pipefail
+          bash ./gradlew :web:wasmJsTest --no-daemon --stacktrace --console=plain \
+            2>&1 | tee build/reports/web-ci/wasm-test.log
+
       - name: Build Wasm production distribution
-        timeout-minutes: 25
+        timeout-minutes: 38
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :web:wasmJsBrowserDistribution --no-daemon --stacktrace --console=plain \
+          bash ./gradlew :web:wasmJsBrowserDistribution --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/web-ci/wasm-distribution.log
 
       - name: Report Wasm bundle
@@ -86,26 +119,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d web/build/dist/wasmJs/productionExecutable
           node scripts/wasm-bundle-report.mjs \
             --budget docs/wasm-bundle-budget.json \
             --report build/reports/wasm-bundle/wasm-bundle-report.json \
             2>&1 | tee build/reports/web-ci/wasm-bundle-report.log
 
-      - name: Smoke production launcher in Chrome
-        timeout-minutes: 8
+      - name: Smoke production launcher and DocMentis in Chrome
+        timeout-minutes: 10
         shell: bash
         run: |
           set -euo pipefail
           node scripts/web-browser-smoke.mjs \
             --chrome "${{ steps.chrome.outputs.chrome-path }}" \
+            --docmentis \
             --metrics-report build/reports/web-browser-smoke-metrics.json \
             2>&1 | tee build/reports/web-ci/chrome-smoke.log
           node scripts/web-browser-metrics.mjs \
             --report build/reports/web-browser-smoke-metrics.json \
             2>&1 | tee build/reports/web-ci/chrome-metrics.log
 
-      - name: Upload Web/Wasm diagnostics and distribution
+      - name: Upload Web/Wasm JUnit, smoke, logs and distribution
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -114,14 +147,105 @@ jobs:
             build/reports/web-ci/
             build/reports/wasm-bundle/
             build/reports/web-browser-smoke-metrics.json
+            web/build/test-results/**/*.xml
+            web/build/reports/tests/
             web/build/dist/wasmJs/productionExecutable/
           if-no-files-found: warn
           retention-days: 14
 
-  android-debug:
-    name: Android debug assembly
+  unit-tests:
+    name: Unit tests (${{ matrix.name }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: android-app
+            timeout_minutes: 35
+            browser: false
+            gradle_tasks: ":app:testDebugUnitTest :document-reader:testDebugUnitTest"
+          - name: kmp-android-host
+            timeout_minutes: 35
+            browser: false
+            gradle_tasks: ":core:testAndroidHostTest"
+          - name: kmp-wasm-common
+            timeout_minutes: 65
+            browser: true
+            gradle_tasks: ":core:wasmJsTest :designsystem:wasmJsTest :feature:auth:wasmJsTest :feature:chat:wasmJsTest :feature:externalshare:wasmJsTest :feature:feed:wasmJsTest :feature:neighborhoods:wasmJsTest :feature:notifications:wasmJsTest :feature:official:wasmJsTest :feature:profile:wasmJsTest :feature:whatsnew:wasmJsTest"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js 20.19.0 for Wasm tests
+        if: matrix.browser
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+
+      - name: Set up Chrome 150 for Wasm tests
+        if: matrix.browser
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: "150"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Install Android SDK 36.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          set +e
+          yes | "$sdkmanager" --licenses >/dev/null
+          license_status=("${PIPESTATUS[@]}")
+          set -e
+          if [[ "${license_status[1]}" -ne 0 ]]; then
+            exit "${license_status[1]}"
+          fi
+          if [[ "${license_status[0]}" -ne 0 && "${license_status[0]}" -ne 141 ]]; then
+            exit "${license_status[0]}"
+          fi
+          "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
+
+      - name: Run declared unit-test tasks
+        shell: bash
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/unit-tests
+          bash ./gradlew ${{ matrix.gradle_tasks }} --no-daemon --stacktrace --console=plain \
+            2>&1 | tee "build/reports/unit-tests/${{ matrix.name }}.log"
+
+      - name: Upload JUnit and unit-test logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: unit-tests-${{ matrix.name }}-${{ github.run_id }}
+          path: |
+            build/reports/unit-tests/
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/
+          if-no-files-found: warn
+          retention-days: 14
+
+  android-debug:
+    name: Android lint and debug assembly
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
 
     steps:
       - name: Check out source
@@ -144,7 +268,16 @@ jobs:
           set -euo pipefail
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
-          yes | "$sdkmanager" --licenses >/dev/null || true
+          set +e
+          yes | "$sdkmanager" --licenses >/dev/null
+          license_status=("${PIPESTATUS[@]}")
+          set -e
+          if [[ "${license_status[1]}" -ne 0 ]]; then
+            exit "${license_status[1]}"
+          fi
+          if [[ "${license_status[0]}" -ne 0 && "${license_status[0]}" -ne 141 ]]; then
+            exit "${license_status[0]}"
+          fi
           "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
 
       - name: Record Android toolchain
@@ -155,18 +288,19 @@ jobs:
           {
             java -version 2>&1
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
-            ./gradlew --version
+            bash ./gradlew --version
           } | tee build/reports/android-ci/toolchain.log
 
-      - name: Assemble Android debug APK
-        timeout-minutes: 25
+      - name: Lint and assemble Android debug APK
+        timeout-minutes: 42
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain \
-            2>&1 | tee build/reports/android-ci/assemble-debug.log
+          bash ./gradlew :app:lintDebug :document-reader:lintDebug :app:assembleDebug --continue \
+            --no-daemon --stacktrace --console=plain \
+            2>&1 | tee build/reports/android-ci/lint-assemble-debug.log
 
-      - name: Upload Android diagnostics and APK
+      - name: Upload Android lint, logs and APK
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -174,6 +308,7 @@ jobs:
           path: |
             build/reports/android-ci/
             app/build/outputs/apk/debug/*.apk
-            app/build/reports/
+            app/build/reports/lint-results-debug.*
+            app/build/reports/lint-results-debug/
           if-no-files-found: warn
           retention-days: 14
