@@ -144,7 +144,7 @@ fun ProfileScreen(
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (context.hasCapturePermissions()) {
+        if (context.hasCameraPermission()) {
             launchProfilePhotoCapture()
         } else {
             Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
@@ -276,10 +276,10 @@ fun ProfileScreen(
                                         leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
                                         onClick = {
                                             isPhotoMenuOpen = false
-                                            if (context.hasCapturePermissions()) {
+                                            if (context.hasCameraPermission()) {
                                                 launchProfilePhotoCapture()
                                             } else {
-                                                cameraPermissionLauncher.launch(capturePermissions())
+                                                cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
                                             }
                                         }
                                     )
@@ -546,11 +546,5 @@ private fun EmergencyUserRow(
     )
 }
 
-private fun Context.hasCapturePermissions(): Boolean =
-    hasCameraPermission()
-
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-
-private fun capturePermissions(): Array<String> =
-    arrayOf(Manifest.permission.CAMERA)
