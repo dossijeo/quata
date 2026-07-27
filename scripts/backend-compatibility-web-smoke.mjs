@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
-import { inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
+import { inspectBackendRequest, publicMediaUrlsFromPayload } from "./backend-compatibility-request-policy.mjs";
 import { publicPostIdFromPayload, detailEvidence, detailEvidenceEvent } from "./backend-compatibility-feed-detail.mjs";
 import { sanitizeWebSmokeRequest, webSmokePhase } from "./backend-compatibility-web-smoke-report.mjs";
 
@@ -28,6 +28,10 @@ const backendResponses = [];
 const failedBackendRequests = [];
 const blockedRequests = [];
 const requests = [];
+// This is intentionally process-memory only: it contains object URLs, which
+// must not be copied into CI output.  It starts empty, so a media race fails
+// closed until a successful feed/detail response accredits that exact URL.
+const accreditedMediaUrls = new Set();
 let observedPostId = null;
 let context;
 let currentRoute = "<unknown>";
@@ -61,7 +65,8 @@ try {
     if (!match) return;
     const headers = await response.request().allHeaders();
     const responseUrl = new URL(response.url());
-    const payloadPostId = publicPostIdFromPayload(await response.text().catch(() => ""));
+    const payload = await response.text().catch(() => "");
+    const payloadPostId = publicPostIdFromPayload(payload);
     backendResponses.push({
       table: match[1],
       status: response.status(),
@@ -74,6 +79,14 @@ try {
     if (match[1] === "community_posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
       observedPostId = payloadPostId;
     }
+    // The response listener runs before the app can use this response body to
+    // render a Compose image.  If an implementation ever races it, the route
+    // gate below rejects the media request instead of opening Storage.
+    const requestRoute = recordRequest(response.request()).route;
+    if (match[1] === "community_posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 &&
+        (requestRoute === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(requestRoute))) {
+      for (const mediaUrl of publicMediaUrlsFromPayload(payload, baseUrl)) accreditedMediaUrls.add(mediaUrl);
+    }
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
@@ -81,7 +94,15 @@ try {
   });
   await page.route("**/*", async (route) => {
     const request = route.request();
-    const decision = inspectBackendRequest({ url: request.url(), method: request.method(), headers: request.headers() }, baseUrl);
+    const redirectedFrom = request.redirectedFrom();
+    const decision = inspectBackendRequest({
+      url: request.url(),
+      method: request.method(),
+      headers: request.headers(),
+      resourceType: request.resourceType(),
+      accreditedMediaUrls,
+      redirectedFromUrl: redirectedFrom?.url(),
+    }, baseUrl);
     if (!decision.allowed) {
       blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
       return route.abort("blockedbyclient");
