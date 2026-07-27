@@ -259,6 +259,7 @@ async function handleRequest(req: Request): Promise<Response> {
       last_login_at: new Date().toISOString(),
       account_status: "active",
       deactivated_at: null,
+      deactivated_auth_user_id: null,
     })
     .eq("id", profile.id);
   if (linkProfileError) throw linkProfileError;
@@ -361,6 +362,7 @@ async function handlePasswordReset(params: {
   if (authError) throw authError;
   const { error: profileError } = await admin.from("community_profiles").update({
     auth_user_id: authUserId,
+    deactivated_auth_user_id: null,
     pass_hash: await hashRegistrationPassword(newPassword),
     pass_plain: null,
   }).eq("id", profile.id);
