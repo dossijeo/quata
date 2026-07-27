@@ -21,6 +21,8 @@ import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataBottomNavigation
 import com.quata.core.ui.components.QuataNavigationItem
 import com.quata.designsystem.effects.fluidTouchEffect
@@ -45,7 +47,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ensureWebClientInstanceId()
-    installDocmentisSmokeProbe()
     registerWebPushWorker()
     val platformServices = WebPlatformServices()
     val runtimeConfiguration = WebRuntimeConfiguration.fromDocument()
@@ -173,6 +174,26 @@ private fun QuataWebApp(
             configuration = runtimeConfiguration,
             hasAuthenticatedSession = isSessionReady && currentUserId != null,
         )
+    }
+    DisposableEffect(platformServices.documentOpener) {
+        val uninstall = installDocmentisProductSmokeBridge { reference, displayName, mimeType, complete ->
+            scope.launch {
+                val result = platformServices.documentOpener.open(
+                    PlatformFile(
+                        reference = reference,
+                        displayName = displayName.takeIf(String::isNotBlank),
+                        mimeType = mimeType.takeIf(String::isNotBlank),
+                    ),
+                )
+                when (result) {
+                    is PlatformResult.Success -> complete("success", null)
+                    is PlatformResult.Failure -> complete("failure", result.reason)
+                    PlatformResult.Cancelled -> complete("cancelled", null)
+                    PlatformResult.Unsupported -> complete("unsupported", null)
+                }
+            }
+        }
+        onDispose(uninstall)
     }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"

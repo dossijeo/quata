@@ -57,11 +57,12 @@ adoptarlo exige aprobar por separado una línea base del runner y su tolerancia.
 
 ## DocMentis sin credenciales de proveedor
 
-`node .\scripts\web-browser-smoke.mjs --docmentis` añade dos comprobaciones separadas sobre el
-artefacto construido. Primero importa `@docmentis/udoc-viewer` 0.7.9, crea el cliente y monta un
-viewer local, sin abrir documentos. Después intenta abrir un PDF inerte y exige el comportamiento
-`fail-closed` documentado por el SDK cuando no hay permit: evento `phase: "permit"`, error
-`permit unavailable`, ningún evento `document:load` y limpieza completa del host.
+`node .\scripts\web-browser-smoke.mjs --docmentis` llama al `DocumentOpenService` instalado por la
+composición Web con un documento sin extensión y MIME `application/pdf`. Así atraviesa
+`WebDocmentisDocumentOpenService.open`, la política de admisión, el modal real y el fallback del
+producto; no importa el SDK desde un camino de test paralelo. El smoke exige que el overlay se
+monte y elimine, que la apertura del SDK cierre por falta de permit y que el fallback del navegador
+reciba exactamente la URL local. No se descarga ni abre un documento en el puesto de trabajo.
 
 El SDK exige que cada apertura gratuita obtenga un permit de corta duración firmado por DocMentis
 y verifica la firma dentro de Wasm. El repositorio no contiene ni simula esa clave privada. El smoke
@@ -69,6 +70,10 @@ satisface localmente sólo el `OPTIONS` exacto de
 `https://www.docmentis.com/api/udoc-viewer/permit`, valida que el `POST` contiene exclusivamente
 `distinct_id`, `host`, `nonce` y `viewer_version`, y corta ese `POST` para probar de forma
 determinista la ruta no disponible. No se fabrica un permit ni se permite tráfico al proveedor.
+
+`scripts/web-docmentis-product-smoke-contract.test.mjs` impide volver a un falso positivo basado
+sólo en montar el SDK: exige la llamada al servicio de composición, una entrada admitida por MIME
+sin extensión hardcoded, el ciclo completo del overlay, el permit exacto y un único fallback.
 
 La política de red tiene pruebas anti-bypass en
 `scripts/web-browser-network-policy.test.mjs`: método, origen, path y query de Turnstile están

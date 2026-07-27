@@ -193,77 +193,43 @@ private fun docmentisOpen(
     """,
 )
 
-/** Installs a test-only load probe when an explicit smoke query flag is present. */
-internal fun installDocmentisSmokeProbe(): Unit = js(
+/**
+ * Exposes the composition-root [DocumentOpenService] only to an explicit localhost smoke.
+ *
+ * The bridge never imports DocMentis or implements format routing itself. The browser smoke must
+ * therefore traverse [WebDocmentisDocumentOpenService.open], its admission policy and its real
+ * hardened fallback rather than obtaining a false positive from a second SDK-only test path.
+ */
+internal fun installDocmentisProductSmokeBridge(
+    onOpen: (
+        reference: String,
+        displayName: String,
+        mimeType: String,
+        complete: (String, String?) -> Unit,
+    ) -> Unit,
+): () -> Unit = js(
     """
     (() => {
-      if (!new URLSearchParams(globalThis.location?.search ?? '').has('quata-docmentis-smoke')) return;
-      // This hook is intentionally unavailable outside the local browser smoke. In particular,
-      // never expose an arbitrary URL loader from a deployed application merely for testing.
-      if (!['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname)) return;
-      const runWithViewer = async action => {
-        const { UDocClient } = await import('@docmentis/udoc-viewer');
-        const host = globalThis.document?.createElement?.('div');
-        if (!host || !globalThis.document?.body) throw new Error('DocMentis smoke DOM unavailable');
-        host.dataset.quataDocmentisSmoke = 'true';
-        host.style.cssText = 'position:fixed;inset:0;opacity:0;pointer-events:none;z-index:-1;';
-        globalThis.document.body.appendChild(host);
-        let client = null;
-        let viewer = null;
-        try {
-          client = await UDocClient.create({ disableUpdateCheck: true, googleFonts: false });
-          viewer = await client.createViewer({ container: host });
-          return await action({ UDocClient, host, viewer });
-        } finally {
-          try { viewer?.destroy?.(); } catch (_) {}
-          try { client?.destroy?.(); } catch (_) {}
-          host.remove();
-        }
+      const query = new URLSearchParams(globalThis.location?.search ?? '');
+      const local = ['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname);
+      if (!local || !query.has('quata-docmentis-smoke')) return () => {};
+      const bridge = {
+        open(file) {
+          return new Promise((resolve) => {
+            onOpen(
+              typeof file?.reference === 'string' ? file.reference : '',
+              typeof file?.displayName === 'string' ? file.displayName : '',
+              typeof file?.mimeType === 'string' ? file.mimeType : '',
+              (state, reason) => resolve({ state, reason: reason ?? null }),
+            );
+          });
+        },
       };
-      globalThis.__quataDocmentisProbe = {
-        async mount() {
-          return runWithViewer(async ({ UDocClient, host }) => {
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            return {
-              package: '@docmentis/udoc-viewer',
-              version: UDocClient.version,
-              clientCreated: true,
-              viewerCreated: true,
-              mounted: host.childElementCount > 0 || host.querySelectorAll('*').length > 0,
-            };
-          });
-        },
-        async expectPermitFailClosed(fixturePath = '/__quata-smoke-fixtures/legal.docx') {
-          return runWithViewer(async ({ UDocClient, viewer }) => {
-            const source = new URL(fixturePath, globalThis.location.origin);
-            if (!['http:', 'https:'].includes(source.protocol)) throw new Error('DocMentis smoke URL is not HTTP(S)');
-            let phase = null;
-            let documentLoaded = false;
-            viewer.on('error', event => { phase = event?.phase ?? null; });
-            viewer.on('document:load', () => { documentLoaded = true; });
-            try {
-              await viewer.load(source.href);
-              return {
-                package: '@docmentis/udoc-viewer',
-                version: UDocClient.version,
-                clientCreated: true,
-                blocked: false,
-                phase,
-                documentLoaded,
-              };
-            } catch (error) {
-              return {
-                package: '@docmentis/udoc-viewer',
-                version: UDocClient.version,
-                clientCreated: true,
-                blocked: true,
-                phase,
-                documentLoaded,
-                message: error?.message ?? String(error),
-              };
-            }
-          });
-        },
+      globalThis.__quataDocmentisProductProbe = bridge;
+      return () => {
+        if (globalThis.__quataDocmentisProductProbe === bridge) {
+          delete globalThis.__quataDocmentisProductProbe;
+        }
       };
     })()
     """,

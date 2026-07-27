@@ -275,38 +275,68 @@ function parseArguments(args) {
     return parsed;
 }
 
-async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorage, permitRequests) {
+async function navigateAndAssertDocmentisBridge(cdp, origin, _authenticatedStorage, permitRequests) {
     await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
     await waitForShell(cdp, 'auth');
-    const mountProbe = await cdp.evaluate('globalThis.__quataDocmentisProbe?.mount()');
-    const mountResult = mountProbe?.result?.value;
-    if (
-        mountResult?.package !== '@docmentis/udoc-viewer' ||
-        mountResult?.clientCreated !== true ||
-        mountResult?.viewerCreated !== true ||
-        mountResult?.mounted !== true ||
-        !mountResult?.version
-    ) {
-        throw new Error(`DocMentis local mount probe failed: ${JSON.stringify({ result: mountResult, exception: mountProbe?.exceptionDetails?.exception?.description ?? mountProbe?.exceptionDetails?.text })}`);
-    }
-    await assertDocmentisCleanup(cdp, 'local mount');
-
-    const fixture = '/__quata-smoke-fixtures/document.pdf';
-    const permitProbe = await cdp.evaluate(
-        `globalThis.__quataDocmentisProbe?.expectPermitFailClosed(${JSON.stringify(fixture)})`,
+    const fixture = '/__quata-smoke-fixtures/document';
+    await cdp.evaluate(`(() => {
+      const trace = globalThis.__quataDocmentisProductTrace = {
+        mounted: false,
+        removed: false,
+        fallbacks: [],
+        originalOpen: globalThis.open,
+      };
+      const containsViewer = node => node?.nodeType === 1 && (
+        node.matches?.('[data-quata-docmentis-viewer]') ||
+        node.querySelector?.('[data-quata-docmentis-viewer]')
+      );
+      trace.observer = new MutationObserver(records => {
+        for (const record of records) {
+          if ([...record.addedNodes].some(containsViewer)) trace.mounted = true;
+          if ([...record.removedNodes].some(containsViewer)) trace.removed = true;
+        }
+      });
+      trace.observer.observe(document.documentElement, { childList: true, subtree: true });
+      globalThis.open = url => {
+        trace.fallbacks.push(String(url));
+        return { closed: false };
+      };
+    })()`);
+    const productProbe = await cdp.evaluate(
+        `globalThis.__quataDocmentisProductProbe?.open({
+          reference: ${JSON.stringify(fixture)},
+          displayName: 'permit-smoke',
+          mimeType: 'application/pdf',
+        })`,
     );
-    const permitResult = permitProbe?.result?.value;
+    const productResult = productProbe?.result?.value;
+    const traceProbe = await cdp.evaluate(`(() => {
+      const trace = globalThis.__quataDocmentisProductTrace;
+      trace?.observer?.disconnect();
+      if (trace?.originalOpen) globalThis.open = trace.originalOpen;
+      return trace ? {
+        mounted: trace.mounted,
+        removed: trace.removed,
+        fallbacks: trace.fallbacks,
+        activeOverlay: document.querySelector('[data-quata-docmentis-viewer]') !== null,
+      } : null;
+    })()`);
+    const trace = traceProbe?.result?.value;
     if (
-        permitResult?.package !== '@docmentis/udoc-viewer' ||
-        permitResult?.clientCreated !== true ||
-        permitResult?.blocked !== true ||
-        permitResult?.phase !== 'permit' ||
-        permitResult?.documentLoaded !== false ||
-        !permitResult?.message?.includes('permit unavailable')
+        productResult?.state !== 'success' ||
+        productResult?.reason !== null ||
+        trace?.mounted !== true ||
+        trace?.removed !== true ||
+        trace?.activeOverlay !== false ||
+        trace?.fallbacks?.length !== 1 ||
+        trace.fallbacks[0] !== `${origin}${fixture}`
     ) {
-        throw new Error(`DocMentis fail-closed permit probe failed: ${JSON.stringify({ result: permitResult, exception: permitProbe?.exceptionDetails?.exception?.description ?? permitProbe?.exceptionDetails?.text })}`);
+        throw new Error(`DocMentis product open/fail-closed/fallback probe failed: ${JSON.stringify({
+            result: productResult,
+            trace,
+            exception: productProbe?.exceptionDetails?.exception?.description ?? productProbe?.exceptionDetails?.text,
+        })}`);
     }
-    await assertDocmentisCleanup(cdp, fixture);
     assertDocmentisPermitFlow(permitRequests);
 
     // Legacy Office and RTF never reach DocMentis. The browser fallback is deliberately tested
@@ -332,13 +362,6 @@ function assertDocmentisPermitFlow(requests) {
     const contractFailures = validateDocmentisPermitRequest(requests[1].postData);
     if (contractFailures.length > 0) {
         throw new Error(`DocMentis permit payload changed:\n${contractFailures.join('\n')}`);
-    }
-}
-
-async function assertDocmentisCleanup(cdp, fixture) {
-    const cleanup = await cdp.evaluate("document.querySelector('[data-quata-docmentis-smoke]') === null");
-    if (cleanup?.result?.value !== true) {
-        throw new Error(`DocMentis ${fixture} probe leaked its temporary viewer host after load.`);
     }
 }
 
@@ -383,6 +406,7 @@ async function createDocmentisFixtures() {
         sameOriginFiles.set(`/__quata-smoke-fixtures/${name}`, file);
         crossOriginFiles.set(`/authenticated/${name}`, file);
     }
+    sameOriginFiles.set('/__quata-smoke-fixtures/document', sameOriginFiles.get('/__quata-smoke-fixtures/document.pdf'));
     return { path, sameOriginFiles, crossOriginFiles };
 }
 

@@ -4,7 +4,10 @@ El workflow `web-android-pr.yml` valida los cambios que afectan a Android o a
 los módulos multiplataforma. Usa JDK 17, Node.js 20.19.0 y Chrome 150, y ejecuta
 los siguientes gates sin credenciales ni acceso a Supabase:
 
+- contratos Node de Web Wave 2, incluidos anti-bypass de red, bundle y observación DOM;
 - `:web:wasmJsBrowserTest`, distribución Web de producción y smoke local con DocMentis;
+- Share Target sobre la PWA instalada, con proxy cerrado, stub Turnstile exacto y cero orígenes
+  externos inesperados;
 - matriz explícita de `:app:testDebugUnitTest`, host test Android de `core` y
   los `wasmJsNodeTest` de los módulos que contienen pruebas comunes;
 - los tests de `app` y `document-reader`, y `:app:assembleDebug`.

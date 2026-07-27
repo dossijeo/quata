@@ -9,9 +9,10 @@
  */
 import { createServer } from "node:http";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
+import { shareTargetNetworkDecision } from "./web-share-target-network-policy.mjs";
 
 const distribution = resolve(process.argv[2] ?? "web/build/dist/wasmJs/productionExecutable");
 const chrome = process.env.QUATA_CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
@@ -22,12 +23,53 @@ await requireFile(join(distribution, "manifest.webmanifest"));
 const profile = await mkdtemp(join(tmpdir(), "quata-web-share-target-"));
 const server = await startServer(distribution);
 let context;
-const report = { check: "WEB-SHARE-001", mode: "installed_pwa_service_worker", status: "failed", checks: [] };
+const unexpectedNetworkRequests = [];
+let turnstileRequests = 0;
+const report = {
+  check: "WEB-SHARE-001",
+  mode: "installed_pwa_service_worker_hermetic_network",
+  status: "failed",
+  checks: [],
+};
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath: chrome,
     headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run"],
+    args: [
+      "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run",
+      // Context routing rejects every non-allowlisted request. The closed local proxy is an
+      // independent transport backstop for service-worker traffic Chromium does not route.
+      "--proxy-server=http://127.0.0.1:9",
+      "--proxy-bypass-list=127.0.0.1;localhost",
+    ],
+  });
+  const recordUnexpected = descriptor => {
+    const value = `${descriptor.method} ${descriptor.url}`;
+    if (!unexpectedNetworkRequests.includes(value)) unexpectedNetworkRequests.push(value);
+  };
+  context.on("request", request => {
+    const descriptor = { method: request.method(), url: request.url() };
+    if (shareTargetNetworkDecision(descriptor, server.origin) === "block-unexpected") {
+      recordUnexpected(descriptor);
+    }
+  });
+  await context.route("**/*", async route => {
+    const request = route.request();
+    const descriptor = { method: request.method(), url: request.url() };
+    const decision = shareTargetNetworkDecision(descriptor, server.origin);
+    if (decision === "continue-local") {
+      await route.continue();
+    } else if (decision === "stub-turnstile") {
+      turnstileRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/javascript; charset=utf-8",
+        body: "globalThis.turnstile = globalThis.turnstile ?? {};",
+      });
+    } else {
+      recordUnexpected(descriptor);
+      await route.abort("blockedbyclient");
+    }
   });
   const page = context.pages()[0] ?? await context.newPage();
   await page.addInitScript(() => {
@@ -115,6 +157,9 @@ try {
     assert(await page.evaluate(() => globalThis.__quataIncomingShareEntries().then(entries => entries.length)) === sharesBefore, `${invalid}_share_must_not_persist_a_new_entry`);
     report.checks.push(`${invalid}_share_fails_closed_to_error_route`);
   }
+  assert(turnstileRequests > 0, "turnstile_bootstrap_stub_not_exercised");
+  assert(unexpectedNetworkRequests.length === 0, "unexpected_external_network_request");
+  report.checks.push("all_external_network_is_blocked_except_exact_turnstile_stub");
   report.status = "passed";
 } finally {
   await context?.close().catch(() => undefined);
@@ -130,7 +175,13 @@ async function startServer(rootDirectory) {
   const server = createServer(async (request, response) => {
     const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
     const candidate = resolve(root, `.${pathname === "/" ? "/index.html" : pathname}`);
-    if (!candidate.startsWith(`${root}\\`) || !(await stat(candidate).catch(() => null))?.isFile()) return response.writeHead(404).end();
+    const relativeCandidate = relative(root, candidate);
+    if (
+      relativeCandidate === ".." ||
+      relativeCandidate.startsWith(`..${sep}`) ||
+      isAbsolute(relativeCandidate) ||
+      !(await stat(candidate).catch(() => null))?.isFile()
+    ) return response.writeHead(404).end();
     response.writeHead(200, { "Content-Type": contentType(candidate), "Cache-Control": "no-store" });
     response.end(await readFile(candidate));
   });
