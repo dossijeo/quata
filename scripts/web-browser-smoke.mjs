@@ -466,15 +466,25 @@ function contentType(path) {
 
 async function launchChrome(executable, profile) {
     const debugPort = await availablePort();
+    const chromeStderr = [];
     const process = spawn(executable, [
-        '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
+        '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+        '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', '--no-default-browser-check',
         `--user-data-dir=${profile}`, `--remote-debugging-port=${debugPort}`,
         'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    process.stderr.setEncoding('utf8');
+    process.stderr.on('data', chunk => chromeStderr.push(chunk));
     const startupFailure = new Promise((_, reject) =>
         process.once('error', error => reject(new Error(`Could not start Chrome (${executable}): ${error.message}`))),
     );
-    await Promise.race([waitForDebugger(debugPort), startupFailure]);
+    try {
+        await Promise.race([waitForDebugger(debugPort), startupFailure]);
+    } catch (error) {
+        await stopProcess(process);
+        const stderr = chromeStderr.join('').trim();
+        throw new Error(`${error instanceof Error ? error.message : String(error)}${stderr ? ` Chrome stderr: ${stderr}` : ''}`);
+    }
     return { process, debugPort };
 }
 
