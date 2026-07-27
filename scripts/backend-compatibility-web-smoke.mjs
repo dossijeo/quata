@@ -5,7 +5,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
 import { inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
-import { publicPostIdFromPayload, detailEvidence } from "./backend-compatibility-feed-detail.mjs";
+import { publicPostIdFromPayload, detailEvidence, detailEvidenceEvent } from "./backend-compatibility-feed-detail.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? "web/build/dist/wasmJs/productionExecutable");
@@ -105,7 +105,8 @@ try {
     await page.waitForFunction((id) => document.documentElement.getAttribute("data-quata-feed-detail") === id, observedPostId, { timeout: 30_000 });
     await page.waitForTimeout(1_000);
     const detailResponses = backendResponses.slice(start);
-    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: detailResponses.filter((event) => event.query === `id=eq.${observedPostId}`).map(({ table, method, status, query, payloadPostId }) => ({ table, method, status, query, payloadMatch: payloadPostId === observedPostId })), passed: detailEvidence(detailResponses, observedPostId) });
+    const evidence = detailEvidenceEvent(detailResponses, observedPostId);
+    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, query: evidence.query, payloadPostId: evidence.payloadPostId }, passed: detailEvidence(detailResponses, observedPostId) });
   }
 } finally {
   await context?.close().catch(() => undefined);
@@ -126,7 +127,7 @@ const report = {
   browserErrorCount: browserErrors.length,
   failedBackendRequests,
   blockedRequests,
-  detail: { observedPostId: observedPostId ? "observed" : null, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
+  detail: { observedPostId, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
   backendResponses,
   mutationPolicy: "Only credential-free public GET responses are accepted; every other Supabase method or credential fails the smoke. The disposable browser profile is removed.",
 };
