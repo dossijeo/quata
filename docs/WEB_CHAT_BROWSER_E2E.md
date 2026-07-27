@@ -58,6 +58,29 @@ No se prueban adjuntos en este recorrido: SB-05 ya valida Storage y su cleanup.
 Agregar un archivo a la prueba de UI sólo será aceptable cuando la purga de
 objeto y fila sea parte de la misma ejecución y pueda verificarse después.
 
+## Purga exacta posterior
+
+La prueba UI y la purga son fases distintas. Antes de una purga, el operador
+crea un manifiesto inmutable para ese `run_id`: contiene los dos UUID de Auth y
+perfil, su mapping, el scope `isolated_sb04_account`, la provenance del runner
+y el hash canónico del manifiesto. El script
+`scripts/run-web-chat-exact-purge-gate.ps1` no acepta teléfonos, marcadores,
+prefijos, filtros temporales ni una URL de base de datos como argumento.
+
+Su modo por defecto sólo inspecciona catálogo y conteos exactos y finaliza una
+transacción `READ ONLY` con `ROLLBACK`. Un commit exige a la vez `-Commit`,
+`-ApproveExactIdPurge` y la autorización de proceso
+`QUATA_E2E_CHAT_PURGE_COMMIT_AUTHORIZATION=MANAGER_APPROVED_EXACT_ID_PURGE`.
+Para cada par exacto llama al RPC de ciclo de vida; `auth.users` queda como
+última relación destructiva y su ausencia se comprueba dentro de la misma
+transacción. FKs desconocidas, `RESTRICT`/`NO ACTION` o adjuntos sin inventario
+abortan antes de un commit.
+
+La URL y la CA sólo se cargan desde los ficheros configurados por
+`QUATA_E2E_PURGE_DB_URL_FILE` y `QUATA_E2E_PURGE_DB_CA_FILE`; no se imprimen.
+Tras un commit, `scripts/attest-web-chat-exact-purge.mjs` une el informe de UI y
+la evidencia redacted. Una bandera manual `verified` no puede acreditar el E2E.
+
 ## Estado de validación local
 
 Sobre `1d604ab3`, `:web:wasmJsTest`,

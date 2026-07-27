@@ -35,7 +35,7 @@ export function assertChatTwoAccountLivePreflight(environment = process.env) {
 
 /** A journey with no independently verified hard purge is evidence, never a pass. */
 export function requireVerifiedHardPurge(report, verification) {
-  if (verification?.state === "verified") return report;
+  if (verification?.state === "verified" && verification?.evidence?.check === "WEB-CHAT-EXACT-PURGE-GATE-001" && verification.evidence.status === "committed" && /^[a-f0-9]{64}$/i.test(verification.evidence.manifestSha256 ?? "")) return report;
   report.status = "failed";
   report.error ??= "external_hard_purge_unverified";
   report.cleanup = {
@@ -43,4 +43,12 @@ export function requireVerifiedHardPurge(report, verification) {
     required: "authorized purge and independent verification of both isolated accounts and Chat rows",
   };
   return report;
+}
+
+/** Reject hand-written success flags: verified E2E requires the redacted exact-ID gate evidence. */
+export function requireExactPurgeEvidence(evidence) {
+  if (evidence?.check !== "WEB-CHAT-EXACT-PURGE-GATE-001" || evidence?.status !== "committed" ||
+      !/^[a-f0-9]{64}$/i.test(evidence.manifestSha256 ?? "") || !/^[a-f0-9]{64}$/i.test(evidence.databaseFingerprint ?? "") ||
+      evidence.containsIdentifiers !== false) throw new Error("external_hard_purge_evidence_invalid");
+  return evidence;
 }
