@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verifyProfilePassword } from "../_shared/web-registration-security.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ Deno.serve(async (request) => {
       return json({ error: "active_profile_not_found" }, 404);
     }
 
-    const password = payload.password?.trim() || "";
+    const password = typeof payload.password === "string" ? payload.password.trim() : "";
     if (!password) return json({ error: "password_required" }, 400);
     const { data: credentialProfile, error: credentialError } = await admin
       .from("community_profiles")
@@ -70,7 +71,7 @@ Deno.serve(async (request) => {
       .eq("id", profile.id)
       .single();
     if (credentialError) throw credentialError;
-    if (!await validatesPassword(credentialProfile, password)) {
+    if (!await verifyProfilePassword(credentialProfile, password)) {
       return json({ error: "invalid_password" }, 403);
     }
 
@@ -148,20 +149,10 @@ function bearerToken(header: string | null): string | null {
   return match?.[1]?.trim() || null;
 }
 
-async function validatesPassword(
-  profile: { pass_hash?: string | null; pass_plain?: string | null },
-  password: string,
-): Promise<boolean> {
-  const bytes = new TextEncoder().encode(password);
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
-  const sha256 = Array.from(new Uint8Array(hash))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return profile.pass_hash?.trim().toLowerCase() === sha256 || profile.pass_plain === password;
-}
-
 async function removeAccountStorage(
-  admin: ReturnType<typeof createClient>,
+  // Edge functions do not ship generated database types. Keeping this boundary
+  // untyped avoids coupling lifecycle verification to a local npm SDK version.
+  admin: any,
   profileId: string,
   assets: DeletionAssets,
 ) {
@@ -196,7 +187,7 @@ async function removeAccountStorage(
 }
 
 async function listFilesRecursively(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   bucket: string,
   prefix: string,
 ): Promise<string[]> {

@@ -1,4 +1,11 @@
 const encoder = new TextEncoder();
+const PBKDF2_PASSWORD_FORMAT = "pbkdf2_sha256";
+const MIN_PBKDF2_ITERATIONS = 100_000;
+const MAX_PBKDF2_ITERATIONS = 1_000_000;
+// Registrations currently cap passwords at 128 characters. Keep a deliberately
+// larger upper bound here so lifecycle verification remains compatible with
+// historical rows while refusing attacker-controlled, unbounded KDF input.
+const MAX_PASSWORD_CHARACTERS = 4_096;
 
 export async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
@@ -24,42 +31,67 @@ export async function hashRegistrationPassword(password, salt = randomHex(16)) {
     key,
     256,
   );
-  return `pbkdf2_sha256$${iterations}$${salt}$${bytesToHex(new Uint8Array(bits))}`;
+  return `${PBKDF2_PASSWORD_FORMAT}$${iterations}$${salt}$${bytesToHex(new Uint8Array(bits))}`;
 }
 
 export async function verifyRegistrationPassword(stored, candidate) {
   const parts = String(stored || "").split("$");
-  if (parts.length !== 4 || parts[0] !== "pbkdf2_sha256") return false;
+  if (!isPasswordCandidate(candidate) || parts.length !== 4 || parts[0] !== PBKDF2_PASSWORD_FORMAT) return false;
   const iterations = Number(parts[1]);
   const salt = parts[2];
   const expected = parts[3];
   if (
     !Number.isInteger(iterations) ||
-    iterations < 100_000 ||
-    iterations > 1_000_000 ||
+    iterations < MIN_PBKDF2_ITERATIONS ||
+    iterations > MAX_PBKDF2_ITERATIONS ||
     !/^[0-9a-f]{32}$/i.test(salt) ||
     !/^[0-9a-f]{64}$/i.test(expected)
   ) {
     return false;
   }
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(candidate),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const actualBits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: hexToBytes(salt),
-      iterations,
-    },
-    key,
-    256,
-  );
-  return constantTimeEqualHex(expected, bytesToHex(new Uint8Array(actualBits)));
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(candidate),
+      "PBKDF2",
+      false,
+      ["deriveBits"],
+    );
+    const actualBits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        salt: hexToBytes(salt),
+        iterations,
+      },
+      key,
+      256,
+    );
+    return constantTimeEqualHex(expected, bytesToHex(new Uint8Array(actualBits)));
+  } catch {
+    // Credential parsing or WebCrypto failures must never authorize an action.
+    return false;
+  }
+}
+
+/**
+ * Verifies every credential format that can legitimately exist in
+ * community_profiles. New registrations use PBKDF2; SHA-256 and pass_plain are
+ * retained only as a migration bridge for existing accounts.
+ */
+export async function verifyProfilePassword(profile, candidate) {
+  if (!isPasswordCandidate(candidate)) return false;
+  const passHash = typeof profile?.pass_hash === "string" ? profile.pass_hash.trim() : "";
+  // A row claiming any PBKDF2 variant is never allowed to silently downgrade
+  // to pass_plain if its structured value is corrupt or unsupported.
+  if (passHash.toLowerCase().startsWith("pbkdf2")) {
+    return verifyRegistrationPassword(passHash, candidate);
+  }
+  if (/^[0-9a-f]{64}$/i.test(passHash)) {
+    return constantTimeEqualHex(passHash, await sha256Hex(candidate));
+  }
+  const passPlain = typeof profile?.pass_plain === "string" ? profile.pass_plain : "";
+  return passPlain.length > 0 && constantTimeEqual(passPlain, candidate);
 }
 
 export async function hashRecoveryAnswer(answer, pepper) {
@@ -107,6 +139,19 @@ export function constantTimeEqualHex(left, right) {
     difference |= a.charCodeAt(index) ^ b.charCodeAt(index);
   }
   return difference === 0;
+}
+
+function constantTimeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+function isPasswordCandidate(candidate) {
+  return typeof candidate === "string" && candidate.length > 0 && candidate.length <= MAX_PASSWORD_CHARACTERS;
 }
 
 function bytesToHex(bytes) {
