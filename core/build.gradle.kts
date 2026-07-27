@@ -16,9 +16,6 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    js(IR) {
-        browser()
-    }
     wasmJs {
         browser()
         nodejs()
@@ -44,7 +41,6 @@ kotlin {
             implementation(kotlin("test"))
         }
         iosMain.dependencies { }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

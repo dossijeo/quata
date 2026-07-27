@@ -63,3 +63,19 @@ En ola 2 se retiró únicamente el target de `:feature:whatsnew`. Los gates
 locales Web Wasm y Android y la CI iOS exacta #30210875187 pasaron sobre
 `9cc84dc2`. No se infiere la retirada del resto de módulos ni se declara
 cerrado MP-A08.
+
+## Ejecución JSIR-001
+
+JSIR-001 retira el resto del grafo JS IR sin consumidor: `core`, `designsystem`
+y `auth`, `chat`, `externalshare`, `feed`, `neighborhoods`, `notifications`,
+`official`, `postcomposer`, `profile` y `settings`. Se eliminaron sus
+declaraciones `js(IR)`, source sets `jsMain` y los seis `actual` exclusivos de
+JS; se conserva intacto `wasmJs`/`wasmJsMain`, Android e iOS. La convención de
+features tampoco vuelve a crear un target JS.
+
+La validación local del lote ejecutó `:web:wasmJsBrowserDistribution`,
+`node scripts/web-browser-smoke.mjs` y `:app:compileDebugKotlin`, junto con las
+compilaciones metadata de `core`, `designsystem` y `feature:chat`; todas
+terminaron correctamente. La búsqueda de código y configuración no histórica
+no encuentra `js(IR)`, `jsMain`, `jsTest`, `compileKotlinJs` ni `jsBrowser`.
+La CI iOS de integración sigue siendo el gate pendiente para cerrar MP-A08.
