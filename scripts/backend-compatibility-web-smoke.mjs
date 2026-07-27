@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
+import { inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? "web/build/dist/wasmJs/productionExecutable");
@@ -46,6 +47,12 @@ try {
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (match) failedBackendRequests.push({ table: match[1], reason: request.failure()?.errorText ?? "unknown" });
+  });
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const decision = inspectBackendRequest({ url: request.url(), method: request.method(), headers: request.headers() }, baseUrl);
+    if (!decision.allowed) return route.abort("blockedbyclient");
+    return route.continue();
   });
   await page.addInitScript(() => {
     localStorage.setItem("web.auth.session_ready", "true");
