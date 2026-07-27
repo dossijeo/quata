@@ -4,9 +4,9 @@ import test from 'node:test';
 import { TURNSTILE_BOOTSTRAP_URL } from './web-browser-network-policy.mjs';
 import { shareTargetNetworkDecision } from './web-share-target-network-policy.mjs';
 
-const localOrigin = 'http://127.0.0.1:43123';
+const localOrigin = 'https://127.0.0.1:43123';
 
-test('share target permits only local assets and the exact Turnstile stub', () => {
+test('share target permits only HTTPS-local assets and the exact Turnstile stub', () => {
     assert.equal(
         shareTargetNetworkDecision({ method: 'GET', url: `${localOrigin}/quata-sw.js` }, localOrigin),
         'continue-local',
@@ -29,6 +29,17 @@ test('browser runner wires the policy and cannot pass with unexpected origins', 
     const source = await readFile(new URL('./web-share-target-pwa-e2e.mjs', import.meta.url), 'utf8');
     assert.match(source, /context\.route\("\*\*\/\*"/);
     assert.match(source, /context\.on\("request"/);
+    assert.match(source, /createSecureServer/);
+    assert.match(source, /https:\/\/127\.0\.0\.1:\$\{address\.port\}/);
+    assert.match(source, /--ignore-certificate-errors/);
+    assert.match(source, /installAndColdStart/);
+    assert.match(source, /navigator\.serviceWorker\.controller !== null/);
+    assert.match(source, /https_must_be_a_secure_context/);
+    assert.match(source, /single_share_must_create_exactly_one_claimable_entry/);
+    assert.match(source, /cold_start_must_retain_exactly_one_claimable_entry/);
+    assert.match(source, /discard_must_clean_indexeddb_entry/);
+    assert.match(source, /quata-web-share-target-tls-/);
+    assert.match(source, /subjectAltName=IP:127\.0\.0\.1,DNS:localhost/);
     assert.match(source, /--proxy-server=http:\/\/127\.0\.0\.1:9/);
     assert.match(source, /--proxy-bypass-list=127\.0\.0\.1;localhost/);
     assert.match(source, /relativeCandidate\.startsWith\(`\.\.\$\{sep\}`\)/);
