@@ -19,6 +19,9 @@ class TurnstileWidgetDocumentTest {
         assertTrue(document.contains("data-timeout-callback=\"quataTimeout\""))
         assertTrue(document.contains("function quataExpired(){ quataFailure('expired'); }"))
         assertTrue(document.contains("function quataTimeout(){ quataFailure('interactive_timeout'); }"))
+        assertTrue(document.contains("$TurnstileWebMessageObjectName.postMessage('success:"))
+        assertTrue(document.contains("encodeURIComponent(token)"))
+        assertFalse(document.contains("addJavascriptInterface"))
         assertFalse(document.contains("data-timeout-callback=\"function"))
         assertTrue(TurnstileChallengeTimeoutMillis > 0)
     }
