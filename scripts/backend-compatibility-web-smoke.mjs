@@ -5,6 +5,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
 import { inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
+import { publicPostIdFromPayload, detailEvidence } from "./backend-compatibility-feed-detail.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? "web/build/dist/wasmJs/productionExecutable");
@@ -25,6 +26,7 @@ const checks = [];
 const backendResponses = [];
 const failedBackendRequests = [];
 const blockedRequests = [];
+let observedPostId = null;
 let context;
 try {
   context = await chromium.launchPersistentContext(profile, {
@@ -43,7 +45,12 @@ try {
       status: response.status(),
       method: response.request().method(),
       hasBearerAuthorization: typeof headers.authorization === "string" && headers.authorization.trim() !== "",
+      postId: null,
     });
+    if (match[1] === "posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
+      observedPostId = publicPostIdFromPayload(await response.text().catch(() => ""));
+      backendResponses.at(-1).postId = observedPostId;
+    }
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
@@ -86,6 +93,17 @@ try {
       passed: canvasCount > 0 && sessionReady === "true" && unsafeBackend.length === 0,
     });
   }
+  if (!observedPostId) {
+    checks.push({ route: "post/<id>", passed: false, reason: "public_post_id_not_observed" });
+  } else {
+    const start = backendResponses.length;
+    await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
+    await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
+    await page.waitForFunction((id) => localStorage.getItem("web.navigation.route") === "feed", observedPostId, { timeout: 30_000 });
+    await page.waitForTimeout(1_000);
+    const detailResponses = backendResponses.slice(start).map((event) => ({ ...event, postId: event.postId ?? observedPostId }));
+    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), passed: detailEvidence(detailResponses, observedPostId) });
+  }
 } finally {
   await context?.close().catch(() => undefined);
   await server.close();
@@ -105,6 +123,7 @@ const report = {
   browserErrorCount: browserErrors.length,
   failedBackendRequests,
   blockedRequests,
+  detail: { observedPostId: observedPostId ? "observed" : null, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
   backendResponses,
   mutationPolicy: "Only credential-free public GET responses are accepted; every other Supabase method or credential fails the smoke. The disposable browser profile is removed.",
 };
