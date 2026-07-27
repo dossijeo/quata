@@ -109,6 +109,27 @@ Windows no puede enlazar ni ejecutar los targets nativos de iOS; usa esa CI
 macOS para la verificación iOS y conserva la compilación Android/Wasm como gates
 locales correspondientes.
 
+### Mac Intel: bootstrap y build de simulador x86_64
+
+Un Mac Intel usa la slice `iosX64`, no la slice `iosSimulatorArm64` de la CI
+Apple Silicon. El bootstrap instala Temurin 17.0.20+8 x64 como `JAVA_HOME`,
+JetBrains Runtime 21.0.10 x64 para el daemon fijado por Gradle y XcodeGen
+2.44.1 bajo el usuario actual, sin `sudo` ni cambios de perfil. Versiones,
+URLs, SHA-256 y el commit del tag XcodeGen quedan fijados en el script; los
+binarios y el archivo de entorno se reemplazan de forma atómica.
+
+```bash
+bash scripts/bootstrap-ios-intel-mac.sh
+source ~/.config/quata/ios-intel.env
+bash scripts/build-ios-intel-simulator.sh
+```
+
+El build llama al wrapper como `bash ./gradlew`, compila/enlaza `iosX64`, crea
+un XCFramework local de una sola slice y construye el host con `ARCHS=x86_64`.
+El archive generico sigue usando la tarea canonica que reconstruye su
+XCFramework completo con `iosArm64`; ambos carriles permanecen separados. El
+build Intel no arranca simulador ni ejecuta pruebas XCTest/UI.
+
 ## Archive genérico sin firma
 
 En macOS, `bash scripts/archive-ios-unsigned.sh` valida por separado que el

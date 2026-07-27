@@ -134,8 +134,8 @@ framework en `framework-link.log` y los de Swift/Xcode en `xcodebuild.log`.
 ## Compilacion local en un Mac
 
 ```bash
-./gradlew compileKotlinIosArm64 compileKotlinIosSimulatorArm64
-./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
+bash ./gradlew compileKotlinIosArm64 compileKotlinIosSimulatorArm64
+bash ./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
 brew install xcodegen
 cd iosApp
 xcodegen generate
@@ -156,3 +156,26 @@ publica una aplicacion y no genera IPA. Para generar un IPA distribuible sera
 necesario configurar el equipo de Apple Developer, certificados y perfiles de
 aprovisionamiento como una fase independiente. Vease
 [`IOS_UNSIGNED_ARCHIVE.md`](IOS_UNSIGNED_ARCHIVE.md) para alcance y comandos.
+
+## Mac Intel (simulador x86_64)
+
+La CI sigue en Apple Silicon con `iosSimulatorArm64`. En un Mac Intel usa
+`iosX64`; no cambies el `ARCHS=arm64` de CI ni del archive de dispositivo.
+
+```bash
+bash scripts/bootstrap-ios-intel-mac.sh
+source ~/.config/quata/ios-intel.env
+bash scripts/build-ios-intel-simulator.sh
+```
+
+El bootstrap instala Temurin 17.0.20+8 x64 como `JAVA_HOME` y JetBrains Runtime
+21.0.10 x64 como `JBR_HOME`: este segundo JDK satisface el daemon declarado en
+`gradle/gradle-daemon-jvm.properties`. Gradle recibe ambos paths y tiene
+auto-download desactivado en esta VM. Las URLs y SHA-256 están fijadas, y
+XcodeGen 2.44.1 se verifica también contra el commit exacto de su tag. Todo se
+instala solo para el usuario, sin `sudo`, con publicación atómica de binarios y
+entorno. El build usa `bash ./gradlew`, enlaza sólo `iosX64`, crea un
+XCFramework local de una slice y usa `ARCHS=x86_64`; no arranca simuladores ni
+XCTest/UI. El archive de dispositivo reconstruye después el XCFramework
+canónico con `iosArm64`. Ejecuta pruebas visuales en un carril separado y nunca
+de forma simultanea con otro carril de simulador.

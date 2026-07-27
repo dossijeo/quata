@@ -58,15 +58,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
-
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
+      # JDK 17 remains the launcher. gradle/gradle-daemon-jvm.properties pins
+      # the actual Gradle daemon to JetBrains Runtime 21 and selects its
+      # architecture-specific URL (AArch64 on this Apple Silicon runner).
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -134,7 +134,7 @@ jobs:
           {
             echo "Runner: $RUNNER_OS $RUNNER_ARCH"
             java -version 2>&1
-            ./gradlew --version
+            bash ./gradlew --version
             xcodebuild -version
             xcodegen --version
             sw_vers
@@ -144,7 +144,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew \
+          bash ./gradlew \
             :core:compileKotlinIosArm64 \
             :core:compileKotlinIosSimulatorArm64 \
             :designsystem:compileKotlinIosArm64 \
@@ -182,7 +182,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew \
+          bash ./gradlew \
             :ios-shared:linkDebugFrameworkIosSimulatorArm64 \
             --stacktrace \
             --warning-mode all \
@@ -213,7 +213,7 @@ jobs:
             cat "$log_file"
             return "$status"
           }
-          run_watchdog 900 build/reports/ios/xcframework.log ./gradlew \
+          run_watchdog 900 build/reports/ios/xcframework.log bash ./gradlew \
             :ios-shared:assembleQuataSharedDebugXCFramework \
             --stacktrace \
             --warning-mode all \

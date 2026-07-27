@@ -22,7 +22,9 @@ rm -rf "$archive_path" "$derived_data_path"
 
 # The XCFramework contains the iosArm64 slice used by the generic device
 # archive and the simulator slice used by XCTest in the separate lane.
-./gradlew :ios-shared:assembleQuataSharedDebugXCFramework --stacktrace --warning-mode all --console=plain
+# Invoke the wrapper through bash so a fresh checkout stays clean: macOS users
+# do not need to chmod the tracked wrapper before structural validation.
+bash ./gradlew :ios-shared:assembleQuataSharedDebugXCFramework --stacktrace --warning-mode all --console=plain
 
 (
   cd iosApp
