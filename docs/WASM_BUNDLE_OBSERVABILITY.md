@@ -100,9 +100,20 @@ repeticiones en runner controlado, con version de Chrome y hardware fijados.
 Kotlin/Compose invoca `wasm-opt` internamente durante la distribucion. No hay
 un timeout Gradle estable y soportado que permita interrumpir exclusivamente
 esa herramienta sin matar el build entero. `run-wasm-production-observed.ps1`
-es el workaround seguro: sigue el arbol Gradle/JVM/Node, conserva stdout,
-stderr, CPU, memoria y artefactos en `gradle-production-observation.json`, y
-detiene **solo el proceso de diagnostico** por inactividad o limite explicito.
+crea el lanzador PowerShell suspendido, lo asigna a un Windows Job Object con
+`KILL_ON_JOB_CLOSE` y solo entonces lo reanuda. Gradle, JVM, Node y cualquier
+descendiente heredan esa pertenencia antes de poder ejecutar. El script conserva
+stdout, stderr, CPU, memoria y artefactos en
+`gradle-production-observation.json`, y detiene **solo el Job Object de ese
+diagnostico** por inactividad o limite explicito. El polling de procesos aporta
+metricas; no decide ownership ni autoriza terminaciones por PID.
+
+El cierre del Job Object se ejecuta en `finally` en salida correcta, fallo del
+comando, timeout, cancelacion y error del propio watchdog. Si Windows devuelve
+estado desconocido, `AccessDenied`, falla una consulta nativa o no confirma que
+el Job Object quedo vacio, el resultado falla de forma cerrada y no certifica
+el bundle. `KILL_ON_JOB_CLOSE` queda como backstop del kernel si el cleanup
+explicito se interrumpe.
 No se debe cambiar `wasmJs {}` para desactivar optimizacion o bajar la
 toolchain.
 
@@ -113,11 +124,19 @@ Gradle ni modificar el bundle:
 .\scripts\run-wasm-production-observed.ps1 -ContractTest
 ```
 
-El contrato provoca un hijo que queda sin padre y comprueba que se termina por
-su identidad completa (PID y hora de creacion), sin terminar un proceso ajeno
-ni aceptar un PID reutilizado. Una captura normal conserva esa misma lista de
-identidades y no certifica el bundle si algun descendiente registrado sigue
-vivo al terminar el lanzador.
+El contrato ejecuta rutas reproducibles de exito, fallo del comando, timeout,
+cancelacion, error interno y estado `unknown/AccessDenied`. Cada ruta crea un
+hijo duradero y exige que el Job Object quede vacio. Tambien mantiene un proceso
+ajeno durante toda la suite y presenta una identidad PID/hora obsoleta: ambos
+sobreviven porque el cleanup solo opera sobre pertenencia kernel al Job Object,
+no sobre PPID, PID observado o una identidad reconstruida despues.
+
+La validacion de este cambio se realizo con Windows PowerShell 5.1. PowerShell 7
+no estaba instalado en el entorno de validacion, por lo que no se afirma aqui
+que esa edicion haya sido ejecutada. El script conserva sintaxis compatible con
+5.1 y rechaza plataformas no Windows antes de intentar el interop; una futura
+afirmacion sobre PowerShell 7 requiere ejecutar este mismo contrato con
+`pwsh.exe`, sin instalar herramientas globales como parte del gate.
 
 Al registrar una incidencia, separar estos hitos del log:
 
