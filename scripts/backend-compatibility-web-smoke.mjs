@@ -40,16 +40,18 @@ try {
     const match = response.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (!match) return;
     const headers = await response.request().allHeaders();
+    const responseUrl = new URL(response.url());
+    const payloadPostId = publicPostIdFromPayload(await response.text().catch(() => ""));
     backendResponses.push({
       table: match[1],
       status: response.status(),
       method: response.request().method(),
       hasBearerAuthorization: typeof headers.authorization === "string" && headers.authorization.trim() !== "",
-      postId: null,
+      query: responseUrl.searchParams.toString(),
+      payloadPostId,
     });
     if (match[1] === "posts" && response.request().method() === "GET" && response.status() >= 200 && response.status() < 300 && !observedPostId) {
-      observedPostId = publicPostIdFromPayload(await response.text().catch(() => ""));
-      backendResponses.at(-1).postId = observedPostId;
+      observedPostId = payloadPostId;
     }
   });
   page.on("requestfailed", (request) => {
@@ -99,9 +101,9 @@ try {
     const start = backendResponses.length;
     await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
-    await page.waitForFunction((id) => localStorage.getItem("web.navigation.route") === "feed", observedPostId, { timeout: 30_000 });
+    await page.waitForFunction((id) => location.hash === `#post-${id}`, observedPostId, { timeout: 30_000 });
     await page.waitForTimeout(1_000);
-    const detailResponses = backendResponses.slice(start).map((event) => ({ ...event, postId: event.postId ?? observedPostId }));
+    const detailResponses = backendResponses.slice(start);
     checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), passed: detailEvidence(detailResponses, observedPostId) });
   }
 } finally {
