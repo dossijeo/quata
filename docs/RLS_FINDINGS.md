@@ -46,6 +46,16 @@ la política permisiva de `DELETE` y permita borrar sólo al propietario (`profi
 o el mapeo de perfil equivalente) y a administradores explícitos. Antes de aplicarla a producción
 hay que evaluar la Web publicada que hoy depende de las políticas existentes.
 
+**Preparada, no desplegada (2026-07-26):**
+`20260726171001_community_comments_delete_rls.sql` reemplaza la política DELETE
+permisiva por propietario canónico activo/administrador explícito. También
+cierra la cadena de evasión `UPDATE → DELETE` haciendo inmutable la fila y
+limita `INSERT` al perfil canónico activo para impedir suplantación. Conserva
+SELECT público y los contratos Android de alta y borrado por `id`; incluye
+rollback y regresión SQL/E2E aislada con fixtures efímeros y purga verificada.
+La evidencia y riesgos están en
+`docs/RLS001_COMMUNITY_COMMENTS_DELETE_PLAN.md`.
+
 ### Criterio de cierre
 
 1. SB-07 se repite con dos perfiles nuevos y aislados.
@@ -68,6 +78,10 @@ hay que evaluar la Web publicada que hoy depende de las políticas existentes.
   comprobó su ausencia.
 - **Impacto:** no se puede confiar en que el trigger vincule el actor Web al
   `profile_id` enviado. Exponer like/unlike permitiría suplantación de identidad.
+- **Candidata no desplegada:** `20260726171002_official_post_likes_actor_guard.sql`
+  convierte RLS en la frontera principal, conserva SELECT anónimo y deja el
+  trigger como defensa `SECURITY INVOKER`. Requiere SB-09 verde en staging y
+  smoke Android antes de cambiar este estado.
 
 ### Límite y seguimiento
 

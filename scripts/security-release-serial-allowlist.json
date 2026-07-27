@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "purpose": "The only SQL files the serial security release executor may apply.",
+  "migrations": {
+    "20260726171001": {
+      "file": "20260726171001_community_comments_delete_rls.sql",
+      "name": "community_comments_delete_rls",
+      "sha256": "2543c9bda16d7d979a4b2e16f7bff7c7abd3e7668a3a28aacecc721ede35b993"
+      ,"rollbackFile": "20260726171001_community_comments_delete_rls.rollback.sql",
+      "rollbackSha256": "f3c792fdbcb737bf5b2ec4cdd3e1356385cee2f86e6060ef4eb9026cb8bb5612"
+    },
+    "20260726171002": {
+      "file": "20260726171002_official_post_likes_actor_guard.sql",
+      "name": "official_post_likes_actor_guard",
+      "sha256": "8697a16fe40658f57205cc8cd32d8795880d82d99a132f283da83649d85dd5f4"
+      ,"rollbackFile": "20260726171002_official_post_likes_actor_guard.rollback.sql",
+      "rollbackSha256": "fe498b6c61ea714d42b330668a49d7cd584961a6a023c0d2d38aadb58aef5f79"
+    },
+    "20260726171005": {
+      "file": "20260726171005_community_comments_reapply_rls.sql",
+      "name": "community_comments_reapply_rls",
+      "sha256": "83fc421f7f447d18312ba3738e574cb1d8001f0f46360b8d94d80f0e00c5fa1a",
+      "rollbackFile": "20260726171005_community_comments_reapply_rls.rollback.sql",
+      "rollbackSha256": "057c79778a06cc18d181c2a3613a09a821042fadda6733f290d03994cac7a07b"
+    }
+  }
+}

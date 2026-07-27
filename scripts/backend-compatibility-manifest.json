@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "publicReads": [
+    {
+      "id": "feed.posts",
+      "table": "community_posts",
+      "select": ["id", "wall_id", "profile_id", "body", "image_url", "video_url", "created_at", "community_id", "author_id", "content"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    },
+    {
+      "id": "feed.comments",
+      "table": "community_comments",
+      "select": ["id", "post_id", "profile_id", "body", "created_at"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    },
+    {
+      "id": "feed.likes",
+      "table": "community_post_likes",
+      "select": ["id", "post_id", "profile_id", "created_at"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    },
+    {
+      "id": "feed.profiles",
+      "table": "community_profiles",
+      "select": ["id", "display_name", "barrio", "neighborhood", "nombre", "avatar_url", "avatar", "is_admin", "is_official"],
+      "query": { "limit": "1" }
+    },
+    {
+      "id": "official.posts",
+      "table": "official_posts",
+      "select": ["id", "profile_id", "title", "summary", "post_type", "content_html", "read_more_label", "language", "translation_group_id", "media_url", "media_type", "link_url", "is_live", "is_published", "published_at", "created_at", "updated_at", "deleted_at"],
+      "query": { "is_published": "eq.true", "deleted_at": "is.null", "order": "published_at.desc", "limit": "1" }
+    },
+    {
+      "id": "official.comments",
+      "table": "official_post_comments",
+      "select": ["id", "official_post_id", "profile_id", "body", "created_at"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    },
+    {
+      "id": "official.likes",
+      "table": "official_post_likes",
+      "select": ["id", "official_post_id", "profile_id", "created_at"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    },
+    {
+      "id": "communities.stats",
+      "table": "community_walls_stats",
+      "select": ["id", "slug", "name", "normalized_name", "city", "description", "sort_order", "is_active", "created_at", "user_count", "post_count", "chat_count", "chat_last_at"],
+      "query": { "is_active": "eq.true", "order": "sort_order.asc", "limit": "1" }
+    },
+    {
+      "id": "communities.walls",
+      "table": "community_walls",
+      "select": ["id", "slug", "name", "city", "description", "sort_order", "is_active", "created_at", "normalized_name"],
+      "query": { "is_active": "eq.true", "order": "sort_order.asc", "limit": "1" }
+    },
+    {
+      "id": "communities.members",
+      "table": "community_members",
+      "select": ["wall_id", "profile_id", "created_at"],
+      "query": { "order": "created_at.desc", "limit": "1" }
+    }
+  ],
+  "catalogTables": [
+    "chat_attachments",
+    "chat_message_states",
+    "chat_messages",
+    "chat_participants",
+    "chat_threads",
+    "community_comments",
+    "community_emergency_contacts",
+    "community_members",
+    "community_messages",
+    "community_notifications",
+    "community_post_likes",
+    "community_post_reactions",
+    "community_posts",
+    "community_private_chats",
+    "community_private_messages",
+    "community_profile_follows",
+    "community_profiles",
+    "community_wall_follows",
+    "community_walls",
+    "community_walls_stats",
+    "conversation_user_state",
+    "official_post_comments",
+    "official_post_likes",
+    "official_posts",
+    "push_tokens"
+  ],
+  "extraAndroidRpcs": [
+    "quata_android_release_history",
+    "quata_pending_android_releases"
+  ]
+}
