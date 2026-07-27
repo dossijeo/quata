@@ -139,7 +139,7 @@ class WebNeighborhoodsRepository(
         table: String,
         query: Map<String, String>,
         limit: Int,
-    ): List<JsonObject> = when (val result = get(table, query, limit)) {
+    ): List<JsonObject> = when (val result = get(table, query, limit, authMode = WebPostgrestAuthMode.Public)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

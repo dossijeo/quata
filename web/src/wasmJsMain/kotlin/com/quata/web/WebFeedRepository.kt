@@ -17,6 +17,8 @@ import com.quata.feature.feed.data.feedRemoteProfileFromFields
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -38,7 +40,10 @@ class WebFeedRepository(
         pollIntervalMillis = pollIntervalMillis,
     )
 
-    override fun observeFeed(): Flow<Result<List<Post>>> = readRepository.observeFeed()
+    override fun observeFeed(): Flow<Result<List<Post>>> = flow {
+        recordWebFeedCollectorStarted()
+        emitAll(readRepository.observeFeed())
+    }
     override suspend fun getFeed(): Result<List<Post>> = readRepository.getFeed()
     override suspend fun refreshFeed(): Result<List<Post>> = readRepository.refreshFeed()
     override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
@@ -95,7 +100,7 @@ private class WebFeedReadTransport(
 }
 
 private suspend fun WebPostgrestClient.rows(table: String, query: Map<String, String>, limit: Int? = null): List<JsonObject> =
-    when (val result = get(table = table, query = query, limit = limit)) {
+    when (val result = get(table = table, query = query, limit = limit, authMode = WebPostgrestAuthMode.Public)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

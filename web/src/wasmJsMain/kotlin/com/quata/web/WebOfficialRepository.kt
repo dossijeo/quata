@@ -142,7 +142,7 @@ class WebOfficialRepository(
         table: String,
         query: Map<String, String>,
         limit: Int? = null,
-    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit)) {
+    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit, authMode = WebPostgrestAuthMode.Public)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }
