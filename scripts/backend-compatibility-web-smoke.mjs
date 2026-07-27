@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
 import { inspectBackendRequest } from "./backend-compatibility-request-policy.mjs";
 import { publicPostIdFromPayload, detailEvidence, detailEvidenceEvent } from "./backend-compatibility-feed-detail.mjs";
+import { sanitizeWebSmokeRequest, webSmokePhase } from "./backend-compatibility-web-smoke-report.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? "web/build/dist/wasmJs/productionExecutable");
@@ -26,8 +27,10 @@ const checks = [];
 const backendResponses = [];
 const failedBackendRequests = [];
 const blockedRequests = [];
+const requests = [];
 let observedPostId = null;
 let context;
+let currentRoute = "<unknown>";
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath: chrome,
@@ -35,7 +38,24 @@ try {
     args: ["--disable-gpu", "--no-first-run", "--no-default-browser-check"],
   });
   const page = context.pages()[0] ?? await context.newPage();
+  const requestDiagnostics = new WeakMap();
+  const recordRequest = (request) => {
+    const existing = requestDiagnostics.get(request);
+    if (existing) return existing;
+    const diagnostic = sanitizeWebSmokeRequest({
+      url: request.url(),
+      method: request.method(),
+      resourceType: request.resourceType(),
+      frame: request.frame() === page.mainFrame() ? "main" : "subframe",
+      phase: webSmokePhase(currentRoute, request.resourceType()),
+      route: currentRoute,
+    }, baseUrl);
+    requestDiagnostics.set(request, diagnostic);
+    requests.push(diagnostic);
+    return diagnostic;
+  };
   page.on("pageerror", (error) => browserErrors.push(error.message));
+  page.on("request", recordRequest);
   page.on("response", async (response) => {
     const match = response.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (!match) return;
@@ -62,7 +82,10 @@ try {
   await page.route("**/*", async (route) => {
     const request = route.request();
     const decision = inspectBackendRequest({ url: request.url(), method: request.method(), headers: request.headers() }, baseUrl);
-    if (!decision.allowed) { blockedRequests.push({ method: request.method(), reason: decision.reason }); return route.abort("blockedbyclient"); }
+    if (!decision.allowed) {
+      blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
+      return route.abort("blockedbyclient");
+    }
     return route.continue();
   });
   await page.addInitScript(() => {
@@ -72,6 +95,7 @@ try {
     }
   });
   for (const route of routes) {
+    currentRoute = route;
     const backendEventStart = backendResponses.length;
     await page.goto(`${server.origin}/#${route}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
@@ -114,6 +138,7 @@ try {
   if (!observedPostId) {
     checks.push({ route: "post/<id>", passed: false, reason: "public_post_id_not_observed" });
   } else {
+    currentRoute = `post/${observedPostId}`;
     const start = backendResponses.length;
     await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
@@ -122,7 +147,7 @@ try {
     await page.waitForTimeout(1_000);
     const detailResponses = backendResponses.slice(start);
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
-    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, query: evidence.query, payloadPostId: evidence.payloadPostId }, passed: detailEvidence(detailResponses, observedPostId) });
+    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadPostId: evidence.payloadPostId }, passed: detailEvidence(detailResponses, observedPostId) });
   }
 } finally {
   await context?.close().catch(() => undefined);
@@ -143,8 +168,12 @@ const report = {
   browserErrorCount: browserErrors.length,
   failedBackendRequests,
   blockedRequests,
+  requests,
   detail: { observedPostId, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
-  backendResponses,
+  // query is intentionally retained only in process memory to accredit the
+  // detail request.  It is never emitted because reports must be safe even
+  // when a browser sends unexpected user data in a query string.
+  backendResponses: backendResponses.map(({ query, ...response }) => response),
   mutationPolicy: "Only credential-free public GET responses are accepted; every other Supabase method or credential fails the smoke. The disposable browser profile is removed.",
 };
 console.log(JSON.stringify(report, null, 2));
