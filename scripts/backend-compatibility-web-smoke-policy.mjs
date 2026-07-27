@@ -9,7 +9,7 @@ export const TURNSTILE_BOOTSTRAP_URL =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 export function expectedLocalStub(request) {
-  return String(request?.method ?? "").toUpperCase() === "GET" &&
+  return request?.method === "GET" &&
     request?.url === TURNSTILE_BOOTSTRAP_URL
     ? { kind: "localStub", expected: "turnstile-bootstrap" }
     : null;
@@ -22,7 +22,7 @@ export function expectedLocalStub(request) {
  */
 export function inspectAccreditedPublicMediaResponse({
   url, requestUrl, method, status, contentType, resourceType, requestAllowed,
-  accreditedMediaUrls,
+  route, accreditedMediaUrls,
 }) {
   const request = safeUrl(requestUrl);
   const response = safeUrl(url);
@@ -37,6 +37,10 @@ export function inspectAccreditedPublicMediaResponse({
   if (!request || !response || request.href !== response.href) return denied(base, "response_request_mismatch");
   if (String(method ?? "").toUpperCase() !== "GET") return denied(base, "method_not_get");
   if (requestAllowed !== true) return denied(base, "request_not_admitted");
+  // A Storage object is admissible only for the same feed/detail route that
+  // received it in a validated community-post response.  In particular,
+  // `official` and `communities` never inherit feed accreditation.
+  if (!isMediaAccreditationRoute(route)) return denied(base, "route_not_media_accreditable");
   if (!(accreditedMediaUrls instanceof Set) || !accreditedMediaUrls.has(request.href)) {
     return denied(base, "url_not_accredited");
   }
@@ -45,6 +49,10 @@ export function inspectAccreditedPublicMediaResponse({
   if (type === "media" && !/^video\//i.test(String(contentType ?? ""))) return denied(base, "content_type_not_video");
   if (type !== "image" && type !== "media") return denied(base, "resource_type_not_media");
   return { ...base, accepted: true };
+}
+
+export function isMediaAccreditationRoute(route) {
+  return route === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(String(route ?? ""));
 }
 
 function denied(base, reason) { return { ...base, accepted: false, reason }; }
