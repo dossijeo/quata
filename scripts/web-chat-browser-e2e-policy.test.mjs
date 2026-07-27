@@ -7,6 +7,7 @@ import {
   CHAT_E2E_MANAGER_AUTHORIZATION,
   assertChatTwoAccountLivePreflight,
   requireVerifiedHardPurge,
+  requireExactPurgeEvidence,
 } from "./web-chat-browser-e2e-policy.mjs";
 
 function environment() {
@@ -40,10 +41,13 @@ test("a pending external purge never produces a passing Chat E2E report", () => 
   assert.equal(report.cleanup.state, "hard_purge_unverified");
 });
 
-test("only independently verified hard-purge evidence retains a successful report", () => {
+test("local/legacy JSON evidence cannot forge a successful hard-purge report", () => {
   const report = { status: "passed", cleanup: { state: "verified" } };
-  assert.equal(requireVerifiedHardPurge(report, { state: "verified" }), report);
-  assert.equal(report.status, "passed");
+  const evidence = { check: "WEB-CHAT-EXACT-PURGE-GATE-001", status: "committed", manifestSha256: "a".repeat(64), databaseFingerprint: "b".repeat(64), containsIdentifiers: false };
+  requireVerifiedHardPurge(report, { state: "verified", evidence });
+  assert.equal(report.status, "failed");
+  assert.throws(() => requireExactPurgeEvidence(evidence), /unavailable_by_construction/);
+  assert.throws(() => requireExactPurgeEvidence({ ...evidence, containsIdentifiers: true }), /unavailable_by_construction/);
 });
 
 test("both entry points wire the fail-closed preflight before remote Chat work", async () => {
