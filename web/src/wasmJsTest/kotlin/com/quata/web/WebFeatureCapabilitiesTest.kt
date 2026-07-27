@@ -73,7 +73,7 @@ class WebFeatureCapabilitiesTest {
             authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.View).origin,
         )
         assertEquals(
-            CapabilityStateOrigin.Real,
+            CapabilityStateOrigin.Local,
             authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.Mutate).origin,
         )
         assertFalse(authenticated.capability(QuataFeature.Profile).e2e)

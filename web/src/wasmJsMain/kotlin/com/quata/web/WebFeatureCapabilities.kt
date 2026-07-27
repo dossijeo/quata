@@ -61,7 +61,13 @@ fun webFeatureCapabilityRegistry(
                 // The Web Profile repository selects PostgREST only when both public runtime
                 // metadata and an authenticated session exist; otherwise its local draft is
                 // intentionally visible and labelled as such.
-                QuataFeature.Profile to capability(profileOrigin, profileOrigin, backend = remoteProfile),
+                QuataFeature.Profile to capability(
+                    source = profileOrigin,
+                    // Profile writes are explicitly local OfflineDrafts until Web RLS/E2E
+                    // evidence exists; do not hide that usable local capability as unsupported.
+                    mutation = CapabilityStateOrigin.Local,
+                    backend = remoteProfile,
+                ),
                 QuataFeature.Communities to capability(),
                 QuataFeature.Official to capability(),
                 // The composer shell is local, but no Web publication contract currently proves
