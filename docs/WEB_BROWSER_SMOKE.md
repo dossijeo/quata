@@ -31,3 +31,36 @@ También puede probarse otra distribución ya construida:
 ```powershell
 node .\scripts\web-browser-smoke.mjs --dist 'C:\ruta\a\distribution'
 ```
+
+## Línea base de rendimiento reproducible
+
+El mismo smoke emite una muestra de arranque y navegación de las seis rutas. Ejecuta una serie de
+al menos cinco muestras sólo en un runner/hardware fijo (misma imagen de CI, Chrome y distribución)
+y conserva cada JSON junto al SHA; los valores de máquinas distintas son telemetría informativa,
+no un umbral de aprobación. Cada ejecución usa un perfil Chrome descartable y caché fría.
+
+```powershell
+node .\scripts\web-browser-smoke.mjs --metrics-report build-reports\web\browser-metrics.json
+node .\scripts\web-browser-metrics.mjs --report build-reports\web\browser-metrics.json
+```
+
+El contrato determinista es el smoke: las seis rutas deben montar sin excepciones, errores HTTP ni
+acceso externo. El `<script>` incondicional de Turnstile se satisface con un stub local porque el
+registro permanece sin configurar; cualquier otro origen externo se bloquea y hace fallar el
+smoke. La telemetría registra `mountElapsedMs` y heap por ruta; DOM/load se atribuye sólo
+a `#auth`, la única navegación de documento completo, y no se repite engañosamente para los cambios
+de hash. Para comparar revisiones el resumen calcula mediana y p95 con al menos cinco muestras del
+mismo runner. Acepta cinco o más `--report PATH` sólo si SHA, distribución, Chrome y entorno
+coinciden; entre dos y cuatro muestras falla por serie insuficiente. No existe un umbral temporal o
+de memoria en este contrato:
+adoptarlo exige aprobar por separado una línea base del runner y su tolerancia.
+
+El resumen rechaza un informe si el smoke falló, falta una de las seis rutas o no identifica el
+artefacto. Cada smoke genera un `sampleId` UUID v4 y un `generatedAt` ISO; una serie rechaza IDs
+o tiempos duplicados, tiempos futuros más de cinco minutos y huellas canónicas de medición
+idénticas aunque cambien UUID, timestamp o ruta local. Esta huella no está criptográficamente
+atestada: sólo dificulta duplicación accidental o manipulación trivial y no autoriza usar la
+telemetría como SLO ni como release gate. Aun así acepta cualquier cifra finita no negativa:
+evita convertir telemetría local en
+un SLO falso. El JSON incluye Chrome, Node, SO, CPU/memoria, SHA del repositorio y SHA-256 de toda
+la distribución, sin guardar rutas absolutas, hostname, tokens ni secretos.

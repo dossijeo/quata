@@ -12,10 +12,11 @@
  *   node scripts/web-browser-smoke.mjs
  */
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { cpus, release, tmpdir, totalmem } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { deflateRawSync } from 'node:zlib';
 
@@ -36,20 +37,27 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
-const turnstileScriptPattern = 'https://challenges.cloudflare.com/turnstile/*';
-const turnstileStubSource = 'globalThis.turnstile ??= { render: () => "quata-smoke-turnstile", execute: () => {}, reset: () => {}, remove: () => {} };';
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
 const chromeExecutable = options.chrome ?? defaultChrome;
 const browserMetrics = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    sampleId: randomUUID(),
+    generatedAt: new Date().toISOString(),
     // Resolve the local SHA as well as CI's explicit value so a report can be
     // tied to the exact distribution that the smoke just loaded.
     revision: process.env.GITHUB_SHA ?? repositoryRevision(),
     // Never persist an absolute workstation path in an evidence report.
     distribution: relativeProcessDirectory(distribution),
+    distributionFingerprintSha256: null,
     browser: null,
+    environment: measurementEnvironment(),
+    smoke: {
+        status: 'running',
+        expectedRoutes: routeFragments,
+        completedRoutes: [],
+    },
     advisories: {
         chromeGpuReadPixelsWarnings: 0,
     },
@@ -59,6 +67,7 @@ const browserMetrics = {
 };
 await requireDirectory(distribution, `Wasm distribution not found: ${distribution}`);
 await requireFile(join(distribution, 'index.html'), 'The distribution must contain index.html.');
+browserMetrics.distributionFingerprintSha256 = await fingerprintDirectory(distribution);
 
 async function runSmoke() {
 const failures = [];
@@ -73,13 +82,13 @@ const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'
 let chrome;
 const browserLogs = [];
 const networkFailures = [];
-const unexpectedDocmentisNetworkRequests = [];
-let stubbedTurnstileRequests = 0;
+const unexpectedNetworkRequests = [];
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory);
         const target = await waitForPageTarget(chrome.debugPort);
         const cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
+        let closingCdp = false;
         try {
         const version = await cdp.send('Browser.getVersion');
         browserMetrics.browser = {
@@ -111,30 +120,32 @@ try {
         cdp.on('Network.responseReceived', ({ response }) => {
             if (response.status >= 400) networkFailures.push(`${response.status} ${response.url}`);
         });
-        cdp.on('Network.requestWillBeSent', ({ request }) => {
-            if (options.docmentis && isUnexpectedDocmentisNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
-                unexpectedDocmentisNetworkRequests.push(request.url);
+        cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
+            let command;
+            if (isTurnstileBootstrap(request.url)) {
+                // Registration is deliberately unconfigured in this smoke, so Turnstile is not
+                // exercised. Fulfil its unconditional index.html script tag locally to keep the
+                // six-route launcher contract independent from Cloudflare and the public network.
+                command = cdp.send('Fetch.fulfillRequest', {
+                    requestId,
+                    responseCode: 200,
+                    responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }],
+                    body: Buffer.from('globalThis.turnstile = globalThis.turnstile ?? {};').toString('base64'),
+                });
+            } else if (isUnexpectedNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
+                unexpectedNetworkRequests.push(request.url);
+                command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
+            } else {
+                command = cdp.send('Fetch.continueRequest', { requestId });
             }
+            command.catch(error => {
+                if (!closingCdp) failures.push(`Could not resolve intercepted request ${request.url}: ${error.message}`);
+            });
         });
         await cdp.send('Runtime.enable');
         await cdp.send('Log.enable');
         await cdp.send('Network.enable');
-        if (options.docmentis) {
-            await cdp.send('Fetch.enable', { patterns: [{ urlPattern: turnstileScriptPattern, requestStage: 'Request' }] });
-            cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
-                if (request.url.startsWith('https://challenges.cloudflare.com/turnstile/')) {
-                    stubbedTurnstileRequests += 1;
-                    cdp.send('Fetch.fulfillRequest', {
-                        requestId,
-                        responseCode: 200,
-                        responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
-                        body: Buffer.from(turnstileStubSource).toString('base64'),
-                    }).catch(() => {});
-                } else {
-                    cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' }).catch(() => {});
-                }
-            });
-        }
+        await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
 
@@ -165,13 +176,15 @@ try {
             failures.push(`Uncaught browser exception(s):\n${pageErrors.join('\n')}`);
         }
         if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
-        if (unexpectedDocmentisNetworkRequests.length > 0) {
-            failures.push(`DocMentis smoke made an external network request(s):\n${unexpectedDocmentisNetworkRequests.join('\n')}`);
+        if (networkFailures.length > 0) {
+            failures.push(`Network failure(s):\n${networkFailures.join('\n')}`);
         }
-        if (options.docmentis && stubbedTurnstileRequests > 0 && process.env.CI !== 'true') {
-            failures.push('Turnstile stubbing is restricted to the CI DocMentis smoke harness.');
+        if (unexpectedNetworkRequests.length > 0) {
+            failures.push(`Smoke made an external network request(s):\n${unexpectedNetworkRequests.join('\n')}`);
         }
     } finally {
+        closingCdp = true;
+        await cdp.send('Fetch.disable').catch(() => undefined);
         cdp.close();
     }
 } catch (error) {
@@ -184,6 +197,8 @@ try {
     if (authenticatedStorage) await authenticatedStorage.close();
     if (fixtureDirectory) await rm(fixtureDirectory.path, { recursive: true, force: true });
     await removeChromeProfile(profileDirectory);
+    browserMetrics.smoke.completedRoutes = browserMetrics.navigations.map(({ route }) => route);
+    browserMetrics.smoke.status = failures.length === 0 ? 'passed' : 'failed';
     if (options.metricsReport) {
         await writeMetricsReport(options.metricsReport, browserMetrics).catch(error => {
             failures.push(`Could not write browser metrics: ${error instanceof Error ? error.message : String(error)}`);
@@ -191,14 +206,22 @@ try {
     }
 }
 
-function isUnexpectedDocmentisNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
+function isUnexpectedNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
     try {
         const parsed = new URL(url);
-        // This URL is not allowed through: Fetch fulfills it with the local smoke-only stub above.
-        if (parsed.href.startsWith('https://challenges.cloudflare.com/turnstile/')) return false;
         return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
     } catch {
         return true;
+    }
+}
+
+function isTurnstileBootstrap(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.origin === 'https://challenges.cloudflare.com' &&
+            parsed.pathname === '/turnstile/v0/api.js';
+    } catch {
+        return false;
     }
 }
 
@@ -565,12 +588,12 @@ async function waitForPageTarget(port) {
 async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
     await waitForShell(cdp, fragment);
     if (pageErrors.length > initialErrorCount) {
         throw new Error(`Route #${fragment} produced an uncaught browser exception.`);
     }
-    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt);
+    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
 }
 
 async function assertUnconfiguredAuthBoundary(cdp) {
@@ -616,21 +639,21 @@ async function assertWebTestContract(cdp, expectedSurface, expectedRoute) {
     throw new Error(`WEB-TEST-001 contract mismatch: ${JSON.stringify({ observed, expected })}.`);
 }
 
-async function collectNavigationMetrics(cdp, route, mountElapsedMs) {
+async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {
     const metricResult = await cdp.send('Performance.getMetrics');
     const metrics = Object.fromEntries((metricResult.metrics ?? []).map(metric => [metric.name, metric.value]));
-    const navigation = await cdp.evaluate(`(() => {
+    const documentLifecycle = fullDocumentNavigation ? await cdp.evaluate(`(() => {
         const entry = performance.getEntriesByType('navigation').at(-1);
         return entry ? {
             domContentLoadedMs: Math.round(entry.domContentLoadedEventEnd),
             loadMs: Math.round(entry.loadEventEnd),
         } : null;
-    })()`);
+    })()`) : null;
     return {
         route,
+        navigationKind: fullDocumentNavigation ? 'full-document' : 'same-document-hash',
         mountElapsedMs: Math.round(mountElapsedMs),
-        domContentLoadedMs: navigation.result?.value?.domContentLoadedMs ?? null,
-        loadMs: navigation.result?.value?.loadMs ?? null,
+        documentLifecycle: documentLifecycle?.result?.value ?? null,
         memory: {
             jsHeapUsedSize: finiteOrNull(metrics.JSHeapUsedSize),
             jsHeapTotalSize: finiteOrNull(metrics.JSHeapTotalSize),
@@ -662,6 +685,44 @@ function relativeProcessDirectory(path) {
     const workingDirectory = resolve('.');
     const normalized = path.startsWith(workingDirectory) ? path.slice(workingDirectory.length).replace(/^[\\/]+/, '') : path;
     return normalized.replaceAll('\\', '/');
+}
+
+async function fingerprintDirectory(root) {
+    const hash = createHash('sha256');
+    async function visit(directory) {
+        const entries = await readdir(directory, { withFileTypes: true });
+        entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+        for (const entry of entries) {
+            const absolute = join(directory, entry.name);
+            const relative = absolute.slice(root.length).replaceAll('\\', '/');
+            if (entry.isDirectory()) {
+                await visit(absolute);
+            } else if (entry.isFile()) {
+                hash.update(relative);
+                hash.update('\0');
+                hash.update(await readFile(absolute));
+                hash.update('\0');
+            }
+        }
+    }
+    await visit(root);
+    return hash.digest('hex');
+}
+
+function measurementEnvironment() {
+    const processor = cpus()[0];
+    return {
+        platform: process.platform,
+        architecture: process.arch,
+        osRelease: release(),
+        node: process.version,
+        cpuModel: processor?.model?.trim() || null,
+        logicalCpuCount: cpus().length,
+        totalMemoryBytes: totalmem(),
+        ci: process.env.GITHUB_ACTIONS === 'true' ? 'github-actions' : process.env.CI ? 'generic' : 'local',
+        runnerOs: process.env.RUNNER_OS ?? null,
+        runnerArchitecture: process.env.RUNNER_ARCH ?? null,
+    };
 }
 
 async function waitForShell(cdp, fragment) {
