@@ -12,7 +12,13 @@ kotlin {
         minSdk = 26
     }
     wasmJs {
-        browser()
+        browser {
+            testTask {
+                useKarma {
+                    useConfigDirectory(rootProject.file("web/karma.config.d"))
+                }
+            }
+        }
         binaries.executable()
     }
 
