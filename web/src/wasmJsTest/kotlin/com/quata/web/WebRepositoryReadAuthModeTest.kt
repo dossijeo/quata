@@ -16,4 +16,13 @@ class WebRepositoryReadAuthModeTest {
         assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin))
         assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile))
     }
+
+    @Test
+    fun feedCallSitesKeepOnlyRenderingReadsPublic() {
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.Feed))
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.Detail))
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.FeedProfiles))
+        assertEquals(WebPostgrestAuthMode.SessionRequired, webFeedReadAuthMode(WebFeedReadOperation.CurrentUser))
+        assertEquals(WebPostgrestAuthMode.SessionRequired, webFeedReadAuthMode(WebFeedReadOperation.Author))
+    }
 }

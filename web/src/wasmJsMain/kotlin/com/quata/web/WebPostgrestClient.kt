@@ -45,6 +45,19 @@ internal fun webPostgrestReadAccessToken(
     WebPostgrestAuthMode.SessionRequired -> webPostgrestSessionAccessToken(accessToken)
 }
 
+/**
+ * Resolves a read credential lazily. In particular, public reads must not restore or refresh the
+ * browser session: doing either would turn the anonymous feed into an authenticated request.
+ */
+internal suspend fun resolveWebPostgrestReadAccessToken(
+    authMode: WebPostgrestAuthMode,
+    sessionAccessToken: suspend () -> String?,
+): Result<String?> = when (authMode) {
+    WebPostgrestAuthMode.Public -> Result.success(null)
+    WebPostgrestAuthMode.SessionRequired ->
+        webPostgrestReadAccessToken(WebPostgrestAuthMode.SessionRequired, sessionAccessToken())
+}
+
 internal fun webPostgrestSessionAccessToken(accessToken: String?): Result<String> = accessToken
     ?.takeIf(String::isNotBlank)
     ?.let(Result.Companion::success)
@@ -73,9 +86,9 @@ class WebPostgrestClient(
         if (!table.matches(PostgrestTableName)) {
             return feedReadFailure(table, WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
         }
-        val accessToken = webPostgrestReadAccessToken(
+        val accessToken = resolveWebPostgrestReadAccessToken(
             authMode = authMode,
-            accessToken = authRepository.currentWebPushCredentials()?.accessToken,
+            sessionAccessToken = { authRepository.currentWebPushCredentials()?.accessToken },
         ).getOrElse {
             return feedReadFailure(table, WebPostgrestFailureKind.Session, "web_session_missing")
         }
