@@ -80,12 +80,22 @@ try {
       { timeout: 30_000 },
     );
     if (route === "feed") {
-      await page.waitForFunction(() => localStorage.getItem("web.runtime.backend_configured") === "true" && localStorage.getItem("web.feed.observe_started") === "true", { timeout: 30_000 });
+      await page.waitForFunction(() =>
+        localStorage.getItem("web.runtime.backend_configured") === "true" &&
+        localStorage.getItem("web.feed.collector_started") === "true" &&
+        localStorage.getItem("web.feed.remote_read_state") === "request_succeeded",
+      { timeout: 30_000 });
     }
     await page.waitForTimeout(1_000);
     const canvasCount = await page.locator("canvas").count();
     const sessionReady = await page.evaluate(() => localStorage.getItem("web.auth.session_ready"));
     const observedBackend = backendResponses.slice(backendEventStart);
+    const feedDiagnostics = route === "feed" ? await page.evaluate(() => ({
+      backendConfigured: localStorage.getItem("web.runtime.backend_configured"),
+      collectorStarted: localStorage.getItem("web.feed.collector_started"),
+      remoteReadState: localStorage.getItem("web.feed.remote_read_state"),
+      remoteReadError: localStorage.getItem("web.feed.remote_read_error"),
+    })) : undefined;
     const unsafeBackend = observedBackend.filter((response) =>
       response.method !== "GET" || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
@@ -95,7 +105,9 @@ try {
       sessionReady,
       navigationRoute: await page.evaluate(() => localStorage.getItem("web.navigation.route")),
       observedBackendRequestCount: observedBackend.length,
-      passed: canvasCount > 0 && sessionReady === "true" && unsafeBackend.length === 0,
+      ...(feedDiagnostics ? { diagnostics: feedDiagnostics } : {}),
+      passed: canvasCount > 0 && sessionReady === "true" && unsafeBackend.length === 0 &&
+        (route !== "feed" || feedDiagnostics.remoteReadState === "request_succeeded"),
     });
   }
   if (!observedPostId) {

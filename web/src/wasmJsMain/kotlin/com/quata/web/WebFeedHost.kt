@@ -18,7 +18,6 @@ fun WebFeedHost(
     onBackToFeed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(sharedPostId) { setWebFeedObserveMarker(sharedPostId == null) }
     LaunchedEffect(sharedPostId) {
         setWebFeedDetailMarker(sharedPostId)
     }
@@ -67,4 +66,3 @@ fun WebFeedHost(
 private fun setWebFeedDetailMarker(postId: String?) {
     js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', postId || '')")
 }
-private fun setWebFeedObserveMarker(value: Boolean) { js("globalThis.localStorage?.setItem('web.feed.observe_started', value ? 'true' : 'false')") }
