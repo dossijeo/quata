@@ -168,14 +168,17 @@ jobs:
             timeout_minutes: 35
             browser: false
             gradle_tasks: ":app:testDebugUnitTest :document-reader:testDebugUnitTest"
+            gradle_args: ""
           - name: kmp-android-host
             timeout_minutes: 35
             browser: false
             gradle_tasks: ":core:testAndroidHostTest"
+            gradle_args: ""
           - name: kmp-wasm-common
             timeout_minutes: 65
             browser: true
             gradle_tasks: ":core:wasmJsNodeTest :designsystem:wasmJsNodeTest :feature:auth:wasmJsNodeTest :feature:chat:wasmJsNodeTest :feature:externalshare:wasmJsNodeTest :feature:feed:wasmJsNodeTest :feature:neighborhoods:wasmJsNodeTest :feature:notifications:wasmJsNodeTest :feature:official:wasmJsNodeTest :feature:profile:wasmJsNodeTest :feature:whatsnew:wasmJsNodeTest"
+            gradle_args: "-Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1"
 
     steps:
       - name: Check out source
@@ -221,7 +224,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/reports/unit-tests
-          bash ./gradlew ${{ matrix.gradle_tasks }} --no-daemon --stacktrace --console=plain \
+          bash ./gradlew ${{ matrix.gradle_tasks }} ${{ matrix.gradle_args }} --no-daemon --stacktrace --console=plain \
             2>&1 | tee "build/reports/unit-tests/${{ matrix.name }}.log"
 
       - name: Upload JUnit and unit-test logs

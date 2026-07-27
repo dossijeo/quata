@@ -491,14 +491,14 @@ async function availablePort() {
 }
 
 async function waitForDebugger(port) {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
         try {
             const response = await fetch(`http://127.0.0.1:${port}/json/version`);
             if (response.ok) return;
         } catch { /* Chrome is still starting. */ }
         await delay(100);
     }
-    throw new Error('Chrome did not expose its DevTools endpoint within eight seconds.');
+    throw new Error('Chrome did not expose its DevTools endpoint within twenty seconds.');
 }
 
 async function waitForPageTarget(port) {
