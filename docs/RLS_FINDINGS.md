@@ -97,3 +97,64 @@ Official Web deshabilitadas. La corrección debe coordinarse con la web publicad
 demostrar en SB-09: insert propio, rechazo `42501` de suplantación, rechazo `42501`
 del borrado ajeno, borrado propio y purga verificable de fixtures antes de habilitar
 la UI.
+
+## RLS-003 — Escalada de identidad, rol y estado en `community_profiles`
+
+- **Detectado:** 2026-07-26 mediante inspección remota de catálogo de solo
+  lectura.
+- **Severidad:** crítica.
+- **Evidencia:** RLS está activo, pero `public update profiles` usa
+  `USING (true) WITH CHECK (true)` y `anon`/`authenticated` tienen UPDATE sobre
+  todas las columnas. El guard de roles es `SECURITY DEFINER`, propiedad de
+  `postgres`, y su helper trata a `current_user = postgres` como servicio, por
+  lo que omite siempre la comprobación de admin.
+- **Impacto:** una request pública puede cambiar `auth_user_id`, `is_admin`,
+  `is_official`, `account_status` o la identidad de cualquier perfil.
+- **Corrección preparada, no desplegada:**
+  `20260726171003_community_profiles_actor_guard.sql`, con prueba aislada y
+  rollback revisado. Véase `docs/RLS_003_COMMUNITY_PROFILES_FIX.md`.
+- **Condición de rollout:** publicar junto al nuevo registro/recuperación
+  privilegiado y repetir staging/E2E; no aplicar aisladamente mientras los
+  clientes publicados dependan del UPDATE anónimo.
+- **Preflight histórico:** la comprobación remota de solo lectura pasó las
+  colisiones de mapping/identidad telefónica y falló cerrada al encontrar 74
+  perfiles con contadores distintos de las aristas reales de follow. No se
+  imprimieron IDs ni se corrigieron datos; requiere reconciliación separada
+  antes de cualquier rollout. El análisis agregado confirmó 112 perfiles con
+  ambos caches a cero frente a 107 aristas autoritativas; véase
+  `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
+
+## RLS-004 — Credenciales y recuperación visibles por SELECT público
+
+- **Detectado:** 2026-07-26 mediante catálogo y contratos Android actuales.
+- **Severidad:** crítica.
+- **Estado:** abierto; solo documentado.
+- **Evidencia:** `public read profiles` usa `USING (true)` y el grant SELECT de
+  tabla incluye `pass_hash`, `pass_plain`, `secret_answer`, teléfono e
+  identificadores Auth. Android legacy consulta esos campos directamente para
+  login y recuperación. Un GET PostgREST anónimo real y de solo lectura
+  confirmó valores no vacíos de los cuatro campos en una muestra de diez filas;
+  no se conservaron valores ni identificadores.
+- **Impacto:** una clave publicable puede leer secretos de autenticación y
+  recuperación. El hash no mitiga la presencia adicional de `pass_plain`.
+- **Límite:** no se restringe SELECT en RLS-003 para no romper los clientes
+  publicados. Primero deben migrarse login/recuperación a Edge/RPC y eliminarse
+  las lecturas directas; después se revoca SELECT de tabla y se conceden solo
+  columnas públicas o una vista dedicada.
+
+## RLS-005 — Las aristas de follow aceptan mutaciones públicas
+
+- **Detectado:** 2026-07-26 mediante catálogo remoto de solo lectura y código
+  Android.
+- **Severidad:** alta.
+- **Estado:** abierto; solo documentado.
+- **Evidencia:** `community_profile_follows` tiene `allow all` y policies
+  públicas de INSERT/DELETE con condiciones `true`; `anon` y `authenticated`
+  conservan INSERT, UPDATE y DELETE. No hay trigger de actor. Android envía
+  directamente `follower_profile_id` y `followed_profile_id`.
+- **Impacto:** un cliente directo puede crear o eliminar relaciones atribuidas
+  a otros perfiles. Además, los contadores cacheados no se actualizan.
+- **Límite:** no se endurece aquí por la restricción de no cambiar producción.
+  Requiere migración aislada owner/actor-active, pruebas PostgREST y Android, y
+  coordinación con el backfill reversible descrito en
+  `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
