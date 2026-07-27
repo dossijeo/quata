@@ -259,16 +259,20 @@ private final class IosAppCompositionRoot {
             fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
             fixtureRoot.view.accessibilityLabel = "Quata iOS anonymous fixture"
         case "authenticated":
+            // This deliberately runs the production Kotlin deep-link parser and the same
+            // UIKit route adapter as the authenticated launcher. The destination controllers
+            // are still inert UIKit fixtures: a UI-test launch must not restore a Keychain
+            // session, construct a repository or imply that a remote feature E2E succeeded.
+            let router = IosDeterministicDeepLinkFixtureRouter()
+            let dispatcher = IosDeepLinkDispatcher()
+            dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
             if let deepLinkIndex = arguments.firstIndex(of: "-quata-ui-test-deep-link"),
-               arguments.indices.contains(deepLinkIndex + 1),
-               let url = URL(string: arguments[deepLinkIndex + 1]),
-               url.fragment?.hasPrefix("chat-") == true {
-                fixtureRoot.view.accessibilityIdentifier = "quata-ios-chat-host"
-                fixtureRoot.view.accessibilityLabel = "Quata iOS Chat"
+               arguments.indices.contains(deepLinkIndex + 1) {
+                _ = dispatcher.handleUrl(url: arguments[deepLinkIndex + 1])
             } else {
-                fixtureRoot.view.accessibilityIdentifier = "quata-ios-feed-host"
-                fixtureRoot.view.accessibilityLabel = "Quata iOS Feed"
+                router.showFeed(postId: nil)
             }
+            return router
         default:
             return nil
         }
@@ -568,6 +572,60 @@ private final class IosAppCompositionRoot {
 
     private func authRuntimeConfiguration(from configuration: IosFeedRuntimeConfiguration) -> IosAuthRuntimeConfiguration {
         IosPublicRuntimeConfiguration.authConfiguration(from: configuration)
+    }
+}
+
+/// Deterministic UI-test-only destination surface. It does not parse URLs itself: the test
+/// launch reaches it exclusively through `IosDeepLinkDispatcher` and
+/// `IosAuthenticatedRouteDispatcher`, while the route content remains network-free UIKit.
+private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, IosAuthenticatedRouteHost {
+    override func loadView() {
+        view = UIView()
+    }
+
+    func showFeed(postId: String?) {
+        show(identifier: "quata-ios-feed-host", label: "Quata iOS Feed")
+    }
+
+    func showChat(conversationId: String, messageId: String?) {
+        show(identifier: "quata-ios-chat-host", label: "Quata iOS Chat")
+    }
+
+    func showOfficial(postId: String?) {
+        show(identifier: "quata-ios-official-host", label: "Quata iOS Official")
+    }
+
+    func showNotifications() {
+        show(identifier: "quata-ios-notifications-host", label: "Quata iOS Notifications")
+    }
+
+    func showProfileSos() {
+        show(identifier: "quata-ios-profile-sos-host", label: "Quata iOS Profile and SOS")
+    }
+
+    func showCommunities() {
+        show(identifier: "quata-ios-communities-host", label: "Quata iOS Communities")
+    }
+
+    func showComposer() {
+        show(identifier: "quata-ios-composer-host", label: "Quata iOS Composer")
+    }
+
+    func showSettings() {
+        show(identifier: "quata-ios-settings-host", label: "Quata iOS Settings")
+    }
+
+    func showWhatsNew() {
+        show(identifier: "quata-ios-whats-new-host", label: "Quata iOS What's New")
+    }
+
+    func showReleaseHistory() {
+        show(identifier: "quata-ios-release-history-host", label: "Quata iOS Release History")
+    }
+
+    private func show(identifier: String, label: String) {
+        view.accessibilityIdentifier = identifier
+        view.accessibilityLabel = label
     }
 }
 

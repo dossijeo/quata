@@ -34,7 +34,7 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertNotEqual(before, after, "The stable Compose root rendering must change after its real action.")
     }
 
-    func testAuthenticatedFixtureRoutesDeepLinkWithoutRemoteSessionOrComposeRendering() {
+    func testAuthenticatedFixtureColdStartsChatDeepLinkThroughTheSharedRouter() {
         let app = fixtureApp(
             "authenticated",
             deepLink: "https://egquata.com/#chat-conversation-7?message=message-4",
@@ -47,6 +47,40 @@ final class QuataIosHostUITests: XCTestCase {
         )
         XCTAssertEqual(chatSurface.label, "Quata iOS Chat")
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
+    }
+
+    func testAuthenticatedFixtureColdStartsFeedAndOfficialDeepLinksThroughTheSharedRouter() {
+        let feedApp = fixtureApp(
+            "authenticated",
+            deepLink: "https://egquata.com/#post-feed-9",
+        )
+        feedApp.launch()
+
+        XCTAssertEqual(
+            QuataIosHostUITestSupport.fixtureRoot(
+                in: feedApp,
+                identifier: "quata-ios-feed-host",
+            ).label,
+            "Quata iOS Feed",
+        )
+        XCTAssertFalse(feedApp.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
+
+        feedApp.terminate()
+
+        let officialApp = fixtureApp(
+            "authenticated",
+            deepLink: "https://egquata.com/#official-public-7",
+        )
+        officialApp.launch()
+
+        XCTAssertEqual(
+            QuataIosHostUITestSupport.fixtureRoot(
+                in: officialApp,
+                identifier: "quata-ios-official-host",
+            ).label,
+            "Quata iOS Official",
+        )
+        XCTAssertFalse(officialApp.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
     }
 
     private func fixtureApp(_ fixture: String, deepLink: String? = nil) -> XCUIApplication {
