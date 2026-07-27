@@ -131,6 +131,23 @@ ajeno durante toda la suite y presenta una identidad PID/hora obsoleta: ambos
 sobreviven porque el cleanup solo opera sobre pertenencia kernel al Job Object,
 no sobre PPID, PID observado o una identidad reconstruida despues.
 
+Las negativas nativas usan seams deterministas del interop embebido. Una fuerza
+`AssignProcessToJobObject` a devolver el equivalente a Win32 error 5 despues de
+crear los handles de Job, proceso suspendido e hilo; el contrato exige una sola
+clausura por handle y confirma `TerminateProcess` mas espera del proceso
+suspendido. Otra fuerza error 5 en `QueryInformationJobObject` y exige resultado
+fail-closed, `TerminateJobObject`, Job vacio y una sola clausura por handle. Es
+evidencia de esas ramas de cleanup, no una afirmacion de haber reproducido en
+esta maquina todas las politicas posibles de nested Jobs de un runner externo.
+
+La ruta de cancelacion no usa un booleano simulado: inicia el script en un
+runspace, espera un hijo real y llama a `PowerShell.Stop()`. El runspace debe
+terminar con `PipelineStoppedException`, mientras un marcador escrito por el
+mismo `finally` de produccion confirma Job vacio y el hijo deja de existir. La
+identidad PID/hora obsoleta se pasa al cleanup productivo como hint diagnostico;
+el contrato confirma que fue recibida e ignorada y que el proceso ajeno sigue
+vivo.
+
 La validacion de este cambio se realizo con Windows PowerShell 5.1. PowerShell 7
 no estaba instalado en el entorno de validacion, por lo que no se afirma aqui
 que esa edicion haya sido ejecutada. El script conserva sintaxis compatible con

@@ -6,7 +6,11 @@ param(
     [int]$MaximumMinutes = 20,
     [string]$ReportDirectory = 'build/reports/wasm-bundle',
     # Runs deterministic, no-Gradle ownership and cleanup contracts.
-    [switch]$ContractTest
+    [switch]$ContractTest,
+    # Internal fixture entrypoint used by the runspace cancellation contract.
+    [switch]$ContractCancellationFixture,
+    [string]$ContractEvidencePath,
+    [string]$ContractChildPidPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +30,68 @@ using System.Text;
 
 namespace Quata.Watchdog
 {
+    public sealed class NativeTestSnapshot
+    {
+        public int JobHandlesCreated { get; internal set; }
+        public int JobHandlesClosed { get; internal set; }
+        public int ProcessHandlesCreated { get; internal set; }
+        public int ProcessHandlesClosed { get; internal set; }
+        public int ThreadHandlesCreated { get; internal set; }
+        public int ThreadHandlesClosed { get; internal set; }
+        public int TerminateProcessCalls { get; internal set; }
+        public int TerminatedProcessWaits { get; internal set; }
+        public int TerminateJobCalls { get; internal set; }
+        public int EmptyJobWaits { get; internal set; }
+        public int LastCreatedProcessId { get; internal set; }
+    }
+
+    public static class NativeTestHooks
+    {
+        public static bool ForceAssignProcessAccessDenied;
+        public static bool ForceQueryJobAccessDenied;
+        private static NativeTestSnapshot counters = new NativeTestSnapshot();
+
+        public static void Reset()
+        {
+            ForceAssignProcessAccessDenied = false;
+            ForceQueryJobAccessDenied = false;
+            counters = new NativeTestSnapshot();
+        }
+
+        public static NativeTestSnapshot Snapshot()
+        {
+            return new NativeTestSnapshot
+            {
+                JobHandlesCreated = counters.JobHandlesCreated,
+                JobHandlesClosed = counters.JobHandlesClosed,
+                ProcessHandlesCreated = counters.ProcessHandlesCreated,
+                ProcessHandlesClosed = counters.ProcessHandlesClosed,
+                ThreadHandlesCreated = counters.ThreadHandlesCreated,
+                ThreadHandlesClosed = counters.ThreadHandlesClosed,
+                TerminateProcessCalls = counters.TerminateProcessCalls,
+                TerminatedProcessWaits = counters.TerminatedProcessWaits,
+                TerminateJobCalls = counters.TerminateJobCalls,
+                EmptyJobWaits = counters.EmptyJobWaits,
+                LastCreatedProcessId = counters.LastCreatedProcessId,
+            };
+        }
+
+        internal static void JobCreated() { counters.JobHandlesCreated++; }
+        internal static void JobClosed() { counters.JobHandlesClosed++; }
+        internal static void ProcessCreated(int processId)
+        {
+            counters.ProcessHandlesCreated++;
+            counters.LastCreatedProcessId = processId;
+        }
+        internal static void ProcessClosed() { counters.ProcessHandlesClosed++; }
+        internal static void ThreadCreated() { counters.ThreadHandlesCreated++; }
+        internal static void ThreadClosed() { counters.ThreadHandlesClosed++; }
+        internal static void ProcessTerminationRequested() { counters.TerminateProcessCalls++; }
+        internal static void ProcessTerminationConfirmed() { counters.TerminatedProcessWaits++; }
+        internal static void JobTerminationRequested() { counters.TerminateJobCalls++; }
+        internal static void JobEmptyConfirmed() { counters.EmptyJobWaits++; }
+    }
+
     public sealed class JobRootState
     {
         public bool Running { get; private set; }
@@ -74,6 +140,7 @@ namespace Quata.Watchdog
             {
                 job = CreateJobObject(IntPtr.Zero, null);
                 if (job == IntPtr.Zero) ThrowLastWin32("CreateJobObject");
+                NativeTestHooks.JobCreated();
 
                 JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits =
                     new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
@@ -114,7 +181,13 @@ namespace Quata.Watchdog
                 {
                     ThrowLastWin32("CreateProcess");
                 }
+                NativeTestHooks.ProcessCreated(unchecked((int)processInformation.dwProcessId));
+                NativeTestHooks.ThreadCreated();
 
+                if (NativeTestHooks.ForceAssignProcessAccessDenied)
+                {
+                    throw new Win32Exception(5, "AssignProcessToJobObject failed (injected AccessDenied)");
+                }
                 if (!AssignProcessToJobObject(job, processInformation.hProcess))
                 {
                     ThrowLastWin32("AssignProcessToJobObject");
@@ -124,7 +197,7 @@ namespace Quata.Watchdog
                     ThrowLastWin32("ResumeThread");
                 }
 
-                CloseHandle(processInformation.hThread);
+                CloseTrackedHandle(processInformation.hThread, "thread");
                 processInformation.hThread = IntPtr.Zero;
                 JobProcessLease lease = new JobProcessLease(
                     job,
@@ -138,7 +211,18 @@ namespace Quata.Watchdog
             {
                 if (processInformation.hProcess != IntPtr.Zero)
                 {
-                    TerminateProcess(processInformation.hProcess, 1);
+                    NativeTestHooks.ProcessTerminationRequested();
+                    if (!TerminateProcess(processInformation.hProcess, 1))
+                    {
+                        ThrowLastWin32("TerminateProcess");
+                    }
+                    uint wait = WaitForSingleObject(processInformation.hProcess, 5000);
+                    if (wait != WAIT_OBJECT_0)
+                    {
+                        if (wait == WAIT_FAILED) ThrowLastWin32("WaitForSingleObject(process)");
+                        throw new TimeoutException("Suspended process did not terminate during failed startup cleanup.");
+                    }
+                    NativeTestHooks.ProcessTerminationConfirmed();
                 }
                 throw;
             }
@@ -146,15 +230,15 @@ namespace Quata.Watchdog
             {
                 if (processInformation.hThread != IntPtr.Zero)
                 {
-                    CloseHandle(processInformation.hThread);
+                    CloseTrackedHandle(processInformation.hThread, "thread");
                 }
                 if (processInformation.hProcess != IntPtr.Zero)
                 {
-                    CloseHandle(processInformation.hProcess);
+                    CloseTrackedHandle(processInformation.hProcess, "process");
                 }
                 if (job != IntPtr.Zero)
                 {
-                    CloseHandle(job);
+                    CloseTrackedHandle(job, "job");
                 }
             }
         }
@@ -175,6 +259,10 @@ namespace Quata.Watchdog
         public long[] GetProcessIds()
         {
             EnsureOpen();
+            if (NativeTestHooks.ForceQueryJobAccessDenied)
+            {
+                throw new Win32Exception(5, "QueryInformationJobObject failed (injected AccessDenied)");
+            }
             int capacity = 16;
             while (capacity <= 4096)
             {
@@ -223,6 +311,7 @@ namespace Quata.Watchdog
         public void StopAndWait(int timeoutMilliseconds)
         {
             EnsureOpen();
+            NativeTestHooks.JobTerminationRequested();
             if (!TerminateJobObject(jobHandle, 1))
             {
                 ThrowLastWin32("TerminateJobObject");
@@ -240,6 +329,7 @@ namespace Quata.Watchdog
             {
                 throw new InvalidOperationException("Unexpected Job Object wait result: " + wait);
             }
+            NativeTestHooks.JobEmptyConfirmed();
         }
 
         public void Dispose()
@@ -250,12 +340,12 @@ namespace Quata.Watchdog
             {
                 // KILL_ON_JOB_CLOSE is the final backstop even if explicit
                 // termination or PowerShell cleanup was interrupted.
-                CloseHandle(jobHandle);
+                CloseTrackedHandle(jobHandle, "job");
                 jobHandle = IntPtr.Zero;
             }
             if (processHandle != IntPtr.Zero)
             {
-                CloseHandle(processHandle);
+                CloseTrackedHandle(processHandle, "process");
                 processHandle = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
@@ -263,7 +353,8 @@ namespace Quata.Watchdog
 
         ~JobProcessLease()
         {
-            Dispose();
+            try { Dispose(); }
+            catch { /* finalizers must not terminate the PowerShell host */ }
         }
 
         private void EnsureOpen()
@@ -278,6 +369,14 @@ namespace Quata.Watchdog
         {
             int error = Marshal.GetLastWin32Error();
             throw new Win32Exception(error, operation + " failed");
+        }
+
+        private static void CloseTrackedHandle(IntPtr handle, string kind)
+        {
+            if (!CloseHandle(handle)) ThrowLastWin32("CloseHandle(" + kind + ")");
+            if (kind == "job") NativeTestHooks.JobClosed();
+            else if (kind == "process") NativeTestHooks.ProcessClosed();
+            else if (kind == "thread") NativeTestHooks.ThreadClosed();
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -409,10 +508,41 @@ function ConvertTo-PowerShellEncodedCommand {
     return [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Script))
 }
 
+function Get-NestedWin32Exception {
+    param([Exception]$Exception)
+    $current = $Exception
+    while ($current) {
+        if ($current -is [System.ComponentModel.Win32Exception]) { return $current }
+        $current = $current.InnerException
+    }
+    return $null
+}
+
+function Start-JobOwnedPowerShell {
+    param(
+        [Parameter(Mandatory = $true)][string]$Script,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory
+    )
+    $powershellPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+    $encodedCommand = ConvertTo-PowerShellEncodedCommand -Script $Script
+    $nativeCommandLine = "`"$powershellPath`" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+    return [Quata.Watchdog.JobProcessLease]::Start(
+        $powershellPath,
+        $nativeCommandLine,
+        $WorkingDirectory)
+}
+
 function Get-JobProcessSnapshot {
     param([Parameter(Mandatory = $true)]$Lease)
     $snapshot = [System.Collections.Generic.List[object]]::new()
-    foreach ($id in @($Lease.GetProcessIds())) {
+    try {
+        $processIds = @($Lease.GetProcessIds())
+    } catch {
+        $nativeFailure = Get-NestedWin32Exception -Exception $_.Exception
+        if ($nativeFailure) { throw $nativeFailure }
+        throw
+    }
+    foreach ($id in $processIds) {
         try {
             $process = Get-Process -Id ([int]$id) -ErrorAction Stop
             $snapshot.Add([pscustomobject]@{
@@ -438,6 +568,19 @@ function Get-JobProcessSnapshot {
     return @($snapshot)
 }
 
+function Stop-OwnedJobProcessTree {
+    param(
+        [Parameter(Mandatory = $true)]$Lease,
+        [object[]]$DiagnosticProcessIdentityHints = @()
+    )
+    # PID/creation-time observations are diagnostic input only. Passing them
+    # through this production cleanup seam proves that they never authorize a
+    # Stop-Process call; kernel Job Object membership is the only kill scope.
+    $ignoredHintCount = @($DiagnosticProcessIdentityHints).Count
+    $Lease.StopAndWait(5000)
+    return $ignoredHintCount
+}
+
 function Invoke-OwnedWatchdogProcess {
     param(
         [Parameter(Mandatory = $true)][string]$CommandScript,
@@ -448,7 +591,9 @@ function Invoke-OwnedWatchdogProcess {
         [int]$MaximumSeconds,
         [int]$SampleIntervalMilliseconds = 2000,
         [scriptblock]$StateProbe,
-        [scriptblock]$CancellationProbe
+        [scriptblock]$CancellationProbe,
+        [object[]]$DiagnosticProcessIdentityHints = @(),
+        [string]$FinallyEvidencePath
     )
 
     Initialize-WindowsJobObjectInterop
@@ -467,9 +612,6 @@ $CommandScript
     exit 1
 }
 "@
-    $powershellPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-    $encodedCommand = ConvertTo-PowerShellEncodedCommand -Script $wrappedScript
-    $nativeCommandLine = "`"$powershellPath`" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
 
     $started = Get-Date
     $lastProgress = $started
@@ -481,12 +623,11 @@ $CommandScript
     $failure = $null
     $cleanupState = 'not_started'
     $iteration = 0
+    $pipelineStoppedCaught = $false
+    $ignoredProcessIdentityHintCount = 0
 
     try {
-        $lease = [Quata.Watchdog.JobProcessLease]::Start(
-            $powershellPath,
-            $nativeCommandLine,
-            $WorkingDirectory)
+        $lease = Start-JobOwnedPowerShell -Script $wrappedScript -WorkingDirectory $WorkingDirectory
         $outcome = 'running'
         while ($true) {
             $iteration += 1
@@ -513,6 +654,14 @@ $CommandScript
                 $outcome = 'state_unknown'
                 $failure = 'native_state_query_access_denied'
                 break
+            } catch {
+                $nativeFailure = Get-NestedWin32Exception -Exception $_.Exception
+                if ($nativeFailure) {
+                    $outcome = 'state_unknown'
+                    $failure = "native_state_query_failed:$($nativeFailure.NativeErrorCode)"
+                    break
+                }
+                throw
             }
 
             if (-not $state -or $state.State -notin @('Running', 'Exited')) {
@@ -570,6 +719,7 @@ $CommandScript
             Start-Sleep -Milliseconds $SampleIntervalMilliseconds
         }
     } catch [System.Management.Automation.PipelineStoppedException] {
+        $pipelineStoppedCaught = $true
         $outcome = 'cancelled'
         $failure = 'pipeline_cancelled'
     } catch [OperationCanceledException] {
@@ -582,12 +732,20 @@ $CommandScript
         $outcome = 'state_unknown'
         $failure = 'native_operation_access_denied'
     } catch {
-        $outcome = 'error'
-        $failure = $_.Exception.Message
+        $nativeFailure = Get-NestedWin32Exception -Exception $_.Exception
+        if ($nativeFailure) {
+            $outcome = if ($nativeFailure.NativeErrorCode -eq 5) { 'state_unknown' } else { 'error' }
+            $failure = "native_operation_failed:$($nativeFailure.NativeErrorCode)"
+        } else {
+            $outcome = 'error'
+            $failure = $_.Exception.Message
+        }
     } finally {
         if ($lease) {
             try {
-                $lease.StopAndWait(5000)
+                $ignoredProcessIdentityHintCount = Stop-OwnedJobProcessTree `
+                    -Lease $lease `
+                    -DiagnosticProcessIdentityHints $DiagnosticProcessIdentityHints
                 $cleanupState = 'job_terminated_and_empty'
             } catch {
                 $cleanupState = 'cleanup_failed'
@@ -599,6 +757,13 @@ $CommandScript
         } else {
             $cleanupState = 'no_job_created'
         }
+        if ($FinallyEvidencePath) {
+            $evidenceJson = '{"pipelineStoppedCaught":' +
+                $pipelineStoppedCaught.ToString().ToLowerInvariant() +
+                ',"cleanupState":"' + $cleanupState +
+                '","ignoredProcessIdentityHintCount":' + $ignoredProcessIdentityHintCount + '}'
+            [IO.File]::WriteAllText($FinallyEvidencePath, $evidenceJson, [Text.Encoding]::UTF8)
+        }
     }
 
     return [pscustomobject]@{
@@ -607,6 +772,8 @@ $CommandScript
         Failure = $failure
         CleanupState = $cleanupState
         RootProcessId = if ($lease) { $lease.ProcessId } else { $null }
+        PipelineStoppedCaught = $pipelineStoppedCaught
+        IgnoredProcessIdentityHintCount = $ignoredProcessIdentityHintCount
         Started = $started
         ElapsedSeconds = [Math]::Round(((Get-Date) - $started).TotalSeconds, 2)
         Samples = $samples
@@ -636,6 +803,138 @@ function Assert-ProcessExited {
     throw $Message
 }
 
+function Assert-NativeCounter {
+    param(
+        [Parameter(Mandatory = $true)]$Snapshot,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][int]$Expected
+    )
+    $actual = [int]$Snapshot.$Name
+    if ($actual -ne $Expected) {
+        throw "Native counter $Name was $actual, expected $Expected."
+    }
+}
+
+function Test-AssignProcessAccessDeniedCleanup {
+    param([Parameter(Mandatory = $true)][string]$WorkingDirectory)
+    [Quata.Watchdog.NativeTestHooks]::Reset()
+    [Quata.Watchdog.NativeTestHooks]::ForceAssignProcessAccessDenied = $true
+    $caught = $null
+    try {
+        $unexpectedLease = Start-JobOwnedPowerShell `
+            -Script 'Start-Sleep -Seconds 60' `
+            -WorkingDirectory $WorkingDirectory
+        try {
+            throw 'Injected AssignProcessToJobObject failure unexpectedly returned a lease.'
+        } finally {
+            if ($unexpectedLease) { $unexpectedLease.Dispose() }
+        }
+    } catch {
+        $caught = Get-NestedWin32Exception -Exception $_.Exception
+    } finally {
+        [Quata.Watchdog.NativeTestHooks]::ForceAssignProcessAccessDenied = $false
+    }
+    if (-not $caught -or $caught.NativeErrorCode -ne 5) {
+        throw "AssignProcessToJobObject seam did not surface Win32 error 5: $caught"
+    }
+    $snapshot = [Quata.Watchdog.NativeTestHooks]::Snapshot()
+    foreach ($name in @(
+        'JobHandlesCreated', 'JobHandlesClosed',
+        'ProcessHandlesCreated', 'ProcessHandlesClosed',
+        'ThreadHandlesCreated', 'ThreadHandlesClosed',
+        'TerminateProcessCalls', 'TerminatedProcessWaits'
+    )) {
+        Assert-NativeCounter -Snapshot $snapshot -Name $name -Expected 1
+    }
+    Assert-NativeCounter -Snapshot $snapshot -Name 'TerminateJobCalls' -Expected 0
+    Assert-NativeCounter -Snapshot $snapshot -Name 'EmptyJobWaits' -Expected 0
+    Assert-ProcessExited `
+        -ProcessId $snapshot.LastCreatedProcessId `
+        -Message "Suspended process $($snapshot.LastCreatedProcessId) survived failed assignment."
+}
+
+function Test-QueryAccessDeniedCleanup {
+    param([Parameter(Mandatory = $true)][string]$WorkingDirectory)
+    [Quata.Watchdog.NativeTestHooks]::Reset()
+    [Quata.Watchdog.NativeTestHooks]::ForceQueryJobAccessDenied = $true
+    try {
+        $result = Invoke-OwnedWatchdogProcess `
+            -CommandScript 'Start-Sleep -Seconds 60' `
+            -WorkingDirectory $WorkingDirectory `
+            -StdoutPath (Join-Path $WorkingDirectory 'query-access-denied.stdout.log') `
+            -StderrPath (Join-Path $WorkingDirectory 'query-access-denied.stderr.log') `
+            -NoProgressSeconds 20 `
+            -MaximumSeconds 20 `
+            -SampleIntervalMilliseconds 50
+    } finally {
+        [Quata.Watchdog.NativeTestHooks]::ForceQueryJobAccessDenied = $false
+    }
+    if ($result.Outcome -ne 'state_unknown' -or
+        $result.Failure -ne 'job_membership_query_failed:5' -or
+        $result.CleanupState -ne 'job_terminated_and_empty') {
+        throw "QueryInformationJobObject seam was not fail-closed: $($result | ConvertTo-Json -Compress)"
+    }
+    $snapshot = [Quata.Watchdog.NativeTestHooks]::Snapshot()
+    foreach ($name in @(
+        'JobHandlesCreated', 'JobHandlesClosed',
+        'ProcessHandlesCreated', 'ProcessHandlesClosed',
+        'ThreadHandlesCreated', 'ThreadHandlesClosed',
+        'TerminateJobCalls', 'EmptyJobWaits'
+    )) {
+        Assert-NativeCounter -Snapshot $snapshot -Name $name -Expected 1
+    }
+    Assert-NativeCounter -Snapshot $snapshot -Name 'TerminateProcessCalls' -Expected 0
+    Assert-NativeCounter -Snapshot $snapshot -Name 'TerminatedProcessWaits' -Expected 0
+    Assert-ProcessExited `
+        -ProcessId $snapshot.LastCreatedProcessId `
+        -Message "Job root $($snapshot.LastCreatedProcessId) survived QueryInformationJobObject AccessDenied."
+}
+
+function Test-RunspacePipelineStopCleanup {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$ScriptPath
+    )
+    $evidencePath = Join-Path $WorkingDirectory 'runspace-stop-finally.json'
+    $childPidPath = Join-Path $WorkingDirectory 'runspace-stop-child.pid'
+    $powerShell = [PowerShell]::Create()
+    try {
+        $null = $powerShell.AddCommand($ScriptPath).
+            AddParameter('ContractCancellationFixture').
+            AddParameter('ContractEvidencePath', $evidencePath).
+            AddParameter('ContractChildPidPath', $childPidPath)
+        $async = $powerShell.BeginInvoke()
+        $childPid = Wait-ProcessIdFile -Path $childPidPath -TimeoutSeconds 10
+        $powerShell.Stop()
+        $stoppedState = $powerShell.InvocationStateInfo
+        try {
+            $null = $powerShell.EndInvoke($async)
+        } catch [System.Management.Automation.PipelineStoppedException] {
+            # Expected for a real PowerShell.Stop() request.
+        }
+        if ($stoppedState.State -ne [System.Management.Automation.PSInvocationState]::Stopped -or
+            $stoppedState.Reason -isnot [System.Management.Automation.PipelineStoppedException]) {
+            throw "Runspace did not expose PipelineStopped after PowerShell.Stop(): $($stoppedState | Out-String)"
+        }
+        $deadline = (Get-Date).AddSeconds(5)
+        while (-not (Test-Path -LiteralPath $evidencePath) -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 50
+        }
+        if (-not (Test-Path -LiteralPath $evidencePath)) {
+            throw 'PowerShell.Stop() did not reach the production finally evidence seam.'
+        }
+        $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
+        if ($evidence.cleanupState -ne 'job_terminated_and_empty') {
+            throw "PowerShell.Stop() evidence did not prove production finally cleanup: $($evidence | ConvertTo-Json -Compress)"
+        }
+        Assert-ProcessExited `
+            -ProcessId $childPid `
+            -Message "PowerShell.Stop() leaked Job Object child PID $childPid."
+    } finally {
+        $powerShell.Dispose()
+    }
+}
+
 function Invoke-WasmProductionWatchdogContractTest {
     Initialize-WindowsJobObjectInterop
     $contractRoot = Join-Path ([IO.Path]::GetTempPath()) ("quata-wasm-watchdog-contract-" + [Guid]::NewGuid().ToString('N'))
@@ -643,10 +942,17 @@ function Invoke-WasmProductionWatchdogContractTest {
     $unrelated = Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
         -ArgumentList '-NoProfile', '-Command', 'Start-Sleep -Seconds 60' -PassThru
     try {
+        Test-AssignProcessAccessDeniedCleanup -WorkingDirectory $contractRoot
+        Test-QueryAccessDeniedCleanup -WorkingDirectory $contractRoot
+
+        $stalePidIdentity = [pscustomobject]@{
+            Id = $unrelated.Id
+            StartTime = $unrelated.StartTime.AddTicks(-1)
+        }
         $scenarios = @(
             [pscustomobject]@{ Name = 'success'; Expected = 'success'; Exit = 0; Timeout = 10; Cancel = $null; State = $null },
             [pscustomobject]@{ Name = 'failure'; Expected = 'process_failure'; Exit = 7; Timeout = 10; Cancel = $null; State = $null },
-            [pscustomobject]@{ Name = 'timeout'; Expected = 'maximum_timeout'; Exit = $null; Timeout = 1; Cancel = $null; State = $null },
+            [pscustomobject]@{ Name = 'timeout'; Expected = 'maximum_timeout'; Exit = $null; Timeout = 3; Cancel = $null; State = $null },
             [pscustomobject]@{
                 Name = 'cancel'
                 Expected = 'cancelled'
@@ -679,19 +985,14 @@ function Invoke-WasmProductionWatchdogContractTest {
                 Expected = 'error'
                 Exit = $null
                 Timeout = 10
-                Cancel = $null
-                State = {
-                    param($lease, $iteration)
-                    if ($iteration -lt 15) {
-                        $nativeState = $lease.GetRootState()
-                        return [pscustomobject]@{
-                            State = if ($nativeState.Running) { 'Running' } else { 'Exited' }
-                            ExitCode = $nativeState.ExitCode
-                            Error = $null
-                        }
+                Cancel = {
+                    param($iteration, $lease)
+                    if ($iteration -ge 15) {
+                        throw [ApplicationException]::new('injected_watchdog_error')
                     }
-                    throw [InvalidOperationException]::new('injected_state_probe_error')
+                    return $false
                 }
+                State = $null
             }
         )
 
@@ -717,7 +1018,8 @@ Set-Content -LiteralPath '$quotedChildPidPath' -Value `$child.Id
                 -MaximumSeconds $scenario.Timeout `
                 -SampleIntervalMilliseconds 100 `
                 -StateProbe $scenario.State `
-                -CancellationProbe $scenario.Cancel
+                -CancellationProbe $scenario.Cancel `
+                -DiagnosticProcessIdentityHints $(if ($scenario.Name -eq 'success') { @($stalePidIdentity) } else { @() })
 
             if ($result.Outcome -ne $scenario.Expected) {
                 throw "Scenario $($scenario.Name) returned $($result.Outcome), expected $($scenario.Expected): $($result.Failure)"
@@ -733,20 +1035,23 @@ Set-Content -LiteralPath '$quotedChildPidPath' -Value `$child.Id
             if (-not (Get-Process -Id $unrelated.Id -ErrorAction SilentlyContinue)) {
                 throw "Scenario $($scenario.Name) terminated an unrelated process."
             }
+            $expectedHintCount = if ($scenario.Name -eq 'success') { 1 } else { 0 }
+            if ($result.IgnoredProcessIdentityHintCount -ne $expectedHintCount) {
+                throw "Scenario $($scenario.Name) did not pass its stale PID identity through production cleanup."
+            }
         }
 
-        # A reused PID is not actionable input: cleanup is kernel Job Object
-        # membership, never a later PID lookup or parent-chain guess.
-        $stalePidIdentity = [pscustomobject]@{
-            Id = $unrelated.Id
-            StartTime = $unrelated.StartTime.AddTicks(-1)
-        }
-        if ($stalePidIdentity.Id -ne $unrelated.Id) { throw 'Stale PID fixture was not constructed.' }
+        Test-RunspacePipelineStopCleanup `
+            -WorkingDirectory $contractRoot `
+            -ScriptPath $PSCommandPath
+
         if (-not (Get-Process -Id $unrelated.Id -ErrorAction SilentlyContinue)) {
             throw 'Kernel-owned cleanup accepted an unrelated/reused PID candidate.'
         }
+        Write-Output 'PASS: injected AssignProcessToJobObject/QueryInformationJobObject error 5 paths close each native handle once.'
+        Write-Output 'PASS: PowerShell.Stop() produces PipelineStopped and reaches production finally cleanup.'
         Write-Output 'PASS: Job Object owns descendants before resume and cleans success/failure/timeout/cancel/error.'
-        Write-Output 'PASS: unknown/AccessDenied state fails closed; unrelated and stale/reused PID candidates survive.'
+        Write-Output 'PASS: stale PID identity reaches cleanup; unrelated/reused PID candidate survives.'
     } finally {
         Stop-Process -Id $unrelated.Id -Force -ErrorAction SilentlyContinue
         $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
@@ -756,6 +1061,30 @@ Set-Content -LiteralPath '$quotedChildPidPath' -Value `$child.Id
             Remove-Item -LiteralPath $resolvedContractRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+}
+
+if ($ContractCancellationFixture) {
+    if ([string]::IsNullOrWhiteSpace($ContractEvidencePath) -or
+        [string]::IsNullOrWhiteSpace($ContractChildPidPath)) {
+        throw 'Contract cancellation fixture requires evidence and child PID paths.'
+    }
+    $fixtureDirectory = Split-Path -Parent $ContractEvidencePath
+    $quotedChildPidPath = $ContractChildPidPath.Replace("'", "''")
+    $fixtureCommand = @"
+`$child = Start-Process -FilePath '$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe' -ArgumentList '-NoProfile', '-Command', 'Start-Sleep -Seconds 60' -PassThru
+Set-Content -LiteralPath '$quotedChildPidPath' -Value `$child.Id
+Start-Sleep -Seconds 60
+"@
+    $null = Invoke-OwnedWatchdogProcess `
+        -CommandScript $fixtureCommand `
+        -WorkingDirectory $fixtureDirectory `
+        -StdoutPath (Join-Path $fixtureDirectory 'runspace-stop.stdout.log') `
+        -StderrPath (Join-Path $fixtureDirectory 'runspace-stop.stderr.log') `
+        -NoProgressSeconds 120 `
+        -MaximumSeconds 120 `
+        -SampleIntervalMilliseconds 100 `
+        -FinallyEvidencePath $ContractEvidencePath
+    return
 }
 
 if ($ContractTest) {
