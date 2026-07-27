@@ -6,7 +6,7 @@ export function publicPostIdFromPayload(text) {
   return value && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
 }
 export function detailEvidence(events, postId) {
-  return detailEvidenceEvent(events, postId) !== null;
+  return detailEvidenceEvent(events, postId) != null;
 }
 export function detailEvidenceEvent(events, postId) {
   return events.find((event) => event.method === 'GET' && event.status >= 200 && event.status < 300 && event.table === 'posts' &&
