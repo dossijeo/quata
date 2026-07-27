@@ -717,32 +717,46 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// supports opening a conversation, but not scrolling to a particular message identifier.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
+        let chatAttachmentConfiguration: IosChatRuntimeConfiguration? = IosPublicRuntimeConfiguration
+            .feedConfiguration()
+            .map {
+                IosChatRuntimeConfiguration(
+                    supabaseUrl: $0.supabaseUrl,
+                    supabasePublishableKey: $0.supabasePublishableKey,
+                )
+            }
+        let chatAttachmentSession = bootstrap.authSessionForInteractiveLogin()
         // Chat remains installable for an already constructed bootstrap even when the host has no
         // public runtime metadata. Only remote preview degrades in that case.
         let attachmentPreviewService: IosChatAttachmentPreviewService? = {
-            guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+            guard let chatAttachmentConfiguration else {
                 return nil
             }
             // Reuse the Keychain-backed session from Chat; Quick Look only receives a local
             // temporary file after the Kotlin boundary validates and downloads the attachment.
-            let attachmentConfiguration = IosChatRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            )
-            let attachmentSession = bootstrap.authSessionForInteractiveLogin()
             return IosChatAttachmentPreviewService(
-                configuration: attachmentConfiguration,
-                authSession: attachmentSession,
+                configuration: chatAttachmentConfiguration,
+                authSession: chatAttachmentSession,
                 documentOpener: services.documentOpener,
                 downloader: IosChatAttachmentDownloader(
-                    configuration: attachmentConfiguration,
-                    authSession: attachmentSession,
+                    configuration: chatAttachmentConfiguration,
+                    authSession: chatAttachmentSession,
                 ),
             )
         }()
         installChatFactory { [weak self] conversationId, _ in
+            // AVAudioPlayer accepts local files only. Resolve message-controlled remote audio
+            // through the authenticated Chat downloader first, so a URL can never be coerced
+            // into a file path or escape the deployment/bucket allow-list.
+            let chatAudioPlayer: AudioPlayerService = chatAttachmentConfiguration.map {
+                IosChatAttachmentAudioPlayerService(
+                    delegate: services.audioPlayer,
+                    configuration: $0,
+                    authSession: chatAttachmentSession,
+                )
+            } ?? services.audioPlayer
             let dependencies = bootstrap.hostDependencies(
-                audioPlayer: services.audioPlayer,
+                audioPlayer: chatAudioPlayer,
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
                 conversationId: conversationId,
