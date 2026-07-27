@@ -2,22 +2,20 @@
 
 `quata.kmp-compose-feature` es un piloto incremental para los módulos de
 feature Compose Multiplatform. Centraliza únicamente los cuatro plugins y los
-targets no Android que eran idénticos en los features:
+targets no Android soportados que son idénticos en los features:
 
 - iOS x64, arm64 y simulator arm64;
-- JavaScript IR con navegador;
 - Wasm/JS con navegador.
 
 Cada módulo conserva `androidLibrary` para declarar su `namespace`, `compileSdk`
 y `minSdk`, y conserva todos sus `sourceSets` y dependencias. Así se evita que
-una convención introduzca dependencias implícitas o elimine JS durante el
-piloto. `:feature:settings` es el único adoptante inicial.
+una convención introduzca dependencias implícitas. JavaScript IR no forma parte
+de la convención tras JSIR-001; el único target Web soportado es Wasm.
 
 ## Adoptantes actuales
 
-`:feature:settings` fue el piloto inicial. `:feature:auth` es el segundo lote:
-su configuración de targets era idéntica y todas sus dependencias continúan
-declaradas por el módulo.
+`:feature:settings` fue el piloto inicial. `:feature:auth` es el segundo lote;
+ambos conservan todas sus dependencias declaradas por el módulo.
 
 ## Rollout
 

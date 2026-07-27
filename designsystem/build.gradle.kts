@@ -14,9 +14,6 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    js(IR) {
-        browser()
-    }
     wasmJs {
         browser {
             testTask {
@@ -42,7 +39,6 @@ kotlin {
         }
         androidMain.dependencies { }
         iosMain.dependencies { }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

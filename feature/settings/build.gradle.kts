@@ -13,7 +13,6 @@ kotlin {
         }
         androidMain.dependencies { }
         iosMain.dependencies { }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

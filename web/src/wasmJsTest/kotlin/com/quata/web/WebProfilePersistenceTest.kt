@@ -8,10 +8,18 @@ import kotlin.test.assertIs
 
 class WebProfilePersistenceTest {
     @Test
-    fun selectsRemoteOnlyForConfiguredAuthenticatedRepository() {
+    fun defaultsToOfflineDraftUntilRemoteMutationEvidenceIsVerified() {
+        assertEquals(
+            WebProfilePersistenceMode.OfflineDraft,
+            webProfilePersistenceMode(hasRemoteRepository = true, hasConfiguredAuthenticatedSession = true),
+        )
         assertEquals(
             WebProfilePersistenceMode.Remote,
-            webProfilePersistenceMode(hasRemoteRepository = true, hasConfiguredAuthenticatedSession = true),
+            webProfilePersistenceMode(
+                hasRemoteRepository = true,
+                hasConfiguredAuthenticatedSession = true,
+                hasVerifiedRemoteMutationEvidence = true,
+            ),
         )
         assertEquals(
             WebProfilePersistenceMode.OfflineDraft,

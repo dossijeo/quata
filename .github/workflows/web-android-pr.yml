@@ -22,7 +22,21 @@ on:
       - "web/**"
       - "scripts/web-browser-smoke.mjs"
       - "scripts/web-browser-metrics.mjs"
+      - "scripts/web-browser-network-policy.mjs"
+      - "scripts/web-browser-network-policy.test.mjs"
+      - "scripts/web-share-target-network-policy.mjs"
+      - "scripts/web-share-target-pwa-e2e.mjs"
+      - "scripts/web-share-target-pwa-e2e.test.mjs"
+      - "scripts/web-docmentis-product-smoke-contract.test.mjs"
       - "scripts/wasm-bundle-report.mjs"
+      - "scripts/wasm-bundle-report.test.mjs"
+      - "scripts/wasm-bundle-approval-policy.mjs"
+      - "scripts/wasm-bundle-approval-policy.test.mjs"
+      - "scripts/web-test-contract.test.mjs"
+      - "scripts/web-chat-browser-e2e-report.test.mjs"
+      - "scripts/web-browser-metrics.test.mjs"
+      - "package.json"
+      - "package-lock.json"
       - "docs/CI_WEB_ANDROID.md"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
@@ -61,6 +75,10 @@ jobs:
         with:
           chrome-version: "150"
           install-dependencies: true
+
+      - name: Install pinned browser E2E dependencies
+        shell: bash
+        run: npm ci --ignore-scripts
 
       - name: Configure Chrome launcher for Karma
         shell: bash
@@ -111,6 +129,14 @@ jobs:
             bash ./gradlew --version
           } | tee build/reports/web-ci/toolchain.log
 
+      - name: Run Web Wave 2 Node contracts
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:web-wave2-contracts \
+            2>&1 | tee build/reports/web-ci/node-contracts.log
+
       - name: Test Web/Wasm
         timeout-minutes: 12
         shell: bash
@@ -152,6 +178,9 @@ jobs:
           node scripts/web-browser-metrics.mjs \
             --report build/reports/web-browser-smoke-metrics.json \
             2>&1 | tee build/reports/web-ci/chrome-metrics.log
+          QUATA_CHROME_PATH="${{ steps.chrome.outputs.chrome-path }}" \
+            node scripts/web-share-target-pwa-e2e.mjs \
+            2>&1 | tee build/reports/web-ci/share-target-e2e.log
 
       - name: Upload Web/Wasm JUnit, smoke, logs and distribution
         if: always()

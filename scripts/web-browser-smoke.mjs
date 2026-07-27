@@ -12,12 +12,17 @@
  *   node scripts/web-browser-smoke.mjs
  */
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { cpus, release, tmpdir, totalmem } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { deflateRawSync } from 'node:zlib';
+import {
+    classifyBrowserRequest,
+    validateDocmentisPermitRequest,
+} from './web-browser-network-policy.mjs';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
 // callers only need `node scripts/web-browser-smoke.mjs`; Node versions that expose WebSocket by
@@ -36,20 +41,27 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
-const turnstileScriptPattern = 'https://challenges.cloudflare.com/turnstile/*';
-const turnstileStubSource = 'globalThis.turnstile ??= { render: () => "quata-smoke-turnstile", execute: () => {}, reset: () => {}, remove: () => {} };';
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
 const chromeExecutable = options.chrome ?? defaultChrome;
 const browserMetrics = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    sampleId: randomUUID(),
+    generatedAt: new Date().toISOString(),
     // Resolve the local SHA as well as CI's explicit value so a report can be
     // tied to the exact distribution that the smoke just loaded.
     revision: process.env.GITHUB_SHA ?? repositoryRevision(),
     // Never persist an absolute workstation path in an evidence report.
     distribution: relativeProcessDirectory(distribution),
+    distributionFingerprintSha256: null,
     browser: null,
+    environment: measurementEnvironment(),
+    smoke: {
+        status: 'running',
+        expectedRoutes: routeFragments,
+        completedRoutes: [],
+    },
     advisories: {
         chromeGpuReadPixelsWarnings: 0,
     },
@@ -59,6 +71,7 @@ const browserMetrics = {
 };
 await requireDirectory(distribution, `Wasm distribution not found: ${distribution}`);
 await requireFile(join(distribution, 'index.html'), 'The distribution must contain index.html.');
+browserMetrics.distributionFingerprintSha256 = await fingerprintDirectory(distribution);
 
 async function runSmoke() {
 const failures = [];
@@ -73,13 +86,15 @@ const profileDirectory = await mkdtemp(join(tmpdir(), 'quata-web-browser-smoke-'
 let chrome;
 const browserLogs = [];
 const networkFailures = [];
-const unexpectedDocmentisNetworkRequests = [];
-let stubbedTurnstileRequests = 0;
+const unexpectedNetworkRequests = [];
+const turnstileRequests = [];
+const docmentisPermitRequests = [];
 
 try {
     chrome = await launchChrome(chromeExecutable, profileDirectory);
         const target = await waitForPageTarget(chrome.debugPort);
         const cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
+        let closingCdp = false;
         try {
         const version = await cdp.send('Browser.getVersion');
         browserMetrics.browser = {
@@ -111,89 +126,125 @@ try {
         cdp.on('Network.responseReceived', ({ response }) => {
             if (response.status >= 400) networkFailures.push(`${response.status} ${response.url}`);
         });
-        cdp.on('Network.requestWillBeSent', ({ request }) => {
-            if (options.docmentis && isUnexpectedDocmentisNetworkRequest(request.url, staticServer.origin, authenticatedStorage?.origin)) {
-                unexpectedDocmentisNetworkRequests.push(request.url);
+        cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
+            let command;
+            const requestKind = classifyBrowserRequest(
+                request,
+                staticServer.origin,
+                authenticatedStorage?.origin,
+            );
+            if (requestKind === 'turnstile-bootstrap') {
+                turnstileRequests.push(request);
+                // Registration is deliberately unconfigured in this smoke, so Turnstile is not
+                // exercised. Fulfil its unconditional index.html script tag locally to keep the
+                // six-route launcher contract independent from Cloudflare and the public network.
+                command = cdp.send('Fetch.fulfillRequest', {
+                    requestId,
+                    responseCode: 200,
+                    responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }],
+                    body: Buffer.from('globalThis.turnstile = globalThis.turnstile ?? {};').toString('base64'),
+                });
+            } else if (requestKind === 'docmentis-permit-preflight' && options.docmentis) {
+                docmentisPermitRequests.push(request);
+                command = cdp.send('Fetch.fulfillRequest', {
+                    requestId,
+                    responseCode: 204,
+                    responseHeaders: [
+                        { name: 'Access-Control-Allow-Origin', value: staticServer.origin },
+                        { name: 'Access-Control-Allow-Methods', value: 'POST, OPTIONS' },
+                        { name: 'Access-Control-Allow-Headers', value: 'content-type' },
+                    ],
+                });
+            } else if (requestKind === 'docmentis-permit' && options.docmentis) {
+                docmentisPermitRequests.push(request);
+                const permitContractFailures = validateDocmentisPermitRequest(request.postData);
+                if (permitContractFailures.length > 0) {
+                    failures.push(`DocMentis permit request contract changed:\n${permitContractFailures.join('\n')}`);
+                }
+                // SDK 0.7.9 verifies the short-lived permit signature inside Wasm. The repository
+                // does not possess the vendor signing key, so the hermetic gate exercises the
+                // documented unavailable/fail-closed path instead of fabricating a permit.
+                command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
+            } else if (requestKind === 'unexpected') {
+                unexpectedNetworkRequests.push(`${request.method} ${request.url}`);
+                command = cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
+            } else {
+                command = cdp.send('Fetch.continueRequest', { requestId });
             }
+            command.catch(error => {
+                if (!closingCdp) failures.push(`Could not resolve intercepted request ${request.url}: ${error.message}`);
+            });
         });
         await cdp.send('Runtime.enable');
         await cdp.send('Log.enable');
         await cdp.send('Network.enable');
-        if (options.docmentis) {
-            await cdp.send('Fetch.enable', { patterns: [{ urlPattern: turnstileScriptPattern, requestStage: 'Request' }] });
-            cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
-                if (request.url.startsWith('https://challenges.cloudflare.com/turnstile/')) {
-                    stubbedTurnstileRequests += 1;
-                    cdp.send('Fetch.fulfillRequest', {
-                        requestId,
-                        responseCode: 200,
-                        responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
-                        body: Buffer.from(turnstileStubSource).toString('base64'),
-                    }).catch(() => {});
-                } else {
-                    cdp.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' }).catch(() => {});
-                }
-            });
-        }
+        await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
 
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
         browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
+        await assertWebTestContract(cdp, 'auth', 'auth');
         await assertUnconfiguredAuthBoundary(cdp);
 
-        if (options.docmentis) {
-            await navigateAndAssertDocmentisBridge(cdp, staticServer.origin, authenticatedStorage);
-        }
-
-        // The remaining hosts are rendered behind the session shell. A session-ready flag is
-        // enough for this visual/browser smoke; no token is invented and repositories still see
-        // an unauthenticated configuration. This verifies route construction and crash safety,
-        // not backend behaviour.
-        await cdp.evaluate("localStorage.setItem('web.auth.session_ready', 'true')");
+        // No session is invented for the remaining hashes. The route contract still records the
+        // requested host while the visible surface correctly stays at Auth until a real login.
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
+            // This smoke intentionally does not mint a backend session. It can verify the
+            // requested hash route but remains on the Auth surface until a real login changes
+            // Compose state; the authenticated surface belongs to the remote E2E runner.
+            await assertWebTestContract(cdp, 'auth', fragment);
         }
+
+        // Keep the measured six-route series on one stable base document. DocMentis opts into its
+        // localhost-only product bridge with a query parameter, so it runs after route metrics
+        // rather than turning the following #feed transition into a full-document navigation.
+        if (options.docmentis) {
+            await navigateAndAssertDocmentisBridge(
+                cdp,
+                staticServer.origin,
+                authenticatedStorage,
+                docmentisPermitRequests,
+            );
+        }
+        assertTurnstileBootstrapFlow(turnstileRequests);
 
         if (pageErrors.length > 0) {
             failures.push(`Uncaught browser exception(s):\n${pageErrors.join('\n')}`);
         }
         if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
-        if (unexpectedDocmentisNetworkRequests.length > 0) {
-            failures.push(`DocMentis smoke made an external network request(s):\n${unexpectedDocmentisNetworkRequests.join('\n')}`);
+        if (networkFailures.length > 0) {
+            failures.push(`Network failure(s):\n${networkFailures.join('\n')}`);
         }
-        if (options.docmentis && stubbedTurnstileRequests > 0 && process.env.CI !== 'true') {
-            failures.push('Turnstile stubbing is restricted to the CI DocMentis smoke harness.');
+        if (unexpectedNetworkRequests.length > 0) {
+            failures.push(`Smoke made an external network request(s):\n${unexpectedNetworkRequests.join('\n')}`);
         }
     } finally {
+        closingCdp = true;
+        await cdp.send('Fetch.disable').catch(() => undefined);
         cdp.close();
     }
 } catch (error) {
     failures.push(error instanceof Error ? error.stack ?? error.message : String(error));
     if (browserLogs.length > 0) failures.push(`Browser log(s):\n${browserLogs.join('\n')}`);
     if (networkFailures.length > 0) failures.push(`Network failure(s):\n${networkFailures.join('\n')}`);
+    if (unexpectedNetworkRequests.length > 0) {
+        failures.push(`Smoke made an external network request(s):\n${unexpectedNetworkRequests.join('\n')}`);
+    }
 } finally {
     if (chrome) await stopProcess(chrome.process);
     await staticServer.close();
     if (authenticatedStorage) await authenticatedStorage.close();
     if (fixtureDirectory) await rm(fixtureDirectory.path, { recursive: true, force: true });
     await removeChromeProfile(profileDirectory);
+    browserMetrics.smoke.completedRoutes = browserMetrics.navigations.map(({ route }) => route);
+    browserMetrics.smoke.status = failures.length === 0 ? 'passed' : 'failed';
     if (options.metricsReport) {
         await writeMetricsReport(options.metricsReport, browserMetrics).catch(error => {
             failures.push(`Could not write browser metrics: ${error instanceof Error ? error.message : String(error)}`);
         });
-    }
-}
-
-function isUnexpectedDocmentisNetworkRequest(url, localOrigin, authenticatedStorageOrigin) {
-    try {
-        const parsed = new URL(url);
-        // This URL is not allowed through: Fetch fulfills it with the local smoke-only stub above.
-        if (parsed.href.startsWith('https://challenges.cloudflare.com/turnstile/')) return false;
-        return parsed.protocol !== 'data:' && parsed.protocol !== 'blob:' && parsed.origin !== localOrigin && parsed.origin !== authenticatedStorageOrigin;
-    } catch {
-        return true;
     }
 }
 
@@ -227,33 +278,69 @@ function parseArguments(args) {
     return parsed;
 }
 
-async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorage) {
+async function navigateAndAssertDocmentisBridge(cdp, origin, _authenticatedStorage, permitRequests) {
     await cdp.send('Page.navigate', { url: `${origin}/?quata-docmentis-smoke=1#auth` });
     await waitForShell(cdp, 'auth');
-    const supported = [
-        '/__quata-smoke-fixtures/document.pdf',
-        '/__quata-smoke-fixtures/document.docx',
-        '/__quata-smoke-fixtures/document.pptx',
-        '/__quata-smoke-fixtures/document.xlsx',
-        `${authenticatedStorage.origin}/authenticated/document.docx?temporary_doc_token=${authenticatedStorage.token}`,
-    ];
-    for (const fixture of supported) {
-        const probe = await cdp.evaluate(`globalThis.__quataDocmentisProbe?.load(${JSON.stringify(fixture)})`);
-        const result = probe?.result?.value;
-        if (
-            result?.package !== '@docmentis/udoc-viewer' ||
-            result?.clientCreated !== true ||
-            result?.loadSucceeded !== true ||
-            result?.rendered !== true ||
-            !result?.version
-        ) {
-            throw new Error(`DocMentis ${fixture} load/render/cleanup probe failed: ${JSON.stringify({ result, exception: probe?.exceptionDetails?.exception?.description ?? probe?.exceptionDetails?.text })}`);
+    const fixture = '/__quata-smoke-fixtures/document';
+    await cdp.evaluate(`(() => {
+      const trace = globalThis.__quataDocmentisProductTrace = {
+        mounted: false,
+        removed: false,
+        fallbacks: [],
+        originalOpen: globalThis.open,
+      };
+      const containsViewer = node => node?.nodeType === 1 && (
+        node.matches?.('[data-quata-docmentis-viewer]') ||
+        node.querySelector?.('[data-quata-docmentis-viewer]')
+      );
+      trace.observer = new MutationObserver(records => {
+        for (const record of records) {
+          if ([...record.addedNodes].some(containsViewer)) trace.mounted = true;
+          if ([...record.removedNodes].some(containsViewer)) trace.removed = true;
         }
-        await assertDocmentisCleanup(cdp, fixture);
+      });
+      trace.observer.observe(document.documentElement, { childList: true, subtree: true });
+      globalThis.open = url => {
+        trace.fallbacks.push(String(url));
+        return { closed: false };
+      };
+    })()`);
+    const productProbe = await cdp.evaluate(
+        `globalThis.__quataDocmentisProductProbe?.open({
+          reference: ${JSON.stringify(fixture)},
+          displayName: 'permit-smoke',
+          mimeType: 'application/pdf',
+        })`,
+    );
+    const productResult = productProbe?.result?.value;
+    const traceProbe = await cdp.evaluate(`(() => {
+      const trace = globalThis.__quataDocmentisProductTrace;
+      trace?.observer?.disconnect();
+      if (trace?.originalOpen) globalThis.open = trace.originalOpen;
+      return trace ? {
+        mounted: trace.mounted,
+        removed: trace.removed,
+        fallbacks: trace.fallbacks,
+        activeOverlay: document.querySelector('[data-quata-docmentis-viewer]') !== null,
+      } : null;
+    })()`);
+    const trace = traceProbe?.result?.value;
+    if (
+        productResult?.state !== 'success' ||
+        productResult?.reason !== null ||
+        trace?.mounted !== true ||
+        trace?.removed !== true ||
+        trace?.activeOverlay !== false ||
+        trace?.fallbacks?.length !== 1 ||
+        trace.fallbacks[0] !== `${origin}${fixture}`
+    ) {
+        throw new Error(`DocMentis product open/fail-closed/fallback probe failed: ${JSON.stringify({
+            result: productResult,
+            trace,
+            exception: productProbe?.exceptionDetails?.exception?.description ?? productProbe?.exceptionDetails?.text,
+        })}`);
     }
-    if (authenticatedStorage.requests < 1) {
-        throw new Error('Authenticated CORS document fixture was not requested.');
-    }
+    assertDocmentisPermitFlow(permitRequests);
 
     // Legacy Office and RTF never reach DocMentis. The browser fallback is deliberately tested
     // through a non-navigating link interceptor; no download is persisted on the workstation.
@@ -264,10 +351,20 @@ async function navigateAndAssertDocmentisBridge(cdp, origin, authenticatedStorag
     if (fallback?.result?.value !== true) throw new Error('Legacy/RTF fallback contract changed unexpectedly.');
 }
 
-async function assertDocmentisCleanup(cdp, fixture) {
-    const cleanup = await cdp.evaluate("document.querySelector('[data-quata-docmentis-smoke]') === null");
-    if (cleanup?.result?.value !== true) {
-        throw new Error(`DocMentis ${fixture} probe leaked its temporary viewer host after load.`);
+function assertTurnstileBootstrapFlow(requests) {
+    if (requests.length < 1) {
+        throw new Error('Expected the exact local Turnstile bootstrap fixture, observed none.');
+    }
+}
+
+function assertDocmentisPermitFlow(requests) {
+    const methods = requests.map(({ method }) => method);
+    if (methods.length !== 2 || methods[0] !== 'OPTIONS' || methods[1] !== 'POST') {
+        throw new Error(`DocMentis permit flow changed: ${methods.join(', ') || 'no requests'}.`);
+    }
+    const contractFailures = validateDocmentisPermitRequest(requests[1].postData);
+    if (contractFailures.length > 0) {
+        throw new Error(`DocMentis permit payload changed:\n${contractFailures.join('\n')}`);
     }
 }
 
@@ -312,6 +409,7 @@ async function createDocmentisFixtures() {
         sameOriginFiles.set(`/__quata-smoke-fixtures/${name}`, file);
         crossOriginFiles.set(`/authenticated/${name}`, file);
     }
+    sameOriginFiles.set('/__quata-smoke-fixtures/document', sameOriginFiles.get('/__quata-smoke-fixtures/document.pdf'));
     return { path, sameOriginFiles, crossOriginFiles };
 }
 
@@ -560,12 +658,12 @@ async function waitForPageTarget(port) {
 async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
     await waitForShell(cdp, fragment);
     if (pageErrors.length > initialErrorCount) {
         throw new Error(`Route #${fragment} produced an uncaught browser exception.`);
     }
-    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt);
+    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
 }
 
 async function assertUnconfiguredAuthBoundary(cdp) {
@@ -585,21 +683,47 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     }
 }
 
-async function collectNavigationMetrics(cdp, route, mountElapsedMs) {
+async function assertWebTestContract(cdp, expectedSurface, expectedRoute) {
+    let value;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const contract = await cdp.evaluate(`(() => {
+        const host = document.querySelector('quata-test-contract');
+        const root = host?.shadowRoot;
+        const node = root?.querySelector('[data-testid="web-test-contract"]');
+        return node ? {
+            version: node.dataset.contractVersion,
+            surface: node.dataset.surface,
+            route: node.dataset.route,
+            authSubmit: !!root.querySelector('[data-testid="auth-submit"]'),
+            chatSend: !!root.querySelector('[data-testid="chat-send"]'),
+        } : null;
+        })()`);
+        value = contract.result?.value;
+        const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
+        const expected = ['1', expectedSurface, expectedRoute, true, true];
+        if (JSON.stringify(observed) === JSON.stringify(expected)) return;
+        await delay(100);
+    }
+    const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
+    const expected = ['1', expectedSurface, expectedRoute, true, true];
+    throw new Error(`WEB-TEST-001 contract mismatch: ${JSON.stringify({ observed, expected })}.`);
+}
+
+async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {
     const metricResult = await cdp.send('Performance.getMetrics');
     const metrics = Object.fromEntries((metricResult.metrics ?? []).map(metric => [metric.name, metric.value]));
-    const navigation = await cdp.evaluate(`(() => {
+    const documentLifecycle = fullDocumentNavigation ? await cdp.evaluate(`(() => {
         const entry = performance.getEntriesByType('navigation').at(-1);
         return entry ? {
             domContentLoadedMs: Math.round(entry.domContentLoadedEventEnd),
             loadMs: Math.round(entry.loadEventEnd),
         } : null;
-    })()`);
+    })()`) : null;
     return {
         route,
+        navigationKind: fullDocumentNavigation ? 'full-document' : 'same-document-hash',
         mountElapsedMs: Math.round(mountElapsedMs),
-        domContentLoadedMs: navigation.result?.value?.domContentLoadedMs ?? null,
-        loadMs: navigation.result?.value?.loadMs ?? null,
+        documentLifecycle: documentLifecycle?.result?.value ?? null,
         memory: {
             jsHeapUsedSize: finiteOrNull(metrics.JSHeapUsedSize),
             jsHeapTotalSize: finiteOrNull(metrics.JSHeapTotalSize),
@@ -631,6 +755,44 @@ function relativeProcessDirectory(path) {
     const workingDirectory = resolve('.');
     const normalized = path.startsWith(workingDirectory) ? path.slice(workingDirectory.length).replace(/^[\\/]+/, '') : path;
     return normalized.replaceAll('\\', '/');
+}
+
+async function fingerprintDirectory(root) {
+    const hash = createHash('sha256');
+    async function visit(directory) {
+        const entries = await readdir(directory, { withFileTypes: true });
+        entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+        for (const entry of entries) {
+            const absolute = join(directory, entry.name);
+            const relative = absolute.slice(root.length).replaceAll('\\', '/');
+            if (entry.isDirectory()) {
+                await visit(absolute);
+            } else if (entry.isFile()) {
+                hash.update(relative);
+                hash.update('\0');
+                hash.update(await readFile(absolute));
+                hash.update('\0');
+            }
+        }
+    }
+    await visit(root);
+    return hash.digest('hex');
+}
+
+function measurementEnvironment() {
+    const processor = cpus()[0];
+    return {
+        platform: process.platform,
+        architecture: process.arch,
+        osRelease: release(),
+        node: process.version,
+        cpuModel: processor?.model?.trim() || null,
+        logicalCpuCount: cpus().length,
+        totalMemoryBytes: totalmem(),
+        ci: process.env.GITHUB_ACTIONS === 'true' ? 'github-actions' : process.env.CI ? 'generic' : 'local',
+        runnerOs: process.env.RUNNER_OS ?? null,
+        runnerArchitecture: process.env.RUNNER_ARCH ?? null,
+    };
 }
 
 async function waitForShell(cdp, fragment) {

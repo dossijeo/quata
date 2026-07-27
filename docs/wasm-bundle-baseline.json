@@ -1,11 +1,7 @@
 {
   "schemaVersion": 1,
-  "baselineState": "proposed",
-  "revision": null,
-  "capture": {
-    "artifactRevision": "unverified-local-artifact",
-    "verification": "This inventory was read from a completed local productionExecutable directory. Rebuild on the integration SHA and replace it before changing the budget state to approved."
-  },
+  "baselineState": "candidate",
+  "revision": "abd2f8ece26e0ab7afb496ef0f36194becf2e57a",
   "distribution": "web/build/dist/wasmJs/productionExecutable",
   "files": [
     {
@@ -25,43 +21,43 @@
       "contributor": "Skiko"
     },
     {
-      "path": "22e04c026f76c8ef5ca7.wasm",
+      "path": "32a5fdb41ea469bd4e8b.wasm",
       "extension": ".wasm",
-      "bytes": 5785520,
-      "gzipBytes": 1547179,
-      "sha256": "fcf19e292565920288723c9a964887d4c1f63086ee04e3ca9bc42ccd455e35ae",
+      "bytes": 5893708,
+      "gzipBytes": 1573947,
+      "sha256": "08536c13b1808881e8ae3aad53f95bde2fafdfac467d738700cd7da5a4948279",
       "contributor": "Kotlin/Wasm application"
     },
     {
       "path": "web.js.map",
       "extension": ".map",
-      "bytes": 1782821,
-      "gzipBytes": 311789,
-      "sha256": "434144933e6d78ae449694c0784f1fd53a5150715fb2f8e6fade89302e36ca78",
+      "bytes": 1792224,
+      "gzipBytes": 314454,
+      "sha256": "f89d53751307dfee29e049f4d0dc71b2c629aa9add2ad9b2d7a2834b772e33cc",
       "contributor": "Source maps"
     },
     {
-      "path": "436.js",
+      "path": "351.js",
       "extension": ".js",
       "bytes": 620695,
       "gzipBytes": 141595,
-      "sha256": "555e4bed942c89ab5bed17231eee129938bd75d2d204465b152e664a33fde186",
+      "sha256": "93b9e2b8fc6561bfe2bf008de3e37bcdf9af4859d7584550449ebed689e7340b",
       "contributor": "DocMentis"
     },
     {
       "path": "web.js",
       "extension": ".js",
-      "bytes": 617928,
-      "gzipBytes": 113780,
-      "sha256": "84678c0eed8f749108f13a357782386ea4a31da561091675c91156b9bf8f3797",
+      "bytes": 619208,
+      "gzipBytes": 114033,
+      "sha256": "d9470211b78efadf888071daaa7d0737952d30397b05cd9b60c974fdac5ed097",
       "contributor": "JavaScript runtime/chunks"
     },
     {
-      "path": "436.js.map",
+      "path": "351.js.map",
       "extension": ".map",
       "bytes": 423456,
       "gzipBytes": 94510,
-      "sha256": "e855a16a5fba74eb8f4a1b7f77fb96c04394590da9ee3d82c774e465d9a096dd",
+      "sha256": "b5ccc1c5fbd795ff715099e37da3208fbadda89ea1ea16b505d7e032b32d9504",
       "contributor": "Source maps"
     },
     {
@@ -83,9 +79,9 @@
     {
       "path": "index.html",
       "extension": ".html",
-      "bytes": 796,
-      "gzipBytes": 442,
-      "sha256": "a2146bcba015af2de1999167c725cfb6fc55a30b56a8145daf579b1730ec861e",
+      "bytes": 1077,
+      "gzipBytes": 535,
+      "sha256": "fe20b3f04471ef18ec8c4e4079514add8cf3aed38fe6591d931afbe22fee421b",
       "contributor": "Static/runtime assets"
     },
     {
@@ -97,25 +93,25 @@
       "contributor": "Static/runtime assets"
     },
     {
-      "path": "953.js",
+      "path": "382.js",
       "extension": ".js",
       "bytes": 346,
-      "gzipBytes": 268,
-      "sha256": "88c4c0d52814601d81e724a715deb2f81145c78e4c8ad3383725a72415292042",
+      "gzipBytes": 269,
+      "sha256": "83cd03012094b75d8a3f52be40e6622315297ca62476dd4190896c5da838b2e7",
       "contributor": "JavaScript runtime/chunks"
     },
     {
-      "path": "953.js.map",
+      "path": "382.js.map",
       "extension": ".map",
       "bytes": 228,
-      "gzipBytes": 185,
-      "sha256": "36106aff97ed6a006033c094826726c933e1c4354b5710eda8921b3854c4165e",
+      "gzipBytes": 184,
+      "sha256": "9703fa2906d576b12edffa4ff840e2e25fbd50abde37c085bcef082dfc1e2999",
       "contributor": "Source maps"
     }
   ],
   "totals": {
-    "bytes": 36938694,
-    "gzipBytes": 14195749
+    "bytes": 37057846,
+    "gzipBytes": 14225528
   },
   "contributors": [
     {
@@ -133,26 +129,26 @@
     {
       "name": "Kotlin/Wasm application",
       "files": 1,
-      "bytes": 5785520,
-      "gzipBytes": 1547179
+      "bytes": 5893708,
+      "gzipBytes": 1573947
     },
     {
       "name": "Source maps",
       "files": 3,
-      "bytes": 2206505,
-      "gzipBytes": 406484
+      "bytes": 2215908,
+      "gzipBytes": 409148
     },
     {
       "name": "JavaScript runtime/chunks",
       "files": 3,
-      "bytes": 625341,
-      "gzipBytes": 116437
+      "bytes": 626621,
+      "gzipBytes": 116691
     },
     {
       "name": "Static/runtime assets",
       "files": 3,
-      "bytes": 2612,
-      "gzipBytes": 1000
+      "bytes": 2893,
+      "gzipBytes": 1093
     }
   ],
   "notes": [

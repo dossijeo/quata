@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.CountryPrefix
@@ -40,17 +42,17 @@ fun LoginForm(
     onGoToRegister: () -> Unit,
 ) {
     val compactSpace = if (isLandscape) 6.dp else 8.dp
-    PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth())
+    PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
     Spacer(Modifier.height(compactSpace))
-    QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth())
+    QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
     state.error?.let { Spacer(Modifier.height(compactSpace)); Text(it, color = MaterialTheme.colorScheme.error) }
     Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-    QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
+    QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
     Spacer(Modifier.height(compactSpace))
-    QuataSecondaryButton(strings.forgotPassword, enabled = !state.isLoading, onClick = onForgotPassword)
+    QuataSecondaryButton(strings.forgotPassword, modifier = Modifier.semantics { testTag = "auth.forgot-password" }, enabled = !state.isLoading, onClick = onForgotPassword)
     if (showRegistration) {
         Spacer(Modifier.height(compactSpace))
-        QuataSecondaryButton(strings.createAccount, onClick = onGoToRegister)
+        QuataSecondaryButton(strings.createAccount, modifier = Modifier.semantics { testTag = "auth.register" }, onClick = onGoToRegister)
     }
     if (state.isLoading) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); CircularProgressIndicator() }
     if (showMockNotice) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); Text(strings.mockNotice, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium) }

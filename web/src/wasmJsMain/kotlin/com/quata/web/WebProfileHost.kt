@@ -311,6 +311,8 @@ class WebProfileRepository(
     remoteGateway: ProfileRemoteGateway? = null,
     remoteSessionProvider: ProfileSessionProvider? = null,
     private val remoteAvailable: () -> Boolean = { false },
+    /** Default-off until a deployed Web RLS/E2E contract explicitly proves profile mutations. */
+    private val remoteMutationEvidenceVerified: () -> Boolean = { false },
 ) : ProfileRepository {
     private val offline = WebOfflineProfileRepository(preferences, contactPicker)
     private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) {
@@ -325,7 +327,7 @@ class WebProfileRepository(
     } else null
 
     fun persistenceMode(): WebProfilePersistenceMode =
-        webProfilePersistenceMode(remote != null, remoteAvailable())
+        webProfilePersistenceMode(remote != null, remoteAvailable(), remoteMutationEvidenceVerified())
 
     private fun selected(): ProfileRepository = when (persistenceMode()) {
         WebProfilePersistenceMode.Remote -> checkNotNull(remote)
@@ -355,7 +357,8 @@ enum class WebProfilePersistenceMode { Remote, OfflineDraft }
 internal fun webProfilePersistenceMode(
     hasRemoteRepository: Boolean,
     hasConfiguredAuthenticatedSession: Boolean,
-): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession) {
+    hasVerifiedRemoteMutationEvidence: Boolean = false,
+): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession && hasVerifiedRemoteMutationEvidence) {
     WebProfilePersistenceMode.Remote
 } else {
     WebProfilePersistenceMode.OfflineDraft

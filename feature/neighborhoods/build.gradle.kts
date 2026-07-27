@@ -8,7 +8,6 @@ plugins {
 kotlin {
     androidLibrary { namespace = "com.quata.feature.neighborhoods"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
-    js(IR) { browser() }
     wasmJs { browser(); nodejs() }
     sourceSets {
         commonMain.dependencies {
@@ -28,7 +27,6 @@ kotlin {
         // or presentation code to Chat while allowing the UIKit composition root to reuse its
         // authenticated repository.
         iosMain.dependencies { implementation(project(":feature:chat")) }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

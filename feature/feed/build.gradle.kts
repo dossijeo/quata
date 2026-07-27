@@ -8,7 +8,6 @@ plugins {
 kotlin {
     androidLibrary { namespace = "com.quata.feature.feed"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
-    js(IR) { browser() }
     wasmJs { browser(); nodejs() }
     sourceSets {
         commonMain.dependencies {
@@ -24,7 +23,6 @@ kotlin {
         }
         androidMain.dependencies { }
         iosMain.dependencies { }
-        jsMain.dependencies { }
         wasmJsMain.dependencies { }
     }
 }

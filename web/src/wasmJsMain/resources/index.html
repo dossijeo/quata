@@ -19,6 +19,12 @@
 </head>
 <body>
   <div id="quata-root"></div>
+  <!--
+    Compose/Wasm renders application controls into a canvas. This host is a deliberately
+    non-interactive DOM observation contract for browser automation; see docs/WEB_TEST_AX_DOM_CONTRACT.md.
+  -->
+  <quata-test-contract aria-hidden="true"></quata-test-contract>
+  <script src="web-test-contract.js"></script>
   <script src="web.js"></script>
 </body>
 </html>
