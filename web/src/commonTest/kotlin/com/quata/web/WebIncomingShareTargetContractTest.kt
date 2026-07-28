@@ -50,13 +50,14 @@ class WebIncomingShareTargetContractTest {
     }
 
     @Test
-    fun `reconstructs persisted payload and identifies only created blob urls for discard`() {
+    fun `reconstructs only local blob payloads and identifies each created url once for discard`() {
         val payload = WebIncomingShareTargetContract.payloadOrNull(
             WebPersistedIncomingShare(
                 id = " share-42 ",
                 text = "  from IndexedDB ",
                 attachments = listOf(
                     WebPersistedIncomingShareAttachment("blob:quata-file", "  ", " image/png "),
+                    WebPersistedIncomingShareAttachment("blob:quata-file", "duplicate", "image/png"),
                     WebPersistedIncomingShareAttachment("https://cdn.example/file", "remote", null),
                     WebPersistedIncomingShareAttachment(" ", "ignored", "text/plain"),
                 ),
@@ -66,8 +67,24 @@ class WebIncomingShareTargetContractTest {
         requireNotNull(payload)
         assertEquals("share-42", payload.id)
         assertEquals("from IndexedDB", payload.text)
-        assertEquals(listOf("attachment", "remote"), payload.attachments.map { it.name })
+        assertEquals(listOf("attachment", "duplicate"), payload.attachments.map { it.name })
         assertEquals(listOf("blob:quata-file"), WebIncomingShareTargetContract.blobUrlsToRevoke(payload))
+    }
+
+    @Test
+    fun `does not expose remote or executable attachment references from persisted storage`() {
+        assertNull(
+            WebIncomingShareTargetContract.payloadOrNull(
+                WebPersistedIncomingShare(
+                    id = "share-remote-only",
+                    text = " ",
+                    attachments = listOf(
+                        WebPersistedIncomingShareAttachment("https://example.test/file", "remote", null),
+                        WebPersistedIncomingShareAttachment("javascript:alert(1)", "script", null),
+                    ),
+                ),
+            ),
+        )
     }
 
     @Test
