@@ -81,11 +81,12 @@ require("removeItem(at: staging)" in queue_source,
         "share queue must clean staging after a failed publication")
 require("isSafeID(payload.id)" in queue_source and "id.utf8.allSatisfy" in queue_source,
         "share queue must validate a strict ASCII ID before composing App Group paths")
-require("withPublicationLock" in queue_source and ".publish-lock" in queue_source,
-        "share queue must serialize cross-process pending-count and publication")
+require("Darwin.flock" in queue_source and "O_NOFOLLOW" in queue_source and "Darwin.close" in queue_source,
+        "share queue must use a crash-safe Darwin flock descriptor, never stale-lock recovery")
 inbox_source = (root / "feature/externalshare/src/iosMain/kotlin/com/quata/feature/externalshare/IosExternalShareInbox.kt").read_text(encoding="utf-8")
-require("NSFileTypeRegular" in inbox_source and "URLByResolvingSymlinksInPath" in inbox_source,
-        "iOS inbox must reject non-regular files and validate canonical claim containment")
+require("NSFileTypeRegular" in inbox_source and "NSFileTypeDirectory" in inbox_source and
+        "manifest.json" in inbox_source and "URLByResolvingSymlinksInPath" in inbox_source,
+        "iOS inbox must reject symlinked queue nodes/manifests and validate canonical App Group containment")
 
 if mode == "signed-release":
     required = (

@@ -81,7 +81,7 @@ class ExternalShareQueuePolicyTest {
     }
 
     @Test
-    fun `share IDs are ASCII path components and canonical attachment paths stay in the claim`() {
+    fun `share IDs are ASCII and directory or manifest symlink destinations cannot leave App Group root`() {
         assertEquals(false, isSafeExternalShareId("share-ñ"))
         assertEquals(false, isSafeExternalShareId("share/escape"))
         assertEquals(false, isSafeExternalShareId("share\\escape"))
@@ -98,6 +98,10 @@ class ExternalShareQueuePolicyTest {
         assertEquals(
             false,
             isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/private/secret.pdf"),
+        )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group", "/private/manifest.json"),
         )
     }
 

@@ -1,5 +1,29 @@
 import Foundation
 import UniformTypeIdentifiers
+import Darwin
+
+/// The production implementation is advisory POSIX locking on a descriptor owned by this call.
+/// `flock` is released by the kernel if the extension process crashes; lock files are never
+/// removed or "recovered" by another process.
+protocol ShareQueueLocking {
+    func withLock<T>(at url: URL, timeout: TimeInterval, body: () throws -> T) throws -> T
+}
+
+private struct DarwinShareQueueLock: ShareQueueLocking {
+    func withLock<T>(at url: URL, timeout: TimeInterval, body: () throws -> T) throws -> T {
+        let descriptor = Darwin.open(url.path, O_CREAT | O_RDWR | O_NOFOLLOW, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else { throw ShareQueue.Error.queueBusy }
+        defer { Darwin.close(descriptor) }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while Darwin.flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
+            guard Date() < deadline else { throw ShareQueue.Error.queueBusy }
+            usleep(10_000)
+        }
+        defer { Darwin.flock(descriptor, LOCK_UN) }
+        return try body()
+    }
+}
 
 /// File-system boundary shared by the Share Extension and its hermetic tests. The caller owns
 /// extracting `NSItemProvider` values; this type never receives an authenticated session or a
@@ -9,7 +33,7 @@ enum ShareQueue {
     static let maximumPendingShares = 10
     static let maximumFileBytes: Int64 = 25 * 1024 * 1024
     static let maximumTotalBytes: Int64 = 100 * 1024 * 1024
-    private static let publishLockRecoveryAge: TimeInterval = 120
+    private static let publishLockTimeout: TimeInterval = 1
 
     struct Attachment {
         let sourceURL: URL
@@ -63,15 +87,18 @@ enum ShareQueue {
         _ payload: Payload,
         root: URL,
         fileManager: FileManager = .default,
-        copyFile: (URL, URL) throws -> Void = { try FileManager.default.copyItem(at: $0, to: $1) }
+        copyFile: (URL, URL) throws -> Void = { try FileManager.default.copyItem(at: $0, to: $1) },
+        locking: ShareQueueLocking = DarwinShareQueueLock()
     ) throws {
         guard isSafeID(payload.id) else { throw Error.invalidShareID }
         guard payload.attachments.count <= maximumFiles else { throw Error.tooManyFiles }
-        let queueRoot = root.appendingPathComponent("ExternalShares", isDirectory: true)
-        let pending = root.appendingPathComponent("ExternalShares/pending", isDirectory: true)
+        let canonicalRoot = try canonicalDirectory(root, containedBy: nil)
+        let queueRoot = canonicalRoot.appendingPathComponent("ExternalShares", isDirectory: true)
+        let pending = queueRoot.appendingPathComponent("pending", isDirectory: true)
         let staging = root.appendingPathComponent("ExternalShares/staging-\(payload.id)", isDirectory: true)
         let destination = pending.appendingPathComponent(payload.id, isDirectory: true)
         try fileManager.createDirectory(at: queueRoot, withIntermediateDirectories: true)
+        _ = try canonicalDirectory(queueRoot, containedBy: canonicalRoot)
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
         do {
             var totalBytes: Int64 = 0
@@ -102,8 +129,9 @@ enum ShareQueue {
                 to: staging.appendingPathComponent("manifest.json"),
                 options: .atomic
             )
-            try withPublicationLock(queueRoot: queueRoot, fileManager: fileManager) {
+            try locking.withLock(at: queueRoot.appendingPathComponent(".publish.lock"), timeout: publishLockTimeout) {
                 try fileManager.createDirectory(at: pending, withIntermediateDirectories: true)
+                _ = try canonicalDirectory(pending, containedBy: queueRoot)
                 let pendingCount = try fileManager.contentsOfDirectory(
                     at: pending,
                     includingPropertiesForKeys: [.isDirectoryKey],
@@ -130,32 +158,16 @@ enum ShareQueue {
         }
     }
 
-    private static func withPublicationLock<T>(
-        queueRoot: URL,
-        fileManager: FileManager,
-        body: () throws -> T
-    ) throws -> T {
-        let lock = queueRoot.appendingPathComponent(".publish-lock", isDirectory: true)
-        do {
-            try fileManager.createDirectory(at: lock, withIntermediateDirectories: false)
-        } catch {
-            let modified = try? lock.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-            if let modified, Date().timeIntervalSince(modified) > publishLockRecoveryAge {
-                // Quarantine by rename before deleting. This never removes a lock another
-                // process acquired after our stale-age observation.
-                let recovered = queueRoot.appendingPathComponent(".publish-lock-recovered-\(UUID().uuidString)")
-                guard (try? fileManager.moveItem(at: lock, to: recovered)) != nil else { throw Error.queueBusy }
-                try? fileManager.removeItem(at: recovered)
-                do {
-                    try fileManager.createDirectory(at: lock, withIntermediateDirectories: false)
-                } catch {
-                    throw Error.queueBusy
-                }
-            } else {
-                throw Error.queueBusy
-            }
+    /// Resolves only after first rejecting a link at the original path. Every queue node must
+    /// remain below the canonical App Group root, so a hostile directory link fails closed.
+    private static func canonicalDirectory(_ url: URL, containedBy root: URL?) throws -> URL {
+        let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true else { throw Error.unreadableFile }
+        let canonical = url.resolvingSymlinksInPath()
+        if let root {
+            guard canonical.path.hasPrefix(root.path + "/") else { throw Error.unreadableFile }
         }
-        defer { try? fileManager.removeItem(at: lock) }
-        return try body()
+        return canonical
     }
+
 }

@@ -84,6 +84,19 @@ final class ShareQueueTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ExternalShares/pending/share-symlink").path))
     }
 
+    func testRejectsSymlinkedExternalSharesDirectory() throws {
+        let outside = root.appendingPathComponent("outside", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            atPath: root.appendingPathComponent("ExternalShares").path,
+            withDestinationPath: outside.path
+        )
+        XCTAssertThrowsError(
+            try ShareQueue.persist(.init(id: "share-directory-link", createdAtEpochMillis: 1, text: "text", attachments: []), root: root)
+        ) { XCTAssertEqual($0 as? ShareQueue.Error, .unreadableFile) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside.appendingPathComponent("pending/share-directory-link").path))
+    }
+
     func testConcurrentPublishersNeverCreateMoreThanTenPendingDirectories() throws {
         let group = DispatchGroup()
         let resultLock = NSLock()
@@ -106,6 +119,17 @@ final class ShareQueueTests: XCTestCase {
         let count = (try? FileManager.default.contentsOfDirectory(at: pending, includingPropertiesForKeys: nil).count) ?? 0
         XCTAssertLessThanOrEqual(count, ShareQueue.maximumPendingShares)
         XCTAssertFalse(results.isEmpty)
+    }
+
+    func testLockTimeoutFailsClosedWithoutPublishing() throws {
+        XCTAssertThrowsError(
+            try ShareQueue.persist(
+                .init(id: "share-locked", createdAtEpochMillis: 1, text: "text", attachments: []),
+                root: root,
+                locking: TimeoutLock()
+            )
+        ) { XCTAssertEqual($0 as? ShareQueue.Error, .queueBusy) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ExternalShares/pending/share-locked").path))
     }
 
     func testCopyFailureRollsBackStagingWithoutPublishingAPartialPayload() throws {
@@ -135,5 +159,11 @@ final class ShareQueueTests: XCTestCase {
         let url = root.appendingPathComponent(name)
         try contents.write(to: url)
         return url
+    }
+}
+
+private struct TimeoutLock: ShareQueueLocking {
+    func withLock<T>(at url: URL, timeout: TimeInterval, body: () throws -> T) throws -> T {
+        throw ShareQueue.Error.queueBusy
     }
 }
