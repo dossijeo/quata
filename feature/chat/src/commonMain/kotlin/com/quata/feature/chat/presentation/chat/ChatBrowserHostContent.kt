@@ -80,6 +80,8 @@ fun ChatBrowserHostContent(
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
+    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
         ChatBrowserConversationList(
@@ -100,6 +102,8 @@ fun ChatBrowserHostContent(
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
             audioRecordingConfiguration = audioRecordingConfiguration,
+            messageInputOverride = messageInputOverride,
+            sendButtonOverride = sendButtonOverride,
             modifier = modifier,
         )
     }
@@ -266,6 +270,8 @@ private fun ChatBrowserConversationDetail(
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
+    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
+    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
@@ -336,7 +342,7 @@ private fun ChatBrowserConversationDetail(
             composer = { composerModifier ->
                 Surface(composerModifier) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
+                        messageInputOverride?.invoke(state.messageText, { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) }, Modifier.fillMaxWidth().semantics { testTag = "chat.message" }) ?: OutlinedTextField(
                             value = state.messageText,
                             onValueChange = { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) },
                             label = { Text("Mensaje") },
@@ -418,7 +424,7 @@ private fun ChatBrowserConversationDetail(
                             }) { Text("Grabar audio") }
                         }
                         recordingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        Button(
+                        sendButtonOverride?.invoke(state.messageText.isNotBlank() || state.attachmentUri != null, { viewModel.onEvent(ChatUiEvent.Send) }, Modifier.semantics { testTag = "chat.send" }) ?: Button(
                             onClick = {
                                 scope.launch {
                                     when (val result = filePicker.pick(

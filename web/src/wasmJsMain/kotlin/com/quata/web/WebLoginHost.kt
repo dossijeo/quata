@@ -6,6 +6,8 @@ import com.quata.feature.auth.presentation.AuthBrowserLoginHostContent
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.auth.presentation.register.RegisterFormStrings
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 
 /** Web adapter retains browser-backed session persistence while sharing the app auth session. */
 @Composable
@@ -40,6 +42,9 @@ fun WebLoginHost(
         registerSubtitle = catalog.register.title,
         registerUnavailableMessage = if (runtimeConfiguration.webRegistrationEnabled) null else "El registro web aún no está habilitado.",
         runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
+        phoneInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.phone, modifier.height(56.dp)) },
+        passwordInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.password, modifier.height(56.dp), password = true) },
+        submitButtonOverride = { label, enabled, onClick, modifier -> WebNativeButton(label, enabled, onClick, modifier.height(48.dp)) },
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")
         onLoginSuccess()

@@ -132,7 +132,7 @@ private fun browserStoreFile(
       });
       db.close();
       onResult('success', JSON.stringify({ reference: globalThis.URL.createObjectURL(blob), displayName: displayName || null, mimeType: mimeType || blob.type || null, sizeBytes: blob.size }));
-    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_store_failed'));
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_store_failed'))
     """,
 )
 
@@ -159,7 +159,7 @@ private fun browserGetFile(cacheKey: String, onResult: (String, String?) -> Unit
       db.close();
       if (!record?.blob) { onResult('miss', 'cache_miss'); return; }
       onResult('success', JSON.stringify({ reference: globalThis.URL.createObjectURL(record.blob), displayName: record.displayName || null, mimeType: record.mimeType || record.blob.type || null, sizeBytes: record.sizeBytes ?? record.blob.size ?? null }));
-    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_get_failed'));
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_get_failed'))
     """,
 )
 
@@ -186,6 +186,6 @@ private fun browserCacheRemove(cacheKey: String, onResult: (String, String?) -> 
       });
       db.close();
       onResult('success', null);
-    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_remove_failed'));
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_remove_failed'))
     """,
 )

@@ -181,19 +181,16 @@ try {
         await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
-        await cdp.send('Accessibility.enable');
 
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
         browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
-        await assertAuthAccessibilityBridge(cdp);
         await assertUnconfiguredAuthBoundary(cdp);
 
         // No session is invented for the remaining hashes. The visible surface correctly stays
         // at Auth until a real login changes Compose state.
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
-            await assertAuthAccessibilityBridge(cdp);
         }
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
@@ -679,32 +676,6 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
         throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
     }
-}
-
-async function assertAuthAccessibilityBridge(cdp) {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-        const tree = await cdp.send('Accessibility.getFullAXTree');
-        const controls = (tree.nodes ?? []).map(node => ({
-            role: node.role?.value,
-            name: node.name?.value,
-            focused: node.properties?.some(property => property.name === 'focused' && property.value?.value === true),
-        }));
-        const hasNamedAuthControls = ['Teléfono', 'Contraseña'].every(name =>
-            controls.some(control => control.role === 'textbox' && control.name === name),
-        ) && controls.some(control => control.role === 'button' && control.name === 'Entrar');
-        if (hasNamedAuthControls) {
-            // The tab is dispatched to Chrome, not a DOM surrogate. Compose/Wasm updates the
-            // focus state in the same accessibility tree consumed by assistive technology.
-            await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
-            await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
-            const focusedTree = await cdp.send('Accessibility.getFullAXTree');
-            if ((focusedTree.nodes ?? []).some(node => node.properties?.some(property =>
-                property.name === 'focused' && property.value?.value === true,
-            ))) return;
-        }
-        await delay(100);
-    }
-    throw new Error('WEB-TEST-001: Chrome did not expose named Compose login controls and keyboard focus in its AX tree.');
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {

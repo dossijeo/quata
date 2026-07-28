@@ -20,7 +20,9 @@ const STORAGE_KEYS = [
 ];
 const REAL_OPT_IN = "I_ACCEPT_SESSION_REVOCATION";
 const FIXTURE = Object.freeze({
-  countryCode: "34",
+  // LoginUiState defaults to this prefix; the native Web input deliberately owns
+  // just the local phone number, as the Compose field did before it.
+  countryCode: "240",
   phone: "600000001",
   password: "fixture-only-password",
   profileId: "11111111-1111-4111-8111-111111111111",
@@ -46,6 +48,7 @@ let page;
 let cleanupSession;
 let backend;
 let stage = "initializing";
+const browserDiagnostics = [];
 
 try {
   const configuration = loadConfiguration(options.real);
@@ -65,7 +68,7 @@ try {
       ]),
     ],
   });
-  context = await browser.newContext();
+  context = await browser.newContext({ locale: "es-ES" });
   await context.route("**/*", async route => {
     const url = route.request().url();
     if (url.startsWith(`${server.origin}/`)) return route.continue();
@@ -94,6 +97,8 @@ try {
     }
   });
   page = context.pages()[0] ?? await context.newPage();
+  page.on("console", message => browserDiagnostics.push(`console:${message.type()}:${message.text()}`));
+  page.on("pageerror", error => browserDiagnostics.push(`pageerror:${error.stack ?? error.message}`));
 
   stage = "mounting_real_product";
   await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
@@ -103,25 +108,29 @@ try {
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   });
   report.steps.push("real_compose_auth_shell_mounted");
-  await assertLoginAccessibility(page);
-  report.steps.push("chrome_ax_login_roles_names_and_tab_focus");
 
-  stage = "product_login";
-  await page.evaluate(
-    ({ countryCode, phone, password }) =>
-      globalThis.__quataAuthE2eProduct.login(countryCode, phone, password),
-    credentials,
-  );
+  stage = "native_login_controls";
+  const phone = page.locator('input[aria-label="Teléfono"]');
+  const password = page.locator('input[aria-label="Contraseña"]');
+  const login = page.locator('button[aria-label="Entrar"]');
+  await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
+  await phone.fill(credentials.phone);
+  await password.fill(credentials.password);
+  await waitFor(async () => await login.isEnabled(), "native_login_submit_disabled");
+  await password.focus();
+  await page.keyboard.press("Tab");
+  if (!(await login.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_login_focus_missing");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
   cleanupSession = await readSession(page);
   assertCompleteSession(cleanupSession);
-  await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
-  report.steps.push("product_repository_login_persisted_session");
+  report.steps.push("native_login_role_name_focus_keyboard_activation");
 
   stage = "browser_restart_restore";
   await page.reload();
   await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
   await page.evaluate(() => globalThis.__quataAuthE2eProduct.restore());
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#feed`);
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     return localStorage.getItem("web.auth.session_ready") === "true" && root &&
@@ -143,20 +152,27 @@ try {
   if (!profileRead.ok || !profileRead.exact) throw new Error("authenticated_profile_read_failed");
   report.steps.push("authenticated_browser_profile_read");
 
-  stage = "accessible_chat_controls";
-  await assertChatAccessibility(page, server.origin, backend);
-  report.steps.push("chrome_ax_chat_roles_names_keyboard_interaction");
-
-  stage = "accessible_product_logout";
-  const logout = page.getByRole("button", { name: "Cerrar sesión" });
-  await logout.focus();
-  if (!(await logout.evaluate(node => node === document.activeElement))) throw new Error("ax_logout_focus_missing");
+  stage = "native_chat_controls";
+  const message = page.locator('input[aria-label="Mensaje"]');
+  const send = page.locator('button[aria-label="Enviar"]');
+  await Promise.all([message.waitFor(), send.waitFor()]);
+  if (await send.isEnabled()) throw new Error("native_chat_send_initial_state_changed");
+  await message.fill("mensaje AX local");
+  await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
+  await send.focus();
   await page.keyboard.press("Enter");
+  report.steps.push("native_chat_role_name_state_keyboard_activation");
+
+  stage = "native_logout";
+  const logout = page.locator('button[aria-label="Cerrar sesión"]');
+  await logout.focus();
+  if (!(await logout.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_logout_focus_missing");
+  await page.keyboard.press("Space");
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") !== "true");
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
     throw new Error("product_logout_storage_remains");
   }
-  report.steps.push("chrome_ax_logout_role_name_keyboard_activation");
+  report.steps.push("native_logout_role_name_focus_keyboard_activation");
 
   stage = "global_session_cleanup";
   await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
@@ -181,8 +197,15 @@ try {
       canvasCount: document.querySelectorAll("#quata-root canvas").length,
       rootChildren: document.querySelector("#quata-root")?.childElementCount ?? 0,
       shadowChildren: document.querySelector("#quata-root")?.shadowRoot?.childElementCount ?? 0,
+      nativeControls: Array.from(document.querySelector("#quata-root")?.shadowRoot?.querySelectorAll("input, button") ?? [])
+        .map(element => {
+          const rect = element.getBoundingClientRect();
+          return { tag: element.tagName, name: element.getAttribute("aria-label"), type: element.getAttribute("type"), disabled: element.disabled, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
+        }),
+      shadowText: document.querySelector("#quata-root")?.shadowRoot?.innerText?.slice(0, 2_000) ?? "",
       hash: location.hash,
     })).catch(() => ({ unavailable: true }));
+    report.browserState.diagnostics = browserDiagnostics.slice(-20);
   }
 } finally {
   if (cleanupSession && backend) {
@@ -343,33 +366,19 @@ async function readSession(page) {
     profileId: localStorage.getItem("quata_web_user_id"),
   }));
 }
+async function waitFor(predicate, failureCode, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error(failureCode);
+}
 function assertCompleteSession(session) {
   if (!session?.accessToken || !session.refreshToken || !session.webSessionToken ||
       !/^[0-9a-f-]{36}$/i.test(session.profileId ?? "")) throw new Error("product_session_incomplete");
 }
 
-async function assertLoginAccessibility(page) {
-  const phone = page.getByRole("textbox", { name: "Teléfono" });
-  const password = page.getByRole("textbox", { name: "Contraseña" });
-  const submit = page.getByRole("button", { name: "Entrar" });
-  await Promise.all([phone.waitFor(), password.waitFor(), submit.waitFor()]);
-  await phone.focus();
-  await page.keyboard.press("Tab");
-  if (!(await password.evaluate(node => node === document.activeElement))) throw new Error("ax_login_tab_focus_missing");
-}
-
-async function assertChatAccessibility(page, origin, backend) {
-  await page.goto(`${origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
-  const message = page.getByRole("textbox", { name: "Mensaje" });
-  const send = page.getByRole("button", { name: "Enviar" });
-  const logout = page.getByRole("button", { name: "Cerrar sesión" });
-  await Promise.all([message.waitFor(), send.waitFor(), logout.waitFor()]);
-  if (await send.isEnabled()) throw new Error("ax_chat_send_initial_state_changed");
-  await message.fill("mensaje AX local");
-  if (!(await send.isEnabled())) throw new Error("ax_chat_send_enabled_state_missing");
-  await send.focus();
-  await page.keyboard.press("Enter");
-}
 function sessionFromLoginPayload(body) {
   try {
     const payload = JSON.parse(body.toString("utf8"));
@@ -429,6 +438,7 @@ function safeError(error) {
     "invalid_arguments", "distribution_missing", "real_mode_opt_in_required",
     "real_mode_environment_missing", "invalid_public_supabase_url", "privileged_key_forbidden",
     "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
+    "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_logout_focus_missing",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";

@@ -10,8 +10,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -32,10 +30,6 @@ fun QuataTextField(
         modifier.height(CompactTextFieldHeight)
     } else {
         modifier
-    }.semantics {
-        // This is exposed by the Compose/Wasm accessibility bridge as the textbox name.
-        // It keeps the visual placeholder treatment unchanged on Android, iOS and Web.
-        contentDescription = label
     }
     OutlinedTextField(
         value = value,

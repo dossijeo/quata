@@ -26,7 +26,9 @@ import com.quata.core.ui.components.QuataBottomNavigation
 import com.quata.core.ui.components.QuataNavigationItem
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AddCircle
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import com.quata.feature.auth.presentation.AuthSessionShellContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
@@ -282,6 +285,9 @@ private fun QuataWebApp(
                 isLoggingOut = isLoggingOut,
                 logoutLabel = "Cerrar sesión",
                 loggingOutLabel = "Cerrando sesión...",
+                logoutButtonOverride = { label, enabled, onClick, modifier ->
+                    WebNativeButton(label, enabled, onClick, modifier.fillMaxWidth().height(48.dp))
+                },
                 onLogout = {
                     scope.launch {
                         isLoggingOut = true
