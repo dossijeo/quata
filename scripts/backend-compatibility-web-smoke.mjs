@@ -279,8 +279,14 @@ try {
     currentRoute = `post/${observedPostId}`;
     activeMediaEpoch = createMediaNavigationEpoch(currentRoute);
     const start = backendResponses.length;
-    await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
+    // Hash-only transitions retain the Wasm runtime (and can retain Skia's
+    // decoded-image cache). The detail gate needs an independent product
+    // request, so load the same local launcher as a new document with a
+    // bounded, non-sensitive cache-buster before entering the detail hash.
+    await page.goto(detailColdDocumentUrl(server.origin, observedPostId), { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
+    const detailNavigationType = await page.evaluate(() => performance.getEntriesByType("navigation").at(-1)?.type ?? null);
+    if (detailNavigationType !== "navigate") throw new Error("detail_cold_document_navigation_not_observed");
     await page.waitForFunction((id) => localStorage.getItem("web.navigation.route") === `post/${id}`, observedPostId, { timeout: 30_000 });
     await page.waitForFunction((id) => document.documentElement.getAttribute("data-quata-feed-detail") === id, observedPostId, { timeout: 30_000 });
     await page.waitForTimeout(1_000);
@@ -288,7 +294,7 @@ try {
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
     const detailExpectedMedia = activeMediaEpoch?.route === currentRoute && activeMediaEpoch.accreditedMediaUrls.size > 0;
     const detailAcceptedMedia = hasAcceptedMediaForEpoch(mediaResponses, activeMediaEpoch);
-    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadIdCorrelated: evidence.payloadPostId === observedPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
+    checks.push({ route: `post/${observedPostId}`, navigationKind: detailNavigationType, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadIdCorrelated: evidence.payloadPostId === observedPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailNavigationType === "navigate" && detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
   }
 } finally {
   await context?.close().catch(() => undefined);
@@ -335,6 +341,10 @@ function isCommunityPostsGetRequest(request) {
   } catch {
     return false;
   }
+}
+
+function detailColdDocumentUrl(origin, postId) {
+  return `${origin}/?quata_detail_cold=1#post-${encodeURIComponent(postId)}`;
 }
 
 function safeMediaFailure(route, resourceType, reason) {
