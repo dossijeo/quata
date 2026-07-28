@@ -1,5 +1,8 @@
 // Public client-runtime defaults. Deployment values belong only in the ignored
 // QuataPublicRuntime.local.xcconfig; a missing value must leave the host inert.
+// Keep URL slashes separate in local .xcconfig files: Xcode treats a literal
+// `//` as the start of a comment, including after `https:`.
+QUATA_XCCONFIG_SLASH = /
 QUATA_SUPABASE_URL =
 QUATA_SUPABASE_PUBLISHABLE_KEY =
 QUATA_IOS_REGISTRATION_API_KEY =

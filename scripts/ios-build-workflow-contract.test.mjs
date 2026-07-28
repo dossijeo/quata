@@ -33,16 +33,60 @@ function assertIosWorkflowSelfCoverage(yaml) {
   for (const trigger of [pullRequestTrigger, pushTrigger]) {
     assert.match(trigger, /- "\.github\/workflows\/ios-build\.yml"/);
     assert.match(trigger, /- "scripts\/ios-build-workflow-contract\.test\.mjs"/);
+    assert.match(trigger, /- "scripts\/ios-public-runtime-contract\.test\.mjs"/);
+    assert.match(trigger, /- "scripts\/check-ios-release-readiness\.sh"/);
   }
 
   const checkout = yaml.indexOf('      - name: Check out source');
   const contract = yaml.indexOf('      - name: Validate iOS workflow contract');
+  const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
   const compilation = yaml.indexOf('      - name: Compile all Kotlin iOS targets');
-  assert.ok(checkout >= 0 && contract > checkout && compilation > contract);
+  assert.ok(checkout >= 0 && contract > checkout && runtimeContract > contract && compilation > runtimeContract);
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
   );
+  assert.match(
+    yaml,
+    /- name: Validate iOS public runtime contract\n\s+run: node --test scripts\/ios-public-runtime-contract\.test\.mjs/,
+  );
+}
+
+function assertIosRuntimeFixtureAndUiIsolation(yaml) {
+  const fixtureProbe = yaml.indexOf('      - name: Verify Xcode resolves public runtime fixture');
+  const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
+  assert.ok(fixtureProbe >= 0 && testStep > fixtureProbe,
+    'the valid xcconfig fixture probe must remain before the isolated UI test');
+
+  const fixtureBlock = yaml.slice(fixtureProbe, testStep);
+  assert.match(fixtureBlock, /QUATA_SUPABASE_URL = https:\/\/ios-ci\\\.invalid/,
+    'the fixture probe must continue to prove Xcode resolves the valid CI URL');
+  assert.doesNotMatch(fixtureBlock, /QUATA_SUPABASE_URL=\s*\\/,
+    'the fixture probe must not be overridden into the unconfigured state');
+
+  const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
+  const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
+  assert.match(
+    invocation,
+    /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
+    'the effective xcodebuild test invocation must end with isolated runtime settings and serialized tests',
+  );
+}
+
+function effectiveContinuedCommand(block, commandStart) {
+  const lines = block.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trimStart().startsWith(commandStart));
+  assert.ok(start >= 0, 'missing command starting with ' + commandStart);
+
+  const effective = [];
+  for (let index = start; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (index > start && line.startsWith('#')) break;
+    const continued = line.endsWith('\\');
+    effective.push(continued ? line.slice(0, -1).trimEnd() : line);
+    if (!continued) break;
+  }
+  return effective.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function assertIndependentWebCoverage(yaml) {
@@ -85,17 +129,20 @@ test('iOS Java and daemon criteria contract fails closed when launcher or criter
 test('iOS workflow runs and triggers its own fail-closed contract before compilation', async () => {
   const yaml = await readFile(workflow, 'utf8');
   assertIosWorkflowSelfCoverage(yaml);
+  assertIosRuntimeFixtureAndUiIsolation(yaml);
 });
 
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
   const contractPath = '      - "scripts/ios-build-workflow-contract.test.mjs"\n';
+  const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
   const pushContractIndex = yaml.lastIndexOf(contractPath);
   const withoutPushTrigger =
     yaml.slice(0, pushContractIndex) + yaml.slice(pushContractIndex + contractPath.length);
   for (const [name, mutation] of [
     ['pull-request trigger removed', yaml.replace(contractPath, '')],
     ['push trigger removed', withoutPushTrigger],
+    ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
     [
       'contract command weakened',
       yaml.replace(
@@ -103,8 +150,30 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
         'run: node --version',
       ),
     ],
+    [
+      'public runtime contract command weakened',
+      yaml.replace(
+        'run: node --test scripts/ios-public-runtime-contract.test.mjs',
+        'run: node --version',
+      ),
+    ],
+    ['UI runtime isolation removed', yaml.replace(/QUATA_SUPABASE_URL= \\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY= \\\n/, '')],
+    [
+      'comment terminates the continued xcodebuild command',
+      yaml.replace(
+        '            CODE_SIGNING_REQUIRED=NO \\\n            -test-timeouts-enabled YES',
+        '            CODE_SIGNING_REQUIRED=NO \\\n            # misplaced continuation comment\n            -test-timeouts-enabled YES',
+      ),
+    ],
+    [
+      'runtime override loses its continuation',
+      yaml.replace('            QUATA_SUPABASE_URL= \\\n', '            QUATA_SUPABASE_URL=\n'),
+    ],
   ]) await t.test(name, () => {
-    assert.throws(() => assertIosWorkflowSelfCoverage(mutation));
+    assert.throws(() => {
+      assertIosWorkflowSelfCoverage(mutation);
+      assertIosRuntimeFixtureAndUiIsolation(mutation);
+    });
   });
 });
 

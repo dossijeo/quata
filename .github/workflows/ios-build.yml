@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
@@ -28,6 +30,8 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
@@ -62,6 +66,9 @@ jobs:
 
       - name: Validate iOS workflow contract
         run: node --test scripts/ios-build-workflow-contract.test.mjs
+
+      - name: Validate iOS public runtime contract
+        run: node --test scripts/ios-public-runtime-contract.test.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -233,7 +240,7 @@ jobs:
           set -euo pipefail
           cat > iosApp/Configuration/QuataPublicRuntime.local.xcconfig <<'EOF'
           // CI-only public fixture. It is deliberately non-routable and carries no secret.
-          QUATA_SUPABASE_URL = https://ios-ci.invalid
+          QUATA_SUPABASE_URL = https:$(QUATA_XCCONFIG_SLASH)$(QUATA_XCCONFIG_SLASH)ios-ci.invalid
           QUATA_SUPABASE_PUBLISHABLE_KEY = fixture-public-key
           QUATA_IOS_REGISTRATION_ENABLED = false
           QUATA_IOS_REGISTRATION_API_KEY =
@@ -248,6 +255,19 @@ jobs:
       - name: Generate Xcode project
         working-directory: iosApp
         run: xcodegen generate
+
+      - name: Verify Xcode resolves public runtime fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Do not pass QUATA_* overrides here: this must prove the checked-in
+          # xcconfig composition reaches Xcode's effective build settings.
+          xcodebuild \
+            -project iosApp/QuataIos.xcodeproj \
+            -scheme QuataIos \
+            -configuration Debug \
+            -showBuildSettings | tee build/reports/ios/xcodebuild-settings.log
+          grep -Eq '^[[:space:]]*QUATA_SUPABASE_URL = https://ios-ci\.invalid$' build/reports/ios/xcodebuild-settings.log
 
       - name: Build Swift iOS host
         shell: bash
@@ -336,6 +356,9 @@ jobs:
           }
           echo "Testing on the booted simulator: $simulator_udid"
           rm -rf build/reports/ios/QuataIos-tests.xcresult
+          # The fixture remains valid for the xcconfig-composition probe above.
+          # Override only the app-under-test so the UI suite exercises its
+          # deliberate unconfigured/fail-closed launcher state.
           run_watchdog 1200 build/reports/ios/xcodebuild-tests.log xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
@@ -348,10 +371,13 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
+            QUATA_SUPABASE_URL= \
+            QUATA_SUPABASE_PUBLISHABLE_KEY= \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
             test
 
       - name: Capture simulator diagnostics

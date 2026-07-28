@@ -1,0 +1,73 @@
+name: DocMentis staging evidence gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Run ID containing the separately captured, redacted staging transcript artifact
+        required: true
+        type: string
+      source_artifact_name:
+        description: Artifact name containing docmentis-staging-lifecycle.v1.json
+        required: true
+        default: docmentis-staging-lifecycle-source
+        type: string
+
+concurrency:
+  group: docmentis-staging-evidence-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate-external-evidence:
+    name: Validate external redacted lifecycle transcript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out gate source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js 20.19.0
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+
+      - name: Download externally captured staging transcript
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.source_artifact_name }}
+          path: staging-input
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail closed on absent or incomplete external evidence
+        id: gate
+        if: always()
+        continue-on-error: true
+        run: >-
+          node scripts/web-docmentis-staging-lifecycle-cli.mjs
+          --evidence staging-input/docmentis-staging-lifecycle.v1.json
+          --report staging-gate-report/docmentis-staging-lifecycle-gate-report.v1.json
+
+      - name: Upload sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmentis-staging-lifecycle-gate-${{ github.run_id }}
+          path: staging-gate-report/docmentis-staging-lifecycle-gate-report.v1.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Enforce external evidence gate
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.download.outcome }}" = "success"
+          test "${{ steps.gate.outcome }}" = "success"
