@@ -41,8 +41,9 @@ function assertWorkflowContract(yaml) {
     'scripts/web-performance-repeatability.test.mjs',
     'scripts/web-browser-smoke-cleanup.mjs',
     'scripts/web-browser-smoke-cleanup.test.mjs',
+    'scripts/run-wasm-production-observed.ps1',
     'docs/WEB_PERFORMANCE_REPEATABILITY.md',
-  ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing Chat purge gate trigger: ${path}`);
+  ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
   assert.match(yaml, /node scripts\/web-performance-repeatability\.mjs[\s\S]*?--docmentis[\s\S]*?--metrics-dir build\/reports\/web-performance-repeatability[\s\S]*?--out build\/reports\/web-performance-repeatability\.json/, 'repeatability evidence must be collected in CI');
 }
 
@@ -72,8 +73,9 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
       'scripts/web-performance-repeatability.test.mjs',
       'scripts/web-browser-smoke-cleanup.mjs',
       'scripts/web-browser-smoke-cleanup.test.mjs',
+      'scripts/run-wasm-production-observed.ps1',
       'docs/WEB_PERFORMANCE_REPEATABILITY.md',
-    ].map(path => [`missing Chat purge path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
+    ].map(path => [`missing required Web/Android PR path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
   ];
 
   for (const [name, mutation] of mutations) await t.test(name, () => {
