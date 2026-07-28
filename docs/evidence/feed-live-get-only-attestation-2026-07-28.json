@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-07-28T05:19:33Z",
+  "scope": "one credential-free public GET-only browser smoke",
+  "source": {
+    "mainCommit": "895c4fffa836dfc3744bc1db9cad4fde5d29405e",
+    "mergedFeedSourceCommit": "b7d324c416f30aecd3165358f2dbdd3fd3134a07",
+    "smokeSourceTree": "99af5bcda1fd3c001aa7f4eddec8ae2a8fd4bbaf",
+    "sourcesEquivalent": true,
+    "githubRun": "30318554854",
+    "artifact": {
+      "id": "8673317260",
+      "name": "web-wasm-pr-30318554854",
+      "sha256": "2da10c51de7ac6504ceec20484489c099a8de0b83c38bba3ae5249dc20fe7461",
+      "digestVerified": true
+    }
+  },
+  "result": {
+    "status": "passed",
+    "feed": {
+      "ownEpochMediaGet200ImageJpeg": true
+    },
+    "detail": {
+      "ownEpochMediaGet200ImageJpeg": true,
+      "fullDocumentNavigate": true
+    },
+    "turnstile": {
+      "networkRequests": 0
+    },
+    "transport": {
+      "allBackendRequestsGet2xx": true,
+      "bearerRequests": 0,
+      "blockedRequests": 0,
+      "failedRequests": 0,
+      "browserErrors": 0,
+      "writes": 0
+    }
+  },
+  "redaction": {
+    "versionedEvidenceContainsNoEndpointUrl": true,
+    "versionedEvidenceContainsNoQuery": true,
+    "versionedEvidenceContainsNoRecordIdentifier": true,
+    "versionedEvidenceContainsNoSensitivePayloadMaterial": true
+  },
+  "limitations": [
+    "This is one observation, not a production deployment or a performance guarantee.",
+    "It verifies only the public GET-only path; authenticated mutations and RLS changes are out of scope.",
+    "The disposable browser profile and process-scoped environment were removed after verification.",
+    "The GitHub artifact remains subject to its retention policy; no claim is made about deletion of a local downloaded copy.",
+    "This result is an aggregated redacted attestation. The raw live report was not retained and cannot be reproduced from the artifact, which contains the distribution and Chrome smoke outputs."
+  ]
+}
