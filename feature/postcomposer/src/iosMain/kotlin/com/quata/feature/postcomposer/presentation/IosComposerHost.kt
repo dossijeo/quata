@@ -25,7 +25,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
-import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -36,13 +36,15 @@ import platform.UIKit.UIViewController
  * iOS composition boundary for the shared Composer presentation.
  *
  * The UIKit launcher injects the existing gallery and still-photo adapters. Video recording,
- * previews, edit/export and remote publication are deliberately not synthesized here: the
- * repository reports its current capability error and the form keeps that error visible.
+ * previews use only the local temporary files produced by those adapters. Edit/export and remote
+ * publication are deliberately not synthesized here: the repository reports its current
+ * capability error and the form keeps that error visible.
  */
 class IosComposerHostDependencies(
     val repository: PostComposerRepository,
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
+    val videoThumbnails: VideoThumbnailService,
     val languageTag: String?,
     val onClose: () -> Unit,
 )
@@ -52,9 +54,10 @@ fun createIosComposerHostDependencies(
     repository: PostComposerRepository,
     filePicker: FilePickerService,
     cameraCapture: CameraCaptureService,
+    videoThumbnails: VideoThumbnailService,
     languageTag: String?,
     onClose: () -> Unit,
-): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, languageTag, onClose)
+): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, languageTag, onClose)
 
 /**
  * Explicit iOS publication boundary until the authenticated PostgREST/storage write flow has
@@ -80,9 +83,22 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var type by remember { mutableStateOf(PostComposerType.Text) }
+    var imagePreviewFile by remember { mutableStateOf<PlatformFile?>(null) }
+    var videoPreview by remember { mutableStateOf<IosComposerVideoPreview?>(null) }
+    var videoThumbnailFile by remember { mutableStateOf<PlatformFile?>(null) }
     val accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag)
     val copy = accessibility.composer
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    fun releaseVideoThumbnail() {
+        iosComposerThumbnailToRelease(videoThumbnailFile)?.let(::releaseIosComposerVideoThumbnail)
+        videoThumbnailFile = null
+        videoPreview = null
+    }
+    DisposableEffect(viewModel) {
+        onDispose {
+            iosComposerThumbnailToRelease(videoThumbnailFile)?.let(::releaseIosComposerVideoThumbnail)
+            viewModel.close()
+        }
+    }
 
     ComposerScreenLayoutContent(
         title = copy.title,
@@ -110,16 +126,23 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         scope.launch {
                             dependencies.filePicker.pick(
                                 FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
-                            ).firstReferenceOrNull()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+                            ).composerSelectedFileOrNull()?.let { file ->
+                                imagePreviewFile = file
+                                viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
+                            }
                         }
                     },
                     onCamera = {
                         scope.launch {
                             dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
-                                .referenceOrNull()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+                                .composerCapturedFileOrNull()?.let { file ->
+                                    imagePreviewFile = file
+                                    viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
+                                }
                         }
                     },
                     onPublish = { viewModel.submit(PostComposerType.Image) },
+                    previewFile = imagePreviewFile,
                     accessibility = accessibility,
                 )
                 PostComposerType.Video -> IosVideoComposerForm(
@@ -128,16 +151,28 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         scope.launch {
                             dependencies.filePicker.pick(
                                 FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
-                            ).firstReferenceOrNull()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) }
+                            ).composerSelectedFileOrNull()?.let { file ->
+                                releaseVideoThumbnail()
+                                viewModel.onEvent(CreatePostUiEvent.VideoSelected(file.reference))
+                                videoPreview = IosComposerVideoPreview.Generating
+                                videoPreview = dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview().also { result ->
+                                    videoThumbnailFile = (result as? IosComposerVideoPreview.Thumbnail)?.file
+                                }
+                            }
                         }
                     },
                     onPublish = { viewModel.submit(PostComposerType.Video) },
+                    preview = videoPreview,
                     accessibility = accessibility,
                 )
             }
             ComposerBackButtonContent(
                 label = copy.backToFeed,
-                onBack = dependencies.onClose,
+                onBack = {
+                    releaseVideoThumbnail()
+                    viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                    dependencies.onClose()
+                },
                 accessibility = accessibility,
             )
         },
@@ -186,6 +221,7 @@ private fun ColumnScope.IosImageComposerForm(
     onGallery: () -> Unit,
     onCamera: () -> Unit,
     onPublish: () -> Unit,
+    previewFile: PlatformFile?,
     accessibility: CriticalControlsAccessibilityCopy,
 ) {
     val copy = accessibility.composer
@@ -200,7 +236,9 @@ private fun ColumnScope.IosImageComposerForm(
             )
         },
         preview = {
-            ComposerEmptyPreviewContent(
+            if (previewFile != null) {
+                IosComposerLocalImagePreview(previewFile)
+            } else ComposerEmptyPreviewContent(
                 title = copy.imagePreview,
                 tag = "iOS",
                 body = state.imageUri?.let(copy.selectedImage) ?: copy.imageUnavailable,
@@ -215,6 +253,7 @@ private fun ColumnScope.IosVideoComposerForm(
     state: CreatePostUiState,
     onGallery: () -> Unit,
     onPublish: () -> Unit,
+    preview: IosComposerVideoPreview?,
     accessibility: CriticalControlsAccessibilityCopy,
 ) {
     val copy = accessibility.composer
@@ -229,22 +268,19 @@ private fun ColumnScope.IosVideoComposerForm(
             )
         },
         preview = {
-            ComposerEmptyPreviewContent(
-                title = copy.videoPreview,
-                tag = "iOS",
-                body = state.videoUri?.let(copy.selectedVideo) ?: copy.videoUnavailable,
-            )
+            when (preview) {
+                is IosComposerVideoPreview.Thumbnail -> IosComposerLocalImagePreview(preview.file)
+                IosComposerVideoPreview.Generating -> ComposerEmptyPreviewContent(
+                    title = copy.videoPreview, tag = "iOS", body = "Generating local video thumbnail…",
+                )
+                is IosComposerVideoPreview.Unavailable -> ComposerEmptyPreviewContent(
+                    title = copy.videoPreview, tag = "iOS", body = "Local video preview unavailable: ${preview.reason}",
+                )
+                null -> ComposerEmptyPreviewContent(
+                    title = copy.videoPreview, tag = "iOS", body = state.videoUri?.let(copy.selectedVideo) ?: copy.videoUnavailable,
+                )
+            }
         },
         publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, onPublish, accessibility = accessibility) },
     )
-}
-
-private fun PlatformResult<List<PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
-    is PlatformResult.Success -> value.firstOrNull()?.reference
-    is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
-}
-
-private fun PlatformResult<PlatformFile>.referenceOrNull(): String? = when (this) {
-    is PlatformResult.Success -> value.reference
-    is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
 }

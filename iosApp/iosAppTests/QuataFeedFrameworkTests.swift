@@ -772,6 +772,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
                     filePicker: services.services.filePicker,
                     cameraCapture: services.services.cameraCapture,
+                    videoThumbnails: services.services.videoThumbnails,
                     languageTag: "en-US",
                     onClose: {},
                 ),
