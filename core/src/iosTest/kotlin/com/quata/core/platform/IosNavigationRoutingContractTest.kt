@@ -54,6 +54,17 @@ class IosNavigationRoutingContractTest {
         )
     }
 
+    @Test
+    fun authenticatedChatDispatcherPropagatesConversationAndMessageTargetTogether() {
+        val host = RecordingAuthenticatedRouteHost()
+
+        IosAuthenticatedRouteDispatcher(host).open(
+            QuataDeepLinkTarget.Chat(QuataChatDeepLink("conversation-7", "message-4")),
+        )
+
+        assertEquals("conversation-7" to "message-4", host.chatTarget)
+    }
+
     private class RecordingDestinationHost : IosDeepLinkDestinationHost {
         var target: QuataDeepLinkTarget? = null
         override fun open(target: QuataDeepLinkTarget) { this.target = target }
@@ -61,8 +72,12 @@ class IosNavigationRoutingContractTest {
 
     private class RecordingAuthenticatedRouteHost : IosAuthenticatedRouteHost {
         val calls = mutableListOf<String>()
+        var chatTarget: Pair<String, String?>? = null
         override fun showFeed(postId: String?) { calls += "feed" }
-        override fun showChat(conversationId: String, messageId: String?) { calls += "chat" }
+        override fun showChat(conversationId: String, messageId: String?) {
+            calls += "chat"
+            chatTarget = conversationId to messageId
+        }
         override fun showOfficial(postId: String?) { calls += "official" }
         override fun showNotifications() { calls += "notifications" }
         override fun showProfileSos() { calls += "profileSos" }

@@ -77,6 +77,7 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    focusedMessageId: String? = null,
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
@@ -101,6 +102,7 @@ fun ChatBrowserHostContent(
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
+            focusedMessageId = focusedMessageId,
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
@@ -269,6 +271,7 @@ private fun ChatBrowserConversationDetail(
     navigationMessage: String,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    focusedMessageId: String?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
@@ -282,6 +285,21 @@ private fun ChatBrowserConversationDetail(
         )
     }
     val state by viewModel.uiState.collectAsState()
+    var deepLinkRequest by remember(conversationId, focusedMessageId) {
+        mutableStateOf(chatMessageDeepLinkRequest(focusedMessageId))
+    }
+    var historyPageRequested by remember(conversationId, focusedMessageId) { mutableStateOf(false) }
+    var pendingFocusedMessageId by remember(conversationId, focusedMessageId) { mutableStateOf<String?>(null) }
+    val resolvedDeepLinkRequest = resolveChatMessageDeepLinkRequest(
+        request = deepLinkRequest,
+        hasReceivedMessageSnapshot = state.hasReceivedMessageSnapshot,
+        messages = state.messages,
+        hasMoreHistory = state.hasMoreHistory,
+        messageLoadFailure = state.messageLoadFailure,
+    )
+    LaunchedEffect(resolvedDeepLinkRequest) {
+        if (resolvedDeepLinkRequest != deepLinkRequest) deepLinkRequest = resolvedDeepLinkRequest
+    }
     val scope = rememberCoroutineScope()
     val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
     var activeAudioReference by remember { mutableStateOf<String?>(null) }
@@ -291,6 +309,20 @@ private fun ChatBrowserConversationDetail(
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
+    LaunchedEffect(deepLinkRequest) {
+        val focused = deepLinkRequest as? ChatMessageDeepLinkRequest.Focused ?: return@LaunchedEffect
+        viewModel.onEvent(ChatUiEvent.MessageSelected(focused.messageId))
+        pendingFocusedMessageId = focused.messageId
+    }
+    LaunchedEffect(deepLinkRequest, state.isLoadingOlderMessages, historyPageRequested) {
+        if (deepLinkRequest !is ChatMessageDeepLinkRequest.LoadingOlder) return@LaunchedEffect
+        if (!historyPageRequested) {
+            historyPageRequested = viewModel.loadOlderMessages()
+        } else if (!state.isLoadingOlderMessages) {
+            historyPageRequested = false
+            deepLinkRequest = resumeChatMessageDeepLinkRequest(deepLinkRequest)
+        }
+    }
     LaunchedEffect(isRecordingAudio) {
         if (!isRecordingAudio) return@LaunchedEffect
         while (isRecordingAudio) {
@@ -323,16 +355,28 @@ private fun ChatBrowserConversationDetail(
                 Text(state.conversation?.title ?: "Conversación", style = MaterialTheme.typography.titleLarge)
                 Text(navigationMessage, style = MaterialTheme.typography.bodySmall)
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (deepLinkRequest is ChatMessageDeepLinkRequest.LoadFailed) {
+                    Button(onClick = {
+                        historyPageRequested = false
+                        pendingFocusedMessageId = null
+                        deepLinkRequest = retryChatMessageDeepLinkRequest(deepLinkRequest)
+                        viewModel.retryMessageLoading()
+                    }) { Text("Reintentar mensaje enlazado") }
+                }
             }
         }
         ChatConversationDetailContent(
             messages = state.messages,
             selectedMessageId = state.selectedMessageId,
+            focusedMessageId = pendingFocusedMessageId,
+            onFocusedMessageHandled = { pendingFocusedMessageId = null },
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
             avatar = {},
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onMessageClick = { message ->
+                deepLinkRequest = cancelChatMessageDeepLinkRequest(deepLinkRequest)
+                pendingFocusedMessageId = null
                 viewModel.onEvent(
                     ChatUiEvent.MessageSelected(
                         message.id.takeUnless { it == state.selectedMessageId },

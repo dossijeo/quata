@@ -847,8 +847,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     /// Installs the real KMP Chat host after Auth/Feed restored the Keychain-backed session.
-    /// `messageId` intentionally remains a navigation hint: the common Chat host currently
-    /// supports opening a conversation, but not scrolling to a particular message identifier.
+    /// The common Chat host receives the optional deep-link target, paging authenticated history
+    /// until it resolves or history is exhausted. A missing target keeps the conversation open.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
         let chatAttachmentConfiguration: IosChatRuntimeConfiguration? = IosPublicRuntimeConfiguration
@@ -878,7 +878,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 ),
             )
         }()
-        installChatFactory { [weak self] conversationId, _ in
+        installChatFactory { [weak self] conversationId, messageId in
             // AVAudioPlayer accepts local files only. Resolve message-controlled remote audio
             // through the authenticated Chat downloader first, so a URL can never be coerced
             // into a file path or escape the deployment/bucket allow-list.
@@ -894,6 +894,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
                 conversationId: conversationId,
+                focusedMessageId: messageId,
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
                 },

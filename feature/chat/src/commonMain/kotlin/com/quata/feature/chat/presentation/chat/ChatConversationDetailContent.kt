@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -44,10 +47,24 @@ fun ChatConversationDetailContent(
     favoriteMarker: (@Composable (Message) -> Unit)? = null,
     messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     typingIndicator: (@Composable () -> Unit)? = null,
+    /** A host-provided message target. It is ignored safely until it is present in [messages]. */
+    focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    val focusedIndex = remember(focusedMessageId, messages) {
+        focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
+    }
+    LaunchedEffect(focusedIndex) {
+        focusedIndex?.let { index ->
+            listState.scrollToItem(index)
+            onFocusedMessageHandled()
+        }
+    }
     Column(modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

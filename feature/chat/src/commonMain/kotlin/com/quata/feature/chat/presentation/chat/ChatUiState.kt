@@ -43,6 +43,10 @@ data class ChatUiState(
     val addingCandidateProfileId: String? = null,
     val participantCandidateError: String? = null,
     val isLoading: Boolean = false,
+    /** True after the authenticated repository emitted at least one message snapshot. */
+    val hasReceivedMessageSnapshot: Boolean = false,
+    /** Terminal error for the current authenticated message load; cleared only by explicit retry. */
+    val messageLoadFailure: String? = null,
     val isLoadingOlderMessages: Boolean = false,
     val hasMoreHistory: Boolean = true,
     val typingProfileIds: Set<String> = emptySet(),
