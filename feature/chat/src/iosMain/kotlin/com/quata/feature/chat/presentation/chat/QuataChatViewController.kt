@@ -22,6 +22,8 @@ class IosChatHostDependencies(
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
     val conversationId: String? = null,
+    /** Optional deep-link target; common UI resolves it only against messages already present. */
+    val focusedMessageId: String? = null,
     val navigationMessage: String = "Quata para iOS",
     /** AVFoundation records AAC in an MP4 container; Web stays on the common WebM default. */
     val audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(
@@ -52,6 +54,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 audioRecorder = dependencies.audioRecorder,
                 filePicker = dependencies.filePicker,
                 conversationId = dependencies.conversationId,
+                focusedMessageId = dependencies.focusedMessageId,
                 navigationMessage = dependencies.navigationMessage,
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,

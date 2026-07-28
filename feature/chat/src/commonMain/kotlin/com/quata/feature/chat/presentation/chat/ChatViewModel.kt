@@ -34,6 +34,7 @@ class ChatViewModel(
     private var forwardCandidateSearchJob: Job? = null
     private var forwardCandidatePageJob: Job? = null
     private var isConversationVisible = false
+    private var messageObservationJob: Job? = null
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
@@ -71,12 +72,26 @@ class ChatViewModel(
                     )
                 }
         }
+        observeMessages()
         scope.launch {
+            repository.observeParticipantCandidates()
+                .catch { emit(emptyList()) }
+                .collect { candidates ->
+                    _uiState.value = _uiState.value.copy(participantCandidates = candidates)
+                }
+        }
+    }
+
+    private fun observeMessages() {
+        messageObservationJob?.cancel()
+        messageObservationJob = scope.launch {
             repository.observeMessages(conversationId)
                 .catch { error ->
+                    val failure = error.message ?: text(ChatText.LoadMessages)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = text(ChatText.LoadMessages)
+                        error = failure,
+                        messageLoadFailure = failure,
                     )
                 }
                 .collect { messages ->
@@ -97,16 +112,13 @@ class ChatViewModel(
                             }
                     }
                     publishMessages(isLoading = false)
+                    _uiState.value = _uiState.value.copy(
+                        hasReceivedMessageSnapshot = true,
+                        messageLoadFailure = null,
+                    )
                     if (isConversationVisible && repository.isAppForeground.value) {
                         repository.markConversationRead(conversationId)
                     }
-                }
-        }
-        scope.launch {
-            repository.observeParticipantCandidates()
-                .catch { emit(emptyList()) }
-                .collect { candidates ->
-                    _uiState.value = _uiState.value.copy(participantCandidates = candidates)
                 }
         }
     }
@@ -174,14 +186,28 @@ class ChatViewModel(
         }
     }
 
-    fun loadOlderMessages() {
-        if (isFavoritesConversation || _uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreHistory) return
+    fun loadOlderMessages(): Boolean {
+        if (isFavoritesConversation || _uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreHistory) return false
+        _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
         scope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
             repository.loadOlderMessages(conversationId)
                 .onSuccess { hasMore -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, hasMoreHistory = hasMore) }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, error = error.message) }
+                .onFailure { error ->
+                    val failure = error.message ?: text(ChatText.LoadMessages)
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlderMessages = false,
+                        error = failure,
+                        messageLoadFailure = failure,
+                    )
+                }
         }
+        return true
+    }
+
+    /** Reattaches the authenticated message flow only after a user explicitly requests a retry. */
+    fun retryMessageLoading() {
+        _uiState.value = _uiState.value.copy(messageLoadFailure = null, error = null)
+        observeMessages()
     }
 
     fun retryPendingMessage(clientMessageId: String) {
@@ -824,6 +850,7 @@ class ChatViewModel(
     }
 
     fun close() {
+        messageObservationJob?.cancel()
         cleanupEmptyConversationIfNeeded()
         repository.setConversationVisible(conversationId, false)
         scope.coroutineContext.cancel()
