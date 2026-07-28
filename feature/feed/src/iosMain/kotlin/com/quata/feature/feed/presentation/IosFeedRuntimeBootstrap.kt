@@ -4,8 +4,6 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
-import com.quata.feature.feed.data.IosFeedSession
-import com.quata.feature.feed.data.IosFeedSessionProvider
 
 /**
  * Restores one real Keychain-backed Supabase session into the shared Feed host. If Keychain has
@@ -29,22 +27,22 @@ class IosFeedRuntimeBootstrap(
      */
     fun authSessionForInteractiveLogin(): IosRenewableAuthSession = authSession
 
-    fun restoredDependencies(
+    /** Public feed is always available when deployment settings are valid, even without Keychain. */
+    fun publicDependencies(
         navigationMessage: String = "Quata para iOS",
         onOpenChats: () -> Unit = {},
-    ): IosFeedHostDependencies? {
-        if (authSession.restoredSession() == null) return null
-        return iosPostgrestReadOnlyFeedHostDependencies(
+        onBackToFeed: () -> Unit = {},
+        initialPostId: String? = null,
+    ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
-            sessionProvider = IosFeedSessionProvider {
-                authSession.currentSession()?.let { session ->
-                    IosFeedSession(accessToken = session.bearerToken, userId = session.userId)
-                }
-            },
             navigationMessage = navigationMessage,
             onOpenChats = onOpenChats,
+            onBackToFeed = onBackToFeed,
+            initialPostId = initialPostId,
         )
-    }
+
+    /** Session restoration remains the gate for interactive iOS feature factories. */
+    fun hasRestoredSession(): Boolean = authSession.restoredSession() != null
 }
 
 /**

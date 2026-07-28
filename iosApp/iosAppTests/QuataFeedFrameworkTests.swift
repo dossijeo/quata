@@ -194,6 +194,42 @@ final class QuataFeedFrameworkTests: XCTestCase {
         ]))
     }
 
+    func testAnonymousRouterShowsPublicFeedButKeepsMenuAndInteractiveRoutesGated() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+
+        router.installPublicFeed { _ in publicFeed }
+
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertEqual(publicFeed.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertTrue(router.view.subviews.compactMap { $0 as? UIButton }.allSatisfy(\.isHidden))
+
+        router.showChat(conversationId: "private-chat", messageId: nil)
+        router.showNotifications()
+        router.showProfileSos()
+        router.showComposer()
+
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertEqual(router.children.count, 1)
+    }
+
+    func testAnonymousRouterAllowsPublicPostRouteWithoutSession() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        var receivedPostId: String?
+        let publicFeed = UIViewController()
+        router.installPublicFeed { postId in
+            receivedPostId = postId
+            return publicFeed
+        }
+
+        router.showFeed(postId: "public-post-9")
+
+        XCTAssertEqual(receivedPostId, "public-post-9")
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+    }
+
     func testDeepLinkDispatcherReturnsUnsupportedBeforeHostAttachmentWithoutReplayingLater() {
         let dispatcher = IosDeepLinkDispatcher()
         let host = CapturingAuthenticatedRouteHost()

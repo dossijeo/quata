@@ -14,7 +14,6 @@ import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
-import com.quata.feature.feed.data.IosFeedSessionProvider
 import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
@@ -29,6 +28,8 @@ class IosFeedHostDependencies(
     val repository: FeedRepository,
     val navigationMessage: String = "Quata para iOS",
     val onOpenChats: () -> Unit = {},
+    val onBackToFeed: () -> Unit = {},
+    val initialPostId: String? = null,
 )
 
 /**
@@ -39,10 +40,14 @@ fun iosReadOnlyFeedHostDependencies(
     readRepository: FeedReadRepository,
     navigationMessage: String = "Quata para iOS",
     onOpenChats: () -> Unit = {},
+    onBackToFeed: () -> Unit = {},
+    initialPostId: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
     navigationMessage = navigationMessage,
     onOpenChats = onOpenChats,
+    onBackToFeed = onBackToFeed,
+    initialPostId = initialPostId,
 )
 
 /**
@@ -50,15 +55,18 @@ fun iosReadOnlyFeedHostDependencies(
  * deployment configuration and a provider that refreshes/returns the current user session; no
  * token, URL or sample repository is retained by this module.
  */
-fun iosPostgrestReadOnlyFeedHostDependencies(
+fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
-    sessionProvider: IosFeedSessionProvider,
     navigationMessage: String = "Quata para iOS",
     onOpenChats: () -> Unit = {},
+    onBackToFeed: () -> Unit = {},
+    initialPostId: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
-    readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration, sessionProvider)),
+    readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
     navigationMessage = navigationMessage,
     onOpenChats = onOpenChats,
+    onBackToFeed = onBackToFeed,
+    initialPostId = initialPostId,
 )
 
 /**
@@ -68,7 +76,15 @@ fun iosPostgrestReadOnlyFeedHostDependencies(
  */
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
-        FeedBrowserHostContent(
+        dependencies.initialPostId?.takeIf(String::isNotBlank)?.let { postId ->
+            FeedPostDetailHostContent(
+                repository = dependencies.repository,
+                postId = postId,
+                navigationMessage = dependencies.navigationMessage,
+                strings = IosFeedHostStrings,
+                onBackToFeed = dependencies.onBackToFeed,
+            )
+        } ?: FeedBrowserHostContent(
             repository = dependencies.repository,
             navigationMessage = dependencies.navigationMessage,
             strings = IosFeedHostStrings,
