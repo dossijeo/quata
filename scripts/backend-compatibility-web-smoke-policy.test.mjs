@@ -4,6 +4,11 @@ import {
   expectedLocalStub,
   inspectAccreditedPublicMediaResponse,
   isPublicStorageMediaRequest,
+  publicStorageFetchHeaders,
+  createMediaNavigationEpoch,
+  openMediaAccreditationGate,
+  settleMediaAccreditation,
+  waitForMediaAccreditation,
   isMediaAccreditationRoute,
   TURNSTILE_BOOTSTRAP_URL,
 } from "./backend-compatibility-web-smoke-policy.mjs";
@@ -62,6 +67,39 @@ test("only same-origin public Storage image/video requests may be response-fetch
     { url: "https://evil.example/storage/v1/object/public/community-media/post-7.png", resourceType: "image" },
     { url: `${base}/rest/v1/community_posts`, resourceType: "image" },
   ]) assert.equal(isPublicStorageMediaRequest(request, base), false);
+});
+
+test("Storage response fetch sends only a bounded public Accept header", () => {
+  assert.deepEqual(publicStorageFetchHeaders({
+    accept: "image/avif,image/webp,*/*", apikey: "public", authorization: "Bearer x", cookie: "sid=x",
+  }), { accept: "image/avif,image/webp,*/*" });
+  assert.deepEqual(publicStorageFetchHeaders({ accept: "bad\nheader", cookie: "sid=x" }), { accept: "*/*" });
+});
+
+test("media-before-response waits only for the same navigation epoch", async () => {
+  const feed = createMediaNavigationEpoch("feed");
+  openMediaAccreditationGate(feed);
+  const waiting = waitForMediaAccreditation(feed, 100);
+  settleMediaAccreditation(feed, [image]);
+  assert.deepEqual([...await waiting], [image]);
+
+  const communities = createMediaNavigationEpoch("communities");
+  openMediaAccreditationGate(communities);
+  settleMediaAccreditation(communities, []);
+  assert.deepEqual([...await waitForMediaAccreditation(communities, 1)], []);
+  assert.equal(feed.accreditedMediaUrls.has(image), true);
+  assert.equal(communities.accreditedMediaUrls.has(image), false, "feed accreditation cannot leak into the next navigation");
+});
+
+test("unsettled, invalid or missing REST accreditation fails closed", async () => {
+  const pending = createMediaNavigationEpoch("feed");
+  openMediaAccreditationGate(pending);
+  assert.equal(await waitForMediaAccreditation(pending, 1), null, "bounded wait times out");
+  const invalid = createMediaNavigationEpoch("post/post-7");
+  openMediaAccreditationGate(invalid);
+  settleMediaAccreditation(invalid, []);
+  assert.deepEqual([...await waitForMediaAccreditation(invalid, 1)], [], "invalid JSON/non-2xx produces no accreditation");
+  assert.equal(await waitForMediaAccreditation(createMediaNavigationEpoch("feed"), 1), null, "no admitted REST gate cannot authorize media");
 });
 
 test("public Storage media is accredited only for its exact feed/detail route", () => {

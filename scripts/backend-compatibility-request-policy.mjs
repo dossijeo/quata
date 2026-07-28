@@ -16,8 +16,9 @@ export function inspectBackendRequest({
   // Do this before the origin allowance.  A credentialed request must never
   // become acceptable merely because it points at a non-Supabase origin.
   const isSupabase = requestUrl.origin === base.origin;
+  const isStorageObject = isPublicStorageObject(requestUrl, url);
   if (hasUserInfo(requestUrl) || hasUnsafeUrlEncoding(url, requestUrl) ||
-      hasCredentials(headers, requestUrl, url, { allowPublishableApiKey: isSupabase })) {
+      hasCredentials(headers, requestUrl, url, { allowPublishableApiKey: isSupabase && !isStorageObject })) {
     return denied(isSupabase ? 'supabase_credentials_forbidden' : 'credentials_forbidden');
   }
 
@@ -33,7 +34,7 @@ export function inspectBackendRequest({
   if (isApplication) return allowed();
 
   if (String(method ?? '').toUpperCase() !== 'GET') return denied('supabase_method_forbidden');
-  if (isPublicStorageObject(requestUrl, url)) {
+  if (isStorageObject) {
     if (!isAllowedMediaType(resourceType)) return denied('supabase_storage_resource_type_forbidden');
     if (!hasExactAccreditedMediaUrl(requestUrl, accreditedMediaUrls)) return denied('supabase_storage_url_not_accredited');
     return allowed();

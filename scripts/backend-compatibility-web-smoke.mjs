@@ -12,6 +12,11 @@ import {
   inspectAccreditedPublicMediaResponse,
   isMediaAccreditationRoute,
   isPublicStorageMediaRequest,
+  publicStorageFetchHeaders,
+  createMediaNavigationEpoch,
+  openMediaAccreditationGate,
+  settleMediaAccreditation,
+  waitForMediaAccreditation,
 } from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -40,10 +45,12 @@ const mediaResponses = [];
 // must not be copied into CI output.  It starts empty, so a media race fails
 // closed until a successful feed/detail response accredits that exact URL for
 // the same navigation route.
-const accreditedMediaByRoute = new Map();
+const requestMediaEpochs = new WeakMap();
+const mediaOutcomeRecorded = new WeakSet();
 let observedPostId = null;
 let context;
 let currentRoute = "<unknown>";
+let activeMediaEpoch = null;
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath: chrome,
@@ -72,7 +79,10 @@ try {
     return diagnostic;
   };
   page.on("pageerror", (error) => browserErrors.push(error.message));
-  page.on("request", recordRequest);
+  page.on("request", (request) => {
+    recordRequest(request);
+    requestMediaEpochs.set(request, activeMediaEpoch);
+  });
   page.on("response", async (response) => {
     const responseRequest = response.request();
     const requestRoute = recordRequest(responseRequest).route;
@@ -105,7 +115,8 @@ try {
       // Unknown provenance is not enough to accredit a Storage object.
       serviceWorker = true;
     }
-    const accredited = isMediaAccreditationRoute(requestRoute)
+    const epoch = requestMediaEpochs.get(responseRequest);
+    const accredited = epoch?.route === requestRoute && isMediaAccreditationRoute(requestRoute)
       ? accreditPublicMediaUrlsFromResponse({
         url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(), headers,
         status: response.status(), contentType: response.headers()["content-type"], resourceType: responseRequest.resourceType(),
@@ -114,17 +125,21 @@ try {
         payload,
       }, baseUrl)
       : [];
-    if (accredited.length > 0) {
-      const routeMedia = accreditedMediaByRoute.get(requestRoute) ?? new Set();
-      for (const mediaUrl of accredited) {
-        routeMedia.add(mediaUrl);
-      }
-      accreditedMediaByRoute.set(requestRoute, routeMedia);
+    if (epoch && epoch.route === requestRoute && match[1] === "community_posts" && responseRequest.method() === "GET") {
+      settleMediaAccreditation(epoch, accredited);
     }
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (match) failedBackendRequests.push({ table: match[1], reason: request.failure()?.errorText ?? "unknown" });
+    const epoch = requestMediaEpochs.get(request);
+    if (epoch && isCommunityPostsGetRequest(request) && epoch.gate) settleMediaAccreditation(epoch, []);
+    if (epoch && isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl) && !mediaOutcomeRecorded.has(request)) {
+      // Browser failure strings can contain a path/query, so the report uses
+      // a stable category only. This preserves failure evidence safely.
+      mediaResponses.push(safeMediaFailure(epoch.route, request.resourceType(), "browser_request_failed"));
+      mediaOutcomeRecorded.add(request);
+    }
   });
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -139,16 +154,32 @@ try {
         body: "globalThis.turnstile = globalThis.turnstile ?? {};",
       });
     }
+    const requestEpoch = requestMediaEpochs.get(request);
     const redirectedFrom = request.redirectedFrom();
-    const decision = inspectBackendRequest({
+    let decision = inspectBackendRequest({
       url: request.url(),
       method: request.method(),
       headers: request.headers(),
       resourceType: request.resourceType(),
-      accreditedMediaUrls: accreditedMediaByRoute.get(currentRoute),
+      accreditedMediaUrls: requestEpoch?.accreditedMediaUrls,
       redirectedFromUrl: redirectedFrom?.url(),
       applicationOrigin: server.origin,
     }, baseUrl);
+    // The gate is created only after the exact community_posts GET itself has
+    // passed the ordinary request policy. It is not an origin or URL allowlist.
+    if (decision.allowed && requestEpoch && requestEpoch.route === recordRequest(request).route && isCommunityPostsGetRequest(request)) {
+      openMediaAccreditationGate(requestEpoch);
+    }
+    const publicStorageCandidate = isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl);
+    if (publicStorageCandidate && !decision.allowed && decision.reason === "supabase_storage_url_not_accredited") {
+      const accredited = await waitForMediaAccreditation(requestEpoch);
+      decision = inspectBackendRequest({
+        url: request.url(), method: request.method(), headers: request.headers(),
+        resourceType: request.resourceType(), accreditedMediaUrls: accredited,
+        redirectedFromUrl: redirectedFrom?.url(), applicationOrigin: server.origin,
+      }, baseUrl);
+      if (!decision.allowed && !accredited) decision = { allowed: false, reason: "media_accreditation_timeout" };
+    }
     requestDecisions.set(request, decision);
     if (!decision.allowed) {
       blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
@@ -160,28 +191,29 @@ try {
     // response, then fulfil the original browser request with those same
     // bytes. This adds no URL, credential, or origin allowance and never
     // accepts a request merely because it was observed.
-    if (isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl)) {
+    if (publicStorageCandidate) {
       const requestRoute = recordRequest(request).route;
       try {
-        const storageResponse = await route.fetch({ maxRedirects: 0 });
+        const storageResponse = await route.fetch({
+          maxRedirects: 0,
+          headers: publicStorageFetchHeaders(request.headers()),
+        });
         const mediaResponse = inspectAccreditedPublicMediaResponse({
           url: storageResponse.url(), requestUrl: request.url(), method: request.method(),
           status: storageResponse.status(), contentType: storageResponse.headers()["content-type"],
           resourceType: request.resourceType(), requestAllowed: decision.allowed,
           route: requestRoute,
-          accreditedMediaUrls: accreditedMediaByRoute.get(requestRoute),
+          accreditedMediaUrls: requestEpoch?.accreditedMediaUrls,
         });
         mediaResponses.push({ route: requestRoute, ...mediaResponse });
+        mediaOutcomeRecorded.add(request);
         if (!mediaResponse.accepted) return route.abort("blockedbyclient");
         return route.fulfill({ response: storageResponse });
       } catch {
         // Do not print a transport error because it can contain a Storage
         // object path or signed query. The invariant is still explicit.
-        mediaResponses.push({
-          route: requestRoute, kind: "publicMedia", requestCorrelated: false,
-          status: null, contentType: "<other>", resourceType: request.resourceType(),
-          accepted: false, reason: "response_fetch_failed",
-        });
+        mediaResponses.push(safeMediaFailure(requestRoute, request.resourceType(), "response_fetch_failed"));
+        mediaOutcomeRecorded.add(request);
         return route.abort("blockedbyclient");
       }
     }
@@ -195,6 +227,7 @@ try {
   });
   for (const route of routes) {
     currentRoute = route;
+    activeMediaEpoch = createMediaNavigationEpoch(route);
     const backendEventStart = backendResponses.length;
     await page.goto(`${server.origin}/#${route}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
@@ -223,7 +256,7 @@ try {
     const unsafeBackend = observedBackend.filter((response) =>
       response.method !== "GET" || !response.hasApiKey || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
-    const expectedMedia = (accreditedMediaByRoute.get(route)?.size ?? 0) > 0;
+    const expectedMedia = activeMediaEpoch?.route === route && activeMediaEpoch.accreditedMediaUrls.size > 0;
     const acceptedMedia = mediaResponses.some((response) => response.route === route && response.accepted);
     checks.push({
       route,
@@ -241,6 +274,7 @@ try {
     checks.push({ route: "post/<id>", passed: false, reason: "public_post_id_not_observed" });
   } else {
     currentRoute = `post/${observedPostId}`;
+    activeMediaEpoch = createMediaNavigationEpoch(currentRoute);
     const start = backendResponses.length;
     await page.goto(`${server.origin}/#post-${observedPostId}`, { waitUntil: "domcontentloaded" });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
@@ -249,9 +283,9 @@ try {
     await page.waitForTimeout(1_000);
     const detailResponses = backendResponses.slice(start);
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
-    const detailExpectedMedia = (accreditedMediaByRoute.get(currentRoute)?.size ?? 0) > 0;
+    const detailExpectedMedia = activeMediaEpoch?.route === currentRoute && activeMediaEpoch.accreditedMediaUrls.size > 0;
     const detailAcceptedMedia = mediaResponses.some((response) => response.route === currentRoute && response.accepted);
-    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadPostId: evidence.payloadPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
+    checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadIdCorrelated: evidence.payloadPostId === observedPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
   }
 } finally {
   await context?.close().catch(() => undefined);
@@ -282,15 +316,32 @@ const report = {
     networkRequestCount: 0,
   },
   mediaResponses,
-  detail: { observedPostId, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
+  detail: { observedPostObserved: observedPostId != null, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
   // query is intentionally retained only in process memory to accredit the
   // detail request.  It is never emitted because reports must be safe even
   // when a browser sends unexpected user data in a query string.
-  backendResponses: backendResponses.map(({ query, ...response }) => response),
+  backendResponses: backendResponses.map(({ query, payloadPostId, ...response }) => response),
   mutationPolicy: "Only credential-free public GET responses are accepted; every other Supabase method or credential fails the smoke. The disposable browser profile is removed.",
 };
 console.log(JSON.stringify(report, null, 2));
 process.exitCode = report.status === "passed" ? 0 : 1;
+
+function isCommunityPostsGetRequest(request) {
+  try {
+    return request.method() === "GET" && new URL(request.url()).pathname === "/rest/v1/community_posts";
+  } catch {
+    return false;
+  }
+}
+
+function safeMediaFailure(route, resourceType, reason) {
+  return {
+    route: isMediaAccreditationRoute(route) ? route : "<unknown>",
+    kind: "publicMedia", requestCorrelated: false, status: null,
+    contentType: "<other>", resourceType: ["image", "media"].includes(resourceType) ? resourceType : "other",
+    accepted: false, reason,
+  };
+}
 
 function parseArguments(args) {
   const parsed = {};

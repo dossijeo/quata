@@ -5,6 +5,8 @@
  * The Turnstile resource is fulfilled by Playwright before Chromium can issue
  * a network request; the Storage response helper never exposes object URLs.
  */
+import { setTimeout as delay } from "node:timers/promises";
+
 export const TURNSTILE_BOOTSTRAP_URL =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
@@ -22,6 +24,14 @@ export function isPublicStorageMediaRequest({ url, resourceType }, supabaseBaseU
   return request != null && base != null && request.origin === base.origin &&
     /^(?:image|media)$/.test(String(resourceType ?? "").toLowerCase()) &&
     /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(request.pathname);
+}
+
+/** The upstream verification fetch must never inherit page credentials. */
+export function publicStorageFetchHeaders(headers) {
+  const accept = typeof headers?.accept === "string" && /^[\x20-\x7e]{1,256}$/.test(headers.accept)
+    ? headers.accept
+    : "*/*";
+  return { accept };
 }
 
 /**
@@ -62,6 +72,32 @@ export function inspectAccreditedPublicMediaResponse({
 
 export function isMediaAccreditationRoute(route) {
   return route === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(String(route ?? ""));
+}
+
+export function createMediaNavigationEpoch(route) {
+  return { route, gate: null, accreditedMediaUrls: new Set() };
+}
+
+export function openMediaAccreditationGate(epoch) {
+  if (!epoch) return null;
+  if (epoch?.gate) return epoch.gate;
+  let resolve;
+  const gate = { settled: false, promise: new Promise((done) => { resolve = done; }), resolve };
+  epoch.gate = gate;
+  return gate;
+}
+
+export function settleMediaAccreditation(epoch, urls) {
+  const gate = epoch?.gate;
+  if (!gate || gate.settled) return;
+  for (const url of urls) epoch.accreditedMediaUrls.add(url);
+  gate.settled = true;
+  gate.resolve(epoch.accreditedMediaUrls);
+}
+
+export async function waitForMediaAccreditation(epoch, timeoutMs = 5_000) {
+  if (!epoch?.gate || epoch.gate.settled) return epoch?.gate?.settled ? epoch.accreditedMediaUrls : null;
+  return Promise.race([epoch.gate.promise, delay(timeoutMs).then(() => null)]);
 }
 
 function denied(base, reason) { return { ...base, accepted: false, reason }; }
