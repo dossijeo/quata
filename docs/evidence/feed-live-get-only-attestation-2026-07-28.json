@@ -45,6 +45,8 @@
   "limitations": [
     "This is one observation, not a production deployment or a performance guarantee.",
     "It verifies only the public GET-only path; authenticated mutations and RLS changes are out of scope.",
-    "The artifact and transient browser profile were removed after verification."
+    "The disposable browser profile and process-scoped environment were removed after verification.",
+    "The GitHub artifact remains subject to its retention policy; no claim is made about deletion of a local downloaded copy.",
+    "This result is an aggregated redacted attestation. The raw live report was not retained and cannot be reproduced from the artifact, which contains the distribution and Chrome smoke outputs."
   ]
 }
