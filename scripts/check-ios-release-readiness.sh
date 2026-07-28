@@ -87,6 +87,9 @@ inbox_source = (root / "feature/externalshare/src/iosMain/kotlin/com/quata/featu
 require("NSFileTypeRegular" in inbox_source and "NSFileTypeDirectory" in inbox_source and
         "manifest.json" in inbox_source and "URLByResolvingSymlinksInPath" in inbox_source,
         "iOS inbox must reject symlinked queue nodes/manifests and validate canonical App Group containment")
+require("ensureVerifiedChildDirectory" in inbox_source and "createDirectoryAtPath(childPath, false" in inbox_source and
+        "removeVerifiedQueueNode" in inbox_source,
+        "iOS inbox must verify every App Group queue component before creation and purge invalid nodes")
 
 if mode == "signed-release":
     required = (

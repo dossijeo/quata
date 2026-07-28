@@ -103,6 +103,13 @@ class ExternalShareQueuePolicyTest {
             false,
             isCanonicalExternalSharePathWithinClaim("/group", "/private/manifest.json"),
         )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim(
+                "/group/ExternalShares/processing/claim-1",
+                "/group/ExternalShares/processing/claim-10/manifest.json",
+            ),
+        )
     }
 
     @Test

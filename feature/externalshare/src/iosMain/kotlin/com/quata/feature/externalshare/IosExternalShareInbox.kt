@@ -47,17 +47,12 @@ class IosExternalShareInbox(
         val root = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)
             ?: return@withClaimLock null
         val rootPath = root.path ?: return@withClaimLock null
-        val canonicalRootPath = canonicalPath(rootPath) ?: return@withClaimLock null
-        val externalSharesPath = "$canonicalRootPath/ExternalShares"
-        val pendingPath = "$externalSharesPath/pending"
-        val processingPath = "$externalSharesPath/processing"
-        fileManager.createDirectoryAtPath(pendingPath, true, null, null)
-        fileManager.createDirectoryAtPath(processingPath, true, null, null)
-        val canonicalExternalSharesPath = canonicalDirectoryPath(canonicalRootPath, externalSharesPath)
+        val canonicalRootPath = verifiedAppGroupRootPath(rootPath) ?: return@withClaimLock null
+        val canonicalExternalSharesPath = ensureVerifiedChildDirectory(canonicalRootPath, "ExternalShares")
             ?: return@withClaimLock null
-        val canonicalPendingPath = canonicalDirectoryPath(canonicalExternalSharesPath, pendingPath)
+        val canonicalPendingPath = ensureVerifiedChildDirectory(canonicalExternalSharesPath, "pending")
             ?: return@withClaimLock null
-        val canonicalProcessingPath = canonicalDirectoryPath(canonicalExternalSharesPath, processingPath)
+        val canonicalProcessingPath = ensureVerifiedChildDirectory(canonicalExternalSharesPath, "processing")
             ?: return@withClaimLock null
 
         val now = nowEpochMillis()
@@ -78,7 +73,10 @@ class IosExternalShareInbox(
         // process can observe the candidate, but only one move from the exact source can win.
         if (!fileManager.moveItemAtPath(sourcePath, processingClaimPath, null)) return@withClaimLock null
         val canonicalProcessingClaimPath = canonicalDirectoryPath(canonicalRootPath, processingClaimPath)
-            ?: return@withClaimLock null
+            ?: run {
+                removeVerifiedQueueNode(canonicalProcessingPath, claimedDirectoryName)
+                return@withClaimLock null
+            }
 
         val persisted = readManifest(canonicalRootPath, canonicalProcessingClaimPath, id)
         val result = persisted?.let { manifest ->
@@ -95,7 +93,8 @@ class IosExternalShareInbox(
             PersistedExternalShareResult.Invalid,
             PersistedExternalShareResult.TooManyFiles,
             PersistedExternalShareResult.Unsupported -> {
-                discardLocked(id, claimedDirectoryName)
+                removeVerifiedQueueNode(canonicalProcessingPath, claimedDirectoryName)
+                activeClaimIds -= id
                 null
             }
         }
@@ -111,7 +110,7 @@ class IosExternalShareInbox(
         if (parsed?.id != id) return
         activeClaimIds -= id
         val rootPath = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)?.path ?: return
-        val canonicalRootPath = canonicalPath(rootPath) ?: return
+        val canonicalRootPath = verifiedAppGroupRootPath(rootPath) ?: return
         val externalSharesPath = canonicalDirectoryPath(canonicalRootPath, "$canonicalRootPath/ExternalShares") ?: return
         val processingPath = canonicalDirectoryPath(externalSharesPath, "$externalSharesPath/processing") ?: return
         val processingClaimPath = canonicalDirectoryPath(canonicalRootPath, "$processingPath/$processingDirectoryName") ?: return
@@ -126,9 +125,15 @@ class IosExternalShareInbox(
         processingPath: String,
     ): List<ExternalShareQueueEntry> {
         val pending = directoryNames(pendingPath).mapNotNull { directoryName ->
-            if (!isSafeExternalShareId(directoryName)) return@mapNotNull null
+            if (!isSafeExternalShareId(directoryName)) {
+                removeVerifiedQueueNode(pendingPath, directoryName)
+                return@mapNotNull null
+            }
             val manifest = readManifest(canonicalRootPath, "$pendingPath/$directoryName", directoryName)
-                ?: return@mapNotNull null
+                ?: run {
+                    removeVerifiedQueueNode(pendingPath, directoryName)
+                    return@mapNotNull null
+                }
             ExternalShareQueueEntry(
                 id = directoryName,
                 directoryName = directoryName,
@@ -138,9 +143,15 @@ class IosExternalShareInbox(
         }
         val processing = directoryNames(processingPath).mapNotNull { directoryName ->
             val parsed = parseExternalShareClaimDirectoryName(directoryName)
-            val id = parsed?.id ?: directoryName.takeIf(::isSafeExternalShareId) ?: return@mapNotNull null
+            val id = parsed?.id ?: directoryName.takeIf(::isSafeExternalShareId) ?: run {
+                removeVerifiedQueueNode(processingPath, directoryName)
+                return@mapNotNull null
+            }
             val manifest = readManifest(canonicalRootPath, "$processingPath/$directoryName", id)
-                ?: return@mapNotNull null
+                ?: run {
+                    removeVerifiedQueueNode(processingPath, directoryName)
+                    return@mapNotNull null
+                }
             ExternalShareQueueEntry(
                 id = id,
                 directoryName = directoryName,
@@ -175,6 +186,7 @@ class IosExternalShareInbox(
         if (attributes[NSFileType] != NSFileTypeRegular) return null
         val canonicalManifestPath = canonicalPath(manifestPath) ?: return null
         if (!isCanonicalExternalSharePathWithinClaim(canonicalRootPath, canonicalManifestPath)) return null
+        if (!isCanonicalExternalSharePathWithinClaim(canonicalClaimPath, canonicalManifestPath)) return null
         val data = fileManager.contentsAtPath(canonicalManifestPath) ?: return null
         val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *> ?: return null
         val id = root["id"] as? String ?: return null
@@ -222,6 +234,28 @@ class IosExternalShareInbox(
         if (attributes[NSFileType] != NSFileTypeDirectory) return null
         val canonicalPath = canonicalPath(path) ?: return null
         return canonicalPath.takeIf { isCanonicalExternalSharePathWithinClaim(canonicalRootPath, it) }
+    }
+
+    /** Validates an existing direct child before use, or creates exactly that one child then validates it. */
+    private fun ensureVerifiedChildDirectory(canonicalParentPath: String, name: String): String? {
+        if (name.isEmpty() || name.contains('/') || name.contains('\\')) return null
+        val childPath = "$canonicalParentPath/$name"
+        if (!fileManager.fileExistsAtPath(childPath)) {
+            if (!fileManager.createDirectoryAtPath(childPath, false, null, null)) return null
+        }
+        return canonicalDirectoryPath(canonicalParentPath, childPath)
+    }
+
+    private fun verifiedAppGroupRootPath(rootPath: String): String? {
+        val attributes = fileManager.attributesOfItemAtPath(rootPath, null) ?: return null
+        if (attributes[NSFileType] != NSFileTypeDirectory) return null
+        return canonicalPath(rootPath)
+    }
+
+    /** Parent was verified first. Removing a symlink removes the link itself, never its target. */
+    private fun removeVerifiedQueueNode(canonicalParentPath: String, name: String) {
+        if (name.isEmpty() || name == "." || name == ".." || name.contains('/') || name.contains('\\')) return
+        fileManager.removeItemAtPath("$canonicalParentPath/$name", null)
     }
 }
 
