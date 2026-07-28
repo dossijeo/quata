@@ -718,8 +718,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case releaseHistory
 
         var isAuthenticationRequired: Bool {
-            if case .feed = self { return false }
-            return true
+            switch self {
+            case .feed, .whatsNew, .releaseHistory:
+                return false
+            case .chat, .official, .notifications, .profileSos, .communities, .composer, .settings:
+                return true
+            }
         }
     }
 

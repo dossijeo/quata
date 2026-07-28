@@ -219,6 +219,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
     }
 
+    func testAnonymousRouterAllowsLocalWhatsNewAndReleaseHistoryWithoutSession() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let whatsNew = UIViewController()
+        let releaseHistory = UIViewController()
+        router.installWhatsNewFactory { whatsNew }
+        router.installReleaseHistoryFactory { releaseHistory }
+
+        router.showWhatsNew()
+
+        XCTAssertTrue(router.children.contains { $0 === whatsNew })
+        XCTAssertEqual(whatsNew.view.accessibilityIdentifier, "quata-ios-whats-new-host")
+
+        router.showReleaseHistory()
+
+        XCTAssertTrue(router.children.contains { $0 === releaseHistory })
+        XCTAssertEqual(releaseHistory.view.accessibilityIdentifier, "quata-ios-release-history-host")
+        XCTAssertEqual(router.children.count, 1)
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
