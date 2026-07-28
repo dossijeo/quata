@@ -249,6 +249,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertTrue(router.children.contains { $0 === chat })
         XCTAssertEqual(chat.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-feed-host" })
         XCTAssertEqual(router.children.count, 1)
     }
 

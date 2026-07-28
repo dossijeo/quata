@@ -767,10 +767,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         hasAuthenticatedSession = true
         hasPublicFeed = false
         routeMenuButton.isHidden = false
+        let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
-        if pendingRoute == nil {
+        if !hadPendingRoute {
             showFeed(postId: nil)
-        } else if let feedController = feedFactory?(nil) {
+        } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
             // pending identifier while returning the authenticated user to the real Feed surface.
             showRouteController(feedController, route: .feed(postId: nil))
