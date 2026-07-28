@@ -50,8 +50,16 @@ async function main() {
         throw new Error(`Repeatability evidence is malformed (${cause}).`);
     }
 
+    const evidence = createRepeatabilityEvidence(options, reports);
+    validateRepeatabilityEvidence(evidence);
+    await mkdir(dirname(options.output), { recursive: true });
+    await writeFile(options.output, `${JSON.stringify(evidence, null, 2)}\n`);
+    process.stdout.write(`${reporter.stdout}${formatCompletionOutput(options.output)}\n`);
+}
+
+export function createRepeatabilityEvidence(options, reports) {
     const first = reports[0].report;
-    const evidence = {
+    return {
         schemaVersion: 1,
         status: 'passed',
         generatedAt: new Date().toISOString(),
@@ -61,13 +69,13 @@ async function main() {
             smokeScript: relativeRepositoryPath(options.smokeScript),
             metricsReporter: relativeRepositoryPath(options.metricsReporter),
             distribution: relativeRepositoryPath(options.distribution),
-            chrome: options.chrome,
             docmentis: options.docmentis,
             coldProfile: true,
         },
         identity: {
             revision: first.revision,
             distributionFingerprintSha256: first.distributionFingerprintSha256,
+            // The browser product comes from the smoke report; never persist the local launcher path.
             chrome: first.browser?.product,
             node: first.environment?.node,
             environment: first.environment,
@@ -80,10 +88,10 @@ async function main() {
         })),
         advisory: 'No timing or memory variation threshold is enforced until a controlled baseline is approved.',
     };
-    validateRepeatabilityEvidence(evidence);
-    await mkdir(dirname(options.output), { recursive: true });
-    await writeFile(options.output, `${JSON.stringify(evidence, null, 2)}\n`);
-    process.stdout.write(`${reporter.stdout}${JSON.stringify({ repeatabilityEvidence: relativeRepositoryPath(options.output), iterations }, null, 2)}\n`);
+}
+
+export function formatCompletionOutput(output) {
+    return JSON.stringify({ repeatabilityEvidence: relativeRepositoryPath(output), iterations }, null, 2);
 }
 
 function parseArguments(arguments_) {
@@ -125,10 +133,9 @@ export function validateRepeatabilityEvidence(evidence) {
         !isRepositoryRelativePath(evidence.configuration?.smokeScript) ||
         !isRepositoryRelativePath(evidence.configuration?.metricsReporter) ||
         !isRepositoryRelativePath(evidence.configuration?.distribution) ||
-        typeof evidence.configuration?.chrome !== 'string' ||
-        evidence.configuration.chrome.length === 0
+        Object.hasOwn(evidence.configuration ?? {}, 'chrome')
     ) {
-        throw new Error('Repeatability evidence must record the Node, Chrome, distribution, and cold-profile configuration.');
+        throw new Error('Repeatability evidence must record the Node, distribution, and cold-profile configuration without retaining a Chrome launcher path.');
     }
     if (!/^[0-9a-f]{40,64}$/i.test(evidence.identity?.revision ?? '') || !/^[0-9a-f]{64}$/i.test(evidence.identity?.distributionFingerprintSha256 ?? '') || !evidence.identity?.chrome || !evidence.identity?.node) {
         throw new Error('Repeatability evidence must identify the revision, distribution, Chrome, and Node.');

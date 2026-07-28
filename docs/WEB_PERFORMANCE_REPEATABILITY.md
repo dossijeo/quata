@@ -4,7 +4,9 @@ La evidencia de rendimiento Web ejecuta tres arranques de Chrome con perfiles
 desechables sobre la misma distribución Wasm ya construida. Cada arranque usa el
 smoke existente y conserva su propia métrica; el manifiesto de la serie registra
 el SHA fuente, huella de la distribución, Chrome, Node, entorno, configuración y
-las tres iteraciones.
+las tres iteraciones. La ruta local usada para lanzar Chrome no se escribe en el
+manifiesto ni en la salida: la identidad conserva solo el producto/version de
+Chrome que informa el smoke.
 
 ```powershell
 node .\scripts\web-performance-repeatability.mjs `

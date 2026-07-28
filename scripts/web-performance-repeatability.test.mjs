@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateRepeatabilityEvidence } from './web-performance-repeatability.mjs';
+import { createRepeatabilityEvidence, formatCompletionOutput, validateRepeatabilityEvidence } from './web-performance-repeatability.mjs';
 
 function evidence() {
     return {
@@ -11,7 +11,6 @@ function evidence() {
             node: 'v22.0.0',
             coldProfile: true,
             docmentis: true,
-            chrome: 'Chrome.exe',
             smokeScript: 'scripts/web-browser-smoke.mjs',
             metricsReporter: 'scripts/web-browser-metrics.mjs',
             distribution: 'web/build/dist/wasmJs/productionExecutable',
@@ -44,4 +43,36 @@ test('rejects absent, malformed, or repeated iteration evidence', () => {
     const malformed = evidence();
     malformed.identity.distributionFingerprintSha256 = 'not-a-hash';
     assert.throws(() => validateRepeatabilityEvidence(malformed), /revision, distribution, Chrome, and Node/);
+});
+
+test('does not retain a user Chrome launcher path in the manifest or completion output', () => {
+    const launcherPath = 'C:\\Users\\Ada Lovelace\\AppData\\Local\\Chrome\\chrome.exe';
+    const input = evidence();
+    const reports = input.iterations.map(iteration => ({
+        ordinal: iteration.ordinal,
+        path: iteration.report,
+        report: {
+            ...input,
+            sampleId: iteration.sampleId,
+            generatedAt: iteration.generatedAt,
+            browser: { product: input.identity.chrome },
+            environment: { node: input.identity.node },
+        },
+    }));
+    const output = createRepeatabilityEvidence({
+        chrome: launcherPath,
+        smokeScript: input.configuration.smokeScript,
+        metricsReporter: input.configuration.metricsReporter,
+        distribution: input.configuration.distribution,
+        docmentis: input.configuration.docmentis,
+    }, reports);
+    const manifest = JSON.stringify(output);
+    const completionLog = formatCompletionOutput('build/reports/web-performance-repeatability.json');
+
+    assert.doesNotMatch(manifest, /Ada Lovelace|C:\\Users\\/);
+    assert.doesNotMatch(completionLog, /Ada Lovelace|C:\\Users\\/);
+    assert.equal(Object.hasOwn(output.configuration, 'chrome'), false);
+
+    output.configuration.chrome = launcherPath;
+    assert.throws(() => validateRepeatabilityEvidence(output), /without retaining a Chrome launcher path/);
 });
