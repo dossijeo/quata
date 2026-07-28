@@ -52,6 +52,23 @@ function assertIosWorkflowSelfCoverage(yaml) {
   );
 }
 
+function assertIosRuntimeFixtureAndUiIsolation(yaml) {
+  const fixtureProbe = yaml.indexOf('      - name: Verify Xcode resolves public runtime fixture');
+  const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
+  assert.ok(fixtureProbe >= 0 && testStep > fixtureProbe,
+    'the valid xcconfig fixture probe must remain before the isolated UI test');
+
+  const fixtureBlock = yaml.slice(fixtureProbe, testStep);
+  assert.match(fixtureBlock, /QUATA_SUPABASE_URL = https:\/\/ios-ci\\\.invalid/,
+    'the fixture probe must continue to prove Xcode resolves the valid CI URL');
+  assert.doesNotMatch(fixtureBlock, /QUATA_SUPABASE_URL=\s*\\/,
+    'the fixture probe must not be overridden into the unconfigured state');
+
+  const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
+  assert.match(uiTestBlock, /xcodebuild[\s\S]*?QUATA_SUPABASE_URL=\s*\\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY=\s*\\\n\s*-parallel-testing-enabled NO/,
+    'the app-under-test must receive empty public runtime settings before UI tests');
+}
+
 function assertIndependentWebCoverage(yaml) {
   const pullRequestStart = yaml.indexOf('  pull_request:');
   const concurrencyStart = yaml.indexOf('\nconcurrency:');
@@ -92,6 +109,7 @@ test('iOS Java and daemon criteria contract fails closed when launcher or criter
 test('iOS workflow runs and triggers its own fail-closed contract before compilation', async () => {
   const yaml = await readFile(workflow, 'utf8');
   assertIosWorkflowSelfCoverage(yaml);
+  assertIosRuntimeFixtureAndUiIsolation(yaml);
 });
 
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
@@ -119,8 +137,12 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
         'run: node --version',
       ),
     ],
+    ['UI runtime isolation removed', yaml.replace(/QUATA_SUPABASE_URL= \\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY= \\\n/, '')],
   ]) await t.test(name, () => {
-    assert.throws(() => assertIosWorkflowSelfCoverage(mutation));
+    assert.throws(() => {
+      assertIosWorkflowSelfCoverage(mutation);
+      assertIosRuntimeFixtureAndUiIsolation(mutation);
+    });
   });
 });
 

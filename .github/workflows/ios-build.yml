@@ -368,6 +368,11 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
+            # The fixture remains valid for the xcconfig-composition probe above.
+            # Override only the app-under-test so the UI suite exercises its
+            # deliberate unconfigured/fail-closed launcher state.
+            QUATA_SUPABASE_URL= \
+            QUATA_SUPABASE_PUBLISHABLE_KEY= \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
