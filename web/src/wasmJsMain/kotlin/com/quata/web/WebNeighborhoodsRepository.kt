@@ -22,13 +22,21 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+internal enum class WebNeighborhoodsReadOperation { Directory, CurrentUserAdmin, UserProfile }
+internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperation): WebPostgrestAuthMode = when (operation) {
+    WebNeighborhoodsReadOperation.Directory -> WebPostgrestAuthMode.Public
+    WebNeighborhoodsReadOperation.CurrentUserAdmin,
+    WebNeighborhoodsReadOperation.UserProfile -> WebPostgrestAuthMode.SessionRequired
+}
+
 /**
  * Browser read adapter for the Communities directory.
  *
- * It deliberately uses the same authenticated PostgREST client as the other Web repositories.
- * Community chat, follow and moderation writes are not exposed by the browser transport yet, so
- * they fail explicitly instead of inventing a local-only community state. SB-07 keeps every
- * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * Public directory reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
+ * omit Authorization. Profile/admin reads stay [WebPostgrestAuthMode.SessionRequired]; community
+ * chat, follow and moderation writes are not exposed by the browser transport and fail closed
+ * instead of inventing a local-only community state. SB-07 keeps every Communities-owned mutation
+ * fail-closed through [CommunityMutationSafety] while RLS-001 is open.
  */
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,
@@ -56,7 +64,7 @@ class WebNeighborhoodsRepository(
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
         val userId = authenticatedUserId()
-        loadProfiles(ids = listOf(userId)).firstOrNull()?.isAdmin == true
+        loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin)).firstOrNull()?.isAdmin == true
     }.getOrDefault(false)
 
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
@@ -77,7 +85,7 @@ class WebNeighborhoodsRepository(
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
-        val profile = loadProfiles(ids = listOf(userId)).firstOrNull()
+        val profile = loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile)).firstOrNull()
             ?: error("web_community_profile_not_found")
         val enriched = profile.copy(isFollowing = false)
         // This read adapter has not yet enabled the posts endpoint; an empty collection is an
@@ -86,7 +94,7 @@ class WebNeighborhoodsRepository(
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
-        val profiles = loadProfiles()
+        val profiles = loadProfiles(authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
         val walls = client.rows(
             table = "community_walls_stats",
             query = mapOf(
@@ -95,6 +103,7 @@ class WebNeighborhoodsRepository(
                 "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
             ),
             limit = DirectoryLimit,
+            authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory),
         ).map(JsonObject::toWallStats)
         val wallsByKey = walls.mapNotNull { wall ->
             (wall.normalizedName ?: wall.name?.normalizedCommunityKey())
@@ -123,13 +132,17 @@ class WebNeighborhoodsRepository(
             .sortedWith(compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }.thenBy { it.name.lowercase() })
     }
 
-    private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> = client.rows(
+    private suspend fun loadProfiles(
+        ids: List<String>? = null,
+        authMode: WebPostgrestAuthMode,
+    ): List<NeighborhoodUser> = client.rows(
         table = "community_profiles",
         query = buildMap {
             put("select", ProfileSelect)
             ids?.takeIf { it.isNotEmpty() }?.let { put("id", it.toPostgrestInFilter()) }
         },
         limit = DirectoryLimit,
+        authMode = authMode,
     ).map(JsonObject::toNeighborhoodUser)
 
     private suspend fun authenticatedUserId(): String = authRepository.sessionForAuthenticatedRequest()?.userId
@@ -139,7 +152,8 @@ class WebNeighborhoodsRepository(
         table: String,
         query: Map<String, String>,
         limit: Int,
-    ): List<JsonObject> = when (val result = get(table, query, limit)) {
+        authMode: WebPostgrestAuthMode,
+    ): List<JsonObject> = when (val result = get(table, query, limit, authMode = authMode)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

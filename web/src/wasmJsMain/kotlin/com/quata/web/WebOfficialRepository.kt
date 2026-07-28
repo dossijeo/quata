@@ -30,12 +30,19 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+internal enum class WebOfficialReadOperation { Feed, CurrentUser }
+internal fun webOfficialReadAuthMode(operation: WebOfficialReadOperation): WebPostgrestAuthMode = when (operation) {
+    WebOfficialReadOperation.Feed -> WebPostgrestAuthMode.Public
+    WebOfficialReadOperation.CurrentUser -> WebPostgrestAuthMode.SessionRequired
+}
+
 /**
  * Browser implementation of the read-only Official feed contract.
  *
- * Every request uses the user's Supabase bearer token through [WebPostgrestClient]. Authentication
- * and RLS failures remain a [WebPostgrestReadException], rather than being presented as an empty
- * official feed. Browser write flows need a separately reviewed API and therefore fail explicitly.
+ * Its public feed reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
+ * deliberately omit Authorization. Private/admin reads remain [WebPostgrestAuthMode.SessionRequired]
+ * and fail closed without a session; browser write flows need a separately reviewed API and fail
+ * explicitly.
  */
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
@@ -69,7 +76,7 @@ class WebOfficialRepository(
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: return@runCatching null
-        loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
+        loadProfiles(listOf(userId), webOfficialReadAuthMode(WebOfficialReadOperation.CurrentUser)).firstOrNull()?.toOfficialDomainUser()
     }
 
     override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
@@ -115,7 +122,7 @@ class WebOfficialRepository(
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
             ),
         ).map(JsonObject::toOfficialRemoteLike)
-        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes))
+        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), webOfficialReadAuthMode(WebOfficialReadOperation.Feed))
         buildOfficialDomainPosts(
             posts = posts,
             comments = comments,
@@ -127,7 +134,10 @@ class WebOfficialRepository(
         )
     }
 
-    private suspend fun loadProfiles(ids: Collection<String>): List<OfficialRemoteProfile> {
+    private suspend fun loadProfiles(
+        ids: Collection<String>,
+        authMode: WebPostgrestAuthMode,
+    ): List<OfficialRemoteProfile> {
         if (ids.isEmpty()) return emptyList()
         return client.rows(
             table = "community_profiles",
@@ -135,6 +145,7 @@ class WebOfficialRepository(
                 "select" to ProfileSelect,
                 "id" to ids.toOfficialPostgrestInFilter(),
             ),
+            authMode = authMode,
         ).map(JsonObject::toOfficialRemoteProfile)
     }
 
@@ -142,7 +153,8 @@ class WebOfficialRepository(
         table: String,
         query: Map<String, String>,
         limit: Int? = null,
-    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit)) {
+        authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.Public,
+    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit, authMode = authMode)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

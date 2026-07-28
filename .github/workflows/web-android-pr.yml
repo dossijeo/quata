@@ -28,6 +28,11 @@ on:
       - "scripts/web-share-target-pwa-e2e.mjs"
       - "scripts/web-share-target-pwa-e2e.test.mjs"
       - "scripts/web-docmentis-product-smoke-contract.test.mjs"
+      - "scripts/backend-compatibility-web-smoke.mjs"
+      - "scripts/backend-compatibility-request-policy.mjs"
+      - "scripts/backend-compatibility-request-policy.test.mjs"
+      - "scripts/backend-compatibility-feed-detail.mjs"
+      - "scripts/backend-compatibility-feed-detail.test.mjs"
       - "scripts/wasm-bundle-report.mjs"
       - "scripts/wasm-bundle-report.test.mjs"
       - "scripts/wasm-bundle-approval-policy.mjs"
@@ -163,6 +168,14 @@ jobs:
           "$CHROME_BIN" --version
           bash ./gradlew :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest :feature:auth:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :feature:externalshare:wasmJsBrowserTest :feature:feed:wasmJsBrowserTest :feature:neighborhoods:wasmJsBrowserTest :feature:notifications:wasmJsBrowserTest :feature:official:wasmJsBrowserTest :feature:profile:wasmJsBrowserTest :feature:whatsnew:wasmJsBrowserTest -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1 --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/web-ci/wasm-test.log
+
+      - name: Verify backend compatibility smoke policy (no network)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/backend-compatibility-request-policy.test.mjs
+          node scripts/backend-compatibility-feed-detail.test.mjs
+          node --check scripts/backend-compatibility-web-smoke.mjs
 
       - name: Build Wasm production distribution
         timeout-minutes: 38

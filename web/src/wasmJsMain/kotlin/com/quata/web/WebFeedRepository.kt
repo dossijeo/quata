@@ -17,6 +17,8 @@ import com.quata.feature.feed.data.feedRemoteProfileFromFields
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -38,7 +40,10 @@ class WebFeedRepository(
         pollIntervalMillis = pollIntervalMillis,
     )
 
-    override fun observeFeed(): Flow<Result<List<Post>>> = readRepository.observeFeed()
+    override fun observeFeed(): Flow<Result<List<Post>>> = flow {
+        recordWebFeedCollectorStarted()
+        emitAll(readRepository.observeFeed())
+    }
     override suspend fun getFeed(): Result<List<Post>> = readRepository.getFeed()
     override suspend fun refreshFeed(): Result<List<Post>> = readRepository.refreshFeed()
     override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
@@ -58,6 +63,20 @@ class WebFeedRepository(
     private companion object { const val DefaultPollIntervalMillis = 30_000L }
 }
 
+/**
+ * The public browser surface is deliberately limited to feed rendering. Identity reads are kept
+ * separate so a future profile screen cannot accidentally inherit the anonymous-feed policy.
+ */
+internal enum class WebFeedReadOperation { Feed, Detail, FeedProfiles, CurrentUser, Author }
+
+internal fun webFeedReadAuthMode(operation: WebFeedReadOperation): WebPostgrestAuthMode = when (operation) {
+    WebFeedReadOperation.Feed,
+    WebFeedReadOperation.Detail,
+    WebFeedReadOperation.FeedProfiles -> WebPostgrestAuthMode.Public
+    WebFeedReadOperation.CurrentUser,
+    WebFeedReadOperation.Author -> WebPostgrestAuthMode.SessionRequired
+}
+
 private class WebFeedReadTransport(
     private val client: WebPostgrestClient,
     private val authRepository: WebAuthRepository,
@@ -69,33 +88,63 @@ private class WebFeedReadTransport(
             request.beforeCreatedAt?.let { put("created_at", "lt.$it") }
             request.postId?.let { put("id", "eq.${it.requirePostgrestIdentifier()}") }
         }
-        client.rows("community_posts", query, request.limit).map(JsonObject::toFeedRemotePost)
+        client.rows(
+            table = "community_posts",
+            query = query,
+            limit = request.limit,
+            authMode = webFeedReadAuthMode(
+                if (request.postId == null) WebFeedReadOperation.Feed else WebFeedReadOperation.Detail,
+            ),
+        ).map(JsonObject::toFeedRemotePost)
     }
 
     override suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else client.rows("community_comments", mapOf(
-            "select" to CommentSelect, "post_id" to postIds.toPostgrestInFilter(), "order" to "created_at.asc",
-        )).map(JsonObject::toFeedRemoteComment)
+        if (postIds.isEmpty()) emptyList() else client.rows(
+            table = "community_comments",
+            query = mapOf("select" to CommentSelect, "post_id" to postIds.toPostgrestInFilter(), "order" to "created_at.asc"),
+            authMode = webFeedReadAuthMode(WebFeedReadOperation.Feed),
+        ).map(JsonObject::toFeedRemoteComment)
     }
 
     override suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else client.rows("community_post_likes", mapOf(
-            "select" to LikeSelect, "post_id" to postIds.toPostgrestInFilter(),
-        )).map(JsonObject::toFeedRemoteLike)
+        if (postIds.isEmpty()) emptyList() else client.rows(
+            table = "community_post_likes",
+            query = mapOf("select" to LikeSelect, "post_id" to postIds.toPostgrestInFilter()),
+            authMode = webFeedReadAuthMode(WebFeedReadOperation.Feed),
+        ).map(JsonObject::toFeedRemoteLike)
     }
 
-    override suspend fun fetchProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>> = runCatching {
-        if (profileIds.isEmpty()) emptyList() else client.rows("community_profiles", mapOf(
-            "select" to ProfileSelect, "id" to profileIds.toPostgrestInFilter(),
-        )).map(JsonObject::toFeedRemoteProfile)
-    }
+    override suspend fun fetchFeedProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>> =
+        fetchProfiles(profileIds, WebFeedReadOperation.FeedProfiles)
+
+    override suspend fun fetchCurrentUserProfile(profileId: String): Result<FeedRemoteProfile?> =
+        fetchProfiles(listOf(profileId), WebFeedReadOperation.CurrentUser).map { it.firstOrNull() }
+
+    override suspend fun fetchProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>> =
+        fetchProfiles(profileIds, WebFeedReadOperation.Author)
 
     override suspend fun currentUserId(): Result<String?> =
         Result.success(authRepository.restoreLocalSession()?.userId)
+
+    private suspend fun fetchProfiles(
+        profileIds: List<String>,
+        operation: WebFeedReadOperation,
+    ): Result<List<FeedRemoteProfile>> = runCatching {
+        if (profileIds.isEmpty()) emptyList() else client.rows(
+            table = "community_profiles",
+            query = mapOf("select" to ProfileSelect, "id" to profileIds.toPostgrestInFilter()),
+            authMode = webFeedReadAuthMode(operation),
+        ).map(JsonObject::toFeedRemoteProfile)
+    }
 }
 
-private suspend fun WebPostgrestClient.rows(table: String, query: Map<String, String>, limit: Int? = null): List<JsonObject> =
-    when (val result = get(table = table, query = query, limit = limit)) {
+private suspend fun WebPostgrestClient.rows(
+    table: String,
+    query: Map<String, String>,
+    limit: Int? = null,
+    authMode: WebPostgrestAuthMode,
+): List<JsonObject> =
+    when (val result = get(table = table, query = query, limit = limit, authMode = authMode)) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

@@ -20,6 +20,18 @@ interface FeedReadTransport {
     suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>>
     suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>>
     suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>>
+    /**
+     * Profiles rendered as part of a feed page. Hosts may expose this narrow read publicly while
+     * retaining [fetchProfiles] for identity/profile screens behind a session boundary.
+     */
+    suspend fun fetchFeedProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>> =
+        fetchProfiles(profileIds)
+
+    /** Current actor profile; kept separate from arbitrary author lookups for host auth policy. */
+    suspend fun fetchCurrentUserProfile(profileId: String): Result<FeedRemoteProfile?> =
+        fetchProfiles(listOf(profileId)).map { it.firstOrNull() }
+
+    /** Session-scoped profile read used by current-user and author refreshes. */
     suspend fun fetchProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>>
     suspend fun currentUserId(): Result<String?>
 }
@@ -54,7 +66,7 @@ class RemoteFeedReadRepository(
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = transport.currentUserId().getOrThrow() ?: return@runCatching null
-        transport.fetchProfiles(listOf(userId)).getOrThrow().firstOrNull()?.toFeedDomainUser()
+        transport.fetchCurrentUserProfile(userId).getOrThrow()?.toFeedDomainUser()
     }
 
     override suspend fun refreshAuthor(userId: String): Result<User?> = runCatching {
@@ -78,7 +90,7 @@ class RemoteFeedReadRepository(
         val postIds = posts.map(FeedRemotePost::id)
         val comments = transport.fetchComments(postIds).getOrThrow()
         val likes = transport.fetchLikes(postIds).getOrThrow()
-        val profiles = transport.fetchProfiles(feedRemoteProfileIds(posts, comments, likes)).getOrThrow()
+        val profiles = transport.fetchFeedProfiles(feedRemoteProfileIds(posts, comments, likes)).getOrThrow()
         buildFeedDomainPosts(
             posts = posts,
             comments = comments,

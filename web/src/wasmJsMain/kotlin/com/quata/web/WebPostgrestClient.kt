@@ -29,7 +29,44 @@ enum class WebPostgrestFailureKind {
     Network,
 }
 
-/** Authenticated PostgREST transport for WASM repositories. Endpoint models stay at gateways. */
+enum class WebPostgrestAuthMode {
+    /** Requires an active Web session and never sends a request without its bearer token. */
+    SessionRequired,
+    /** Allows a read guarded only by the configured publishable key and omits Authorization. */
+    Public,
+}
+
+/** Pure request decision used before any browser fetch is constructed. */
+internal fun webPostgrestReadAccessToken(
+    authMode: WebPostgrestAuthMode,
+    accessToken: String?,
+): Result<String?> = when (authMode) {
+    WebPostgrestAuthMode.Public -> Result.success(null)
+    WebPostgrestAuthMode.SessionRequired -> webPostgrestSessionAccessToken(accessToken)
+}
+
+/**
+ * Resolves a read credential lazily. In particular, public reads must not restore or refresh the
+ * browser session: doing either would turn the anonymous feed into an authenticated request.
+ */
+internal suspend fun resolveWebPostgrestReadAccessToken(
+    authMode: WebPostgrestAuthMode,
+    sessionAccessToken: suspend () -> String?,
+): Result<String?> = when (authMode) {
+    WebPostgrestAuthMode.Public -> Result.success(null)
+    WebPostgrestAuthMode.SessionRequired ->
+        webPostgrestReadAccessToken(WebPostgrestAuthMode.SessionRequired, sessionAccessToken())
+}
+
+internal fun webPostgrestSessionAccessToken(accessToken: String?): Result<String> = accessToken
+    ?.takeIf(String::isNotBlank)
+    ?.let(Result.Companion::success)
+    ?: Result.failure(IllegalStateException("web_session_missing"))
+
+/**
+ * PostgREST transport for WASM repositories. Public GETs can run without a session; mutations
+ * still require one. Endpoint models stay at gateways.
+ */
 class WebPostgrestClient(
     private val configuration: WebRuntimeConfiguration,
     private val authRepository: WebAuthRepository,
@@ -39,27 +76,35 @@ class WebPostgrestClient(
         query: Map<String, String> = emptyMap(),
         limit: Int? = null,
         offset: Int? = null,
+        authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.SessionRequired,
     ): WebPostgrestResult {
         val baseUrl = configuration.supabaseUrl?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
         val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
-        val accessToken = authRepository.currentWebPushCredentials()?.accessToken
-            ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
         if (!table.matches(PostgrestTableName)) {
-            return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
+            return feedReadFailure(table, WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
+        }
+        val accessToken = resolveWebPostgrestReadAccessToken(
+            authMode = authMode,
+            sessionAccessToken = { authRepository.currentWebPushCredentials()?.accessToken },
+        ).getOrElse {
+            return feedReadFailure(table, WebPostgrestFailureKind.Session, "web_session_missing")
         }
         val parameters = buildMap {
             putAll(query)
             limit?.let { put("limit", it.coerceAtLeast(1).toString()) }
             offset?.let { put("offset", it.coerceAtLeast(0).toString()) }
         }
-        return browserPostgrestGet(
+        recordWebFeedReadState(table, "request_started")
+        val result = browserPostgrestGet(
             url = "$baseUrl/rest/v1/$table${parameters.toQueryString()}",
             apiKey = apiKey,
             accessToken = accessToken,
         )
+        recordWebFeedReadResult(table, result)
+        return result
     }
 
     suspend fun patch(
@@ -89,8 +134,11 @@ class WebPostgrestClient(
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
         val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
-        val accessToken = authRepository.currentWebPushCredentials()?.accessToken
-            ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
+        val accessToken = webPostgrestSessionAccessToken(
+            authRepository.currentWebPushCredentials()?.accessToken,
+        ).getOrElse {
+            return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
+        }
         if (!table.matches(PostgrestTableName)) {
             return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
         }
@@ -106,6 +154,38 @@ class WebPostgrestClient(
 
 private val PostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 
+private fun feedReadFailure(
+    table: String,
+    kind: WebPostgrestFailureKind,
+    reason: String,
+): WebPostgrestResult.Failure = WebPostgrestResult.Failure(kind, reason).also { failure ->
+    recordWebFeedReadResult(table, failure)
+}
+
+/** Web-only, secret-free diagnostics for the public feed smoke. */
+internal fun recordWebFeedReadState(table: String, state: String, errorCode: String? = null) {
+    if (table != "community_posts") return
+    writeWebFeedReadState(state, errorCode)
+}
+
+// `js` used from an expression-bodied Kotlin function must itself be one JavaScript expression.
+// Keep both diagnostics in a comma expression so the Wasm production backend never receives two
+// statements where it is expecting one expression.
+private fun writeWebFeedReadState(state: String, errorCode: String?): Unit = js("(globalThis.localStorage?.setItem('web.feed.remote_read_state', state), globalThis.localStorage?.setItem('web.feed.remote_read_error', errorCode || ''))")
+
+internal fun recordWebFeedCollectorStarted(): Unit = js("globalThis.localStorage?.setItem('web.feed.collector_started', 'true')")
+
+private fun recordWebFeedReadResult(table: String, result: WebPostgrestResult) {
+    when (result) {
+        is WebPostgrestResult.Success -> recordWebFeedReadState(table, "request_succeeded")
+        is WebPostgrestResult.Failure -> recordWebFeedReadState(
+            table = table,
+            state = "request_failed",
+            errorCode = result.kind.name.lowercase(),
+        )
+    }
+}
+
 private fun Map<String, String>.toQueryString(): String {
     if (isEmpty()) return ""
     return entries.joinToString(prefix = "?", separator = "&") { (key, value) ->
@@ -118,7 +198,7 @@ private fun browserEncodeQueryPart(value: String): String = js("encodeURICompone
 private suspend fun browserPostgrestGet(
     url: String,
     apiKey: String,
-    accessToken: String,
+    accessToken: String?,
 ): WebPostgrestResult = suspendCoroutine { continuation ->
     browserPostgrestGetRequest(
         url = url,
@@ -147,7 +227,7 @@ private suspend fun browserPostgrestGet(
 private fun browserPostgrestGetRequest(
     url: String,
     apiKey: String,
-    accessToken: String,
+    accessToken: String?,
     onSuccess: (String, Int, String?) -> Unit,
     onFailure: (String?, Int?) -> Unit,
 ): Unit = js(
@@ -157,13 +237,14 @@ private fun browserPostgrestGetRequest(
       onFailure('postgrest_fetch_unsupported', null);
       return;
     }
+    const headers = {
+      apikey: apiKey,
+      Accept: 'application/json',
+    };
+    if (accessToken) headers.Authorization = `Bearer ${'$'}{accessToken}`;
     globalThis.fetch(url, {
       method: 'GET',
-      headers: {
-        apikey: apiKey,
-        Authorization: `Bearer ${'$'}{accessToken}`,
-        Accept: 'application/json',
-      },
+      headers,
     }).then(async (response) => {
       const body = await response.text();
       if (response.ok) onSuccess(body, response.status, response.headers.get('content-range'));

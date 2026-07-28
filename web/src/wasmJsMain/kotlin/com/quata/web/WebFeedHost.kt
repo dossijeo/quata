@@ -1,6 +1,7 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.quata.core.capability.FeatureCapabilityTextCatalog
 import com.quata.feature.feed.presentation.FeedBrowserHostContent
@@ -17,6 +18,9 @@ fun WebFeedHost(
     onBackToFeed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    LaunchedEffect(sharedPostId) {
+        setWebFeedDetailMarker(sharedPostId)
+    }
     val strings = FeedBrowserHostStrings(
         loading = "Cargando publicaciones…",
         retry = "Reintentar",
@@ -57,4 +61,8 @@ fun WebFeedHost(
             modifier = modifier,
         )
     }
+}
+
+private fun setWebFeedDetailMarker(postId: String?) {
+    js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', postId || '')")
 }
