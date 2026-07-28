@@ -6,31 +6,32 @@ import { resolve } from 'node:path';
 const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'ios-build.yml');
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
 
-function assertIosDaemonBootstrap(yaml) {
+function assertIosJavaContract(yaml) {
   assert.match(
     yaml,
-    /- name: Set up JetBrains Runtime 21 for Gradle daemon\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: jetbrains\n\s+java-version: "21"\n\s+set-default: false\n\n\s+- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"/,
-    'iOS CI must preload JBR 21 for the Gradle daemon without replacing its default JDK 17',
+    /- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"/,
+    'iOS CI must preserve Temurin 17 as its default launcher',
   );
+  assert.doesNotMatch(yaml, /- name: Set up JetBrains Runtime 21 for Gradle daemon/);
 }
 
-test('iOS build workflow preloads the daemon runtime while preserving JDK 17 as default', async () => {
+test('iOS build workflow preserves JDK 17 while Gradle resolves its daemon from the existing criteria', async () => {
   const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
-  assertIosDaemonBootstrap(yaml);
+  assertIosJavaContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
 });
 
-test('iOS daemon runtime contract fails closed when its bootstrap or criteria are weakened', async (t) => {
+test('iOS Java and daemon criteria contract fails closed when launcher or criteria are weakened', async (t) => {
   const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
   for (const [name, workflowMutation, criteriaMutation] of [
-    ['JBR becomes default', yaml.replace('set-default: false', 'set-default: true'), criteria],
-    ['JBR vendor changes', yaml.replace('distribution: jetbrains', 'distribution: temurin'), criteria],
+    ['JDK 17 vendor changes', yaml.replace('distribution: temurin', 'distribution: jetbrains'), criteria],
+    ['JBR bootstrap added', yaml.replace('      - name: Set up JDK 17', '      - name: Set up JetBrains Runtime 21 for Gradle daemon\n\n      - name: Set up JDK 17'), criteria],
     ['daemon vendor removed', yaml, criteria.replace('toolchainVendor=JETBRAINS\n', '')],
     ['daemon version removed', yaml, criteria.replace('toolchainVersion=21\n', '')],
   ]) await t.test(name, () => {
     assert.throws(() => {
-      assertIosDaemonBootstrap(workflowMutation);
+      assertIosJavaContract(workflowMutation);
       assert.match(criteriaMutation, /^toolchainVendor=JETBRAINS$/m);
       assert.match(criteriaMutation, /^toolchainVersion=21$/m);
     });
