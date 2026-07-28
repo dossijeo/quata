@@ -55,6 +55,7 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: iosShareExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: iosShareExtension/QuataShareExtension.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: iosShareExtension/ShareQueueLock.h
         APPLICATION_EXTENSION_API_ONLY: "YES"
         SKIP_INSTALL: "YES"
       configs:

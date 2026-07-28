@@ -81,7 +81,9 @@ require("removeItem(at: staging)" in queue_source,
         "share queue must clean staging after a failed publication")
 require("isSafeID(payload.id)" in queue_source and "id.utf8.allSatisfy" in queue_source,
         "share queue must validate a strict ASCII ID before composing App Group paths")
-require("Darwin.flock" in queue_source and "O_NOFOLLOW" in queue_source and "Darwin.close" in queue_source,
+lock_source = (root / "iosApp/iosShareExtension/ShareQueueLock.c").read_text(encoding="utf-8")
+require("quata_flock" in queue_source and "flock(descriptor, operation)" in lock_source and
+        "O_NOFOLLOW" in queue_source and "Darwin.close" in queue_source,
         "share queue must use a crash-safe Darwin flock descriptor, never stale-lock recovery")
 inbox_source = (root / "feature/externalshare/src/iosMain/kotlin/com/quata/feature/externalshare/IosExternalShareInbox.kt").read_text(encoding="utf-8")
 require("NSFileTypeRegular" in inbox_source and "NSFileTypeDirectory" in inbox_source and

@@ -16,11 +16,11 @@ private struct DarwinShareQueueLock: ShareQueueLocking {
         defer { Darwin.close(descriptor) }
 
         let deadline = Date().addingTimeInterval(timeout)
-        while Darwin.flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
+        while quata_flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
             guard Date() < deadline else { throw ShareQueue.Error.queueBusy }
             usleep(10_000)
         }
-        defer { Darwin.flock(descriptor, LOCK_UN) }
+        defer { _ = quata_flock(descriptor, LOCK_UN) }
         return try body()
     }
 }
