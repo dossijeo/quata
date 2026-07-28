@@ -87,7 +87,9 @@ jobs:
   web-wasm:
     name: Web/Wasm test, bundle and Chrome smoke
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    # Distribution, browser smoke, and three cold-profile measurements run in this job.
+    # Keep enough shared budget for all evidence rather than letting the final advisory gate time out.
+    timeout-minutes: 100
 
     steps:
       - name: Check out source

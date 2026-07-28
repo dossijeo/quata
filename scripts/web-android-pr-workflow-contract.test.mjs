@@ -11,6 +11,12 @@ function assertJetBrainsDaemonBootstrap(yaml, expectedJobs) {
   assert.equal([...yaml.matchAll(pairedSteps)].length, expectedJobs, 'every Gradle job must preload JBR 21 before the default JDK 17');
 }
 
+function assertWebWasmTimeoutBudget(yaml) {
+  const match = yaml.match(/  web-wasm:\n[\s\S]*?^    timeout-minutes: (\d+)$/m);
+  assert.ok(match, 'the Web/Wasm job must declare a timeout budget');
+  assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and three cold-profile measurements');
+}
+
 function assertWorkflowContract(yaml) {
   assert.match(yaml, /^on:\n  pull_request:/m);
   assert.doesNotMatch(yaml, /^  (?:push|workflow_dispatch|schedule):/m);
@@ -21,6 +27,7 @@ function assertWorkflowContract(yaml) {
     'the checkout must contain the pull request base commit',
   );
   assertJetBrainsDaemonBootstrap(yaml, 3);
+  assertWebWasmTimeoutBudget(yaml);
   assert.match(
     yaml,
     /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
@@ -55,6 +62,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['missing policy base', yaml.replace(/\n\s+--policy-base "[^"]+" \\/, '')],
     ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
+    ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
     ...[
       'scripts/web-chat-exact-purge-gate.mjs',
       'scripts/web-chat-exact-purge-gate.test.mjs',
