@@ -16,6 +16,15 @@ import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSURL
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
@@ -32,9 +41,9 @@ import platform.UIKit.UIViewContentModeScaleAspectFit
 @Composable
 internal fun IosComposerLocalImagePreview(file: PlatformFile, modifier: Modifier = Modifier) {
     var preview by remember(file.reference) { mutableStateOf<IosComposerImagePreview>(IosComposerImagePreview.Loading) }
-    LaunchedEffect(file.reference) { preview = IosComposerPreviewImageCache.acquire(file) }
+    LaunchedEffect(file.reference) { preview = iosComposerPreviewImageCache.acquire(file) }
     DisposableEffect(file.reference) {
-        onDispose { IosComposerPreviewImageCache.release(file) }
+        onDispose { iosComposerPreviewImageCache.release(file) }
     }
     when (val value = preview) {
         IosComposerImagePreview.Loading -> Text("Loading local image preview...")
@@ -68,16 +77,87 @@ internal sealed interface IosComposerImagePreview {
  * Bounded decode cache for the temporary files provided by iOS adapters. Loading happens from a
  * [LaunchedEffect], never from the composable body; the cache holds one image per active path.
  */
-private object IosComposerPreviewImageCache {
-    private val images = mutableMapOf<String, IosComposerImagePreview>()
+private val iosComposerPreviewImageCache = IosComposerPreviewImageCache()
 
-    fun acquire(file: PlatformFile): IosComposerImagePreview = images.getOrPut(file.reference) {
+internal class IosComposerPreviewImageCache(
+    private val decodeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val decoder: suspend (PlatformFile) -> IosComposerImagePreview = { file ->
         file.localThumbnailOrNull()?.let(IosComposerImagePreview::Image) ?: IosComposerImagePreview.Unavailable
+    },
+) {
+    private val lock = Mutex()
+    private val scope = CoroutineScope(SupervisorJob() + decodeDispatcher)
+    private val entries = mutableMapOf<String, Entry>()
+
+    /**
+     * Retains one reference before waiting. Decoding lives in [scope], rather than the caller's
+     * UI effect, so a replaced/disposed composition cannot race a new consumer into a stale cache.
+     */
+    suspend fun acquire(file: PlatformFile): IosComposerImagePreview {
+        val key = file.reference
+        val deferred = lock.withLock {
+            when (val entry = entries[key]) {
+                is Entry.Ready -> {
+                    entry.references += 1
+                    return entry.preview
+                }
+                is Entry.Loading -> {
+                    entry.references += 1
+                    entry.result
+                }
+                null -> startLoad(key, file)
+            }
+        }
+        // LaunchedEffect resumes on its main dispatcher after await; only then does it update UI.
+        return deferred.await()
     }
 
     fun release(file: PlatformFile) {
-        images.remove(file.reference)
+        val key = file.reference
+        scope.launch {
+            lock.withLock {
+                when (val entry = entries[key]) {
+                    is Entry.Ready -> {
+                        entry.references -= 1
+                        if (entry.references <= 0) entries.remove(key)
+                    }
+                    is Entry.Loading -> {
+                        entry.references -= 1
+                        // Keep an in-flight entry so other consumers can await it. The completion
+                        // handler removes it when its last reference has already been released.
+                        if (entry.references <= 0 && entry.result.isCompleted) entries.remove(key)
+                    }
+                    null -> Unit
+                }
+            }
+        }
     }
+
+    private fun startLoad(key: String, file: PlatformFile): CompletableDeferred<IosComposerImagePreview> {
+        val result = CompletableDeferred<IosComposerImagePreview>()
+        entries[key] = Entry.Loading(references = 1, result = result)
+        scope.launch {
+            val preview = withContext(decodeDispatcher) {
+                runCatching { decoder(file) }.getOrDefault(IosComposerImagePreview.Unavailable)
+            }
+            lock.withLock {
+                val loading = entries[key] as? Entry.Loading
+                if (loading?.result === result) {
+                    if (loading.references <= 0) entries.remove(key)
+                    else entries[key] = Entry.Ready(loading.references, preview)
+                }
+                result.complete(preview)
+            }
+        }
+        return result
+    }
+
+    private sealed interface Entry {
+        class Loading(var references: Int, val result: CompletableDeferred<IosComposerImagePreview>) : Entry
+        class Ready(var references: Int, val preview: IosComposerImagePreview) : Entry
+    }
+
+    internal suspend fun retainedEntryCount(): Int = lock.withLock { entries.size }
 }
 
 internal sealed interface IosComposerVideoPreview {
