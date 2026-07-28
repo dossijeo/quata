@@ -468,6 +468,7 @@ private final class IosAppCompositionRoot {
                     repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
+                    videoThumbnails: services.videoThumbnails,
                     languageTag: Locale.preferredLanguages.first,
                     onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 ),
