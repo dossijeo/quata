@@ -24,6 +24,8 @@ on:
       - "web/**"
       - "scripts/web-browser-smoke.mjs"
       - "scripts/web-browser-metrics.mjs"
+      - "scripts/web-performance-repeatability.mjs"
+      - "scripts/web-performance-repeatability.test.mjs"
       - "scripts/web-browser-network-policy.mjs"
       - "scripts/web-browser-network-policy.test.mjs"
       - "scripts/web-share-target-network-policy.mjs"
@@ -58,6 +60,7 @@ on:
       - "scripts/attest-web-chat-exact-purge.mjs"
       - "docs/WEB_CHAT_BROWSER_E2E.md"
       - "scripts/web-browser-metrics.test.mjs"
+      - "docs/WEB_PERFORMANCE_REPEATABILITY.md"
       - "scripts/web-authenticated-browser-e2e.mjs"
       - "scripts/web-authenticated-browser-security.mjs"
       - "scripts/web-authenticated-browser-e2e.test.mjs"
@@ -243,6 +246,19 @@ jobs:
             --out build/reports/web-ci/authenticated-browser-e2e.json \
             2>&1 | tee build/reports/web-ci/authenticated-browser-e2e.log
 
+      - name: Collect three cold Chrome measurements (advisory)
+        timeout-minutes: 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/web-performance-repeatability.mjs \
+            --dist web/build/dist/wasmJs/productionExecutable \
+            --chrome "${{ steps.chrome.outputs.chrome-path }}" \
+            --docmentis \
+            --metrics-dir build/reports/web-performance-repeatability \
+            --out build/reports/web-performance-repeatability.json \
+            2>&1 | tee build/reports/web-ci/web-performance-repeatability.log
+
       - name: Upload Web/Wasm JUnit, smoke, logs and distribution
         if: always()
         uses: actions/upload-artifact@v6
@@ -252,6 +268,8 @@ jobs:
             build/reports/web-ci/
             build/reports/wasm-bundle/
             build/reports/web-browser-smoke-metrics.json
+            build/reports/web-performance-repeatability.json
+            build/reports/web-performance-repeatability/
             web/build/test-results/**/*.xml
             web/build/reports/tests/
             web/build/dist/wasmJs/productionExecutable/
