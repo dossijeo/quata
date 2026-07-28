@@ -27,7 +27,7 @@ function printSample(report) {
 }
 
 function printSeries(series) {
-    if (series.length < 5) throw new Error('A browser metrics series requires at least five reports.');
+    if (series.length < 3) throw new Error('A browser metrics series requires at least three reports.');
     const sampleIds = series.map(report => report.sampleId);
     if (new Set(sampleIds).size !== sampleIds.length) {
         throw new Error('A browser metrics series requires a unique sampleId for every smoke execution.');

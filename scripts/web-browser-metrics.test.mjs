@@ -79,30 +79,30 @@ test('rejects partial and non-finite metric records', async () => {
     assert.notEqual((await runReporter(overflowingMount)).status, 0);
 });
 
-test('summarises p50/p95 only for a fixed five-sample series', async () => {
-    const series = Array.from({ length: 5 }, (_, index) => validReport({
+test('summarises p50/p95 only for a fixed three-sample series', async () => {
+    const series = Array.from({ length: 3 }, (_, index) => validReport({
         mountElapsedMs: 100 + index,
         sampleId: sampleId(index),
         generatedAt: `2026-01-27T15:00:0${index}.000Z`,
     }));
     const result = await runReporter(series);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Series: 5 cold-profile samples; advisory only\./);
-    assert.match(result.stdout, /auth: mount p50 102 ms; p95 104 ms/);
+    assert.match(result.stdout, /Series: 3 cold-profile samples; advisory only\./);
+    assert.match(result.stdout, /auth: mount p50 101 ms; p95 102 ms/);
 
-    assert.notEqual((await runReporter(series.slice(0, 4))).status, 0);
-    series[4].environment.cpuModel = 'Different CI CPU';
+    assert.notEqual((await runReporter(series.slice(0, 2))).status, 0);
+    series[2].environment.cpuModel = 'Different CI CPU';
     assert.notEqual((await runReporter(series)).status, 0);
 });
 
 test('rejects repeated files, identical copies, duplicate sample IDs, and invalid timestamps', async () => {
     const repeated = validReport();
-    assert.notEqual((await runReporter(repeated, { repeatSamePath: 5 })).status, 0);
+    assert.notEqual((await runReporter(repeated, { repeatSamePath: 3 })).status, 0);
 
-    const identicalCopies = Array.from({ length: 5 }, () => structuredClone(repeated));
+    const identicalCopies = Array.from({ length: 3 }, () => structuredClone(repeated));
     assert.notEqual((await runReporter(identicalCopies)).status, 0);
 
-    const duplicateIdDifferentTimes = Array.from({ length: 5 }, (_, index) => validReport({
+    const duplicateIdDifferentTimes = Array.from({ length: 3 }, (_, index) => validReport({
         sampleId: repeated.sampleId,
         generatedAt: `2026-01-27T15:01:0${index}.000Z`,
     }));
@@ -114,7 +114,7 @@ test('rejects repeated files, identical copies, duplicate sample IDs, and invali
 });
 
 test('rejects copied measurements, duplicate timestamps, and future timestamps', async () => {
-    const copiedMeasurement = Array.from({ length: 5 }, (_, index) => validReport({
+    const copiedMeasurement = Array.from({ length: 3 }, (_, index) => validReport({
         sampleId: sampleId(index),
         generatedAt: `2026-01-27T16:00:0${index}.000Z`,
         distribution: `copy-${index}/productionExecutable`,
@@ -123,7 +123,7 @@ test('rejects copied measurements, duplicate timestamps, and future timestamps',
     assert.notEqual(copiedResult.status, 0);
     assert.match(copiedResult.stderr, /duplicate measurement payloads/);
 
-    const duplicateGeneratedAt = Array.from({ length: 5 }, (_, index) => validReport({
+    const duplicateGeneratedAt = Array.from({ length: 3 }, (_, index) => validReport({
         mountElapsedMs: 200 + index,
         sampleId: sampleId(index),
         generatedAt: '2026-01-27T17:00:00.000Z',

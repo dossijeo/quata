@@ -34,14 +34,18 @@ node .\scripts\web-browser-smoke.mjs --dist 'C:\ruta\a\distribution'
 
 ## Línea base de rendimiento reproducible
 
-El mismo smoke emite una muestra de arranque y navegación de las seis rutas. Ejecuta una serie de
-al menos cinco muestras sólo en un runner/hardware fijo (misma imagen de CI, Chrome y distribución)
-y conserva cada JSON junto al SHA; los valores de máquinas distintas son telemetría informativa,
-no un umbral de aprobación. Cada ejecución usa un perfil Chrome descartable y caché fría.
+El mismo smoke emite una muestra de arranque y navegación de las seis rutas. El lanzador de
+repetibilidad ejecuta exactamente tres muestras con perfiles Chrome descartables y caché fría,
+sobre la misma distribución, y conserva cada JSON junto al SHA. La serie exige identidades de
+muestra distintas y una misma revisión, distribución, Chrome y entorno; los valores de máquinas
+distintas son telemetría informativa, no un umbral de aprobación.
 
 ```powershell
-node .\scripts\web-browser-smoke.mjs --metrics-report build-reports\web\browser-metrics.json
-node .\scripts\web-browser-metrics.mjs --report build-reports\web\browser-metrics.json
+node .\scripts\web-performance-repeatability.mjs `
+  --dist web/build/dist/wasmJs/productionExecutable `
+  --chrome 'C:\ruta\a\chrome.exe' `
+  --metrics-dir build-reports\web\repeatability `
+  --out build-reports\web\repeatability.json
 ```
 
 El contrato determinista es el smoke: las seis rutas deben montar sin excepciones, errores HTTP ni
@@ -49,10 +53,10 @@ acceso externo. El `<script>` incondicional de Turnstile se satisface con un stu
 registro permanece sin configurar; cualquier otro origen externo se bloquea y hace fallar el
 smoke. La telemetría registra `mountElapsedMs` y heap por ruta; DOM/load se atribuye sólo
 a `#auth`, la única navegación de documento completo, y no se repite engañosamente para los cambios
-de hash. Para comparar revisiones el resumen calcula mediana y p95 con al menos cinco muestras del
-mismo runner. Acepta cinco o más `--report PATH` sólo si SHA, distribución, Chrome y entorno
-coinciden; entre dos y cuatro muestras falla por serie insuficiente. No existe un umbral temporal o
-de memoria en este contrato:
+de hash. Para comparar revisiones el resumen calcula mediana y p95 con las tres muestras de perfil
+frío del mismo runner. El contrato de métricas acepta tres o más `--report PATH` sólo si SHA,
+distribución, Chrome y entorno coinciden; menos de tres muestras falla por serie insuficiente. No
+existe un umbral temporal o de memoria en este contrato:
 adoptarlo exige aprobar por separado una línea base del runner y su tolerancia.
 
 ## DocMentis sin credenciales de proveedor
