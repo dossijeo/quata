@@ -48,6 +48,7 @@ on:
       - "scripts/wasm-bundle-report.test.mjs"
       - "scripts/wasm-bundle-approval-policy.mjs"
       - "scripts/wasm-bundle-approval-policy.test.mjs"
+      - "scripts/run-wasm-production-observed.ps1"
       - "scripts/web-android-pr-workflow-contract.test.mjs"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/web-test-contract.test.mjs"

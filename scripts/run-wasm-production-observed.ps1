@@ -587,7 +587,9 @@ function Stop-OwnedJobProcessTree {
 
 function Invoke-OwnedWatchdogProcess {
     param(
-        [Parameter(Mandatory = $true)][string]$CommandScript,
+        [string]$CommandScript,
+        [string]$NativeCommandPath,
+        [string[]]$NativeCommandArguments = @(),
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
         [Parameter(Mandatory = $true)][string]$StdoutPath,
         [Parameter(Mandatory = $true)][string]$StderrPath,
@@ -601,16 +603,52 @@ function Invoke-OwnedWatchdogProcess {
     )
 
     Initialize-WindowsJobObjectInterop
+    $usesNativeCommand = -not [string]::IsNullOrWhiteSpace($NativeCommandPath)
+    if (($usesNativeCommand -and -not [string]::IsNullOrWhiteSpace($CommandScript)) -or
+        (-not $usesNativeCommand -and [string]::IsNullOrWhiteSpace($CommandScript))) {
+        throw 'Specify exactly one of CommandScript or NativeCommandPath.'
+    }
     Remove-Item -LiteralPath $StdoutPath, $StderrPath -ErrorAction SilentlyContinue
     $quotedStdout = $StdoutPath.Replace("'", "''")
     $quotedStderr = $StderrPath.Replace("'", "''")
-    $wrappedScript = @"
-`$ErrorActionPreference = 'Stop'
-try {
+    if ($usesNativeCommand) {
+        # Keep values as single-quoted literals rather than evaluating a
+        # command string. This makes the stderr exception apply only to one
+        # explicit native executable and its literal argument vector.
+        $quotedNativeCommandPath = $NativeCommandPath.Replace("'", "''")
+        $nativeArgumentVector = @($NativeCommandArguments | ForEach-Object {
+            "'" + ([string]$_).Replace("'", "''") + "'"
+        }) -join ', '
+        $commandInvocation = @"
+    # Windows PowerShell 5.1 promotes native stderr to a NativeCommandError
+    # when ErrorActionPreference is Stop, even if the native process exits 0.
+    # This exception is deliberately scoped to this explicit native process.
+    `$nativeErrorActionPreference = `$ErrorActionPreference
+    try {
+        `$ErrorActionPreference = 'Continue'
+        # Command resolution failures do not set LASTEXITCODE. Start
+        # fail-closed so a previous successful process cannot leak through.
+        `$global:LASTEXITCODE = 1
+        & '$quotedNativeCommandPath' @($nativeArgumentVector) 1> '$quotedStdout' 2> '$quotedStderr'
+        `$nativeExitCode = `$LASTEXITCODE
+    } finally {
+        `$ErrorActionPreference = `$nativeErrorActionPreference
+    }
+"@
+    } else {
+        $commandInvocation = @"
     & {
 $CommandScript
     } 1> '$quotedStdout' 2> '$quotedStderr'
-    exit `$LASTEXITCODE
+    `$nativeExitCode = `$LASTEXITCODE
+"@
+    }
+    $wrappedScript = @"
+`$ErrorActionPreference = 'Stop'
+try {
+    `$nativeExitCode = 1
+$commandInvocation
+    exit `$nativeExitCode
 } catch {
     `$_ | Out-String | Add-Content -LiteralPath '$quotedStderr'
     exit 1
@@ -1062,8 +1100,16 @@ function Invoke-WasmProductionWatchdogContractTest {
             StartTime = $unrelated.StartTime.AddTicks(-1)
         }
         $scenarios = @(
-            [pscustomobject]@{ Name = 'success'; Expected = 'success'; Exit = 0; Timeout = 10; Cancel = $null; State = $null },
-            [pscustomobject]@{ Name = 'failure'; Expected = 'process_failure'; Exit = 7; Timeout = 10; Cancel = $null; State = $null },
+            [pscustomobject]@{ Name = 'success'; Expected = 'success'; Exit = 0; NativeStderr = $null; Timeout = 10; Cancel = $null; State = $null },
+            # PS 5.1 must not turn a native tool's non-fatal stderr into a
+            # watchdog failure. Keep the real Gradle-shaped warning in the
+            # redirected evidence file while returning native exit code zero.
+            [pscustomobject]@{ Name = 'native-stderr-success'; Expected = 'success'; Exit = 0; NativeStderr = 'warning Ignored scripts due to flag.'; NativeCommandArguments = @('/d', '/c', 'echo warning Ignored scripts due to flag. 1>&2 & exit /b 0'); Timeout = 10; Cancel = $null; State = $null },
+            [pscustomobject]@{ Name = 'failure'; Expected = 'process_failure'; Exit = 7; NativeStderr = $null; NativeCommandArguments = @('/d', '/c', 'exit /b 7'); Timeout = 10; Cancel = $null; State = $null },
+            # Only native stderr is tolerated. A terminating PowerShell error
+            # in the command script remains fail-closed.
+            [pscustomobject]@{ Name = 'powershell-error'; Expected = 'process_failure'; Exit = 1; NativeStderr = $null; PowerShellError = $true; Timeout = 10; Cancel = $null; State = $null },
+            [pscustomobject]@{ Name = 'powershell-write-error'; Expected = 'process_failure'; Exit = 1; NativeStderr = $null; PowerShellWriteError = $true; Timeout = 10; Cancel = $null; State = $null },
             [pscustomobject]@{ Name = 'timeout'; Expected = 'maximum_timeout'; Exit = $null; Timeout = 3; Cancel = $null; State = $null },
             [pscustomobject]@{
                 Name = 'cancel'
@@ -1100,13 +1146,21 @@ function Invoke-WasmProductionWatchdogContractTest {
         )
 
         foreach ($scenario in $scenarios) {
+            $usesNativeCommand = $null -ne $scenario.NativeCommandArguments
             $childPidPath = Join-Path $contractRoot "$($scenario.Name)-child.pid"
             $readyPath = Join-Path $contractRoot "$($scenario.Name)-ready.marker"
-            $childCommand = New-HeadlessFixtureChildCommand -ChildPidPath $childPidPath -ReadyPath $readyPath
-            if ($null -ne $scenario.Exit) {
-                $childCommand += "`nexit $($scenario.Exit)"
-            } else {
-                $childCommand += "`nStart-Sleep -Seconds 15"
+            $childCommand = $null
+            if (-not $usesNativeCommand) {
+                $childCommand = New-HeadlessFixtureChildCommand -ChildPidPath $childPidPath -ReadyPath $readyPath
+                if ($scenario.PowerShellError) {
+                    $childCommand += "`nthrow 'fixture_powershell_error'"
+                } elseif ($scenario.PowerShellWriteError) {
+                    $childCommand += "`nWrite-Error -Message 'fixture_nonterminating_powershell_error'"
+                } elseif ($null -ne $scenario.Exit) {
+                    $childCommand += "`n& `$env:ComSpec /d /c `"exit /b $($scenario.Exit)`""
+                } else {
+                    $childCommand += "`nStart-Sleep -Seconds 15"
+                }
             }
 
             $readyDeadline = (Get-Date).AddSeconds(5)
@@ -1150,17 +1204,24 @@ function Invoke-WasmProductionWatchdogContractTest {
                     return & $scenario.State $lease $iteration
                 }
             }
-            $result = Invoke-OwnedWatchdogProcess `
-                -CommandScript $childCommand `
-                -WorkingDirectory $contractRoot `
-                -StdoutPath (Join-Path $contractRoot "$($scenario.Name).stdout.log") `
-                -StderrPath (Join-Path $contractRoot "$($scenario.Name).stderr.log") `
-                -NoProgressSeconds 20 `
-                -MaximumSeconds $scenario.Timeout `
-                -SampleIntervalMilliseconds 100 `
-                -StateProbe $stateProbe `
-                -CancellationProbe $cancellationProbe `
-                -DiagnosticProcessIdentityHints $(if ($scenario.Name -eq 'success') { @($stalePidIdentity) } else { @() })
+            $invokeArguments = @{
+                WorkingDirectory = $contractRoot
+                StdoutPath = (Join-Path $contractRoot "$($scenario.Name).stdout.log")
+                StderrPath = (Join-Path $contractRoot "$($scenario.Name).stderr.log")
+                NoProgressSeconds = 20
+                MaximumSeconds = $scenario.Timeout
+                SampleIntervalMilliseconds = 100
+                StateProbe = $stateProbe
+                CancellationProbe = $cancellationProbe
+                DiagnosticProcessIdentityHints = $(if ($scenario.Name -eq 'success') { @($stalePidIdentity) } else { @() })
+            }
+            if ($usesNativeCommand) {
+                $invokeArguments.NativeCommandPath = $env:ComSpec
+                $invokeArguments.NativeCommandArguments = @($scenario.NativeCommandArguments)
+            } else {
+                $invokeArguments.CommandScript = $childCommand
+            }
+            $result = Invoke-OwnedWatchdogProcess @invokeArguments
 
             if ($result.Outcome -ne $scenario.Expected) {
                 throw "Scenario $($scenario.Name) returned $($result.Outcome), expected $($scenario.Expected): $($result.Failure)"
@@ -1168,14 +1229,22 @@ function Invoke-WasmProductionWatchdogContractTest {
             if ($result.CleanupState -ne 'job_terminated_and_empty') {
                 throw "Scenario $($scenario.Name) did not confirm Job Object cleanup: $($result.CleanupState)"
             }
-            $childPid = Wait-ProcessIdFile -Path $childPidPath
-            Wait-ContractReadyMarker -Path $readyPath | Out-Null
-            Assert-ProcessExited -ProcessId $childPid -Message "Scenario $($scenario.Name) leaked child PID $childPid."
-            if ($scenario.Name -eq 'cancel' -and (-not $ownershipWitness.Confirmed -or $ownershipWitness.ChildPid -ne $childPid)) {
-                throw 'Cancellation scenario did not prove a live child Job Object member before cleanup.'
+            if (-not $usesNativeCommand) {
+                $childPid = Wait-ProcessIdFile -Path $childPidPath
+                Wait-ContractReadyMarker -Path $readyPath | Out-Null
+                Assert-ProcessExited -ProcessId $childPid -Message "Scenario $($scenario.Name) leaked child PID $childPid."
+                if ($scenario.Name -eq 'cancel' -and (-not $ownershipWitness.Confirmed -or $ownershipWitness.ChildPid -ne $childPid)) {
+                    throw 'Cancellation scenario did not prove a live child Job Object member before cleanup.'
+                }
             }
             if ($null -ne $scenario.Exit -and $result.ExitCode -ne $scenario.Exit) {
                 throw "Scenario $($scenario.Name) returned exit $($result.ExitCode), expected $($scenario.Exit)."
+            }
+            if ($scenario.NativeStderr) {
+                $stderrEvidence = Get-Content -LiteralPath (Join-Path $contractRoot "$($scenario.Name).stderr.log") -Raw -ErrorAction Stop
+                if ($stderrEvidence -notmatch [regex]::Escape($scenario.NativeStderr)) {
+                    throw "Scenario $($scenario.Name) did not retain its native stderr evidence."
+                }
             }
             if (-not (Get-Process -Id $unrelated.Id -ErrorAction SilentlyContinue)) {
                 throw "Scenario $($scenario.Name) terminated an unrelated process."
@@ -1203,6 +1272,9 @@ function Invoke-WasmProductionWatchdogContractTest {
         Write-Output 'PASS: PowerShell.Stop() produces PipelineStopped and reaches production finally cleanup.'
         Write-Output 'PASS: Job Object owns descendants before resume and cleans success/failure/timeout/cancel/error.'
         Write-Output 'PASS: stale PID identity reaches cleanup; unrelated/reused PID candidate survives.'
+        Write-Output 'PASS: native stderr with exit 0 remains successful and is retained in watchdog evidence.'
+        Write-Output 'PASS: native nonzero exit remains process_failure with its exact exit code.'
+        Write-Output 'PASS: terminating and nonterminating PowerShell command errors remain fail-closed.'
     } finally {
         Stop-Process -Id $unrelated.Id -Force -ErrorAction SilentlyContinue
         $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
@@ -1379,14 +1451,11 @@ $reportDirectory = Join-Path $root $ReportDirectory
 New-Item -ItemType Directory -Force -Path $reportDirectory | Out-Null
 $stdout = Join-Path $reportDirectory 'gradle-production.stdout.log'
 $stderr = Join-Path $reportDirectory 'gradle-production.stderr.log'
-$gradlew = (Join-Path $root 'gradlew.bat').Replace("'", "''")
-$commandScript = @"
-& '$gradlew' ':web:wasmJsBrowserDistribution' '--no-daemon' '--console=plain' '--stacktrace'
-exit `$LASTEXITCODE
-"@
+$gradlew = Join-Path $root 'gradlew.bat'
 
 $result = Invoke-OwnedWatchdogProcess `
-    -CommandScript $commandScript `
+    -NativeCommandPath $gradlew `
+    -NativeCommandArguments @(':web:wasmJsBrowserDistribution', '--no-daemon', '--console=plain', '--stacktrace') `
     -WorkingDirectory $root `
     -StdoutPath $stdout `
     -StderrPath $stderr `
