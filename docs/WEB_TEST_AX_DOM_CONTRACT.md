@@ -5,7 +5,9 @@ Para los controles críticos Web, Quata usa la API oficial
 `androidx.compose.ui.viewinterop.WebElementView`: los inputs y botones son los
 elementos HTML visibles e interactivos que forman parte de la composición.
 
-No hay overlay, host `aria-hidden`, marcador ni control duplicado. Cada elemento
+No hay overlay ni control duplicado que participe en la accesibilidad. El recurso
+heredado `<quata-test-contract aria-hidden="true">` sigue siendo una frontera
+observacional inerte: no aporta nodos AX ni recibe eventos de usuario. Cada elemento
 actualiza el mismo estado que consume la pantalla Compose mediante `oninput`/
 `onclick`; Android e iOS siguen usando sus controles Compose existentes.
 

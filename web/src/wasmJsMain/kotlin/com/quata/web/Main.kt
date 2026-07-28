@@ -307,6 +307,9 @@ private fun QuataWebApp(
                         selectedId = navigation.route,
                         onItemClick = ::navigateWebFragment,
                         modifier = Modifier.align(Alignment.BottomCenter),
+                        itemOverride = { item, selected, onClick, itemModifier ->
+                            WebNativeButton(item.label, true, onClick, itemModifier.height(72.dp), selected)
+                        },
                     )
                 },
             ) {

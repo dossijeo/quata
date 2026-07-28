@@ -137,11 +137,19 @@ try {
   await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#feed`);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
-    return localStorage.getItem("web.auth.session_ready") === "true" && root &&
+    return localStorage.getItem("web.auth.session_ready") === "true" && localStorage.getItem("web.navigation.route") === "feed" && root &&
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   });
+  if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("feed_mount_pageerror");
   report.steps.push("product_session_restored_after_reload");
 
+  const chatsNavigation = page.locator('button[aria-label="Chats"]');
+  await chatsNavigation.waitFor();
+  await assertUniqueNativeAx(page, { role: "button", name: "Chats", selector: 'button[aria-label="Chats"]' });
+  await chatsNavigation.focus();
+  await assertUniqueNativeAx(page, { role: "button", name: "Chats", selector: 'button[aria-label="Chats"]', focused: true });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => localStorage.getItem("web.navigation.route") === "chat");
   await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
 
   stage = "authenticated_profile_read";
@@ -468,6 +476,7 @@ function safeError(error) {
     "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
     "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_logout_focus_missing",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
+    "ax_navigation_not_unique",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";
