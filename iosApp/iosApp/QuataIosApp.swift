@@ -778,9 +778,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
-        authenticationFactory = {
+        installAuthenticationFactory {
             IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
         }
+    }
+
+    /// Installs the authenticated entry point without granting a session. Keeping this UIKit
+    /// factory boundary explicit lets a private deep link show login while retaining its route
+    /// until the real authenticated Feed/factory composition is available.
+    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+        authenticationFactory = factory
         // On an unconfigured deployment this remains the honest initial state. With a valid
         // public Feed it is deferred until an anonymous user explicitly asks to log in.
         if !hasPublicFeed { presentLoginIfAvailable() }
@@ -1091,6 +1098,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func route(_ route: PendingRoute) {
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
+            // Retain a private deep link for the authenticated composition, but never render its
+            // controller before the launcher has restored a real session.
+            pendingRoute = route
             presentLoginIfAvailable()
             return
         }

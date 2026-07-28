@@ -203,20 +203,49 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(router.children.count, 1)
     }
 
-    func testAnonymousRouterAllowsPublicPostRouteWithoutSession() {
+    func testAnonymousRouterAllowsPublicPostRouteWithoutSession() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         var receivedPostId: String?
-        let publicFeed = UIViewController()
+        var latestPublicFeed: UIViewController?
         router.installPublicFeed { postId in
             receivedPostId = postId
+            let publicFeed = UIViewController()
+            latestPublicFeed = publicFeed
             return publicFeed
         }
 
         router.showFeed(postId: "public-post-9")
 
         XCTAssertEqual(receivedPostId, "public-post-9")
+        let publicFeed = try XCTUnwrap(latestPublicFeed)
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
+    }
+
+    func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let login = UIViewController()
+        router.installAuthenticationFactory { login }
+
+        router.showChat(conversationId: "private-chat", messageId: "message-4")
+
+        XCTAssertTrue(router.children.contains { $0 === login })
+        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-chat-host" })
+
+        router.installFeedFactory { _ in UIViewController() }
+        let chat = UIViewController()
+        router.installChatFactory { conversationId, messageId in
+            XCTAssertEqual(conversationId, "private-chat")
+            XCTAssertEqual(messageId, "message-4")
+            return chat
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === chat })
+        XCTAssertEqual(chat.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertEqual(router.children.count, 1)
     }
 
     func testAnonymousRouterAllowsLocalWhatsNewAndReleaseHistoryWithoutSession() {
