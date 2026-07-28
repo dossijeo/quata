@@ -424,7 +424,7 @@ private fun ChatBrowserConversationDetail(
                             }) { Text("Grabar audio") }
                         }
                         recordingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        sendButtonOverride?.invoke(state.messageText.isNotBlank() || state.attachmentUri != null, { viewModel.onEvent(ChatUiEvent.Send) }, Modifier.semantics { testTag = "chat.send" }) ?: Button(
+                        Button(
                             onClick = {
                                 scope.launch {
                                     when (val result = filePicker.pick(
@@ -465,7 +465,11 @@ private fun ChatBrowserConversationDetail(
                                 Text("Quitar adjunto")
                             }
                         }
-                        Button(
+                        sendButtonOverride?.invoke(
+                            state.messageText.isNotBlank() || state.attachmentUri != null,
+                            { viewModel.onEvent(ChatUiEvent.Send) },
+                            Modifier.semantics { testTag = "chat.send" },
+                        ) ?: Button(
                             onClick = { viewModel.onEvent(ChatUiEvent.Send) },
                             enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
                             modifier = Modifier.semantics { testTag = "chat.send" },

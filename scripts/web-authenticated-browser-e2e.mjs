@@ -114,12 +114,16 @@ try {
   const password = page.locator('input[aria-label="Contraseña"]');
   const login = page.locator('button[aria-label="Entrar"]');
   await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Teléfono", selector: 'input[aria-label="Teléfono"]' });
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Contraseña", selector: 'input[aria-label="Contraseña"]' });
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]' });
   await phone.fill(credentials.phone);
   await password.fill(credentials.password);
   await waitFor(async () => await login.isEnabled(), "native_login_submit_disabled");
   await password.focus();
   await page.keyboard.press("Tab");
   if (!(await login.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_login_focus_missing");
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]', focused: true });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
   cleanupSession = await readSession(page);
@@ -130,13 +134,15 @@ try {
   await page.reload();
   await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
   await page.evaluate(() => globalThis.__quataAuthE2eProduct.restore());
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#feed`);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     return localStorage.getItem("web.auth.session_ready") === "true" && root &&
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   });
   report.steps.push("product_session_restored_after_reload");
+
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
 
   stage = "authenticated_profile_read";
   const profileRead = await page.evaluate(async ({ backend, key, profileId }) => {
@@ -156,17 +162,22 @@ try {
   const message = page.locator('input[aria-label="Mensaje"]');
   const send = page.locator('button[aria-label="Enviar"]');
   await Promise.all([message.waitFor(), send.waitFor()]);
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]' });
+  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
   if (await send.isEnabled()) throw new Error("native_chat_send_initial_state_changed");
   await message.fill("mensaje AX local");
   await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
   await send.focus();
+  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]', focused: true });
   await page.keyboard.press("Enter");
   report.steps.push("native_chat_role_name_state_keyboard_activation");
 
   stage = "native_logout";
   const logout = page.locator('button[aria-label="Cerrar sesión"]');
+  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]' });
   await logout.focus();
   if (!(await logout.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_logout_focus_missing");
+  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]', focused: true });
   await page.keyboard.press("Space");
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") !== "true");
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
@@ -366,6 +377,23 @@ async function readSession(page) {
     profileId: localStorage.getItem("quata_web_user_id"),
   }));
 }
+async function assertUniqueNativeAx(page, { role, name, selector, focused = false }) {
+  const locator = page.locator(selector);
+  if (await locator.count() !== 1) throw new Error(`native_ax_selector_not_unique_${role}`);
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`native_ax_not_visible_${role}`);
+  const client = await page.context().newCDPSession(page);
+  try {
+    const { nodes } = await client.send("Accessibility.getFullAXTree");
+    const matches = nodes.filter(node => !node.ignored && node.role?.value === role && node.name?.value === name);
+    if (matches.length !== 1) throw new Error(`native_ax_role_name_not_unique_${role}`);
+    if (focused && !matches[0].properties?.some(property => property.name === "focused" && property.value?.value === true)) {
+      throw new Error(`native_ax_focus_missing_${role}`);
+    }
+  } finally {
+    await client.detach();
+  }
+}
 async function waitFor(predicate, failureCode, timeoutMs = 5_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -439,6 +467,7 @@ function safeError(error) {
     "real_mode_environment_missing", "invalid_public_supabase_url", "privileged_key_forbidden",
     "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
     "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_logout_focus_missing",
+    "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";

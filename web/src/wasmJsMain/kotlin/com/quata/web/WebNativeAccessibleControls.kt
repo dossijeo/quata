@@ -13,10 +13,10 @@ import org.w3c.dom.HTMLInputElement
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun WebNativeInput(value: String, onValueChange: (String) -> Unit, name: String, modifier: Modifier, password: Boolean = false) {
+fun WebNativeInput(value: String, onValueChange: (String) -> Unit, name: String, modifier: Modifier, inputType: String = "tel") {
     WebElementView(
         factory = { (document.createElement("input") as HTMLInputElement).apply {
-            type = if (password) "password" else "tel"; setAttribute("aria-label", name)
+            type = inputType; setAttribute("aria-label", name)
             style.width = "100%"; style.height = "100%"; style.boxSizing = "border-box"
         } },
         update = { input -> if (input.value != value) input.value = value; input.oninput = { onValueChange(input.value) } },
@@ -30,7 +30,7 @@ fun WebNativeInput(value: String, onValueChange: (String) -> Unit, name: String,
 fun WebNativeButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
     WebElementView(
         factory = { (document.createElement("button") as HTMLButtonElement).apply { setAttribute("aria-label", label); style.width = "100%"; style.height = "100%" } },
-        update = { button -> button.textContent = label; button.disabled = !enabled; button.onclick = { onClick(); null } },
+        update = { button -> button.textContent = label; button.setAttribute("aria-label", label); button.disabled = !enabled; button.onclick = { onClick(); null } },
         onRelease = { button -> button.onclick = null },
         modifier = modifier.fillMaxWidth(),
     )

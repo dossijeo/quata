@@ -43,7 +43,7 @@ fun WebLoginHost(
         registerUnavailableMessage = if (runtimeConfiguration.webRegistrationEnabled) null else "El registro web aún no está habilitado.",
         runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
         phoneInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.phone, modifier.height(56.dp)) },
-        passwordInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.password, modifier.height(56.dp), password = true) },
+        passwordInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.password, modifier.height(56.dp), inputType = "password") },
         submitButtonOverride = { label, enabled, onClick, modifier -> WebNativeButton(label, enabled, onClick, modifier.height(48.dp)) },
     ) {
         platformServices.preferences.putString(WebSessionReadyKey, "true")
