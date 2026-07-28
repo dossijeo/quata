@@ -85,9 +85,20 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     var type by remember { mutableStateOf(PostComposerType.Text) }
     var imagePreviewFile by remember { mutableStateOf<PlatformFile?>(null) }
     var videoPreview by remember { mutableStateOf<IosComposerVideoPreview?>(null) }
+    var videoThumbnailFile by remember { mutableStateOf<PlatformFile?>(null) }
     val accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag)
     val copy = accessibility.composer
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    fun releaseVideoThumbnail() {
+        iosComposerThumbnailToRelease(videoThumbnailFile)?.let(::releaseIosComposerVideoThumbnail)
+        videoThumbnailFile = null
+        videoPreview = null
+    }
+    DisposableEffect(viewModel) {
+        onDispose {
+            iosComposerThumbnailToRelease(videoThumbnailFile)?.let(::releaseIosComposerVideoThumbnail)
+            viewModel.close()
+        }
+    }
 
     ComposerScreenLayoutContent(
         title = copy.title,
@@ -141,9 +152,12 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                             dependencies.filePicker.pick(
                                 FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
                             ).composerSelectedFileOrNull()?.let { file ->
+                                releaseVideoThumbnail()
                                 viewModel.onEvent(CreatePostUiEvent.VideoSelected(file.reference))
                                 videoPreview = IosComposerVideoPreview.Generating
-                                videoPreview = dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview()
+                                videoPreview = dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview().also { result ->
+                                    videoThumbnailFile = (result as? IosComposerVideoPreview.Thumbnail)?.file
+                                }
                             }
                         }
                     },
@@ -154,7 +168,11 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             }
             ComposerBackButtonContent(
                 label = copy.backToFeed,
-                onBack = dependencies.onClose,
+                onBack = {
+                    releaseVideoThumbnail()
+                    viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                    dependencies.onClose()
+                },
                 accessibility = accessibility,
             )
         },
