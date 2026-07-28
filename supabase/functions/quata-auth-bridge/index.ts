@@ -3,7 +3,7 @@ import {
   constantTimeEqualHex,
   hashRecoveryAnswer,
   hashRegistrationPassword,
-  verifyRegistrationPassword,
+  verifyProfilePassword,
   recoverySecretPatch,
   registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
@@ -464,15 +464,7 @@ async function findAuthUserByEmail(admin: any, email: string) {
 }
 
 async function validateLegacyPassword(profile: CommunityProfile, password: string): Promise<boolean> {
-  const passHash = profile.pass_hash?.trim();
-  if (passHash) {
-    if (passHash.startsWith("pbkdf2_sha256$")) {
-      return verifyRegistrationPassword(passHash, password);
-    }
-    const sha = await sha256(password);
-    if (sha.toLowerCase() === passHash.toLowerCase()) return true;
-  }
-  return profile.pass_plain === password;
+  return verifyProfilePassword(profile, password);
 }
 
 async function sha256(value: string): Promise<string> {
