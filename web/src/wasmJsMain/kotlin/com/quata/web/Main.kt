@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -276,14 +275,6 @@ private fun QuataWebApp(
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
-    // This updates a hidden DOM observation boundary only. Compose continues to own all input
-    // and actions on its canvas; Playwright must not treat these markers as interactive controls.
-    SideEffect {
-        updateWebTestContract(
-            surface = if (isSessionReady) "authenticated" else "auth",
-            route = navigation.route.ifBlank { if (isSessionReady) "feed" else "login" },
-        )
-    }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             if (isSessionReady) {
@@ -437,10 +428,6 @@ private fun QuataWebApp(
         }
     }
 }
-
-private fun updateWebTestContract(surface: String, route: String): Unit = js(
-    "{ globalThis.__quataWebTestContract?.setState?.(surface, route); }",
-)
 
 /**
  * Every authenticated Web vertical remains reachable from normal navigation, not only through a

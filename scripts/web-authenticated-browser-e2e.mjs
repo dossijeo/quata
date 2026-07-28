@@ -103,6 +103,8 @@ try {
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   });
   report.steps.push("real_compose_auth_shell_mounted");
+  await assertLoginAccessibility(page);
+  report.steps.push("chrome_ax_login_roles_names_and_tab_focus");
 
   stage = "product_login";
   await page.evaluate(
@@ -141,12 +143,20 @@ try {
   if (!profileRead.ok || !profileRead.exact) throw new Error("authenticated_profile_read_failed");
   report.steps.push("authenticated_browser_profile_read");
 
-  stage = "product_logout";
-  await page.evaluate(() => globalThis.__quataAuthE2eProduct.logout());
+  stage = "accessible_chat_controls";
+  await assertChatAccessibility(page, server.origin, backend);
+  report.steps.push("chrome_ax_chat_roles_names_keyboard_interaction");
+
+  stage = "accessible_product_logout";
+  const logout = page.getByRole("button", { name: "Cerrar sesión" });
+  await logout.focus();
+  if (!(await logout.evaluate(node => node === document.activeElement))) throw new Error("ax_logout_focus_missing");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") !== "true");
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
     throw new Error("product_logout_storage_remains");
   }
-  report.steps.push("product_coordinator_logout_cleared_session");
+  report.steps.push("chrome_ax_logout_role_name_keyboard_activation");
 
   stage = "global_session_cleanup";
   await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
@@ -336,6 +346,29 @@ async function readSession(page) {
 function assertCompleteSession(session) {
   if (!session?.accessToken || !session.refreshToken || !session.webSessionToken ||
       !/^[0-9a-f-]{36}$/i.test(session.profileId ?? "")) throw new Error("product_session_incomplete");
+}
+
+async function assertLoginAccessibility(page) {
+  const phone = page.getByRole("textbox", { name: "Teléfono" });
+  const password = page.getByRole("textbox", { name: "Contraseña" });
+  const submit = page.getByRole("button", { name: "Entrar" });
+  await Promise.all([phone.waitFor(), password.waitFor(), submit.waitFor()]);
+  await phone.focus();
+  await page.keyboard.press("Tab");
+  if (!(await password.evaluate(node => node === document.activeElement))) throw new Error("ax_login_tab_focus_missing");
+}
+
+async function assertChatAccessibility(page, origin, backend) {
+  await page.goto(`${origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
+  const message = page.getByRole("textbox", { name: "Mensaje" });
+  const send = page.getByRole("button", { name: "Enviar" });
+  const logout = page.getByRole("button", { name: "Cerrar sesión" });
+  await Promise.all([message.waitFor(), send.waitFor(), logout.waitFor()]);
+  if (await send.isEnabled()) throw new Error("ax_chat_send_initial_state_changed");
+  await message.fill("mensaje AX local");
+  if (!(await send.isEnabled())) throw new Error("ax_chat_send_enabled_state_missing");
+  await send.focus();
+  await page.keyboard.press("Enter");
 }
 function sessionFromLoginPayload(body) {
   try {

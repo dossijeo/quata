@@ -16,7 +16,7 @@ test("hermetic Auth gate uses a real browser and the product repository/coordina
   assert.match(runner, /chromium\.launch\(/);
   assert.match(runner, /__quataAuthE2eProduct\.login/);
   assert.match(runner, /__quataAuthE2eProduct\.restore/);
-  assert.match(runner, /__quataAuthE2eProduct\.logout/);
+  assert.match(runner, /getByRole\("button", \{ name: "Cerrar sesión" \}\)/);
   assert.match(main, /authRepository\.login\(countryCode, phone, password\)/);
   assert.match(main, /preferences\.putString\(WebSessionReadyKey, "true"\)/);
   assert.match(main, /authRepository\.restoreLocalSession\(\)/);
@@ -31,6 +31,10 @@ test("fixture fails closed on external network and verifies the complete journey
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
+  assert.match(runner, /getByRole\("textbox", \{ name: "Teléfono" \}\)/);
+  assert.match(runner, /getByRole\("textbox", \{ name: "Mensaje" \}\)/);
+  assert.match(runner, /getByRole\("button", \{ name: "Cerrar sesión" \}\)/);
+  assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
 });
 
 test("real mode is double opt-in, never provisions an account, and verifies revocation", () => {

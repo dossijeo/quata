@@ -181,21 +181,19 @@ try {
         await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
+        await cdp.send('Accessibility.enable');
 
         // The first probe is deliberately unauthenticated and therefore exercises the shared
         // Auth compose shell without requiring a Supabase instance.
         browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
-        await assertWebTestContract(cdp, 'auth', 'auth');
+        await assertAuthAccessibilityBridge(cdp);
         await assertUnconfiguredAuthBoundary(cdp);
 
-        // No session is invented for the remaining hashes. The route contract still records the
-        // requested host while the visible surface correctly stays at Auth until a real login.
+        // No session is invented for the remaining hashes. The visible surface correctly stays
+        // at Auth until a real login changes Compose state.
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
-            // This smoke intentionally does not mint a backend session. It can verify the
-            // requested hash route but remains on the Auth surface until a real login changes
-            // Compose state; the authenticated surface belongs to the remote E2E runner.
-            await assertWebTestContract(cdp, 'auth', fragment);
+            await assertAuthAccessibilityBridge(cdp);
         }
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
@@ -683,30 +681,30 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     }
 }
 
-async function assertWebTestContract(cdp, expectedSurface, expectedRoute) {
-    let value;
+async function assertAuthAccessibilityBridge(cdp) {
     for (let attempt = 0; attempt < 30; attempt += 1) {
-        const contract = await cdp.evaluate(`(() => {
-        const host = document.querySelector('quata-test-contract');
-        const root = host?.shadowRoot;
-        const node = root?.querySelector('[data-testid="web-test-contract"]');
-        return node ? {
-            version: node.dataset.contractVersion,
-            surface: node.dataset.surface,
-            route: node.dataset.route,
-            authSubmit: !!root.querySelector('[data-testid="auth-submit"]'),
-            chatSend: !!root.querySelector('[data-testid="chat-send"]'),
-        } : null;
-        })()`);
-        value = contract.result?.value;
-        const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
-        const expected = ['1', expectedSurface, expectedRoute, true, true];
-        if (JSON.stringify(observed) === JSON.stringify(expected)) return;
+        const tree = await cdp.send('Accessibility.getFullAXTree');
+        const controls = (tree.nodes ?? []).map(node => ({
+            role: node.role?.value,
+            name: node.name?.value,
+            focused: node.properties?.some(property => property.name === 'focused' && property.value?.value === true),
+        }));
+        const hasNamedAuthControls = ['Teléfono', 'Contraseña'].every(name =>
+            controls.some(control => control.role === 'textbox' && control.name === name),
+        ) && controls.some(control => control.role === 'button' && control.name === 'Entrar');
+        if (hasNamedAuthControls) {
+            // The tab is dispatched to Chrome, not a DOM surrogate. Compose/Wasm updates the
+            // focus state in the same accessibility tree consumed by assistive technology.
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+            const focusedTree = await cdp.send('Accessibility.getFullAXTree');
+            if ((focusedTree.nodes ?? []).some(node => node.properties?.some(property =>
+                property.name === 'focused' && property.value?.value === true,
+            ))) return;
+        }
         await delay(100);
     }
-    const observed = [value?.version, value?.surface, value?.route, value?.authSubmit, value?.chatSend];
-    const expected = ['1', expectedSurface, expectedRoute, true, true];
-    throw new Error(`WEB-TEST-001 contract mismatch: ${JSON.stringify({ observed, expected })}.`);
+    throw new Error('WEB-TEST-001: Chrome did not expose named Compose login controls and keyboard focus in its AX tree.');
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {

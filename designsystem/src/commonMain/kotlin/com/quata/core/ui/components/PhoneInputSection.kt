@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,7 +73,10 @@ fun PhoneInputSection(
             singleLine = true,
             modifier = Modifier
                 .weight(0.64f)
-                .height(CompactTextFieldHeight),
+                .height(CompactTextFieldHeight)
+                // Compose/Wasm forwards this real semantics node to Chrome's AX tree. The
+                // placeholder alone is not an accessible name once the field has a value.
+                .semantics { contentDescription = phoneLabel },
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = template.colors.surfaceAlt,
