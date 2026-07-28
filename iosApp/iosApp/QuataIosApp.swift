@@ -1113,7 +1113,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func renderPendingRouteIfPossible() {
-        guard let pendingRoute, let controller = controller(for: pendingRoute) else { return }
+        guard let pendingRoute else { return }
+        guard !pendingRoute.isAuthenticationRequired || hasAuthenticatedSession else { return }
+        guard let controller = controller(for: pendingRoute) else { return }
         self.pendingRoute = nil
         showRouteController(controller, route: pendingRoute)
     }
