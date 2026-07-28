@@ -466,6 +466,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let initialController = try XCTUnwrap(host.children.first)
         XCTAssertEqual(host.children.count, 1)
         XCTAssertEqual(initialController.view.accessibilityIdentifier, "quata-ios-compose-root")
+        XCTAssertFalse(initialController.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === initialController)
 
         let authSurface = UIViewController()
@@ -481,6 +482,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(initialController.view.superview)
         XCTAssertEqual(authSurface.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertEqual(authSurface.view.accessibilityLabel, "Quata iOS authentication")
+        XCTAssertFalse(authSurface.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === authSurface)
 
         let feedSurface = UIViewController()
@@ -496,6 +498,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(authSurface.view.superview)
         XCTAssertEqual(feedSurface.view.accessibilityIdentifier, "quata-ios-feed-host")
         XCTAssertEqual(feedSurface.view.accessibilityLabel, "Quata iOS Feed")
+        XCTAssertFalse(feedSurface.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === feedSurface)
     }
 

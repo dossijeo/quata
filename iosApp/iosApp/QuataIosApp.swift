@@ -1101,7 +1101,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.frame = view.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         controller.view.accessibilityIdentifier = accessibilityIdentifier
-        controller.view.isAccessibilityElement = true
+        // The hosted controller is an accessibility container. Promoting its root view to one
+        // element makes UIKit hide the real Compose Text/Button descendants from VoiceOver and
+        // XCUITest, even though they remain visibly rendered.
+        controller.view.isAccessibilityElement = false
         controller.view.accessibilityLabel = accessibilityLabel
         view.addSubview(controller.view)
         // Feature hosts fill the router bounds. Keep the authenticated route affordance above
