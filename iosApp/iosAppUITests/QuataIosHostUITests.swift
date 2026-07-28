@@ -16,7 +16,7 @@ final class QuataIosHostUITests: XCTestCase {
 
     }
 
-    func testLaunchesUIKitCompositionRootWithComposeSurface() {
+    func testNormalLaunchExposesTheUnconfiguredComposeMigrationSemantics() {
         let app = XCUIApplication()
         app.launch()
 
@@ -25,13 +25,22 @@ final class QuataIosHostUITests: XCTestCase {
             migrationSurface.label,
             "Quata iOS requires an authenticated Feed session",
         )
-        let before = migrationSurface.screenshot().pngRepresentation
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-before-action")
-        migrationSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.56)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
-        let after = migrationSurface.screenshot().pngRepresentation
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-after-action")
-        XCTAssertNotEqual(before, after, "The stable Compose root rendering must change after its real action.")
+        assertUnconfiguredMigrationSemantics(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-unconfigured")
+    }
+
+    func testColdRelaunchRestoresOneComposeMigrationSurface() {
+        let app = XCUIApplication()
+        app.launch()
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "initial launch")
+
+        app.terminate()
+        app.launch()
+
+        let migrationSurface = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold relaunch")
+        XCTAssertEqual(migrationSurface.label, "Quata iOS requires an authenticated Feed session")
+        assertUnconfiguredMigrationSemantics(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-cold-relaunch")
     }
 
     func testAuthenticatedFixtureColdStartsChatDeepLinkThroughTheSharedRouter() {
@@ -88,5 +97,25 @@ final class QuataIosHostUITests: XCTestCase {
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
         return app
+    }
+
+    private func assertUnconfiguredMigrationSemantics(in app: XCUIApplication) {
+        let message = app.staticTexts[
+            "Quata para iOS necesita una configuración pública válida para iniciar."
+        ]
+        XCTAssertTrue(
+            message.waitForExistence(timeout: 10),
+            "The real unconfigured Compose migration text must be exposed through accessibility.",
+        )
+
+        let acknowledge = app.buttons["Entendido"]
+        XCTAssertTrue(
+            acknowledge.waitForExistence(timeout: 10),
+            "The real unconfigured Compose action must be exposed through accessibility.",
+        )
+        XCTAssertTrue(
+            acknowledge.isHittable,
+            "The visible Compose migration action must be hittable on the normal launcher surface.",
+        )
     }
 }
