@@ -58,3 +58,11 @@ test("both entry points wire the fail-closed preflight before remote Chat work",
   assert.match(wrapper, /QUATA_E2E_CHAT_MANAGER_AUTHORIZATION/);
   assert.match(wrapper, /MANAGER_APPROVED_ISOLATED_CHAT_E2E/);
 });
+
+test("Chat E2E documentation does not turn historical/local results into live purge evidence", async () => {
+  const docs = await readFile(new URL("../docs/WEB_CHAT_BROWSER_E2E.md", import.meta.url), "utf8");
+  assert.match(docs, /no\s+acreditan una purga live actual/i);
+  assert.match(docs, /no están verificados mediante UI/i);
+  assert.doesNotMatch(docs, /Todos los fixtures de cada intento se eliminaron/i);
+  assert.doesNotMatch(docs, /cero residuos/i);
+});

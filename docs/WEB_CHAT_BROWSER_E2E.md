@@ -84,17 +84,16 @@ puede acreditar el E2E.
 
 ## Estado de validación local
 
-Sobre `1d604ab3`, `:web:wasmJsTest`,
-`:web:wasmJsBrowserDistribution` y el smoke base de Chrome pasaron. El
-preflight remoto también confirmó login con dos cuentas aisladas y creación
-del hilo privado.
+Los resultados históricos o locales de compilación, smoke y preflight no
+acreditan una purga live actual ni se pueden reutilizar como evidencia de este
+SHA. No se ha ejecutado una corrida live del candidato con el gate de purga
+actual; el gate sólo inspecciona y termina en rollback.
 
-El recorrido Playwright permanece bloqueado antes del primer envío: Compose/Wasm
-monta correctamente su canvas dentro del shadow DOM y conserva sesión, runtime y
-ruta Chat, pero Chrome no materializa el `OutlinedTextField` como textbox
-localizable, ni siquiera con `--force-renderer-accessibility`. No hubo excepciones
-de runtime. Por tanto esta evidencia no acredita envío, recepción, reply ni
-logout mediante UI. Todos los fixtures de cada intento se eliminaron a través de
-`quata-account-lifecycle` y se verificó por base de datos la ausencia de Auth,
-perfiles, hilos, participantes, mensajes, adjuntos y sesiones web.
-La comprobación final arrojó cero residuos en todas esas superficies.
+El recorrido Playwright sigue bloqueado antes del primer envío: Compose/Wasm
+monta el canvas dentro del shadow DOM, pero Chrome no materializa el
+`OutlinedTextField` como textbox localizable, ni siquiera con
+`--force-renderer-accessibility`. Por tanto no están verificados mediante UI:
+envío A→B, recepción, respuesta, logout ni purga. Tampoco se declara ausencia
+de residuos de Auth, perfiles, hilos, participantes, mensajes, adjuntos o
+sesiones hasta que exista una ejecución autorizada y una verificación
+independiente del servicio de purga.
