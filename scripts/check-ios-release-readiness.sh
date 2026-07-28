@@ -124,14 +124,32 @@ def load_xcconfig(path: Path) -> dict[str, str]:
         values[key.strip()] = value.strip()
     return values
 
+def expand_xcconfig_values(values: dict[str, str]) -> dict[str, str]:
+    variable = re.compile(r"\$\(([^)]+)\)")
+
+    def expand(value: str, resolving: set[str]) -> str:
+        def replacement(match: re.Match[str]) -> str:
+            name = match.group(1)
+            if name in resolving:
+                return match.group(0)
+            return expand(values.get(name, match.group(0)), resolving | {name})
+        return variable.sub(replacement, value)
+
+    return {key: expand(value, {key}) for key, value in values.items()}
+
 if require_public_runtime:
     require(runtime_local.is_file(), "public runtime fixture/local override must exist before building")
     if runtime_local.is_file():
-        runtime = load_xcconfig(runtime_local)
+        runtime = expand_xcconfig_values({
+            **load_xcconfig(runtime_defaults),
+            **load_xcconfig(runtime_local),
+        })
         url = runtime.get("QUATA_SUPABASE_URL", "")
         key = runtime.get("QUATA_SUPABASE_PUBLISHABLE_KEY", "")
         require(bool(re.fullmatch(r"https://[A-Za-z0-9.-]+(?:/[^\s]*)?", url)),
                 "public runtime URL must be a non-empty HTTPS URL")
+        require(re.search(r"^\s*QUATA_SUPABASE_URL\s*=\s*https://", runtime_local.read_text(encoding="utf-8"), re.MULTILINE) is None,
+                "public runtime URL must compose // through QUATA_XCCONFIG_SLASH for Xcode")
         require(bool(key) and "$(" not in key and not re.search(r"[\r\n]", key),
                 "public runtime publishable key must be non-empty and single-line")
         local_source = runtime_local.read_text(encoding="utf-8").lower()
