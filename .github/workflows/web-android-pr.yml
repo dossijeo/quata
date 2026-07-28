@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/web-android-pr.yml"
+      - ".github/workflows/ios-build.yml"
       - "build-logic/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"

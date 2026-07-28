@@ -4,6 +4,13 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'ios-build.yml');
+const independentWorkflow = resolve(
+  import.meta.dirname,
+  '..',
+  '.github',
+  'workflows',
+  'web-android-pr.yml',
+);
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
 
 function assertIosJavaContract(yaml) {
@@ -35,6 +42,20 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
+  );
+}
+
+function assertIndependentWebCoverage(yaml) {
+  const pullRequestStart = yaml.indexOf('  pull_request:');
+  const concurrencyStart = yaml.indexOf('\nconcurrency:');
+  assert.ok(pullRequestStart >= 0 && concurrencyStart > pullRequestStart);
+
+  const pullRequestTrigger = yaml.slice(pullRequestStart, concurrencyStart);
+  assert.match(pullRequestTrigger, /- "\.github\/workflows\/ios-build\.yml"/);
+  assert.match(pullRequestTrigger, /- "scripts\/ios-build-workflow-contract\.test\.mjs"/);
+  assert.match(
+    yaml,
+    /- name: Run Web Wave 2 Node contracts[\s\S]*?npm run test:web-wave2-contracts/,
   );
 }
 
@@ -84,5 +105,27 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ],
   ]) await t.test(name, () => {
     assert.throws(() => assertIosWorkflowSelfCoverage(mutation));
+  });
+});
+
+test('independent Web/Android workflow covers iOS workflow changes and runs Wave 2 contracts', async () => {
+  const yaml = await readFile(independentWorkflow, 'utf8');
+  assertIndependentWebCoverage(yaml);
+});
+
+test('independent Web/Android coverage fails closed when an iOS path or contract command is removed', async (t) => {
+  const yaml = await readFile(independentWorkflow, 'utf8');
+  for (const [name, mutation] of [
+    ['iOS workflow path removed', yaml.replace('      - ".github/workflows/ios-build.yml"\n', '')],
+    [
+      'iOS contract path removed',
+      yaml.replace('      - "scripts/ios-build-workflow-contract.test.mjs"\n', ''),
+    ],
+    [
+      'Wave 2 contract command weakened',
+      yaml.replace('npm run test:web-wave2-contracts', 'npm run test:web'),
+    ],
+  ]) await t.test(name, () => {
+    assert.throws(() => assertIndependentWebCoverage(mutation));
   });
 });
