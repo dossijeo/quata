@@ -35,6 +35,11 @@ assert.equal(publicMedia({ url: `${base}/storage/v1/object/public/community-medi
 assert.equal(publicMedia({ url: `${base}/storage/v1/object/public/community-media/post-7.png?signed=secret` }).reason, 'supabase_credentials_forbidden');
 assert.equal(publicMedia({ headers: { Authorization: 'Bearer secret' } }).reason, 'supabase_credentials_forbidden');
 assert.equal(publicMedia({ headers: { apikey: 'public' } }).reason, 'supabase_credentials_forbidden', 'public Storage never receives an API key');
+for (const name of ['apikey', 'authorization', 'proxy-authorization', 'cookie', 'x-api-key']) {
+  for (const value of ['', 'present']) {
+    assert.equal(publicMedia({ headers: { [name.toUpperCase()]: value } }).reason, 'supabase_credentials_forbidden', `Storage rejects ${name} by presence even when empty`);
+  }
+}
 assert.equal(publicMedia({ method: 'HEAD' }).reason, 'supabase_method_forbidden');
 assert.equal(publicMedia({ method: 'POST' }).reason, 'supabase_method_forbidden');
 assert.equal(publicMedia({ resourceType: 'fetch' }).reason, 'supabase_storage_resource_type_forbidden');

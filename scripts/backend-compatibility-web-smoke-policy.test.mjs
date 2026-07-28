@@ -9,6 +9,7 @@ import {
   openMediaAccreditationGate,
   settleMediaAccreditation,
   waitForMediaAccreditation,
+  hasAcceptedMediaForEpoch,
   isMediaAccreditationRoute,
   TURNSTILE_BOOTSTRAP_URL,
 } from "./backend-compatibility-web-smoke-policy.mjs";
@@ -112,6 +113,8 @@ test("a repeated route receives a fresh epoch and ignores late prior accreditati
   assert.equal(feedSecond.accreditedMediaUrls.has(image), false, "late first navigation cannot grant the second feed visit");
   settleMediaAccreditation(feedSecond, [video]);
   assert.deepEqual([...await waitForMediaAccreditation(feedSecond, 1)], [video]);
+  assert.equal(hasAcceptedMediaForEpoch([{ epoch: feedFirst, accepted: true }], feedSecond), false, "an accepted first visit cannot satisfy the second visit check");
+  assert.equal(hasAcceptedMediaForEpoch([{ epoch: feedSecond, accepted: true }], feedSecond), true);
 });
 
 test("public Storage media is accredited only for its exact feed/detail route", () => {

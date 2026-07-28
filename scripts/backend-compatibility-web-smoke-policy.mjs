@@ -100,6 +100,10 @@ export async function waitForMediaAccreditation(epoch, timeoutMs = 5_000) {
   return Promise.race([epoch.gate.promise, delay(timeoutMs).then(() => null)]);
 }
 
+export function hasAcceptedMediaForEpoch(responses, epoch) {
+  return Array.isArray(responses) && responses.some((response) => response?.epoch === epoch && response.accepted === true);
+}
+
 function denied(base, reason) { return { ...base, accepted: false, reason }; }
 function safeUrl(value) { try { return new URL(value); } catch { return null; } }
 function safeContentType(value) {

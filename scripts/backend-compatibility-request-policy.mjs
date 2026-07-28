@@ -17,7 +17,7 @@ export function inspectBackendRequest({
   // become acceptable merely because it points at a non-Supabase origin.
   const isSupabase = requestUrl.origin === base.origin;
   const isStorageObject = isPublicStorageObject(requestUrl, url);
-  if (hasUserInfo(requestUrl) || hasUnsafeUrlEncoding(url, requestUrl) ||
+  if ((isStorageObject && hasStorageCredentialHeader(headers)) || hasUserInfo(requestUrl) || hasUnsafeUrlEncoding(url, requestUrl) ||
       hasCredentials(headers, requestUrl, url, { allowPublishableApiKey: isSupabase && !isStorageObject })) {
     return denied(isSupabase ? 'supabase_credentials_forbidden' : 'credentials_forbidden');
   }
@@ -101,6 +101,10 @@ function denied(reason) { return { allowed: false, reason }; }
 function safelyParseUrl(value) { try { return new URL(value); } catch { return null; } }
 function hasHeader(headers, target) {
   return Object.entries(headers ?? {}).some(([key, value]) => key.toLowerCase() === target && typeof value === 'string' && value.trim() !== '');
+}
+function hasStorageCredentialHeader(headers) {
+  const forbidden = new Set(['apikey', 'authorization', 'proxy-authorization', 'cookie', 'x-api-key']);
+  return Object.keys(headers ?? {}).some((key) => forbidden.has(String(key).toLowerCase()));
 }
 function hasUserInfo(url) { return url.username !== '' || url.password !== ''; }
 function hasCredentials(headers, requestUrl, rawUrl, { allowPublishableApiKey }) {

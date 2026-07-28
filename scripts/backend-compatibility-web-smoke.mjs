@@ -17,6 +17,7 @@ import {
   openMediaAccreditationGate,
   settleMediaAccreditation,
   waitForMediaAccreditation,
+  hasAcceptedMediaForEpoch,
 } from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -139,7 +140,7 @@ try {
     if (epoch && isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl) && !mediaOutcomeRecorded.has(request)) {
       // Browser failure strings can contain a path/query, so the report uses
       // a stable category only. This preserves failure evidence safely.
-      mediaResponses.push(safeMediaFailure(epoch.route, request.resourceType(), "browser_request_failed"));
+      mediaResponses.push({ epoch, ...safeMediaFailure(epoch.route, request.resourceType(), "browser_request_failed") });
       mediaOutcomeRecorded.add(request);
     }
   });
@@ -207,14 +208,14 @@ try {
           route: requestRoute,
           accreditedMediaUrls: requestEpoch?.accreditedMediaUrls,
         });
-        mediaResponses.push({ route: requestRoute, ...mediaResponse });
+        mediaResponses.push({ epoch: requestEpoch, route: requestRoute, ...mediaResponse });
         mediaOutcomeRecorded.add(request);
         if (!mediaResponse.accepted) return route.abort("blockedbyclient");
         return route.fulfill({ response: storageResponse });
       } catch {
         // Do not print a transport error because it can contain a Storage
         // object path or signed query. The invariant is still explicit.
-        mediaResponses.push(safeMediaFailure(requestRoute, request.resourceType(), "response_fetch_failed"));
+        mediaResponses.push({ epoch: requestEpoch, ...safeMediaFailure(requestRoute, request.resourceType(), "response_fetch_failed") });
         mediaOutcomeRecorded.add(request);
         return route.abort("blockedbyclient");
       }
@@ -259,7 +260,7 @@ try {
       response.method !== "GET" || !response.hasApiKey || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
     const expectedMedia = activeMediaEpoch?.route === route && activeMediaEpoch.accreditedMediaUrls.size > 0;
-    const acceptedMedia = mediaResponses.some((response) => response.route === route && response.accepted);
+    const acceptedMedia = hasAcceptedMediaForEpoch(mediaResponses, activeMediaEpoch);
     checks.push({
       route,
       canvasCount,
@@ -286,7 +287,7 @@ try {
     const detailResponses = backendResponses.slice(start);
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
     const detailExpectedMedia = activeMediaEpoch?.route === currentRoute && activeMediaEpoch.accreditedMediaUrls.size > 0;
-    const detailAcceptedMedia = mediaResponses.some((response) => response.route === currentRoute && response.accepted);
+    const detailAcceptedMedia = hasAcceptedMediaForEpoch(mediaResponses, activeMediaEpoch);
     checks.push({ route: `post/${observedPostId}`, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadIdCorrelated: evidence.payloadPostId === observedPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
   }
 } finally {
@@ -317,7 +318,7 @@ const report = {
     interceptedCount: localStubs.length,
     networkRequestCount: 0,
   },
-  mediaResponses,
+  mediaResponses: mediaResponses.map(({ epoch, ...response }) => response),
   detail: { observedPostObserved: observedPostId != null, accreditedGet2xx: checks.find((check) => check.route.startsWith("post/"))?.detailGet2xx ?? false },
   // query is intentionally retained only in process memory to accredit the
   // detail request.  It is never emitted because reports must be safe even
