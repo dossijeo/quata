@@ -66,4 +66,10 @@ internal fun parseExternalShareClaimDirectoryName(value: String): ExternalShareC
 
 internal fun isSafeExternalShareId(value: String): Boolean =
     value.isNotEmpty() && value.length <= MaxExternalShareIdChars &&
-        value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+        value.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' }
+
+/** Both paths must already be canonical absolute paths; prefix checks are segment-aware. */
+internal fun isCanonicalExternalSharePathWithinClaim(claimPath: String, candidatePath: String): Boolean {
+    val root = claimPath.trimEnd('/')
+    return root.isNotEmpty() && candidatePath.startsWith("$root/")
+}

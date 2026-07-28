@@ -46,7 +46,7 @@ final class ShareQueueTests: XCTestCase {
         let source = try writeSource(named: "file.txt", contents: Data("x".utf8))
         XCTAssertThrowsError(
             try ShareQueue.persist(
-                .init(id: "share-six", createdAtEpochMillis: 1, text: "", attachments: List(repeating: .init(sourceURL: source, name: "file.txt", mimeType: "text/plain"), count: 6)),
+                .init(id: "share-six", createdAtEpochMillis: 1, text: "", attachments: Array(repeating: .init(sourceURL: source, name: "file.txt", mimeType: "text/plain"), count: 6)),
                 root: root
             )
         ) { XCTAssertEqual($0 as? ShareQueue.Error, .tooManyFiles) }
@@ -59,6 +59,53 @@ final class ShareQueueTests: XCTestCase {
         XCTAssertThrowsError(
             try ShareQueue.persist(.init(id: "share-eleven", createdAtEpochMillis: 2, text: "text", attachments: []), root: root)
         ) { XCTAssertEqual($0 as? ShareQueue.Error, .tooManyPendingShares) }
+    }
+
+    func testRejectsUnsafeIdentifiersBeforeAnyQueuePathIsComposed() throws {
+        for id in ["../escape", "share/name", "share\\name", "share-ñ", "", String(repeating: "a", count: 121)] {
+            XCTAssertThrowsError(
+                try ShareQueue.persist(.init(id: id, createdAtEpochMillis: 1, text: "text", attachments: []), root: root)
+            ) { XCTAssertEqual($0 as? ShareQueue.Error, .invalidShareID) }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ExternalShares").path))
+    }
+
+    func testRejectsSymlinkSourceWithoutPublishingIt() throws {
+        let source = try writeSource(named: "real.txt", contents: Data("content".utf8))
+        let symlink = root.appendingPathComponent("linked.txt")
+        try FileManager.default.createSymbolicLink(atPath: symlink.path, withDestinationPath: source.path)
+
+        XCTAssertThrowsError(
+            try ShareQueue.persist(
+                .init(id: "share-symlink", createdAtEpochMillis: 1, text: "", attachments: [.init(sourceURL: symlink, name: "linked.txt", mimeType: "text/plain")]),
+                root: root
+            )
+        ) { XCTAssertEqual($0 as? ShareQueue.Error, .unreadableFile) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ExternalShares/pending/share-symlink").path))
+    }
+
+    func testConcurrentPublishersNeverCreateMoreThanTenPendingDirectories() throws {
+        let group = DispatchGroup()
+        let resultLock = NSLock()
+        var results: [Swift.Error] = []
+        for index in 0..<16 {
+            group.enter()
+            DispatchQueue.global().async {
+                defer { group.leave() }
+                do {
+                    try ShareQueue.persist(.init(id: "share-race-\(index)", createdAtEpochMillis: Int64(index), text: "text", attachments: []), root: self.root)
+                } catch {
+                    resultLock.lock()
+                    results.append(error)
+                    resultLock.unlock()
+                }
+            }
+        }
+        XCTAssertEqual(group.wait(timeout: .now() + 10), .success)
+        let pending = root.appendingPathComponent("ExternalShares/pending", isDirectory: true)
+        let count = (try? FileManager.default.contentsOfDirectory(at: pending, includingPropertiesForKeys: nil).count) ?? 0
+        XCTAssertLessThanOrEqual(count, ShareQueue.maximumPendingShares)
+        XCTAssertFalse(results.isEmpty)
     }
 
     func testCopyFailureRollsBackStagingWithoutPublishingAPartialPayload() throws {

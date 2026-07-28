@@ -5,6 +5,8 @@ import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileType
+import platform.Foundation.NSFileTypeRegular
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSLock
 import platform.Foundation.NSNumber
@@ -70,7 +72,7 @@ class IosExternalShareInbox(
         val persisted = readManifest(processingClaimPath, id)
         val result = persisted?.let { manifest ->
             persistedExternalSharePayload(manifest) { relativePath ->
-                NSURL.fileURLWithPath("$processingClaimPath/$relativePath").absoluteString.orEmpty()
+                claimedRegularFileUrl(processingClaimPath, relativePath).orEmpty()
             }
         } ?: PersistedExternalShareResult.Invalid
         when (result) {
@@ -174,6 +176,18 @@ class IosExternalShareInbox(
                 ?.takeIf { it >= 0 }
                 ?: 0,
         )
+    }
+
+    /** Never expose a URI for a symlink, a non-regular node, or a resolved path outside claim. */
+    private fun claimedRegularFileUrl(claimPath: String, relativePath: String): String? {
+        if (relativePath != relativePath.substringAfterLast('/') || relativePath.contains('\\')) return null
+        val originalPath = "$claimPath/$relativePath"
+        val attributes = fileManager.attributesOfItemAtPath(originalPath, null) ?: return null
+        if (attributes[NSFileType] != NSFileTypeRegular) return null
+        val canonicalClaimPath = NSURL.fileURLWithPath(claimPath)?.URLByResolvingSymlinksInPath?.path ?: return null
+        val canonicalCandidate = NSURL.fileURLWithPath(originalPath)?.URLByResolvingSymlinksInPath?.path ?: return null
+        if (!isCanonicalExternalSharePathWithinClaim(canonicalClaimPath, canonicalCandidate)) return null
+        return NSURL.fileURLWithPath(canonicalCandidate).absoluteString
     }
 }
 

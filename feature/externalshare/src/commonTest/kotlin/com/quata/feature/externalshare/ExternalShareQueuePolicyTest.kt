@@ -81,6 +81,27 @@ class ExternalShareQueuePolicyTest {
     }
 
     @Test
+    fun `share IDs are ASCII path components and canonical attachment paths stay in the claim`() {
+        assertEquals(false, isSafeExternalShareId("share-ñ"))
+        assertEquals(false, isSafeExternalShareId("share/escape"))
+        assertEquals(false, isSafeExternalShareId("share\\escape"))
+        assertEquals(true, isSafeExternalShareId("share_123-ABC"))
+        assertEquals(
+            true,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/group/processing/claim-1/asset-0"),
+        )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/group/processing/claim-10/asset-0"),
+        )
+        // A symlink is resolved before this predicate; an escaping destination is rejected.
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/private/secret.pdf"),
+        )
+    }
+
+    @Test
     fun `lease directory round trips and cleanup identity remains generation specific`() {
         val first = externalShareClaimDirectoryName(
             id = "share-123",

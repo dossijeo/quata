@@ -79,6 +79,13 @@ require("options: .atomic" in queue_source and "moveItem(at: staging, to: destin
         "share queue must atomically write the manifest and publish with a same-volume rename")
 require("removeItem(at: staging)" in queue_source,
         "share queue must clean staging after a failed publication")
+require("isSafeID(payload.id)" in queue_source and "id.utf8.allSatisfy" in queue_source,
+        "share queue must validate a strict ASCII ID before composing App Group paths")
+require("withPublicationLock" in queue_source and ".publish-lock" in queue_source,
+        "share queue must serialize cross-process pending-count and publication")
+inbox_source = (root / "feature/externalshare/src/iosMain/kotlin/com/quata/feature/externalshare/IosExternalShareInbox.kt").read_text(encoding="utf-8")
+require("NSFileTypeRegular" in inbox_source and "URLByResolvingSymlinksInPath" in inbox_source,
+        "iOS inbox must reject non-regular files and validate canonical claim containment")
 
 if mode == "signed-release":
     required = (
