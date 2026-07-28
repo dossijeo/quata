@@ -162,12 +162,24 @@ aprovisionamiento como una fase independiente. Vease
 ## Compose 1.10 accessibility evidence
 
 Compose Multiplatform 1.10 renders the migration status screen through the real
-Compose controller and the iOS lane proves a single UIKit composition root,
-Simulator Metal availability, screenshots, and a visible state transition after
-a coordinate tap on the rendered Compose action. Its iOS accessibility bridge
-does not project descendant Compose semantics into XCTest/VoiceOver on this
-toolchain. The lane therefore deliberately does not claim descendant UIKit
-accessibility coverage and does not install UIKit accessibility proxies.
+Compose controller. The XCTest/UI lane asserts one UIKit composition root and
+the actual descendant accessibility semantics of the unconfigured state: the
+exact migration message and the `Entendido` action. Screenshots are retained as
+diagnostic attachments only; they are not compared byte-for-byte and do not by
+themselves validate a visual transition.
+
+The local baseline on `main` `1e9d6bf1` compiled and linked the x86_64 host and
+installed/launched a process, but `MTLCreateSystemDefaultDevice` returned `nil`
+and XCTest recorded `IllegalStateException: Metal is not supported on this
+system`. A black screenshot from that VM is therefore not visual validation.
+Simulator and visual work on that VM are paused by the user. This limitation
+does not establish a regression in the app, nor does it establish rendering
+success.
+
+A green macOS CI run can attest Kotlin/Native compilation, framework link,
+XcodeGen, Swift host build, XCTest semantics and unsigned archive structure. It
+does not replace local visual inspection, nor does it prove signing, APNs, App
+Group/Share Extension provisioning, a physical device, or authenticated E2E.
 
 ## Deep links de arranque en UI tests
 
