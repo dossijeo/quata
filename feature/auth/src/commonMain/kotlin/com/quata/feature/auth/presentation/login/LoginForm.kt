@@ -37,17 +37,23 @@ fun LoginForm(
     isLandscape: Boolean,
     showMockNotice: Boolean,
     showRegistration: Boolean = true,
+    phoneInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    passwordInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    submitButtonOverride: (@Composable (String, Boolean, () -> Unit, Modifier) -> Unit)? = null,
     onEvent: (LoginUiEvent) -> Unit,
     onForgotPassword: () -> Unit,
     onGoToRegister: () -> Unit,
 ) {
     val compactSpace = if (isLandscape) 6.dp else 8.dp
-    PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
+    phoneInputOverride?.invoke(state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
+        ?: PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
     Spacer(Modifier.height(compactSpace))
-    QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
+    passwordInputOverride?.invoke(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
+        ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
     state.error?.let { Spacer(Modifier.height(compactSpace)); Text(it, color = MaterialTheme.colorScheme.error) }
     Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-    QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
+    submitButtonOverride?.invoke(if (state.isLoading) strings.signingIn else strings.signIn, !state.isLoading, { onEvent(LoginUiEvent.Submit) }, Modifier.semantics { testTag = "auth.submit" })
+        ?: QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
     Spacer(Modifier.height(compactSpace))
     QuataSecondaryButton(strings.forgotPassword, modifier = Modifier.semantics { testTag = "auth.forgot-password" }, enabled = !state.isLoading, onClick = onForgotPassword)
     if (showRegistration) {

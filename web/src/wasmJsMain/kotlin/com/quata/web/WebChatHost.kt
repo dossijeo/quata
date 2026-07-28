@@ -7,6 +7,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
@@ -58,6 +60,8 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
+        sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
         modifier = modifier,
     )
 }

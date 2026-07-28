@@ -38,6 +38,7 @@ fun QuataBottomNavigation(
     selectedId: String?,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    itemOverride: (@Composable RowScope.(QuataNavigationItem, Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     val template = quataTheme()
     NavigationBar(
@@ -48,13 +49,18 @@ fun QuataBottomNavigation(
         windowInsets = WindowInsets(0.dp),
     ) {
         items.forEach { item ->
-            QuataBottomNavigationItem(item, selected = selectedId == item.id) { onItemClick(item.id) }
+            val itemModifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 5.dp, vertical = 10.dp)
+            if (item.id == "chat" && itemOverride != null) {
+                itemOverride(this, item, selectedId == item.id, { onItemClick(item.id) }, itemModifier)
+            } else {
+                QuataBottomNavigationItem(item, selected = selectedId == item.id, { onItemClick(item.id) }, itemModifier)
+            }
         }
     }
 }
 
 @Composable
-private fun RowScope.QuataBottomNavigationItem(item: QuataNavigationItem, selected: Boolean, onClick: () -> Unit) {
+private fun RowScope.QuataBottomNavigationItem(item: QuataNavigationItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val template = quataTheme()
     val contentColor = if (selected) template.colors.textPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
@@ -62,7 +68,7 @@ private fun RowScope.QuataBottomNavigationItem(item: QuataNavigationItem, select
         contentColor = contentColor,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, if (selected) template.colors.selectedBorder else template.colors.divider),
-        modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 5.dp, vertical = 10.dp).clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = onClick),
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
             Icon(item.icon, item.label, tint = contentColor, modifier = Modifier.size(24.dp))

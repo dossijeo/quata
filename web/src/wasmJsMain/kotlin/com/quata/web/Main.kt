@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -27,7 +26,9 @@ import com.quata.core.ui.components.QuataBottomNavigation
 import com.quata.core.ui.components.QuataNavigationItem
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AddCircle
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import com.quata.feature.auth.presentation.AuthSessionShellContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
@@ -276,14 +278,6 @@ private fun QuataWebApp(
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
-    // This updates a hidden DOM observation boundary only. Compose continues to own all input
-    // and actions on its canvas; Playwright must not treat these markers as interactive controls.
-    SideEffect {
-        updateWebTestContract(
-            surface = if (isSessionReady) "authenticated" else "auth",
-            route = navigation.route.ifBlank { if (isSessionReady) "feed" else "login" },
-        )
-    }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             if (isSessionReady) {
@@ -291,6 +285,9 @@ private fun QuataWebApp(
                 isLoggingOut = isLoggingOut,
                 logoutLabel = "Cerrar sesión",
                 loggingOutLabel = "Cerrando sesión...",
+                logoutButtonOverride = { label, enabled, onClick, modifier ->
+                    WebNativeButton(label, enabled, onClick, modifier.fillMaxWidth().height(48.dp))
+                },
                 onLogout = {
                     scope.launch {
                         isLoggingOut = true
@@ -310,6 +307,9 @@ private fun QuataWebApp(
                         selectedId = navigation.route,
                         onItemClick = ::navigateWebFragment,
                         modifier = Modifier.align(Alignment.BottomCenter),
+                        itemOverride = { item, selected, onClick, itemModifier ->
+                            WebNativeButton(item.label, true, onClick, itemModifier.height(72.dp), selected)
+                        },
                     )
                 },
             ) {
@@ -437,10 +437,6 @@ private fun QuataWebApp(
         }
     }
 }
-
-private fun updateWebTestContract(surface: String, route: String): Unit = js(
-    "{ globalThis.__quataWebTestContract?.setState?.(surface, route); }",
-)
 
 /**
  * Every authenticated Web vertical remains reachable from normal navigation, not only through a

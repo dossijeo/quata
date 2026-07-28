@@ -23,6 +23,7 @@ fun AuthSessionShellContent(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     bottomNavigation: (@Composable BoxScope.() -> Unit)? = null,
+    logoutButtonOverride: (@Composable (String, Boolean, () -> Unit, Modifier) -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(modifier.fillMaxSize()) {
@@ -34,7 +35,12 @@ fun AuthSessionShellContent(
             content()
         }
         bottomNavigation?.invoke(this)
-        Button(
+        logoutButtonOverride?.invoke(
+            if (isLoggingOut) loggingOutLabel else logoutLabel,
+            !isLoggingOut,
+            onLogout,
+            Modifier.align(if (bottomNavigation == null) Alignment.BottomCenter else Alignment.TopEnd).padding(24.dp),
+        ) ?: Button(
             enabled = !isLoggingOut,
             onClick = onLogout,
             modifier = Modifier

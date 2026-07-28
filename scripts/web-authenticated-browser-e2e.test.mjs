@@ -10,18 +10,28 @@ const runner = await readFile(new URL("./web-authenticated-browser-e2e.mjs", imp
 const wrapper = await readFile(new URL("./run-web-authenticated-browser-e2e.ps1", import.meta.url), "utf8");
 const bridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt", import.meta.url), "utf8");
 const main = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8");
+const browserFileCache = await readFile(new URL("../core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserFileCacheService.wasm.kt", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../.github/workflows/web-android-pr.yml", import.meta.url), "utf8");
 
 test("hermetic Auth gate uses a real browser and the product repository/coordinator", () => {
   assert.match(runner, /chromium\.launch\(/);
-  assert.match(runner, /__quataAuthE2eProduct\.login/);
+  assert.match(runner, /input\[aria-label="Teléfono"\]/);
   assert.match(runner, /__quataAuthE2eProduct\.restore/);
-  assert.match(runner, /__quataAuthE2eProduct\.logout/);
+  assert.match(runner, /button\[aria-label="Cerrar sesión"\]/);
   assert.match(main, /authRepository\.login\(countryCode, phone, password\)/);
   assert.match(main, /preferences\.putString\(WebSessionReadyKey, "true"\)/);
   assert.match(main, /authRepository\.restoreLocalSession\(\)/);
   assert.match(main, /sessionCoordinator\.logoutCurrentSession\(\)/);
   assert.doesNotMatch(bridge, /innerHTML|createElement\(['"]input|addEventListener\(['"]click/);
+});
+
+test("Wasm file-cache interop expressions remain valid object-property expressions", () => {
+  for (const operation of ["store", "get", "remove"]) {
+    assert.doesNotMatch(
+      browserFileCache,
+      new RegExp(`web_file_cache_${operation}_failed'\\)\\);`),
+    );
+  }
 });
 
 test("fixture fails closed on external network and verifies the complete journey", () => {
@@ -31,6 +41,8 @@ test("fixture fails closed on external network and verifies the complete journey
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
+  assert.match(runner, /native_chat_role_name_state_keyboard_activation/);
+  assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
 });
 
 test("real mode is double opt-in, never provisions an account, and verifies revocation", () => {

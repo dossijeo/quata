@@ -44,6 +44,9 @@ fun AuthBrowserLoginHostContent(
     registerSubtitle: String?,
     registerUnavailableMessage: String?,
     runtimeConfigurationNotice: String? = null,
+    phoneInputOverride: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
+    passwordInputOverride: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
+    submitButtonOverride: (@Composable (String, Boolean, () -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
     onLoginSuccess: suspend () -> Unit,
 ) {
     val loginViewModel = remember(repository) { LoginViewModel(repository) }
@@ -83,6 +86,9 @@ fun AuthBrowserLoginHostContent(
                 isLandscape = isLandscape,
                 showMockNotice = false,
                 showRegistration = registerStrings != null || registerUnavailableMessage != null,
+                phoneInputOverride = phoneInputOverride,
+                passwordInputOverride = passwordInputOverride,
+                submitButtonOverride = submitButtonOverride,
                 onEvent = loginViewModel::onEvent,
                 onForgotPassword = { destination = AuthBrowserDestination.Recovery; notice = null },
                 onGoToRegister = {
