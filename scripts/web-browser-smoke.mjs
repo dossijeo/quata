@@ -23,6 +23,7 @@ import {
     classifyBrowserRequest,
     validateDocmentisPermitRequest,
 } from './web-browser-network-policy.mjs';
+import { removeChromeProfile } from './web-browser-smoke-cleanup.mjs';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
 // callers only need `node scripts/web-browser-smoke.mjs`; Node versions that expose WebSocket by
@@ -842,24 +843,6 @@ async function stopProcess(child) {
     if (child.exitCode !== null) return;
     child.kill();
     await Promise.race([new Promise(resolveProcess => child.once('exit', resolveProcess)), delay(3_000)]);
-}
-
-async function removeChromeProfile(profileDirectory) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-        try {
-            await rm(profileDirectory, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
-            return;
-        } catch (error) {
-            if (attempt === 4) {
-                // A retained Crashpad handle cannot change the browser result. Keep the path in
-                // the warning so it can be cleaned later instead of converting a green smoke
-                // into a false negative on Windows.
-                console.warn(`Could not remove temporary Chrome profile ${profileDirectory}: ${error.message}`);
-                return;
-            }
-            await delay(250);
-        }
-    }
 }
 
 class CdpClient {

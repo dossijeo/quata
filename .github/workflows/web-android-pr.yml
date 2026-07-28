@@ -21,6 +21,8 @@ on:
       - "vosk_model_fr/**"
       - "web/**"
       - "scripts/web-browser-smoke.mjs"
+      - "scripts/web-browser-smoke-cleanup.mjs"
+      - "scripts/web-browser-smoke-cleanup.test.mjs"
       - "scripts/web-browser-metrics.mjs"
       - "scripts/web-performance-repeatability.mjs"
       - "scripts/web-performance-repeatability.test.mjs"
