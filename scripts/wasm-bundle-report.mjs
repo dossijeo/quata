@@ -67,10 +67,12 @@ const baselinePath = options.baseline ?? budget?.baselineFile;
 const baseline = baselinePath ? readBaseline(resolveBudgetPath(baselinePath, options.budget)) : undefined;
 if (budget?.state === 'approved') validateApprovedBaseline(baseline);
 if (options.policyBase) {
+    const baseRevision = resolveRevision(options.policyBase);
     validatePullRequestApprovalPolicy({
         budget,
         baseline,
-        baseRevision: resolveRevision(options.policyBase),
+        baseBudget: readBudgetAtRevision(baseRevision),
+        baseRevision,
         changedFiles: changedFiles(options.policyBase),
         currentInventorySha256: inventoryFingerprint(files),
     });
@@ -124,7 +126,28 @@ function parseArguments(argumentsList) {
 }
 
 function readBudget(path) {
-    const budget = JSON.parse(readFileSync(resolve(path), 'utf8'));
+    let budget;
+    try {
+        budget = JSON.parse(readFileSync(resolve(path), 'utf8'));
+    } catch (error) {
+        throw new Error(`Bundle budget is unavailable or invalid: ${path}`, { cause: error });
+    }
+    return validateBudget(budget);
+}
+
+function readBudgetAtRevision(revision) {
+    try {
+        return validateBudget(JSON.parse(execFileSync('git', ['show', `${revision}:docs/wasm-bundle-budget.json`], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+        })));
+    } catch (error) {
+        throw new Error('Approved baseline PR policy requires a valid versioned budget at the trusted base revision', { cause: error });
+    }
+}
+
+function validateBudget(budget) {
     if (budget.schemaVersion !== 1 || !['proposed', 'approved'].includes(budget.state)) {
         throw new Error('Bundle budget must declare schemaVersion 1 and state proposed or approved');
     }
@@ -154,14 +177,19 @@ function validateApprovedBaseline(baseline) {
     if (capture?.schemaVersion !== 2 || capture?.sourceRevision !== baseline.revision ||
         !isTrustedRef(capture?.trustedRef) || capture?.sourceTree?.revision !== baseline.revision ||
         !/^[0-9a-f]{64}$/i.test(capture?.sourceTree?.sha256 ?? '') ||
-        !/^[0-9a-f]{64}$/i.test(capture?.inventorySha256 ?? '')) {
+        !/^[0-9a-f]{64}$/i.test(capture?.inventorySha256 ?? '') ||
+        !/^[0-9a-f]{64}$/i.test(baseline.inventorySha256 ?? '')) {
         throw new Error('An approved bundle budget requires a reproducible source-tree and inventory attestation');
     }
     const expectedSourceTree = sourceTreeFingerprint(baseline.revision);
     if (capture.sourceTree.sha256 !== expectedSourceTree.sha256) {
         throw new Error('Approved baseline source-tree fingerprint does not match its revision');
     }
-    if (capture.inventorySha256 !== inventoryFingerprint(baseline.files)) {
+    const expectedInventorySha256 = inventoryFingerprint(baseline.files);
+    if (baseline.inventorySha256 !== capture.inventorySha256) {
+        throw new Error('Approved baseline root inventory fingerprint does not match its capture attestation');
+    }
+    if (baseline.inventorySha256 !== expectedInventorySha256) {
         throw new Error('Approved baseline inventory fingerprint does not match its files');
     }
     const computedTotals = sumTotals(baseline.files);
