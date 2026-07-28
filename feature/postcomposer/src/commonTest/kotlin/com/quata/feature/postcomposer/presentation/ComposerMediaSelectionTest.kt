@@ -11,7 +11,10 @@ class ComposerMediaSelectionTest {
     fun pickerCancellationUnsupportedAndFailureDoNotProduceADraftMutation() {
         assertNull((PlatformResult.Cancelled as PlatformResult<List<PlatformFile>>).composerSelectedFileOrNull())
         assertNull((PlatformResult.Unsupported as PlatformResult<List<PlatformFile>>).composerSelectedFileOrNull())
-        assertNull(PlatformResult.Failure("picker_failed").composerSelectedFileOrNull())
+        assertNull(
+            (PlatformResult.Failure("picker_failed") as PlatformResult<List<PlatformFile>>)
+                .composerSelectedFileOrNull(),
+        )
     }
 
     @Test
@@ -19,5 +22,14 @@ class ComposerMediaSelectionTest {
         val selected = PlatformFile("file:///tmp/photo.jpg", "photo.jpg", "image/jpeg")
         assertEquals(selected, PlatformResult.Success(listOf(selected)).composerSelectedFileOrNull())
         assertNull(PlatformResult.Success(listOf(PlatformFile("   "))).composerSelectedFileOrNull())
+    }
+
+    @Test
+    fun cameraUsesTheSameNoMutationRuleWithoutJvmErasureClash() {
+        val captured = PlatformFile("file:///tmp/camera.jpg", "camera.jpg", "image/jpeg")
+        assertEquals(captured, PlatformResult.Success(captured).composerCapturedFileOrNull())
+        assertNull(
+            (PlatformResult.Cancelled as PlatformResult<PlatformFile>).composerCapturedFileOrNull(),
+        )
     }
 }

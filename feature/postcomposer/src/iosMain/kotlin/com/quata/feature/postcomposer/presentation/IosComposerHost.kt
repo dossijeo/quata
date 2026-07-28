@@ -135,7 +135,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                     onCamera = {
                         scope.launch {
                             dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
-                                .composerSelectedFileOrNull()?.let { file ->
+                                .composerCapturedFileOrNull()?.let { file ->
                                     imagePreviewFile = file
                                     viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
                                 }

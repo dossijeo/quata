@@ -15,7 +15,7 @@ fun PlatformResult<List<PlatformFile>>.composerSelectedFileOrNull(): PlatformFil
 }
 
 /** Same no-mutation admission rule for the camera's single-file boundary. */
-fun PlatformResult<PlatformFile>.composerSelectedFileOrNull(): PlatformFile? = when (this) {
+fun PlatformResult<PlatformFile>.composerCapturedFileOrNull(): PlatformFile? = when (this) {
     is PlatformResult.Success -> value.takeIf { it.reference.isNotBlank() }
     is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
 }

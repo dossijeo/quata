@@ -15,7 +15,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import kotlinx.cinterop.COpaque
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.value
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +33,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFNumberCreate
+import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFStringCreateWithCString
+import platform.CoreFoundation.CFURLCreateWithFileSystemPath
+import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFNumberIntType
+import platform.CoreFoundation.kCFStringEncodingUTF8
+import platform.CoreFoundation.kCFURLPOSIXPathStyle
 import platform.Foundation.NSURL
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
@@ -35,7 +54,7 @@ import platform.ImageIO.kCGImageSourceCreateThumbnailWithTransform
 import platform.ImageIO.kCGImageSourceThumbnailMaxPixelSize
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageView
-import platform.UIKit.UIViewContentModeScaleAspectFit
+import platform.UIKit.UIViewContentMode
 
 /** A truthful local-only media preview. It never asks UIKit to resolve a remote URL. */
 @Composable
@@ -51,7 +70,7 @@ internal fun IosComposerLocalImagePreview(file: PlatformFile, modifier: Modifier
             UIKitView(
                 factory = {
                     UIImageView().apply {
-                        contentMode = UIViewContentModeScaleAspectFit
+                        contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
                         clipsToBounds = true
                         image = value.value
                     }
@@ -196,12 +215,49 @@ private fun PlatformFile.localThumbnailOrNull(): UIImage? {
         value.startsWith("/") -> NSURL.fileURLWithPath(value)
         else -> null
     }?.takeIf { it.isFileURL() } ?: return null
-    val source = CGImageSourceCreateWithURL(url, null) ?: return null
-    val options = mapOf<Any?, Any?>(
-        kCGImageSourceCreateThumbnailFromImageAlways to true,
-        kCGImageSourceCreateThumbnailWithTransform to true,
-        kCGImageSourceThumbnailMaxPixelSize to 640,
-    )
-    val image = CGImageSourceCreateThumbnailAtIndex(source, 0u, options) ?: return null
-    return UIImage.imageWithCGImage(image)
+    val path = url.path ?: return null
+    val pathRef = CFStringCreateWithCString(null, path, kCFStringEncodingUTF8) ?: return null
+    val fileUrl = CFURLCreateWithFileSystemPath(null, pathRef, kCFURLPOSIXPathStyle, false)
+    CFRelease(pathRef)
+    fileUrl ?: return null
+    return try {
+        val source = CGImageSourceCreateWithURL(fileUrl, null) ?: return null
+        try {
+            withThumbnailOptions(640) { options ->
+                val image = CGImageSourceCreateThumbnailAtIndex(source, 0u, options) ?: return@withThumbnailOptions null
+                try {
+                    UIImage.imageWithCGImage(image)
+                } finally {
+                    CFRelease(image)
+                }
+            }
+        } finally {
+            CFRelease(source)
+        }
+    } finally {
+        CFRelease(fileUrl)
+    }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+private inline fun <T> withThumbnailOptions(maxPixelSize: Int, block: (CFDictionaryRef) -> T): T = memScoped {
+    val maxPixels = alloc<IntVar>().apply { value = maxPixelSize }
+    val maxPixelsRef = CFNumberCreate(null, kCFNumberIntType, maxPixels.ptr)
+        ?: error("Core Foundation could not create the thumbnail size")
+    val options = CFDictionaryCreateMutable(null, 3, null, null)
+        ?: error("Core Foundation could not create thumbnail options")
+    try {
+        CFDictionaryAddValue(options, kCGImageSourceCreateThumbnailFromImageAlways.toCfPointer(), kCFBooleanTrue.toCfPointer())
+        CFDictionaryAddValue(options, kCGImageSourceCreateThumbnailWithTransform.toCfPointer(), kCFBooleanTrue.toCfPointer())
+        CFDictionaryAddValue(options, kCGImageSourceThumbnailMaxPixelSize.toCfPointer(), maxPixelsRef.toCfPointer())
+        block(options)
+    } finally {
+        CFRelease(options)
+        CFRelease(maxPixelsRef)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun Any?.toCfPointer(): CPointer<COpaque> = (this as? CPointer<*>)
+    ?.reinterpret()
+    ?: error("Thumbnail options must be Core Foundation objects")

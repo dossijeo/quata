@@ -9,10 +9,12 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IosComposerLocalMediaPreviewTest {
     @Test
     fun codecFailureIsAnExplicitUnavailableState() {
