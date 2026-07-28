@@ -854,7 +854,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === communities })
     }
 
-    func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() {
+    func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         let dispatcher = IosDeepLinkDispatcher()
@@ -862,11 +862,17 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         _ = dispatcher.handleUrl(url: "https://egquata.com/#official-public-post-9")
         router.restoreRouteAfterForeground()
-        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-compose-root")
+        let migrationController = try XCTUnwrap(router.children.first)
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertNil(migrationController.view.accessibilityIdentifier)
+        XCTAssertFalse(migrationController.view.isAccessibilityElement)
 
         let official = UIViewController()
         router.installOfficialFactory { _ in official }
-        XCTAssertTrue(router.children.contains { $0 === official })
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertTrue(router.children.first === official)
+        XCTAssertNil(migrationController.parent)
+        XCTAssertNil(migrationController.view.superview)
         XCTAssertEqual(official.view.accessibilityIdentifier, "quata-ios-official-host")
     }
 
