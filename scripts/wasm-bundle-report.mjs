@@ -154,14 +154,19 @@ function validateApprovedBaseline(baseline) {
     if (capture?.schemaVersion !== 2 || capture?.sourceRevision !== baseline.revision ||
         !isTrustedRef(capture?.trustedRef) || capture?.sourceTree?.revision !== baseline.revision ||
         !/^[0-9a-f]{64}$/i.test(capture?.sourceTree?.sha256 ?? '') ||
-        !/^[0-9a-f]{64}$/i.test(capture?.inventorySha256 ?? '')) {
+        !/^[0-9a-f]{64}$/i.test(capture?.inventorySha256 ?? '') ||
+        !/^[0-9a-f]{64}$/i.test(baseline.inventorySha256 ?? '')) {
         throw new Error('An approved bundle budget requires a reproducible source-tree and inventory attestation');
     }
     const expectedSourceTree = sourceTreeFingerprint(baseline.revision);
     if (capture.sourceTree.sha256 !== expectedSourceTree.sha256) {
         throw new Error('Approved baseline source-tree fingerprint does not match its revision');
     }
-    if (capture.inventorySha256 !== inventoryFingerprint(baseline.files)) {
+    const expectedInventorySha256 = inventoryFingerprint(baseline.files);
+    if (baseline.inventorySha256 !== capture.inventorySha256) {
+        throw new Error('Approved baseline root inventory fingerprint does not match its capture attestation');
+    }
+    if (baseline.inventorySha256 !== expectedInventorySha256) {
         throw new Error('Approved baseline inventory fingerprint does not match its files');
     }
     const computedTotals = sumTotals(baseline.files);

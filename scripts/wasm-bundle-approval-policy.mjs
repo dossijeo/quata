@@ -10,7 +10,10 @@ const BundleInputPrefixes = [
 const BundleInputFiles = new Set([
   'build.gradle.kts', 'gradle.properties', 'gradlew', 'gradlew.bat', 'package.json',
   'package-lock.json', 'settings.gradle.kts', 'scripts/wasm-bundle-approval-policy.mjs',
-  'scripts/wasm-bundle-report.mjs',
+  'scripts/wasm-bundle-approval-policy.test.mjs', 'scripts/wasm-bundle-report.mjs',
+  'scripts/wasm-bundle-report.test.mjs', 'scripts/run-wasm-production-observed.ps1',
+  'scripts/web-android-pr-workflow-contract.test.mjs',
+  '.github/workflows/web-android-pr.yml',
 ]);
 
 export function validatePullRequestApprovalPolicy({ budget, baseline, baseRevision, changedFiles, currentInventorySha256 }) {

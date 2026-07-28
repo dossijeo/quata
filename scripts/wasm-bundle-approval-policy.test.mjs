@@ -20,10 +20,22 @@ test('approved baseline cannot be auto-approved with payload, runtime, build, or
     'feature/feed/src/commonMain/kotlin/Feed.kt',
     'gradle/libs.versions.toml',
     'package-lock.json',
+    '.github/workflows/web-android-pr.yml',
+    'scripts/web-android-pr-workflow-contract.test.mjs',
+    'scripts/wasm-bundle-approval-policy.mjs',
+    'scripts/wasm-bundle-approval-policy.test.mjs',
     'scripts/wasm-bundle-report.mjs',
+    'scripts/wasm-bundle-report.test.mjs',
+    'scripts/run-wasm-production-observed.ps1',
   ]) await t.test(path, () => {
     assert.throws(() => policy({ changedFiles: ['docs/wasm-bundle-baseline.json', path] }), /reviewed separately/);
   });
+});
+
+test('approved baseline leaves non-operational documentation reviewable in the dedicated PR', () => {
+  assert.doesNotThrow(() => policy({
+    changedFiles: ['docs/wasm-bundle-baseline.json', 'docs/WASM_BUNDLE_OBSERVABILITY.md'],
+  }));
 });
 
 test('approved baseline rejects a branch-selected SHA or a fabricated inventory', () => {

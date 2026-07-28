@@ -26,7 +26,13 @@ test('approved bundle budget rejects absent, invalid, mismatched, and manipulate
     ['invalid revision', async fixture => mutateBaseline(fixture, baseline => { baseline.revision = 'not-a-sha'; }), /revision SHA/],
     ['source revision mismatch', async fixture => mutateBaseline(fixture, baseline => { baseline.capture.sourceTree.revision = '0'.repeat(40); }), /attestation/],
     ['source fingerprint mismatch', async fixture => mutateBaseline(fixture, baseline => { baseline.capture.sourceTree.sha256 = '0'.repeat(64); }), /source-tree fingerprint/],
-    ['inventory hash bypass', async fixture => mutateBaseline(fixture, baseline => { baseline.files[0].sha256 = '0'.repeat(64); }), /inventory fingerprint/],
+    ['absent root inventory hash', async fixture => mutateBaseline(fixture, baseline => { delete baseline.inventorySha256; }), /inventory attestation/],
+    ['invalid root inventory hash', async fixture => mutateBaseline(fixture, baseline => { baseline.inventorySha256 = 'not-a-sha'; }), /inventory attestation/],
+    ['root inventory hash differs from capture', async fixture => mutateBaseline(fixture, baseline => { baseline.inventorySha256 = '0'.repeat(64); }), /root inventory fingerprint/],
+    ['root and capture inventory hashes bypass the canonical inventory', async fixture => mutateBaseline(fixture, baseline => {
+      baseline.inventorySha256 = '0'.repeat(64);
+      baseline.capture.inventorySha256 = baseline.inventorySha256;
+    }), /inventory fingerprint/],
     ['totals bypass', async fixture => mutateBaseline(fixture, baseline => { baseline.totals.bytes += 1; }), /totals do not match/],
   ];
 
