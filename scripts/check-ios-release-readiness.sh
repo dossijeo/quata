@@ -49,6 +49,9 @@ require("PROVISIONING_PROFILE_SPECIFIER: $(QUATA_IOS_APP_PROVISIONING_PROFILE)" 
         "QuataIos Release must require QUATA_IOS_APP_PROVISIONING_PROFILE")
 require("PROVISIONING_PROFILE_SPECIFIER: $(QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE)" in project,
         "QuataShareExtension Release must require QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE")
+require(re.search(r"QuataShareQueue:\s+type:\s+library\.static", project) is not None and
+        "PRODUCT_MODULE_NAME: QuataShareQueue" in project and 'DEFINES_MODULE: "YES"' in project,
+        "Share queue production code and tests must link the same static Swift/C module")
 require(project.count("CODE_SIGN_STYLE: Manual") == 2,
         "both Release targets must use manual signing")
 require("QUATA_APNS_ENVIRONMENT: production" in project,
@@ -68,7 +71,7 @@ for relative_path in ("iosApp/iosApp/Info.plist", "iosApp/iosShareExtension/Info
             f"{relative_path} must derive CFBundleIdentifier from PRODUCT_BUNDLE_IDENTIFIER")
 
 share_source = (root / "iosApp/iosShareExtension/ShareViewController.swift").read_text(encoding="utf-8")
-queue_source = (root / "iosApp/iosShareExtension/ShareQueue.swift").read_text(encoding="utf-8")
+queue_source = (root / "iosApp/iosShareQueue/ShareQueue.swift").read_text(encoding="utf-8")
 require(f'static let appGroup = "{app_group}"' in share_source,
         "share extension runtime must use the declared App Group")
 require("try ShareQueue.persist(" in share_source,
@@ -81,7 +84,7 @@ require("removeItem(at: staging)" in queue_source,
         "share queue must clean staging after a failed publication")
 require("isSafeID(payload.id)" in queue_source and "id.utf8.allSatisfy" in queue_source,
         "share queue must validate a strict ASCII ID before composing App Group paths")
-lock_source = (root / "iosApp/iosShareExtension/ShareQueueLock.c").read_text(encoding="utf-8")
+lock_source = (root / "iosApp/iosShareQueue/ShareQueueLock.c").read_text(encoding="utf-8")
 require("quata_flock" in queue_source and "flock(descriptor, operation)" in lock_source and
         "O_NOFOLLOW" in queue_source and "Darwin.close" in queue_source,
         "share queue must use a crash-safe Darwin flock descriptor, never stale-lock recovery")

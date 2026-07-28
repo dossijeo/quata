@@ -10,6 +10,8 @@ protocol ShareQueueLocking {
 }
 
 private struct DarwinShareQueueLock: ShareQueueLocking {
+    init() {}
+
     func withLock<T>(at url: URL, timeout: TimeInterval, body: () throws -> T) throws -> T {
         let descriptor = Darwin.open(url.path, O_CREAT | O_RDWR | O_NOFOLLOW, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw ShareQueue.Error.queueBusy }
@@ -28,24 +30,37 @@ private struct DarwinShareQueueLock: ShareQueueLocking {
 /// File-system boundary shared by the Share Extension and its hermetic tests. The caller owns
 /// extracting `NSItemProvider` values; this type never receives an authenticated session or a
 /// destination/conversation identifier.
-enum ShareQueue {
+public enum ShareQueue {
     static let maximumFiles = 5
     static let maximumPendingShares = 10
     static let maximumFileBytes: Int64 = 25 * 1024 * 1024
     static let maximumTotalBytes: Int64 = 100 * 1024 * 1024
     private static let publishLockTimeout: TimeInterval = 1
 
-    struct Attachment {
+    public struct Attachment {
         let sourceURL: URL
         let name: String
         let mimeType: String?
+
+        public init(sourceURL: URL, name: String, mimeType: String?) {
+            self.sourceURL = sourceURL
+            self.name = name
+            self.mimeType = mimeType
+        }
     }
 
-    struct Payload {
+    public struct Payload {
         let id: String
         let createdAtEpochMillis: Int64
         let text: String
         let attachments: [Attachment]
+
+        public init(id: String, createdAtEpochMillis: Int64, text: String, attachments: [Attachment]) {
+            self.id = id
+            self.createdAtEpochMillis = createdAtEpochMillis
+            self.text = text
+            self.attachments = attachments
+        }
     }
 
     struct Manifest: Codable, Equatable {
@@ -83,12 +98,32 @@ enum ShareQueue {
     /// Persists a complete payload in staging and publishes it with one rename. If any copy,
     /// encoding, or publication step fails, staging is removed and no partial pending item stays
     /// visible to the containing app.
-    static func persist(
+    public static func persist(_ payload: Payload, root: URL) throws {
+        try persist(
+            payload,
+            root: root,
+            fileManager: .default,
+            copyFile: { try FileManager.default.copyItem(at: $0, to: $1) },
+            locking: DarwinShareQueueLock()
+        )
+    }
+
+    static func persistForTesting(
         _ payload: Payload,
         root: URL,
         fileManager: FileManager = .default,
         copyFile: (URL, URL) throws -> Void = { try FileManager.default.copyItem(at: $0, to: $1) },
         locking: ShareQueueLocking = DarwinShareQueueLock()
+    ) throws {
+        try persist(payload, root: root, fileManager: fileManager, copyFile: copyFile, locking: locking)
+    }
+
+    private static func persist(
+        _ payload: Payload,
+        root: URL,
+        fileManager: FileManager,
+        copyFile: (URL, URL) throws -> Void,
+        locking: ShareQueueLocking
     ) throws {
         guard isSafeID(payload.id) else { throw Error.invalidShareID }
         guard payload.attachments.count <= maximumFiles else { throw Error.tooManyFiles }

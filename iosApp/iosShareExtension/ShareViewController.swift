@@ -1,5 +1,6 @@
 import Social
 import UniformTypeIdentifiers
+import QuataShareQueue
 
 private enum ShareExtensionConfiguration {
     static let appGroup = "group.com.quata.ios.share"

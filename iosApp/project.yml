@@ -40,6 +40,23 @@ targets:
         embed: true
       - target: QuataShareExtension
         embed: true
+  QuataShareQueue:
+    type: library.static
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosShareQueue
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: QuataShareQueue
+        DEFINES_MODULE: "YES"
+        SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: iosShareQueue/ShareQueueLock.h
+        APPLICATION_EXTENSION_API_ONLY: "YES"
+        SKIP_INSTALL: "YES"
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: "YES"
   QuataShareExtension:
     type: app-extension
     platform: iOS
@@ -55,7 +72,6 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: iosShareExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: iosShareExtension/QuataShareExtension.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: iosShareExtension/ShareQueueLock.h
         APPLICATION_EXTENSION_API_ONLY: "YES"
         SKIP_INSTALL: "YES"
       configs:
@@ -64,6 +80,8 @@ targets:
           CODE_SIGN_IDENTITY: Apple Distribution
           DEVELOPMENT_TEAM: $(QUATA_DEVELOPMENT_TEAM)
           PROVISIONING_PROFILE_SPECIFIER: $(QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE)
+    dependencies:
+      - target: QuataShareQueue
   QuataIosUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -88,7 +106,7 @@ targets:
     sources:
       - path: iosShareExtensionTests
     dependencies:
-      - target: QuataShareExtension
+      - target: QuataShareQueue
 schemes:
   QuataIos:
     build:

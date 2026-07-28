@@ -1,5 +1,5 @@
 import XCTest
-@testable import QuataShareExtension
+@testable import QuataShareQueue
 
 final class ShareQueueTests: XCTestCase {
     private var root: URL!
@@ -45,7 +45,7 @@ final class ShareQueueTests: XCTestCase {
     func testRejectsMoreThanFiveFilesAndTenPendingItems() throws {
         let source = try writeSource(named: "file.txt", contents: Data("x".utf8))
         XCTAssertThrowsError(
-            try ShareQueue.persist(
+            try ShareQueue.persistForTesting(
                 .init(id: "share-six", createdAtEpochMillis: 1, text: "", attachments: Array(repeating: .init(sourceURL: source, name: "file.txt", mimeType: "text/plain"), count: 6)),
                 root: root
             )
@@ -76,7 +76,7 @@ final class ShareQueueTests: XCTestCase {
         try FileManager.default.createSymbolicLink(atPath: symlink.path, withDestinationPath: source.path)
 
         XCTAssertThrowsError(
-            try ShareQueue.persist(
+            try ShareQueue.persistForTesting(
                 .init(id: "share-symlink", createdAtEpochMillis: 1, text: "", attachments: [.init(sourceURL: symlink, name: "linked.txt", mimeType: "text/plain")]),
                 root: root
             )
@@ -123,7 +123,7 @@ final class ShareQueueTests: XCTestCase {
 
     func testLockTimeoutFailsClosedWithoutPublishing() throws {
         XCTAssertThrowsError(
-            try ShareQueue.persist(
+            try ShareQueue.persistForTesting(
                 .init(id: "share-locked", createdAtEpochMillis: 1, text: "text", attachments: []),
                 root: root,
                 locking: TimeoutLock()
@@ -135,7 +135,7 @@ final class ShareQueueTests: XCTestCase {
     func testCopyFailureRollsBackStagingWithoutPublishingAPartialPayload() throws {
         let source = try writeSource(named: "will-fail.txt", contents: Data("source".utf8))
         XCTAssertThrowsError(
-            try ShareQueue.persist(
+            try ShareQueue.persistForTesting(
                 .init(id: "share-failure", createdAtEpochMillis: 3, text: "text", attachments: [.init(sourceURL: source, name: "will-fail.txt", mimeType: "text/plain")]),
                 root: root,
                 copyFile: { _, _ in throw CocoaError(.fileWriteUnknown) }
