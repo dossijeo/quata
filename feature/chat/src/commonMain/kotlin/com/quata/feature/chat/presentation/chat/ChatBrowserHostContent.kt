@@ -277,6 +277,7 @@ private fun ChatBrowserConversationDetail(
     }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
     var activeAudioReference by remember { mutableStateOf<String?>(null) }
     var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
     var audioFailed by remember { mutableStateOf(false) }
@@ -291,12 +292,16 @@ private fun ChatBrowserConversationDetail(
             recordingElapsedSeconds += 1L
         }
     }
-    DisposableEffect(viewModel, audioRecorder) {
+    DisposableEffect(viewModel, audioRecorder, audioPlayer) {
         repository.setActiveConversation(conversationId)
         onDispose {
             if (isRecordingAudio) {
                 scope.launch { audioRecorder.cancel() }
             }
+            // The platform player owns temporary attachment files. Always request its terminal
+            // cleanup when this conversation leaves composition; failures remain fail-closed in
+            // the iOS wrapper and never trigger a replacement download.
+            audioLifecycle.dispose()
             repository.setActiveConversation(null)
             viewModel.close()
         }
@@ -475,7 +480,7 @@ private fun ChatBrowserConversationDetail(
                         audioFailed = failed
                     },
                     onOpenAttachment = onOpenAttachment,
-                    launch = { action -> scope.launch { action() } },
+                    launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
             },

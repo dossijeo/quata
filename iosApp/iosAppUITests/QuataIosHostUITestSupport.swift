@@ -33,4 +33,31 @@ enum QuataIosHostUITestSupport {
         )
         return root
     }
+
+    static func fixtureRoot(
+        in app: XCUIApplication,
+        identifier: String,
+        timeout: TimeInterval = 10,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) -> XCUIElement {
+        let roots = app.descendants(matching: .any).matching(identifier: identifier)
+        let root = roots.firstMatch
+        XCTAssertTrue(
+            root.waitForExistence(timeout: timeout),
+            "The deterministic UIKit fixture must expose \(identifier).",
+            file: file,
+            line: line,
+        )
+        XCTAssertEqual(roots.count, 1, "The UIKit fixture must not retain duplicate route surfaces.", file: file, line: line)
+        return root
+    }
+
+    static func attachRenderedSurface(named name: String) -> XCTAttachment {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        XCTContext.runActivity(named: name) { $0.add(attachment) }
+        return attachment
+    }
 }

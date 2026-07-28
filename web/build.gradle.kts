@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+
 plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.multiplatform")
@@ -45,6 +47,7 @@ kotlin {
         }
         wasmJsTest.dependencies {
             implementation(kotlin("test"))
+            implementation(compose.uiTest)
         }
         androidMain.dependencies { }
         wasmJsMain.dependencies {
@@ -56,4 +59,9 @@ kotlin {
             implementation(kotlin("test"))
         }
     }
+}
+
+// A normal Web verification must retain the real browser semantics gate.
+tasks.named("check") {
+    dependsOn("wasmJsBrowserTest")
 }

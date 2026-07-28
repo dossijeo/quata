@@ -159,6 +159,44 @@ aprovisionamiento como una fase independiente. Vease
 
 ## Mac Intel (simulador x86_64)
 
+## Compose 1.10 accessibility evidence
+
+Compose Multiplatform 1.10 renders the migration status screen through the real
+Compose controller. The XCTest/UI lane asserts one UIKit composition root and
+the actual descendant accessibility semantics of the unconfigured state: the
+exact migration message and the `Entendido` action. Screenshots are retained as
+diagnostic attachments only; they are not compared byte-for-byte and do not by
+themselves validate a visual transition.
+
+The local baseline on `main` `1e9d6bf1` compiled and linked the x86_64 host and
+installed/launched a process, but `MTLCreateSystemDefaultDevice` returned `nil`
+and XCTest recorded `IllegalStateException: Metal is not supported on this
+system`. A black screenshot from that VM is therefore not visual validation.
+Simulator and visual work on that VM are paused by the user. This limitation
+does not establish a regression in the app, nor does it establish rendering
+success.
+
+A green macOS CI run can attest Kotlin/Native compilation, framework link,
+XcodeGen, Swift host build, XCTest semantics and unsigned archive structure. It
+does not replace local visual inspection, nor does it prove signing, APNs, App
+Group/Share Extension provisioning, a physical device, or authenticated E2E.
+
+## Deep links de arranque en UI tests
+
+`QuataIosHostUITests` inicia una fixture autenticada inerte con los argumentos
+`-quata-ui-test-fixture authenticated` y `-quata-ui-test-deep-link <URL>`.
+La fixture no interpreta fragmentos en Swift: entrega el URL a
+`IosDeepLinkDispatcher` y a `IosAuthenticatedRouteDispatcher`, por lo que el
+parser compartido Kotlin y la conversión a las rutas UIKit se ejercitan en el
+proceso de la aplicación. La prueba cubre los arranques en frío de Chat, Feed y
+Official y comprueba que no se presenta una superficie Compose residual.
+
+Las superficies de destino de esta fixture son controladores UIKit sin sesión,
+repositorio ni red. La evidencia demuestra sólo el contrato determinista de
+URL/ruta/host; no acredita restauración de Keychain, autenticación, RLS,
+PostgREST, APNs ni una navegación autenticada E2E. Esas validaciones siguen
+siendo carriles separados y requieren sus dependencias operativas.
+
 La CI sigue en Apple Silicon con `iosSimulatorArm64`. En un Mac Intel usa
 `iosX64`; no cambies el `ARCHS=arm64` de CI ni del archive de dispositivo.
 

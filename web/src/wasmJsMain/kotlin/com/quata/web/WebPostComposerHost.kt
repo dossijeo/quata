@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
+import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.feature.postcomposer.presentation.ComposerMediaPostFormContent
@@ -51,14 +52,18 @@ fun WebPostComposerHost(
     val viewModel = remember(repository) { CreatePostViewModel(repository) }
     val state by viewModel.uiState.collectAsState()
     var type by remember { mutableStateOf(PostComposerType.Text) }
+    val accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(browserCapabilityLanguageTag())
+    val copy = accessibility.composer
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
     ComposerScreenLayoutContent(
-        title = "Crear publicación",
+        title = copy.title,
         scrollState = rememberScrollState(),
         form = {
             ComposerTypePickerContent(
                 isLandscapeLayout = isLandscapeLayout,
-                strings = ComposerTypePickerStrings("Texto", "Imagen", "Vídeo"),
+                strings = ComposerTypePickerStrings(copy.textType, copy.imageType, copy.videoType),
+                selectedType = type,
+                accessibility = accessibility,
                 onText = { type = PostComposerType.Text },
                 onImage = { type = PostComposerType.Image },
                 onVideo = { type = PostComposerType.Video },
@@ -67,9 +72,9 @@ fun WebPostComposerHost(
                 PostComposerType.Text -> ComposerTextPostFormContent(
                     isLandscapeLayout = isLandscapeLayout,
                     textValue = TextFieldValue(state.text),
-                    contentTitle = "Tu publicación",
-                    placeholder = "Escribe algo…",
-                    wordCountText = "${state.text.length} caracteres",
+                    contentTitle = copy.contentTitle,
+                    placeholder = copy.placeholder,
+                    wordCountText = copy.characters(state.text.length),
                     minLines = 6,
                     onTextChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text)) },
                     trailingInputAction = {},
@@ -79,13 +84,13 @@ fun WebPostComposerHost(
                             text = state.text,
                             patternId = state.textPatternId,
                             compact = true,
-                            emptyText = "Vista previa",
-                            readMoreText = "Leer más",
-                            readerDismissButton = { _, dismiss -> Button(onClick = dismiss) { Text("Cerrar") } },
+                            emptyText = copy.preview,
+                            readMoreText = copy.readMore,
+                            readerDismissButton = { _, dismiss -> Button(onClick = dismiss) { Text(copy.close) } },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     },
-                    publish = { ComposerPublishButtonContent(state.isLoading, "Publicar", "Publicando…", { viewModel.submit(type) }) },
+                    publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, { viewModel.submit(type) }, accessibility = accessibility) },
                 )
                 PostComposerType.Image, PostComposerType.Video -> {
                     val isVideo = type == PostComposerType.Video
@@ -94,7 +99,7 @@ fun WebPostComposerHost(
                         isLandscapeLayout = isLandscapeLayout,
                         mediaSource = {
                             ComposerMediaSourceFormContent(
-                                title = if (isVideo) "Vídeo" else "Imagen",
+                                title = if (isVideo) copy.videoType else copy.imageType,
                                 isLandscapeLayout = isLandscapeLayout,
                                 primarySourceAction = { slotModifier ->
                                     if (isVideo) mediaSlots.videoGallery(slotModifier) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) }
@@ -108,7 +113,7 @@ fun WebPostComposerHost(
                             )
                         },
                         preview = { mediaSlots.preview(uri, isVideo, Modifier.fillMaxWidth()) },
-                        publish = { ComposerPublishButtonContent(state.isLoading, "Publicar", "Publicando…", { viewModel.submit(type) }) },
+                        publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, { viewModel.submit(type) }, accessibility = accessibility) },
                     )
                 }
             }

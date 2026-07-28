@@ -215,6 +215,12 @@ private final class IosAppCompositionRoot {
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
+        if let fixtureRootViewController = uiTestFixtureRootViewControllerIfRequested() {
+            window.rootViewController = fixtureRootViewController
+            window.makeKeyAndVisible()
+            self.window = window
+            return
+        }
         window.rootViewController = authenticatedHost
         window.makeKeyAndVisible()
         self.window = window
@@ -237,6 +243,40 @@ private final class IosAppCompositionRoot {
     func handleDeepLink(_ url: URL) -> Bool {
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
+    }
+
+    /// XCTest fixtures are built before `authenticatedHost` is accessed. They deliberately use
+    /// an independent UIKit root, so no Keychain session, runtime configuration, repository or
+    /// Compose/Metal controller can be created on a fixture launch.
+    private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture"),
+              arguments.indices.contains(fixtureIndex + 1) else { return nil }
+
+        let fixtureRoot = UIViewController()
+        switch arguments[fixtureIndex + 1] {
+        case "anonymous":
+            fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
+            fixtureRoot.view.accessibilityLabel = "Quata iOS anonymous fixture"
+        case "authenticated":
+            // This deliberately runs the production Kotlin deep-link parser and the same
+            // UIKit route adapter as the authenticated launcher. The destination controllers
+            // are still inert UIKit fixtures: a UI-test launch must not restore a Keychain
+            // session, construct a repository or imply that a remote feature E2E succeeded.
+            let router = IosDeterministicDeepLinkFixtureRouter()
+            let dispatcher = IosDeepLinkDispatcher()
+            dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+            if let deepLinkIndex = arguments.firstIndex(of: "-quata-ui-test-deep-link"),
+               arguments.indices.contains(deepLinkIndex + 1) {
+                _ = dispatcher.handleUrl(url: arguments[deepLinkIndex + 1])
+            } else {
+                router.showFeed(postId: nil)
+            }
+            return router
+        default:
+            return nil
+        }
+        return fixtureRoot
     }
 
     func openChat(conversationId: String, messageId: String?) {
@@ -428,6 +468,7 @@ private final class IosAppCompositionRoot {
                     repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
+                    languageTag: Locale.preferredLanguages.first,
                     onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 ),
             )
@@ -534,6 +575,60 @@ private final class IosAppCompositionRoot {
     }
 }
 
+/// Deterministic UI-test-only destination surface. It does not parse URLs itself: the test
+/// launch reaches it exclusively through `IosDeepLinkDispatcher` and
+/// `IosAuthenticatedRouteDispatcher`, while the route content remains network-free UIKit.
+private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, IosAuthenticatedRouteHost {
+    override func loadView() {
+        view = UIView()
+    }
+
+    func showFeed(postId: String?) {
+        show(identifier: "quata-ios-feed-host", label: "Quata iOS Feed")
+    }
+
+    func showChat(conversationId: String, messageId: String?) {
+        show(identifier: "quata-ios-chat-host", label: "Quata iOS Chat")
+    }
+
+    func showOfficial(postId: String?) {
+        show(identifier: "quata-ios-official-host", label: "Quata iOS Official")
+    }
+
+    func showNotifications() {
+        show(identifier: "quata-ios-notifications-host", label: "Quata iOS Notifications")
+    }
+
+    func showProfileSos() {
+        show(identifier: "quata-ios-profile-sos-host", label: "Quata iOS Profile and SOS")
+    }
+
+    func showCommunities() {
+        show(identifier: "quata-ios-communities-host", label: "Quata iOS Communities")
+    }
+
+    func showComposer() {
+        show(identifier: "quata-ios-composer-host", label: "Quata iOS Composer")
+    }
+
+    func showSettings() {
+        show(identifier: "quata-ios-settings-host", label: "Quata iOS Settings")
+    }
+
+    func showWhatsNew() {
+        show(identifier: "quata-ios-whats-new-host", label: "Quata iOS What's New")
+    }
+
+    func showReleaseHistory() {
+        show(identifier: "quata-ios-release-history-host", label: "Quata iOS Release History")
+    }
+
+    private func show(identifier: String, label: String) {
+        view.accessibilityIdentifier = identifier
+        view.accessibilityLabel = label
+    }
+}
+
 /// Authenticated UIKit router for shared Compose feature hosts.
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
@@ -634,6 +729,24 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         )
     }
 
+    /// XCTest-only controller factories for deterministic launcher and URL routing checks.
+    /// Production callers only install factories backed by the real authenticated KMP runtime.
+    func installUiTestRoutes() {
+        let fixture: () -> UIViewController = { UIViewController() }
+        feedFactory = { _ in fixture() }
+        chatFactory = { _, _ in fixture() }
+        officialFactory = { _ in fixture() }
+        notificationsFactory = fixture
+        profileSosFactory = fixture
+        communitiesFactory = fixture
+        composerFactory = fixture
+        settingsFactory = fixture
+        whatsNewFactory = fixture
+        releaseHistoryFactory = fixture
+        hasAuthenticatedSession = true
+        routeMenuButton.isHidden = false
+    }
+
     /// The shared Feed can already expose its Conversations affordance, but the authenticated
     /// iOS Chat repository/navigation host is not wired yet. Keep that action explicit rather
     /// than routing to an invented screen or silently swallowing the tap.
@@ -663,32 +776,46 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// supports opening a conversation, but not scrolling to a particular message identifier.
     func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
         let services = platformServices.services
+        let chatAttachmentConfiguration: IosChatRuntimeConfiguration? = IosPublicRuntimeConfiguration
+            .feedConfiguration()
+            .map {
+                IosChatRuntimeConfiguration(
+                    supabaseUrl: $0.supabaseUrl,
+                    supabasePublishableKey: $0.supabasePublishableKey,
+                )
+            }
+        let chatAttachmentSession = bootstrap.authSessionForInteractiveLogin()
         // Chat remains installable for an already constructed bootstrap even when the host has no
         // public runtime metadata. Only remote preview degrades in that case.
         let attachmentPreviewService: IosChatAttachmentPreviewService? = {
-            guard let configuration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+            guard let chatAttachmentConfiguration else {
                 return nil
             }
             // Reuse the Keychain-backed session from Chat; Quick Look only receives a local
             // temporary file after the Kotlin boundary validates and downloads the attachment.
-            let attachmentConfiguration = IosChatRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            )
-            let attachmentSession = bootstrap.authSessionForInteractiveLogin()
             return IosChatAttachmentPreviewService(
-                configuration: attachmentConfiguration,
-                authSession: attachmentSession,
+                configuration: chatAttachmentConfiguration,
+                authSession: chatAttachmentSession,
                 documentOpener: services.documentOpener,
                 downloader: IosChatAttachmentDownloader(
-                    configuration: attachmentConfiguration,
-                    authSession: attachmentSession,
+                    configuration: chatAttachmentConfiguration,
+                    authSession: chatAttachmentSession,
                 ),
             )
         }()
         installChatFactory { [weak self] conversationId, _ in
+            // AVAudioPlayer accepts local files only. Resolve message-controlled remote audio
+            // through the authenticated Chat downloader first, so a URL can never be coerced
+            // into a file path or escape the deployment/bucket allow-list.
+            let chatAudioPlayer: AudioPlayerService = chatAttachmentConfiguration.map {
+                IosChatAttachmentAudioPlayerService(
+                    delegate: services.audioPlayer,
+                    configuration: $0,
+                    authSession: chatAttachmentSession,
+                )
+            } ?? services.audioPlayer
             let dependencies = bootstrap.hostDependencies(
-                audioPlayer: services.audioPlayer,
+                audioPlayer: chatAudioPlayer,
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
                 conversationId: conversationId,
@@ -888,7 +1015,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func showMigrationStatus() {
         show(
             QuataFeedViewControllerKt.QuataIosMigrationStatusViewController(),
-            accessibilityIdentifier: "quata-ios-compose-root",
+            // The identifier belongs to the real Compose semantics node. Keeping a second UIKit
+            // identifier here would make the UI test unable to distinguish content from wrapper.
+            accessibilityIdentifier: nil,
             accessibilityLabel: "Quata iOS requires an authenticated Feed session",
         )
     }
@@ -966,7 +1095,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// same transition, so containment remains testable without credentials or backend calls.
     func show(
         _ controller: UIViewController,
-        accessibilityIdentifier: String,
+        accessibilityIdentifier: String?,
         accessibilityLabel: String,
     ) {
         let previous = displayedController
@@ -974,7 +1103,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.frame = view.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         controller.view.accessibilityIdentifier = accessibilityIdentifier
-        controller.view.isAccessibilityElement = true
+        // The hosted controller is an accessibility container. Promoting its root view to one
+        // element makes UIKit hide the real Compose Text/Button descendants from VoiceOver and
+        // XCUITest, even though they remain visibly rendered.
+        controller.view.isAccessibilityElement = false
         controller.view.accessibilityLabel = accessibilityLabel
         view.addSubview(controller.view)
         // Feature hosts fill the router bounds. Keep the authenticated route affordance above

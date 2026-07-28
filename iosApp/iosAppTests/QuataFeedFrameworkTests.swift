@@ -7,10 +7,18 @@ import QuataShared
 import QuickLookThumbnailing
 import AVFoundation
 import CoreLocation
+import Metal
 import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testSimulatorExposesMetalDevice() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice(), "The iOS Simulator did not expose a Metal device.")
+        let attachment = XCTAttachment(string: "Metal device: \(device.name)")
+        attachment.name = "simulator-metal-device.txt"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
     func testApnsAuthorizationRegistersOnlyForGrantedSystemStates() {
         XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.notDetermined))
         XCTAssertFalse(IosApnsAuthorization.permitsRegistration(.denied))
@@ -173,6 +181,86 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
         XCTAssertEqual(configuration.registrationChallengeToken, "challenge-token")
         XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
+    func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
+            "QUATA_SUPABASE_URL": "https://deployment.invalid",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "   ",
+        ]))
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
+            "QUATA_SUPABASE_URL": "   ",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "client-key",
+        ]))
+    }
+
+    func testDeepLinkDispatcherReturnsUnsupportedBeforeHostAttachmentWithoutReplayingLater() {
+        let dispatcher = IosDeepLinkDispatcher()
+        let host = CapturingAuthenticatedRouteHost()
+
+        let result = dispatcher.handleUrl(url: "https://egquata.com/#chat-conversation-7?message=message-4")
+        XCTAssertTrue(result is PlatformResultUnsupported)
+        XCTAssertNil(host.route)
+        XCTAssertEqual(host.callCount, 0)
+
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: host))
+        XCTAssertNil(host.route)
+        XCTAssertEqual(host.callCount, 0)
+    }
+
+    func testDeepLinkDispatcherRoutesPublicUrlsWithoutRenderingCompose() {
+        let host = CapturingAuthenticatedRouteHost()
+        let dispatcher = IosDeepLinkDispatcher()
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: host))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#post-feed-9")
+        XCTAssertEqual(host.route, .feed(postId: "feed-9"))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#official-public-7")
+        XCTAssertEqual(host.route, .official(postId: "public-7"))
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#whats-new")
+        XCTAssertEqual(host.route, .whatsNew)
+
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#release-history")
+        XCTAssertEqual(host.route, .releaseHistory)
+
+        let callsBeforeInvalidUrl = host.callCount
+        let invalidResult = dispatcher.handleUrl(url: "https://invalid.example/#chat-ignore")
+        XCTAssertTrue(invalidResult is PlatformResultFailure)
+        XCTAssertEqual(host.route, .releaseHistory)
+        XCTAssertEqual(host.callCount, callsBeforeInvalidUrl)
+    }
+
+    func testNotificationPayloadMappingRoutesToChatAtTheHostBoundary() {
+        // This only verifies provider-normalized payload mapping. It does not claim an
+        // authenticated session or exercise the Keychain-backed launcher policy.
+        let host = CapturingAuthenticatedRouteHost()
+        let dispatcher = IosDeepLinkDispatcher()
+        dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: host))
+
+        _ = dispatcher.handleNotificationPayload(payload: [
+            "conversation_id": "conversation-9",
+            "message_id": "message-2",
+        ])
+
+        XCTAssertEqual(host.route, .chat(conversationId: "conversation-9", messageId: "message-2"))
+    }
+
+    func testAuthenticatedRouteDispatcherKeepsNonPublicRoutesExplicit() {
+        let host = CapturingAuthenticatedRouteHost()
+        let dispatcher = IosAuthenticatedRouteDispatcher(host: host)
+
+        dispatcher.openNotifications()
+        XCTAssertEqual(host.route, .notifications)
+        dispatcher.openProfileSos()
+        XCTAssertEqual(host.route, .profileSos)
+        dispatcher.openCommunities()
+        XCTAssertEqual(host.route, .communities)
+        dispatcher.openComposer()
+        XCTAssertEqual(host.route, .composer)
+        dispatcher.openSettings()
+        XCTAssertEqual(host.route, .settings)
     }
 
     func testIosContactPickerNormalizesExplicitlySelectedContact() {
@@ -377,7 +465,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         let initialController = try XCTUnwrap(host.children.first)
         XCTAssertEqual(host.children.count, 1)
-        XCTAssertEqual(initialController.view.accessibilityIdentifier, "quata-ios-compose-root")
+        XCTAssertNil(initialController.view.accessibilityIdentifier)
+        XCTAssertFalse(initialController.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === initialController)
 
         let authSurface = UIViewController()
@@ -393,6 +482,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(initialController.view.superview)
         XCTAssertEqual(authSurface.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertEqual(authSurface.view.accessibilityLabel, "Quata iOS authentication")
+        XCTAssertFalse(authSurface.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === authSurface)
 
         let feedSurface = UIViewController()
@@ -408,6 +498,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(authSurface.view.superview)
         XCTAssertEqual(feedSurface.view.accessibilityIdentifier, "quata-ios-feed-host")
         XCTAssertEqual(feedSurface.view.accessibilityLabel, "Quata iOS Feed")
+        XCTAssertFalse(feedSurface.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === feedSurface)
     }
 
@@ -681,6 +772,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
                     filePicker: services.services.filePicker,
                     cameraCapture: services.services.cameraCapture,
+                    languageTag: "en-US",
                     onClose: {},
                 ),
             )
@@ -762,7 +854,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === communities })
     }
 
-    func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() {
+    func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         let dispatcher = IosDeepLinkDispatcher()
@@ -770,11 +862,17 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         _ = dispatcher.handleUrl(url: "https://egquata.com/#official-public-post-9")
         router.restoreRouteAfterForeground()
-        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-compose-root")
+        let migrationController = try XCTUnwrap(router.children.first)
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertNil(migrationController.view.accessibilityIdentifier)
+        XCTAssertFalse(migrationController.view.isAccessibilityElement)
 
         let official = UIViewController()
         router.installOfficialFactory { _ in official }
-        XCTAssertTrue(router.children.contains { $0 === official })
+        XCTAssertEqual(router.children.count, 1)
+        XCTAssertTrue(router.children.first === official)
+        XCTAssertNil(migrationController.parent)
+        XCTAssertNil(migrationController.view.superview)
         XCTAssertEqual(official.view.accessibilityIdentifier, "quata-ios-official-host")
     }
 
@@ -791,5 +889,41 @@ private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {
 
     func open(route: IosWhatsNewRoute) {
         self.route = route
+    }
+}
+
+private final class CapturingAuthenticatedRouteHost: NSObject, IosAuthenticatedRouteHost {
+    enum Route: Equatable {
+        case feed(postId: String?)
+        case chat(conversationId: String, messageId: String?)
+        case official(postId: String?)
+        case notifications
+        case profileSos
+        case communities
+        case composer
+        case settings
+        case whatsNew
+        case releaseHistory
+    }
+
+    var route: Route?
+    private(set) var callCount = 0
+
+    func showFeed(postId: String?) { record(.feed(postId: postId)) }
+    func showChat(conversationId: String, messageId: String?) {
+        record(.chat(conversationId: conversationId, messageId: messageId))
+    }
+    func showOfficial(postId: String?) { record(.official(postId: postId)) }
+    func showNotifications() { record(.notifications) }
+    func showProfileSos() { record(.profileSos) }
+    func showCommunities() { record(.communities) }
+    func showComposer() { record(.composer) }
+    func showSettings() { record(.settings) }
+    func showWhatsNew() { record(.whatsNew) }
+    func showReleaseHistory() { record(.releaseHistory) }
+
+    private func record(_ route: Route) {
+        self.route = route
+        callCount += 1
     }
 }
