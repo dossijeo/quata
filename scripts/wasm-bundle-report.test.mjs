@@ -65,6 +65,19 @@ test('pull request CI requires an explicit policy base for an approved budget', 
   );
 });
 
+test('approved policy fails closed when its trusted base budget is missing or invalid', async (t) => {
+  for (const [name, baseBudget] of [
+    ['missing', undefined],
+    ['invalid JSON', '{not-json'],
+  ]) await t.test(name, async () => {
+    const fixture = await createPolicyBaseFixture(baseBudget);
+    assert.throws(
+      () => run(fixture, '--budget', fixture.budget, '--policy-base', fixture.baseRevision),
+      /requires a valid versioned budget at the trusted base revision/,
+    );
+  });
+});
+
 test('baseline capture cannot approve the current feature branch', async () => {
   const fixture = await createFeatureBranchFixture();
   assert.throws(
@@ -106,6 +119,42 @@ async function createFeatureBranchFixture() {
 
   const fixture = await createFixture();
   return { ...fixture, repositoryRoot, script: fixtureScript };
+}
+
+async function createPolicyBaseFixture(baseBudget) {
+  const repositoryRoot = await mkdtemp(join(tmpdir(), 'quata-wasm-bundle-policy-base-'));
+  const fixtureScript = join(repositoryRoot, 'scripts', 'wasm-bundle-report.mjs');
+  await mkdir(join(repositoryRoot, 'scripts'));
+  await mkdir(join(repositoryRoot, 'docs'));
+  await copyFile(script, fixtureScript);
+  await copyFile(approvalPolicyScript, join(repositoryRoot, 'scripts', 'wasm-bundle-approval-policy.mjs'));
+  await writeFile(join(repositoryRoot, 'base.txt'), 'trusted base\n');
+  if (baseBudget !== undefined) await writeFile(join(repositoryRoot, 'docs', 'wasm-bundle-budget.json'), baseBudget);
+  git(repositoryRoot, 'init', '--quiet');
+  git(repositoryRoot, 'config', 'user.name', 'Quata contract fixture');
+  git(repositoryRoot, 'config', 'user.email', 'quata-contract@example.invalid');
+  git(repositoryRoot, 'add', '.');
+  git(repositoryRoot, 'commit', '--quiet', '-m', 'trusted base');
+  const baseRevision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+
+  const fixture = await createFixture();
+  const report = await reportFor({ ...fixture, repositoryRoot, script: fixtureScript });
+  const sourceTreeSha256 = createHash('sha256').update(execFileSync('git', ['ls-tree', '-r', '--full-tree', '-z', baseRevision], { cwd: repositoryRoot })).digest('hex');
+  const capture = {
+    schemaVersion: 2,
+    trustedRef: 'refs/tags/test-fixture',
+    sourceRevision: baseRevision,
+    sourceTree: { algorithm: 'git-ls-tree-sha256-v1', revision: baseRevision, sha256: sourceTreeSha256 },
+    inventorySha256: report.inventorySha256,
+    command: ':web:wasmJsBrowserDistribution',
+  };
+  const baselinePath = join(repositoryRoot, 'docs', 'wasm-bundle-baseline.json');
+  const budgetPath = join(repositoryRoot, 'docs', 'wasm-bundle-budget.json');
+  await writeFile(baselinePath, `${JSON.stringify({ ...report, baselineState: 'approved', revision: baseRevision, capture }, null, 2)}\n`);
+  await writeFile(budgetPath, `${JSON.stringify({ schemaVersion: 1, state: 'approved', baselineFile: 'wasm-bundle-baseline.json', maxGrowthBytes: 0, maxGrowthGzipBytes: 0, rationale: 'fixture' }, null, 2)}\n`);
+  git(repositoryRoot, 'add', 'docs');
+  git(repositoryRoot, 'commit', '--quiet', '-m', 'approve fixture budget');
+  return { ...fixture, repositoryRoot, script: fixtureScript, budget: budgetPath, baseRevision };
 }
 
 async function reportFor(fixture) {

@@ -78,8 +78,13 @@ En una PR que modifica baseline o budget aprobados, CI pasa el SHA base mediante
 SHA y que el inventario de la distribucion construida por la PR coincida con el
 baseline. Rechaza la aprobacion si el mismo diff toca `web`, `core`,
 `designsystem`, `feature`, Gradle, lockfiles/package, build logic o el propio
-gate. Una PR ordinaria de payload conserva la comparacion de crecimiento, pero
-no puede autoaprobar un baseline nuevo.
+gate. La PR de aprobacion solo puede modificar exactamente
+`docs/wasm-bundle-baseline.json` y/o `docs/wasm-bundle-budget.json`; incluso la
+documentacion narrativa se revisa en una PR separada. Desde un presupuesto
+propuesto, solo se admite el cambio de `state` a `approved`; una vez aprobado,
+el presupuesto debe permanecer semanticamente identico. Una PR ordinaria de
+payload conserva la comparacion de crecimiento, pero no puede autoaprobar un
+baseline nuevo.
 
 ## Arranque y memoria de navegador
 

@@ -3,20 +3,7 @@ const ApprovalFiles = new Set([
   'docs/wasm-bundle-budget.json',
 ]);
 
-const BundleInputPrefixes = [
-  'build-logic/', 'core/', 'designsystem/', 'feature/', 'gradle/', 'kotlin-js-store/', 'web/',
-];
-
-const BundleInputFiles = new Set([
-  'build.gradle.kts', 'gradle.properties', 'gradlew', 'gradlew.bat', 'package.json',
-  'package-lock.json', 'settings.gradle.kts', 'scripts/wasm-bundle-approval-policy.mjs',
-  'scripts/wasm-bundle-approval-policy.test.mjs', 'scripts/wasm-bundle-report.mjs',
-  'scripts/wasm-bundle-report.test.mjs', 'scripts/run-wasm-production-observed.ps1',
-  'scripts/web-android-pr-workflow-contract.test.mjs',
-  '.github/workflows/web-android-pr.yml',
-]);
-
-export function validatePullRequestApprovalPolicy({ budget, baseline, baseRevision, changedFiles, currentInventorySha256 }) {
+export function validatePullRequestApprovalPolicy({ budget, baseline, baseBudget, baseRevision, changedFiles, currentInventorySha256 }) {
   if (budget?.state !== 'approved') return;
   const normalized = changedFiles.map(path => path.replaceAll('\\', '/'));
   if (!normalized.some(path => ApprovalFiles.has(path))) return;
@@ -30,13 +17,33 @@ export function validatePullRequestApprovalPolicy({ budget, baseline, baseRevisi
   if (baseline?.capture?.inventorySha256 !== currentInventorySha256) {
     throw new Error('Approved baseline inventory must equal the distribution built by the approval PR');
   }
-  const mixedInputs = normalized.filter(isBundleOrGateInput);
-  if (mixedInputs.length > 0) {
-    throw new Error(`Approved baseline must be reviewed separately from bundle/gate inputs: ${mixedInputs.join(', ')}`);
+  const nonApprovalFiles = normalized.filter(path => !ApprovalFiles.has(path));
+  if (nonApprovalFiles.length > 0) {
+    throw new Error(`Approved baseline must be reviewed separately with only baseline/budget artifacts: ${nonApprovalFiles.join(', ')}`);
   }
+  validateBudgetTransition(baseBudget, budget);
 }
 
-export function isBundleOrGateInput(path) {
-  const normalized = path.replaceAll('\\', '/');
-  return BundleInputFiles.has(normalized) || BundleInputPrefixes.some(prefix => normalized.startsWith(prefix));
+function validateBudgetTransition(baseBudget, budget) {
+  if (baseBudget?.state === 'proposed') {
+    if (budget.state !== 'approved' || canonicalBudget(baseBudget, true) !== canonicalBudget(budget, true)) {
+      throw new Error('Approved baseline may only transition the trusted proposed budget state to approved');
+    }
+    return;
+  }
+  if (baseBudget?.state === 'approved' && canonicalBudget(baseBudget) === canonicalBudget(budget)) return;
+  throw new Error('Approved baseline requires a semantically identical trusted approved budget');
+}
+
+function canonicalBudget(budget, omitState = false) {
+  const value = omitState ? Object.fromEntries(Object.entries(budget).filter(([key]) => key !== 'state')) : budget;
+  return JSON.stringify(canonicalize(value));
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]));
+  }
+  return value;
 }
