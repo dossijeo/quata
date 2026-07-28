@@ -16,13 +16,14 @@ import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
 import platform.Foundation.NSURL
-import platform.Foundation.NSURLRequest
+import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLResponse
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.setHTTPMethod
 import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
@@ -85,12 +86,18 @@ class IosFeedReadTransport(
             ?: error("ios_feed_supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_feed_supabase_publishable_key_missing")
-        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosQueryString()}")
+        val publicRequest = iosPublicFeedRequest(
+            baseUrl = baseUrl,
+            publishableKey = publishableKey,
+            table = table,
+            query = query,
+        )
+        val url = NSURL(string = publicRequest.url)
             ?: error("ios_feed_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-            HTTPAdditionalHeaders = iosFeedPublicHeaders(publishableKey)
+            HTTPAdditionalHeaders = publicRequest.headers
         }
-        return requestConfiguration.iosData(url).toIosJsonRows()
+        return requestConfiguration.iosData(url, publicRequest.method).toIosJsonRows()
     }
 }
 
@@ -100,11 +107,35 @@ internal fun iosFeedPublicHeaders(publishableKey: String): Map<Any?, Any?> = map
     "Accept" to "application/json",
 )
 
+/**
+ * Complete public request plan shared by every Feed read endpoint. Keeping it pure makes the
+ * table-by-table anonymous request policy testable without URLSession or a deployed backend.
+ */
+internal data class IosPublicFeedRequest(
+    val method: String,
+    val url: String,
+    val headers: Map<Any?, Any?>,
+)
+
+internal fun iosPublicFeedRequest(
+    baseUrl: String,
+    publishableKey: String,
+    table: String,
+    query: Map<String, String>,
+): IosPublicFeedRequest {
+    require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
+    return IosPublicFeedRequest(
+        method = "GET",
+        url = "${baseUrl.trim().trimEnd('/')}/rest/v1/$table${query.toIosQueryString()}",
+        headers = iosFeedPublicHeaders(publishableKey.trim()),
+    )
+}
+
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSessionConfiguration.iosData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+private suspend fun NSURLSessionConfiguration.iosData(url: NSURL, method: String): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosFeedDataTaskDelegate(continuation)
     val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
-    val task = session.dataTaskWithRequest(NSURLRequest(url))
+    val task = session.dataTaskWithRequest(NSMutableURLRequest.requestWithURL(url).apply { setHTTPMethod(method) })
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()
