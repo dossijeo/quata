@@ -227,9 +227,23 @@ jobs:
             --warning-mode all \
             --console=plain
 
+      - name: Install hermetic public runtime fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > iosApp/Configuration/QuataPublicRuntime.local.xcconfig <<'EOF'
+          // CI-only public fixture. It is deliberately non-routable and carries no secret.
+          QUATA_SUPABASE_URL = https://ios-ci.invalid
+          QUATA_SUPABASE_PUBLISHABLE_KEY = fixture-public-key
+          QUATA_IOS_REGISTRATION_ENABLED = false
+          QUATA_IOS_REGISTRATION_API_KEY =
+          QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID =
+          QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN =
+          EOF
+
       - name: Validate iOS signing and runtime contract
         shell: bash
-        run: bash scripts/check-ios-release-readiness.sh
+        run: bash scripts/check-ios-release-readiness.sh --require-public-runtime
 
       - name: Generate Xcode project
         working-directory: iosApp

@@ -1,0 +1,8 @@
+// Copy to QuataPublicRuntime.local.xcconfig for a local public-runtime build.
+// Do not add service-role keys, JWTs, signing credentials, or real deployment values here.
+QUATA_SUPABASE_URL = https://local-public-runtime.invalid
+QUATA_SUPABASE_PUBLISHABLE_KEY = fixture-public-key
+QUATA_IOS_REGISTRATION_ENABLED = false
+QUATA_IOS_REGISTRATION_API_KEY =
+QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID =
+QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN =
