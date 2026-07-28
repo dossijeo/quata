@@ -33,6 +33,19 @@ test('browser gate cannot pass on SDK mount alone or a hardcoded file extension'
     assert.doesNotMatch(smokeSource, /fixture = '[^']+\.pdf'/);
 });
 
+test('an integrated success is gated by documented DocMentis render lifecycle, not a Quata DOM guess', () => {
+    assert.match(serviceSource, /customPageOverlay:/);
+    assert.match(serviceSource, /viewer\.on\?\.\('document:load'/);
+    assert.match(serviceSource, /pageSlotRendered = true/);
+    assert.match(serviceSource, /overlay\.dataset\.quataDocmentisRenderReady = 'true'/);
+    assert.match(serviceSource, /viewer\?\.isLoaded !== true/);
+    assert.match(serviceSource, /viewer\?\.pageCount < 1/);
+    assert.match(serviceSource, /docmentis_render_ready_timeout/);
+    assert.match(serviceSource, /return renderReady/);
+    assert.match(serviceSource, /viewer\.on\?\.\('error'/);
+    assert.doesNotMatch(serviceSource, /querySelector\(['"]canvas/);
+});
+
 test('DocMentis query opt-in runs only after the stable six-route metric series', () => {
     const routeSeries = smokeSource.indexOf('for (const fragment of routeFragments.slice(1))');
     const docmentisProbe = smokeSource.indexOf('if (options.docmentis)', routeSeries);
