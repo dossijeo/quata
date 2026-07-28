@@ -31,7 +31,10 @@ internal object WebIncomingShareTargetContract {
     fun payloadOrNull(record: WebPersistedIncomingShare): ExternalSharePayload? {
         val normalizedText = normalizeText(title = null, text = record.text, url = null)
         val attachments = record.attachments.mapNotNull { attachment ->
-            attachment.uri.trim().takeIf(String::isNotBlank)?.let { uri ->
+            // The worker persists Blobs and the launcher creates the corresponding object URL.
+            // Do not treat a tampered IndexedDB record as a remote attachment: that would turn a
+            // local, one-shot share claim into an unreviewed network reference.
+            attachment.uri.trim().takeIf { it.startsWith("blob:") }?.let { uri ->
                 ExternalShareAttachment(
                     uri = uri,
                     name = attachment.name.trim().ifBlank { "attachment" },
@@ -45,7 +48,7 @@ internal object WebIncomingShareTargetContract {
 
     /** Only object URLs created by [WebIncomingShareStore] are released on discard. */
     fun blobUrlsToRevoke(payload: ExternalSharePayload): List<String> =
-        payload.attachments.map(ExternalShareAttachment::uri).filter { it.startsWith("blob:") }
+        payload.attachments.map(ExternalShareAttachment::uri).filter { it.startsWith("blob:") }.distinct()
 }
 
 internal data class WebIncomingShareFile(val byteCount: Long)

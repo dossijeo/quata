@@ -28,6 +28,7 @@ on:
       - "scripts/web-share-target-network-policy.mjs"
       - "scripts/web-share-target-pwa-e2e.mjs"
       - "scripts/web-share-target-pwa-e2e.test.mjs"
+      - "scripts/web-pwa-push-lifecycle-contract.test.mjs"
       - "scripts/web-docmentis-product-smoke-contract.test.mjs"
       - "scripts/backend-compatibility-web-smoke.mjs"
       - "scripts/backend-compatibility-request-policy.mjs"
