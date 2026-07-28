@@ -14,11 +14,17 @@ El recorrido de producción es:
 `WebDocmentisDocumentOpenService` → `@docmentis/udoc-viewer` para PDF/DOCX/XLSX/PPTX.
 
 Las fixtures locales de `scripts/web-browser-smoke.mjs` son válidas y no escriben
-en Storage ni en Supabase. Sin embargo, la sonda `--docmentis` actual prueba
-deliberadamente el caso de fallo seguro: observa que el overlay se monta, que se
-destruye y que el servicio pasa al `BrowserDocumentOpenService`. No comprueba un
-frame, canvas ni señal de documento cargado por UDoc. En consecuencia, no puede
-usarse como evidencia de que un PDF/DOCX/XLSX/PPTX se haya renderizado.
+en Storage ni en Supabase. El producto dispone ya de una compuerta de preparación
+de ciclo de vida: exige el evento documentado `document:load`, el callback
+`customPageOverlay`, `isLoaded` y al menos una página antes de declarar listo el
+visor. Ese contrato se prueba sin inferir éxito de un `iframe`, canvas, tamaño o
+selector de Quata.
+
+Sin embargo, la sonda `--docmentis` hermética bloquea deliberadamente el permiso
+remoto de DocMentis. Por ello sólo ejercita importación, cliente, visor, limpieza
+y el cierre seguro hacia `BrowserDocumentOpenService`; no acredita que un
+PDF/DOCX/XLSX/PPTX haya alcanzado la compuerta ni que se haya renderizado. Tampoco
+es una prueba de píxeles, frame o salida visual de esos formatos.
 
 No hay un renderer alternativo local para Office: el fallback de navegador descarga
 RTF y Office, y sólo delega PDF HTTP(S) en el visor nativo del navegador. Forzar el
@@ -37,23 +43,31 @@ Los XCTest actuales confirman que Quick Look está enlazado, que el picker anunc
 los UTI correctos y que se rechazan URL remotas; no presentan una fixture ni
 esperan una miniatura/render de Quick Look. `IosQuickLookDataSource` es privado y
 Quick Look sólo decodifica de forma asíncrona tras presentar el controlador, de
-modo que no existe un seam unitario que equivalga a un render.
+modo que no existe un seam unitario que equivalga a un render. La construcción de
+`QLPreviewController` no acredita por sí sola que Quick Look haya decodificado ni
+mostrado una fixture.
 
 ## Bloqueo para afirmar renderizado real
 
-Para Web, falta una señal estable y documentada del SDK UDoc que pruebe que cada
-fixture terminó de cargar sin depender de DocMentis remoto. Para iOS, falta una
-ejecución en simulador que copie las cuatro fixtures al sandbox, presente Quick
-Look y capture/inspeccione el resultado. La política de esta tanda reserva los
-simuladores para otra validación, por lo que este trabajo no los usa.
+Para Web, queda disponer de un entorno autorizado con licencia offline o con el
+origen de permiso aprobado en staging para ejecutar y observar la compuerta de
+ciclo de vida sobre fixtures. Que esa compuerta se alcance es evidencia de ciclo
+de vida, no de píxeles ni de salida visual; una afirmación visual requiere una
+captura o una inspección de UI verificada de forma independiente.
+
+Para iOS, falta una ejecución en simulador que copie las cuatro fixtures al
+sandbox, presente Quick Look y capture/inspeccione el resultado. Aún no se ha
+registrado evidencia de simulador con fixture de Quick Look; los XCTest de
+compilación/enlace existentes no la sustituyen.
 
 No se ha modificado RLS, Supabase, Storage ni los adaptadores Android.
 
 ## Siguiente validación honesta
 
-1. Obtener del proveedor de UDoc una vía oficialmente soportada para carga local
-   sin red o licencia de producción, y hacer que la sonda Web espere su evento de
-   documento listo para PDF, DOCX, XLSX y PPTX.
+1. Ejecutar la compuerta Web existente en un entorno aprobado con licencia offline
+   o permiso de staging para PDF, DOCX, XLSX y PPTX, y conservar evidencia no
+   secreta a nivel de evento. Esa evidencia debe mantenerse separada de cualquier
+   afirmación visual; ésta requerirá capturas o inspección UI verificadas.
 2. Ejecutar un XCTest/UI test de iOS en simulador de forma exclusiva: crear/copiar
    esas mismas fixtures, presentar `QLPreviewController`, esperar la miniatura o
    el árbol visible y guardar `xcresult` y capturas.
