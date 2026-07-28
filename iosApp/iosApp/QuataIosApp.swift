@@ -1015,7 +1015,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func showMigrationStatus() {
         show(
             QuataFeedViewControllerKt.QuataIosMigrationStatusViewController(),
-            accessibilityIdentifier: "quata-ios-compose-root",
+            // The identifier belongs to the real Compose semantics node. Keeping a second UIKit
+            // identifier here would make the UI test unable to distinguish content from wrapper.
+            accessibilityIdentifier: nil,
             accessibilityLabel: "Quata iOS requires an authenticated Feed session",
         )
     }
@@ -1093,7 +1095,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// same transition, so containment remains testable without credentials or backend calls.
     func show(
         _ controller: UIViewController,
-        accessibilityIdentifier: String,
+        accessibilityIdentifier: String?,
         accessibilityLabel: String,
     ) {
         let previous = displayedController

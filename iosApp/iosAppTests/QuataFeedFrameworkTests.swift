@@ -465,7 +465,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         let initialController = try XCTUnwrap(host.children.first)
         XCTAssertEqual(host.children.count, 1)
-        XCTAssertEqual(initialController.view.accessibilityIdentifier, "quata-ios-compose-root")
+        XCTAssertNil(initialController.view.accessibilityIdentifier)
         XCTAssertFalse(initialController.view.isAccessibilityElement)
         XCTAssertTrue(composition.activeViewController() === initialController)
 

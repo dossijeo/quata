@@ -20,11 +20,7 @@ final class QuataIosHostUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let migrationSurface = QuataIosHostUITestSupport.composeRoot(in: app)
-        XCTAssertEqual(
-            migrationSurface.label,
-            "Quata iOS requires an authenticated Feed session",
-        )
+        _ = QuataIosHostUITestSupport.composeRoot(in: app)
         assertUnconfiguredMigrationSemantics(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-unconfigured")
     }
@@ -37,8 +33,7 @@ final class QuataIosHostUITests: XCTestCase {
         app.terminate()
         app.launch()
 
-        let migrationSurface = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold relaunch")
-        XCTAssertEqual(migrationSurface.label, "Quata iOS requires an authenticated Feed session")
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold relaunch")
         assertUnconfiguredMigrationSemantics(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-cold-relaunch")
     }
@@ -116,6 +111,24 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertTrue(
             acknowledge.isHittable,
             "The visible Compose migration action must be hittable on the normal launcher surface.",
+        )
+        acknowledge.tap()
+
+        let updatedMessage = app.staticTexts[
+            "La configuración pública sigue sin estar disponible."
+        ]
+        XCTAssertTrue(
+            updatedMessage.waitForExistence(timeout: 10),
+            "Tapping the real Compose action must update the visible status semantics.",
+        )
+        let retry = app.buttons["Comprobar de nuevo"]
+        XCTAssertTrue(
+            retry.waitForExistence(timeout: 10),
+            "Tapping the real Compose action must update its accessible label.",
+        )
+        XCTAssertTrue(
+            retry.isHittable,
+            "The updated real Compose action must remain hittable.",
         )
     }
 }
