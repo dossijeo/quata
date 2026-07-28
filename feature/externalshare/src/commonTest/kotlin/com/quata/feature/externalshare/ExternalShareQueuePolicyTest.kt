@@ -68,6 +68,19 @@ class ExternalShareQueuePolicyTest {
     }
 
     @Test
+    fun `same requested share is selected once while its claim is active`() {
+        val entry = pending(id = "share-once", createdAt = 100)
+
+        assertEquals(
+            "share-once",
+            selectExternalShareQueueEntry(listOf(entry), "share-once", 200, emptySet())?.id,
+        )
+        assertNull(
+            selectExternalShareQueueEntry(listOf(entry), "share-once", 200, setOf("share-once")),
+        )
+    }
+
+    @Test
     fun `lease directory round trips and cleanup identity remains generation specific`() {
         val first = externalShareClaimDirectoryName(
             id = "share-123",

@@ -80,6 +80,14 @@ targets:
     dependencies:
       - target: QuataIos
       - framework: ../ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
+  QuataShareExtensionTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosShareExtensionTests
+    dependencies:
+      - target: QuataShareExtension
 schemes:
   QuataIos:
     build:
@@ -93,3 +101,4 @@ schemes:
       targets:
         - QuataIosTests
         - QuataIosUITests
+        - QuataShareExtensionTests
