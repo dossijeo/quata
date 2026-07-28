@@ -183,6 +183,97 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
     }
 
+    func testAnonymousRouterShowsPublicFeedButKeepsMenuAndInteractiveRoutesGated() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+
+        router.installPublicFeed { _ in publicFeed }
+
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertEqual(publicFeed.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertTrue(router.view.subviews.compactMap { $0 as? UIButton }.allSatisfy(\.isHidden))
+
+        router.showChat(conversationId: "private-chat", messageId: nil)
+        router.showNotifications()
+        router.showProfileSos()
+        router.showComposer()
+
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertEqual(router.children.count, 1)
+    }
+
+    func testAnonymousRouterAllowsPublicPostRouteWithoutSession() throws {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        var receivedPostId: String?
+        var latestPublicFeed: UIViewController?
+        router.installPublicFeed { postId in
+            receivedPostId = postId
+            let publicFeed = UIViewController()
+            latestPublicFeed = publicFeed
+            return publicFeed
+        }
+
+        router.showFeed(postId: "public-post-9")
+
+        XCTAssertEqual(receivedPostId, "public-post-9")
+        let publicFeed = try XCTUnwrap(latestPublicFeed)
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+    }
+
+    func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let login = UIViewController()
+        router.installAuthenticationFactory { login }
+
+        router.showChat(conversationId: "private-chat", messageId: "message-4")
+
+        XCTAssertTrue(router.children.contains { $0 === login })
+        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-chat-host" })
+
+        let chat = UIViewController()
+        router.installChatFactory { conversationId, messageId in
+            XCTAssertEqual(conversationId, "private-chat")
+            XCTAssertEqual(messageId, "message-4")
+            return chat
+        }
+
+        XCTAssertTrue(router.children.contains { $0 === login })
+        XCTAssertFalse(router.children.contains { $0 === chat })
+
+        router.installFeedFactory { _ in UIViewController() }
+
+        XCTAssertTrue(router.children.contains { $0 === chat })
+        XCTAssertEqual(chat.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-feed-host" })
+        XCTAssertEqual(router.children.count, 1)
+    }
+
+    func testAnonymousRouterAllowsLocalWhatsNewAndReleaseHistoryWithoutSession() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let whatsNew = UIViewController()
+        let releaseHistory = UIViewController()
+        router.installWhatsNewFactory { whatsNew }
+        router.installReleaseHistoryFactory { releaseHistory }
+
+        router.showWhatsNew()
+
+        XCTAssertTrue(router.children.contains { $0 === whatsNew })
+        XCTAssertEqual(whatsNew.view.accessibilityIdentifier, "quata-ios-whats-new-host")
+
+        router.showReleaseHistory()
+
+        XCTAssertTrue(router.children.contains { $0 === releaseHistory })
+        XCTAssertEqual(releaseHistory.view.accessibilityIdentifier, "quata-ios-release-history-host")
+        XCTAssertEqual(router.children.count, 1)
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
@@ -527,6 +618,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         router.showChat(conversationId: "conversation-7", messageId: "message-4")
@@ -562,6 +654,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
         _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#chat-conversation-7?message=message-4")
         XCTAssertEqual(router.children.count, initialChildren.count)
 
+        router.installFeedFactory { _ in UIViewController() }
+
         var receivedConversationId: String?
         var receivedMessageId: String?
         let exportedFeatureController = UIViewController()
@@ -583,6 +677,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         router.showNotifications()
@@ -602,6 +697,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         router.showProfileSos()
@@ -621,6 +717,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         // Communities has no public URL contract. It remains an authenticated, deferred route
@@ -642,6 +739,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         // Composer has no public URL contract. It remains an internal authenticated route until
@@ -663,6 +761,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
         // Settings has no public URL contract. Its factory persists only local iOS preferences.
@@ -692,6 +791,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
         _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#official-public-post-7")
         XCTAssertEqual(router.children.count, initialChildren.count)
 
+        router.installFeedFactory { _ in UIViewController() }
+
         var receivedPostId: String?
         let exportedFeatureController = UIViewController()
         router.installOfficialFactory { postId in
@@ -709,6 +810,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
 
         let feedBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
             configuration: IosFeedRuntimeConfiguration(
@@ -736,6 +838,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
 
         let feedBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
             configuration: IosFeedRuntimeConfiguration(
@@ -780,6 +883,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
 
         router.installComposerFactory {
             IosComposerHostKt.QuataComposerViewController(
@@ -803,6 +907,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testRouteMenuRemainsAboveRouteController() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
         router.installCommunitiesFactory { UIViewController() }
         router.showCommunities()
 
@@ -883,6 +988,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(migrationController.view.accessibilityIdentifier)
         XCTAssertFalse(migrationController.view.isAccessibilityElement)
 
+        router.installFeedFactory { _ in UIViewController() }
         let official = UIViewController()
         router.installOfficialFactory { _ in official }
         XCTAssertEqual(router.children.count, 1)

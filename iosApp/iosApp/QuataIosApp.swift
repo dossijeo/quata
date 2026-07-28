@@ -248,6 +248,7 @@ private final class IosAppCompositionRoot {
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
         installWhatsNewIfAvailable()
+        installPublicFeedIfConfigured()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -302,6 +303,23 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installAuthenticatedFeed(dependencies)
     }
 
+    /// A valid public deployment starts on the read-only browser before any Keychain session is
+    /// inspected. The dependency is intentionally constructed by Kotlin without a session
+    /// provider, so public PostgREST reads cannot acquire an Authorization header.
+    private func installPublicFeedIfConfigured() {
+        guard let runtimeBootstrap else { return }
+        authenticatedHost.installPublicFeed { postId in
+            QuataFeedViewControllerKt.QuataFeedViewController(
+                dependencies: runtimeBootstrap.publicDependencies(
+                    navigationMessage: "Explora Quata",
+                    onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    initialPostId: postId,
+                ),
+            )
+        }
+    }
+
     /// Installs the shared notification inbox only after a real authenticated repository has
     /// been composed by Kotlin. APNs delivery and the existing tap delegate stay independent of
     /// this screen factory, so the launcher never fabricates notification data for navigation.
@@ -313,13 +331,17 @@ private final class IosAppCompositionRoot {
 
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
-        guard let dependencies = runtimeBootstrap?.restoredDependencies(
-            navigationMessage: "Quata para iOS",
-            onOpenChats: { [weak self] in
-                self?.authenticatedHost.openChatList()
-            },
-        ) else { return false }
-        installAuthenticatedFeed(dependencies)
+        guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession() else { return false }
+        authenticatedHost.installFeedFactory { postId in
+            QuataFeedViewControllerKt.QuataFeedViewController(
+                dependencies: runtimeBootstrap.publicDependencies(
+                    navigationMessage: "Quata para iOS",
+                    onOpenChats: { [weak self] in self?.authenticatedHost.openChatList() },
+                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    initialPostId: postId,
+                ),
+            )
+        }
         installAuthenticatedChatIfAvailable()
         installAuthenticatedOfficialIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
@@ -660,8 +682,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var settingsFactory: (() -> UIViewController)?
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
+    private var authenticationFactory: (() -> UIViewController)?
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
+    private var hasPublicFeed = false
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
@@ -692,6 +716,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case settings
         case whatsNew
         case releaseHistory
+
+        var isAuthenticationRequired: Bool {
+            switch self {
+            case .feed, .whatsNew, .releaseHistory:
+                return false
+            case .chat, .official, .notifications, .profileSos, .communities, .composer, .settings:
+                return true
+            }
+        }
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -717,16 +750,28 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installFeedFactory { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
     }
 
+    /// Public Feed factory never enables the authenticated menu or interactive verticals.
+    func installPublicFeed(_ factory: @escaping (String?) -> UIViewController) {
+        guard !hasAuthenticatedSession else { return }
+        feedFactory = factory
+        hasPublicFeed = true
+        routeMenuButton.isHidden = true
+        renderPendingRouteIfPossible()
+        if pendingRoute == nil { showFeed(postId: nil) }
+    }
+
     /// Installs the authenticated root route. Kept separate from dependency composition so the
     /// UIKit routing contract can be verified without credentials, network traffic or a backend.
     func installFeedFactory(_ factory: @escaping (String?) -> UIViewController) {
         feedFactory = factory
         hasAuthenticatedSession = true
+        hasPublicFeed = false
         routeMenuButton.isHidden = false
+        let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
-        if pendingRoute == nil {
+        if !hadPendingRoute {
             showFeed(postId: nil)
-        } else if let feedController = feedFactory?(nil) {
+        } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
             // pending identifier while returning the authenticated user to the real Feed surface.
             showRouteController(feedController, route: .feed(postId: nil))
@@ -734,10 +779,26 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
-        hasAuthenticatedSession = false
+        installAuthenticationFactory {
+            IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+        }
+    }
+
+    /// Installs the authenticated entry point without granting a session. Keeping this UIKit
+    /// factory boundary explicit lets a private deep link show login while retaining its route
+    /// until the real authenticated Feed/factory composition is available.
+    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+        authenticationFactory = factory
+        // On an unconfigured deployment this remains the honest initial state. With a valid
+        // public Feed it is deferred until an anonymous user explicitly asks to log in.
+        if !hasPublicFeed { presentLoginIfAvailable() }
+    }
+
+    func presentLoginIfAvailable() {
+        guard !hasAuthenticatedSession, let authenticationFactory else { return }
         routeMenuButton.isHidden = true
         show(
-            IosAuthHostKt.QuataAuthViewController(dependencies: dependencies),
+            authenticationFactory(),
             accessibilityIdentifier: "quata-ios-auth-host",
             accessibilityLabel: "Quata iOS authentication",
         )
@@ -1037,6 +1098,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func route(_ route: PendingRoute) {
+        if !hasAuthenticatedSession, route.isAuthenticationRequired {
+            // Retain a private deep link for the authenticated composition, but never render its
+            // controller before the launcher has restored a real session.
+            pendingRoute = route
+            presentLoginIfAvailable()
+            return
+        }
         guard let controller = controller(for: route) else {
             pendingRoute = route
             return
@@ -1046,7 +1114,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func renderPendingRouteIfPossible() {
-        guard let pendingRoute, let controller = controller(for: pendingRoute) else { return }
+        guard let pendingRoute else { return }
+        guard !pendingRoute.isAuthenticationRequired || hasAuthenticatedSession else { return }
+        guard let controller = controller(for: pendingRoute) else { return }
         self.pendingRoute = nil
         showRouteController(controller, route: pendingRoute)
     }
