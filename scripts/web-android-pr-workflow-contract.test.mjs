@@ -18,6 +18,12 @@ function assertWorkflowContract(yaml) {
     yaml,
     /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
   );
+  for (const path of [
+    'scripts/web-chat-exact-purge-gate.mjs',
+    'scripts/web-chat-exact-purge-gate.test.mjs',
+    'scripts/run-web-chat-exact-purge-gate.ps1',
+    'scripts/attest-web-chat-exact-purge.mjs',
+  ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing Chat purge gate trigger: ${path}`);
 }
 
 test('Web/Wasm pull-request workflow supplies its fetched trusted base SHA to the approved bundle gate', async () => {
@@ -31,6 +37,12 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['push trigger', yaml.replace('  pull_request:', '  push:')],
     ['write permission', yaml.replace('contents: read', 'contents: write')],
     ['missing policy base', yaml.replace(/\n\s+--policy-base "[^"]+" \\/, '')],
+    ...[
+      'scripts/web-chat-exact-purge-gate.mjs',
+      'scripts/web-chat-exact-purge-gate.test.mjs',
+      'scripts/run-web-chat-exact-purge-gate.ps1',
+      'scripts/attest-web-chat-exact-purge.mjs',
+    ].map(path => [`missing Chat purge path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
   ];
 
   for (const [name, mutation] of mutations) await t.test(name, () => {
