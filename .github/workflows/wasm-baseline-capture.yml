@@ -1,0 +1,147 @@
+name: Canonical Linux Wasm baseline capture
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture candidate from origin/main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Check out the event SHA with full history
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify canonical main provenance and clean detached checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/wasm-baseline-capture
+          {
+            echo "github_ref=$GITHUB_REF"
+            echo "github_sha=$GITHUB_SHA"
+            git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+            origin_main="$(git rev-parse refs/remotes/origin/main^{commit})"
+            echo "origin_main=$origin_main"
+            test "$GITHUB_REF" = "refs/heads/main"
+            test "$GITHUB_SHA" = "$origin_main"
+            git checkout --detach "$GITHUB_SHA"
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+            test -z "$(git symbolic-ref -q HEAD || true)"
+            test -z "$(git status --porcelain --untracked-files=all)"
+          } 2>&1 | tee build/reports/wasm-baseline-capture/provenance.log
+
+      - name: Set up JetBrains Runtime 21 for Gradle daemon
+        uses: actions/setup-java@v5
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          set-default: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js 20.19.0
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Install Android SDK 36.1 for KMP configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          set +e
+          yes | "$sdkmanager" --licenses >/dev/null
+          license_status=("${PIPESTATUS[@]}")
+          set -e
+          if [[ "${license_status[1]}" -ne 0 ]]; then
+            exit "${license_status[1]}"
+          fi
+          if [[ "${license_status[0]}" -ne 0 && "${license_status[0]}" -ne 1 && "${license_status[0]}" -ne 141 ]]; then
+            exit "${license_status[0]}"
+          fi
+          "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
+
+      - name: Install pinned Node dependencies
+        shell: bash
+        run: npm ci --ignore-scripts
+
+      - name: Record sanitized toolchain provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "github_ref=$GITHUB_REF"
+            echo "github_sha=$GITHUB_SHA"
+            echo "head=$(git rev-parse HEAD)"
+            echo "origin_main=$(git rev-parse refs/remotes/origin/main)"
+            java -version 2>&1
+            node --version
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
+            bash ./gradlew --version
+          } | tee build/reports/wasm-baseline-capture/toolchain.log
+
+      - name: Build canonical Wasm production distribution
+        timeout-minutes: 38
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./gradlew :web:wasmJsBrowserDistribution --no-daemon --stacktrace --console=plain \
+            2>&1 | tee build/reports/wasm-baseline-capture/wasm-distribution.log
+
+      - name: Write candidate and canonical bundle report
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/wasm-bundle-report.mjs \
+            --report build/reports/wasm-bundle/wasm-bundle-report.json \
+            --write-baseline build/reports/wasm-bundle/wasm-bundle-baseline-candidate.json \
+            --trusted-ref origin/main \
+            2>&1 | tee build/reports/wasm-baseline-capture/wasm-bundle-report.log
+
+      - name: Verify candidate attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const candidate = JSON.parse(await readFile('build/reports/wasm-bundle/wasm-bundle-baseline-candidate.json', 'utf8'));
+          const report = JSON.parse(await readFile('build/reports/wasm-bundle/wasm-bundle-report.json', 'utf8'));
+          const sha = process.env.GITHUB_SHA;
+          const fail = message => { throw new Error(`Invalid canonical baseline candidate: ${message}`); };
+          if (candidate.baselineState !== 'candidate') fail('baselineState must be candidate');
+          if (candidate.revision !== sha || candidate.capture?.sourceRevision !== sha) fail('source revision must equal GITHUB_SHA');
+          if (candidate.capture?.sourceTree?.revision !== sha) fail('source-tree revision must equal GITHUB_SHA');
+          if (candidate.capture?.trustedRef !== 'origin/main') fail('trusted ref must be origin/main');
+          if (candidate.inventorySha256 !== candidate.capture?.inventorySha256 || candidate.inventorySha256 !== report.inventorySha256) fail('inventory must match the report');
+          if (!Array.isArray(candidate.files) || candidate.files.length < 14 || candidate.files.length !== report.files?.length) fail('at least 14 reported assets are required');
+          NODE
+
+      - name: Upload canonical candidate, reports and logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: wasm-linux-baseline-capture-${{ github.run_id }}
+          path: |
+            build/reports/wasm-baseline-capture/
+            build/reports/wasm-bundle/
+            web/build/dist/wasmJs/productionExecutable/
+          if-no-files-found: warn
+          retention-days: 14

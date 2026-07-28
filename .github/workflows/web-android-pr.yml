@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/web-android-pr.yml"
+      - ".github/workflows/wasm-baseline-capture.yml"
       - ".github/workflows/web-docmentis-staging-evidence.yml"
       - ".github/workflows/ios-build.yml"
       - "build-logic/**"
@@ -50,6 +51,7 @@ on:
       - "scripts/wasm-bundle-approval-policy.test.mjs"
       - "scripts/run-wasm-production-observed.ps1"
       - "scripts/web-android-pr-workflow-contract.test.mjs"
+      - "scripts/wasm-baseline-capture-workflow-contract.test.mjs"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/web-test-contract.test.mjs"
       - "scripts/web-chat-browser-e2e-report.test.mjs"
