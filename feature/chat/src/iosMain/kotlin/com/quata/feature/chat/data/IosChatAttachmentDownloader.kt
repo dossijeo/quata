@@ -3,14 +3,11 @@ package com.quata.feature.chat.data
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.data.toFoundationData
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -237,20 +234,7 @@ private fun NSData.toChatAttachmentBytes(): ByteArray =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun List<ByteArray>.toChatAttachmentData(): NSData {
-    val merged = ByteArray(bytesReceivedSize())
-    var offset = 0
-    forEach { chunk ->
-        chunk.copyInto(merged, destinationOffset = offset)
-        offset += chunk.size
-    }
-    return merged.toIosData()
-}
-
-private fun List<ByteArray>.bytesReceivedSize(): Int = sumOf(ByteArray::size)
-
-@OptIn(ExperimentalForeignApi::class)
-private fun ByteArray.toIosData(): NSData = usePinned { pinned ->
-    CFDataCreate(null, pinned.addressOf(0).reinterpret(), size.toLong())!! as NSData
+    return toFoundationData()
 }
 
 private fun String?.normalisedChatMimeType(): String? = this

@@ -1,6 +1,7 @@
 package com.quata.feature.neighborhoods.data
 
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.data.toFoundationData
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
@@ -10,15 +11,11 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -233,17 +230,7 @@ private fun NSData.toIosNeighborhoodBytes(): ByteArray =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun List<ByteArray>.toIosNeighborhoodData(): NSData {
-    val total = sumOf { it.size }
-    if (total == 0) return NSData()
-    val merged = ByteArray(total)
-    var offset = 0
-    forEach { chunk ->
-        chunk.copyInto(merged, destinationOffset = offset)
-        offset += chunk.size
-    }
-    return merged.usePinned { pinned ->
-        CFDataCreate(null, pinned.addressOf(0).reinterpret(), merged.size.toLong())!! as NSData
-    }
+    return toFoundationData()
 }
 
 private fun Map<*, *>.toIosNeighborhoodUser(): NeighborhoodUser = NeighborhoodUser(
