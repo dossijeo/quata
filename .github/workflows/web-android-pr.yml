@@ -30,6 +30,8 @@ on:
       - "scripts/web-share-target-pwa-e2e.test.mjs"
       - "scripts/web-pwa-push-lifecycle-contract.test.mjs"
       - "scripts/web-docmentis-product-smoke-contract.test.mjs"
+      - "scripts/web-docmentis-staging-lifecycle-gate.mjs"
+      - "scripts/web-docmentis-staging-lifecycle-gate.test.mjs"
       - "scripts/backend-compatibility-web-smoke.mjs"
       - "scripts/backend-compatibility-request-policy.mjs"
       - "scripts/backend-compatibility-request-policy.test.mjs"
@@ -61,6 +63,7 @@ on:
       - "package-lock.json"
       - "docs/CI_WEB_ANDROID.md"
       - "docs/WEB_AUTHENTICATED_BROWSER_E2E.md"
+      - "docs/WEB_DOCMENTIS_STAGING_LIFECYCLE_EVIDENCE.md"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
 
