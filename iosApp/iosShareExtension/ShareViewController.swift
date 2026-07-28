@@ -1,25 +1,9 @@
 import Social
 import UniformTypeIdentifiers
+import QuataShareQueue
 
 private enum ShareExtensionConfiguration {
     static let appGroup = "group.com.quata.ios.share"
-    static let maximumFiles = 5
-    static let maximumPendingShares = 10
-    static let maximumFileBytes: Int64 = 25 * 1024 * 1024
-    static let maximumTotalBytes: Int64 = 100 * 1024 * 1024
-}
-
-private struct ShareManifest: Codable {
-    struct Attachment: Codable {
-        let relativePath: String
-        let name: String
-        let mimeType: String?
-    }
-
-    let id: String
-    let createdAtEpochMillis: Int64
-    let text: String
-    let attachments: [Attachment]
 }
 
 /// The extension only copies explicitly shared content into the App Group. It has no Quata
@@ -56,74 +40,32 @@ final class ShareViewController: SLComposeServiceViewController {
         guard let root = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: ShareExtensionConfiguration.appGroup
         ) else { throw ShareExtensionError.appGroupUnavailable }
-        let pending = root.appendingPathComponent("ExternalShares/pending", isDirectory: true)
-        let staging = root.appendingPathComponent("ExternalShares/staging-\(id)", isDirectory: true)
-        let destination = pending.appendingPathComponent(id, isDirectory: true)
-        try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
-        let pendingCount = try FileManager.default.contentsOfDirectory(
-            at: pending,
-            includingPropertiesForKeys: nil
-        ).count
-        guard pendingCount < ShareExtensionConfiguration.maximumPendingShares else {
-            throw ShareExtensionError.tooManyPendingShares
-        }
-        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-        do {
-            let providers = extensionContext?.inputItems
-                .compactMap { ($0 as? NSExtensionItem)?.attachments }
-                .flatMap { $0 }
-                ?? []
-            var textParts: [String] = [contentText.trimmingCharacters(in: .whitespacesAndNewlines)]
-                .filter { !$0.isEmpty }
-            var attachments: [ShareManifest.Attachment] = []
-            var totalBytes: Int64 = 0
+        let providers = extensionContext?.inputItems
+            .compactMap { ($0 as? NSExtensionItem)?.attachments }
+            .flatMap { $0 }
+            ?? []
+        var textParts: [String] = [contentText.trimmingCharacters(in: .whitespacesAndNewlines)]
+            .filter { !$0.isEmpty }
+        var attachments: [ShareQueue.Attachment] = []
 
-            for provider in providers {
-                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier), textParts.isEmpty {
-                    if let text = try await provider.loadString(for: UTType.plainText) { textParts.append(text) }
-                    continue
-                }
-                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier), textParts.isEmpty {
-                    if let url = try await provider.loadURL() { textParts.append(url.absoluteString) }
-                    continue
-                }
-                guard let type = provider.registeredContentTypes.first(where: Self.isSupported) else { continue }
-                guard attachments.count < ShareExtensionConfiguration.maximumFiles else {
-                    throw ShareExtensionError.tooManyFiles
-                }
-                let source = try await provider.loadFile(for: type)
-                let size = try source.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init) ?? 0
-                guard size >= 0, size <= ShareExtensionConfiguration.maximumFileBytes else {
-                    throw ShareExtensionError.fileTooLarge
-                }
-                totalBytes += size
-                guard totalBytes <= ShareExtensionConfiguration.maximumTotalBytes else {
-                    throw ShareExtensionError.payloadTooLarge
-                }
-                let originalName = source.lastPathComponent.isEmpty ? "attachment" : source.lastPathComponent
-                let storedName = "asset-\(attachments.count)-\(UUID().uuidString.lowercased())"
-                let storedURL = staging.appendingPathComponent(storedName, isDirectory: false)
-                try FileManager.default.copyItem(at: source, to: storedURL)
-                attachments.append(.init(relativePath: storedName, name: originalName, mimeType: type.preferredMIMEType))
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                if let text = try await provider.loadString(for: UTType.plainText), !text.isEmpty { textParts.append(text) }
+                continue
             }
-
-            let text = textParts.joined(separator: "\n").prefix(20_000)
-            guard !text.isEmpty || !attachments.isEmpty else { throw ShareExtensionError.emptyPayload }
-            let manifest = ShareManifest(
-                id: id,
-                createdAtEpochMillis: createdAtEpochMillis,
-                text: String(text),
-                attachments: attachments
-            )
-            let data = try JSONEncoder().encode(manifest)
-            try data.write(to: staging.appendingPathComponent("manifest.json"), options: [.atomic])
-            // Renaming a directory inside the same App Group volume is the publish boundary: the
-            // app can never observe a partial manifest or half-copied attachment set.
-            try FileManager.default.moveItem(at: staging, to: destination)
-        } catch {
-            try? FileManager.default.removeItem(at: staging)
-            throw error
+            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                if let url = try await provider.loadURL() { textParts.append(url.absoluteString) }
+                continue
+            }
+            guard let type = provider.registeredContentTypes.first(where: Self.isSupported) else { continue }
+            let source = try await provider.loadFile(for: type)
+            let originalName = source.lastPathComponent.isEmpty ? "attachment" : source.lastPathComponent
+            attachments.append(.init(sourceURL: source, name: originalName, mimeType: type.preferredMIMEType))
         }
+        try ShareQueue.persist(
+            .init(id: id, createdAtEpochMillis: createdAtEpochMillis, text: textParts.joined(separator: "\n"), attachments: attachments),
+            root: root
+        )
     }
 
     private static func isSupported(_ type: UTType) -> Bool {
@@ -167,6 +109,5 @@ private extension NSItemProvider {
 }
 
 private enum ShareExtensionError: LocalizedError {
-    case appGroupUnavailable, emptyPayload, tooManyFiles, tooManyPendingShares
-    case fileTooLarge, payloadTooLarge, unreadableItem
+    case appGroupUnavailable, unreadableItem
 }

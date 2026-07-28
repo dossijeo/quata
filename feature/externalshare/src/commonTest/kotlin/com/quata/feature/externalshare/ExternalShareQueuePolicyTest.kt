@@ -68,6 +68,51 @@ class ExternalShareQueuePolicyTest {
     }
 
     @Test
+    fun `same requested share is selected once while its claim is active`() {
+        val entry = pending(id = "share-once", createdAt = 100)
+
+        assertEquals(
+            "share-once",
+            selectExternalShareQueueEntry(listOf(entry), "share-once", 200, emptySet())?.id,
+        )
+        assertNull(
+            selectExternalShareQueueEntry(listOf(entry), "share-once", 200, setOf("share-once")),
+        )
+    }
+
+    @Test
+    fun `share IDs are ASCII and directory or manifest symlink destinations cannot leave App Group root`() {
+        assertEquals(false, isSafeExternalShareId("share-ñ"))
+        assertEquals(false, isSafeExternalShareId("share/escape"))
+        assertEquals(false, isSafeExternalShareId("share\\escape"))
+        assertEquals(true, isSafeExternalShareId("share_123-ABC"))
+        assertEquals(
+            true,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/group/processing/claim-1/asset-0"),
+        )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/group/processing/claim-10/asset-0"),
+        )
+        // A symlink is resolved before this predicate; an escaping destination is rejected.
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group/processing/claim-1", "/private/secret.pdf"),
+        )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim("/group", "/private/manifest.json"),
+        )
+        assertEquals(
+            false,
+            isCanonicalExternalSharePathWithinClaim(
+                "/group/ExternalShares/processing/claim-1",
+                "/group/ExternalShares/processing/claim-10/manifest.json",
+            ),
+        )
+    }
+
+    @Test
     fun `lease directory round trips and cleanup identity remains generation specific`() {
         val first = externalShareClaimDirectoryName(
             id = "share-123",
