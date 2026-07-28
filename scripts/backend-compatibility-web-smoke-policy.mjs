@@ -75,7 +75,7 @@ export function isMediaAccreditationRoute(route) {
 }
 
 export function createMediaNavigationEpoch(route) {
-  return { route, gate: null, accreditedMediaUrls: new Set() };
+  return { route, gate: null, outcomeGate: null, accreditedMediaUrls: new Set() };
 }
 
 export function openMediaAccreditationGate(epoch) {
@@ -102,6 +102,30 @@ export async function waitForMediaAccreditation(epoch, timeoutMs = 5_000) {
 
 export function hasAcceptedMediaForEpoch(responses, epoch) {
   return Array.isArray(responses) && responses.some((response) => response?.epoch === epoch && response.accepted === true);
+}
+
+export function recordMediaOutcome(epoch, accepted) {
+  const gate = openMediaOutcomeGate(epoch);
+  if (!gate || gate.settled) return;
+  gate.settled = true;
+  gate.resolve(accepted === true);
+}
+
+export async function waitForMediaOutcome(epoch, timeoutMs = 5_000) {
+  const gate = openMediaOutcomeGate(epoch);
+  if (!gate) return false;
+  if (gate.settled) return gate.value;
+  return Promise.race([gate.promise, delay(timeoutMs).then(() => false)]);
+}
+
+function openMediaOutcomeGate(epoch) {
+  if (!epoch) return null;
+  if (epoch.outcomeGate) return epoch.outcomeGate;
+  let resolve;
+  const gate = { settled: false, value: false, promise: new Promise((done) => { resolve = done; }) };
+  gate.resolve = (value) => { gate.value = value; resolve(value); };
+  epoch.outcomeGate = gate;
+  return gate;
 }
 
 function denied(base, reason) { return { ...base, accepted: false, reason }; }

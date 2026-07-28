@@ -17,7 +17,8 @@ import {
   openMediaAccreditationGate,
   settleMediaAccreditation,
   waitForMediaAccreditation,
-  hasAcceptedMediaForEpoch,
+  recordMediaOutcome,
+  waitForMediaOutcome,
 } from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -141,6 +142,7 @@ try {
       // Browser failure strings can contain a path/query, so the report uses
       // a stable category only. This preserves failure evidence safely.
       mediaResponses.push({ epoch, ...safeMediaFailure(epoch.route, request.resourceType(), "browser_request_failed") });
+      recordMediaOutcome(epoch, false);
       mediaOutcomeRecorded.add(request);
     }
   });
@@ -185,6 +187,7 @@ try {
     }
     requestDecisions.set(request, decision);
     if (!decision.allowed) {
+      if (publicStorageCandidate && requestEpoch) recordMediaOutcome(requestEpoch, false);
       blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
       return route.abort("blockedbyclient");
     }
@@ -209,6 +212,7 @@ try {
           accreditedMediaUrls: requestEpoch?.accreditedMediaUrls,
         });
         mediaResponses.push({ epoch: requestEpoch, route: requestRoute, ...mediaResponse });
+        recordMediaOutcome(requestEpoch, mediaResponse.accepted);
         mediaOutcomeRecorded.add(request);
         if (!mediaResponse.accepted) return route.abort("blockedbyclient");
         return route.fulfill({ response: storageResponse });
@@ -216,6 +220,7 @@ try {
         // Do not print a transport error because it can contain a Storage
         // object path or signed query. The invariant is still explicit.
         mediaResponses.push({ epoch: requestEpoch, ...safeMediaFailure(requestRoute, request.resourceType(), "response_fetch_failed") });
+        recordMediaOutcome(requestEpoch, false);
         mediaOutcomeRecorded.add(request);
         return route.abort("blockedbyclient");
       }
@@ -260,7 +265,7 @@ try {
       response.method !== "GET" || !response.hasApiKey || response.hasBearerAuthorization || response.status < 200 || response.status >= 300
     );
     const expectedMedia = activeMediaEpoch?.route === route && activeMediaEpoch.accreditedMediaUrls.size > 0;
-    const acceptedMedia = hasAcceptedMediaForEpoch(mediaResponses, activeMediaEpoch);
+    const acceptedMedia = expectedMedia ? await waitForMediaOutcome(activeMediaEpoch) : false;
     checks.push({
       route,
       canvasCount,
@@ -293,7 +298,7 @@ try {
     const detailResponses = backendResponses.slice(start);
     const evidence = detailEvidenceEvent(detailResponses, observedPostId);
     const detailExpectedMedia = activeMediaEpoch?.route === currentRoute && activeMediaEpoch.accreditedMediaUrls.size > 0;
-    const detailAcceptedMedia = hasAcceptedMediaForEpoch(mediaResponses, activeMediaEpoch);
+    const detailAcceptedMedia = detailExpectedMedia ? await waitForMediaOutcome(activeMediaEpoch) : false;
     checks.push({ route: `post/${observedPostId}`, navigationKind: detailNavigationType, canvasCount: await page.locator("canvas").count(), detailGet2xx: detailEvidence(detailResponses, observedPostId), evidence: evidence && { method: evidence.method, status: evidence.status, payloadIdCorrelated: evidence.payloadPostId === observedPostId }, expectedMedia: detailExpectedMedia, acceptedMedia: detailAcceptedMedia, passed: detailNavigationType === "navigate" && detailEvidence(detailResponses, observedPostId) && (!detailExpectedMedia || detailAcceptedMedia) });
   }
 } finally {

@@ -11,3 +11,9 @@ test("detail evidence starts from a local cold document, not a hash-only transit
   assert.match(source, /detailNavigationType !== "navigate"/);
   assert.doesNotMatch(source, /page\.goto\(`\$\{server\.origin\}\/\#post-\$\{observedPostId\}`/);
 });
+
+test("expected media waits for its epoch outcome instead of scanning route records", () => {
+  assert.match(source, /expectedMedia \? await waitForMediaOutcome\(activeMediaEpoch\) : false/);
+  assert.match(source, /detailExpectedMedia \? await waitForMediaOutcome\(activeMediaEpoch\) : false/);
+  assert.doesNotMatch(source, /mediaResponses\.some/);
+});

@@ -10,6 +10,8 @@ import {
   settleMediaAccreditation,
   waitForMediaAccreditation,
   hasAcceptedMediaForEpoch,
+  recordMediaOutcome,
+  waitForMediaOutcome,
   isMediaAccreditationRoute,
   TURNSTILE_BOOTSTRAP_URL,
 } from "./backend-compatibility-web-smoke-policy.mjs";
@@ -115,6 +117,18 @@ test("a repeated route receives a fresh epoch and ignores late prior accreditati
   assert.deepEqual([...await waitForMediaAccreditation(feedSecond, 1)], [video]);
   assert.equal(hasAcceptedMediaForEpoch([{ epoch: feedFirst, accepted: true }], feedSecond), false, "an accepted first visit cannot satisfy the second visit check");
   assert.equal(hasAcceptedMediaForEpoch([{ epoch: feedSecond, accepted: true }], feedSecond), true);
+});
+
+test("same-epoch media outcome waits boundedly and never crosses navigations", async () => {
+  const first = createMediaNavigationEpoch("feed");
+  const second = createMediaNavigationEpoch("feed");
+  const waiting = waitForMediaOutcome(first, 100);
+  recordMediaOutcome(first, true);
+  assert.equal(await waiting, true, "an accepted response arriving after the check starts is observed");
+  assert.equal(await waitForMediaOutcome(second, 1), false, "a different epoch cannot consume the first outcome");
+  recordMediaOutcome(second, false);
+  assert.equal(await waitForMediaOutcome(second, 1), false, "a rejected response fails closed");
+  assert.equal(await waitForMediaOutcome(createMediaNavigationEpoch("post/post-7"), 1), false, "no response times out fail closed");
 });
 
 test("public Storage media is accredited only for its exact feed/detail route", () => {
