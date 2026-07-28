@@ -1,15 +1,12 @@
 package com.quata.feature.feed.data
 
+import com.quata.core.data.toFoundationData
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.cinterop.usePinned
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -196,21 +193,8 @@ private fun NSData.toIosByteArray(): ByteArray =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun List<ByteArray>.toIosDataOrNull(): NSData? {
-    val totalSize = sumOf { it.size }
-    if (totalSize == 0) return null
-    val merged = ByteArray(totalSize)
-    var offset = 0
-    forEach { chunk ->
-        chunk.copyInto(merged, destinationOffset = offset)
-        offset += chunk.size
-    }
-    return merged.usePinned { pinned ->
-        CFDataCreate(
-            allocator = null,
-            bytes = pinned.addressOf(0).reinterpret(),
-            length = merged.size.toLong(),
-        )!! as NSData
-    }
+    if (all(ByteArray::isEmpty)) return null
+    return toFoundationData()
 }
 
 @OptIn(ExperimentalForeignApi::class)

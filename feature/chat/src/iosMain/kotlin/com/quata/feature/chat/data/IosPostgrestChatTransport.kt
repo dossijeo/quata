@@ -2,14 +2,11 @@ package com.quata.feature.chat.data
 
 import com.quata.core.platform.PlatformFile
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.data.toFoundationData
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -185,21 +182,10 @@ private fun NSData.toIosBytes(): ByteArray =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun List<ByteArray>.toIosData(): NSData {
-    val total = sumOf { it.size }
-    if (total == 0) return NSData()
-    val merged = ByteArray(total)
-    var offset = 0
-    forEach { chunk ->
-        chunk.copyInto(merged, destinationOffset = offset)
-        offset += chunk.size
-    }
-    return merged.toIosData()
+    return toFoundationData()
 }
 
-@OptIn(ExperimentalForeignApi::class)
-private fun ByteArray.toIosData(): NSData = usePinned { pinned ->
-    CFDataCreate(null, pinned.addressOf(0).reinterpret(), size.toLong())!! as NSData
-}
+private fun ByteArray.toIosData(): NSData = toFoundationData()
 
 private fun NSData.toIosString(): String = toIosBytes().decodeToString()
 

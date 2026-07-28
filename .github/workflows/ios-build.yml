@@ -7,6 +7,7 @@ on:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -31,6 +32,7 @@ on:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -69,6 +71,9 @@ jobs:
 
       - name: Validate iOS public runtime contract
         run: node --test scripts/ios-public-runtime-contract.test.mjs
+
+      - name: Validate iOS NSData interop contract
+        run: node --test scripts/ios-nsdata-interop-contract.test.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5

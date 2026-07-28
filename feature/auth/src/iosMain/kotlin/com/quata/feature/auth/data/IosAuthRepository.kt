@@ -2,6 +2,7 @@ package com.quata.feature.auth.data
 
 import com.quata.core.model.AuthSession
 import com.quata.core.model.currentEpochSeconds
+import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosAuthSessionRefresher
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.auth.domain.AuthRepository
@@ -13,10 +14,7 @@ import com.quata.feature.auth.domain.isRegistrationTransportEnabled
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -28,7 +26,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -382,9 +379,7 @@ private fun JsonObject.requiredIosString(name: String): String = iosString(name)
 private fun JsonObject.iosString(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
 @OptIn(ExperimentalForeignApi::class)
-private fun ByteArray.toIosAuthData(): NSData = usePinned { pinned ->
-    CFDataCreate(null, pinned.addressOf(0).reinterpret(), size.toLong())!! as NSData
-}
+private fun ByteArray.toIosAuthData(): NSData = toFoundationData()
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toIosAuthBytes(): ByteArray =

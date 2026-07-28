@@ -1,18 +1,15 @@
 package com.quata.feature.profile.data
 
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.data.toFoundationData
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import platform.CoreFoundation.CFDataCreate
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -198,17 +195,8 @@ private fun NSData.toIosProfileBytes(): ByteArray =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun List<ByteArray>.toIosProfileDataOrNull(): NSData? {
-    val totalSize = sumOf { it.size }
-    if (totalSize == 0) return null
-    val merged = ByteArray(totalSize)
-    var offset = 0
-    forEach { chunk ->
-        chunk.copyInto(merged, destinationOffset = offset)
-        offset += chunk.size
-    }
-    return merged.usePinned { pinned ->
-        CFDataCreate(null, pinned.addressOf(0).reinterpret(), merged.size.toLong())!! as NSData
-    }
+    if (all(ByteArray::isEmpty)) return null
+    return toFoundationData()
 }
 
 @OptIn(ExperimentalForeignApi::class)
