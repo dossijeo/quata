@@ -4,16 +4,20 @@
 set -euo pipefail
 
 mode="static"
-if [[ "${1:-}" == "--signed-release" ]]; then
-  mode="signed-release"
+require_public_runtime="false"
+while (( $# != 0 )); do
+  case "$1" in
+    --signed-release) mode="signed-release" ;;
+    --require-public-runtime) require_public_runtime="true" ;;
+    *)
+      echo "Usage: bash scripts/check-ios-release-readiness.sh [--signed-release] [--require-public-runtime]" >&2
+      exit 64
+      ;;
+  esac
   shift
-fi
-if (( $# != 0 )); then
-  echo "Usage: bash scripts/check-ios-release-readiness.sh [--signed-release]" >&2
-  exit 64
-fi
+done
 
-python3 - "$mode" <<'PY'
+python3 - "$mode" "$require_public_runtime" <<'PY'
 from __future__ import annotations
 
 import os
@@ -23,6 +27,7 @@ import sys
 from pathlib import Path
 
 mode = sys.argv[1]
+require_public_runtime = sys.argv[2] == "true"
 root = Path.cwd()
 errors: list[str] = []
 
@@ -95,6 +100,43 @@ require("NSFileTypeRegular" in inbox_source and "NSFileTypeDirectory" in inbox_s
 require("ensureVerifiedChildDirectory" in inbox_source and "createDirectoryAtPath(childPath, false" in inbox_source and
         "removeVerifiedQueueNode" in inbox_source,
         "iOS inbox must verify every App Group queue component before creation and purge invalid nodes")
+
+runtime_defaults = root / "iosApp/Configuration/QuataPublicRuntime.xcconfig"
+runtime_local = root / "iosApp/Configuration/QuataPublicRuntime.local.xcconfig"
+runtime_example = root / "iosApp/Configuration/QuataPublicRuntime.local.xcconfig.example"
+require(runtime_defaults.is_file(), "versioned public runtime defaults must exist")
+require(runtime_example.is_file(), "public runtime local example must exist")
+if runtime_defaults.is_file():
+    defaults = runtime_defaults.read_text(encoding="utf-8")
+    require('#include? "QuataPublicRuntime.local.xcconfig"' in defaults,
+            "public runtime defaults must optionally include the local override")
+    for setting in ("QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY"):
+        require(re.search(rf"^{setting}\s*=\s*$", defaults, re.MULTILINE) is not None,
+                f"{setting} must default to an empty value")
+
+def load_xcconfig(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+if require_public_runtime:
+    require(runtime_local.is_file(), "public runtime fixture/local override must exist before building")
+    if runtime_local.is_file():
+        runtime = load_xcconfig(runtime_local)
+        url = runtime.get("QUATA_SUPABASE_URL", "")
+        key = runtime.get("QUATA_SUPABASE_PUBLISHABLE_KEY", "")
+        require(bool(re.fullmatch(r"https://[A-Za-z0-9.-]+(?:/[^\s]*)?", url)),
+                "public runtime URL must be a non-empty HTTPS URL")
+        require(bool(key) and "$(" not in key and not re.search(r"[\r\n]", key),
+                "public runtime publishable key must be non-empty and single-line")
+        local_source = runtime_local.read_text(encoding="utf-8").lower()
+        require("service_role" not in local_source and "jwt" not in local_source,
+                "public runtime override must not contain service-role or JWT material")
 
 if mode == "signed-release":
     required = (

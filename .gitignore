@@ -4,6 +4,7 @@ build/
 node_modules/
 local.properties
 release-signing.properties
+iosApp/Configuration/QuataPublicRuntime.local.xcconfig
 keystores/
 *.jks
 *.keystore

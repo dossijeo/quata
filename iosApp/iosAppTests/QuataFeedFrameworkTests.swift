@@ -194,6 +194,21 @@ final class QuataFeedFrameworkTests: XCTestCase {
         ]))
     }
 
+    func testPublicRuntimeConfigurationRejectsMalformedOrMultilineUrls() {
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
+            "QUATA_SUPABASE_URL": "http://deployment.invalid",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "client-key",
+        ]))
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
+            "QUATA_SUPABASE_URL": "https://deployment.invalid\r\nhttps://other.invalid",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "client-key",
+        ]))
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
+            "QUATA_SUPABASE_URL": "https://deployment.invalid",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "client\r\nkey",
+        ]))
+    }
+
     func testDeepLinkDispatcherReturnsUnsupportedBeforeHostAttachmentWithoutReplayingLater() {
         let dispatcher = IosDeepLinkDispatcher()
         let host = CapturingAuthenticatedRouteHost()

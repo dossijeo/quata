@@ -33,7 +33,7 @@ enum IosPublicRuntimeConfiguration {
     /// without a deployment bundle, network request or a client credential.
     static func feedConfiguration(infoDictionary: [String: Any]) -> IosFeedRuntimeConfiguration? {
         guard
-            let url = configuredValue(for: supabaseUrlKey, infoDictionary: infoDictionary),
+            let url = configuredURL(for: supabaseUrlKey, infoDictionary: infoDictionary),
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
@@ -82,7 +82,20 @@ enum IosPublicRuntimeConfiguration {
     private static func configuredValue(for key: String, infoDictionary: [String: Any]) -> String? {
         guard let value = infoDictionary[key] as? String else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty || trimmed.contains("$(") ? nil : trimmed
+        return trimmed.isEmpty || trimmed.contains("$(") || trimmed.rangeOfCharacter(from: .newlines) != nil
+            ? nil
+            : trimmed
+    }
+
+    private static func configuredURL(for key: String, infoDictionary: [String: Any]) -> String? {
+        guard let value = configuredValue(for: key, infoDictionary: infoDictionary),
+              let url = URL(string: value),
+              url.scheme?.lowercased() == "https",
+              url.host?.isEmpty == false,
+              url.user == nil,
+              url.password == nil
+        else { return nil }
+        return value
     }
 }
 
