@@ -131,7 +131,9 @@ try {
   });
   page.on("requestfailed", (request) => {
     const match = request.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
-    if (match) failedBackendRequests.push({ table: match[1], reason: request.failure()?.errorText ?? "unknown" });
+    // Chromium failure text can embed a complete URL or query; reports retain
+    // only a fixed category.
+    if (match) failedBackendRequests.push({ table: match[1], reason: "request_failed" });
     const epoch = requestMediaEpochs.get(request);
     if (epoch && isCommunityPostsGetRequest(request) && epoch.gate) settleMediaAccreditation(epoch, []);
     if (epoch && isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl) && !mediaOutcomeRecorded.has(request)) {

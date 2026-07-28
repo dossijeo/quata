@@ -102,6 +102,18 @@ test("unsettled, invalid or missing REST accreditation fails closed", async () =
   assert.equal(await waitForMediaAccreditation(createMediaNavigationEpoch("feed"), 1), null, "no admitted REST gate cannot authorize media");
 });
 
+test("a repeated route receives a fresh epoch and ignores late prior accreditation", async () => {
+  const feedFirst = createMediaNavigationEpoch("feed");
+  const feedSecond = createMediaNavigationEpoch("feed");
+  openMediaAccreditationGate(feedFirst);
+  openMediaAccreditationGate(feedSecond);
+  settleMediaAccreditation(feedFirst, [image]);
+  assert.equal(feedFirst.accreditedMediaUrls.has(image), true);
+  assert.equal(feedSecond.accreditedMediaUrls.has(image), false, "late first navigation cannot grant the second feed visit");
+  settleMediaAccreditation(feedSecond, [video]);
+  assert.deepEqual([...await waitForMediaAccreditation(feedSecond, 1)], [video]);
+});
+
 test("public Storage media is accredited only for its exact feed/detail route", () => {
   const feedOnly = new Set([image]);
   const postOnly = new Set([video]);
