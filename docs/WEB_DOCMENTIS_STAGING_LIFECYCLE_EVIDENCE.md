@@ -27,7 +27,14 @@ Se debe generar un transcript independiente por cada par autorizado:
 | `staging-pptx` | `PPTX` |
 | `staging-xlsx` | `XLSX` |
 
-El parser acepta exactamente esta forma, orden y valores:
+El artefacto externo debe llamarse
+`docmentis-staging-lifecycle.v1.json`, declarar
+`schemaVersion: quata.docmentis-staging-lifecycle-evidence/v1` y contener
+exactamente cuatro transcripts, uno por cada fixture autorizada. El esquema
+versionado está en
+`docs/schemas/docmentis-staging-lifecycle-evidence-v1.schema.json`.
+
+Cada elemento de `transcripts` acepta exactamente esta forma, orden y valores:
 
 ```json
 {
@@ -55,3 +62,24 @@ formato, el resultado del gate y un identificador no sensible de build. No copia
 logs de red, permisos, URLs ni datos de usuario. Si se necesita evidencia visual,
 abrir un registro separado, con revisión humana y la política de retención
 correspondiente.
+
+## Gate externo y workflow manual
+
+El gate consume una ruta externa y siempre escribe un reporte saneado:
+
+```text
+node scripts/web-docmentis-staging-lifecycle-cli.mjs \
+  --evidence <ruta>/docmentis-staging-lifecycle.v1.json \
+  --report <ruta>/docmentis-staging-lifecycle-gate-report.v1.json
+```
+
+Una ruta ausente, JSON malformado, versión distinta, transcript incompleto,
+fixture repetida o lifecycle fallido devuelve un código de salida no cero.
+
+El workflow `web-docmentis-staging-evidence.yml` se ejecuta únicamente mediante
+`workflow_dispatch`. Descarga por `run_id` un artefacto creado por una captura de
+staging independiente y autorizada, ejecuta el CLI y publica sólo el reporte
+saneado. No se ejecuta en PR normales y no obtiene licencias, secretos ni
+permisos DocMentis. Un resultado `passed` acredita únicamente la estructura del
+transcript recibido; no acredita su procedencia, una conexión real, un render ni
+una inspección de píxeles.

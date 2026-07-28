@@ -20,8 +20,15 @@ const REQUIRED_EVENTS = Object.freeze([
   'cleanup',
 ]);
 
+export const DOCMENTIS_STAGING_EVIDENCE_SCHEMA_VERSION =
+  'quata.docmentis-staging-lifecycle-evidence/v1';
+export const DOCMENTIS_STAGING_GATE_REPORT_SCHEMA_VERSION =
+  'quata.docmentis-staging-lifecycle-gate-report/v1';
+
 const FAILURE = Object.freeze({
   invalidEvidence: 'invalid_evidence',
+  invalidArtifact: 'invalid_artifact',
+  incompleteArtifact: 'incomplete_artifact',
   unauthorizedFixture: 'unauthorized_fixture',
   unauthorizedFormat: 'unauthorized_format',
   invalidEventShape: 'invalid_event_shape',
@@ -31,6 +38,7 @@ const FAILURE = Object.freeze({
 function failed(code) {
   // Keep reports suitable for CI artifacts: never reflect caller-supplied text.
   return Object.freeze({
+    schemaVersion: DOCMENTIS_STAGING_GATE_REPORT_SCHEMA_VERSION,
     status: 'failed',
     evidenceKind: 'docmentis_lifecycle',
     code,
@@ -79,6 +87,7 @@ export function validateDocmentisStagingLifecycle(evidence) {
   }
 
   return Object.freeze({
+    schemaVersion: DOCMENTIS_STAGING_GATE_REPORT_SCHEMA_VERSION,
     status: 'passed',
     evidenceKind: 'docmentis_lifecycle',
     fixtureId: evidence.fixtureId,
@@ -90,6 +99,49 @@ export function validateDocmentisStagingLifecycle(evidence) {
       pageCount: true,
       cleanup: true,
     }),
+    visualEvidence: 'not_evaluated',
+  });
+}
+
+/**
+ * Validates one complete, externally supplied staging artifact. The artifact
+ * must contain each authorized fixture exactly once. This function validates a
+ * redacted lifecycle transcript; it does not establish where or how it was
+ * captured and it never claims visual rendering.
+ */
+export function validateDocmentisStagingLifecycleArtifact(artifact) {
+  if (
+    !isPlainObject(artifact)
+    || !hasExactKeys(artifact, ['schemaVersion', 'transcripts'])
+    || artifact.schemaVersion !== DOCMENTIS_STAGING_EVIDENCE_SCHEMA_VERSION
+    || !Array.isArray(artifact.transcripts)
+  ) {
+    return failed(FAILURE.invalidArtifact);
+  }
+
+  const expectedFixtureIds = Object.keys(FIXTURES).sort();
+  if (artifact.transcripts.length !== expectedFixtureIds.length) {
+    return failed(FAILURE.incompleteArtifact);
+  }
+
+  const fixtureIds = artifact.transcripts
+    .map((transcript) => isPlainObject(transcript) ? transcript.fixtureId : null)
+    .sort();
+  if (!fixtureIds.every((fixtureId, index) => fixtureId === expectedFixtureIds[index])) {
+    return failed(FAILURE.incompleteArtifact);
+  }
+
+  const reports = artifact.transcripts.map(validateDocmentisStagingLifecycle);
+  const failedReport = reports.find((report) => report.status !== 'passed');
+  if (failedReport) return failedReport;
+
+  return Object.freeze({
+    schemaVersion: DOCMENTIS_STAGING_GATE_REPORT_SCHEMA_VERSION,
+    status: 'passed',
+    evidenceKind: 'docmentis_lifecycle_artifact',
+    evaluatedFixtures: Object.freeze(
+      reports.map(({ fixtureId, format }) => Object.freeze({ fixtureId, format })),
+    ),
     visualEvidence: 'not_evaluated',
   });
 }

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/web-android-pr.yml"
+      - ".github/workflows/web-docmentis-staging-evidence.yml"
       - ".github/workflows/ios-build.yml"
       - "build-logic/**"
       - "build.gradle.kts"
@@ -32,6 +33,8 @@ on:
       - "scripts/web-docmentis-product-smoke-contract.test.mjs"
       - "scripts/web-docmentis-staging-lifecycle-gate.mjs"
       - "scripts/web-docmentis-staging-lifecycle-gate.test.mjs"
+      - "scripts/web-docmentis-staging-lifecycle-cli.mjs"
+      - "scripts/web-docmentis-staging-lifecycle-cli.test.mjs"
       - "scripts/backend-compatibility-web-smoke.mjs"
       - "scripts/backend-compatibility-request-policy.mjs"
       - "scripts/backend-compatibility-request-policy.test.mjs"
@@ -64,6 +67,7 @@ on:
       - "docs/CI_WEB_ANDROID.md"
       - "docs/WEB_AUTHENTICATED_BROWSER_E2E.md"
       - "docs/WEB_DOCMENTIS_STAGING_LIFECYCLE_EVIDENCE.md"
+      - "docs/schemas/docmentis-staging-lifecycle-evidence-v1.schema.json"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
 
