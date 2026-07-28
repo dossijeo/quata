@@ -11,6 +11,7 @@ import {
   expectedLocalStub,
   inspectAccreditedPublicMediaResponse,
   isMediaAccreditationRoute,
+  isPublicStorageMediaRequest,
 } from "./backend-compatibility-web-smoke-policy.mjs";
 
 const options = parseArguments(process.argv.slice(2));
@@ -76,17 +77,6 @@ try {
     const responseRequest = response.request();
     const requestRoute = recordRequest(responseRequest).route;
     const requestDecision = requestDecisions.get(responseRequest);
-    if (isPublicStorageResponse(response.url())) {
-      const mediaResponse = inspectAccreditedPublicMediaResponse({
-        url: response.url(), requestUrl: responseRequest.url(), method: responseRequest.method(),
-        status: response.status(), contentType: response.headers()["content-type"],
-        resourceType: responseRequest.resourceType(), requestAllowed: requestDecision?.allowed,
-        route: requestRoute,
-        accreditedMediaUrls: accreditedMediaByRoute.get(requestRoute),
-      });
-      mediaResponses.push({ route: requestRoute, ...mediaResponse });
-      return;
-    }
     const match = response.url().match(/\/rest\/v1\/([a-z0-9_]+)/i);
     if (!match) return;
     const headers = await responseRequest.allHeaders();
@@ -163,6 +153,37 @@ try {
     if (!decision.allowed) {
       blockedRequests.push({ ...recordRequest(request), reason: decision.reason });
       return route.abort("blockedbyclient");
+    }
+    // COEP can make an otherwise observed public Storage image fail before
+    // Playwright emits a page-level response event. Fetch the *already
+    // admitted exact request* through this route, inspect its actual upstream
+    // response, then fulfil the original browser request with those same
+    // bytes. This adds no URL, credential, or origin allowance and never
+    // accepts a request merely because it was observed.
+    if (isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl)) {
+      const requestRoute = recordRequest(request).route;
+      try {
+        const storageResponse = await route.fetch({ maxRedirects: 0 });
+        const mediaResponse = inspectAccreditedPublicMediaResponse({
+          url: storageResponse.url(), requestUrl: request.url(), method: request.method(),
+          status: storageResponse.status(), contentType: storageResponse.headers()["content-type"],
+          resourceType: request.resourceType(), requestAllowed: decision.allowed,
+          route: requestRoute,
+          accreditedMediaUrls: accreditedMediaByRoute.get(requestRoute),
+        });
+        mediaResponses.push({ route: requestRoute, ...mediaResponse });
+        if (!mediaResponse.accepted) return route.abort("blockedbyclient");
+        return route.fulfill({ response: storageResponse });
+      } catch {
+        // Do not print a transport error because it can contain a Storage
+        // object path or signed query. The invariant is still explicit.
+        mediaResponses.push({
+          route: requestRoute, kind: "publicMedia", requestCorrelated: false,
+          status: null, contentType: "<other>", resourceType: request.resourceType(),
+          accepted: false, reason: "response_fetch_failed",
+        });
+        return route.abort("blockedbyclient");
+      }
     }
     return route.continue();
   });
@@ -354,13 +375,4 @@ function contentType(path) {
     ".css": "text/css; charset=utf-8",
     ".json": "application/json",
   }[extname(path).toLowerCase()] ?? "application/octet-stream";
-}
-
-function isPublicStorageResponse(url) {
-  try {
-    const parsed = new URL(url);
-    return /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(parsed.pathname);
-  } catch {
-    return false;
-  }
 }

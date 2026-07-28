@@ -15,6 +15,15 @@ export function expectedLocalStub(request) {
     : null;
 }
 
+/** True only for the configured project's public Storage object transport. */
+export function isPublicStorageMediaRequest({ url, resourceType }, supabaseBaseUrl) {
+  const request = safeUrl(url);
+  const base = safeUrl(supabaseBaseUrl);
+  return request != null && base != null && request.origin === base.origin &&
+    /^(?:image|media)$/.test(String(resourceType ?? "").toLowerCase()) &&
+    /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(request.pathname);
+}
+
 /**
  * Validates a response to a request already admitted by the request policy.
  * The returned record is safe for a CI report: it intentionally omits the

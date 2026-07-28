@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   expectedLocalStub,
   inspectAccreditedPublicMediaResponse,
+  isPublicStorageMediaRequest,
   isMediaAccreditationRoute,
   TURNSTILE_BOOTSTRAP_URL,
 } from "./backend-compatibility-web-smoke-policy.mjs";
@@ -50,6 +51,17 @@ test("Storage 404, invalid content type and a mismatched response fail closed", 
   assert.equal(inspectAccreditedPublicMediaResponse({ ...baseResponse, contentType: "text/html" }).reason, "content_type_not_image");
   assert.equal(inspectAccreditedPublicMediaResponse({ ...baseResponse, url: `${base}/storage/v1/object/public/community-media/other.png` }).reason, "response_request_mismatch");
   assert.equal(inspectAccreditedPublicMediaResponse({ ...baseResponse, requestAllowed: false }).reason, "request_not_admitted");
+});
+
+test("only same-origin public Storage image/video requests may be response-fetched", () => {
+  assert.equal(isPublicStorageMediaRequest({ url: image, resourceType: "image" }, base), true);
+  assert.equal(isPublicStorageMediaRequest({ url: video, resourceType: "media" }, base), true);
+  for (const request of [
+    { url: image, resourceType: "fetch" },
+    { url: `${base}/storage/v1/object/private/community-media/post-7.png`, resourceType: "image" },
+    { url: "https://evil.example/storage/v1/object/public/community-media/post-7.png", resourceType: "image" },
+    { url: `${base}/rest/v1/community_posts`, resourceType: "image" },
+  ]) assert.equal(isPublicStorageMediaRequest(request, base), false);
 });
 
 test("public Storage media is accredited only for its exact feed/detail route", () => {
