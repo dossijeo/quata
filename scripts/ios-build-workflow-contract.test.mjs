@@ -65,8 +65,28 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the fixture probe must not be overridden into the unconfigured state');
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
-  assert.match(uiTestBlock, /xcodebuild[\s\S]*?QUATA_SUPABASE_URL=\s*\\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY=\s*\\\n\s*-parallel-testing-enabled NO/,
-    'the app-under-test must receive empty public runtime settings before UI tests');
+  const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
+  assert.match(
+    invocation,
+    /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
+    'the effective xcodebuild test invocation must end with isolated runtime settings and serialized tests',
+  );
+}
+
+function effectiveContinuedCommand(block, commandStart) {
+  const lines = block.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trimStart().startsWith(commandStart));
+  assert.ok(start >= 0, 'missing command starting with ' + commandStart);
+
+  const effective = [];
+  for (let index = start; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (index > start && line.startsWith('#')) break;
+    const continued = line.endsWith('\\');
+    effective.push(continued ? line.slice(0, -1).trimEnd() : line);
+    if (!continued) break;
+  }
+  return effective.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function assertIndependentWebCoverage(yaml) {
@@ -138,6 +158,17 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       ),
     ],
     ['UI runtime isolation removed', yaml.replace(/QUATA_SUPABASE_URL= \\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY= \\\n/, '')],
+    [
+      'comment terminates the continued xcodebuild command',
+      yaml.replace(
+        '            CODE_SIGNING_REQUIRED=NO \\\n            -test-timeouts-enabled YES',
+        '            CODE_SIGNING_REQUIRED=NO \\\n            # misplaced continuation comment\n            -test-timeouts-enabled YES',
+      ),
+    ],
+    [
+      'runtime override loses its continuation',
+      yaml.replace('            QUATA_SUPABASE_URL= \\\n', '            QUATA_SUPABASE_URL=\n'),
+    ],
   ]) await t.test(name, () => {
     assert.throws(() => {
       assertIosWorkflowSelfCoverage(mutation);

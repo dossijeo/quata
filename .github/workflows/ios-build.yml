@@ -356,6 +356,9 @@ jobs:
           }
           echo "Testing on the booted simulator: $simulator_udid"
           rm -rf build/reports/ios/QuataIos-tests.xcresult
+          # The fixture remains valid for the xcconfig-composition probe above.
+          # Override only the app-under-test so the UI suite exercises its
+          # deliberate unconfigured/fail-closed launcher state.
           run_watchdog 1200 build/reports/ios/xcodebuild-tests.log xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
@@ -368,15 +371,13 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            # The fixture remains valid for the xcconfig-composition probe above.
-            # Override only the app-under-test so the UI suite exercises its
-            # deliberate unconfigured/fail-closed launcher state.
-            QUATA_SUPABASE_URL= \
-            QUATA_SUPABASE_PUBLISHABLE_KEY= \
-            -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
+            QUATA_SUPABASE_URL= \
+            QUATA_SUPABASE_PUBLISHABLE_KEY= \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
             test
 
       - name: Capture simulator diagnostics
