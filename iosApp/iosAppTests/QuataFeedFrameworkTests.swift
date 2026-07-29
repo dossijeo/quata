@@ -1076,6 +1076,51 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(titles.count, 9)
     }
 
+    func testLogoutActionUsesOneSharedCompletionAndReturnsToPublicFeed() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let authenticatedFeed = UIViewController()
+        let publicFeed = UIViewController()
+        router.installFeedFactory { _ in authenticatedFeed }
+
+        var logoutInvocationCount = 0
+        var completeSharedLogout: (() -> Void)?
+        let returnedToPublicFeed = expectation(description: "returns to anonymous public feed")
+        router.installLogoutAction(
+            { completed in
+                logoutInvocationCount += 1
+                completeSharedLogout = completed
+            },
+            onLoggedOut: {
+                router.installPublicFeed { _ in publicFeed }
+                returnedToPublicFeed.fulfill()
+            },
+        )
+
+        let beforeLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(beforeLogout)
+        XCTAssertTrue(beforeLogout.actions.contains {
+            $0.title == "Cerrar sesión" && $0.style == .destructive
+        })
+
+        router.performLogout()
+        router.performLogout()
+        XCTAssertEqual(logoutInvocationCount, 1)
+        XCTAssertNotNil(completeSharedLogout)
+
+        completeSharedLogout?()
+        wait(for: [returnedToPublicFeed], timeout: 1)
+
+        XCTAssertTrue(router.children.first === publicFeed)
+        let routeButton = router.view.subviews.compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
+        }
+        XCTAssertTrue(routeButton?.isHidden == true)
+        let afterLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(afterLogout)
+        XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
+    }
+
     func testBackReturnsToInstalledAuthenticatedFeedWithoutCreatingAFallback() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
