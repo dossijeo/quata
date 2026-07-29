@@ -69,6 +69,10 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
         if flattenedPreferred.count == 1 { return flattenedPreferred.firstMatch }
         let flattenedFallback = secure ? app.textFields : app.secureTextFields
         if flattenedFallback.count == 1 { return flattenedFallback.firstMatch }
+        // Compose's UIKit bridge currently exports its editable controls as TextView. Their
+        // labels are the public shared form labels, not credential values.
+        let composeTextView = app.textViews[secure ? "Password" : "Phone"]
+        if composeTextView.exists { return composeTextView }
         return semantic
     }
 
