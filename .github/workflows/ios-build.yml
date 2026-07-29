@@ -17,12 +17,15 @@ on:
       - "gradle/**"
       - "gradle.properties"
       - "gradlew"
+      - "app/**"
       - "core/**"
       - "designsystem/**"
       - "ios-shared/**"
       - "feature/**"
       - "web/**"
       - "iosApp/**"
+      - "package.json"
+      - "package-lock.json"
   push:
     branches:
       - main
@@ -45,12 +48,15 @@ on:
       - "gradle/**"
       - "gradle.properties"
       - "gradlew"
+      - "app/**"
       - "core/**"
       - "designsystem/**"
       - "ios-shared/**"
       - "feature/**"
       - "web/**"
       - "iosApp/**"
+      - "package.json"
+      - "package-lock.json"
 
 concurrency:
   group: ios-compile-${{ github.ref }}

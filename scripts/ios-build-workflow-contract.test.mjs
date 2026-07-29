@@ -35,7 +35,11 @@ function assertIosWorkflowSelfCoverage(yaml) {
     assert.match(trigger, /- "scripts\/ios-build-workflow-contract\.test\.mjs"/);
     assert.match(trigger, /- "scripts\/ios-public-runtime-contract\.test\.mjs"/);
     assert.match(trigger, /- "scripts\/capability-matrix-contract\.test\.mjs"/);
+    assert.match(trigger, /- "scripts\/capability-matrix-contract\.mjs"/);
     assert.match(trigger, /- "capabilities\/platform-capability-matrix\.json"/);
+    assert.match(trigger, /- "app\/\*\*"/);
+    assert.match(trigger, /- "package\.json"/);
+    assert.match(trigger, /- "package-lock\.json"/);
     assert.match(trigger, /- "scripts\/check-ios-release-readiness\.sh"/);
   }
 
@@ -142,6 +146,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
   const contractPath = '      - "scripts/ios-build-workflow-contract.test.mjs"\n';
   const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
   const capabilityContractPath = '      - "scripts/capability-matrix-contract.test.mjs"\n';
+  const capabilityImplementationPath = '      - "scripts/capability-matrix-contract.mjs"\n';
   const pushContractIndex = yaml.lastIndexOf(contractPath);
   const withoutPushTrigger =
     yaml.slice(0, pushContractIndex) + yaml.slice(pushContractIndex + contractPath.length);
@@ -150,6 +155,9 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['push trigger removed', withoutPushTrigger],
     ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
     ['capability matrix trigger removed', yaml.replace(capabilityContractPath, '')],
+    ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
+    ['Android evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
+    ['package trigger removed', yaml.replace('      - "package.json"\n', '')],
     [
       'contract command weakened',
       yaml.replace(

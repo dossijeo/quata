@@ -32,6 +32,10 @@ function assertWorkflowContract(yaml) {
     yaml,
     /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
   );
+  for (const path of ['app/**', 'package.json', 'package-lock.json']) {
+    assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.').replaceAll('*', '\\*')}"$`, 'm'), `missing capability evidence trigger: ${path}`);
+  }
+  assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke the capability contract directly');
   for (const path of [
     'scripts/web-chat-exact-purge-gate.mjs',
     'scripts/web-chat-exact-purge-gate.test.mjs',
@@ -68,6 +72,9 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
     ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
+    ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
+    ['Android capability evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
+    ['package capability trigger removed', yaml.replace('      - "package.json"\n', '')],
     ...[
       'scripts/web-chat-exact-purge-gate.mjs',
       'scripts/web-chat-exact-purge-gate.test.mjs',
