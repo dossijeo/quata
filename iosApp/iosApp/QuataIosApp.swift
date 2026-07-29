@@ -645,10 +645,6 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
-            // The shared surface is installed only when every transport gate is present.
-            registrationEnabled: IosAuthRepositoryKt.iosRegistrationAvailable(
-                configuration: authRuntimeConfiguration(from: runtimeConfiguration),
-            ),
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     _ = self?.installRestoredFeedSessionIfAvailable()

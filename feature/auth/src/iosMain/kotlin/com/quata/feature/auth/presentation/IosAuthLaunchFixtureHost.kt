@@ -17,7 +17,6 @@ fun QuataAuthLaunchFixtureViewController(): UIViewController = QuataAuthViewCont
     dependencies = IosAuthHostDependencies(
         repository = IosAuthLaunchFixtureRepository(),
         locale = AuthCatalogLocale.English,
-        registrationEnabled = false,
         onLoginSuccess = {},
     ),
 )
