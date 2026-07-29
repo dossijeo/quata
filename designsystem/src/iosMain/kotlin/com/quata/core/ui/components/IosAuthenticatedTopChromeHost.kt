@@ -28,11 +28,7 @@ class IosAuthenticatedTopChromeHost(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
                 isOnline = true,
-                strings = QuataAuthenticatedChromeStrings(
-                    notifications = "Avisos",
-                    offline = "Sin conexión",
-                    sos = "SOS 🚨",
-                ),
+                strings = IosAuthenticatedChromeStrings,
                 onLogoClick = onLogoClick,
                 onNotificationsClick = onNotificationsClick,
                 onSosClick = onSosClick,
@@ -43,3 +39,6 @@ class IosAuthenticatedTopChromeHost(
         }
     }
 }
+
+/** Escapes are deliberate: this source crosses Xcode/Kotlin encoding boundaries. */
+internal val IosAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish

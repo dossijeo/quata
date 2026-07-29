@@ -55,6 +55,13 @@ data class QuataAuthenticatedChromeStrings(
     val sos: String,
 )
 
+/** Encoding-safe shared Spanish fallback used by native hosts without resource access. */
+val QuataAuthenticatedChromeSpanish = QuataAuthenticatedChromeStrings(
+    notifications = "Avisos",
+    offline = "Sin conexi\u00f3n",
+    sos = "SOS \ud83d\udea8",
+)
+
 /**
  * The one authenticated viewport contract shared by Android, Wasm and iOS.
  *
