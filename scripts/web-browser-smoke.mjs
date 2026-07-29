@@ -42,6 +42,19 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+// These routes remain public and safe to inspect without manufacturing a session.  Their
+// canonical route is persisted by the app before the unauthenticated boundary presents Login.
+const publicDeepLinks = [
+    { fragment: 'post/publication-123', route: 'post/publication-123' },
+    { fragment: 'official/bulletin-99', route: 'official/bulletin-99' },
+    { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', route: 'chat/sb:team/42' },
+    { fragment: 'unknown-route', route: 'feed' },
+];
+const responsiveViewports = [
+    { name: 'mobile', width: 360, height: 800 },
+    { name: 'tablet', width: 768, height: 1024 },
+    { name: 'desktop', width: 1440, height: 900 },
+];
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
@@ -62,6 +75,12 @@ const browserMetrics = {
         status: 'running',
         expectedRoutes: routeFragments,
         completedRoutes: [],
+    },
+    publicUx: {
+        deepLinks: [],
+        viewports: [],
+        reloadRecovered: false,
+        keyboardAndAx: null,
     },
     advisories: {
         chromeGpuReadPixelsWarnings: 0,
@@ -193,6 +212,12 @@ try {
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
         }
+
+        await assertPublicDeepLinkRecovery(cdp, staticServer.origin, pageErrors);
+        browserMetrics.publicUx.deepLinks = publicDeepLinks.map(({ fragment, route }) => ({ fragment, route }));
+        browserMetrics.publicUx.reloadRecovered = true;
+        browserMetrics.publicUx.viewports = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
+        browserMetrics.publicUx.keyboardAndAx = await assertKeyboardAndAccessibility(cdp);
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
         // localhost-only product bridge with a query parameter, so it runs after route metrics
@@ -677,6 +702,113 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
         throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
     }
+}
+
+async function assertPublicDeepLinkRecovery(cdp, origin, pageErrors) {
+    for (const { fragment, route } of publicDeepLinks) {
+        const initialErrorCount = pageErrors.length;
+        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+        await waitForShell(cdp, fragment);
+        await waitForNavigationRoute(cdp, route);
+        if (pageErrors.length > initialErrorCount) {
+            throw new Error(`Public deep link #${fragment} produced an uncaught browser exception.`);
+        }
+    }
+
+    const { fragment, route } = publicDeepLinks.at(-1);
+    await cdp.send('Page.reload', { ignoreCache: true });
+    await waitForShell(cdp, fragment);
+    await waitForNavigationRoute(cdp, route);
+    await assertUnconfiguredAuthBoundary(cdp);
+}
+
+async function waitForNavigationRoute(cdp, expectedRoute) {
+    let lastRoute = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`localStorage.getItem('web.navigation.route')`);
+        lastRoute = probe?.result?.value ?? null;
+        if (lastRoute === expectedRoute) return;
+        await delay(100);
+    }
+    throw new Error(`Public route did not recover its canonical navigation state (${expectedRoute}), got ${lastRoute ?? 'null'}.`);
+}
+
+async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
+    const observations = [];
+    for (const viewport of responsiveViewports) {
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+            width: viewport.width,
+            height: viewport.height,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        const initialErrorCount = pageErrors.length;
+        await cdp.send('Page.navigate', { url: `${origin}/#auth` });
+        await waitForShell(cdp, 'auth');
+        if (pageErrors.length > initialErrorCount) {
+            throw new Error(`Responsive ${viewport.name} auth shell produced an uncaught browser exception.`);
+        }
+        const layout = await cdp.evaluate(`(() => {
+            const root = document.querySelector('#quata-root');
+            const controls = [...document.querySelectorAll('input[aria-label], button[aria-label]')].map(element => {
+                const rect = element.getBoundingClientRect();
+                return { tag: element.tagName, label: element.getAttribute('aria-label'), type: element.getAttribute('type'), disabled: element.disabled, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            });
+            return {
+                clientWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                root: root ? { width: root.getBoundingClientRect().width, height: root.getBoundingClientRect().height } : null,
+                controls,
+            };
+        })()`);
+        const value = layout?.result?.value;
+        const visibleControls = value?.controls?.filter(control => control.width > 0 && control.height > 0) ?? [];
+        const inputs = visibleControls.filter(control => control.tag === 'INPUT');
+        const buttons = visibleControls.filter(control => control.tag === 'BUTTON');
+        const allControlsFit = visibleControls.every(control =>
+            control.x >= -1 && control.y >= -1 &&
+            control.x + control.width <= viewport.width + 1 &&
+            control.y + control.height <= viewport.height + 1,
+        );
+        if (
+            value?.clientWidth !== viewport.width ||
+            value?.scrollWidth > viewport.width ||
+            !value.root || value.root.width < viewport.width - 1 || value.root.height < viewport.height - 1 ||
+            inputs.length < 2 || !inputs.some(control => control.type === 'password') || buttons.length < 1 ||
+            !visibleControls.every(control => typeof control.label === 'string' && control.label.trim().length > 0) ||
+            !allControlsFit
+        ) {
+            throw new Error(`Responsive ${viewport.name} Auth layout/semantic controls failed: ${JSON.stringify(value)}.`);
+        }
+        observations.push({ ...viewport, controls: visibleControls.length });
+    }
+    await cdp.send('Emulation.clearDeviceMetricsOverride');
+    return observations;
+}
+
+async function assertKeyboardAndAccessibility(cdp) {
+    const focused = await cdp.evaluate(`(() => {
+        const first = document.querySelector('input[aria-label]');
+        first?.focus();
+        return document.activeElement === first;
+    })()`);
+    if (focused?.result?.value !== true) throw new Error('Native Auth input cannot receive keyboard focus.');
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    const afterTab = await cdp.evaluate(`(() => {
+        const active = document.activeElement;
+        return active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null;
+    })()`);
+    const focus = afterTab?.result?.value;
+    if (!focus || !['INPUT', 'BUTTON'].includes(focus.tag) || !focus.label) {
+        throw new Error(`Keyboard Tab did not retain focus in a native Auth control: ${JSON.stringify(focus)}.`);
+    }
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    const roles = (ax.nodes ?? []).map(node => node.role?.value).filter(Boolean);
+    if (roles.filter(role => role === 'textbox').length < 2 || !roles.includes('button')) {
+        throw new Error(`Native Auth controls are missing from Chrome's accessibility tree: ${JSON.stringify(roles)}.`);
+    }
+    return { tabFocus: focus, textboxCount: roles.filter(role => role === 'textbox').length, buttonPresent: true };
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {

@@ -32,6 +32,24 @@ También puede probarse otra distribución ya construida:
 node .\scripts\web-browser-smoke.mjs --dist 'C:\ruta\a\distribution'
 ```
 
+## WEB-UX-001: superficie pública y accesibilidad
+
+Sin crear una cuenta ni escribir en el backend, el smoke también comprueba los deep links
+públicos de publicación, comunicado oficial y conversación, además de un fragmento desconocido.
+Verifica que cada uno conserva su hash, recupera su ruta canónica local y vuelve a arrancar
+correctamente después de una recarga completa. La pantalla sigue siendo el límite no autenticado
+de Login; no se afirma que se haya cargado contenido privado.
+
+En los perfiles móvil (360x800), tablet (768x1024) y escritorio (1440x900) exige que el shell no
+genere desbordamiento horizontal y que los dos campos y el botón nativos del Login permanezcan
+visibles, etiquetados y dentro del viewport. Finalmente recorre el tabulador desde un campo nativo y
+consulta el árbol AX de Chrome: deben seguir existiendo al menos dos `textbox` y un `button` reales.
+Esto prueba los `WebElementView` que usa el producto, no el host observacional
+`quata-test-contract`, que permanece oculto para accesibilidad e inerte.
+
+La cobertura no sustituye una auditoría manual con lector de pantalla ni acredita las rutas que
+requieren sesión. Es una regresión automática, hermética y no mutante para la superficie pública.
+
 ## Línea base de rendimiento reproducible
 
 El mismo smoke emite una muestra de arranque y navegación de las seis rutas. El lanzador de
