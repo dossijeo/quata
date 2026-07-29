@@ -582,6 +582,29 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(composeController.parent)
     }
 
+    func testAuthLaunchFixtureContainerReplacesItsChildWithCleanUIKitContainment() throws {
+        let first = UIViewController()
+        let host = IosAuthLaunchFixtureContainerViewController { first }
+        host.loadViewIfNeeded()
+
+        XCTAssertEqual(host.children.count, 1)
+        XCTAssertTrue(host.children.first === first)
+        XCTAssertTrue(first.parent === host)
+        XCTAssertTrue(first.view.superview === host.view)
+        XCTAssertEqual(host.view.accessibilityIdentifier, "quata-ios-auth-launch-host")
+        XCTAssertNotNil(host.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-auth-launch-ready" })
+
+        let replacement = UIViewController()
+        host.replaceComposeSurface(with: replacement)
+
+        XCTAssertEqual(host.children.count, 1)
+        XCTAssertTrue(host.children.first === replacement)
+        XCTAssertNil(first.parent)
+        XCTAssertNil(first.view.superview)
+        XCTAssertTrue(replacement.parent === host)
+        XCTAssertTrue(replacement.view.superview === host.view)
+    }
+
     func testPlatformServiceCompositionTracksOnlyItsAttachedPresenter() {
         let composition = makePlatformServiceComposition()
         let first = UIViewController()

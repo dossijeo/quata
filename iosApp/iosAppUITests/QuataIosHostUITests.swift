@@ -16,6 +16,68 @@ final class QuataIosHostUITests: XCTestCase {
 
     }
 
+    func testAuthLaunchFixtureColdStartsTwiceWithStableHostAndComposeReadiness() {
+        let app = fixtureApp("auth-launch")
+
+        for launchNumber in 1...2 {
+            app.launch()
+            let host = QuataIosHostUITestSupport.fixtureRoot(
+                in: app,
+                identifier: "quata-ios-auth-launch-host",
+            )
+            XCTAssertEqual(host.label, "Quata iOS Auth launch fixture")
+
+            let containmentMarker = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-launch-ready")
+                .firstMatch
+            XCTAssertTrue(
+                containmentMarker.exists,
+                "The UIKit shell must retain its containment marker.",
+            )
+            XCTAssertEqual(containmentMarker.label, "Quata iOS Auth fixture ready")
+
+            // `auth.submit` is emitted by the shared Compose LoginForm semantics. Waiting for
+            // this descendant proves that the actual Auth content, rather than the UIKit shell,
+            // has completed composition. Do not replace this with a native overlay or credential
+            // entry: this fixture is intentionally not an authenticated E2E flow.
+            let composeSubmit = app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch
+            XCTAssertTrue(
+                composeSubmit.waitForExistence(timeout: 10),
+                "The real Compose Auth submit semantic must be available on every cold launch.",
+            )
+            XCTAssertEqual(composeSubmit.label, "Sign in")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-cold-start-\(launchNumber)")
+            app.terminate()
+        }
+    }
+
+    func testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose() {
+        let scenarios: [[String]] = [
+            ["-quata-ui-test-fixture"],
+            ["-quata-ui-test-fixture", "not-a-fixture"],
+        ]
+
+        for arguments in scenarios {
+            let app = XCUIApplication()
+            app.launchArguments = arguments
+            app.launch()
+            XCTAssertEqual(
+                QuataIosHostUITestSupport.fixtureRoot(
+                    in: app,
+                    identifier: "quata-ios-test-invalid-fixture",
+                ).label,
+                "Quata iOS invalid fixture",
+            )
+            XCTAssertFalse(
+                app.descendants(matching: .any).matching(identifier: "auth.submit").firstMatch.exists,
+                "A malformed fixture argument must not create the real Auth Compose surface.",
+            )
+            app.terminate()
+        }
+    }
+
     func testNormalLaunchExposesTheUnconfiguredComposeMigrationSemantics() {
         let app = XCUIApplication()
         app.launch()
