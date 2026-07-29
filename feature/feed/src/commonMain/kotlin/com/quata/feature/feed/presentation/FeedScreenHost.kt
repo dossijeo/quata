@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +40,8 @@ import com.quata.core.ui.components.QuataCommentRowContent
 import com.quata.core.ui.components.QuataCommentRowStrings
 import com.quata.core.ui.components.QuataCommentsPanelHeaderContent
 import com.quata.core.ui.components.QuataCommentsPanelPortraitContent
+import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
+import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.feature.feed.domain.FeedRepository
@@ -69,7 +73,7 @@ data class FeedScreenStrings(
 
 /** Platform-only rendering and service hooks. The Feed state machine stays in commonMain. */
 data class FeedScreenPlatformSlots(
-    val media: @Composable BoxScope.(Post, Boolean) -> Unit,
+    val media: @Composable BoxScope.(Post, Boolean, Long, (Long) -> Unit) -> Unit,
     val avatar: @Composable (Post) -> Unit = {},
     val rankingAvatar: @Composable (String, String?) -> Unit = { _, _ -> },
     val share: suspend (Post) -> Unit = {},
@@ -87,10 +91,12 @@ data class FeedScreenPlatformSlots(
 fun FeedScreenHost(
     padding: PaddingValues,
     repository: FeedRepository,
+    stateHolder: FeedStateHolder? = null,
     slots: FeedScreenPlatformSlots,
     currentUserId: String? = null,
     focusedPostId: String? = null,
     feedResetToken: Int = 0,
+    networkReconnectToken: Long = 0L,
     isLandscape: Boolean = false,
     strings: FeedScreenStrings = FeedScreenStrings(),
     onFocusedPostHandled: () -> Unit = {},
@@ -98,10 +104,12 @@ fun FeedScreenHost(
     onOpenUserProfile: (String) -> Unit = {},
     onCreatePost: () -> Unit = {},
     onReportComment: (String) -> Unit = {},
+    onCommentsVisibilityChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = remember(repository) { FeedViewModel(repository) }
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    val ownedViewModel = remember(repository) { FeedViewModel(repository) }
+    val viewModel = stateHolder ?: ownedViewModel
+    DisposableEffect(ownedViewModel, stateHolder) { onDispose { if (stateHolder == null) ownedViewModel.close() } }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var commentsPostId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -109,20 +117,35 @@ fun FeedScreenHost(
     var liveOpen by rememberSaveable { mutableStateOf(false) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var hasAppliedRetainedPost by remember { mutableStateOf(retainedPostId == null) }
     var handledReset by rememberSaveable { mutableStateOf(feedResetToken) }
+    val videoPositions = remember { mutableMapOf<String, Long>() }
     val pagerState = rememberPagerState(pageCount = { state.posts.size })
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val canParticipate = effectiveCurrentUserId != null
     val ranks = remember(state.posts) { state.posts.sortedWith(compareByDescending<Post> { it.likesCount }.thenByDescending { it.createdAt }).mapIndexed { index, post -> post.id to index + 1 }.toMap() }
+    val canPullRefresh = pagerState.currentPage == 0 && !state.isRefreshing && commentsPostId == null && !liveOpen
+    val pullRefreshState = rememberQuataFeedPullRefreshState(
+        enabled = canPullRefresh,
+        isRefreshing = state.isRefreshing,
+        onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) },
+    )
+
+    LaunchedEffect(commentsPostId, isLandscape) { onCommentsVisibilityChanged(commentsPostId != null && isLandscape) }
+    DisposableEffect(Unit) { onDispose { onCommentsVisibilityChanged(false) } }
 
     LaunchedEffect(focusedPostId) {
         if (focusedPostId != null && focusedPostId != handledFocus) viewModel.onEvent(FeedUiEvent.Refresh)
+    }
+    LaunchedEffect(networkReconnectToken) {
+        if (networkReconnectToken != 0L) viewModel.onEvent(FeedUiEvent.Refresh)
     }
     LaunchedEffect(focusedPostId, state.posts) {
         val index = state.posts.indexOfFirst { it.id == focusedPostId }
         if (focusedPostId != null && focusedPostId != handledFocus && index >= 0) {
             pagerState.scrollToPage(index)
             retainedPostId = focusedPostId
+            hasAppliedRetainedPost = true
             handledFocus = focusedPostId
             onFocusedPostHandled()
         }
@@ -131,21 +154,30 @@ fun FeedScreenHost(
         if (feedResetToken != handledReset && focusedPostId == null && state.posts.isNotEmpty()) {
             pagerState.scrollToPage(0)
             retainedPostId = state.posts.first().id
+            hasAppliedRetainedPost = true
             handledReset = feedResetToken
+        }
+    }
+    LaunchedEffect(retainedPostId, state.posts, focusedPostId) {
+        val target = retainedPostId
+        if (!hasAppliedRetainedPost && focusedPostId == null && target != null && state.posts.isNotEmpty()) {
+            state.posts.indexOfFirst { it.id == target }.takeIf { it >= 0 && it != pagerState.currentPage }
+                ?.let { pagerState.scrollToPage(it) }
+            hasAppliedRetainedPost = true
         }
     }
 
     when {
         state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, modifier.padding(padding))
         state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, modifier.padding(padding))
-        else -> FeedPagerViewportContent(padding, modifier) {
+        else -> FeedPagerViewportContent(padding, modifier.nestedScroll(pullRefreshState.nestedScrollConnection)) {
             FeedReelPagerContent(
                 pagerState = pagerState,
                 posts = state.posts,
                 hasMoreOlderPosts = state.hasMoreOlderPosts,
                 isLoadingOlder = state.isLoadingOlder,
                 onPostDisplayed = { visible, next ->
-                    retainedPostId = visible.id
+                    if (hasAppliedRetainedPost) retainedPostId = visible.id
                     viewModel.onEvent(FeedUiEvent.PostDisplayed(visible.id, next?.id))
                 },
                 onLoadOlder = { viewModel.onEvent(FeedUiEvent.LoadOlderPage) },
@@ -162,8 +194,8 @@ fun FeedScreenHost(
                             hasVideo = post.videoUrl != null,
                             hasImage = post.imageUrl != null,
                             hasText = post.text.parsePostShortcodeContent().cleanText.isNotBlank(),
-                            video = { slots.media(this, post, isCurrent) },
-                            image = { slots.media(this, post, isCurrent) },
+                            video = { slots.media(this, post, isCurrent, post.videoUrl?.let { videoPositions[it] } ?: 0L) { position -> post.videoUrl?.let { videoPositions[it] = position } } },
+                            image = { slots.media(this, post, isCurrent, 0L) {} },
                             text = {
                                 val shortcode = post.text.parsePostShortcodeContent()
                                 val meta = post.text.extractPostMeta()
@@ -184,10 +216,20 @@ fun FeedScreenHost(
                     onLike = { if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) else onAuthRequired() },
                     onDelete = { deletionPostId = post.id },
                     onShare = { scope.launch { slots.share(post) } },
-                    onReport = { if (canParticipate) viewModel.onEvent(FeedUiEvent.ReportPost(post.id)) else onAuthRequired() },
+                    onReport = {
+                        if (post.isReportedByCurrentUser) Unit
+                        else if (canParticipate) viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
+                        else onAuthRequired()
+                    },
                     onCreatePost = { if (canParticipate) onCreatePost() else onAuthRequired() },
                 )
             }
+            QuataFeedPullRefreshIndicator(
+                state = pullRefreshState,
+                isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
+                refreshContentDescription = "Actualizar",
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
     }
 

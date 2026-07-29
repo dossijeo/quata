@@ -19,7 +19,7 @@ fun WebFeedHost(
         padding = PaddingValues(),
         repository = repository,
         focusedPostId = sharedPostId,
-        slots = FeedScreenPlatformSlots(media = { post, _ -> BrowserFeedMediaContent(post) }),
+        slots = FeedScreenPlatformSlots(media = { post, _, _, _ -> BrowserFeedMediaContent(post) }),
         modifier = modifier,
     )
 }

@@ -205,15 +205,18 @@ fun FeedScreen(
     FeedScreenHost(
         padding = padding,
         repository = feedRepository,
+        stateHolder = viewModel,
         currentUserId = currentUserId,
         focusedPostId = focusedPostId,
         feedResetToken = feedResetToken,
+        networkReconnectToken = networkReconnectToken,
         isLandscape = landscape,
         onFocusedPostHandled = onFocusedPostHandled,
         onAuthRequired = onAuthRequired,
         onOpenUserProfile = onOpenUserProfile,
         onCreatePost = onCreatePost,
         onReportComment = onReportComment,
+        onCommentsVisibilityChanged = onLandscapeCommentsOverlayActiveChange,
         strings = FeedScreenStrings(
             empty = stringResource(R.string.feed_empty),
             like = stringResource(R.string.feed_like), comments = stringResource(R.string.feed_comments),
@@ -223,11 +226,11 @@ fun FeedScreen(
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
-            media = { post, isCurrent ->
-                ReelMedia(
+            media = { post, isCurrent, positionMs, onPositionChanged ->
+                AndroidFeedMediaSlot(
                     post = post, isActive = isCurrent && isAppForeground, isMuted = muted,
                     networkReconnectToken = networkReconnectToken, isNetworkAvailable = isNetworkAvailable,
-                    initialVideoPositionMs = 0L, onVideoPositionChanged = {}, onMuteChange = { muted = it },
+                    initialVideoPositionMs = positionMs, onVideoPositionChanged = onPositionChanged, onMuteChange = { muted = it },
                 )
             },
             avatar = { post ->
@@ -243,6 +246,29 @@ fun FeedScreen(
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
         ),
     )
+}
+
+/** Platform slot at the media-surface level; variant selection belongs exclusively to FeedScreenHost. */
+@Composable
+private fun AndroidFeedMediaSlot(
+    post: Post, isActive: Boolean, isMuted: Boolean, networkReconnectToken: Long,
+    isNetworkAvailable: Boolean, initialVideoPositionMs: Long,
+    onVideoPositionChanged: (Long) -> Unit, onMuteChange: (Boolean) -> Unit,
+) {
+    val landscape = rememberQuataWindowLayoutInfo().isLandscape
+    val videoUrl = post.videoUrl
+    val imageUrl = post.imageUrl
+    when {
+        videoUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(videoUrl)) {
+            ReelVideo(videoUrl, isActive, isMuted, networkReconnectToken, isNetworkAvailable, initialVideoPositionMs, onVideoPositionChanged, onMuteChange)
+        }
+        imageUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(imageUrl), contentAlignment = Alignment.Center) {
+            AsyncImage(
+                model = rememberCachedRemoteImageRequest(imageUrl), contentDescription = post.imageTitle(),
+                contentScale = if (landscape) ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)

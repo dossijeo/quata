@@ -97,7 +97,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
             padding = PaddingValues(),
             repository = dependencies.repository,
             focusedPostId = dependencies.initialPostId,
-            slots = FeedScreenPlatformSlots(media = { _, _ -> }),
+            slots = FeedScreenPlatformSlots(media = { _, _, _, _ -> }),
         )
     }
 }
