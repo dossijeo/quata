@@ -11,8 +11,8 @@ test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Androi
   const emitted = await loadAndValidateCapabilityMatrix();
   assert.equal(emitted.length, 12);
   assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'read-only' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
   assert.deepEqual(emitted.find(({ id }) => id === 'composer.publish').platforms, { android: 'implemented', web: 'contract-only', ios: 'blocked' });
 });
@@ -31,6 +31,8 @@ test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, schema and source 
     ['available marker', (value) => { value.capabilities[1].platforms.web.available = true; }],
     ['desktop platform', (value) => { value.capabilities[1].platforms.desktop = structuredClone(value.capabilities[1].platforms.web); }],
     ['unknown evidence property', (value) => { value.capabilities[1].platforms.web.evidence[0].note = 'trusted'; }],
+    ['missing composition', (value) => { value.capabilities[1].platforms.web.evidence = value.capabilities[1].platforms.web.evidence.filter(({ role }) => role !== 'composition'); }],
+    ['duplicate implementation evidence', (value) => { value.capabilities[0].platforms.android.evidence.push(structuredClone(value.capabilities[0].platforms.android.evidence[1])); }],
   ];
   for (const [name, mutate] of cases) await test(name, async () => {
     const candidate = structuredClone(original);

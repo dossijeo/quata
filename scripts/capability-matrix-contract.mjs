@@ -29,8 +29,8 @@ const catalog = {
   'official.mutate': ['mutation', ['createPost', 'createPosts', 'deletePost', 'toggleLike', 'addComment'], ['implemented', 'blocked', 'blocked']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'read-only', 'read-only']],
   'communities.mutate': ['mutation', ['toggleFollowUser', 'reportPost', 'setUserRoles'], ['implemented', 'blocked', 'blocked']],
-  'community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'blocked', 'blocked']],
-  'private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'blocked', 'implemented']],
+  'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'blocked', 'blocked']],
+  'communities.private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'blocked', 'implemented']],
   'composer.publish': ['mutation', ['createPost'], ['implemented', 'contract-only', 'blocked']],
   'profile.remote-mutate': ['mutation', ['saveProfile', 'saveEmergencySettings'], ['implemented', 'contract-only', 'blocked']],
   'profile.avatar-upload': ['mutation', ['uploadIfNeeded'], ['implemented', 'blocked', 'blocked']],
@@ -93,12 +93,17 @@ export async function validateCapabilityMatrix(matrix, overrides = {}) {
       exactKeys(declaration, ['state', 'evidence'], `${capability.id}/${platform}`);
       const expectedState = expectedStates[index];
       if (!declaration || declaration.state !== expectedState) fail(`${capability.id}/${platform}: expected ${expectedState}, got ${declaration?.state}`);
-      if (!Array.isArray(declaration.evidence) || declaration.evidence.length < (declaration.state === 'external' ? 1 : 2)) fail(`${capability.id}/${platform}: evidence must cover composition and decisive behavior`);
+      if (!Array.isArray(declaration.evidence) || declaration.evidence.length < 2) fail(`${capability.id}/${platform}: evidence must cover composition and decisive behavior`);
       const decisiveRole = decisiveRoleForState[declaration.state];
+      if (!declaration.evidence.some(({ role }) => role === 'composition')) fail(`${capability.id}/${platform}: evidence lacks composition`);
       if (!declaration.evidence.some(({ role }) => role === decisiveRole)) fail(`${capability.id}/${platform}: evidence lacks decisive ${decisiveRole} behavior`);
+      const evidencePaths = declaration.evidence.map(({ path }) => path);
+      const evidenceRoles = declaration.evidence.map(({ role }) => role);
+      if (new Set(evidencePaths).size !== evidencePaths.length) fail(`${capability.id}/${platform}: duplicate evidence path`);
+      if (new Set(evidenceRoles).size !== evidenceRoles.length) fail(`${capability.id}/${platform}: duplicate evidence role`);
       for (const [evidenceIndex, evidence] of declaration.evidence.entries()) {
         exactKeys(evidence, ['path', 'sha256', 'role'], `${capability.id}/${platform}/evidence[${evidenceIndex}]`);
-        if (!['composition', ...Object.values(decisiveRoleForState)].includes(evidence.role)) fail(`${capability.id}/${platform}: unknown evidence role ${evidence.role}`);
+        if (!['composition', 'runtime-bootstrap', 'adapter', ...Object.values(decisiveRoleForState)].includes(evidence.role)) fail(`${capability.id}/${platform}: unknown evidence role ${evidence.role}`);
         await verifiedFile(evidence.path, evidence.sha256, io);
       }
     }
