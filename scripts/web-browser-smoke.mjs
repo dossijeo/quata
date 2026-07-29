@@ -718,6 +718,10 @@ async function assertPublicDeepLinkRecovery(cdp, origin, pageErrors) {
     const { fragment, route } = publicDeepLinks.at(-1);
     await cdp.send('Page.reload', { ignoreCache: true });
     await waitForShell(cdp, fragment);
+    const recoveredHash = await cdp.evaluate(`location.hash`);
+    if (recoveredHash?.result?.value !== `#${fragment}`) {
+        throw new Error(`Public deep-link reload changed location.hash: expected #${fragment}, got ${recoveredHash?.result?.value ?? 'null'}.`);
+    }
     await waitForNavigationRoute(cdp, route);
     await assertUnconfiguredAuthBoundary(cdp);
 }
@@ -787,28 +791,83 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
 }
 
 async function assertKeyboardAndAccessibility(cdp) {
-    const focused = await cdp.evaluate(`(() => {
-        const first = document.querySelector('input[aria-label]');
-        first?.focus();
-        return document.activeElement === first;
+    const controlsProbe = await cdp.evaluate(`(() => {
+        const isVisible = element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const inputs = [...document.querySelectorAll('input[aria-label]')].filter(isVisible);
+        const phone = inputs.find(input => input.type !== 'password');
+        const password = inputs.find(input => input.type === 'password');
+        const submit = [...document.querySelectorAll('button[aria-label]')].find(isVisible);
+        const describe = element => element && ({
+            tag: element.tagName,
+            type: element.getAttribute('type'),
+            label: element.getAttribute('aria-label'),
+            name: element.getAttribute('name'),
+        });
+        return { phone: describe(phone), password: describe(password), submit: describe(submit) };
     })()`);
-    if (focused?.result?.value !== true) throw new Error('Native Auth input cannot receive keyboard focus.');
-    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
-    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
-    const afterTab = await cdp.evaluate(`(() => {
+    const controls = controlsProbe?.result?.value;
+    if (
+        controls?.phone?.tag !== 'INPUT' || controls.phone.type === 'password' ||
+        controls?.password?.tag !== 'INPUT' || controls.password.type !== 'password' ||
+        controls?.submit?.tag !== 'BUTTON' ||
+        ![controls.phone, controls.password, controls.submit].every(control => control.label?.trim())
+    ) {
+        throw new Error(`Visible native Auth control identity/labels are invalid: ${JSON.stringify(controls)}.`);
+    }
+
+    const focusPhone = await cdp.evaluate(`(() => {
+        const phone = [...document.querySelectorAll('input[aria-label]')].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+        phone?.focus();
+        return document.activeElement === phone;
+    })()`);
+    if (focusPhone?.result?.value !== true) throw new Error('Native Auth phone/user input cannot receive keyboard focus.');
+
+    const pressTab = async () => {
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    };
+    await pressTab();
+    const afterFirstTab = await cdp.evaluate(`(() => {
+        const password = [...document.querySelectorAll('input[aria-label]')].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+        return document.activeElement === password;
+    })()`);
+    if (afterFirstTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the phone/user input to the password input.');
+    await pressTab();
+    const afterSecondTab = await cdp.evaluate(`(() => {
+        const submit = [...document.querySelectorAll('button[aria-label]')].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
+        return document.activeElement === submit;
+    })()`);
+    if (afterSecondTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the password input to the submit button.');
+
+    const focused = await cdp.evaluate(`(() => {
         const active = document.activeElement;
         return active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null;
     })()`);
-    const focus = afterTab?.result?.value;
-    if (!focus || !['INPUT', 'BUTTON'].includes(focus.tag) || !focus.label) {
-        throw new Error(`Keyboard Tab did not retain focus in a native Auth control: ${JSON.stringify(focus)}.`);
+    const focus = focused?.result?.value;
+    if (focus?.tag !== 'BUTTON' || focus.label !== controls.submit.label) throw new Error(`Submit focus identity changed unexpectedly: ${JSON.stringify(focus)}.`);
+
+    const documentRoot = await cdp.send('DOM.getDocument');
+    const selectors = [
+        ['phone', 'input[aria-label]:not([type="password"])', 'textbox', controls.phone.label],
+        ['password', 'input[type="password"][aria-label]', 'textbox', controls.password.label],
+        ['submit', 'button[aria-label]', 'button', controls.submit.label],
+    ];
+    const axControls = [];
+    for (const [kind, selector, expectedRole, expectedName] of selectors) {
+        const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: documentRoot.root.nodeId, selector });
+        if (!nodeId) throw new Error(`Visible native Auth ${kind} control is missing from DOM for AX inspection.`);
+        const partial = await cdp.send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
+        const node = (partial.nodes ?? []).find(candidate => candidate.role?.value === expectedRole);
+        const name = node?.name?.value;
+        if (!node || typeof name !== 'string' || !name.trim() || name !== expectedName) {
+            throw new Error(`Native Auth ${kind} AX role/name mismatch: ${JSON.stringify({ expectedRole, expectedName, node })}.`);
+        }
+        axControls.push({ kind, role: node.role.value, name });
     }
-    const ax = await cdp.send('Accessibility.getFullAXTree');
-    const roles = (ax.nodes ?? []).map(node => node.role?.value).filter(Boolean);
-    if (roles.filter(role => role === 'textbox').length < 2 || !roles.includes('button')) {
-        throw new Error(`Native Auth controls are missing from Chrome's accessibility tree: ${JSON.stringify(roles)}.`);
-    }
-    return { tabFocus: focus, textboxCount: roles.filter(role => role === 'textbox').length, buttonPresent: true };
+    return { tabFocus: focus, controls, axControls };
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {
