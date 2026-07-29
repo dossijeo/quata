@@ -12,6 +12,7 @@ const independentWorkflow = resolve(
   'web-android-pr.yml',
 );
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
+const iosAppSource = resolve(import.meta.dirname, '..', 'iosApp', 'iosApp', 'QuataIosApp.swift');
 
 function assertIosJavaContract(yaml) {
   assert.match(
@@ -320,4 +321,23 @@ test('independent Web/Android coverage fails closed when an iOS path or contract
   ]) await t.test(name, () => {
     assert.throws(() => assertIndependentWebCoverage(mutation));
   });
+});
+
+test('public Official composition explicitly keeps its Kotlin bootstrap bearer-free', async () => {
+  const swift = await readFile(iosAppSource, 'utf8');
+  const bootstrap = swift.match(
+    /private lazy var officialRuntimeBootstrap:[\s\S]*?\n    \}\(\)/,
+  )?.[0];
+
+  assert.ok(bootstrap, 'Official public bootstrap composition must remain present');
+  assert.match(
+    bootstrap,
+    /IosOfficialRuntimeBootstrap\([\s\S]*?authSession:\s*nil\s*\)/,
+    'Swift must pass the Kotlin-exported authSession argument explicitly and keep public reads anonymous',
+  );
+  assert.doesNotMatch(
+    bootstrap,
+    /authSessionForInteractiveLogin/,
+    'Official public reads must never inherit the restored private bearer session',
+  );
 });

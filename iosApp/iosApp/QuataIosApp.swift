@@ -185,7 +185,8 @@ private final class IosAppCompositionRoot {
             configuration: IosOfficialRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
-            )
+            ),
+            authSession: nil
         )
     }()
     /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
