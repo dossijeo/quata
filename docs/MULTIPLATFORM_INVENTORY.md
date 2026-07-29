@@ -1,5 +1,10 @@
 # Inventario de migración multiplataforma
 
+> **Corte vigente (2026-07-29):** `main`
+> `185960769011f03d644130012fe8051ad536e9bf`. Las referencias a olas anteriores
+> que sigan abajo son contexto histórico; el apartado **Corte posterior
+> PR #99–#104** prevalece para estado operativo y evidencia.
+
 > El estado operativo, las dependencias, PRs y tareas despachables se mantienen en
 > `docs/MULTIPLATFORM_MIGRATION_BOARD.md`. Este documento conserva el detalle arquitectónico.
 
@@ -42,6 +47,29 @@ lógica compartible de adaptadores de plataforma; no autoriza mover varias
 | Componentes de comunidades | KMP parcial | El renderer de emoji, fila/banner/input de comentarios, ranking y layout de panel flotante ya viven en `designsystem/commonMain`; catálogo localizado, cierre por toque exterior, traducción visual y contenedor Android siguen como adaptadores. |
 
 ## Actualizaciones recientes
+
+### Corte posterior PR #99–#104
+
+- **Web público:** PR #99 (`f38503b9`) incorporó cinco muestras frías de
+  rendimiento como observación; PR #100 (`be56cacf`) cubrió deep links,
+  recarga, tres viewports, foco y árbol de accesibilidad. No convierte el
+  presupuesto técnico en SLO ni el recorrido público en E2E autenticado.
+- **Capacidades y rutas:** PR #101 (`54a2f07e`) añadió el manifiesto de
+  capacidades fail-closed; PR #103 (`9344b5fa`) fija contratos de rutas y
+  factorías iOS. Ambos gates delimitan soporte, no reemplazan backend, permisos
+  o interacción real.
+- **iOS público:** PR #102 (`32f1bb65`) integró el arnés de matriz pública para
+  los dos simuladores. El run `30425431607`, job `90490809295`, fue verde sobre
+  el SHA de la PR. Feed público, HTTP 200, ausencia observada de crash/fatal,
+  OCR/capturas y cleanup son evidencia funcional CPU-raster, no rendimiento ni
+  distribución.
+- **Distribución y APNs:** el archive genérico sin firma está entregado como
+  evidencia de estructura; no hay identidad Apple, certificados, perfiles,
+  IPA ni TestFlight. PR #104 (`18596076`) documenta los requisitos APNs y el
+  hallazgo de que el dispatcher necesita un canal APNs separado; no hay entrega
+  APNs acreditada.
+- **Seguridad:** PRs #99–#104 no cambian Supabase, RLS, DDL, funciones, grants
+  ni datos. Las políticas existentes y el Feed anónimo continúan intactos.
 
 - **Localización de capacidades (Vertical integrada):** los avisos de disponibilidad usan ahora un catálogo mínimo en `core/commonMain` para español e inglés, resuelto por etiqueta de idioma y con fallback español probado. El lote `c8cf7df` pasó `:core:wasmJsTest`, compilación Web/Android, bundle+smoke Web y CI iOS `#30168079601` (Kotlin/Native, framework, host Swift y XCTest). Esta primera vertical no migra ni reescribe los demás textos de Web, Android o iOS.
 - **Matriz de capacidades:** `FeatureCapabilityManifest` v1 vive en `core/commonMain` y distingue compilación, exportación, composición, navegación, backend real y E2E del origen de datos/acciones (`Real`, `Local`, `Unsupported`). Los launchers inyectan su registry. Web consume la proyección para etiquetar el estado sin ocultar rutas ya cableadas; Profile declara persistencia local y las mutaciones Feed/Communities/Official siguen deshabilitadas por contrato, no por una falsa confirmación de guardado.

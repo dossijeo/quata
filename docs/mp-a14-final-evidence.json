@@ -1,33 +1,23 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "recordedAt": "2026-07-29",
-  "scope": "multiplatform final-evidence reconciliation",
+  "scope": "multiplatform evidence reconciliation after PRs 99-104",
   "head": {
     "branch": "main",
-    "sha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea"
+    "sha": "185960769011f03d644130012fe8051ad536e9bf"
   },
   "integrations": [
-    {
-      "pullRequest": 93,
-      "mergeShaShort": "7c260fa",
-      "result": "wasm watchdog fail-closed cleanup"
-    },
-    {
-      "pullRequest": 94,
-      "mergeShaShort": "40dc604",
-      "result": "strict baseline approval gate"
-    },
-    {
-      "pullRequest": 96,
-      "mergeShaShort": "30682427",
-      "result": "canonical Linux baseline capture workflow",
-      "captureRunId": 30410233909
-    },
-    {
-      "pullRequest": 97,
-      "mergeSha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea",
-      "result": "approved canonical Linux baseline"
-    }
+    {"pullRequest": 93, "mergeShaShort": "7c260fa", "result": "wasm watchdog fail-closed cleanup"},
+    {"pullRequest": 94, "mergeShaShort": "40dc604", "result": "strict baseline approval gate"},
+    {"pullRequest": 96, "mergeShaShort": "30682427", "result": "canonical Linux baseline capture workflow", "captureRunId": 30410233909},
+    {"pullRequest": 97, "mergeSha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea", "result": "approved canonical Linux baseline"},
+    {"pullRequest": 98, "mergeSha": "801dcbad2c0cd3082b0fe3a9c09a33b48179f5cd", "result": "initial c87 validation evidence"},
+    {"pullRequest": 99, "mergeSha": "f38503b9b7fbb1a2e8e18dd53c43ecc5ec84d37c", "result": "five-sample Web performance harness (observational)"},
+    {"pullRequest": 100, "mergeSha": "be56cacfce436ef4a2077b4440fd94250f819e03", "result": "public Web responsive, accessibility and deep-link coverage"},
+    {"pullRequest": 101, "mergeSha": "54a2f07ead84390045f251d230924bcfd1a1a518", "result": "fail-closed multiplatform capability drift gate"},
+    {"pullRequest": 102, "mergeSha": "32f1bb65c575fe6599f3da8b8dadbb8164ee07c6", "result": "hardened public iOS simulator matrix"},
+    {"pullRequest": 103, "mergeSha": "9344b5fa47d953ede9285bcf4510be6f96a503d3", "result": "iOS installed route and factory contracts"},
+    {"pullRequest": 104, "mergeSha": "185960769011f03d644130012fe8051ad536e9bf", "result": "iOS APNs production requirements and dispatcher gap"}
   ],
   "wasmBaseline": {
     "state": "approved",
@@ -42,73 +32,43 @@
     "status": "anonymous_functional_go_limited",
     "observedProductionSeconds": 510.69,
     "watchdogCleanup": "empty",
-    "windowsDiagnosticBundle": {
-      "totalBytes": 37164745,
-      "totalGzipBytes": 14251181,
-      "deltaBytes": 274,
-      "deltaGzipBytes": 91
-    },
-    "coldChromeProfiles": 3,
-    "coldChromeTotalSeconds": 150,
-    "wasmJsBrowserTest": {
-      "passed": 37,
-      "total": 37
-    },
+    "windowsDiagnosticBundle": {"totalBytes": 37164745, "totalGzipBytes": 14251181, "deltaBytes": 274, "deltaGzipBytes": 91},
+    "coldChromeProfiles": 5,
+    "wasmJsBrowserTest": {"passed": 37, "total": 37},
     "hermeticSmoke": ["auth", "feed", "chat", "official", "settings", "share-target", "docmentis"],
-    "authenticatedE2e": {
-      "status": "hold",
-      "reason": "no_safe_test_account; registration remains unavailable without bypass"
-    }
+    "publicUx": "responsive, deep-link, reload, focus and AX evidence integrated",
+    "performance": {"samples": 5, "claim": "observational_not_product_SLO"},
+    "authenticatedE2e": {"status": "hold", "reason": "requires controlled final result and cleanup evidence"}
   },
   "android": {
     "status": "anonymous_functional_go_limited",
-    "compileAndInstallReplace": "passed",
     "coldStartSeconds": 4.924,
-    "anonymousFeed": ["Pixel", "temporary AVD"],
     "crashCount": 0,
     "anrCount": 0,
-    "authenticatedMatrix": {
-      "status": "hold",
-      "reason": "reference AVD is anonymous and official registration is disabled"
-    }
+    "authenticatedMatrix": {"status": "hold", "reason": "controlled account matrix pending"}
   },
   "ios": {
-    "status": "simulator_feed_go_limited",
+    "status": "public_simulator_go_limited",
     "ci": {
-      "runId": 30413800836,
-      "jobId": 90455727104,
-      "headSha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea",
+      "runId": 30425431607,
+      "jobId": 90490809295,
+      "headSha": "ba6a72a1649239a4abf7408d63712d206a5d0a4c",
       "conclusion": "success",
-      "checksPassed": 70,
-      "checksTotal": 70,
-      "scope": ["kotlin_native", "xcframework", "swift_host", "xctest", "unsigned_archive"]
+      "scope": ["kotlin_native", "xcframework", "swift_host", "xctest", "unsigned_archive", "public_matrix_contracts"]
     },
-    "intelCpuRaster": {
-      "anonymousFeed": ["iOS 18.3", "iOS 26.5"],
-      "httpsStatus": 200,
-      "crashCount": 0,
-      "relaunchStability": "functional_go_limited_cpu_raster_capture_upper_bounds",
-      "relaunchRuns": {
-        "cold": 1,
-        "warm": 2,
-        "firstFeedUpperBoundSeconds": [8, 8, 6],
-        "stableAfterFirstFeed": true,
-        "httpStatus": 200,
-        "crashCount": 0,
-        "fatalCount": 0,
-        "configurationErrorCount": 0,
-        "performanceClaim": "not_a_product_SLO"
-      }
+    "publicSimulatorMatrix": {
+      "simulators": ["iOS 18.3", "iOS 26.5"],
+      "httpStatus": 200,
+      "observedCrashCount": 0,
+      "observedFatalCount": 0,
+      "evidence": ["serial_lock", "pid_filtered_logs", "ocr", "screenshots", "cleanup"],
+      "performanceClaim": "not_a_product_SLO"
     },
-    "authenticatedVisualE2e": {
-      "status": "hold",
-      "reason": "TCC accessibility automation over SSH unavailable; chat only has contract evidence"
-    },
-    "distribution": {
-      "status": "hold",
-      "missing": ["signing", "profiles", "TestFlight", "APNs", "signed App Group", "physical-device validation"]
-    }
+    "authenticatedVisualE2e": {"status": "hold", "reason": "validation in progress; no result claimed until cleanup and review"},
+    "distribution": {"status": "hold", "archive": "unsigned_delivered", "missing": ["Apple team identity", "certificates", "profiles", "signed IPA", "TestFlight", "signed App Group", "physical-device validation"]},
+    "apns": {"status": "hold", "state": "client plumbing and requirements documented; dispatcher APNs channel and physical delivery unverified"}
   },
+  "capabilities": {"status": "integrated_fail_closed", "routes": "ios_factory_contracts_integrated"},
   "toolchain": {
     "approved": {"kotlin": "2.2.21", "compose": "1.10.0"},
     "rejectedExperiment": {"kotlin": "2.3.20", "compose": "1.11.0", "reason": "iosX64 artifacts unavailable and CPU-raster Skiko compatibility unproven"},
