@@ -55,7 +55,7 @@ const report = {
 const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, webLogout: 0, globalLogout: 0 };
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
-const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0, notificationInboxReads: 0 };
+const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0, notificationInboxReads: 0, notificationInboxReadStages: [] };
 let server;
 let browser;
 let context;
@@ -106,7 +106,7 @@ try {
         });
         return route.abort("blockedbyclient");
       }
-      observeProductRead(request, url, backend, cleanupSession, productReadEvidence);
+      observeProductRead(request, url, backend, cleanupSession, productReadEvidence, stage);
     }
     if (url.startsWith(`${server.origin}/`)) return route.continue();
     if (url === TURNSTILE_BOOTSTRAP) {
@@ -228,6 +228,7 @@ try {
     authenticatedGets: productReadEvidence.authenticatedGets,
     profileSelfReads: productReadEvidence.profileSelfReads,
     notificationInboxReads: productReadEvidence.notificationInboxReads,
+    notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
     blockedMutations: blockedBackendMutations.length,
   };
   report.status = "passed";
@@ -453,13 +454,14 @@ async function navigateReadOnlyRoute(page, route) {
   await page.waitForTimeout(150);
 }
 
-function observeProductRead(request, url, _backend, session, evidence) {
+function observeProductRead(request, url, _backend, session, evidence, stage) {
   const method = request.method().toUpperCase();
   const authorization = request.headers().authorization ?? "";
   if (!authorization.startsWith("Bearer ")) return;
   const parsed = new URL(url);
   if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
     evidence.notificationInboxReads += 1;
+    evidence.notificationInboxReadStages.push(stage);
     return;
   }
   if (method !== "GET") return;

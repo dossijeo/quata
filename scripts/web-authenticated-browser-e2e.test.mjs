@@ -66,6 +66,7 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
+  assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
   assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
@@ -197,7 +198,21 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
     method: "POST",
     stage: "native_auth_control_login",
     body: "{}",
-  }).allowed, false);
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "compose_auth_bridge_login",
+    body: "{}",
+  }).allowed, true);
+  const undeclaredInboxStage = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: "{}",
+  });
+  assert.equal(undeclaredInboxStage.allowed, false);
+  assert.equal(undeclaredInboxStage.reason, "backend_mutation_blocked_post");
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",

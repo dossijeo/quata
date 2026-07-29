@@ -116,7 +116,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox" &&
-    NOTIFICATION_INBOX_READ_STAGES.includes(stage)
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage))
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_read" });
   }

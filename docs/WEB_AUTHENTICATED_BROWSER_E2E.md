@@ -7,9 +7,9 @@ de rutas de solo lectura y logout mediante `WebAuthRepository` y `WebPushSession
 Chat y Novedades no forman parte de este carril: Novedades usa un RPC de lectura transportado como
 `POST`, y la mensajería remota conserva su propio E2E, datos y limpieza. La insignia global de
 Notifications reutiliza exclusivamente `POST /rest/v1/rpc/quata_chat_get_inbox`; el runner lo
-admite sólo durante restauración, la matriz autenticada y el logout mientras la sesión aún existe,
-lo responde con un sobre vacío en el fixture y lo registra como evidencia de lectura. Ningún otro
-RPC o POST queda permitido.
+admite sólo durante los stages declarados de login, restauración, la matriz autenticada y el logout
+mientras la sesión aún existe, lo responde con un sobre vacío en el fixture y lo registra como
+evidencia de lectura. Ningún otro RPC o POST queda permitido.
 
 ```powershell
 .\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon
