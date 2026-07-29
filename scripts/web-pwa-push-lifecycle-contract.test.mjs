@@ -37,14 +37,19 @@ test("logout clears credentials after server revocation and browser unsubscribe 
   assert.match(coordinator, /subscription \? subscription\.unsubscribe\(\) : true/);
 });
 
-test("subscription renewal remains session-bound and CI executes the hermetic lifecycle contracts", () => {
+test("subscription renewal remains session-bound and CI executes executable browser tests", async () => {
   assert.match(worker, /pushsubscriptionchange/);
   assert.match(worker, /quata:push-subscription-change/);
-  assert.match(coordinator, /currentWebPushCredentials\(\)/);
-  assert.match(coordinator, /registrationService\.subscribe/);
+  assert.match(coordinator, /operations\.currentCredentials\(\)/);
+  assert.match(coordinator, /operations\.subscribeServer/);
   assert.match(subscription, /PushSubscription\.toJSON\(\)/);
   assert.match(workflow, /- "scripts\/web-pwa-push-lifecycle-contract\.test\.mjs"/);
   assert.match(workflow, /npm run test:web-wave2-contracts/);
+  assert.match(workflow, /wasmJsBrowserTest/);
+  const smoke = await source("../scripts/web-browser-smoke.mjs");
+  assert.match(smoke, /assertPushConsentUsesTrustedSettingsClick/);
+  assert.match(smoke, /navigator\?\.userActivation\?\.isActive === true/);
+  assert.match(smoke, /Input\.dispatchMouseEvent/);
 });
 
 async function source(relativePath) {

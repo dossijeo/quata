@@ -48,6 +48,7 @@ kotlin {
         wasmJsTest.dependencies {
             implementation(kotlin("test"))
             implementation(compose.uiTest)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
         wasmJsMain.dependencies {

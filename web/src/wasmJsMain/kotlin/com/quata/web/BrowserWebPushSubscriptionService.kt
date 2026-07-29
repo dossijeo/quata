@@ -16,6 +16,7 @@ sealed interface WebPushSubscriptionResult {
     data class Success(val subscriptionJson: String) : WebPushSubscriptionResult
     data object PermissionDenied : WebPushSubscriptionResult
     data object Unsupported : WebPushSubscriptionResult
+    data object NoSubscription : WebPushSubscriptionResult
     data class Failure(val reason: String) : WebPushSubscriptionResult
 }
 
@@ -24,6 +25,16 @@ sealed interface WebPushSubscriptionResult {
  * must later bind [WebPushSubscriptionResult.Success] to an active web session themselves.
  */
 class BrowserWebPushSubscriptionService {
+    suspend fun getExistingSubscription(): WebPushSubscriptionResult = suspendCoroutine { continuation ->
+        browserGetExistingPushSubscription(
+            onSuccess = { json -> continuation.resume(WebPushSubscriptionResult.Success(json)) },
+            onNoSubscription = { continuation.resume(WebPushSubscriptionResult.NoSubscription) },
+            onPermissionDenied = { continuation.resume(WebPushSubscriptionResult.PermissionDenied) },
+            onUnsupported = { continuation.resume(WebPushSubscriptionResult.Unsupported) },
+            onFailure = { reason -> continuation.resume(WebPushSubscriptionResult.Failure(reason ?: "web_push_failed")) },
+        )
+    }
+    /** Reconciliation path: safe during restore and lifecycle events; it never prompts. */
     suspend fun getOrCreateSubscription(
         configuration: WebPushBootstrapConfiguration,
     ): WebPushSubscriptionResult {
@@ -32,6 +43,25 @@ class BrowserWebPushSubscriptionService {
             browserGetOrCreatePushSubscription(
                 vapidEndpoint = configuration.vapidEndpoint,
                 workerPath = configuration.serviceWorkerPath,
+                requestPermission = false,
+                onSuccess = { json -> continuation.resume(WebPushSubscriptionResult.Success(json)) },
+                onPermissionDenied = { continuation.resume(WebPushSubscriptionResult.PermissionDenied) },
+                onUnsupported = { continuation.resume(WebPushSubscriptionResult.Unsupported) },
+                onFailure = { reason -> continuation.resume(WebPushSubscriptionResult.Failure(reason ?: "web_push_failed")) },
+            )
+        }
+    }
+
+    /** The only path allowed to show the browser permission prompt, from a user click. */
+    suspend fun requestPermissionAndGetOrCreateSubscription(
+        configuration: WebPushBootstrapConfiguration,
+    ): WebPushSubscriptionResult {
+        if (configuration.vapidEndpoint.isBlank()) return WebPushSubscriptionResult.Failure("vapid_endpoint_missing")
+        return suspendCoroutine { continuation ->
+            browserGetOrCreatePushSubscription(
+                vapidEndpoint = configuration.vapidEndpoint,
+                workerPath = configuration.serviceWorkerPath,
+                requestPermission = true,
                 onSuccess = { json -> continuation.resume(WebPushSubscriptionResult.Success(json)) },
                 onPermissionDenied = { continuation.resume(WebPushSubscriptionResult.PermissionDenied) },
                 onUnsupported = { continuation.resume(WebPushSubscriptionResult.Unsupported) },
@@ -41,9 +71,31 @@ class BrowserWebPushSubscriptionService {
     }
 }
 
+private fun browserGetExistingPushSubscription(
+    onSuccess: (String) -> Unit,
+    onNoSubscription: () -> Unit,
+    onPermissionDenied: () -> Unit,
+    onUnsupported: () -> Unit,
+    onFailure: (String?) -> Unit,
+): Unit = js(
+    """
+    (() => {
+    const navigatorRef = globalThis.navigator;
+    const notification = globalThis.Notification;
+    if (!navigatorRef?.serviceWorker || !notification) { onUnsupported(); return; }
+    if (notification.permission !== 'granted') { onPermissionDenied(); return; }
+    navigatorRef.serviceWorker.ready
+      .then((registration) => registration?.pushManager?.getSubscription())
+      .then((subscription) => { if (subscription) onSuccess(JSON.stringify(subscription.toJSON())); else onNoSubscription(); })
+      .catch((error) => onFailure(error?.message ?? error?.name ?? 'web_push_failed'));
+    })()
+    """,
+)
+
 private fun browserGetOrCreatePushSubscription(
     vapidEndpoint: String,
     workerPath: String,
+    requestPermission: Boolean,
     onSuccess: (String) -> Unit,
     onPermissionDenied: () -> Unit,
     onUnsupported: () -> Unit,
@@ -53,7 +105,7 @@ private fun browserGetOrCreatePushSubscription(
     (() => {
     const navigatorRef = globalThis.navigator;
     const notification = globalThis.Notification;
-    if (!navigatorRef?.serviceWorker || !notification?.requestPermission || typeof globalThis.fetch !== 'function') {
+    if (!navigatorRef?.serviceWorker || !notification || typeof globalThis.fetch !== 'function') {
       onUnsupported();
       return;
     }
@@ -66,7 +118,9 @@ private fun browserGetOrCreatePushSubscription(
     };
     const permission = notification.permission === 'granted'
       ? Promise.resolve('granted')
-      : notification.requestPermission();
+      : (requestPermission && notification.requestPermission
+        ? notification.requestPermission()
+        : Promise.resolve(notification.permission || 'default'));
     permission.then((state) => {
       if (state !== 'granted') { onPermissionDenied(); return null; }
       return navigatorRef.serviceWorker.register(workerPath).then(() => navigatorRef.serviceWorker.ready);

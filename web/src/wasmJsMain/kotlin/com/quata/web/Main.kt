@@ -119,6 +119,7 @@ private fun QuataWebApp(
         WebPushSessionCoordinator(
             configuration = runtimeConfiguration,
             authRepository = authRepository,
+            preferences = platformServices.preferences,
         )
     }
     val feedRepository = remember(runtimeConfiguration, authRepository) {
@@ -171,6 +172,7 @@ private fun QuataWebApp(
     var isLoggingOut by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
+    var webPushOptedIn by remember { mutableStateOf(false) }
     DisposableEffect(authRepository, sessionCoordinator, platformServices.preferences) {
         val removeBridge = installWebAuthE2eBridge(
             login = { countryCode, phone, password, resolve, reject ->
@@ -241,22 +243,25 @@ private fun QuataWebApp(
         currentUserId = authRepository.sessionForAuthenticatedRequest()?.userId
         themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
         touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
+        webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
     }
     LaunchedEffect(isSessionReady, sessionCoordinator) {
         if (isSessionReady) {
+            val reconciliation = sessionCoordinator.reconcileCurrentSession()
+            webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
             platformServices.preferences.putString(
                 "web.push.subscription_status",
-                sessionCoordinator.subscribeCurrentSession().diagnosticValue(),
+                reconciliation.diagnosticValue(),
             )
         }
     }
-    DisposableEffect(isSessionReady, sessionCoordinator) {
+    DisposableEffect(isSessionReady, webPushOptedIn, sessionCoordinator) {
         val stopObserving = observeWebPushSubscriptionChanges {
-            if (isSessionReady) {
+            if (isSessionReady && webPushOptedIn) {
                 scope.launch {
                     platformServices.preferences.putString(
                         "web.push.subscription_status",
-                        sessionCoordinator.subscribeCurrentSession().diagnosticValue(),
+                        sessionCoordinator.reconcileCurrentSession().diagnosticValue(),
                     )
                 }
             }
@@ -329,6 +334,7 @@ private fun QuataWebApp(
                     WebSettingsHost(
                         touchFlowEnabled = touchFlowEnabled,
                         themeMode = themeMode,
+                        webPushOptedIn = webPushOptedIn,
                         accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
                         onTouchFlowEnabledChange = { enabled ->
                             touchFlowEnabled = enabled
@@ -337,6 +343,17 @@ private fun QuataWebApp(
                         onThemeModeChange = { mode ->
                             themeMode = mode
                             scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+                        },
+                        onWebPushOptInChange = { enabled ->
+                            scope.launch {
+                                val result = if (enabled) {
+                                    sessionCoordinator.enableFromUserGesture()
+                                } else {
+                                    sessionCoordinator.disableFromUserGesture()
+                                }
+                                webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
+                                platformServices.preferences.putString("web.push.subscription_status", result.diagnosticValue())
+                            }
                         },
                         onAccountLifecycleSuccess = {
                             scope.launch {
@@ -456,6 +473,7 @@ private fun WebPushSessionResult.diagnosticValue(): String = when (this) {
     WebPushSessionResult.Success -> "subscribed"
     WebPushSessionResult.PermissionDenied -> "permission_denied"
     WebPushSessionResult.Unsupported -> "unsupported"
+    WebPushSessionResult.ConsentDisabled -> "consent_disabled"
     is WebPushSessionResult.Failure -> "failure:$reason"
 }
 

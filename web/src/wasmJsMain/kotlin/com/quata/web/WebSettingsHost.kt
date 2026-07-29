@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
@@ -39,8 +41,10 @@ private enum class WebAccountLifecycleAction { Deactivate, DeleteData }
 fun WebSettingsHost(
     touchFlowEnabled: Boolean,
     themeMode: QuataThemeMode,
+    webPushOptedIn: Boolean,
     onTouchFlowEnabledChange: (Boolean) -> Unit,
     onThemeModeChange: (QuataThemeMode) -> Unit,
+    onWebPushOptInChange: (Boolean) -> Unit,
     accountLifecycleActions: WebAccountLifecycleActions? = null,
     onAccountLifecycleSuccess: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -64,6 +68,20 @@ fun WebSettingsHost(
             onTouchFlowEnabledChange = onTouchFlowEnabledChange,
             onThemeModeChange = onThemeModeChange,
         )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Notificaciones del navegador", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (webPushOptedIn) "Las notificaciones Web están activadas para este navegador."
+                else "Activa las notificaciones solo si quieres recibir avisos en este navegador.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            WebNativeButton(
+                label = if (webPushOptedIn) "Desactivar notificaciones" else "Activar notificaciones",
+                enabled = true,
+                onClick = { onWebPushOptInChange(!webPushOptedIn) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            )
+        }
         accountLifecycleActions?.let { actions ->
             ProfileAccountManagementContent(
                 title = "Gestión de cuenta",
