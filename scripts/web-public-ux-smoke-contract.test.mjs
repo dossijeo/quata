@@ -20,8 +20,11 @@ test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the 
         assert.match(smoke, new RegExp(`name: '${viewport}'`));
     }
     assert.match(smoke, /Emulation\.setDeviceMetricsOverride/);
-    assert.match(smoke, /scrollWidth > viewport\.width/);
-    assert.match(smoke, /Responsive \$\{viewport\.name\} Auth layout\/semantic controls failed/);
+    assert.match(smoke, /requestAnimationFrame\(\(\) => requestAnimationFrame/);
+    assert.match(smoke, /requiredStableSamples = 3/);
+    assert.match(smoke, /responsiveLayoutsEquivalent\(previous, current\)/);
+    assert.match(smoke, /scrollWidth !== viewport\.width/);
+    assert.match(smoke, /Responsive \$\{viewport\.name\} Auth layout did not become valid and stable/);
     assert.match(index, /html,\s*body\s*\{\s*overflow:\s*hidden;\s*\}/);
 });
 
@@ -30,13 +33,20 @@ test('WEB-UX-001 validates the exact native Auth focus sequence and AX nodes, no
     assert.match(smoke, /controls\.password\.type !== 'password'/);
     assert.match(smoke, /controls\?\.submit\?\.tag !== 'BUTTON'/);
     assert.match(smoke, /Input\.dispatchKeyEvent/);
-    assert.match(smoke, /root\?\.shadowRoot\?\.activeElement === password/);
-    assert.match(smoke, /root\?\.shadowRoot\?\.activeElement === submit/);
+    assert.match(smoke, /matches: active === expected/);
+    assert.match(smoke, /stableSamples >= 2/);
     assert.match(smoke, /DOM\.getDocument', \{ depth: -1, pierce: true \}/);
     assert.match(smoke, /backendDOMNodeId === node\.backendNodeId/);
     assert.match(smoke, /Accessibility\.getPartialAXTree/);
-    assert.match(smoke, /name !== expectedName/);
+    assert.match(smoke, /name === identity\.expectedName/);
+    assert.match(smoke, /waitForExactAuthFocus\(cdp, 'password'/);
+    assert.match(smoke, /waitForExactAuthFocus\(cdp, 'submit'/);
+    assert.match(smoke, /focusExactAuthControl\(cdp, 'phone'\)/);
     assert.doesNotMatch(smoke, /Accessibility\.getFullAXTree/);
     assert.doesNotMatch(smoke, /roles\.filter\(role => role === 'textbox'\)/);
     assert.doesNotMatch(smoke, /quata-test-contract[^\n]*focus/);
+    assert.match(smoke, /name: 'compact-keyboard', width: 360, height: 320/);
+    assert.match(smoke, /scrollIntoView\(\{ block: 'nearest', inline: 'nearest' \}\)/);
+    assert.match(smoke, /pageScrollY !== 0/);
+    assert.match(smoke, /Compact submit control is not keyboard-visible without page scrolling/);
 });

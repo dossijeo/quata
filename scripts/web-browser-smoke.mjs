@@ -79,6 +79,7 @@ const browserMetrics = {
     publicUx: {
         deepLinks: [],
         viewports: [],
+        compactKeyboard: null,
         reloadRecovered: false,
         keyboardAndAx: null,
     },
@@ -216,7 +217,9 @@ try {
         await assertPublicDeepLinkRecovery(cdp, staticServer.origin, pageErrors);
         browserMetrics.publicUx.deepLinks = publicDeepLinks.map(({ fragment, route }) => ({ fragment, route }));
         browserMetrics.publicUx.reloadRecovered = true;
-        browserMetrics.publicUx.viewports = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
+        const responsiveUx = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
+        browserMetrics.publicUx.viewports = responsiveUx.viewports;
+        browserMetrics.publicUx.compactKeyboard = responsiveUx.compactKeyboard;
         browserMetrics.publicUx.keyboardAndAx = await assertKeyboardAndAccessibility(cdp);
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
@@ -739,32 +742,65 @@ async function waitForNavigationRoute(cdp, expectedRoute) {
 
 async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
     const observations = [];
-    for (const viewport of responsiveViewports) {
+    try {
+        for (const viewport of responsiveViewports) {
+            await cdp.send('Emulation.setDeviceMetricsOverride', {
+                width: viewport.width,
+                height: viewport.height,
+                deviceScaleFactor: 1,
+                mobile: false,
+            });
+            const initialErrorCount = pageErrors.length;
+            await cdp.send('Page.navigate', { url: `${origin}/#auth` });
+            await waitForShell(cdp, 'auth');
+            const layout = await waitForStableResponsiveLayout(cdp, viewport);
+            if (pageErrors.length > initialErrorCount) {
+                throw new Error(`Responsive ${viewport.name} auth shell produced an uncaught browser exception.`);
+            }
+            observations.push({ ...viewport, controls: layout.controls.length, stableSamples: layout.stableSamples });
+        }
+
+        const compactViewport = { name: 'compact-keyboard', width: 360, height: 320 };
         await cdp.send('Emulation.setDeviceMetricsOverride', {
-            width: viewport.width,
-            height: viewport.height,
+            width: compactViewport.width,
+            height: compactViewport.height,
             deviceScaleFactor: 1,
             mobile: false,
         });
         const initialErrorCount = pageErrors.length;
         await cdp.send('Page.navigate', { url: `${origin}/#auth` });
         await waitForShell(cdp, 'auth');
+        const compactKeyboard = await assertCompactKeyboardReachability(cdp, compactViewport);
         if (pageErrors.length > initialErrorCount) {
-            throw new Error(`Responsive ${viewport.name} auth shell produced an uncaught browser exception.`);
+            throw new Error('Compact keyboard Auth shell produced an uncaught browser exception.');
         }
-        const layout = await cdp.evaluate(`(() => {
+        return { viewports: observations, compactKeyboard };
+    } finally {
+        await cdp.send('Emulation.clearDeviceMetricsOverride');
+    }
+}
+
+async function waitForStableResponsiveLayout(cdp, viewport) {
+    const requiredStableSamples = 3;
+    let stableSamples = 0;
+    let previous = null;
+    const recent = [];
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+        const layout = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
             const root = document.querySelector('#quata-root');
             const controls = [...(root?.shadowRoot?.querySelectorAll('input[aria-label], button[aria-label]') ?? [])].map(element => {
                 const rect = element.getBoundingClientRect();
                 return { tag: element.tagName, label: element.getAttribute('aria-label'), type: element.getAttribute('type'), disabled: element.disabled, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             });
-            return {
+            resolve({
                 clientWidth: document.documentElement.clientWidth,
+                clientHeight: document.documentElement.clientHeight,
                 scrollWidth: document.documentElement.scrollWidth,
+                scrollHeight: document.documentElement.scrollHeight,
                 root: root ? { width: root.getBoundingClientRect().width, height: root.getBoundingClientRect().height } : null,
                 controls,
-            };
-        })()`);
+            });
+        })))`);
         const value = layout?.result?.value;
         const visibleControls = value?.controls?.filter(control => control.width > 0 && control.height > 0) ?? [];
         const inputs = visibleControls.filter(control => control.tag === 'INPUT');
@@ -774,20 +810,98 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
             control.x + control.width <= viewport.width + 1 &&
             control.y + control.height <= viewport.height + 1,
         );
-        if (
+        const invalid =
             value?.clientWidth !== viewport.width ||
-            value?.scrollWidth > viewport.width ||
+            value?.clientHeight !== viewport.height ||
+            value?.scrollWidth !== viewport.width ||
+            value?.scrollHeight !== viewport.height ||
             !value.root || value.root.width < viewport.width - 1 || value.root.height < viewport.height - 1 ||
             inputs.length < 2 || !inputs.some(control => control.type === 'password') || buttons.length < 1 ||
             !visibleControls.every(control => typeof control.label === 'string' && control.label.trim().length > 0) ||
-            !allControlsFit
-        ) {
-            throw new Error(`Responsive ${viewport.name} Auth layout/semantic controls failed: ${JSON.stringify(value)}.`);
+            !allControlsFit;
+        const current = {
+            ...value,
+            controls: visibleControls,
+        };
+        recent.push(current);
+        if (recent.length > 5) recent.shift();
+        if (!invalid && responsiveLayoutsEquivalent(previous, current)) stableSamples += 1;
+        else stableSamples = invalid ? 0 : 1;
+        previous = current;
+        if (stableSamples >= requiredStableSamples) {
+            return { ...current, stableSamples };
         }
-        observations.push({ ...viewport, controls: visibleControls.length });
+        await delay(50);
     }
-    await cdp.send('Emulation.clearDeviceMetricsOverride');
-    return observations;
+    throw new Error(`Responsive ${viewport.name} Auth layout did not become valid and stable: ${JSON.stringify(recent)}.`);
+}
+
+function responsiveLayoutsEquivalent(left, right) {
+    if (!left || !right || left.controls.length !== right.controls.length) return false;
+    const scalarKeys = ['clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight'];
+    if (scalarKeys.some(key => left[key] !== right[key])) return false;
+    if (Math.abs(left.root.width - right.root.width) > 0.5 || Math.abs(left.root.height - right.root.height) > 0.5) return false;
+    return left.controls.every((control, index) => {
+        const other = right.controls[index];
+        return control.tag === other.tag && control.type === other.type && control.label === other.label &&
+            ['x', 'y', 'width', 'height'].every(key => Math.abs(control[key] - other[key]) <= 0.5);
+    });
+}
+
+async function assertCompactKeyboardReachability(cdp, viewport) {
+    const password = await focusAndRevealCompactControl(cdp, 'password');
+    if (!password.active || !compactControlFits(password, viewport) || password.pageScrollY !== 0) {
+        throw new Error(`Compact password control is not keyboard-visible without page scrolling: ${JSON.stringify(password)}.`);
+    }
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    const submit = await focusAndRevealCompactControl(cdp, 'submit', false);
+    if (!submit.active || !compactControlFits(submit, viewport) || submit.pageScrollY !== 0) {
+        throw new Error(`Compact submit control is not keyboard-visible without page scrolling: ${JSON.stringify(submit)}.`);
+    }
+    return { ...viewport, password, submit };
+}
+
+async function focusAndRevealCompactControl(cdp, kind, focus = true) {
+    let last = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const candidates = kind => kind === 'password'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].filter(input => input.type === 'password')
+                : [...(app?.querySelectorAll('button[aria-label]') ?? [])];
+            const control = candidates(${JSON.stringify(kind)}).find(element => {
+                const rect = element.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            });
+            if (${focus ? 'true' : 'false'}) control?.focus();
+            control?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                const rect = control?.getBoundingClientRect();
+                resolve({
+                    active: app?.activeElement === control,
+                    tag: control?.tagName ?? null,
+                    label: control?.getAttribute('aria-label') ?? null,
+                    rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+                    pageScrollY: globalThis.scrollY,
+                    rootScrollTop: root?.scrollTop ?? null,
+                });
+            }));
+        })`);
+        last = probe?.result?.value;
+        if (last?.active && last.rect?.width > 0 && last.rect?.height > 0) return last;
+        await delay(50);
+    }
+    throw new Error(`Compact ${kind} control did not become focusable: ${JSON.stringify(last)}.`);
+}
+
+function compactControlFits(observation, viewport) {
+    const rect = observation?.rect;
+    return rect &&
+        rect.x >= -1 && rect.y >= -1 &&
+        rect.x + rect.width <= viewport.width + 1 &&
+        rect.y + rect.height <= viewport.height + 1;
 }
 
 async function assertKeyboardAndAccessibility(cdp) {
@@ -819,33 +933,16 @@ async function assertKeyboardAndAccessibility(cdp) {
         throw new Error(`Visible native Auth control identity/labels are invalid: ${JSON.stringify(controls)}.`);
     }
 
-    const focusPhone = await cdp.evaluate(`(() => {
-        const root = document.querySelector('#quata-root');
-        const app = root?.shadowRoot;
-        const phone = [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
-        phone?.focus();
-        return app?.activeElement === phone;
-    })()`);
-    if (focusPhone?.result?.value !== true) throw new Error('Native Auth phone/user input cannot receive keyboard focus.');
+    await focusExactAuthControl(cdp, 'phone');
 
     const pressTab = async () => {
         await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
         await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
     };
     await pressTab();
-    const afterFirstTab = await cdp.evaluate(`(() => {
-        const root = document.querySelector('#quata-root');
-        const password = [...(root?.shadowRoot?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
-        return root?.shadowRoot?.activeElement === password;
-    })()`);
-    if (afterFirstTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the phone/user input to the password input.');
+    await waitForExactAuthFocus(cdp, 'password', 'Keyboard Tab did not move focus from the phone/user input to the password input.');
     await pressTab();
-    const afterSecondTab = await cdp.evaluate(`(() => {
-        const root = document.querySelector('#quata-root');
-        const submit = [...(root?.shadowRoot?.querySelectorAll('button[aria-label]') ?? [])].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
-        return root?.shadowRoot?.activeElement === submit;
-    })()`);
-    if (afterSecondTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the password input to the submit button.');
+    await waitForExactAuthFocus(cdp, 'submit', 'Keyboard Tab did not move focus from the password input to the submit button.');
 
     const focused = await cdp.evaluate(`(() => {
         const active = document.querySelector('#quata-root')?.shadowRoot?.activeElement;
@@ -854,7 +951,6 @@ async function assertKeyboardAndAccessibility(cdp) {
     const focus = focused?.result?.value;
     if (focus?.tag !== 'BUTTON' || focus.label !== controls.submit.label) throw new Error(`Submit focus identity changed unexpectedly: ${JSON.stringify(focus)}.`);
 
-    const documentRoot = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
     const identities = [
         ['phone', 'INPUT', controls.phone.type, 'textbox', controls.phone.label],
         ['password', 'INPUT', 'password', 'textbox', controls.password.label],
@@ -862,23 +958,104 @@ async function assertKeyboardAndAccessibility(cdp) {
     ];
     const axControls = [];
     for (const [kind, tagName, type, expectedRole, expectedName] of identities) {
-        const node = findPiercedDomNode(documentRoot.root, candidate => {
-            const attributes = domNodeAttributes(candidate);
-            return candidate.nodeName === tagName &&
-                attributes.get('aria-label') === expectedName &&
-                (type === null || attributes.get('type') === type);
-        });
-        const nodeId = node?.nodeId;
-        if (!nodeId) throw new Error(`Visible native Auth ${kind} control is missing from the pierced DOM for AX inspection.`);
-        const partial = await cdp.send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
-        const axNode = (partial.nodes ?? []).find(candidate => candidate.backendDOMNodeId === node.backendNodeId);
-        const name = axNode?.name?.value;
-        if (axNode?.role?.value !== expectedRole || typeof name !== 'string' || !name.trim() || name !== expectedName) {
-            throw new Error(`Native Auth ${kind} AX role/name mismatch: ${JSON.stringify({ expectedRole, expectedName, axNode })}.`);
-        }
+        const axNode = await readExactNativeAxNode(cdp, { kind, tagName, type, expectedRole, expectedName });
+        const name = axNode.name.value;
         axControls.push({ kind, role: axNode.role.value, name });
     }
     return { tabFocus: focus, controls, axControls };
+}
+
+async function waitForExactAuthFocus(cdp, kind, failureMessage) {
+    let stableSamples = 0;
+    let last = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const kind = ${JSON.stringify(kind)};
+            const expected = kind === 'phone'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                : kind === 'password'
+                    ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                    : [...(app?.querySelectorAll('button[aria-label]') ?? [])].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
+            const active = app?.activeElement;
+            resolve({
+                matches: active === expected,
+                active: active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null,
+                expected: expected ? { tag: expected.tagName, label: expected.getAttribute('aria-label') } : null,
+            });
+        }))`);
+        last = probe?.result?.value;
+        stableSamples = last?.matches ? stableSamples + 1 : 0;
+        if (stableSamples >= 2) return last;
+        await delay(50);
+    }
+    throw new Error(`${failureMessage} Last focus: ${JSON.stringify(last)}.`);
+}
+
+async function focusExactAuthControl(cdp, kind) {
+    let last = null;
+    let stableSamples = 0;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const kind = ${JSON.stringify(kind)};
+            const control = kind === 'phone'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                : [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+            if (app?.activeElement !== control) control?.focus();
+            resolve({
+                matches: app?.activeElement === control,
+                active: app?.activeElement ? { tag: app.activeElement.tagName, label: app.activeElement.getAttribute('aria-label') } : null,
+                control: control ? { tag: control.tagName, label: control.getAttribute('aria-label') } : null,
+            });
+        }))`);
+        last = probe?.result?.value;
+        stableSamples = last?.matches ? stableSamples + 1 : 0;
+        if (stableSamples >= 3) return last;
+        await delay(50);
+    }
+    throw new Error(`Native Auth ${kind} control cannot retain keyboard focus: ${JSON.stringify(last)}.`);
+}
+
+async function readExactNativeAxNode(cdp, identity) {
+    let last = null;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const documentRoot = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+        const node = findPiercedDomNode(documentRoot.root, candidate => {
+            const attributes = domNodeAttributes(candidate);
+            return candidate.nodeName === identity.tagName &&
+                attributes.get('aria-label') === identity.expectedName &&
+                (identity.type === null || attributes.get('type') === identity.type);
+        });
+        if (!node?.nodeId) {
+            last = 'missing_pierced_dom_node';
+            await delay(50);
+            continue;
+        }
+        try {
+            const partial = await cdp.send('Accessibility.getPartialAXTree', { nodeId: node.nodeId, fetchRelatives: false });
+            const axNode = (partial.nodes ?? []).find(candidate => candidate.backendDOMNodeId === node.backendNodeId);
+            last = axNode ?? 'missing_associated_ax_node';
+            const name = axNode?.name?.value;
+            if (
+                axNode?.role?.value === identity.expectedRole &&
+                typeof name === 'string' && name.trim() && name === identity.expectedName
+            ) return axNode;
+            // A stable but incorrect role/name is a product failure, not a transient render.
+            if (axNode) break;
+        } catch (error) {
+            if (!/Could not find node with given id/i.test(error instanceof Error ? error.message : String(error))) throw error;
+            last = 'dom_node_replaced_before_ax_query';
+        }
+        await delay(50);
+    }
+    throw new Error(`Native Auth ${identity.kind} AX role/name mismatch: ${JSON.stringify({
+        expectedRole: identity.expectedRole,
+        expectedName: identity.expectedName,
+        last,
+    })}.`);
 }
 
 function domNodeAttributes(node) {
