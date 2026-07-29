@@ -1038,7 +1038,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.first?.isViewLoaded == true)
         XCTAssertTrue(services.activeViewController() === router.children.first)
     }
-    func testRouteMenuRemainsAboveRouteController() {
+    func testComposePrimaryNavigationRemainsAboveRouteController() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         router.installFeedFactory { _ in UIViewController() }
@@ -1049,7 +1049,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
             $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
         }
         XCTAssertNotNil(routeButton)
-        XCTAssertTrue(router.view.subviews.last === routeButton)
+        XCTAssertFalse(routeButton?.isHidden == true)
+        let routeControllerView = router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-communities-host" }
+        XCTAssertNotNil(routeControllerView)
+        XCTAssertLessThan(
+            router.view.subviews.firstIndex(of: routeControllerView!)!,
+            router.view.subviews.firstIndex(of: routeButton!)!,
+        )
+        XCTAssertFalse(router.view.subviews.last === routeButton)
     }
 
     func testAuthenticatedRouteMenuExposesWhatsNewOnlyAfterItsLocalFactoriesAreInstalled() {
@@ -1086,10 +1093,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.populateAuthenticatedRouteMenu(menu)
 
         let titles = menu.actions.compactMap(\.title)
-        ["Inicio", "Conversaciones", "Oficial", "Notificaciones", "Perfil y SOS", "Comunidades", "Ajustes", "Cerrar"].forEach {
-            XCTAssertTrue(titles.contains($0), "Missing installed route menu item: \($0)")
+        ["Notificaciones", "Crear publicaciÃ³n", "Ajustes", "Cerrar"].forEach {
+            XCTAssertTrue(titles.contains($0), "Missing installed secondary action: \($0)")
         }
-        XCTAssertEqual(titles.count, 9)
+        ["Inicio", "Conversaciones", "Oficial", "Perfil y SOS", "Comunidades"].forEach {
+            XCTAssertFalse(titles.contains($0), "Primary route must not remain in the UIKit secondary actions menu: \($0)")
+        }
+        XCTAssertEqual(titles.count, 4)
     }
 
     func testLogoutActionUsesOneSharedCompletionAndReturnsToPublicFeed() {

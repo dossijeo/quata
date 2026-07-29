@@ -38,7 +38,6 @@ fun QuataBottomNavigation(
     selectedId: String?,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    itemOverride: (@Composable RowScope.(QuataNavigationItem, Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     val template = quataTheme()
     NavigationBar(
@@ -50,11 +49,7 @@ fun QuataBottomNavigation(
     ) {
         items.forEach { item ->
             val itemModifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 5.dp, vertical = 10.dp)
-            if (item.id == "chat" && itemOverride != null) {
-                itemOverride(this, item, selectedId == item.id, { onItemClick(item.id) }, itemModifier)
-            } else {
-                QuataBottomNavigationItem(item, selected = selectedId == item.id, { onItemClick(item.id) }, itemModifier)
-            }
+            QuataBottomNavigationItem(item, selected = selectedId == item.id, { onItemClick(item.id) }, itemModifier)
         }
     }
 }

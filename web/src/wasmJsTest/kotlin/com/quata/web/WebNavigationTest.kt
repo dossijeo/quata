@@ -21,11 +21,14 @@ class WebNavigationTest {
     }
 
     @Test
-    fun exposesComposerInTheNormalAuthenticatedNavigation() {
+    fun mapsTheCanonicalPrimaryNavigationToExistingWebHashes() {
         assertEquals(
-            listOf("", "composer", "chat", "notifications", "profile", "settings"),
-            webNavigationItems.map { it.id },
+            listOf("communities", "chat", "official", "", "profile"),
+            listOf("neighborhoods", "conversations", "official", "feed", "profile").map(::canonicalPrimaryRouteToWebFragment),
         )
+        assertEquals("neighborhoods", webFragmentToCanonicalPrimaryRoute("communities"))
+        assertEquals("conversations", webFragmentToCanonicalPrimaryRoute("chat/thread-1"))
+        assertEquals("feed", webFragmentToCanonicalPrimaryRoute(""))
     }
 
     @Test

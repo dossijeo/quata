@@ -22,20 +22,13 @@ import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
-import com.quata.core.ui.components.QuataBottomNavigation
-import com.quata.core.ui.components.QuataNavigationItem
+import com.quata.core.ui.components.QuataPrimaryBottomNavigation
+import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.quata.feature.auth.presentation.AuthSessionShellContent
@@ -310,14 +303,11 @@ private fun QuataWebApp(
                     }
                 },
                 bottomNavigation = {
-                    QuataBottomNavigation(
-                        items = webNavigationItems,
-                        selectedId = navigation.route,
-                        onItemClick = ::navigateWebFragment,
+                    QuataPrimaryBottomNavigation(
+                        labels = webPrimaryNavigationLabels,
+                        selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
+                        onRouteSelected = { route -> navigateWebFragment(canonicalPrimaryRouteToWebFragment(route)) },
                         modifier = Modifier.align(Alignment.BottomCenter),
-                        itemOverride = { item, selected, onClick, itemModifier ->
-                            WebNativeButton(item.label, true, onClick, itemModifier.height(72.dp), selected)
-                        },
                     )
                 },
             ) {
@@ -458,19 +448,32 @@ private fun QuataWebApp(
     }
 }
 
-/**
- * Every authenticated Web vertical remains reachable from normal navigation, not only through a
- * hand-written hash URL. Composer exposes its local shell here, while publication stays
- * fail-closed until the actor, wall-membership and Storage authorization contract is verified.
- */
-internal val webNavigationItems = listOf(
-    QuataNavigationItem("", "Inicio", Icons.Filled.Home),
-    QuataNavigationItem("composer", "Publicar", Icons.Filled.AddCircle),
-    QuataNavigationItem("chat", "Chats", Icons.AutoMirrored.Filled.Chat),
-    QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
-    QuataNavigationItem("profile", "Perfil", Icons.Filled.Person),
-    QuataNavigationItem("settings", "Ajustes", Icons.Filled.Settings),
+internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
+    neighborhoods = "Qüata",
+    conversations = "Chats",
+    official = "Oficial",
+    feed = "Feed",
+    profile = "Cuenta",
 )
+
+/** Explicit boundary between canonical primary routes and legacy Web hash fragments. */
+internal fun canonicalPrimaryRouteToWebFragment(route: String): String = when (route) {
+    "neighborhoods" -> "communities"
+    "conversations" -> "chat"
+    "official" -> "official"
+    "feed" -> ""
+    "profile" -> "profile"
+    else -> ""
+}
+
+internal fun webFragmentToCanonicalPrimaryRoute(route: String): String? = when (route.substringBefore('/')) {
+    "communities" -> "neighborhoods"
+    "chat" -> "conversations"
+    "official" -> "official"
+    "feed", "", "post" -> "feed"
+    "profile" -> "profile"
+    else -> null
+}
 
 private fun WebPushSessionResult.diagnosticValue(): String = when (this) {
     WebPushSessionResult.Success -> "subscribed"
