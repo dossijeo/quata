@@ -93,8 +93,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
   const compilationBlock = yaml.slice(compilation, yaml.indexOf('      - name: Link QuataShared simulator framework', compilation));
   assert.ok(
-    compilationBlock.includes(':core:compileTestKotlinIosSimulatorArm64 \\'),
-    'the iOS lane must compile core iosTest contracts without requiring a simulator runtime',
+    compilationBlock.includes(':core:iosSimulatorArm64Test \\'),
+    'the iOS lane must execute core iosTest contracts on its simulator runtime',
   );
 }
 
