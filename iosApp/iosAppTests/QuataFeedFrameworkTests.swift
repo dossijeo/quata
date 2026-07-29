@@ -203,6 +203,43 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(router.children.count, 1)
     }
 
+    func testAnonymousRouterFailsClosedForEveryProtectedRouteEvenWhenItsFactoryExists() {
+        // This is a UIKit routing contract only. The factories are deliberately inert: it proves
+        // that a private destination cannot be rendered before the real Keychain-backed session
+        // exists; it does not claim any backend read or mutation succeeds.
+        let protectedRoutes: [(String, (IosFeedHostContainerViewController) -> Void)] = [
+            ("quata-ios-chat-host", { $0.showChat(conversationId: "conversation-1", messageId: "message-1") }),
+            ("quata-ios-official-host", { $0.showOfficial(postId: "official-1") }),
+            ("quata-ios-notifications-host", { $0.showNotifications() }),
+            ("quata-ios-profile-sos-host", { $0.showProfileSos() }),
+            ("quata-ios-communities-host", { $0.showCommunities() }),
+            ("quata-ios-composer-host", { $0.showComposer() }),
+            ("quata-ios-settings-host", { $0.showSettings() }),
+        ]
+
+        for (protectedIdentifier, openRoute) in protectedRoutes {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.loadViewIfNeeded()
+            router.installPublicFeed { _ in UIViewController() }
+            let login = UIViewController()
+            router.installAuthenticationFactory { login }
+            router.installChatFactory { _, _ in UIViewController() }
+            router.installOfficialFactory { _ in UIViewController() }
+            router.installNotificationsFactory { UIViewController() }
+            router.installProfileSosFactory { UIViewController() }
+            router.installCommunitiesFactory { UIViewController() }
+            router.installComposerFactory { UIViewController() }
+            router.installSettingsFactory { UIViewController() }
+
+            openRoute(router)
+
+            XCTAssertTrue(router.children.first === login, "Anonymous route rendered instead of login: \(protectedIdentifier)")
+            XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+            XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == protectedIdentifier })
+            XCTAssertEqual(router.children.count, 1)
+        }
+    }
+
     func testAnonymousRouterAllowsPublicPostRouteWithoutSession() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
@@ -776,6 +813,87 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-settings-host")
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Settings")
+    }
+
+    func testAuthenticatedRouterUsesEveryInstalledFactoryWithItsStableHostSemantics() {
+        // The matrix intentionally uses UIKit fixtures. It protects the production composition
+        // boundary (factory -> route -> host semantics) without pretending that a remote vertical
+        // has completed an authenticated backend E2E flow.
+        typealias RouteScenario = (
+            identifier: String,
+            label: String,
+            installAndOpen: (IosFeedHostContainerViewController, UIViewController) -> Void
+        )
+        let routes: [RouteScenario] = [
+            ("quata-ios-feed-host", "Quata iOS Feed", { router, controller in
+                // Installing the authenticated Feed renders its initial root immediately. Return
+                // a distinct controller for the explicit post route: re-parenting one UIKit
+                // instance to replace itself is invalid and would only test containment noise.
+                var isInitialRequest = true
+                router.installFeedFactory { _ in
+                    defer { isInitialRequest = false }
+                    return isInitialRequest ? UIViewController() : controller
+                }
+                router.showFeed(postId: "feed-1")
+            }),
+            ("quata-ios-chat-host", "Quata iOS Chat", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installChatFactory { _, _ in controller }
+                router.showChat(conversationId: "conversation-1", messageId: "message-1")
+            }),
+            ("quata-ios-official-host", "Quata iOS Official", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installOfficialFactory { _ in controller }
+                router.showOfficial(postId: "official-1")
+            }),
+            ("quata-ios-notifications-host", "Quata iOS Notifications", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installNotificationsFactory { controller }
+                router.showNotifications()
+            }),
+            ("quata-ios-profile-sos-host", "Quata iOS Profile SOS", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installProfileSosFactory { controller }
+                router.showProfileSos()
+            }),
+            ("quata-ios-communities-host", "Quata iOS Communities", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installCommunitiesFactory { controller }
+                router.showCommunities()
+            }),
+            ("quata-ios-composer-host", "Quata iOS Composer", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installComposerFactory { controller }
+                router.showComposer()
+            }),
+            ("quata-ios-settings-host", "Quata iOS Settings", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installSettingsFactory { controller }
+                router.showSettings()
+            }),
+            ("quata-ios-whats-new-host", "Quata iOS What's New", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installWhatsNewFactory { controller }
+                router.showWhatsNew()
+            }),
+            ("quata-ios-release-history-host", "Quata iOS Release History", { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installReleaseHistoryFactory { controller }
+                router.showReleaseHistory()
+            }),
+        ]
+
+        for (identifier, label, installAndOpen) in routes {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.loadViewIfNeeded()
+            let controller = UIViewController()
+            installAndOpen(router, controller)
+
+            XCTAssertTrue(router.children.first === controller, "Installed factory did not render: \(identifier)")
+            XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
+            XCTAssertEqual(controller.view.accessibilityLabel, label)
+            XCTAssertEqual(router.children.count, 1)
+        }
     }
 
     func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
