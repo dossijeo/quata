@@ -27,10 +27,19 @@ const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.u
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
 
-test("hermetic Auth gate uses a real browser and the product repository/coordinator", () => {
+test("hermetic Auth gate uses native controls when present or the localhost-only product bridge for a stable Compose canvas", () => {
   assert.match(runner, /chromium\.launch\(/);
   assert.match(runner, /input\[aria-label="Teléfono"\]/);
   assert.match(runner, /__quataAuthE2eProduct\.restore/);
+  assert.match(runner, /resolveAuthSurface\(page\)/);
+  assert.match(runner, /authSurface === "native_controls"/);
+  assert.match(runner, /loginWithComposeAuthBridge\(page, credentials\)/);
+  assert.match(runner, /logoutWithComposeAuthBridge\(page\)/);
+  assert.match(runner, /compose_auth_shell_missing/);
+  assert.match(runner, /compose_auth_canvas_missing/);
+  assert.match(runner, /compose_auth_bridge_missing/);
+  assert.match(runner, /bridge\.login\(countryCode, phone, password\)/);
+  assert.match(runner, /bridge\.logout\(\)/);
   assert.match(runner, /button\[aria-label="Cerrar sesión"\]/);
   assert.match(main, /authRepository\.login\(countryCode, phone, password\)/);
   assert.match(main, /preferences\.putString\(WebSessionReadyKey, "true"\)/);
@@ -149,7 +158,7 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
     backend,
     url: `${backend}/rest/v1/community_profiles?select=id`,
     method: "GET",
-    stage: "authenticated_read_only_route_matrix",
+    stage: "authenticated_route_matrix",
     body: null,
     ...overrides,
   });
@@ -186,13 +195,13 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",
-    stage: "native_login_controls",
+    stage: "native_auth_control_login",
     body: "{}",
   }).allowed, false);
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",
-    stage: "native_logout",
+    stage: "native_auth_control_logout",
     body: "{}",
   }).allowed, true);
   assert.equal(decision({
@@ -203,20 +212,32 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-auth-bridge`,
     method: "POST",
-    stage: "native_login_controls",
+    stage: "native_auth_control_login",
     body: JSON.stringify({ action: "web_login" }),
   }).allowed, true);
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-auth-bridge`,
     method: "POST",
-    stage: "authenticated_read_only_route_matrix",
+    stage: "authenticated_route_matrix",
     body: JSON.stringify({ action: "web_login" }),
   }).allowed, false);
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-web-push`,
     method: "POST",
-    stage: "native_logout",
+    stage: "native_auth_control_logout",
     body: JSON.stringify({ action: "logout" }),
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/functions/v1/quata-auth-bridge`,
+    method: "POST",
+    stage: "compose_auth_bridge_login",
+    body: JSON.stringify({ action: "web_login" }),
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "compose_auth_bridge_logout",
+    body: "{}",
   }).allowed, true);
 });
 

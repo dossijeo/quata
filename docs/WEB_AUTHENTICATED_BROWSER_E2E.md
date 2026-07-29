@@ -16,9 +16,11 @@ RPC o POST queda permitido.
 .\scripts\run-web-authenticated-browser-e2e.ps1
 ```
 
-El gate no crea controles DOM alternativos. El shell visible sigue siendo Compose/Wasm y el puente
-de automatización delega en las implementaciones de producto. Ese puente sólo se publica en
-`localhost` cuando la URL contiene `quata-auth-e2e=1`.
+El gate no crea controles DOM alternativos. Si Login expone controles HTML nativos, valida sus
+roles, nombres, foco y activación por teclado. Si el Login literal se renderiza sólo en el canvas
+Compose, exige un shell/canvas estable y el puente de producto v1 opt-in, y llama a sus operaciones
+`login` y `logout`; el puente delega en los mismos repositorios y coordinador. Ese puente sólo se
+publica en `localhost` cuando la URL contiene `quata-auth-e2e=1`.
 
 La distribución incorpora `quata-source-revision.txt` al terminar
 `:web:wasmJsBrowserDistribution`. El runner exige que ese SHA sea exactamente el `HEAD` actual y

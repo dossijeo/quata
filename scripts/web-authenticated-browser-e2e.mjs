@@ -101,6 +101,7 @@ try {
         blockedBackendMutations.push({
           method: request.method().toUpperCase(),
           path: safeBackendPath(url, backend),
+          stage,
           reason: decision.reason,
         });
         return route.abort("blockedbyclient");
@@ -149,28 +150,21 @@ try {
   });
   report.steps.push("real_compose_auth_shell_mounted");
 
-  stage = "native_login_controls";
-  const phone = page.locator('input[aria-label="Teléfono"]');
-  const password = page.locator('input[aria-label="Contraseña"]');
-  const login = page.locator('button[aria-label="Entrar"]');
-  await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
-  await assertUniqueNativeAx(page, { role: "textbox", name: "Teléfono", selector: 'input[aria-label="Teléfono"]' });
-  await assertUniqueNativeAx(page, { role: "textbox", name: "Contraseña", selector: 'input[aria-label="Contraseña"]' });
-  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]' });
-  await phone.fill(credentials.phone);
-  await password.fill(credentials.password);
-  await waitFor(async () => await login.isEnabled(), "native_login_submit_disabled");
-  await password.focus();
-  await page.keyboard.press("Tab");
-  if (!(await login.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_login_focus_missing");
-  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]', focused: true });
-  await page.keyboard.press("Enter");
+  const authSurface = await resolveAuthSurface(page);
+  if (authSurface === "native_controls") {
+    stage = "native_auth_control_login";
+    await loginWithNativeControls(page, credentials);
+    report.steps.push("native_login_role_name_focus_keyboard_activation");
+  } else {
+    stage = "compose_auth_bridge_login";
+    await loginWithComposeAuthBridge(page, credentials);
+    report.steps.push("compose_auth_bridge_login_product_repository_activation");
+  }
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
   cleanupSession = await readSession(page);
   assertCompleteSession(cleanupSession);
-  report.steps.push("native_login_role_name_focus_keyboard_activation");
 
-  stage = "browser_restart_restore";
+  stage = "authenticated_browser_restore";
   await page.reload();
   await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
   await page.evaluate(() => globalThis.__quataAuthE2eProduct.restore());
@@ -183,7 +177,7 @@ try {
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("feed_mount_pageerror");
   report.steps.push("product_session_restored_after_reload");
 
-  stage = "authenticated_read_only_route_matrix";
+  stage = "authenticated_route_matrix";
   for (const route of READ_ONLY_ROUTE_MATRIX) {
     await navigateReadOnlyRoute(page, route);
     assertNoBlockedBackendMutations(blockedBackendMutations);
@@ -199,18 +193,19 @@ try {
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("read_only_route_pageerror");
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
-  stage = "native_logout";
-  const logout = page.locator('button[aria-label="Cerrar sesión"]');
-  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]' });
-  await logout.focus();
-  if (!(await logout.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_logout_focus_missing");
-  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]', focused: true });
-  await page.keyboard.press("Space");
+  if (authSurface === "native_controls") {
+    stage = "native_auth_control_logout";
+    await logoutWithNativeControls(page);
+    report.steps.push("native_logout_role_name_focus_keyboard_activation");
+  } else {
+    stage = "compose_auth_bridge_logout";
+    await logoutWithComposeAuthBridge(page);
+    report.steps.push("compose_auth_bridge_logout_product_coordinator_activation");
+  }
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") !== "true");
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
     throw new Error("product_logout_storage_remains");
   }
-  report.steps.push("native_logout_role_name_focus_keyboard_activation");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
   stage = "global_session_cleanup";
@@ -272,7 +267,7 @@ try {
   await server?.close().catch(() => {});
   report.finishedAt = new Date().toISOString();
   report.networkPolicy = {
-    blockedBackendMutations: blockedBackendMutations.map(({ method, path, reason }) => ({ method, path, reason })),
+    blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
@@ -487,6 +482,73 @@ function safeBackendPath(url, backend) {
   }
 }
 
+async function resolveAuthSurface(page) {
+  const surface = await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const app = root?.shadowRoot;
+    const nativeControls = app?.querySelectorAll('input[aria-label], button[aria-label]').length ?? 0;
+    const rootRect = root?.getBoundingClientRect();
+    const canvases = [...(root?.querySelectorAll("canvas") ?? []), ...(app?.querySelectorAll("canvas") ?? [])]
+      .map(canvas => canvas.getBoundingClientRect());
+    return {
+      bridgeVersion: globalThis.__quataAuthE2eProduct?.version,
+      root: rootRect ? { width: rootRect.width, height: rootRect.height } : null,
+      nativeControls,
+      canvasMounted: canvases.some(rect => rect.width > 0 && rect.height > 0),
+    };
+  });
+  if (surface?.bridgeVersion !== 1) throw new Error("compose_auth_bridge_missing");
+  if (!surface.root || surface.root.width <= 0 || surface.root.height <= 0) throw new Error("compose_auth_shell_missing");
+  if (surface.nativeControls > 0) return "native_controls";
+  if (!surface.canvasMounted) throw new Error("compose_auth_canvas_missing");
+  return "compose_canvas";
+}
+
+async function loginWithNativeControls(page, credentials) {
+  const phone = page.locator('input[aria-label="Teléfono"]');
+  const password = page.locator('input[aria-label="Contraseña"]');
+  const login = page.locator('button[aria-label="Entrar"]');
+  await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Teléfono", selector: 'input[aria-label="Teléfono"]' });
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Contraseña", selector: 'input[aria-label="Contraseña"]' });
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]' });
+  await phone.fill(credentials.phone);
+  await password.fill(credentials.password);
+  await waitFor(async () => await login.isEnabled(), "native_login_submit_disabled");
+  await password.focus();
+  await page.keyboard.press("Tab");
+  if (!(await login.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_login_focus_missing");
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]', focused: true });
+  await page.keyboard.press("Enter");
+}
+
+async function loginWithComposeAuthBridge(page, credentials) {
+  const result = await page.evaluate(async ({ countryCode, phone, password }) => {
+    const bridge = globalThis.__quataAuthE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.login !== "function") throw new Error("compose_auth_bridge_login_missing");
+    return await bridge.login(countryCode, phone, password);
+  }, credentials);
+  if (result !== "authenticated") throw new Error("compose_auth_bridge_login_unexpected_result");
+}
+
+async function logoutWithNativeControls(page) {
+  const logout = page.locator('button[aria-label="Cerrar sesión"]');
+  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]' });
+  await logout.focus();
+  if (!(await logout.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_logout_focus_missing");
+  await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]', focused: true });
+  await page.keyboard.press("Space");
+}
+
+async function logoutWithComposeAuthBridge(page) {
+  const result = await page.evaluate(async () => {
+    const bridge = globalThis.__quataAuthE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.logout !== "function") throw new Error("compose_auth_bridge_logout_missing");
+    return await bridge.logout();
+  });
+  if (result !== "logged_out") throw new Error("compose_auth_bridge_logout_unexpected_result");
+}
+
 async function readSession(page) {
   return page.evaluate(() => ({
     accessToken: localStorage.getItem("quata_web_access_token"),
@@ -591,6 +653,9 @@ function safeError(error) {
     "product_session_incomplete", "product_profile_get_not_observed",
     "authenticated_product_get_not_observed", "product_logout_storage_remains",
     "native_login_submit_disabled", "native_login_focus_missing", "native_logout_focus_missing",
+    "compose_auth_bridge_missing", "compose_auth_shell_missing", "compose_auth_canvas_missing",
+    "compose_auth_bridge_login_missing", "compose_auth_bridge_login_unexpected_result",
+    "compose_auth_bridge_logout_missing", "compose_auth_bridge_logout_unexpected_result",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
     "read_only_route_pageerror", "backend_mutation_blocked",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",

@@ -24,9 +24,20 @@ export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([
 ]);
 
 const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
-  "browser_restart_restore",
-  "authenticated_read_only_route_matrix",
-  "native_logout",
+  "authenticated_browser_restore",
+  "authenticated_route_matrix",
+  "native_auth_control_logout",
+  "compose_auth_bridge_logout",
+]);
+
+const AUTH_LOGIN_STAGES = Object.freeze([
+  "native_auth_control_login",
+  "compose_auth_bridge_login",
+]);
+
+const AUTH_LOGOUT_STAGES = Object.freeze([
+  "native_auth_control_logout",
+  "compose_auth_bridge_logout",
 ]);
 
 const REQUIRED_REAL_ENVIRONMENT = Object.freeze([
@@ -114,7 +125,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/functions/v1/quata-auth-bridge" &&
-    stage === "native_login_controls" &&
+    AUTH_LOGIN_STAGES.includes(stage) &&
     action === "web_login"
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_login_bridge_effects" });
@@ -122,7 +133,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/functions/v1/quata-web-push" &&
-    stage === "native_logout" &&
+    AUTH_LOGOUT_STAGES.includes(stage) &&
     action === "logout"
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_web_session_cleanup" });
