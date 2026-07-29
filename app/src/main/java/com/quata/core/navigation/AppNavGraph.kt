@@ -1334,8 +1334,11 @@ private fun ConfigureTranslatorDialogWindow() {
             attributes.x = 0
             attributes.y = 0
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                attributes.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                attributes.layoutInDisplayCutoutMode = when {
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
             }
             window.attributes = attributes
             window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)

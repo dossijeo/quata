@@ -148,44 +148,42 @@ suspend fun captureTranslatorBackground(
         Bitmap.Config.ARGB_8888
     )
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        if (activityWindow != null) {
-            val sourceRect = AndroidRect(
-                location[0],
-                location[1],
-                location[0] + width,
-                location[1] + height
-            )
-            val copied = suspendCancellableCoroutine { continuation ->
-                runCatching {
-                    PixelCopy.request(
-                        activityWindow,
-                        sourceRect,
-                        bitmap,
-                        { result ->
-                            if (continuation.isActive) {
-                                continuation.resume(result == PixelCopy.SUCCESS)
-                            }
-                        },
-                        Handler(Looper.getMainLooper())
-                    )
-                }.onFailure {
-                    if (continuation.isActive) {
-                        continuation.resume(false)
-                    }
+    if (activityWindow != null) {
+        val sourceRect = AndroidRect(
+            location[0],
+            location[1],
+            location[0] + width,
+            location[1] + height
+        )
+        val copied = suspendCancellableCoroutine { continuation ->
+            runCatching {
+                PixelCopy.request(
+                    activityWindow,
+                    sourceRect,
+                    bitmap,
+                    { result ->
+                        if (continuation.isActive) {
+                            continuation.resume(result == PixelCopy.SUCCESS)
+                        }
+                    },
+                    Handler(Looper.getMainLooper())
+                )
+            }.onFailure {
+                if (continuation.isActive) {
+                    continuation.resume(false)
                 }
             }
-            if (copied) {
-                return createTranslatorBackground(
-                    bitmap = bitmap,
-                    leftPx = location[0],
-                    topPx = location[1],
-                    widthPx = width,
-                    heightPx = height,
-                    view = view,
-                    cropNavigationBars = cropNavigationBars
-                )
-            }
+        }
+        if (copied) {
+            return createTranslatorBackground(
+                bitmap = bitmap,
+                leftPx = location[0],
+                topPx = location[1],
+                widthPx = width,
+                heightPx = height,
+                view = view,
+                cropNavigationBars = cropNavigationBars
+            )
         }
     }
 

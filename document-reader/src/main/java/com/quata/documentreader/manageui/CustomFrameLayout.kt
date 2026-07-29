@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import android.widget.FrameLayout
@@ -269,15 +268,11 @@ class CustomFrameLayout : FrameLayout {
     }
 
     private fun setPadding() {
-        if (Build.VERSION.SDK_INT >= 23) {
-            viewToolbar!!.setPadding(0, ViewUtils.getDimensions(resources), 0, 0)
-        }
+        viewToolbar!!.setPadding(0, ViewUtils.getDimensions(resources), 0, 0)
     }
 
     fun setToolbarPadding() {
-        if (Build.VERSION.SDK_INT >= 23) {
-            viewToolbar!!.setPadding(0, 0, 0, 0)
-        }
+        viewToolbar!!.setPadding(0, 0, 0, 0)
     }
 
     private fun setHomeAsUpButtonIcon(drawable: Drawable) {
