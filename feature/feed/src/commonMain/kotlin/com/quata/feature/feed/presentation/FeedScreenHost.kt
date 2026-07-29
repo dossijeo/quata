@@ -47,6 +47,8 @@ import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
+import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.launch
@@ -68,6 +70,9 @@ data class FeedScreenStrings(
     val deleteMessage: String = "Esta acción no se puede deshacer.",
     val reportSuccess: String = "Publicación reportada",
     val deleteSuccess: String = "Publicación eliminada",
+    val liveTitle: String = "En directo", val liveSubtitle: String = "Publicaciones destacadas",
+    val liveMonitored: @Composable (Int) -> String = { "Publicaciones monitorizadas: $it" }, val liveUpdated: String = "Actualizado", val liveOpenPost: String = "Abrir",
+    val videoType: String = "Vídeo", val imageType: String = "Imagen", val textType: String = "Publicación",
     val cancel: String = "Cancelar",
     val close: String = "Cerrar",
     val commentPlaceholder: String = "Escribe un comentario",
@@ -81,9 +86,13 @@ data class FeedScreenStrings(
 data class FeedScreenPlatformSlots(
     val media: @Composable BoxScope.(Post, Boolean, Long, (Long) -> Unit) -> Unit,
     val avatar: @Composable (Post) -> Unit = {},
-    val rankingAvatar: @Composable (String, String?) -> Unit = { _, _ -> },
+    val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
     val share: suspend (Post) -> Unit = {},
     val message: (String) -> Unit = {},
+    val standardFloatingPanel: @Composable (
+        onDismiss: () -> Unit,
+        content: @Composable (Modifier, Boolean) -> Unit,
+    ) -> Unit = { dismiss, content -> QuataStandardFloatingPanelContent(onDismiss = dismiss, content = content) },
 )
 
 /**
@@ -265,16 +274,17 @@ fun FeedScreenHost(
             deletionPostId = null
         }) { deletionPostId = null }
     }
-    if (liveOpen) Dialog(onDismissRequest = { liveOpen = false }) {
-        Surface(Modifier.fillMaxSize().padding(20.dp)) {
+    if (liveOpen) slots.standardFloatingPanel({ liveOpen = false }) { panelModifier, panelLandscape ->
+        Surface(panelModifier) {
             FeedLiveRankingDialogContent(
                 posts = state.posts,
                 rankForPost = { ranks[it.id] ?: 1 },
-                postTypeLabel = { if (it.videoUrl != null) "Vídeo" else "Publicación" },
-                panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, isLandscape, QuataLiveRankingStrings("En directo", "Publicaciones destacadas", "Publicaciones monitorizadas", "Actualizado", strings.live, strings.close, "Abrir"), { item -> slots.rankingAvatar(item.avatarName, item.avatarUrl) }, dismiss, open) },
+                postTypeLabel = { if (it.videoUrl != null) strings.videoType else if (it.imageUrl != null) strings.imageType else strings.textType },
+                panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatar(item) }, dismiss, open) },
                 onDismiss = { liveOpen = false },
                 onOpenPost = { post ->
-                    scope.launch { pagerState.scrollToPage(state.posts.indexOf(post).coerceAtLeast(0)) }
+                    val index = state.posts.indexOf(post)
+                    if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
                     liveOpen = false
                 },
             )

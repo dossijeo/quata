@@ -73,6 +73,7 @@ import com.quata.core.ui.components.QuataLiveRankingPanel
 import com.quata.core.ui.components.QuataFeedActionRail
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
+import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
@@ -151,6 +152,7 @@ import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CommunityEmojiPanelDismissState
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.findQuataTextureView
@@ -225,6 +227,9 @@ fun FeedScreen(
             report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
             reportSuccess = stringResource(R.string.feed_report_success),
             deleteSuccess = stringResource(R.string.feed_delete_post_success),
+            liveTitle = stringResource(R.string.feed_live_title), liveSubtitle = stringResource(R.string.feed_live_subtitle),
+            liveMonitored = { count -> stringResource(R.string.feed_live_posts_monitored, count) }, liveUpdated = stringResource(R.string.feed_live_updated), liveOpenPost = stringResource(R.string.feed_open_post),
+            videoType = stringResource(R.string.feed_post_type_video), imageType = stringResource(R.string.feed_post_type_image), textType = stringResource(R.string.feed_post_type_text),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
@@ -246,6 +251,8 @@ fun FeedScreen(
             },
             share = { post -> shareService.share(SharePayload(postShareText(post), context.getString(R.string.feed_share_post))) },
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+            rankingAvatar = { item -> AvatarImage(item.avatarName, item.avatarUrl, item.isOfficial, item.profileId, Modifier.size(44.dp)) },
+            standardFloatingPanel = { dismiss, content -> QuataStandardFloatingPanel(onDismiss = dismiss, content = content) },
         ),
     )
 }
