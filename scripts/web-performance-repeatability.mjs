@@ -2,7 +2,7 @@
 /**
  * Collects a small, reproducible series of cold-profile Chrome measurements.
  *
- * This is an evidence gate, not a performance budget: all three executions
+ * This is an evidence gate, not a performance budget: all five executions
  * must complete and describe the same build environment, but their elapsed
  * times are deliberately never compared against a threshold here.
  */
@@ -12,7 +12,10 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const iterations = 3;
+// Five independent disposable profiles are enough to make an initial baseline
+// proposal useful without pretending that a shared developer workstation is a
+// controlled performance lab.
+const iterations = 5;
 
 if (isMainModule()) await main();
 
@@ -60,7 +63,7 @@ async function main() {
 export function createRepeatabilityEvidence(options, reports) {
     const first = reports[0].report;
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         status: 'passed',
         generatedAt: new Date().toISOString(),
         iterationCount: iterations,
@@ -86,7 +89,26 @@ export function createRepeatabilityEvidence(options, reports) {
             sampleId: report.sampleId,
             generatedAt: report.generatedAt,
         })),
-        advisory: 'No timing or memory variation threshold is enforced until a controlled baseline is approved.',
+        measurements: createMeasurementSummary(reports.map(({ report }) => report)),
+        policy: {
+            enforcement: 'advisory',
+            productSlo: false,
+            blockingConditions: [
+                'Every cold-profile smoke must pass the existing functional contract.',
+                'Exactly five distinct reports must identify one revision, distribution, browser, and environment.',
+                'Each report must satisfy the established browser-metrics schema.',
+            ],
+            nonBlockingConditions: [
+                'Bootstrap, stable-shell, and memory timing variation is recorded but does not fail this harness.',
+                'The proposed threshold is a review input, not an approved product SLO or release budget.',
+            ],
+        },
+        environmentNoise: [
+            'Chrome, CPU scheduling, GPU/driver state, thermal state, antivirus, and shared runner load can affect observed timings.',
+            'CDP heap values are browser diagnostics, not operating-system RSS.',
+            'Only the unauthenticated Auth shell and hash-route shell are observed; this harness does not claim authenticated backend performance.',
+        ],
+        thresholdProposal: createThresholdProposal(reports.map(({ report }) => report)),
     };
 }
 
@@ -123,8 +145,8 @@ function parseArguments(arguments_) {
 }
 
 export function validateRepeatabilityEvidence(evidence) {
-    if (evidence?.schemaVersion !== 1 || evidence.status !== 'passed' || evidence.iterationCount !== iterations || !Array.isArray(evidence.iterations) || evidence.iterations.length !== iterations) {
-        throw new Error('Repeatability evidence must declare exactly three passed iterations using schemaVersion 1.');
+    if (evidence?.schemaVersion !== 2 || evidence.status !== 'passed' || evidence.iterationCount !== iterations || !Array.isArray(evidence.iterations) || evidence.iterations.length !== iterations) {
+        throw new Error('Repeatability evidence must declare exactly five passed iterations using schemaVersion 2.');
     }
     if (
         !/^v\d+\.\d+\.\d+/.test(evidence.configuration?.node ?? '') ||
@@ -150,6 +172,85 @@ export function validateRepeatabilityEvidence(evidence) {
         reportPaths.add(iteration.report);
     }
     if (sampleIds.size !== iterations || reportPaths.size !== iterations) throw new Error('Repeatability evidence iterations must be distinct.');
+    validateMeasurementSummary(evidence.measurements);
+    validatePolicy(evidence.policy, evidence.thresholdProposal, evidence.environmentNoise);
+}
+
+export function createMeasurementSummary(reports) {
+    const routes = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+    const routeSummary = Object.fromEntries(routes.map(route => {
+        const navigations = reports.map(report => report.navigations.find(navigation => navigation.route === route));
+        return [route, {
+            mountElapsedMs: summarise(navigations.map(navigation => navigation.mountElapsedMs)),
+            jsHeapUsedSize: summarise(navigations.map(navigation => navigation.memory?.jsHeapUsedSize).filter(Number.isFinite)),
+        }];
+    }));
+    const auth = reports.map(report => report.navigations.find(navigation => navigation.route === 'auth'));
+    return {
+        bootstrap: {
+            route: 'auth',
+            observable: 'first unauthenticated Compose shell mount after a full-document cold-profile navigation',
+            mountElapsedMs: routeSummary.auth.mountElapsedMs,
+            domContentLoadedMs: summarise(auth.map(navigation => navigation.documentLifecycle.domContentLoadedMs)),
+            loadMs: summarise(auth.map(navigation => navigation.documentLifecycle.loadMs)),
+        },
+        firstStableState: {
+            route: 'auth',
+            observable: 'the same Auth shell after the smoke harness observes a mounted Compose root or canvas',
+            mountElapsedMs: routeSummary.auth.mountElapsedMs,
+        },
+        routes: routeSummary,
+    };
+}
+
+export function createThresholdProposal(reports) {
+    const summary = createMeasurementSummary(reports);
+    return {
+        state: 'proposed',
+        enforcement: 'advisory',
+        productSlo: false,
+        basis: 'five cold-profile samples from one identified environment; requires controlled-runner review before approval',
+        candidates: {
+            bootstrapMountP95Ms: summary.bootstrap.mountElapsedMs.p95,
+            firstStableStateMountP95Ms: summary.firstStableState.mountElapsedMs.p95,
+            authHeapUsedP95Bytes: summary.routes.auth.jsHeapUsedSize.p95,
+        },
+    };
+}
+
+function summarise(values) {
+    const sorted = [...values].sort((left, right) => left - right);
+    return {
+        count: sorted.length,
+        min: sorted[0],
+        p50: percentile(sorted, 0.50),
+        p95: percentile(sorted, 0.95),
+        max: sorted.at(-1),
+    };
+}
+
+function percentile(sorted, fraction) {
+    return sorted[Math.ceil(fraction * sorted.length) - 1];
+}
+
+function validateMeasurementSummary(summary) {
+    const bootstrap = summary?.bootstrap;
+    const stable = summary?.firstStableState;
+    if (bootstrap?.route !== 'auth' || stable?.route !== 'auth' || !summary?.routes?.auth) {
+        throw new Error('Repeatability evidence must declare the observed Auth bootstrap and first stable state.');
+    }
+    const routeMetrics = Object.values(summary.routes).flatMap(route => [route?.mountElapsedMs, route?.jsHeapUsedSize]);
+    for (const metric of [bootstrap.mountElapsedMs, bootstrap.domContentLoadedMs, bootstrap.loadMs, stable.mountElapsedMs, ...routeMetrics]) {
+        if (!metric || metric.count !== iterations || ![metric.min, metric.p50, metric.p95, metric.max].every(Number.isFinite) || metric.min > metric.p50 || metric.p50 > metric.p95 || metric.p95 > metric.max) {
+            throw new Error('Repeatability measurement summaries must contain ordered finite five-sample statistics.');
+        }
+    }
+}
+
+function validatePolicy(policy, proposal, environmentNoise) {
+    if (policy?.enforcement !== 'advisory' || policy?.productSlo !== false || !Array.isArray(policy.blockingConditions) || !Array.isArray(policy.nonBlockingConditions) || proposal?.state !== 'proposed' || proposal?.enforcement !== 'advisory' || proposal?.productSlo !== false || !Array.isArray(environmentNoise) || environmentNoise.length === 0) {
+        throw new Error('Repeatability evidence must distinguish structural blockers from advisory proposed thresholds and environment noise.');
+    }
 }
 
 function relativeRepositoryPath(path) {

@@ -253,7 +253,7 @@ jobs:
             --out build/reports/web-ci/authenticated-browser-e2e.json \
             2>&1 | tee build/reports/web-ci/authenticated-browser-e2e.log
 
-      - name: Collect three cold Chrome measurements (advisory)
+      - name: Collect five cold Chrome measurements and advisory baseline proposal
         timeout-minutes: 24
         shell: bash
         run: |
