@@ -202,6 +202,7 @@ fun FeedScreen(
     viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository)),
 ) {
     val context = LocalContext.current
+    val translatorModeController = LocalQuataTranslatorModeController.current
     var muted by rememberSaveable { mutableStateOf(false) }
     val landscape = rememberQuataWindowLayoutInfo().isLandscape
     DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
@@ -232,6 +233,7 @@ fun FeedScreen(
             liveMonitored = { count -> stringResource(R.string.feed_live_posts_monitored, count) }, liveUpdated = stringResource(R.string.feed_live_updated), liveOpenPost = stringResource(R.string.feed_open_post),
             videoType = stringResource(R.string.feed_post_type_video), imageType = stringResource(R.string.feed_post_type_image), textType = stringResource(R.string.feed_post_type_text),
             commentsTitle = stringResource(R.string.comments_title), commentsYou = stringResource(R.string.comments_you), moderationReport = stringResource(R.string.moderation_report),
+            translatorContentDescription = stringResource(R.string.translator_button_content_description),
             reply = stringResource(R.string.comments_reply_button), replyingTo = { author -> stringResource(R.string.comments_replying_to, author) }, cancelReply = stringResource(R.string.comments_cancel_reply),
             commentPlaceholder = stringResource(R.string.comments_placeholder), send = stringResource(R.string.comments_send),
             showEmojis = stringResource(R.string.comments_show_emojis),
@@ -262,6 +264,14 @@ fun FeedScreen(
             },
             share = { post -> shareService.share(SharePayload(postShareText(post), context.getString(R.string.feed_share_post))) },
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+            commentsTranslatorTrigger = { _, modifier ->
+                FangTranslatorIconButton(
+                    onClick = { view ->
+                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                    },
+                    modifier = modifier,
+                )
+            },
             rankingAvatar = { item -> AvatarImage(item.avatarName, item.avatarUrl, item.isOfficial, item.profileId, Modifier.size(44.dp)) },
             standardFloatingPanel = { dismiss, content -> QuataStandardFloatingPanel(onDismiss = dismiss, content = content) },
         ),

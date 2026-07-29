@@ -70,6 +70,8 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.components.insertAtSelection
+import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import com.quata.designsystem.translation.quataTranslatableText
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.ui.graphics.Color
 import com.quata.feature.feed.domain.FeedRepository
@@ -98,6 +100,7 @@ data class FeedScreenStrings(
     val cancel: String = "Cancelar",
     val close: String = "Cerrar",
     val commentPlaceholder: String = "Escribe un comentario",
+    val translatorContentDescription: String = "Traductor Fang",
     val send: String = "Enviar",
     val reply: String = "Responder",
     val replyingTo: @Composable (String) -> String = { "Respondiendo a $it" }, val cancelReply: String = "Cancelar respuesta",
@@ -115,6 +118,25 @@ data class FeedScreenPlatformSlots(
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
     val share: suspend (Post) -> Unit = {},
     val message: (String) -> Unit = {},
+    /**
+     * A platform may replace the common trigger to activate its native/global translator overlay.
+     * The default is intentionally still the exact shared visual trigger, rather than hiding it.
+     */
+    val commentsTranslatorTrigger: @Composable (String, Modifier) -> Unit = { contentDescription, modifier ->
+        FangTranslatorTriggerContent(
+            contentDescription = contentDescription,
+            onClick = {},
+            modifier = modifier,
+        )
+    },
+    /** Allows hosts with a global translation registry to retain the common row geometry. */
+    val commentRowModifier: (PostComment, String) -> Modifier = { comment, displayText ->
+        Modifier.quataTranslatableText(
+            id = "feed-comment:${comment.id}",
+            text = comment.message,
+            displayText = displayText,
+        )
+    },
     val standardFloatingPanel: @Composable (
         onDismiss: () -> Unit,
         content: @Composable (Modifier, Boolean) -> Unit,
@@ -351,20 +373,44 @@ private fun FeedCommentsDialog(
     }
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
-                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }) },
-                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, formatCommentTimestamp(comment.timestamp), QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
+                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier) }) },
+                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
                 emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
                 input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth()) },
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
-            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }, modifier) },
+            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier) }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
-            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, formatCommentTimestamp(comment.timestamp), QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
+            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
             input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier) },
             emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         )
     }
+}
+
+@Composable
+private fun FeedCommentRow(
+    comment: PostComment,
+    strings: FeedScreenStrings,
+    rowModifier: (PostComment, String) -> Modifier,
+    onReply: () -> Unit,
+    onReport: () -> Unit,
+) {
+    val timestamp = formatCommentTimestamp(comment.timestamp)
+    val displayText = feedCommentTranslatorDisplayText(
+        comment = comment,
+        timestamp = timestamp,
+        replyLabel = comment.replyToAuthorName?.let(strings.replyTo),
+    )
+    QuataCommentRowContent(
+        comment = comment,
+        timestamp = timestamp,
+        strings = QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply),
+        modifier = rowModifier(comment, displayText),
+        onReply = onReply,
+        onReport = onReport,
+    )
 }
