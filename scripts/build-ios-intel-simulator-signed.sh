@@ -46,22 +46,20 @@ xcodebuild \
   CODE_SIGN_STYLE=Automatic \
   CODE_SIGN_IDENTITY=- \
   AD_HOC_CODE_SIGNING_ALLOWED=YES \
-  QUATA_APNS_ENVIRONMENT=development \
   build-for-testing
 
 products="$derived_data_path/Build/Products/SimulatorSigned-iphonesimulator"
 app="$products/QuataIos.app"
 [[ -d "$app" ]] || { echo "Expected signed app was not produced." >&2; exit 1; }
-# Xcode writes the Simulator signing entitlement into its simulated plist, but
-# omits it from the final ad-hoc signature. Re-sign the app with the lane's
-# minimal entitlement so a Keychain-backed launch can be exercised locally.
-codesign --force --sign - --entitlements iosApp/iosApp/QuataIosSimulatorSigned.entitlements "$app"
+# Keep the final local signature entitlement-free. The simulator rejects ad-hoc
+# signatures that claim restricted Keychain access groups.
+codesign --force --sign - "$app"
 while IFS= read -r -d '' bundle; do
   codesign --verify --deep --strict "$bundle"
 done < <(find "$products" -type d \( -name '*.app' -o -name '*.xctest' -o -name '*.appex' \) -print0)
-entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
-grep -q '<key>keychain-access-groups</key>' <<<"$entitlements"
-grep -q '<string>com.quata.ios</string>' <<<"$entitlements"
+entitlements="$(codesign -d --entitlements :- "$app" 2>&1)"
+! grep -q '<key>keychain-access-groups</key>' <<<"$entitlements"
 ! grep -q '<key>aps-environment</key>' <<<"$entitlements"
 ! grep -q '<key>com.apple.security.application-groups</key>' <<<"$entitlements"
+! grep -q '<key>application-identifier</key>' <<<"$entitlements"
 echo "Intel SimulatorSigned Keychain lane validated."

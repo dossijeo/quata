@@ -31,8 +31,9 @@ targets:
         QUATA_IOS_REGISTRATION_ENABLED: "false"
       configs:
         SimulatorSigned:
-          CODE_SIGN_ENTITLEMENTS: iosApp/QuataIosSimulatorSigned.entitlements
-          QUATA_APNS_ENVIRONMENT: development
+          # Ad-hoc simulator signing cannot authorize restricted entitlements.
+          # Keep this local visual-gate lane entitlement-free so launchd accepts it.
+          CODE_SIGN_ENTITLEMENTS: ""
         Release:
           # These values are deliberately supplied only by the signing environment.
           # A signed Release build with any missing value must fail in Xcode instead
