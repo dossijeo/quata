@@ -27,10 +27,19 @@ const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.u
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
 
-test("hermetic Auth gate uses a real browser and the product repository/coordinator", () => {
+test("hermetic Auth gate uses native controls when present or the localhost-only product bridge for a stable Compose canvas", () => {
   assert.match(runner, /chromium\.launch\(/);
   assert.match(runner, /input\[aria-label="Teléfono"\]/);
   assert.match(runner, /__quataAuthE2eProduct\.restore/);
+  assert.match(runner, /resolveAuthSurface\(page\)/);
+  assert.match(runner, /authSurface === "native_controls"/);
+  assert.match(runner, /loginWithComposeAuthBridge\(page, credentials\)/);
+  assert.match(runner, /logoutWithComposeAuthBridge\(page\)/);
+  assert.match(runner, /compose_auth_shell_missing/);
+  assert.match(runner, /compose_auth_canvas_missing/);
+  assert.match(runner, /compose_auth_bridge_missing/);
+  assert.match(runner, /bridge\.login\(countryCode, phone, password\)/);
+  assert.match(runner, /bridge\.logout\(\)/);
   assert.match(runner, /button\[aria-label="Cerrar sesión"\]/);
   assert.match(main, /authRepository\.login\(countryCode, phone, password\)/);
   assert.match(main, /preferences\.putString\(WebSessionReadyKey, "true"\)/);
@@ -48,13 +57,17 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
   }
 });
 
-test("fixture fails closed on external network and excludes Chat from the read-only journey", () => {
+test("fixture fails closed on external network while proving the notification inbox read", () => {
   assert.match(runner, /context\.route\("\*\*\/\*"/);
   assert.match(runner, /proxy-server=http:\/\/127\.0\.0\.1:9/);
   assert.match(runner, /unexpected_external_network/);
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
+  assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
+  assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
+  assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
+  assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
   assert.doesNotMatch(runner, /quata-chat-e2e|__quataChatE2eProduct|native_chat_controls/);
@@ -80,7 +93,8 @@ test("WhatsNew RPC POST remains explicitly outside the strict GET-only route mat
     whatsNewHost,
     /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
   );
-  assert.match(documentation, /Novedades usa un RPC de lectura transportado como `POST`/);
+  assert.match(documentation, /Novedades usa un RPC de lectura transportado como\s+`POST`/);
+  assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
 
@@ -139,13 +153,13 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
-test("browser policy allows only reads plus the two declared Auth lifecycle effects", () => {
+test("browser policy allows only reads, the exact notification inbox RPC, and declared Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({
     backend,
     url: `${backend}/rest/v1/community_profiles?select=id`,
     method: "GET",
-    stage: "authenticated_read_only_route_matrix",
+    stage: "authenticated_route_matrix",
     body: null,
     ...overrides,
   });
@@ -163,28 +177,82 @@ test("browser policy allows only reads plus the two declared Auth lifecycle effe
   });
   assert.equal(whatsNewRpc.allowed, false);
   assert.equal(whatsNewRpc.reason, "backend_mutation_blocked_post");
+  const notificationInbox = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    body: "{}",
+  });
+  assert.equal(notificationInbox.allowed, true);
+  assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  for (const path of [
+    "/rest/v1/rpc/quata_chat_get_thread",
+    "/rest/v1/rpc/quata_chat_send_message",
+    "/rest/v1/rpc/quata_chat_get_inbox_extra",
+  ]) {
+    const blocked = decision({ url: `${backend}${path}`, method: "POST", body: "{}" });
+    assert.equal(blocked.allowed, false);
+    assert.equal(blocked.reason, "backend_mutation_blocked_post");
+  }
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",
+    stage: "native_auth_control_login",
+    body: "{}",
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "compose_auth_bridge_login",
+    body: "{}",
+  }).allowed, true);
+  const undeclaredInboxStage = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: "{}",
+  });
+  assert.equal(undeclaredInboxStage.allowed, false);
+  assert.equal(undeclaredInboxStage.reason, "backend_mutation_blocked_post");
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "native_auth_control_logout",
+    body: "{}",
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "PATCH",
     body: "{}",
   }).allowed, false);
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-auth-bridge`,
     method: "POST",
-    stage: "native_login_controls",
+    stage: "native_auth_control_login",
     body: JSON.stringify({ action: "web_login" }),
   }).allowed, true);
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-auth-bridge`,
     method: "POST",
-    stage: "authenticated_read_only_route_matrix",
+    stage: "authenticated_route_matrix",
     body: JSON.stringify({ action: "web_login" }),
   }).allowed, false);
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-web-push`,
     method: "POST",
-    stage: "native_logout",
+    stage: "native_auth_control_logout",
     body: JSON.stringify({ action: "logout" }),
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/functions/v1/quata-auth-bridge`,
+    method: "POST",
+    stage: "compose_auth_bridge_login",
+    body: JSON.stringify({ action: "web_login" }),
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "compose_auth_bridge_logout",
+    body: "{}",
   }).allowed, true);
 });
 

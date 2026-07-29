@@ -220,7 +220,9 @@ try {
         const responsiveUx = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
         browserMetrics.publicUx.viewports = responsiveUx.viewports;
         browserMetrics.publicUx.compactKeyboard = responsiveUx.compactKeyboard;
-        browserMetrics.publicUx.keyboardAndAx = await assertKeyboardAndAccessibility(cdp);
+        browserMetrics.publicUx.keyboardAndAx = responsiveUx.nativeControlsPresent
+            ? await assertKeyboardAndAccessibility(cdp)
+            : { mode: 'compose_canvas', nativeControlsPresent: false };
         await assertPushConsentUsesTrustedSettingsClick(cdp, staticServer.origin);
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
@@ -833,7 +835,21 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
             if (pageErrors.length > initialErrorCount) {
                 throw new Error(`Responsive ${viewport.name} auth shell produced an uncaught browser exception.`);
             }
-            observations.push({ ...viewport, controls: layout.controls.length, stableSamples: layout.stableSamples });
+            observations.push({
+                ...viewport,
+                renderer: layout.renderer,
+                controls: layout.controls.length,
+                stableSamples: layout.stableSamples,
+            });
+        }
+
+        const nativeControlsPresent = observations.every(({ renderer }) => renderer === 'native_controls');
+        if (!nativeControlsPresent) {
+            return {
+                viewports: observations,
+                compactKeyboard: { mode: 'compose_canvas', skipped: 'native_controls_absent' },
+                nativeControlsPresent: false,
+            };
         }
 
         const compactViewport = { name: 'compact-keyboard', width: 360, height: 320 };
@@ -850,7 +866,7 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
         if (pageErrors.length > initialErrorCount) {
             throw new Error('Compact keyboard Auth shell produced an uncaught browser exception.');
         }
-        return { viewports: observations, compactKeyboard };
+        return { viewports: observations, compactKeyboard, nativeControlsPresent: true };
     } finally {
         await cdp.send('Emulation.clearDeviceMetricsOverride');
     }
@@ -868,6 +884,10 @@ async function waitForStableResponsiveLayout(cdp, viewport) {
                 const rect = element.getBoundingClientRect();
                 return { tag: element.tagName, label: element.getAttribute('aria-label'), type: element.getAttribute('type'), disabled: element.disabled, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             });
+            const canvases = [...(root?.querySelectorAll('canvas') ?? []), ...(root?.shadowRoot?.querySelectorAll('canvas') ?? [])].map(canvas => {
+                const rect = canvas.getBoundingClientRect();
+                return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            });
             resolve({
                 clientWidth: document.documentElement.clientWidth,
                 clientHeight: document.documentElement.clientHeight,
@@ -875,29 +895,39 @@ async function waitForStableResponsiveLayout(cdp, viewport) {
                 scrollHeight: document.documentElement.scrollHeight,
                 root: root ? { width: root.getBoundingClientRect().width, height: root.getBoundingClientRect().height } : null,
                 controls,
+                canvases,
             });
         })))`);
         const value = layout?.result?.value;
         const visibleControls = value?.controls?.filter(control => control.width > 0 && control.height > 0) ?? [];
         const inputs = visibleControls.filter(control => control.tag === 'INPUT');
         const buttons = visibleControls.filter(control => control.tag === 'BUTTON');
+        const canvasMatchesViewport = value?.canvases?.some(canvas =>
+            canvas.x >= -1 && canvas.y >= -1 &&
+            canvas.width >= viewport.width - 1 && canvas.height >= viewport.height - 1,
+        ) === true;
         const allControlsFit = visibleControls.every(control =>
             control.x >= -1 && control.y >= -1 &&
             control.x + control.width <= viewport.width + 1 &&
             control.y + control.height <= viewport.height + 1,
         );
-        const invalid =
+        const stableShell =
             value?.clientWidth !== viewport.width ||
             value?.clientHeight !== viewport.height ||
             value?.scrollWidth !== viewport.width ||
             value?.scrollHeight !== viewport.height ||
-            !value.root || value.root.width < viewport.width - 1 || value.root.height < viewport.height - 1 ||
-            inputs.length < 2 || !inputs.some(control => control.type === 'password') || buttons.length < 1 ||
-            !visibleControls.every(control => typeof control.label === 'string' && control.label.trim().length > 0) ||
-            !allControlsFit;
+            !value.root || value.root.width < viewport.width - 1 || value.root.height < viewport.height - 1;
+        const nativeControls = visibleControls.length > 0;
+        const invalid = stableShell || (nativeControls
+            ? inputs.length < 2 || !inputs.some(control => control.type === 'password') || buttons.length < 1 ||
+                !visibleControls.every(control => typeof control.label === 'string' && control.label.trim().length > 0) ||
+                !allControlsFit
+            : !canvasMatchesViewport);
+        const renderer = nativeControls ? 'native_controls' : 'compose_canvas';
         const current = {
             ...value,
             controls: visibleControls,
+            renderer,
         };
         recent.push(current);
         if (recent.length > 5) recent.shift();
@@ -913,14 +943,18 @@ async function waitForStableResponsiveLayout(cdp, viewport) {
 }
 
 function responsiveLayoutsEquivalent(left, right) {
-    if (!left || !right || left.controls.length !== right.controls.length) return false;
+    if (!left || !right || left.renderer !== right.renderer || left.controls.length !== right.controls.length || left.canvases.length !== right.canvases.length) return false;
     const scalarKeys = ['clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight'];
     if (scalarKeys.some(key => left[key] !== right[key])) return false;
     if (Math.abs(left.root.width - right.root.width) > 0.5 || Math.abs(left.root.height - right.root.height) > 0.5) return false;
-    return left.controls.every((control, index) => {
+    const sameControls = left.controls.every((control, index) => {
         const other = right.controls[index];
         return control.tag === other.tag && control.type === other.type && control.label === other.label &&
             ['x', 'y', 'width', 'height'].every(key => Math.abs(control[key] - other[key]) <= 0.5);
+    });
+    return sameControls && left.canvases.every((canvas, index) => {
+        const other = right.canvases[index];
+        return ['x', 'y', 'width', 'height'].every(key => Math.abs(canvas[key] - other[key]) <= 0.5);
     });
 }
 
