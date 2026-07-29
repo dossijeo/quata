@@ -56,7 +56,9 @@ app="$products/QuataIos.app"
 # omits it from the final ad-hoc signature. Re-sign the app with the lane's
 # minimal entitlement so a Keychain-backed launch can be exercised locally.
 codesign --force --sign - --entitlements iosApp/iosApp/QuataIosSimulatorSigned.entitlements "$app"
-codesign --verify --deep --strict "$app"
+while IFS= read -r -d '' bundle; do
+  codesign --verify --deep --strict "$bundle"
+done < <(find "$products" -type d \( -name '*.app' -o -name '*.xctest' -o -name '*.appex' \) -print0)
 entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
 grep -q '<key>keychain-access-groups</key>' <<<"$entitlements"
 grep -q '<string>com.quata.ios</string>' <<<"$entitlements"

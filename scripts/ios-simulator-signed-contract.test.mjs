@@ -22,5 +22,7 @@ test('SimulatorSigned is isolated from Debug and Release production signing', as
   assert.match(script, /CODE_SIGN_IDENTITY=-/);
   assert.match(script, /AD_HOC_CODE_SIGNING_ALLOWED=YES/);
   assert.match(script, /codesign --verify --deep --strict/);
+  assert.match(script, /-name '\*\.xctest'/);
+  assert.match(script, /-name '\*\.appex'/);
   assert.match(script, /keychain-access-groups/);
 });
