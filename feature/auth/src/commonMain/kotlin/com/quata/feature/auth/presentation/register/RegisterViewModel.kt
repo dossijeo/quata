@@ -1,7 +1,7 @@
 package com.quata.feature.auth.presentation.register
 
 import com.quata.core.common.AppDispatchers
-import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.RegisterRepository
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +15,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class RegisterViewModel(
-    private val repository: AuthRepository,
+    private val repository: RegisterRepository,
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
