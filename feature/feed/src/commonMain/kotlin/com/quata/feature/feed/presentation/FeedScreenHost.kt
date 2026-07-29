@@ -130,7 +130,7 @@ fun FeedScreenHost(
     val pagerState = rememberPagerState(pageCount = { state.posts.size })
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val canParticipate = effectiveCurrentUserId != null
-    val ranks = remember(state.posts) { state.posts.sortedWith(compareByDescending<Post> { it.likesCount }.thenByDescending { it.createdAt }).mapIndexed { index, post -> post.id to index + 1 }.toMap() }
+    val ranks = remember(state.posts) { calculateFeedRanking(state.posts) }
     val canPullRefresh = pagerState.currentPage == 0 && !state.isRefreshing && commentsPostId == null && !liveOpen
     val pullRefreshState = rememberQuataFeedPullRefreshState(
         enabled = canPullRefresh,
