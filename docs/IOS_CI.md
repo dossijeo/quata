@@ -1,219 +1,45 @@
-# Compilacion iOS en GitHub Actions
+# Compilación iOS en GitHub Actions
 
-Qüata usa GitHub Actions como host macOS para comprobar la migracion a Compose
-Multiplatform desde un equipo Windows. El workflow se encuentra en
-`.github/workflows/ios-build.yml`.
+El workflow `.github/workflows/ios-build.yml` es el carril reproducible de compilación iOS. No firma ni publica la aplicación.
 
-## Corte candidato actual
+## Corte acreditado
 
-La ola 1 se integró en `main` por PR #46, merge
-`587789ff03df0c1b83baa2b6ca74babc4e4d3499`. La ola 2 corresponde al commit
-`9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` y a la ejecución
-[#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187),
-completada con `success` el 2026-07-26 a las 16:59:46Z. Pasaron Kotlin/Native,
-enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin
-firma y publicación del artefacto.
+El run [`30413800836`](https://github.com/dossijeo/quata/actions/runs/30413800836), job `90455727104`, terminó `success` sobre el SHA exacto `c87e82af615a1778092ec3b5ecfc70d1ecd485ea`. Registró 70/70 comprobaciones:
 
-## Que valida
+1. compilación Kotlin/Native;
+2. enlace de framework y XCFramework;
+3. generación y compilación del host Swift y Share Extension;
+4. XCTest de simulador;
+5. archive genérico sin firma;
+6. publicación de logs, resultados y artefactos.
 
-1. Compila los source sets `iosArm64` e `iosSimulatorArm64` de todos los
-   modulos KMP.
-2. Ensambla `QuataShared.xcframework` con slices de simulador y dispositivo.
-3. Genera el proyecto Swift mediante XcodeGen.
-4. Compila la aplicacion host `QuataIos` con Xcode y sin firma.
-5. Ejecuta `QuataIosUITests` en simulador: verifica que Swift presenta la superficie Compose
-   exportada por `QuataShared.framework` mediante su identificador de accesibilidad.
-6. Crea un archive genérico de dispositivo sin firma, separado de XCTest, y
-   comprueba que embebe `QuataShared.framework`.
-7. Conserva los logs, el framework, el proyecto generado, los bundles `.xcresult` y el resumen
-   estructurado `xctest-summary.json` durante 30 dias.
+Esto acredita que el código fuente y el host enlazan en el entorno de CI del SHA indicado. No acredita una IPA firmada, perfiles, Team, App Group operativo, APNs, TestFlight, hardware físico, autenticación real ni datos de Supabase.
 
-La fase de simulador tiene watchdogs independientes del límite global del
-job: un minuto para `simctl boot`, tres minutos para `simctl bootstatus` y
-veinte para `xcodebuild test`.
-El watchdog inicia cada comando en una sesión de procesos propia; al vencer el
-límite registra `ps` en su log, envía `SIGTERM` a ese grupo y, sólo tras 30
-segundos, `SIGKILL`. El artefacto conserva `simctl-boot.log`,
-`simctl-bootstatus.log`, `xcodebuild-tests.log` y cualquier `.xcresult` ya creado. El código 124
-identifica explícitamente un timeout, sin convertirlo en éxito ni ocultar un
-fallo de XCTest.
+## Toolchain y arquitectura
 
-La compilacion usa `macos-15`, JDK 17 y Xcode 26.3. Kotlin/Native `2.2.21`
-incluye bibliotecas de plataforma generadas para Xcode 26; usar Xcode 16.3
-haría fallar el enlace al no resolver `_LocationEssentials`. El workflow fija
-además el runtime iOS 26.2 para que el resultado sea reproducible.
+El corte mantiene Kotlin `2.2.21` y Compose Multiplatform `1.10.0`. El intento de adoptar Kotlin `2.3.20` y Compose `1.11.0` fue rechazado: Compose 1.11 deja de resolver los artefactos `iosX64` utilizados por el carril Intel, y no existe evidencia de compatibilidad con el Skiko CPU-raster de ese entorno. No se debe subir ni fusionar ese experimento hasta sustituir o retirar explícitamente el carril Intel.
 
-El Mac virtual disponible con Xcode 16 es, por ello, incompatible con este
-corte y no sirve como gate final. Una compilación o smoke sin firma tampoco
-acredita entrega APNs, App Group/Share Extension firmados, provisioning,
-dispositivo físico ni E2E autenticado.
+La CI continúa siendo el carril oficial Apple Silicon. El Mac Intel usa `iosX64` y pruebas locales serializadas; no se debe cambiar el `ARCHS` de CI por ese motivo. La rama de relajación Metal fue descartada: CI conserva su test Metal estricto y el raster CPU sólo sirve como comprobación suplementaria local.
 
-## Concurrencia y cola
+## Simulador Intel suplementario
 
-La Action agrupa sus ejecuciones por ref (`ios-compile-${{ github.ref }}`) y
-no cancela una ejecución ya iniciada cuando llega otro push a esa misma rama.
-Esto permite que la fase XCTest termine y conserve su diagnóstico. Cada rama
-mantiene su propio grupo: una rama no bloquea la compilación de otra.
+Con el raster CPU disponible, el Feed anónimo se mostró y leyó contra HTTPS con respuesta 200 en iOS 18.3 y iOS 26.5, sin crash observado. Este resultado descarta la pantalla negra previa como evidencia actual de rendering, pero no convierte el carril en una prueba de autenticación: Chat/login sólo se validó por contrato y el control visual remoto permanece bloqueado por TCC/AX sobre SSH.
 
-GitHub limita cada grupo a una ejecución activa y una pendiente; si se acumulan
-varios pushes para la misma ref, la ejecución pendiente más antigua puede ser
-sustituida por la más reciente. Por tanto, no se habilita paralelismo ilimitado
-en runners macOS, pero un lote puede permanecer en cola y consumir más tiempo
-de validación. Esta política no corrige cancelaciones o fallos anteriores a
-que GitHub inicie los pasos del job.
+La estabilidad de relaunch en iOS 26.5 permanece en **HOLD**: una captura a 8 s fue casi negra y a 28 s ya mostraba Feed. Hay repetición y medición en curso; no se declara cierre ni estabilidad de relaunch con esta evidencia.
 
-`QuataShared.framework` es el único framework Kotlin/Native embebido por el
-host. Lo produce `:ios-shared`, que concentra las exportaciones de Core, Auth,
-Feed, Chat y Notifications. No convierte `feature:feed` en un composition root
-ni le añade dependencias hacia features hermanas.
+## Operación
 
-> El proyecto usa Kotlin/Compose Compiler/serialization `2.2.21`, Compose
-> Multiplatform `1.10.0`, Gradle 9.3.1 y AGP 9.1.0. La Action conserva esas
-> versiones reales para detectar incompatibilidades de toolchain sin ocultarlas
-> con una configuración distinta a la utilizada por Android.
-
-## Lanzar y descargar el informe desde PowerShell
-
-Requisitos:
-
-- GitHub CLI (`gh`) instalado.
-- Una sesion valida de `gh auth login`.
-- La rama que se quiere compilar subida a GitHub.
-
-Desde la raiz del repositorio:
+Desde PowerShell, con una rama ya subida:
 
 ```powershell
-.\scripts\run-ios-ci.ps1
+.\scripts\run-ios-ci.ps1 -Ref nombre-de-rama
 ```
 
-Para compilar otra rama o commit:
+El script despacha el workflow, espera su conclusión y descarga el artefacto en `build-reports/ios/<run-id>`. Una ejecución verde sólo puede acreditarse para su `headSha`; no se reutiliza un run de otra rama o commit.
 
-```powershell
-.\scripts\run-ios-ci.ps1 -Ref codex/mi-rama
-```
+## Próximos gates
 
-El script dispara la Action, espera hasta que termine, imprime los pasos
-fallidos y descarga el artefacto en `build-reports/ios/<run-id>`.
-
-## Operativa equivalente con GitHub CLI
-
-```powershell
-gh workflow run ios-build.yml --ref NOMBRE_DE_RAMA
-gh run list --workflow ios-build.yml --branch NOMBRE_DE_RAMA --limit 10
-gh run watch RUN_ID --exit-status
-gh run view RUN_ID --log-failed
-gh run download RUN_ID --name ios-build-report-RUN_ID --dir build-reports/ios/RUN_ID
-```
-
-Para obtener un resumen mecanizable:
-
-```powershell
-gh run view RUN_ID --json status,conclusion,url,jobs | ConvertFrom-Json
-```
-
-## Leer el resultado de Xcode
-
-En macOS, el bundle estructurado puede inspeccionarse con Xcode:
-
-```bash
-open build-reports/ios/RUN_ID/QuataIos.xcresult
-```
-
-O convertirse a JSON para otro proceso:
-
-```bash
-xcrun xcresulttool get \
-  --legacy \
-  --path build-reports/ios/RUN_ID/QuataIos.xcresult \
-  --format json > xcresult.json
-```
-
-Los errores de Kotlin se encuentran en `kotlin-ios.log`, los del enlace del
-framework en `framework-link.log` y los de Swift/Xcode en `xcodebuild.log`.
-
-## Compilacion local en un Mac
-
-```bash
-bash ./gradlew compileKotlinIosArm64 compileKotlinIosSimulatorArm64
-bash ./gradlew :ios-shared:linkDebugFrameworkIosSimulatorArm64
-brew install xcodegen
-cd iosApp
-xcodegen generate
-cd ..
-xcodebuild \
-  -project iosApp/QuataIos.xcodeproj \
-  -scheme QuataIos \
-  -sdk iphonesimulator \
-  -destination "generic/platform=iOS Simulator" \
-  ARCHS=arm64 \
-  ONLY_ACTIVE_ARCH=YES \
-  CODE_SIGNING_ALLOWED=NO \
-  build
-```
-
-La Action compila y crea un `.xcarchive` estructural sin firma; no firma ni
-publica una aplicacion y no genera IPA. Para generar un IPA distribuible sera
-necesario configurar el equipo de Apple Developer, certificados y perfiles de
-aprovisionamiento como una fase independiente. Vease
-[`IOS_UNSIGNED_ARCHIVE.md`](IOS_UNSIGNED_ARCHIVE.md) para alcance y comandos.
-
-## Mac Intel (simulador x86_64)
-
-## Compose 1.10 accessibility evidence
-
-Compose Multiplatform 1.10 renders the migration status screen through the real
-Compose controller. The XCTest/UI lane asserts one UIKit composition root and
-the actual descendant accessibility semantics of the unconfigured state: the
-exact migration message and the `Entendido` action. Screenshots are retained as
-diagnostic attachments only; they are not compared byte-for-byte and do not by
-themselves validate a visual transition.
-
-The local baseline on `main` `1e9d6bf1` compiled and linked the x86_64 host and
-installed/launched a process, but `MTLCreateSystemDefaultDevice` returned `nil`
-and XCTest recorded `IllegalStateException: Metal is not supported on this
-system`. A black screenshot from that VM is therefore not visual validation.
-Simulator and visual work on that VM are paused by the user. This limitation
-does not establish a regression in the app, nor does it establish rendering
-success.
-
-A green macOS CI run can attest Kotlin/Native compilation, framework link,
-XcodeGen, Swift host build, XCTest semantics and unsigned archive structure. It
-does not replace local visual inspection, nor does it prove signing, APNs, App
-Group/Share Extension provisioning, a physical device, or authenticated E2E.
-
-## Deep links de arranque en UI tests
-
-`QuataIosHostUITests` inicia una fixture autenticada inerte con los argumentos
-`-quata-ui-test-fixture authenticated` y `-quata-ui-test-deep-link <URL>`.
-La fixture no interpreta fragmentos en Swift: entrega el URL a
-`IosDeepLinkDispatcher` y a `IosAuthenticatedRouteDispatcher`, por lo que el
-parser compartido Kotlin y la conversión a las rutas UIKit se ejercitan en el
-proceso de la aplicación. La prueba cubre los arranques en frío de Chat, Feed y
-Official y comprueba que no se presenta una superficie Compose residual.
-
-Las superficies de destino de esta fixture son controladores UIKit sin sesión,
-repositorio ni red. La evidencia demuestra sólo el contrato determinista de
-URL/ruta/host; no acredita restauración de Keychain, autenticación, RLS,
-PostgREST, APNs ni una navegación autenticada E2E. Esas validaciones siguen
-siendo carriles separados y requieren sus dependencias operativas.
-
-La CI sigue en Apple Silicon con `iosSimulatorArm64`. En un Mac Intel usa
-`iosX64`; no cambies el `ARCHS=arm64` de CI ni del archive de dispositivo.
-
-```bash
-bash scripts/bootstrap-ios-intel-mac.sh
-source ~/.config/quata/ios-intel.env
-bash scripts/build-ios-intel-simulator.sh
-```
-
-El bootstrap instala Temurin 17.0.20+8 x64 como `JAVA_HOME` y JetBrains Runtime
-21.0.10 x64 como `JBR_HOME`: este segundo JDK satisface el daemon declarado en
-`gradle/gradle-daemon-jvm.properties`. Gradle recibe ambos paths y tiene
-auto-download desactivado en esta VM. Las URLs y SHA-256 están fijadas, y
-XcodeGen 2.44.1 se verifica también contra el commit exacto de su tag. Todo se
-instala solo para el usuario, sin `sudo`, con publicación atómica de binarios y
-entorno. El build usa `bash ./gradlew`, enlaza sólo `iosX64`, crea un
-XCFramework local de una slice y usa `ARCHS=x86_64`; no arranca simuladores ni
-XCTest/UI. El archive de dispositivo reconstruye después el XCFramework
-canónico con `iosArm64`. Ejecuta pruebas visuales en un carril separado y nunca
-de forma simultanea con otro carril de simulador.
+1. Medir y corregir, si procede, la estabilidad de relaunch iOS 26.5.
+2. Resolver TCC/AX de la VM y ejecutar rutas visuales autenticadas con cuenta aislada autorizada.
+3. Configurar signing, Team, perfiles y App Group en una fase separada.
+4. Validar APNs, Share Extension y permisos en un dispositivo físico firmado.

@@ -1,106 +1,44 @@
-# Evidencia verificable de validacion multiplataforma
+# Evidencia de validación multiplataforma
 
-**Corte de este registro:** `main`
-`ea0322c159be61018a60604f6b9134bd4f290787`. La ola 1 integrada es
-`587789ff03df0c1b83baa2b6ca74babc4e4d3499`
-([PR #46](https://github.com/dossijeo/quata/pull/46)) y la ola 2 integrada es
-`9cc84dc2a77935ae2b84a7159e435c1ca6f8f220`
-([PR #47](https://github.com/dossijeo/quata/pull/47)). La rama histórica
-`codex/integration-wave2` no existe.
+**Corte:** `c87e82af615a1778092ec3b5ecfc70d1ecd485ea` (2026-07-29).
 
-Este documento reconcilia evidencia ya obtenida; no ejecuta compilaciones ni
-convierte documentacion de intencion en un resultado nuevo. Un SHA aparece como
-integrado sólo cuando es ancestro del corte de `main` indicado. Las dos olas lo
-son en este corte. Los enlaces de Actions apuntan al run y al `headSha` exactos,
-no a una ejecución posterior de `main`.
+Las categorías se mantienen separadas: una compilación acredita artefactos; un smoke acredita el recorrido descrito; E2E acredita backend real, identidad y limpieza. Ninguna fila extiende su alcance por inferencia.
 
-El resumen mecanizable del corte MP-A14 está en
-[`mp-a14-final-evidence.json`](mp-a14-final-evidence.json).
+## Web/Wasm
 
-## Lectura de los tipos de prueba
-
-| Tipo | Que acredita | Que no acredita |
+| Prueba | Resultado | Evidencia y límite |
 | --- | --- | --- |
-| Compilacion | Que las fuentes y el artefacto indicado compilan/enlazan para ese SHA. | Que el producto se pueda usar contra servicios reales. |
-| Smoke | Que un host real arranca y realiza el recorrido local limitado descrito. | Login, permisos, datos remotos, RLS o una experiencia completa. |
-| E2E | Que un recorrido usa backend/configuración reales y limpia sus datos. | No implica paridad total de producto ni sustituye recorridos UI bloqueados. |
+| Producción observada | GO | 510,69 s; limpieza del Job Object vacía. |
+| Bundle Windows diagnóstico | GO dentro de margen | 37.164.745 bytes / 14.251.181 gzip, variación +274 / +91 contra el baseline Linux. No es una aprobación Windows. |
+| Chrome frío | GO | Tres perfiles fríos; total 150 s. Rutas Auth, Feed, Chat, Official, Settings y Share Target herméticas. |
+| DocMentis / Share Target | GO limitado | Smoke local de import/create/destroy y contrato local de Share; no acredita licencia, CSP, Storage autenticado ni instalación PWA real. |
+| `wasmJsBrowserTest` | GO | 37/37. |
+| E2E autenticado | HOLD | No existe una cuenta de prueba segura; no se creó cuenta ni se evitó Turnstile. |
 
-La compilación, un smoke y un E2E son categorías distintas. En particular, el
-smoke Web no crea cuentas ni datos remotos; los runners SB sí usan backend real
-con fixtures efímeros; y la UI Chat de navegador bloqueada por accesibilidad no
-se registra como E2E completado.
+La captura canónica Linux del run [`30410233909`](https://github.com/dossijeo/quata/actions/runs/30410233909) registró 14 assets, 37.164.471 bytes, 14.251.090 bytes gzip e inventario `adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827`. Ese artefacto fue aprobado por PR [#97](https://github.com/dossijeo/quata/pull/97). La reproducibilidad fue confirmada entre ejecuciones Linux; Windows difiere en WASM y JS por paths/contenido de host, de modo que se conserva sólo como observación local.
 
-## iOS: CI macOS por SHA exacto
+## Android API-37
 
-Todos los runs marcados como verdes terminaron con `success`. El workflow `iOS compile`
-compila Kotlin/Native, enlaza el framework compartido, genera/compila el host
-Swift y ejecuta XCTest. Desde `a6a11ba`, tambien crea un archive generico sin
-firma; eso no es un IPA firmado ni una prueba en dispositivo fisico.
-
-| SHA integrado | Integracion acreditada | Run exacto | Alcance adicional |
-| --- | --- | --- | --- |
-| `63fd8bba6f724979fdce1de18dd34433ef4db3cb` | Framework umbrella `QuataShared` | [#30160529772](https://github.com/dossijeo/quata/actions/runs/30160529772) | Compilacion, enlace y smoke XCTest del host. |
-| `2dbd3098ad754bfe8e48b11a940ce47edfbcd040` | Transporte escalar Feed comun | [#30165185499](https://github.com/dossijeo/quata/actions/runs/30165185499) | Compilacion/enlace/host/XCTest; no RLS ni PostgREST E2E. |
-| `4e188825c37c70ffbe5b81373d47a1ecac967f1f` | Shell Profile/SOS | [#30166431406](https://github.com/dossijeo/quata/actions/runs/30166431406) | Smoke de factory/ruta; no permisos ni ContactsUI real. |
-| `c8cf7dfc118c66b0498229d1864f3fcf8eb3876f` | Catalogo localizado de capacidades | [#30168079601](https://github.com/dossijeo/quata/actions/runs/30168079601) | Compilacion/enlace/host/XCTest. |
-| `ba4e3d693c7c10bf59c5fb120db5422c0e640a4c` | Watchdog y diagnostico XCTest | [#30170360900](https://github.com/dossijeo/quata/actions/runs/30170360900) | Smoke XCTest con watchdog; no funcionalidad adicional de producto. |
-| `3d496f800d8c4cdb80cd30c6709292d091a9c964` | Shell Communities | [#30170903885](https://github.com/dossijeo/quata/actions/runs/30170903885) | Host/ruta autenticada estructural; no mutaciones, media, roles ni E2E. |
-| `a6a11baacc2b5412e80040e54f9a90b165c4ee80` | Archive iOS sin firma | [#30171716978](https://github.com/dossijeo/quata/actions/runs/30171716978) | Ademas del smoke XCTest, archive generico y comprobacion de `QuataShared.framework`. |
-| `e9e09c5a9c9deaf662ce52a78137a4d6fe6170ce` | Transporte escalar Official comun | [#30172609978](https://github.com/dossijeo/quata/actions/runs/30172609978) | Compilacion/enlace/host/XCTest; no lectura remota E2E. |
-| `9cc84dc2a77935ae2b84a7159e435c1ca6f8f220` | Ola 2 integrada por [PR #47](https://github.com/dossijeo/quata/pull/47) | [#30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde** (2026-07-26 16:59:46Z): Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. No acredita firma, dispositivo, App Group operativo ni APNs entregado. |
-
-La definicion concreta de esos pasos, artefactos y limites se mantiene en
-[IOS_CI.md](IOS_CI.md) y [IOS_UNSIGNED_ARCHIVE.md](IOS_UNSIGNED_ARCHIVE.md).
-Los candidatos posteriores a este corte requieren su propia CI exacta antes de
-integrarse; un verde de cualquiera de las filas no se hereda automaticamente.
-
-## Web: Wasm, distribucion y smoke local
-
-| SHA integrado | Comando/resultado registrado | Tipo y limites |
+| Prueba | Resultado | Límite |
 | --- | --- | --- |
-| `a0d77ab9262d0732905aa577b82921777bd64486` | `:web:wasmJsBrowserDistribution`, `node scripts/web-browser-smoke.mjs` y `:app:assembleDebug` terminaron correctamente en el lote documentado. | Bundle Wasm de produccion y smoke Chrome de rutas no autenticadas. No es login, Supabase, RLS ni E2E remoto. |
-| `eb41be9663f616cf6c030bd802137a5f31e421ad` | El bundle Wasm y `web-browser-smoke.mjs --docmentis` pasaron localmente; se registro inventario 35.29 MiB (13.55 MiB gzip) y metricas locales. | Smoke de importacion/create/destroy de DocMentis y observabilidad local; no licencia/telemetria/CSP de produccion, Storage autenticado ni documentos remotos. |
-| `d712542b` (bundle baseline `acde140c`) | `WEB-AUTH-BROWSER-01` obtuvo una sesión real por `quata-auth-bridge`, inyectó sólo configuración pública en una copia temporal del bundle, restauró `WebAuthStorage` en Chrome, montó `#feed` y leyó el perfil autenticado desde el navegador; logout Web y revocación global pasaron. La cuenta aislada se purgó y se comprobó ausente. | E2E parcial de restauración, no automatización del formulario Compose. El runner no modifica Kotlin y se ejecutó contra el bundle ya validado `acde140c`; el bundle del SHA integrado debe volver a generarse antes de elevarlo a gate final. |
-| `9cc84dc2` | `:web:wasmJsTest` (150,5 s), compilaciones/tests Wasm acotados, `:web:wasmJsBrowserDistribution` (857,6 s) y `web-browser-smoke.mjs --docmentis` (29 s) pasaron. El smoke recorrió Auth, Feed, Chat, Official, Settings y Share Target sin crear fixtures remotos. | Compilación y smoke local, no E2E autenticado. Profile y Whats New compilaron; sus `compileTest` agotaron el timeout de infraestructura sin diagnóstico y no se marcan como tests verdes. |
-| `1d604ab3` | El preflight Chat autenticó dos cuentas y creó el hilo privado; Wasm, distribución y smoke pasaron. | El recorrido UI quedó bloqueado en `open_chat_a`: Canvas/shadow DOM no expuso textbox por DOM/AX, incluso forzando accesibilidad. Envío, reply y logout UI no están acreditados. Cada intento terminó con purga y ausencia comprobada de Auth, perfiles, hilos, participantes, mensajes, adjuntos y sesiones: **0 residuos**. |
+| Compilación e instalación `-r` | GO | Sobre `c87e82af`. |
+| Arranque frío | GO | 4,924 s, proceso vivo y 0 crash/ANR observado. |
+| Feed anónimo | GO | Verificado en Pixel y en AVD temporal, sin tocar la navegación anónima. |
+| Matriz autenticada | HOLD | El AVD de referencia pasó a anónimo y el registro oficial está deshabilitado; no se usó un bypass ni se alteraron cuentas. |
 
-La fuente de esos resultados locales es
-[WASM_WEB_VALIDATION.md](WASM_WEB_VALIDATION.md),
-[WASM_BUNDLE_OBSERVABILITY.md](WASM_BUNDLE_OBSERVABILITY.md) y
-[WEB_BROWSER_SMOKE.md](WEB_BROWSER_SMOKE.md). No hay un artefacto CI remoto
-asociado a esos comandos en este corte; por tanto se presentan como evidencia
-local registrada y no como un check de GitHub Actions.
+## iOS
 
-## Android: compilacion y arranque API-37
-
-| SHA integrado | Evidencia registrada | Tipo y limites |
+| Carril | Resultado | Límite |
 | --- | --- | --- |
-| `10f58f931e3f54c6103e8ba5d2de36c88de391a5` | `:app:compileDebugKotlin` y `:app:assembleDebug` pasaron. Tras reiniciar API-37, instalacion, arranque frio (`3.04 s`), `pidof` vivo y `logcat -b crash` vacio fueron observados para la reduccion de wrappers Feed. | Compilacion y smoke en emulador; no cubre todos los flujos ni atribuye el ANR previo a la migracion. |
-| `9cc84dc2` frente a `587789ff` | `:app:assembleDebug` pasó en 638,5 s; APK 79.029.367 bytes, SHA-256 `3317E295A9BB14F38AF845EB52B30D225F2B21A62A439DA5AC90754A836B2979`. El A/B API-37 recorrió cinco áreas con crash buffer limpio: ola 1 tardó 25,392 s y ola 2 21,159 s, sin ANR/crash. | Smoke A/B, no benchmark. Ambos hosts estuvieron lentos y el resultado se clasificó `environment_both_slow`; no hay diferencial de regresión atribuible a ola 2. Las 89 advertencias de assemble son heredadas del código vendorizado, no evidencia de fallo de arranque. |
+| GitHub Actions | GO limitado | Run [`30413800836`](https://github.com/dossijeo/quata/actions/runs/30413800836), job `90455727104`, SHA exacto `c87e82af`: 70/70, Kotlin/Native, framework/XCFramework, host Swift, XCTest, archive y artefactos. |
+| Simulador Intel CPU raster | GO suplementario | Feed anónimo real en iOS 18.3 e iOS 26.5, respuestas HTTPS 200 y 0 crash. La estabilidad de relaunch iOS 26.5 queda HOLD: captura casi negra a 8 s y Feed a 28 s; medición en curso. |
+| Chat/login visual real | HOLD | El contrato de rutas pasa, pero TCC/AX a través de SSH impide automatizar la interacción visual. No se afirma autenticación. |
+| Signing/distribución | HOLD | Sin Team, perfiles, IPA, TestFlight, APNs, App Group firmado ni dispositivo físico. |
 
-El detalle y la delimitacion del incidente anterior estan en
-[ANDROID_STARTUP_DIAGNOSTICS.md](ANDROID_STARTUP_DIAGNOSTICS.md). El resultado
-de arranque posterior esta resumido en
-[MULTIPLATFORM_MIGRATION_BOARD.md](MULTIPLATFORM_MIGRATION_BOARD.md); no se
-conserva en el repositorio un logcat bruto reutilizable, por lo que debe
-repetirse en el SHA final para la auditoria de cierre.
+## Seguridad y límites de producción
 
-## E2E: estado honesto y gates faltantes
+No se desplegaron cambios de Supabase ni se modificaron RLS, DDL, funciones o grants durante PRs 93–97 o estas validaciones. Los hallazgos continúan abiertos en [RLS_FINDINGS.md](RLS_FINDINGS.md). Las mutaciones con contrato no acreditado continúan fail-closed.
 
-No se ha acreditado un E2E completo de la UI Web autenticada ni de iOS contra
-Supabase en este corte. `WEB-AUTH-BROWSER-01` acredita restauración de sesión Web y una
-lectura autenticada en Chrome, pero no la entrada del formulario Compose ni el
-resto de verticales. Los runners disponibles no sustituyen evidencia ejecutada:
+## Conclusión del corte
 
-| Gate pendiente | Evidencia necesaria para cerrarlo |
-| --- | --- |
-| Web autenticado completo | Regenerar bundle para el SHA final y automatizar el formulario Compose; después ampliar `WEB-AUTH-BROWSER-01` a rutas autenticadas/mutaciones autorizadas y conservar limpieza verificable. Ver [WEB_AUTHENTICATED_BROWSER_E2E.md](WEB_AUTHENTICATED_BROWSER_E2E.md), [SUPABASE_E2E_SB02.md](SUPABASE_E2E_SB02.md) y [SUPABASE_E2E_SB03.md](SUPABASE_E2E_SB03.md). |
-| iOS funcional | XCTest/UI de rutas autenticadas y adaptadores reales (permisos, contactos, archivos/media) en simulador o dispositivo configurado. El XCTest actual solo acredita el smoke de frontera del host. |
-| Push | Registro/entrega y limpieza real de Web Push/APNs; service worker o bridge por si solos no acreditan entrega. |
-| Android cierre | `assembleDebug`, instalacion, arranque API-37, crash buffer y PID sobre el SHA final, especialmente despues de cada lote Android. |
-| Seguridad RLS | RLS-001 está desplegada y hardened mediante el forward `20260726171005`, pero sigue pendiente el SB-07 remoto mutante completo. RLS-002/SB-09, RLS-003, RLS-004 y RLS-005 siguen abiertos. Las mutaciones Communities y Official permanecen fail-closed. |
-
-Por estas ausencias, Web e iOS permanecen **parciales**. Esta tabla debe
-actualizarse por lote con el SHA, enlace de run o salida local conservada, el
-tipo de prueba y sus limites; nunca sustituyendo un E2E por una compilacion o
-un smoke.
+Web es funcional para el recorrido anónimo verificado y tiene controles de bundle reproducibles; no está lista para declarar login/registro ni release autenticado. iOS compila, enlaza y muestra Feed anónimo en simulador, pero no está listo para distribución ni autenticación visual. La migración global sigue incompleta.

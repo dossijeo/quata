@@ -1,143 +1,121 @@
 {
-  "schemaVersion": 1,
-  "recordedAt": "2026-07-27",
-  "scope": "MP-A14 final evidence reconciliation",
-  "integration": {
-    "wave1": {
-      "status": "merged",
-      "sha": "587789ff03df0c1b83baa2b6ca74babc4e4d3499",
-      "pullRequest": 46,
-      "url": "https://github.com/dossijeo/quata/pull/46"
+  "schemaVersion": 2,
+  "recordedAt": "2026-07-29",
+  "scope": "multiplatform final-evidence reconciliation",
+  "head": {
+    "branch": "main",
+    "sha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea"
+  },
+  "integrations": [
+    {
+      "pullRequest": 93,
+      "mergeShaShort": "7c260fa",
+      "result": "wasm watchdog fail-closed cleanup"
     },
-    "wave2": {
-      "status": "merged",
-      "sha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
-      "pullRequest": 47,
-      "url": "https://github.com/dossijeo/quata/pull/47",
-      "integratedInMain": "ea0322c159be61018a60604f6b9134bd4f290787",
-      "historicalBranch": "deleted"
+    {
+      "pullRequest": 94,
+      "mergeShaShort": "40dc604",
+      "result": "strict baseline approval gate"
+    },
+    {
+      "pullRequest": 96,
+      "mergeShaShort": "30682427",
+      "result": "canonical Linux baseline capture workflow",
+      "captureRunId": 30410233909
+    },
+    {
+      "pullRequest": 97,
+      "mergeSha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea",
+      "result": "approved canonical Linux baseline"
+    }
+  ],
+  "wasmBaseline": {
+    "state": "approved",
+    "canonicalPlatform": "linux",
+    "assetCount": 14,
+    "totalBytes": 37164471,
+    "totalGzipBytes": 14251090,
+    "inventorySha256": "adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827",
+    "windowsStatus": "diagnostic_only_host_dependent_output"
+  },
+  "web": {
+    "status": "anonymous_functional_go_limited",
+    "observedProductionSeconds": 510.69,
+    "watchdogCleanup": "empty",
+    "windowsDiagnosticBundle": {
+      "totalBytes": 37164745,
+      "totalGzipBytes": 14251181,
+      "deltaBytes": 274,
+      "deltaGzipBytes": 91
+    },
+    "coldChromeProfiles": 3,
+    "coldChromeTotalSeconds": 150,
+    "wasmJsBrowserTest": {
+      "passed": 37,
+      "total": 37
+    },
+    "hermeticSmoke": ["auth", "feed", "chat", "official", "settings", "share-target", "docmentis"],
+    "authenticatedE2e": {
+      "status": "hold",
+      "reason": "no_safe_test_account; registration remains unavailable without bypass"
     }
   },
-  "wave2LocalGates": {
-    "androidImportsInCommonMain": {
-      "status": "passed",
-      "count": 0
-    },
-    "webWasmJsTest": {
-      "status": "passed",
-      "durationSeconds": 150.5
-    },
-    "neighborhoodsCompileTestKotlinWasmJs": {
-      "status": "passed",
-      "durationSeconds": 91.7
-    },
-    "chatCompileTestKotlinWasmJs": {
-      "status": "passed",
-      "durationSeconds": 103.7
-    },
-    "profileCompileKotlinWasmJs": {
-      "status": "passed",
-      "durationSeconds": 101.6,
-      "testStatus": "infrastructure_timeout_without_diagnostic"
-    },
-    "whatsnewCompileKotlinWasmJs": {
-      "status": "passed",
-      "durationSeconds": 101.2,
-      "testStatus": "infrastructure_timeout_without_diagnostic"
-    },
-    "externalshareCompileTestKotlinWasmJs": {
-      "status": "passed",
-      "durationSeconds": 176.1
-    },
-    "webWasmJsBrowserDistribution": {
-      "status": "passed",
-      "durationSeconds": 857.6,
-      "knownWarnings": 2
-    },
-    "webDocmentisSmoke": {
-      "status": "passed",
-      "durationSeconds": 29,
-      "kind": "smoke",
-      "routes": [
-        "auth",
-        "feed",
-        "chat",
-        "official",
-        "settings",
-        "share-target"
-      ],
-      "createdRemoteFixtures": false,
-      "residualFixtures": 0
-    },
-    "androidAssembleDebug": {
-      "status": "passed",
-      "durationSeconds": 638.5,
-      "apkBytes": 79029367,
-      "apkSha256": "3317E295A9BB14F38AF845EB52B30D225F2B21A62A439DA5AC90754A836B2979",
-      "inheritedVendorWarnings": 89
-    },
-    "androidStartupAB": {
-      "status": "no_differential_regression",
-      "kind": "smoke",
-      "wave1Seconds": 25.392,
-      "wave2Seconds": 21.159,
-      "areasChecked": 5,
-      "crashBufferClean": true,
-      "anrObserved": false,
-      "classification": "environment_both_slow"
+  "android": {
+    "status": "anonymous_functional_go_limited",
+    "compileAndInstallReplace": "passed",
+    "coldStartSeconds": 4.924,
+    "anonymousFeed": ["Pixel", "temporary AVD"],
+    "crashCount": 0,
+    "anrCount": 0,
+    "authenticatedMatrix": {
+      "status": "hold",
+      "reason": "reference AVD is anonymous and official registration is disabled"
     }
   },
-  "iosCi": {
-    "runId": 30210875187,
-    "url": "https://github.com/dossijeo/quata/actions/runs/30210875187",
-    "headSha": "9cc84dc2a77935ae2b84a7159e435c1ca6f8f220",
-    "statusAtDocumentationTime": "completed",
-    "conclusionAtDocumentationTime": "success",
-    "completedAtUtc": "2026-07-26T16:59:46Z",
-    "stepsPassed": [
-      "kotlin_native",
-      "framework_link",
-      "xcframework",
-      "xcode_swift_host_and_share_extension",
-      "simulator_xctest",
-      "unsigned_archive",
-      "artifact_upload"
-    ],
-    "kind": "compile_link_simulator_tests_unsigned_archive"
-  },
-  "e2eAndSecurity": {
-    "chatBrowser": {
-      "branchSha": "1d604ab3",
-      "preflight": "passed",
-      "uiStatus": "blocked_before_open_chat_a",
-      "blocker": "Compose canvas and shadow DOM expose no locatable textbox through DOM or accessibility tree, including forced accessibility",
-      "sendReplyLogoutAccredited": false,
-      "residualFixtures": 0
+  "ios": {
+    "status": "simulator_feed_go_limited",
+    "ci": {
+      "runId": 30413800836,
+      "jobId": 90455727104,
+      "headSha": "c87e82af615a1778092ec3b5ecfc70d1ecd485ea",
+      "conclusion": "success",
+      "checksPassed": 70,
+      "checksTotal": 70,
+      "scope": ["kotlin_native", "xcframework", "swift_host", "xctest", "unsigned_archive"]
     },
-    "rls001": {
-      "gate": "SB-07",
-      "status": "forward_deployed_hardened_sb07_mutating_remote_pending",
-      "clientMutationCapability": "blocked_fail_closed",
-      "forwardMigration": "20260726171005",
-      "serverMutationApplied": true,
-      "fullRemoteMutatingSb07Accredited": false
+    "intelCpuRaster": {
+      "anonymousFeed": ["iOS 18.3", "iOS 26.5"],
+      "httpsStatus": 200,
+      "crashCount": 0,
+      "relaunchStability": "hold_measurement_in_progress"
     },
-    "rls002": {
-      "gate": "SB-09",
-      "status": "confirmed_open",
-      "clientMutationCapability": "blocked_fail_closed",
-      "serverMutationApplied": false
+    "authenticatedVisualE2e": {
+      "status": "hold",
+      "reason": "TCC accessibility automation over SSH unavailable; chat only has contract evidence"
+    },
+    "distribution": {
+      "status": "hold",
+      "missing": ["signing", "profiles", "TestFlight", "APNs", "signed App Group", "physical-device validation"]
     }
   },
-  "explicitLimits": {
-    "webRegistration": "fail_closed_until_a_reviewed_backend_contract_and_e2e_exist",
-    "profileRemote": "conditional_on_authenticated_runtime_and_public_configuration",
-    "apns": "registration_plumbing_only_no_delivery_evidence",
-    "externalShare": "unsigned_ci_does_not_validate_signed_app_group_on_physical_device",
-    "localMac": "xcode_16_incompatible_with_current_kotlin_native_platform_libraries",
-    "jsIr": "removed_only_from_feature_whatsnew",
+  "toolchain": {
+    "approved": {"kotlin": "2.2.21", "compose": "1.10.0"},
+    "rejectedExperiment": {"kotlin": "2.3.20", "compose": "1.11.0", "reason": "iosX64 artifacts unavailable and CPU-raster Skiko compatibility unproven"},
+    "metalRelaxationBranch": "discarded; strict Metal CI test retained"
+  },
+  "security": {
+    "supabaseChangesInThisCut": false,
+    "rlsChangesInThisCut": false,
+    "ddlChangesInThisCut": false,
+    "functionChangesInThisCut": false,
+    "grantChangesInThisCut": false,
+    "existingFindingsClosed": false
+  },
+  "completion": {
     "migrationComplete": false,
     "webReady": false,
-    "iosReady": false
+    "webAnonymousReady": true,
+    "iosReady": false,
+    "iosAnonymousSimulatorFeedReady": true
   }
 }

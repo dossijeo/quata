@@ -1,5 +1,11 @@
 # Observabilidad del bundle Kotlin/Wasm
 
+## Estado acreditado en `c87e82af`
+
+El baseline está **aprobado** en Linux tras PR #97. La captura canónica del run `30410233909` produjo 14 assets, 37.164.471 bytes, 14.251.090 bytes gzip e inventario `adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827`. PR #93 integró el watchdog fail-closed; PR #94 endureció el gate de aprobación; PR #96 incorporó la captura canónica Linux. Los detalles históricos de propuesta que aparecen más abajo no sustituyen este estado.
+
+Linux es la única plataforma canónica. La compilación Windows del mismo corte es útil como diagnóstico, pero WASM y JS contienen diferencias dependientes de host; no se puede aprobar ni actualizar el baseline con ella. La observación Windows final fue 37.164.745 bytes / 14.251.181 gzip, dentro del margen aprobado respecto a Linux (+274 / +91), sin convertirla en fuente de verdad.
+
 `wasmJsBrowserDistribution` es el gate de produccion: termina en la cadena de
 Kotlin/Wasm, webpack y `wasm-opt`. No se considera Web verde hasta que exista el
 directorio de distribucion y pase el smoke del navegador. Esta guia separa una

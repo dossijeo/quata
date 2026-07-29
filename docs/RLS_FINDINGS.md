@@ -1,5 +1,9 @@
 # Hallazgos RLS pendientes
 
+## Nota de corte 2026-07-29
+
+Los PRs 93, 94, 96 y 97, las capturas de baseline Wasm y las validaciones Web/Android/iOS del corte `c87e82af` no modificaron Supabase: no hubo cambios de RLS, DDL, funciones, grants ni datos. Esta nota no cierra, rebaja ni autoriza el rollout de ninguno de los hallazgos siguientes. La Web publicada, Android publicado y el Feed anónimo continúan siendo restricciones de compatibilidad para cualquier corrección futura.
+
 ## community_profiles — evidencia de registro Web
 
 La auditoría read-only confirmó grants y policies amplias para `anon`, incluidos
