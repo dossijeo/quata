@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -34,6 +36,9 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.quata.core.model.Post
@@ -57,9 +62,18 @@ import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.CommunityEmojiPanelContent
+import com.quata.core.ui.components.communityEmojiSections
+import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
+import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.core.ui.components.insertAtSelection
+import androidx.compose.material.icons.filled.InsertEmoticon
+import androidx.compose.ui.graphics.Color
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.launch
-import kotlin.time.ExperimentalTime
 
 /** Text and native boundaries required by the common Feed product surface. */
 data class FeedScreenStrings(
@@ -89,6 +103,8 @@ data class FeedScreenStrings(
     val replyingTo: @Composable (String) -> String = { "Respondiendo a $it" }, val cancelReply: String = "Cancelar respuesta",
     val commentsTitle: String = "Comentarios", val commentsYou: String = "Tú", val moderationReport: String = "Reportar",
     val replyTo: (String) -> String = { "En respuesta a $it" },
+    val showEmojis: String = "Mostrar emojis",
+    val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
     val locationLabel: @Composable (String) -> String = { it },
 )
 
@@ -304,7 +320,6 @@ fun FeedScreenHost(
 }
 
 @Composable
-@OptIn(ExperimentalTime::class)
 private fun FeedCommentsDialog(
     slots: FeedScreenPlatformSlots,
     post: Post,
@@ -317,6 +332,18 @@ private fun FeedCommentsDialog(
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
+    var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val emojiDismissState = rememberCommunityEmojiPanelDismissState { isEmojiPickerVisible = false }
+    val emojiGridMaxHeight = if (WindowInsets.ime.getBottom(LocalDensity.current) > 0) 168.dp else 220.dp
+    fun setEmojiPickerVisible(visible: Boolean) {
+        isEmojiPickerVisible = visible
+        if (visible) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+        }
+    }
     var shouldScrollToCommentsEnd by remember(post.id) { mutableStateOf(true) }
     val commentsListState = rememberLazyListState()
     LaunchedEffect(post.id, post.comments.size, shouldScrollToCommentsEnd) {
@@ -327,15 +354,17 @@ private fun FeedCommentsDialog(
                 header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }) },
                 comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, formatCommentTimestamp(comment.timestamp), QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier.fillMaxWidth()) },
-            modifier = panelModifier,
+                emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth()) },
+            modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
             header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
             comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, formatCommentTimestamp(comment.timestamp), QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
-            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier) },
-            modifier = panelModifier,
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier) },
+            emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
+            modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         )
     }
 }

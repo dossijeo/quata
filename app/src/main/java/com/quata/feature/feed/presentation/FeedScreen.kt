@@ -65,6 +65,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import com.quata.core.ui.components.CommunityEmojiPanel
+import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -233,6 +234,13 @@ fun FeedScreen(
             commentsTitle = stringResource(R.string.comments_title), commentsYou = stringResource(R.string.comments_you), moderationReport = stringResource(R.string.moderation_report),
             reply = stringResource(R.string.comments_reply_button), replyingTo = { author -> stringResource(R.string.comments_replying_to, author) }, cancelReply = stringResource(R.string.comments_cancel_reply),
             commentPlaceholder = stringResource(R.string.comments_placeholder), send = stringResource(R.string.comments_send),
+            showEmojis = stringResource(R.string.comments_show_emojis),
+            emojiLabels = CommunityEmojiLabels(
+                recent = stringResource(R.string.emoji_recent), frequent = stringResource(R.string.emoji_frequent),
+                gestures = stringResource(R.string.emoji_gestures), people = stringResource(R.string.emoji_people),
+                animalsNature = stringResource(R.string.emoji_animals_nature), foodDrink = stringResource(R.string.emoji_food_drink),
+                objectsSymbols = stringResource(R.string.emoji_objects_symbols), flags = stringResource(R.string.emoji_flags),
+            ),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
