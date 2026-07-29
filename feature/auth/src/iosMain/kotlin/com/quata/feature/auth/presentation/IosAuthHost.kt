@@ -2,8 +2,11 @@ package com.quata.feature.auth.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.model.AuthSession
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
+import com.quata.feature.auth.domain.PasswordRecoveryQuestion
+import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.auth.presentation.register.RegisterFormStrings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +68,35 @@ class IosAuthLogoutHandler(repository: AuthRepository) {
 /** Stable Swift-facing factory without exposing a suspend function across the UIKit boundary. */
 fun createIosAuthLogoutHandler(repository: AuthRepository): IosAuthLogoutHandler =
     IosAuthLogoutHandler(repository)
+
+/**
+ * Hermetic XCTest-only Auth surface.
+ *
+ * Swift reaches this factory exclusively through the exact `-quata-ui-test-fixture auth`
+ * launch argument. It exercises the production Compose Auth host and its UIKit input bridge,
+ * but the repository rejects every operation locally and never reads runtime configuration,
+ * Keychain, network, or credentials.
+ */
+fun QuataIosAuthUiTestFixtureViewController(): UIViewController = QuataAuthViewController(
+    dependencies = IosAuthHostDependencies(
+        repository = IosAuthUiTestFixtureRepository,
+        locale = AuthCatalogLocale.English,
+        registrationEnabled = false,
+        onLoginSuccess = {},
+    ),
+)
+
+private object IosAuthUiTestFixtureRepository : AuthRepository {
+    override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = fixtureFailure()
+    override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = fixtureFailure()
+    override suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?> = fixtureFailure()
+    override suspend fun resetPassword(countryCode: String, phone: String, secretAnswer: String, newPassword: String) = fixtureFailure<Unit>()
+    override suspend fun deactivateAccount(password: String) = fixtureFailure<Unit>()
+    override suspend fun deleteAccountData(password: String) = fixtureFailure<Unit>()
+    override suspend fun logout() = Unit
+}
+
+private fun <T> fixtureFailure(): Result<T> = Result.failure(IllegalStateException("ios_auth_ui_test_fixture"))
 
 /** Stable Swift-exported UIViewController factory backed by common Auth ViewModels and Compose. */
 fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {

@@ -40,9 +40,21 @@ test('the iOS Auth host exposes focus-capable native inputs without replacing sh
   assert.match(textField, /inputOverlay/);
   assert.match(textField, /clearAndSetSemantics/);
   const uiTests = await source('iosApp/iosAppUITests/QuataIosHostUITests.swift');
+  const swiftHost = await source('iosApp/iosApp/QuataIosApp.swift');
+  const authHost = await source('feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt');
   assert.match(uiTests, /testNativeAuthInputsExposeOneFocusableAccessibilityElementEach/);
+  assert.match(uiTests, /app\.launchArguments\s*=\s*\["-quata-ui-test-fixture", "auth"\]/);
   assert.match(uiTests, /textFields\["auth\.phone\.input"\]/);
   assert.match(uiTests, /secureTextFields\["auth\.password\.input"\]/);
+  assert.match(uiTests, /submit\.tap\(\)/);
   assert.match(uiTests, /attachRenderedSurface\(named: "native-auth-input-focus"\)/);
+  assert.match(swiftHost, /case "auth":\s*\/\/ This is intentionally an exact XCTest launch-argument fixture[\s\S]*?QuataIosAuthUiTestFixtureViewController/);
+  assert.match(authHost, /fun QuataIosAuthUiTestFixtureViewController\(\): UIViewController = QuataAuthViewController/);
+  assert.match(authHost, /private object IosAuthUiTestFixtureRepository : AuthRepository/);
+  const fixtureRegion = authHost.slice(
+    authHost.indexOf('fun QuataIosAuthUiTestFixtureViewController'),
+    authHost.indexOf('/** Stable Swift-exported UIViewController factory'),
+  );
+  assert.doesNotMatch(fixtureRegion, /SUPABASE|URLSession|quata-auth-bridge|Keychain/);
   assert.doesNotMatch(bridge, /quata-auth-bridge|SUPABASE|password\s*=\s*"|21085800/i);
 });

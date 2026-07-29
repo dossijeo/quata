@@ -269,6 +269,11 @@ private final class IosAppCompositionRoot {
 
         let fixtureRoot = UIViewController()
         switch arguments[fixtureIndex + 1] {
+        case "auth":
+            // This is intentionally an exact XCTest launch-argument fixture. The Kotlin factory
+            // renders the real shared Auth host with a hermetic repository; it cannot read
+            // runtime configuration, Keychain, a user session, network or credentials.
+            return IosAuthHostKt.QuataIosAuthUiTestFixtureViewController()
         case "anonymous":
             fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
             fixtureRoot.view.accessibilityLabel = "Quata iOS anonymous fixture"

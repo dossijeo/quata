@@ -40,12 +40,8 @@ final class QuataIosHostUITests: XCTestCase {
 
     func testNativeAuthInputsExposeOneFocusableAccessibilityElementEach() {
         let app = XCUIApplication()
+        app.launchArguments = ["-quata-ui-test-fixture", "auth"]
         app.launch()
-
-        let conversations = app.buttons["Conversaciones"]
-        XCTAssertTrue(conversations.waitForExistence(timeout: 15))
-        XCTAssertTrue(conversations.isHittable)
-        conversations.tap()
 
         let phone = app.textFields["auth.phone.input"]
         let password = app.secureTextFields["auth.password.input"]
@@ -61,6 +57,7 @@ final class QuataIosHostUITests: XCTestCase {
         phone.tap()
         phone.typeText("5550101")
         XCTAssertTrue(phone.hasFocus)
+        XCTAssertEqual(phone.value as? String, "5550101")
         password.tap()
         password.typeText("FixtureOnly1")
         XCTAssertTrue(password.hasFocus)
@@ -71,6 +68,7 @@ final class QuataIosHostUITests: XCTestCase {
         let submit = app.buttons["auth.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 10))
         XCTAssertTrue(submit.isHittable)
+        submit.tap()
         QuataIosHostUITestSupport.attachRenderedSurface(named: "native-auth-input-focus")
     }
 
