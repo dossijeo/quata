@@ -31,7 +31,7 @@ La captura canónica Linux del run [`30410233909`](https://github.com/dossijeo/q
 | Carril | Resultado | Límite |
 | --- | --- | --- |
 | GitHub Actions | GO limitado | Run [`30413800836`](https://github.com/dossijeo/quata/actions/runs/30413800836), job `90455727104`, SHA exacto `c87e82af`: 70/70, Kotlin/Native, framework/XCFramework, host Swift, XCTest, archive y artefactos. |
-| Simulador Intel CPU raster | GO suplementario | Feed anónimo real en iOS 18.3 e iOS 26.5, respuestas HTTPS 200 y 0 crash. La estabilidad de relaunch iOS 26.5 queda HOLD: captura casi negra a 8 s y Feed a 28 s; medición en curso. |
+| Simulador Intel CPU raster | GO funcional suplementario | Feed anónimo real en iOS 18.3 e iOS 26.5, HTTPS 200 y 0 crash/fatal/configuración. Rerun iOS 26.5: un cold y dos warm; t0 mostró transición negra/SpringBoard, primer Feed a 8 s/8 s/6 s y estable después. Son cotas superiores de captura en CPU-raster, no SLA ni performance de producto. |
 | Chat/login visual real | HOLD | El contrato de rutas pasa, pero TCC/AX a través de SSH impide automatizar la interacción visual. No se afirma autenticación. |
 | Signing/distribución | HOLD | Sin Team, perfiles, IPA, TestFlight, APNs, App Group firmado ni dispositivo físico. |
 

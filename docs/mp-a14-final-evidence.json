@@ -87,7 +87,18 @@
       "anonymousFeed": ["iOS 18.3", "iOS 26.5"],
       "httpsStatus": 200,
       "crashCount": 0,
-      "relaunchStability": "hold_measurement_in_progress"
+      "relaunchStability": "functional_go_limited_cpu_raster_capture_upper_bounds",
+      "relaunchRuns": {
+        "cold": 1,
+        "warm": 2,
+        "firstFeedUpperBoundSeconds": [8, 8, 6],
+        "stableAfterFirstFeed": true,
+        "httpStatus": 200,
+        "crashCount": 0,
+        "fatalCount": 0,
+        "configurationErrorCount": 0,
+        "performanceClaim": "not_a_product_SLO"
+      }
     },
     "authenticatedVisualE2e": {
       "status": "hold",

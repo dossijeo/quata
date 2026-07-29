@@ -10,7 +10,7 @@
 | Presupuesto Wasm | Integrado | Gate fail-closed, baseline aprobado Linux y captura canónica reproducible. | Windows es diagnóstico: el artefacto es host-dependiente. |
 | Android | GO limitado | Build, `install -r`, arranque frío 4,924 s, Feed anónimo en Pixel y AVD temporal, 0 crash/ANR. | Matriz autenticada no ejecutada: el AVD de referencia quedó anónimo y el registro oficial está deshabilitado. |
 | iOS CI | GO limitado | Run exacto `30413800836`, job `90455727104`, 70/70; Kotlin/Native, XCFramework, host, XCTest y archive sin firma. | No firma, IPA, TestFlight, APNs ni dispositivo físico. |
-| iOS simulador Intel | GO limitado suplementario | CPU raster y Feed anónimo HTTPS 200 en iOS 18.3 e iOS 26.5, 0 crash. | Chat/login sólo contrato; no hay E2E visual por TCC/AX SSH. El relaunch iOS 26.5 sigue en HOLD de medición: casi negro a 8 s y Feed a 28 s. |
+| iOS simulador Intel | GO funcional suplementario | CPU raster y Feed anónimo HTTPS 200 en iOS 18.3 e iOS 26.5, 0 crash/fatal/configuración. Rerun iOS 26.5: un cold y dos warm llegan al primer Feed a 8 s/8 s/6 s y permanecen estables. | Carril Intel/CPU-raster: cotas superiores de captura, no SLA ni performance de producto. Chat/login sólo contrato; no hay E2E visual por TCC/AX SSH. |
 | RLS/DB | Sin cambios | PRs 93–97 y estas validaciones no cambiaron RLS, DDL, funciones ni grants. | Hallazgos existentes siguen abiertos y no se cierran aquí. |
 
 ## Integraciones recientes
@@ -25,11 +25,10 @@
 ## Próxima cola
 
 1. Habilitar cuenta aislada y contrato seguro para E2E Web/Android/iOS, sin cambiar las políticas actuales ni automatizar un bypass de Turnstile.
-2. Medir y resolver, si procede, la estabilidad de relaunch iOS 26.5.
-3. Desbloquear TCC/AX de la VM y repetir la matriz visual autenticada iOS.
-4. Preparar signing y prueba física iOS como carril separado de CI sin firma.
-5. Definir SLO Web reproducible y completar la revisión de producción DocMentis.
-6. Tratar RLS-001..005 en releases compatibles independientes; las mutaciones afectadas permanecen fail-closed.
+2. Desbloquear TCC/AX de la VM y repetir la matriz visual autenticada iOS.
+3. Preparar signing y prueba física iOS como carril separado de CI sin firma.
+4. Definir SLO Web reproducible y completar la revisión de producción DocMentis.
+5. Tratar RLS-001..005 en releases compatibles independientes; las mutaciones afectadas permanecen fail-closed.
 
 ## Decisiones técnicas vigentes
 

@@ -21,7 +21,7 @@ Este backlog distingue una capacidad integrada de una capacidad acreditada en un
 | WEB-BUNDLE-APPROVAL-001 | Integrado | PR [#97](https://github.com/dossijeo/quata/pull/97), merge `c87e82af`; baseline Linux aprobado y gate verde. |
 | VAL-WEB-C87 | GO limitado | Distribución observada, 3 perfiles Chrome fríos, DocMentis, Share Target y rutas herméticas pasan; falta E2E autenticado real. |
 | VAL-ANDROID-C87 | GO limitado | Compilación, instalación, arranque frío, Feed anónimo en Pixel y AVD temporal, sin crash/ANR; falta matriz autenticada. |
-| VAL-IOS-C87 | GO limitado | CI exacta y Feed anónimo real en dos simuladores; faltan autenticación visual/E2E, firma y dispositivo físico. |
+| VAL-IOS-C87 | GO funcional limitado | CI exacta y Feed anónimo real en dos simuladores. En iOS 26.5, un cold y dos warm alcanzaron Feed a 8 s/8 s/6 s y se estabilizaron; es evidencia de funcionalidad CPU-raster, no SLA. Faltan autenticación visual/E2E, firma y dispositivo físico. |
 
 ## Prioridad inmediata
 

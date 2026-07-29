@@ -23,9 +23,7 @@ La CI continúa siendo el carril oficial Apple Silicon. El Mac Intel usa `iosX64
 
 ## Simulador Intel suplementario
 
-Con el raster CPU disponible, el Feed anónimo se mostró y leyó contra HTTPS con respuesta 200 en iOS 18.3 y iOS 26.5, sin crash observado. Este resultado descarta la pantalla negra previa como evidencia actual de rendering, pero no convierte el carril en una prueba de autenticación: Chat/login sólo se validó por contrato y el control visual remoto permanece bloqueado por TCC/AX sobre SSH.
-
-La estabilidad de relaunch en iOS 26.5 permanece en **HOLD**: una captura a 8 s fue casi negra y a 28 s ya mostraba Feed. Hay repetición y medición en curso; no se declara cierre ni estabilidad de relaunch con esta evidencia.
+Con el raster CPU disponible, el Feed anónimo se mostró y leyó contra HTTPS con respuesta 200 en iOS 18.3 y iOS 26.5, sin crash, fatal ni error de configuración observado. El rerun iOS 26.5 (un arranque frío y dos warm) mostró la transición negra/SpringBoard en t0 y el primer Feed real a los 8 s, 8 s y 6 s; se mantuvo estable después y no se reprodujo el dato previo de 28 s. Estas son cotas superiores de captura en una VM Intel con CPU-raster, no un SLA ni una medida de rendimiento de producto. Este resultado descarta la pantalla negra previa como evidencia actual de rendering, pero no convierte el carril en una prueba de autenticación: Chat/login sólo se validó por contrato y el control visual remoto permanece bloqueado por TCC/AX sobre SSH.
 
 ## Operación
 
@@ -39,7 +37,6 @@ El script despacha el workflow, espera su conclusión y descarga el artefacto en
 
 ## Próximos gates
 
-1. Medir y corregir, si procede, la estabilidad de relaunch iOS 26.5.
-2. Resolver TCC/AX de la VM y ejecutar rutas visuales autenticadas con cuenta aislada autorizada.
-3. Configurar signing, Team, perfiles y App Group en una fase separada.
-4. Validar APNs, Share Extension y permisos en un dispositivo físico firmado.
+1. Resolver TCC/AX de la VM y ejecutar rutas visuales autenticadas con cuenta aislada autorizada.
+2. Configurar signing, Team, perfiles y App Group en una fase separada.
+3. Validar APNs, Share Extension y permisos en un dispositivo físico firmado.
