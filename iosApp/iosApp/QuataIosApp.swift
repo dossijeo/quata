@@ -553,7 +553,7 @@ private final class IosAppCompositionRoot {
     }
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
-    private func presentAuthenticatedMemberProfile(profileId: String) {
+    fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
         guard let profileSosRuntimeBootstrap else { return }
         let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
             profileId: profileId,
