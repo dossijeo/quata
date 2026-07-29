@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, '..');
 const matrixPath = resolve(root, 'capabilities/platform-capability-matrix.json');
 const states = ['implemented', 'read-only', 'contract-only', 'blocked', 'external'];
 const platforms = ['android', 'web', 'ios'];
-const proofForState = {
+const decisiveRoleForState = {
   implemented: 'implementation',
   'read-only': 'read-only-adapter',
   'contract-only': 'contract-boundary',
@@ -29,15 +29,19 @@ const catalog = {
   'official.mutate': ['mutation', ['createPost', 'createPosts', 'deletePost', 'toggleLike', 'addComment'], ['implemented', 'blocked', 'blocked']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'read-only', 'read-only']],
   'communities.mutate': ['mutation', ['toggleFollowUser', 'reportPost', 'setUserRoles'], ['implemented', 'blocked', 'blocked']],
-  'community-chat.open': ['flow', ['openNeighborhoodChat', 'openPrivateChat'], ['implemented', 'blocked', 'implemented']],
+  'community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'blocked', 'blocked']],
+  'private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'blocked', 'implemented']],
   'composer.publish': ['mutation', ['createPost'], ['implemented', 'contract-only', 'blocked']],
-  'profile.remote-mutate': ['mutation', ['saveProfile'], ['implemented', 'contract-only', 'blocked']],
+  'profile.remote-mutate': ['mutation', ['saveProfile', 'saveEmergencySettings'], ['implemented', 'contract-only', 'blocked']],
   'profile.avatar-upload': ['mutation', ['uploadIfNeeded'], ['implemented', 'blocked', 'blocked']],
   'push.delivery': ['flow', ['receiveExternalPush'], ['external', 'external', 'external']],
 };
 
 function fail(message) { throw new Error(`CAPABILITY-DRIFT-001: ${message}`); }
 function same(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
+function exactKeys(value, keys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !same(Object.keys(value).sort(), [...keys].sort())) fail(`${label}: object keys must be exactly ${keys.join(',')}`);
+}
 function inside(base, candidate) {
   const rel = relative(base, candidate);
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..');
@@ -66,25 +70,37 @@ async function verifiedFile(repoPath, expectedHash, io) {
 
 export async function validateCapabilityMatrix(matrix, overrides = {}) {
   const io = { readFile, lstat, realpath, ...overrides };
+  exactKeys(matrix, ['schemaVersion', 'states', 'stateSemantics', 'capabilities'], 'root');
   if (!matrix || matrix.schemaVersion !== 2 || !Array.isArray(matrix.capabilities)) fail('unsupported or missing schemaVersion/capabilities');
   if (!same(matrix.states, states)) fail('states must be the canonical ordered allowlist');
+  exactKeys(matrix.stateSemantics, states, 'stateSemantics');
   if (!same(matrix.stateSemantics, stateSemantics)) fail('state semantics must be explicit and canonical');
   const ids = matrix.capabilities.map(({ id }) => id);
   if (!same(ids, Object.keys(catalog))) fail('capability catalogue is incomplete, reordered, duplicated, or contains an unknown ID');
   for (const capability of matrix.capabilities) {
+    exactKeys(capability, ['id', 'kind', 'operations', 'contract', 'platforms'], `capability ${capability?.id}`);
     const [kind, operations, expectedStates] = catalog[capability.id];
     if (capability.kind !== kind || !same(capability.operations, operations)) fail(`${capability.id}: operation catalogue drift`);
     if (capability.contract === null) {
       if (capability.id !== 'push.delivery') fail(`${capability.id}: only external push may omit a Kotlin contract`);
     } else {
+      exactKeys(capability.contract, ['path', 'sha256'], `${capability.id}/contract`);
       await verifiedFile(capability.contract?.path, capability.contract?.sha256, io);
     }
+    exactKeys(capability.platforms, platforms, `${capability.id}/platforms`);
     for (const [index, platform] of platforms.entries()) {
       const declaration = capability.platforms?.[platform];
+      exactKeys(declaration, ['state', 'evidence'], `${capability.id}/${platform}`);
       const expectedState = expectedStates[index];
       if (!declaration || declaration.state !== expectedState) fail(`${capability.id}/${platform}: expected ${expectedState}, got ${declaration?.state}`);
-      if (declaration.proof !== proofForState[declaration.state]) fail(`${capability.id}/${platform}: proof does not match state semantics`);
-      await verifiedFile(declaration.evidence?.path, declaration.evidence?.sha256, io);
+      if (!Array.isArray(declaration.evidence) || declaration.evidence.length < (declaration.state === 'external' ? 1 : 2)) fail(`${capability.id}/${platform}: evidence must cover composition and decisive behavior`);
+      const decisiveRole = decisiveRoleForState[declaration.state];
+      if (!declaration.evidence.some(({ role }) => role === decisiveRole)) fail(`${capability.id}/${platform}: evidence lacks decisive ${decisiveRole} behavior`);
+      for (const [evidenceIndex, evidence] of declaration.evidence.entries()) {
+        exactKeys(evidence, ['path', 'sha256', 'role'], `${capability.id}/${platform}/evidence[${evidenceIndex}]`);
+        if (!['composition', ...Object.values(decisiveRoleForState)].includes(evidence.role)) fail(`${capability.id}/${platform}: unknown evidence role ${evidence.role}`);
+        await verifiedFile(evidence.path, evidence.sha256, io);
+      }
     }
   }
   return matrix.capabilities.map(({ id, kind, operations, platforms: declarations }) => ({

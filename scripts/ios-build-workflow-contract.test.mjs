@@ -37,10 +37,9 @@ function assertIosWorkflowSelfCoverage(yaml) {
     assert.match(trigger, /- "scripts\/capability-matrix-contract\.test\.mjs"/);
     assert.match(trigger, /- "scripts\/capability-matrix-contract\.mjs"/);
     assert.match(trigger, /- "capabilities\/platform-capability-matrix\.json"/);
-    assert.match(trigger, /- "app\/\*\*"/);
-    assert.match(trigger, /- "package\.json"/);
-    assert.match(trigger, /- "package-lock\.json"/);
     assert.match(trigger, /- "scripts\/check-ios-release-readiness\.sh"/);
+    assert.doesNotMatch(trigger, /- "(?:app|web)\/\*\*"/);
+    assert.doesNotMatch(trigger, /- "package(?:-lock)?\.json"/);
   }
 
   const checkout = yaml.indexOf('      - name: Check out source');
@@ -156,8 +155,8 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
     ['capability matrix trigger removed', yaml.replace(capabilityContractPath, '')],
     ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
-    ['Android evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
-    ['package trigger removed', yaml.replace('      - "package.json"\n', '')],
+    ['Android-only trigger added', yaml.replace('      - "core/**"', '      - "app/**"\n      - "core/**"')],
+    ['package-only trigger added', yaml.replace('      - "core/**"', '      - "package.json"\n      - "core/**"')],
     [
       'contract command weakened',
       yaml.replace(

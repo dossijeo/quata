@@ -9,23 +9,28 @@ const matrix = () => readFile(matrixPath, 'utf8').then(JSON.parse);
 
 test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Android catalogue', async () => {
   const emitted = await loadAndValidateCapabilityMatrix();
-  assert.equal(emitted.length, 11);
+  assert.equal(emitted.length, 12);
   assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'read-only' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
   assert.deepEqual(emitted.find(({ id }) => id === 'composer.publish').platforms, { android: 'implemented', web: 'contract-only', ios: 'blocked' });
 });
 
-test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, proof and source drift', async () => {
+test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, schema and source drift', async () => {
   const original = await matrix();
   const cases = [
     ['one-ID matrix', (value) => { value.capabilities = value.capabilities.slice(0, 1); }],
     ['unknown ID', (value) => { value.capabilities[0].id = 'unknown.flow'; }],
     ['missing operation', (value) => { value.capabilities[1].operations.pop(); }],
-    ['implemented Web mutation with dead blocker source intact', (value) => { value.capabilities[1].platforms.web.state = 'implemented'; value.capabilities[1].platforms.web.proof = 'implementation'; }],
-    ['proof incompatible with blocked state', (value) => { value.capabilities[1].platforms.web.proof = 'implementation'; }],
-    ['source hash replaced', (value) => { value.capabilities[1].platforms.web.evidence.sha256 = '0'.repeat(64); }],
-    ['path traversal', (value) => { value.capabilities[1].platforms.web.evidence.path = '../outside.kt'; }],
+    ['implemented Web mutation with dead blocker source intact', (value) => { value.capabilities[1].platforms.web.state = 'implemented'; value.capabilities[1].platforms.web.evidence[1].role = 'implementation'; }],
+    ['evidence role incompatible with blocked state', (value) => { value.capabilities[1].platforms.web.evidence[1].role = 'implementation'; }],
+    ['source hash replaced', (value) => { value.capabilities[1].platforms.web.evidence[1].sha256 = '0'.repeat(64); }],
+    ['path traversal', (value) => { value.capabilities[1].platforms.web.evidence[1].path = '../outside.kt'; }],
+    ['root marker', (value) => { value.generated = true; }],
+    ['available marker', (value) => { value.capabilities[1].platforms.web.available = true; }],
+    ['desktop platform', (value) => { value.capabilities[1].platforms.desktop = structuredClone(value.capabilities[1].platforms.web); }],
+    ['unknown evidence property', (value) => { value.capabilities[1].platforms.web.evidence[0].note = 'trusted'; }],
   ];
   for (const [name, mutate] of cases) await test(name, async () => {
     const candidate = structuredClone(original);
@@ -34,20 +39,22 @@ test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, proof and source d
   });
 });
 
-test('source changes cannot land without a reviewed matrix hash update', async () => {
+test('decisive source changes cannot land without a reviewed matrix hash update', async () => {
   const original = await matrix();
-  let changed = false;
-  await assert.rejects(() => validateCapabilityMatrix(original, {
-    readFile: async (path) => {
-      const bytes = await readFile(path);
-      if (!changed && String(path).endsWith('FeedRepository.kt')) {
-        changed = true;
-        return Buffer.concat([bytes, Buffer.from('\n// simulated source drift\n')]);
-      }
-      return bytes;
-    },
-  }), /source drift/);
-  assert.equal(changed, true);
+  for (const decisiveSource of ['FeedRemoteDataSource.kt', 'PostgrestChatRepository.kt', 'PostComposerRepositoryImpl.kt']) {
+    let changed = false;
+    await assert.rejects(() => validateCapabilityMatrix(original, {
+      readFile: async (path) => {
+        const bytes = await readFile(path);
+        if (!changed && String(path).endsWith(decisiveSource)) {
+          changed = true;
+          return Buffer.concat([bytes, Buffer.from('\n// simulated decisive source drift\n')]);
+        }
+        return bytes;
+      },
+    }), /source drift/);
+    assert.equal(changed, true, `${decisiveSource} must be exercised by evidence validation`);
+  }
 });
 
 test('evidence paths reject symlinks and canonical paths outside the repository', async () => {
