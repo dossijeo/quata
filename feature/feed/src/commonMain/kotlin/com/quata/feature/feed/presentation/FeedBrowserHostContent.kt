@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.feature.feed.domain.FeedRepository
@@ -177,13 +178,27 @@ fun FeedBrowserPostContent(
 @Composable
 internal fun FeedBrowserMediaUnavailableContent(post: Post, strings: FeedBrowserHostStrings) {
     if (post.imageUrl != null || post.videoUrl != null) {
-        Text(
-            text = strings.mediaUnavailable,
-            style = MaterialTheme.typography.bodySmall,
+        FeedMediaUnavailablePlaceholderContent(
+            message = strings.mediaUnavailable,
             modifier = Modifier.padding(16.dp),
         )
     }
 }
+
+@Composable
+fun FeedMediaUnavailablePlaceholderContent(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = message,
+        style = feedMediaUnavailableTextStyle(MaterialTheme.typography.bodySmall),
+        modifier = modifier,
+    )
+}
+
+internal fun feedMediaUnavailableTextStyle(base: TextStyle): TextStyle =
+    base.copy(color = FeedMediaUnavailableContentColor)
 
 @Composable
 private fun FeedBrowserEmptyContent(message: String) {

@@ -8,10 +8,25 @@ import { join, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const script = readFileSync(resolve(root, 'scripts/run-ios-public-simulator-matrix.sh'), 'utf8');
 const classifier = readFileSync(resolve(root, 'scripts/ios-public-screenshot-classifier.swift'), 'utf8');
+const classifierFixtures = readFileSync(resolve(root, 'scripts/ios-public-screenshot-classifier-fixtures.swift'), 'utf8');
+const classifierFixtureTest = readFileSync(resolve(root, 'scripts/test-ios-public-screenshot-classifier.sh'), 'utf8');
+const iosWorkflow = readFileSync(resolve(root, '.github/workflows/ios-build.yml'), 'utf8');
+const feedHost = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedBrowserHostContent.kt'), 'utf8');
+const feedCard = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedPostPreviewCardContent.kt'), 'utf8');
+const feedContrastTest = readFileSync(resolve(root, 'feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedMediaPlaceholderContrastTest.kt'), 'utf8');
+const webFeedMedia = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt'), 'utf8');
 const parser = resolve(root, 'scripts/ios-public-client-config.py');
 const logEvidence = resolve(root, 'scripts/ios-public-log-evidence.py');
 const backupLibrary = readFileSync(resolve(root, 'scripts/ios-public-runtime-config-backup.sh'), 'utf8');
 const python = process.platform === 'win32' ? 'python' : 'python3';
+
+function assertClassifierFixtureRunner(source) {
+  assert.match(source, /command -v python3 >\/dev\/null 2>&1/);
+  assert.match(source, /python3 - "\$result" "\$fixture" "\$expected"/);
+  assert.match(source, /marker_found = "contenido multimedia" in result\["markersFound"\]/);
+  assert.match(source, /1\.0 < ratio < 4\.5/);
+  assert.doesNotMatch(source, /\bnode\b/);
+}
 
 test('matrix owns one global atomic lock and cleans only its owned resources', () => {
   assert.match(script, /lock_dir="\$\{TMPDIR:-\/tmp\}\/quata-ios-public-simulator-matrix\.lock"/);
@@ -90,17 +105,76 @@ test('runtime config backup is always private and restores the original mode', (
   assert.match(script, /quata_backup_runtime_config "\$runtime_config" "\$backup_config"/);
 });
 
-test('Vision classifier requires all Feed markers plus dimensions and luminance for pass', () => {
-  for (const marker of ['explora quata', 'actualizar', 'conversaciones']) {
+test('Vision classifier requires all Feed markers plus dimensions, luminance and visible media copy for pass', () => {
+  for (const marker of ['explora quata', 'actualizar', 'conversaciones', 'contenido multimedia']) {
     assert.match(classifier, new RegExp(marker));
   }
   assert.match(classifier, /width >= 750 && height >= 1300/);
   assert.match(classifier, /meanLuminance >= 0\.08/);
   assert.match(classifier, /brightPixelFraction >= 0\.12/);
+  assert.equal(classifier.match(/1\.0 - normalizedRect\.maxY/g)?.length, 1);
+  assert.doesNotMatch(classifier, /verticallyFlipped|brightFraction/);
+  assert.match(classifier, /mediaTextContrastRatio >= 4\.5/);
+  assert.match(classifier, /return \(lighter \+ 0\.05\) \/ \(darker \+ 0\.05\)/);
+  assert.match(classifier, /mediaTextContrastValid && markersFound\.count == markers\.count/);
   assert.match(classifier, /markersFound\.count == markers\.count/);
   assert.match(script, /for attempt in 1 2 3/);
   assert.match(script, /"overall":"%s"/);
   assert.match(script, /exit 3/);
+});
+
+test('classifier fixtures exercise real AA contrast and adversarial coordinate cases', () => {
+  for (const fixture of [
+    'pass-white-on-black',
+    'fail-light-on-light',
+    'fail-dark-on-dark',
+    'fail-mirrored-bright-region',
+    'fail-marker-absent',
+  ]) {
+    assert.match(classifierFixtures + classifierFixtureTest, new RegExp(fixture));
+  }
+  assert.match(classifierFixtureTest, /swiftc scripts\/ios-public-screenshot-classifier\.swift/);
+  assert.match(classifierFixtureTest, /pass-white-on-black pass present aa/);
+  assert.match(classifierFixtureTest, /fail-light-on-light fail present below-aa/);
+  assert.match(classifierFixtureTest, /fail-dark-on-dark fail present below-aa/);
+  assert.match(classifierFixtureTest, /fail-mirrored-bright-region fail present below-aa/);
+  assert.match(classifierFixtureTest, /fail-marker-absent fail absent none/);
+  assert.match(classifierFixtureTest, /"contenido multimedia" in result\["markersFound"\]/);
+  assert.match(classifierFixtureTest, /1\.0 < ratio < 4\.5/);
+  assert.match(classifierFixtureTest, /ratio == 0\.0/);
+  assert.match(classifierFixtures, /textRect = NSRect\(x: 65, y: 450/);
+  assert.match(classifierFixtures, /y: canvasSize\.height - textRect\.maxY/);
+  assert.match(iosWorkflow, /- "scripts\/ios-public-screenshot-classifier-fixtures\.swift"/);
+  assert.match(iosWorkflow, /- "scripts\/test-ios-public-screenshot-classifier\.sh"/);
+  assert.match(iosWorkflow, /run: bash scripts\/test-ios-public-screenshot-classifier\.sh/);
+  assertClassifierFixtureRunner(classifierFixtureTest);
+});
+
+test('classifier fixture runner fails closed without Python and never regresses to Node', () => {
+  assert.throws(() => assertClassifierFixtureRunner(
+    classifierFixtureTest.replace(
+      'if ! command -v python3 >/dev/null 2>&1; then',
+      'if false; then',
+    ),
+  ));
+  assert.throws(() => assertClassifierFixtureRunner(
+    classifierFixtureTest.replace(
+      'python3 - "$result" "$fixture" "$expected"',
+      'node - "$result" "$fixture" "$expected"',
+    ),
+  ));
+});
+
+test('Feed placeholder contrast test exercises the exact style and background used by the composable', () => {
+  assert.match(feedHost, /fun FeedMediaUnavailablePlaceholderContent\(/);
+  assert.match(feedHost, /style = feedMediaUnavailableTextStyle\(MaterialTheme\.typography\.bodySmall\)/);
+  assert.match(feedHost, /base\.copy\(color = FeedMediaUnavailableContentColor\)/);
+  assert.match(feedCard, /\.background\(FeedMediaBackgroundColor\)/);
+  assert.match(feedContrastTest, /feedMediaUnavailableTextStyle\(TextStyle\.Default\)/);
+  assert.match(feedContrastTest, /background = FeedMediaBackgroundColor/);
+  assert.match(feedContrastTest, /contrast >= 4\.5/);
+  assert.match(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
+  assert.doesNotMatch(webFeedMedia, /MaterialTheme\.typography\.bodySmall/);
 });
 
 function runParser(source, expectSuccess) {

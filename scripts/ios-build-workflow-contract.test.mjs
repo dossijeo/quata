@@ -36,6 +36,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
     'scripts/ios-public-log-evidence.py',
     'scripts/ios-public-runtime-config-backup.sh',
     'scripts/ios-public-screenshot-classifier.swift',
+    'scripts/ios-public-screenshot-classifier-fixtures.swift',
+    'scripts/test-ios-public-screenshot-classifier.sh',
     'scripts/ios-public-simulator-matrix-contract.test.mjs',
     'scripts/run-ios-public-simulator-matrix.sh',
     'scripts/test-ios-public-runtime-config-backup.sh',

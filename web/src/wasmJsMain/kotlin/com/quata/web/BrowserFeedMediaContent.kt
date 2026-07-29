@@ -2,14 +2,13 @@ package com.quata.web
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.WebElementView
 import com.quata.core.model.Post
+import com.quata.feature.feed.presentation.FeedMediaUnavailablePlaceholderContent
 import kotlinx.browser.document
 import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLVideoElement
@@ -49,9 +48,8 @@ fun BrowserFeedMediaContent(post: Post, unavailableMessage: String) {
             update = { element -> element.src = imageUrl },
             modifier = Modifier.fillMaxWidth().height(360.dp),
         )
-        post.imageUrl != null || post.videoUrl != null -> Text(
-            text = unavailableMessage,
-            style = MaterialTheme.typography.bodySmall,
+        post.imageUrl != null || post.videoUrl != null -> FeedMediaUnavailablePlaceholderContent(
+            message = unavailableMessage,
             modifier = Modifier.fillMaxWidth(),
         )
     }
