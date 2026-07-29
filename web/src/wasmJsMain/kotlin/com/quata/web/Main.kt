@@ -444,9 +444,8 @@ private fun QuataWebApp(
             } else {
             WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
                 WebLoginHost(
-                    platformServices = platformServices,
-                    runtimeConfiguration = runtimeConfiguration,
                     repository = authRepository,
+                    preferences = platformServices.preferences,
                     onLoginSuccess = {
                         isSessionReady = true
                         currentUserId = authRepository.activeProfileSessionOrNull()?.userId
