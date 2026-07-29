@@ -367,7 +367,7 @@ private final class IosAppCompositionRoot {
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.publicDependencies(
                     mediaFactory: IosFeedNativeMediaFactory.shared,
-                    shareService: platformServices.services.share,
+                    shareService: self.platformServices.services.share,
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
@@ -393,7 +393,7 @@ private final class IosAppCompositionRoot {
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.authenticatedDependencies(
                     mediaFactory: IosFeedNativeMediaFactory.shared,
-                    shareService: platformServices.services.share,
+                    shareService: self.platformServices.services.share,
                     initialPostId: postId,
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
