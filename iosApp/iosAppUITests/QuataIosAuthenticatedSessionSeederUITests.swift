@@ -31,12 +31,10 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout: 15), "Shared auth.submit semantics must be available.")
 
         let phoneField = try editableDescendant(of: phoneSemantic, in: app, secure: false)
-        phoneField.tap()
-        phoneField.typeText(credentials.localPhone)
+        enter(credentials.localPhone, into: phoneField, semantic: phoneSemantic, secure: false)
 
         let passwordField = try editableDescendant(of: passwordSemantic, in: app, secure: true)
-        passwordField.tap()
-        passwordField.typeText(credentials.password)
+        enter(credentials.password, into: passwordField, semantic: passwordSemantic, secure: true)
         submit.tap()
 
         let chromeLabels = ["Qüata", "Chats", "Oficial", "Feed", "Cuenta"]
@@ -71,7 +69,21 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
         if flattenedPreferred.count == 1 { return flattenedPreferred.firstMatch }
         let flattenedFallback = secure ? app.textFields : app.secureTextFields
         if flattenedFallback.count == 1 { return flattenedFallback.firstMatch }
-        throw XCTSkip("The shared auth semantic did not expose an editable descendant on this runtime.")
+        return semantic
+    }
+
+    private func enter(_ value: String, into field: XCUIElement, semantic: XCUIElement, secure: Bool) {
+        if field == semantic {
+            // Compose can expose only the semantic container. Its right side is the local phone
+            // field; the password field occupies the full container. Tapping there focuses the
+            // platform editor before typeText is sent to the semantics bridge.
+            let x = secure ? 0.5 : 0.75
+            semantic.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5)).tap()
+            semantic.typeText(value)
+        } else {
+            field.tap()
+            field.typeText(value)
+        }
     }
 }
 
