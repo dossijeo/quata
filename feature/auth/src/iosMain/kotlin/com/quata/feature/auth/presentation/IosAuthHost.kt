@@ -4,7 +4,6 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
-import com.quata.feature.auth.presentation.register.RegisterFormStrings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,7 +11,7 @@ import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /**
- * iOS composition boundary for the shared Auth login form.
+ * iOS composition boundary for the shared Auth product roots.
  *
  * The launcher supplies its authenticated repository and post-login handling. Shared Auth
  * strings, prefixes and secret-question labels come from [AuthCatalog], so the iOS host does
@@ -21,7 +20,7 @@ import platform.UIKit.UIViewController
 class IosAuthHostDependencies(
     val repository: AuthRepository,
     val locale: AuthCatalogLocale,
-    val registrationEnabled: Boolean,
+    val initialDestination: AuthProductDestination,
     val onLoginSuccess: () -> Unit,
 )
 
@@ -29,12 +28,11 @@ class IosAuthHostDependencies(
 fun createIosAuthHostDependencies(
     repository: AuthRepository,
     languageCode: String,
-    registrationEnabled: Boolean,
     onLoginSuccess: () -> Unit,
 ): IosAuthHostDependencies = IosAuthHostDependencies(
     repository = repository,
     locale = AuthCatalogLocale.fromLanguage(languageCode),
-    registrationEnabled = registrationEnabled,
+    initialDestination = AuthProductDestination.Login,
     onLoginSuccess = onLoginSuccess,
 )
 
@@ -70,30 +68,12 @@ fun createIosAuthLogoutHandler(repository: AuthRepository): IosAuthLogoutHandler
 fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {
     val catalog = AuthCatalog.copy(dependencies.locale)
     QuataTheme {
-        AuthBrowserLoginHostContent(
+        AuthProductHostContent(
             repository = dependencies.repository,
+            catalog = catalog,
             prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
-            strings = catalog.login,
-            subtitle = catalog.loginSubtitle,
-            recoveryStrings = catalog.recovery,
-            secretQuestions = catalog.secretQuestions,
-            recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
-            recoveryQuestionLoading = catalog.recoveryQuestionLoading,
-            passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-            registerStrings = if (dependencies.registrationEnabled) RegisterFormStrings(
-                displayName = catalog.register.displayName,
-                neighborhood = catalog.register.neighborhood,
-                phone = catalog.login.phone,
-                password = catalog.login.password,
-                secretAnswer = catalog.register.secretAnswer,
-                searchPrefix = catalog.login.searchPrefix,
-                creating = catalog.register.creating,
-                createAccount = catalog.register.createAccount,
-                back = catalog.register.back,
-            ) else null,
-            registerSubtitle = catalog.register.title.takeIf { dependencies.registrationEnabled },
-            registerUnavailableMessage = null,
-            onLoginSuccess = { dependencies.onLoginSuccess() },
+            initialDestination = dependencies.initialDestination,
+            onAuthenticated = dependencies.onLoginSuccess,
         )
     }
 }

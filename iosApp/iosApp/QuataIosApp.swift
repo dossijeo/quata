@@ -282,8 +282,15 @@ private final class IosAppCompositionRoot {
             // The Auth fixture is deliberately constructed before the production composition
             // root. Its Kotlin factory uses a local fail-closed repository, and this UIKit shell
             // provides stable containment/readiness for CI without an account or runtime setup.
+            let destinationArgument = arguments.firstIndex(of: "-quata-auth-destination")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
             return IosAuthLaunchFixtureContainerViewController {
-                IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
+                if let destinationArgument {
+                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewControllerForDestination(
+                        destination: destinationArgument,
+                    )
+                }
+                return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
@@ -645,10 +652,6 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
-            // The shared surface is installed only when every transport gate is present.
-            registrationEnabled: IosAuthRepositoryKt.iosRegistrationAvailable(
-                configuration: authRuntimeConfiguration(from: runtimeConfiguration),
-            ),
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     _ = self?.installRestoredFeedSessionIfAvailable()
