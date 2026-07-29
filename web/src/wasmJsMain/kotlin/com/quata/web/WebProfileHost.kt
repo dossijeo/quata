@@ -66,9 +66,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Browser composition for the shared Profile/SOS presentation. Profile mutations are persisted
- * locally through [PreferenceStore]; server-side profile writes remain deliberately outside this
- * launcher until WebPostgrestClient gains an authenticated mutation boundary.
+ * Browser composition for the shared Profile/SOS presentation. An authenticated session reads
+ * its profile and SOS contacts from the remote service. Writes stay explicitly unavailable until
+ * their deployed contract is verified; anonymous/no-session use remains a labelled local draft.
  */
 @Composable
 fun WebProfileHost(
@@ -311,23 +311,23 @@ class WebProfileRepository(
     remoteGateway: ProfileRemoteGateway? = null,
     remoteSessionProvider: ProfileSessionProvider? = null,
     private val remoteAvailable: () -> Boolean = { false },
-    /** Default-off until a deployed Web RLS/E2E contract explicitly proves profile mutations. */
-    private val remoteMutationEvidenceVerified: () -> Boolean = { false },
 ) : ProfileRepository {
     private val offline = WebOfflineProfileRepository(preferences, contactPicker)
     private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) {
-        KmpProfileRepository(
+        WebReadOnlyRemoteProfileRepository(
+            KmpProfileRepository(
             remote = remoteGateway,
             sessions = remoteSessionProvider,
             avatarUploader = WebProfileAvatarUploader,
             emergencyMessages = WebProfileMemoryEmergencyMessageStore(),
             emergencyContacts = WebProfileMemoryEmergencyContactsStore(),
             catalog = WebProfileCatalog,
+            ),
         )
     } else null
 
     fun persistenceMode(): WebProfilePersistenceMode =
-        webProfilePersistenceMode(remote != null, remoteAvailable(), remoteMutationEvidenceVerified())
+        webProfilePersistenceMode(remote != null, remoteAvailable())
 
     private fun selected(): ProfileRepository = when (persistenceMode()) {
         WebProfilePersistenceMode.Remote -> checkNotNull(remote)
@@ -357,11 +357,34 @@ enum class WebProfilePersistenceMode { Remote, OfflineDraft }
 internal fun webProfilePersistenceMode(
     hasRemoteRepository: Boolean,
     hasConfiguredAuthenticatedSession: Boolean,
-    hasVerifiedRemoteMutationEvidence: Boolean = false,
-): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession && hasVerifiedRemoteMutationEvidence) {
+): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession) {
     WebProfilePersistenceMode.Remote
 } else {
     WebProfilePersistenceMode.OfflineDraft
+}
+
+/**
+ * A session-backed view can never fall through to the preference-backed draft after a remote
+ * error. In particular, save requests return the contract failure before the portable repository
+ * can touch its in-memory contact/message stores or construct a remote mutation.
+ */
+internal class WebReadOnlyRemoteProfileRepository(
+    private val reads: ProfileRepository,
+) : ProfileRepository {
+    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = reads.observeProfileEditModel()
+    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = reads.getProfileEditModel()
+    override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> =
+        Result.failure(IllegalStateException("web_profile_mutation_contract_unverified"))
+
+    override suspend fun saveEmergencySettings(
+        contactIds: List<String>,
+        message: String,
+        messageIsDefault: Boolean,
+    ): Result<Unit> = Result.failure(IllegalStateException("web_profile_mutation_contract_unverified"))
+
+    override fun defaultEmergencyMessage(displayName: String): String = reads.defaultEmergencyMessage(displayName)
+    override fun changesSavedMessage(): String = reads.changesSavedMessage()
+    override fun emergencyContactsSavedMessage(): String = reads.emergencyContactsSavedMessage()
 }
 
 private object WebProfileAvatarUploader : ProfileAvatarUploader {
