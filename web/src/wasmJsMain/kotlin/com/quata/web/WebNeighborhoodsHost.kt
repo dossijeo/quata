@@ -70,6 +70,7 @@ fun WebNeighborhoodsHost(
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
+    onInitialMemberProfileClosed: () -> Unit = {},
     onOpenRankingItem: (String) -> Unit,
     onSubmitComment: (String) -> Unit,
     commentsEnabled: Boolean = true,
@@ -112,7 +113,10 @@ fun WebNeighborhoodsHost(
             profile = selectedProfile,
             strings = strings,
             slots = slots,
-            onBack = viewModel::closeUserProfile,
+            onBack = {
+                viewModel.closeUserProfile()
+                if (initialMemberProfileId != null) onInitialMemberProfileClosed()
+            },
             onOpenUserRoute = onOpenUserRoute,
             onShowComments = if (commentsEnabled) ({ showComments = true }) else null,
             onShowRanking = { showRanking = true },

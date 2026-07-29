@@ -172,7 +172,7 @@ private fun QuataWebApp(
     var isLoggingOut by remember { mutableStateOf(false) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
-    var pendingMemberProfileId by remember { mutableStateOf<String?>(null) }
+    val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -403,7 +403,7 @@ private fun QuataWebApp(
                             rankingItems = emptyList(),
                             onOpenConversation = ::navigateWebConversation,
                             onOpenUserRoute = { navigateWebFragment("communities") },
-                            initialMemberProfileId = pendingMemberProfileId,
+                            initialMemberProfileId = null,
                             onOpenRankingItem = { },
                             onSubmitComment = { },
                             commentsEnabled = false,
@@ -434,15 +434,33 @@ private fun QuataWebApp(
                     }
                 } else {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
-                        WebFeedHost(
-                            repository = feedRepository,
-                            shareService = platformServices.share,
-                            sharedPostId = navigation.postId,
-                            onOpenUserProfile = { profileId ->
-                                pendingMemberProfileId = profileId
-                                navigateWebFragment("communities")
-                            },
-                        )
+                        val memberProfileId = feedMemberProfileRoute.profileId
+                        if (memberProfileId != null) {
+                            // Keep Feed selected in the primary navigation. This is the same
+                            // shared member profile used by Communities, presented in-place over
+                            // the Feed route rather than redirecting the user to another tab.
+                            WebNeighborhoodsHost(
+                                repository = neighborhoodsRepository,
+                                currentUserId = currentUserId,
+                                strings = webNeighborhoodsStrings,
+                                slots = webNeighborhoodsSlots,
+                                rankingItems = emptyList(),
+                                onOpenConversation = ::navigateWebConversation,
+                                onOpenUserRoute = feedMemberProfileRoute::open,
+                                initialMemberProfileId = memberProfileId,
+                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
+                                onOpenRankingItem = { },
+                                onSubmitComment = { },
+                                commentsEnabled = false,
+                            )
+                        } else {
+                            WebFeedHost(
+                                repository = feedRepository,
+                                shareService = platformServices.share,
+                                sharedPostId = navigation.postId,
+                                onOpenUserProfile = feedMemberProfileRoute::open,
+                            )
+                        }
                     }
                 }
             }

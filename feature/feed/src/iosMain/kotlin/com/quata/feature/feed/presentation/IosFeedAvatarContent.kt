@@ -12,17 +12,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.model.Post
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.quata.core.data.toFoundationData
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.readBytes
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
+import platform.Foundation.NSError
+import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLSession
+import platform.Foundation.NSURLSessionConfiguration
+import platform.Foundation.NSURLSessionDataDelegateProtocol
+import platform.Foundation.NSURLSessionDataTask
+import platform.Foundation.NSURLSessionTask
+import platform.darwin.NSObject
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageView
 import platform.UIKit.UIViewContentMode
@@ -38,7 +50,6 @@ fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
         modifier = Modifier
             .size(56.dp)
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            .clip(CircleShape)
             .clickable { onOpenUserProfile(post.author.id) },
     )
 }
@@ -50,7 +61,7 @@ fun IosFeedRankingAvatar(item: QuataLiveRankingItem) {
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
         isOfficial = item.isOfficial,
-        modifier = Modifier.size(44.dp).clip(CircleShape),
+        modifier = Modifier.size(44.dp),
     )
 }
 
@@ -90,12 +101,55 @@ private fun IosFeedAvatar(
     )
 }
 
-private suspend fun loadIosAvatarOrNull(url: String): UIImage? = withContext(Dispatchers.Default) {
-    runCatching {
-        val data = NSData.dataWithContentsOfURL(NSURL(string = url) ?: return@runCatching null)
-        data?.let { UIImage(data = it) }
-    }.getOrNull()
+private suspend fun loadIosAvatarOrNull(url: String): UIImage? =
+    runCatching { iosAvatarData(NSURL(string = url) ?: return@runCatching null) }
+        .getOrNull()
+        ?.let { UIImage(data = it) }
+
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun iosAvatarData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+    val delegate = IosAvatarDataDelegate(continuation)
+    val session = NSURLSession.sessionWithConfiguration(
+        NSURLSessionConfiguration.ephemeralSessionConfiguration(), delegate, null,
+    )
+    val task = session.dataTaskWithURL(url)
+    continuation.invokeOnCancellation {
+        task.cancel()
+        session.invalidateAndCancel()
+    }
+    task.resume()
 }
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosAvatarDataDelegate(
+    private val continuation: CancellableContinuation<NSData>,
+) : NSObject(), NSURLSessionDataDelegateProtocol {
+    private val chunks = mutableListOf<ByteArray>()
+
+    override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
+        if (continuation.isActive) chunks += didReceiveData.toAvatarBytes()
+    }
+
+    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
+        session.finishTasksAndInvalidate()
+        if (!continuation.isActive) return
+        if (didCompleteWithError != null) {
+            continuation.resumeWithException(IllegalStateException(didCompleteWithError.localizedDescription))
+            return
+        }
+        val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
+        val data = chunks.toFoundationData().takeIf { it.length > 0uL }
+        if (status !in 200..299 || data == null) {
+            continuation.resumeWithException(IllegalStateException("ios_avatar_unavailable"))
+        } else {
+            continuation.resume(data)
+        }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.toAvatarBytes(): ByteArray =
+    if (length == 0uL) ByteArray(0) else bytes?.readBytes(length.toInt()) ?: ByteArray(0)
 
 internal fun isIosAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")

@@ -1,6 +1,5 @@
 package com.quata.core.ui.components
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
@@ -43,7 +42,6 @@ fun AvatarImage(
     profileId: String? = null,
     modifier: Modifier = Modifier.size(44.dp)
 ) {
-    val template = quataTheme()
     val imageModel = rememberCachedRemoteImageRequest(avatarUrl)
     val presenceRepository = LocalUserPresence.current
     val onlineProfileIds by presenceRepository?.onlineProfileIds?.collectAsState(emptySet())
@@ -66,7 +64,6 @@ fun AvatarImage(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
-                        .border(1.dp, template.colors.accent.copy(alpha = 0.42f), CircleShape)
                 )
             }
         }

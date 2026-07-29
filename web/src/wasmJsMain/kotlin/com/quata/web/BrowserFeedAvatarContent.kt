@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.WebElementView
@@ -39,7 +38,6 @@ fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
         modifier = Modifier
             .size(56.dp)
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            .clip(CircleShape)
             .clickable { onOpenUserProfile(post.author.id) },
     )
 }
@@ -51,7 +49,7 @@ fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem) {
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
         isOfficial = item.isOfficial,
-        modifier = Modifier.size(44.dp).clip(CircleShape),
+        modifier = Modifier.size(44.dp),
     )
 }
 

@@ -13,4 +13,15 @@ class BrowserFeedAvatarContentTest {
         assertFalse(isBrowserAvatarUrl("data:image/png;base64,abc"))
         assertFalse(isBrowserAvatarUrl(""))
     }
+
+    @Test
+    fun closing_a_feed_member_profile_consumes_the_request() {
+        val route = WebFeedMemberProfileRoute()
+        route.open("profile-1")
+        assertTrue(route.profileId == "profile-1")
+
+        route.close()
+
+        assertTrue(route.profileId == null)
+    }
 }

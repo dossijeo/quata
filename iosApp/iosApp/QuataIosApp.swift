@@ -369,6 +369,9 @@ private final class IosAppCompositionRoot {
                     navigationMessage: "Explora Quata",
                     onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
                     onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    onOpenUserProfile: { [weak self] profileId in
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    },
                     initialPostId: postId,
                 ),
             )

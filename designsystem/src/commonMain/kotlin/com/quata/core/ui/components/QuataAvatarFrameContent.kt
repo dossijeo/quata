@@ -1,11 +1,16 @@
 package com.quata.core.ui.components
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.quata.core.designsystem.theme.QuataOrange
+import androidx.compose.ui.unit.dp
 
 /**
  * Portable avatar structure shared by platform image loaders.
@@ -32,7 +37,16 @@ fun QuataAvatarFrameContent(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            avatar()
+            // Image crop and the inner accent ring belong to the portable frame.  Native
+            // image loaders only draw pixels; they must not recreate identity geometry.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .border(1.dp, QuataOrange.copy(alpha = 0.42f), CircleShape),
+            ) {
+                avatar()
+            }
         }
         if (isOfficial) {
             QuataOfficialBadge(Modifier.align(Alignment.BottomEnd))
