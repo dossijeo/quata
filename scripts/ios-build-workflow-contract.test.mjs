@@ -100,8 +100,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
 function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   const fixtureProbe = yaml.indexOf('      - name: Verify Xcode resolves public runtime fixture');
+  const bootSimulator = yaml.indexOf('      - name: Boot test simulator');
+  const inboxFilesystemTest = yaml.indexOf('      - name: Run iOS external share inbox filesystem contract');
   const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
-  assert.ok(fixtureProbe >= 0 && testStep > fixtureProbe,
+  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && testStep > inboxFilesystemTest,
     'the valid xcconfig fixture probe must remain before the isolated UI test');
 
   const fixtureBlock = yaml.slice(fixtureProbe, testStep);
@@ -109,6 +111,18 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the fixture probe must continue to prove Xcode resolves the valid CI URL');
   assert.doesNotMatch(fixtureBlock, /QUATA_SUPABASE_URL=\s*\\/,
     'the fixture probe must not be overridden into the unconfigured state');
+
+  const inboxTestBlock = yaml.slice(inboxFilesystemTest, testStep);
+  assert.match(
+    inboxTestBlock,
+    /:feature:externalshare:iosSimulatorArm64Test/,
+    'the external share inbox filesystem assertions must execute on the booted iOS simulator',
+  );
+  assert.match(
+    inboxTestBlock,
+    /xcrun simctl bootstatus "\$simulator_udid" -b/,
+    'the external share inbox test must reuse the explicitly booted simulator',
+  );
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
   const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
@@ -238,6 +252,14 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       ),
     ],
     ['UI runtime isolation removed', yaml.replace(/QUATA_SUPABASE_URL= \\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY= \\\n/, '')],
+    [
+      'core native iOS assertions removed',
+      yaml.replace(':core:iosSimulatorArm64Test \\\n', ':core:compileTestKotlinIosSimulatorArm64 \\\n'),
+    ],
+    [
+      'external share inbox assertions removed',
+      yaml.replace(':feature:externalshare:iosSimulatorArm64Test', ':feature:externalshare:compileTestKotlinIosSimulatorArm64'),
+    ],
     [
       'comment terminates the continued xcodebuild command',
       yaml.replace(

@@ -364,6 +364,22 @@ jobs:
             xcrun simctl bootstatus "$simulator_udid" -b
           xcrun simctl list devices -j > build/reports/ios/simulator-devices-after-boot.json
 
+      - name: Run iOS external share inbox filesystem contract
+        # This is intentionally serial and reuses the simulator booted above. The test owns only
+        # a unique temporary directory and does not require an App Group entitlement or extension.
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          xcrun simctl bootstatus "$simulator_udid" -b
+          bash ./gradlew \
+            :feature:externalshare:iosSimulatorArm64Test \
+            --stacktrace \
+            --warning-mode all \
+            --console=plain \
+            2>&1 | tee build/reports/ios/external-share-inbox-ios-test.log
+
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
         timeout-minutes: 22
