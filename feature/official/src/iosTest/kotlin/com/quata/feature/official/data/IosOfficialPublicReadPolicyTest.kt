@@ -1,5 +1,6 @@
 package com.quata.feature.official.data
 
+import com.quata.core.model.PostComment
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostType
 import kotlinx.coroutines.runBlocking
@@ -48,7 +49,7 @@ class IosOfficialPublicReadPolicyTest {
     }
 
     @Test
-    fun publicRepositoryDoesNotNeedSessionAndKeepsWritesFailClosed() = runBlocking {
+    fun publicRepositoryDoesNotNeedSessionAndKeepsEveryWriteFailClosed() = runBlocking {
         val repository = IosOfficialReadRepository(
             IosOfficialRuntimeConfiguration("https://project.supabase.co", "public-client-key"),
         )
@@ -56,15 +57,37 @@ class IosOfficialPublicReadPolicyTest {
         // This must be a local no-session success: it proves anonymous composition does not try
         // to restore Keychain or contact Supabase merely to populate a current user.
         assertNull(repository.refreshCurrentUser().getOrThrow())
-        assertTrue(
-            repository.createPost(
-                OfficialPostDraft(
-                    title = "blocked",
-                    summary = "blocked",
-                    contentHtml = "<p>blocked</p>",
-                    type = OfficialPostType.Announcement,
-                ),
-            ).isFailure,
+        val draft = OfficialPostDraft(
+            title = "blocked",
+            summary = "blocked",
+            contentHtml = "<p>blocked</p>",
+            type = OfficialPostType.Announcement,
         )
+        val comment = PostComment("comment-1", "Anonymous", "blocked", "now")
+
+        listOf(
+            repository.createPost(draft),
+            repository.createPosts(listOf(draft)),
+            repository.deletePost("post-1"),
+            repository.toggleLike("post-1"),
+            repository.addComment("post-1", comment),
+        ).forEach(::assertUnsupportedMutation)
+    }
+
+    @Test
+    fun httpFailurePolicyIsFailClosedAndStable() {
+        assertEquals(IosOfficialReadFailureKind.Unauthorized, iosOfficialReadFailureKind(401))
+        assertEquals(IosOfficialReadFailureKind.RlsDenied, iosOfficialReadFailureKind(403))
+        assertEquals(IosOfficialReadFailureKind.Network, iosOfficialReadFailureKind(null))
+        listOf(0, 400, 404, 418, 500).forEach { status ->
+            assertEquals(IosOfficialReadFailureKind.Http, iosOfficialReadFailureKind(status))
+        }
+    }
+
+    private fun assertUnsupportedMutation(result: Result<*>) {
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull()
+        assertTrue(error is UnsupportedOperationException)
+        assertEquals("ios_official_mutation_not_implemented", error?.message)
     }
 }

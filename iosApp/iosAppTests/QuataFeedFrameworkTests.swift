@@ -1074,7 +1074,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.loadViewIfNeeded()
         let authenticatedFeed = UIViewController()
         let publicFeed = UIViewController()
+        let authenticatedOfficial = UIViewController()
+        let publicOfficial = UIViewController()
         router.installFeedFactory { _ in authenticatedFeed }
+        router.installOfficialFactory { _ in authenticatedOfficial }
 
         var logoutInvocationCount = 0
         var completeSharedLogout: (() -> Void)?
@@ -1086,6 +1089,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             },
             onLoggedOut: {
                 router.installPublicFeed { _ in publicFeed }
+                router.installOfficialFactory { _ in publicOfficial }
                 returnedToPublicFeed.fulfill()
             },
         )
@@ -1105,6 +1109,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         wait(for: [returnedToPublicFeed], timeout: 1)
 
         XCTAssertTrue(router.children.first === publicFeed)
+        router.showOfficial(postId: "official-public-after-logout")
+        XCTAssertTrue(router.children.first === publicOfficial)
+        XCTAssertEqual(publicOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
+        XCTAssertEqual(publicOfficial.view.accessibilityLabel, "Quata iOS Official")
         let routeButton = router.view.subviews.compactMap { $0 as? UIButton }.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
         }

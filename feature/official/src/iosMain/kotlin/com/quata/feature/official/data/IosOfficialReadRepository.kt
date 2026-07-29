@@ -270,6 +270,14 @@ internal fun iosPublicOfficialRequest(
     )
 }
 
+/** Pure HTTP-status policy so every native transport outcome is covered without URLSession. */
+internal fun iosOfficialReadFailureKind(statusCode: Int?): IosOfficialReadFailureKind = when (statusCode) {
+    401 -> IosOfficialReadFailureKind.Unauthorized
+    403 -> IosOfficialReadFailureKind.RlsDenied
+    null -> IosOfficialReadFailureKind.Network
+    else -> IosOfficialReadFailureKind.Http
+}
+
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSMutableURLRequest.executeOfficialRead(): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosOfficialDataTaskDelegate(continuation)
@@ -305,14 +313,8 @@ private class IosOfficialDataTaskDelegate(
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
-            val kind = when (status) {
-                401 -> IosOfficialReadFailureKind.Unauthorized
-                403 -> IosOfficialReadFailureKind.RlsDenied
-                null -> IosOfficialReadFailureKind.Network
-                else -> IosOfficialReadFailureKind.Http
-            }
             continuation.resumeWithException(
-                IosOfficialReadException(kind, status, "postgrest_http_${status ?: "unknown"}"),
+                IosOfficialReadException(iosOfficialReadFailureKind(status), status, "postgrest_http_${status ?: "unknown"}"),
             )
             return
         }
