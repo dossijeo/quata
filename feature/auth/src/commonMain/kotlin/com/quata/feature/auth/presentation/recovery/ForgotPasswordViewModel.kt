@@ -1,7 +1,7 @@
 package com.quata.feature.auth.presentation.recovery
 
 import com.quata.core.common.AppDispatchers
-import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.PasswordRecoveryRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ForgotPasswordViewModel(
-    private val repository: AuthRepository,
+    private val repository: PasswordRecoveryRepository,
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)

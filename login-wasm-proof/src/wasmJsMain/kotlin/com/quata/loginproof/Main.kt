@@ -13,6 +13,9 @@ import com.quata.core.config.QuataPublicBackendConfig
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.auth.data.LoginTransport
 import com.quata.feature.auth.data.RemoteLoginRepository
+import com.quata.feature.auth.data.PasswordRecoveryHttpResponse
+import com.quata.feature.auth.data.PasswordRecoveryTransport
+import com.quata.feature.auth.data.RemotePasswordRecoveryRepository
 import com.quata.feature.auth.data.RegisterTransport
 import com.quata.feature.auth.data.RegistrationCompletionAware
 import com.quata.feature.auth.data.RemoteRegisterRepository
@@ -21,6 +24,7 @@ import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.auth.presentation.login.LoginScreenHost
 import com.quata.feature.auth.presentation.register.RegisterScreenHost
+import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreenHost
 import kotlinx.browser.document
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -47,6 +51,14 @@ fun main() {
                 loginRepository = repository,
             )
         }
+        val recoveryRepository = remember {
+            RemotePasswordRecoveryRepository(
+                BrowserPasswordRecoveryTransport(
+                    supabaseUrl = QuataPublicBackendConfig.SUPABASE_URL,
+                    publishableKey = QuataPublicBackendConfig.SUPABASE_PUBLISHABLE_KEY,
+                ),
+            )
+        }
         val catalog = remember { AuthCatalog.copy(AuthCatalogLocale.Spanish) }
         val prefixes = remember { AuthCatalog.countryPrefixes(AuthCatalogLocale.Spanish) }
         var destination by remember { mutableStateOf(LoginProofDestination.Login) }
@@ -60,7 +72,7 @@ fun main() {
                     prefixes = prefixes,
                     showMockNotice = false,
                     onGoToRegister = { destination = LoginProofDestination.Register },
-                    onForgotPassword = {},
+                    onForgotPassword = { destination = LoginProofDestination.Recovery },
                     onLoginSuccess = { browserAlert("logueado correctamente") },
                     onLoginFailure = { browserAlert("error de login") },
                 )
@@ -72,12 +84,23 @@ fun main() {
                     onBack = { destination = LoginProofDestination.Login },
                     onRegisterSuccess = { browserAlert("cuenta creada correctamente") },
                 )
+                LoginProofDestination.Recovery -> ForgotPasswordScreenHost(
+                    padding = PaddingValues(),
+                    repository = recoveryRepository,
+                    catalog = catalog,
+                    prefixes = prefixes,
+                    onBack = { destination = LoginProofDestination.Login },
+                    onPasswordUpdated = {
+                        browserAlert("contraseña actualizada correctamente")
+                        destination = LoginProofDestination.Login
+                    },
+                )
             }
         }
     }
 }
 
-private enum class LoginProofDestination { Login, Register }
+private enum class LoginProofDestination { Login, Register, Recovery }
 
 private class BrowserLoginTransport(
     private val supabaseUrl: String,
@@ -99,6 +122,41 @@ private class BrowserLoginTransport(
             onFailure = { message ->
                 continuation.resumeWith(Result.failure(IllegalStateException(message)))
             },
+        )
+    }
+}
+
+private class BrowserPasswordRecoveryTransport(
+    private val supabaseUrl: String,
+    private val publishableKey: String,
+) : PasswordRecoveryTransport {
+    override suspend fun getQuestion(countryCode: String, phone: String): PasswordRecoveryHttpResponse =
+        request("recovery_question", countryCode, phone, null, null)
+
+    override suspend fun resetPassword(
+        countryCode: String,
+        phone: String,
+        secretAnswer: String,
+        newPassword: String,
+    ): PasswordRecoveryHttpResponse = request("reset_password", countryCode, phone, secretAnswer, newPassword)
+
+    private suspend fun request(
+        action: String,
+        countryCode: String,
+        phone: String,
+        secretAnswer: String?,
+        newPassword: String?,
+    ): PasswordRecoveryHttpResponse = suspendCoroutine { continuation ->
+        browserPasswordRecoveryRequest(
+            endpoint = supabaseUrl.trimEnd('/') + "/functions/v1/quata-auth-bridge",
+            publishableKey = publishableKey,
+            action = action,
+            countryCode = countryCode,
+            phone = phone,
+            secretAnswer = secretAnswer,
+            newPassword = newPassword,
+            onComplete = { status, body -> continuation.resume(PasswordRecoveryHttpResponse(status, body)) },
+            onFailure = { message -> continuation.resumeWith(Result.failure(IllegalStateException(message))) },
         )
     }
 }
@@ -186,6 +244,32 @@ private fun browserLoginRequest(
           else onFailure('login_http_' + response.status);
         })
         .catch(error => onFailure(error?.message || 'login_network_error'));
+    })()
+    """,
+)
+
+private fun browserPasswordRecoveryRequest(
+    endpoint: String,
+    publishableKey: String,
+    action: String,
+    countryCode: String,
+    phone: String,
+    secretAnswer: String?,
+    newPassword: String?,
+    onComplete: (Int, String) -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+      const body = { action, country_code: countryCode, phone };
+      if (secretAnswer != null) body.secret_answer = secretAnswer;
+      if (newPassword != null) body.new_password = newPassword;
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: publishableKey },
+        body: JSON.stringify(body)
+      }).then(async response => onComplete(response.status, await response.text()))
+        .catch(error => onFailure(error?.message || 'password_recovery_network_error'));
     })()
     """,
 )
