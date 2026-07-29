@@ -23,6 +23,9 @@ on:
       - "vosk_model_es/**"
       - "vosk_model_fr/**"
       - "web/**"
+      - "capabilities/platform-capability-matrix.json"
+      - "scripts/capability-matrix-contract.mjs"
+      - "scripts/capability-matrix-contract.test.mjs"
       - "scripts/web-browser-smoke.mjs"
       - "scripts/web-browser-smoke-cleanup.mjs"
       - "scripts/web-browser-smoke-cleanup.test.mjs"
@@ -193,6 +196,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --test scripts/capability-matrix-contract.test.mjs
           npm run test:web-wave2-contracts \
             2>&1 | tee build/reports/web-ci/node-contracts.log
 

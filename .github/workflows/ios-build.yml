@@ -8,6 +8,9 @@ on:
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
+      - "scripts/capability-matrix-contract.mjs"
+      - "scripts/capability-matrix-contract.test.mjs"
+      - "capabilities/platform-capability-matrix.json"
       - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -18,7 +21,6 @@ on:
       - "designsystem/**"
       - "ios-shared/**"
       - "feature/**"
-      - "web/**"
       - "iosApp/**"
   push:
     branches:
@@ -33,6 +35,9 @@ on:
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
+      - "scripts/capability-matrix-contract.mjs"
+      - "scripts/capability-matrix-contract.test.mjs"
+      - "capabilities/platform-capability-matrix.json"
       - "scripts/check-ios-release-readiness.sh"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -43,7 +48,6 @@ on:
       - "designsystem/**"
       - "ios-shared/**"
       - "feature/**"
-      - "web/**"
       - "iosApp/**"
 
 concurrency:
@@ -74,6 +78,9 @@ jobs:
 
       - name: Validate iOS NSData interop contract
         run: node --test scripts/ios-nsdata-interop-contract.test.mjs
+
+      - name: Validate platform capability matrix
+        run: node --test scripts/capability-matrix-contract.test.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
