@@ -39,4 +39,15 @@ class ChatRpcPayloadEnvelopeTest {
         assertEquals(emptyList(), envelope.messages)
         assertEquals(emptyList(), envelope.profiles)
     }
+
+    @Test
+    fun acceptsTheEmptyInboxEnvelopeUsedByTheWebNotificationFixture() {
+        val envelope = parseChatRpcPayloadEnvelope(
+            Json.parseToJsonElement("""{"threads":[],"messages":[],"profiles":[]}"""),
+        )
+
+        assertEquals(emptyList(), envelope.threads)
+        assertEquals(emptyList(), envelope.messages)
+        assertEquals(emptyList(), envelope.profiles)
+    }
 }

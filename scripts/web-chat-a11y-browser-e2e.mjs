@@ -31,14 +31,18 @@ const report = {
   steps: [],
 };
 const unexpectedNetwork = [];
+const fixtureState = { notificationInboxReads: 0 };
 let server;
 let browser;
 let context;
 let page;
+let stage = "initializing";
+const browserDiagnostics = [];
 
 try {
   report.sourceRevision = await verifyDistributionProvenance(options.distribution);
-  server = await startServer(options.distribution);
+  server = await startServer(options.distribution, fixtureState);
+  stage = "launching_browser";
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
@@ -59,21 +63,27 @@ try {
     return route.abort("blockedbyclient");
   });
   page = context.pages()[0] ?? await context.newPage();
+  page.on("console", message => browserDiagnostics.push(`console:${message.type()}`));
+  page.on("pageerror", () => browserDiagnostics.push("pageerror:present"));
+  stage = "mounting_auth_shell";
   await page.goto(
     `${server.origin}/?quata-auth-e2e=1&quata-chat-e2e=1&backend=${encodeURIComponent(server.origin)}#auth`,
   );
   await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
-
-  const phone = page.locator('input[aria-label="Teléfono"]');
-  const password = page.locator('input[aria-label="Contraseña"]');
-  const login = page.locator('button[aria-label="Entrar"]');
-  await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
-  await phone.fill(FIXTURE.phone);
-  await password.fill(FIXTURE.password);
-  await login.click();
+  const authSurface = await resolveAuthSurface(page);
+  if (authSurface === "native_controls") {
+    stage = "native_auth_control_login";
+    await loginWithNativeControls(page);
+    report.steps.push("native_auth_login_role_name_focus_keyboard_activation");
+  } else {
+    stage = "compose_auth_bridge_login";
+    await loginWithComposeAuthBridge(page);
+    report.steps.push("compose_auth_bridge_login_product_repository_activation");
+  }
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
   report.steps.push("fixture_session_ready");
 
+  stage = "authenticated_chat_route";
   await page.evaluate(() => {
     globalThis.location.hash = "chat-local%3Aax";
   });
@@ -110,6 +120,23 @@ try {
   report.status = "passed";
 } catch (error) {
   report.error = safeError(error);
+  report.failureStage = stage;
+  if (page) {
+    report.browserState = await page.evaluate(() => {
+      const root = document.querySelector("#quata-root");
+      const shadow = root?.shadowRoot;
+      const rect = root?.getBoundingClientRect();
+      return {
+        productBridgeV1: globalThis.__quataAuthE2eProduct?.version === 1,
+        rootPresent: root !== null,
+        root: rect ? { width: rect.width, height: rect.height } : null,
+        shadowChildren: shadow?.childElementCount ?? 0,
+        shadowCanvasCount: shadow?.querySelectorAll("canvas").length ?? 0,
+        nativeControlCount: shadow?.querySelectorAll('input[aria-label], button[aria-label]').length ?? 0,
+      };
+    }).catch(() => ({ unavailable: true }));
+    report.browserState.diagnostics = browserDiagnostics.slice(-20);
+  }
 } finally {
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
@@ -118,6 +145,7 @@ try {
   report.network = {
     policy: "local_only",
     unexpectedOrigins: [...new Set(unexpectedNetwork)].length,
+    notificationInboxReads: fixtureState.notificationInboxReads,
   };
   await writeSafeReport(options.output, report);
 }
@@ -147,7 +175,7 @@ function parseArguments(args) {
   return parsed;
 }
 
-async function startServer(distribution) {
+async function startServer(distribution, state) {
   if (!(await stat(distribution).catch(() => null))?.isDirectory()) throw new Error("distribution_missing");
   let origin;
   const localServer = createServer(async (request, response) => {
@@ -174,6 +202,19 @@ async function startServer(distribution) {
           },
           web_session: { token: FIXTURE.webSessionToken },
         });
+      }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
+        const body = await jsonBody(request);
+        if (
+          request.method !== "POST" ||
+          request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+          body.p_actor_profile_id !== FIXTURE.profileId ||
+          body.p_limit !== 100
+        ) {
+          return json(response, 405, { error: "fixture_notification_inbox_read_forbidden" });
+        }
+        state.notificationInboxReads += 1;
+        return json(response, 200, { threads: [], messages: [], profiles: [] });
       }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
@@ -227,6 +268,57 @@ async function verifyDistributionProvenance(distribution) {
     .then(value => value.trim())
     .catch(() => "");
   return assertExactDistributionRevision({ repositoryRevision, markerRevision, trackedChanges });
+}
+
+async function resolveAuthSurface(page) {
+  const surface = await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const shadow = root?.shadowRoot;
+    const rect = root?.getBoundingClientRect();
+    const canvasMounted = [...(root?.querySelectorAll("canvas") ?? []), ...(shadow?.querySelectorAll("canvas") ?? [])]
+      .some(canvas => {
+        const canvasRect = canvas.getBoundingClientRect();
+        return canvasRect.width > 0 && canvasRect.height > 0;
+      });
+    return {
+      bridgeVersion: globalThis.__quataAuthE2eProduct?.version,
+      root: rect ? { width: rect.width, height: rect.height } : null,
+      nativeControls: shadow?.querySelectorAll('input[aria-label], button[aria-label]').length ?? 0,
+      canvasMounted,
+    };
+  });
+  if (surface?.bridgeVersion !== 1) throw new Error("compose_auth_bridge_missing");
+  if (!surface.root || surface.root.width <= 0 || surface.root.height <= 0) throw new Error("compose_auth_shell_missing");
+  if (surface.nativeControls > 0) return "native_controls";
+  if (!surface.canvasMounted) throw new Error("compose_auth_canvas_missing");
+  return "compose_canvas";
+}
+
+async function loginWithNativeControls(page) {
+  const phone = page.locator('input[aria-label="Teléfono"]');
+  const password = page.locator('input[aria-label="Contraseña"]');
+  const login = page.locator('button[aria-label="Entrar"]');
+  await Promise.all([phone.waitFor(), password.waitFor(), login.waitFor()]);
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Teléfono", selector: 'input[aria-label="Teléfono"]' });
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Contraseña", selector: 'input[aria-label="Contraseña"]' });
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]' });
+  await phone.fill(FIXTURE.phone);
+  await password.fill(FIXTURE.password);
+  await waitFor(async () => await login.isEnabled(), "native_auth_login_submit_disabled");
+  await password.focus();
+  await page.keyboard.press("Tab");
+  if (!(await login.evaluate(node => node.getRootNode().activeElement === node))) throw new Error("native_auth_login_focus_missing");
+  await assertUniqueNativeAx(page, { role: "button", name: "Entrar", selector: 'button[aria-label="Entrar"]', focused: true });
+  await page.keyboard.press("Enter");
+}
+
+async function loginWithComposeAuthBridge(page) {
+  const result = await page.evaluate(async ({ countryCode, phone, password }) => {
+    const bridge = globalThis.__quataAuthE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.login !== "function") throw new Error("compose_auth_bridge_login_missing");
+    return await bridge.login(countryCode, phone, password);
+  }, FIXTURE);
+  if (result !== "authenticated") throw new Error("compose_auth_bridge_login_unexpected_result");
 }
 
 async function assertUniqueNativeAx(page, { role, name, selector, focused = false }) {
@@ -308,6 +400,13 @@ function safeError(error) {
     "native_chat_send_initial_state_changed",
     "native_chat_send_enabled_state_missing",
     "native_chat_send_callback_not_exactly_once",
+    "native_auth_login_submit_disabled",
+    "native_auth_login_focus_missing",
+    "compose_auth_bridge_missing",
+    "compose_auth_shell_missing",
+    "compose_auth_canvas_missing",
+    "compose_auth_bridge_login_missing",
+    "compose_auth_bridge_login_unexpected_result",
     "native_ax_selector_not_unique",
     "native_ax_not_visible",
     "native_ax_role_name_not_unique",
