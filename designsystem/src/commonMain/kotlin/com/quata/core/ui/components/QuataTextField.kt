@@ -47,7 +47,9 @@ fun QuataTextField(
             visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = template.colors.surfaceAlt,
-                unfocusedContainerColor = template.colors.inputBorder,
+                unfocusedContainerColor = template.colors.surfaceAlt,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = template.colors.inputBorder,
                 cursorColor = MaterialTheme.colorScheme.primary
             )
         )
