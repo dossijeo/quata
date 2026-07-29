@@ -5,6 +5,63 @@ remotas en iOS de forma verificable, sin alterar la aplicación Android publicad
 cliente Web existente ni las políticas RLS actuales. Es un plan de requisitos: no
 autoriza despliegues de Supabase, cambios de RLS ni la publicación de una app.
 
+## Checklist de preparación para el propietario
+
+Esta es la lista mínima que se puede completar antes de abrir una PR de implementación.
+Los valores identificativos pueden anotarse en el ticket privado de lanzamiento; los
+secretos se cargan exclusivamente en el almacén indicado. **No pegar ninguno en este
+documento, Git, chats, capturas, `.xcconfig`, artefactos ni logs de CI.**
+
+| Hecho | Activo o decisión | Dónde se obtiene | Dónde se carga o registra | Observación exigida |
+| --- | --- | --- | --- | --- |
+| [ ] | Apple Developer Team ID | Apple Developer → Membership | Gestor seguro de firma / variable de CI `QUATA_DEVELOPMENT_TEAM` | Debe ser el equipo propietario de la distribución. |
+| [ ] | App ID principal `com.quata.ios` | Certificates, Identifiers & Profiles → Identifiers | Apple Developer | Explícito, no wildcard; habilitar Push Notifications y App Groups. |
+| [ ] | App ID extensión `com.quata.ios.shareextension` | Apple Developer → Identifiers | Apple Developer | Habilitar el App Group; Push no es necesario para la extensión actual. |
+| [ ] | App Group `group.com.quata.ios.share` | Apple Developer → Identifiers → App Groups | Asociarlo a los dos App IDs | Debe coincidir exactamente con los entitlements versionados. |
+| [ ] | Certificado Apple Distribution y perfiles de distribución | Apple Developer → Profiles | Keychain temporal y almacén seguro del runner | Un perfil por bundle ID; nunca versionar `.p12` ni `.mobileprovision`. |
+| [ ] | Perfiles de desarrollo para dispositivo físico | Apple Developer → Profiles | Sólo Mac/keychain autorizado | Necesarios para comprobar sandbox y entitlement efectivo. |
+| [ ] | APNs Auth Key `.p8`, Key ID y Team ID | Apple Developer → Keys | **Sólo** Supabase Edge Function secrets | La `.p8` se descarga una vez; crear una dedicada al producto. |
+| [ ] | Topic APNs | Derivado del App ID principal | Secreto/configuración de Edge Function | Inicialmente `com.quata.ios`; no usar el bundle de la extensión. |
+| [ ] | Entorno APNs por release | Perfil/entitlement de cada build | Configuración de firma y Edge Function | Desarrollo → sandbox; TestFlight/App Store → producción. |
+| [ ] | Credenciales runtime públicas | Configuración existente de Qüata/Supabase | Secretos/variables de CI ya establecidos | `QUATA_SUPABASE_URL` y `QUATA_SUPABASE_PUBLISHABLE_KEY` no sustituyen secretos APNs. |
+| [ ] | Dos cuentas de prueba y permiso de enviar chat | Operación de Qüata | Gestor de secretos efímeros del E2E | Un emisor y un receptor; limpiar tokens/cuentas al terminar. |
+| [ ] | Privacidad, responsable on-call y rollback | Propietario de producto/operaciones | Ticket y runbook privado | Debe poder desactivar sólo APNs sin afectar Android ni Web. |
+
+### Variables y secretos: destino correcto
+
+Los siguientes nombres son el contrato propuesto para la futura Edge Function; no se
+deben crear ni desplegar hasta que la PR de backend haya sido revisada. Se prefija APNs
+para impedir reutilización accidental de VAPID, FCM o credenciales de sesión.
+
+| Ámbito | Nombre propuesto | Valor | Custodia |
+| --- | --- | --- | --- |
+| Firma/CI | `QUATA_DEVELOPMENT_TEAM` | Team ID (identificador, no clave) | Secretos/variables protegidos del runner. |
+| Firma/CI | `QUATA_IOS_APP_PROVISIONING_PROFILE` | Nombre o UUID del perfil principal | Secretos/variables protegidos del runner. |
+| Firma/CI | `QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE` | Nombre o UUID del perfil de extensión | Secretos/variables protegidos del runner. |
+| Edge Function | `QUATA_APNS_AUTH_KEY_P8_B64` | `.p8` codificada base64, sin saltos de línea | Supabase project secrets, nunca GitHub ni el cliente. |
+| Edge Function | `QUATA_APNS_KEY_ID` | Key ID de Apple | Supabase project secrets. |
+| Edge Function | `QUATA_APNS_TEAM_ID` | Team ID emisor del JWT | Supabase project secrets. |
+| Edge Function | `QUATA_APNS_TOPIC` | `com.quata.ios` inicial | Supabase project secrets/configuración protegida. |
+| Edge Function | `QUATA_APNS_ENVIRONMENT` | `sandbox` o `production` | Configuración protegida por entorno; no inferirlo de un token. |
+
+La clave de firma de la app (certificado y clave privada), los perfiles y la Auth Key
+APNs son activos distintos. La Auth Key `.p8` **no** sirve para firmar una IPA y el
+certificado de distribución **no** sirve para autenticar el proveedor APNs.
+
+### Correspondencia estricta de entornos
+
+| Build que se prueba | Entitlement `aps-environment` | Host proveedor | Topic | Evidencia mínima |
+| --- | --- | --- | --- | --- |
+| Desarrollo firmado en iPhone | `development` | `api.sandbox.push.apple.com` | `com.quata.ios` | Token obtenido, chat de prueba y tap; sin exponer token. |
+| TestFlight/App Store | `production` | `api.push.apple.com` | `com.quata.ios` | Archivo firmado, entrega y deep link en dispositivo real. |
+| CI/simulador sin firma | No acredita entitlement | No envía a APNs real | No aplica | Compilación/XCTest/payload de simulador solamente. |
+
+No cruzar filas: un token sandbox no se prueba contra producción y un build de
+distribución no se anuncia como sandbox. La configuración `Release` actual fija
+`QUATA_APNS_ENVIRONMENT=production`; el perfil y el archive firmados deben confirmar
+que esa expansión es la efectiva. Para desarrollo se requerirá una configuración de
+firma explícita, no editar entitlements manualmente.
+
 ## Alcance y estado de partida
 
 El código ya contiene la frontera de cliente, pero no una integración de entrega:
