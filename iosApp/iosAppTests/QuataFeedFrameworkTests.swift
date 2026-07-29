@@ -844,10 +844,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         typealias RouteScenario = (
             identifier: String,
             label: String,
+            expectsAuthenticatedShell: Bool,
             installAndOpen: (IosFeedHostContainerViewController, UIViewController) -> Void
         )
         let routes: [RouteScenario] = [
-            ("quata-ios-feed-host", "Quata iOS Feed", { router, controller in
+            ("quata-ios-feed-host", "Quata iOS Feed", true, { router, controller in
                 // Installing the authenticated Feed renders its initial root immediately. Return
                 // a distinct controller for the explicit post route: re-parenting one UIKit
                 // instance to replace itself is invalid and would only test containment noise.
@@ -858,62 +859,67 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 }
                 router.showFeed(postId: "feed-1")
             }),
-            ("quata-ios-chat-host", "Quata iOS Chat", { router, controller in
+            ("quata-ios-chat-host", "Quata iOS Chat", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installChatFactory { _, _ in controller }
                 router.showChat(conversationId: "conversation-1", messageId: "message-1")
             }),
-            ("quata-ios-official-host", "Quata iOS Official", { router, controller in
+            ("quata-ios-official-host", "Quata iOS Official", false, { router, controller in
                 router.installOfficialFactory { _ in controller }
                 router.showOfficial(postId: "official-1")
             }),
-            ("quata-ios-notifications-host", "Quata iOS Notifications", { router, controller in
+            ("quata-ios-notifications-host", "Quata iOS Notifications", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installNotificationsFactory { controller }
                 router.showNotifications()
             }),
-            ("quata-ios-profile-sos-host", "Quata iOS Profile SOS", { router, controller in
+            ("quata-ios-profile-sos-host", "Quata iOS Profile SOS", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installProfileSosFactory { controller }
                 router.showProfileSos()
             }),
-            ("quata-ios-communities-host", "Quata iOS Communities", { router, controller in
+            ("quata-ios-communities-host", "Quata iOS Communities", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installCommunitiesFactory { controller }
                 router.showCommunities()
             }),
-            ("quata-ios-composer-host", "Quata iOS Composer", { router, controller in
+            ("quata-ios-composer-host", "Quata iOS Composer", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installComposerFactory { controller }
                 router.showComposer()
             }),
-            ("quata-ios-settings-host", "Quata iOS Settings", { router, controller in
+            ("quata-ios-settings-host", "Quata iOS Settings", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installSettingsFactory { controller }
                 router.showSettings()
             }),
-            ("quata-ios-whats-new-host", "Quata iOS What's New", { router, controller in
+            ("quata-ios-whats-new-host", "Quata iOS What's New", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installWhatsNewFactory { controller }
                 router.showWhatsNew()
             }),
-            ("quata-ios-release-history-host", "Quata iOS Release History", { router, controller in
+            ("quata-ios-release-history-host", "Quata iOS Release History", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installReleaseHistoryFactory { controller }
                 router.showReleaseHistory()
             }),
         ]
 
-        for (identifier, label, installAndOpen) in routes {
+        for (identifier, label, expectsAuthenticatedShell, installAndOpen) in routes {
             let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
             router.loadViewIfNeeded()
             let controller = UIViewController()
             installAndOpen(router, controller)
 
-            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Installed factory did not render: \(identifier)")
+            if expectsAuthenticatedShell {
+                XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Installed factory did not render inside the authenticated shell: \(identifier)")
+                XCTAssertEqual(router.children.count, 3)
+            } else {
+                XCTAssertTrue(router.children.contains { $0 === controller }, "Installed public factory did not render: \(identifier)")
+                XCTAssertEqual(router.children.count, 1)
+            }
             XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
             XCTAssertEqual(controller.view.accessibilityLabel, label)
-            XCTAssertEqual(router.children.count, 3)
         }
     }
 
