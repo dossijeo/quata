@@ -552,6 +552,20 @@ private final class IosAppCompositionRoot {
         }
     }
 
+    /// Feed and Communities share the existing authenticated member-profile presentation.
+    private func presentAuthenticatedMemberProfile(profileId: String) {
+        guard let profileSosRuntimeBootstrap else { return }
+        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+            profileId: profileId,
+            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
+        )
+        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+            dependencies: dependencies,
+        )
+        controller.modalPresentationStyle = .fullScreen
+        authenticatedHost.present(controller, animated: true)
+    }
+
     /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still
     /// camera adapters already owned by `IosPlatformServiceComposition`; publication remains an
     /// explicit capability error until the iOS write/storage path has RLS and E2E evidence.
