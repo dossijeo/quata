@@ -15,6 +15,8 @@ import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
+import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
@@ -69,6 +71,20 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onBackToFeed = onBackToFeed,
     initialPostId = initialPostId,
 )
+
+/** Authenticated launch path: it shares the Keychain session owner and enables reviewed writes. */
+fun iosAuthenticatedPostgrestFeedHostDependencies(
+    configuration: IosFeedRuntimeConfiguration,
+    authSession: IosRenewableAuthSession,
+    initialPostId: String? = null,
+): IosFeedHostDependencies {
+    val transport = IosFeedReadTransport(configuration, authSession)
+    val read = RemoteFeedReadRepository(transport)
+    return IosFeedHostDependencies(
+        repository = IosAuthenticatedFeedRepository(transport, ReadOnlyFeedRepository(read)),
+        initialPostId = initialPostId,
+    )
+}
 
 /**
  * Stable Swift entry point for a real [FeedRepository] supplied by the iOS composition root.

@@ -41,6 +41,9 @@ class IosFeedRuntimeBootstrap(
             initialPostId = initialPostId,
         )
 
+    fun authenticatedDependencies(initialPostId: String? = null): IosFeedHostDependencies =
+        iosAuthenticatedPostgrestFeedHostDependencies(configuration, authSession, initialPostId)
+
     /** Session restoration remains the gate for interactive iOS feature factories. */
     fun hasRestoredSession(): Boolean = authSession.restoredSession() != null
 }

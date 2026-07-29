@@ -389,12 +389,7 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession() else { return false }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
-                dependencies: runtimeBootstrap.publicDependencies(
-                    navigationMessage: "Quata para iOS",
-                    onOpenChats: { [weak self] in self?.authenticatedHost.openChatList() },
-                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
-                    initialPostId: postId,
-                ),
+                dependencies: runtimeBootstrap.authenticatedDependencies(initialPostId: postId),
             )
         }
         installAuthenticatedChatIfAvailable()
