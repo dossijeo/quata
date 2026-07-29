@@ -44,8 +44,16 @@ optimizacion.
 Los tamanos 35.29 MiB/13.55 MiB anotados en el tablero son redondeados. El
 fichero [wasm-bundle-baseline.json](wasm-bundle-baseline.json) sigue siendo un
 candidato historico y no es aprobable desde esta rama. Despues de integrar
-CI-001, la captura se ejecuta desde un worktree limpio y detached del
-`origin/main` actualizado (o de un tag confiable), nunca desde el commit elegido
+CI-001, la captura canónica se ejecuta manualmente en GitHub Actions mediante
+`Canonical Linux Wasm baseline capture`, exclusivamente cuando el evento es
+`refs/heads/main` y su SHA sigue siendo exactamente el `origin/main` recién
+obtenido. El runner Ubuntu 24.04 hace checkout detached, exige un árbol limpio
+y publica un candidato y su informe como artifact; nunca escribe `docs/` ni
+aprueba un baseline. Windows es solo diagnóstico local de `wasm-opt`, no una
+fuente canónica de baseline.
+
+Para una inspección local excepcional, la captura se hace desde un worktree
+limpio y detached del `origin/main` actualizado, nunca desde el commit elegido
 por la rama de aprobacion:
 
 ```powershell
