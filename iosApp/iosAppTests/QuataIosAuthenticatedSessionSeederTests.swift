@@ -48,7 +48,7 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
 private struct AuthSeederCredentials: Decodable {
     let phone: String
     let password: String
-    let countryCode: String?
+    let countryCode: String
 
     enum CodingKeys: String, CodingKey {
         case phone
