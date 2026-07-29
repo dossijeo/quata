@@ -7,6 +7,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,10 +35,10 @@ import com.quata.feature.postcomposer.presentation.CreatePostViewModel
  * export remain injected slots; this host deliberately owns no browser/backend media pipeline.
  */
 data class WebComposerMediaSlots(
-    val imageGallery: @Composable (Modifier, (String?) -> Unit) -> Unit,
-    val imageCamera: @Composable (Modifier, (String?) -> Unit) -> Unit,
-    val videoGallery: @Composable (Modifier, (String?) -> Unit) -> Unit,
-    val videoCamera: @Composable (Modifier, (String?) -> Unit) -> Unit,
+    val imageGallery: @Composable (Modifier, (WebComposerMediaSelection?) -> Unit) -> Unit,
+    val imageCamera: @Composable (Modifier, (WebComposerMediaSelection?) -> Unit) -> Unit,
+    val videoGallery: @Composable (Modifier, (WebComposerMediaSelection?) -> Unit) -> Unit,
+    val videoCamera: @Composable (Modifier, (WebComposerMediaSelection?) -> Unit) -> Unit,
     val preview: @Composable (uri: String?, isVideo: Boolean, modifier: Modifier) -> Unit,
     val export: @Composable ColumnScope.(uri: String?, isVideo: Boolean) -> Unit = { _, _ -> },
 )
@@ -52,9 +53,28 @@ fun WebPostComposerHost(
     val viewModel = remember(repository) { CreatePostViewModel(repository) }
     val state by viewModel.uiState.collectAsState()
     var type by remember { mutableStateOf(PostComposerType.Text) }
+    val mediaLifecycle = remember { WebComposerMediaLifecycle() }
+    var mediaVersion by remember { mutableStateOf(0) }
     val accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(browserCapabilityLanguageTag())
     val copy = accessibility.composer
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    fun replaceMedia(isVideo: Boolean, replacement: WebComposerMediaSelection?) {
+        if (mediaLifecycle.replace(isVideo, replacement)) {
+            mediaVersion++
+            viewModel.onEvent(
+                if (isVideo) CreatePostUiEvent.VideoSelected(replacement?.file?.reference)
+                else CreatePostUiEvent.ImageSelected(replacement?.file?.reference),
+            )
+        }
+    }
+    // LaunchedEffect runs after the browser element has been updated/removed for this composition.
+    // That order ensures no preview reads an object URL after its owning capability revokes it.
+    LaunchedEffect(mediaVersion) { mediaLifecycle.releaseReplaced() }
+    DisposableEffect(viewModel, mediaLifecycle) {
+        onDispose {
+            mediaLifecycle.dispose()
+            viewModel.close()
+        }
+    }
     ComposerScreenLayoutContent(
         title = copy.title,
         scrollState = rememberScrollState(),
@@ -94,7 +114,8 @@ fun WebPostComposerHost(
                 )
                 PostComposerType.Image, PostComposerType.Video -> {
                     val isVideo = type == PostComposerType.Video
-                    val uri = if (isVideo) state.videoUri else state.imageUri
+                    val selection = mediaLifecycle.selected(isVideo)
+                    val uri = selection?.file?.reference
                     ComposerMediaPostFormContent(
                         isLandscapeLayout = isLandscapeLayout,
                         mediaSource = {
@@ -102,13 +123,20 @@ fun WebPostComposerHost(
                                 title = if (isVideo) copy.videoType else copy.imageType,
                                 isLandscapeLayout = isLandscapeLayout,
                                 primarySourceAction = { slotModifier ->
-                                    if (isVideo) mediaSlots.videoGallery(slotModifier) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) }
-                                    else mediaSlots.imageGallery(slotModifier) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+                                    if (isVideo) mediaSlots.videoGallery(slotModifier) { replaceMedia(true, it) }
+                                    else mediaSlots.imageGallery(slotModifier) { replaceMedia(false, it) }
                                 },
                                 secondarySourceAction = { slotModifier ->
-                                    if (isVideo) mediaSlots.videoCamera(slotModifier) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) }
-                                    else mediaSlots.imageCamera(slotModifier) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+                                    if (isVideo) mediaSlots.videoCamera(slotModifier) { replaceMedia(true, it) }
+                                    else mediaSlots.imageCamera(slotModifier) { replaceMedia(false, it) }
                                 },
+                                beforeEdit = if (selection != null) {
+                                    {
+                                        Button(onClick = { replaceMedia(isVideo, null) }, modifier = Modifier.fillMaxWidth()) {
+                                            Text("Quitar archivo")
+                                        }
+                                    }
+                                } else null,
                                 afterEdit = { mediaSlots.export(this, uri, isVideo) },
                             )
                         },

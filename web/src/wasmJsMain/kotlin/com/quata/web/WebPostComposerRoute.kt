@@ -18,6 +18,7 @@ import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PlatformFile
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLImageElement
@@ -36,13 +37,17 @@ fun WebPostComposerRoute(
                 BrowserPickerButton("Elegir imagen", modifier) {
                     platformServices.filePicker.pick(
                         FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
-                    ).firstReferenceOrNull()?.let(onSelected)
+                    ).firstFileOrNull()?.let { file ->
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                    }
                 }
             },
             imageCamera = { modifier, onSelected ->
                 BrowserPickerButton("Tomar foto", modifier) {
                     when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
-                        is PlatformResult.Success -> onSelected(result.value.reference)
+                        is PlatformResult.Success -> result.value.let { file ->
+                            onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.cameraCapture.release(file) })
+                        }
                         else -> Unit
                     }
                 }
@@ -51,14 +56,18 @@ fun WebPostComposerRoute(
                 BrowserPickerButton("Elegir v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
-                    ).firstReferenceOrNull()?.let(onSelected)
+                    ).firstFileOrNull()?.let { file ->
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                    }
                 }
             },
             videoCamera = { modifier, onSelected ->
                 BrowserPickerButton("Grabar v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
-                    ).firstReferenceOrNull()?.let(onSelected)
+                    ).firstFileOrNull()?.let { file ->
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                    }
                 }
             },
             preview = { uri, isVideo, modifier -> BrowserComposerMediaPreview(uri, isVideo, modifier) },
@@ -73,8 +82,8 @@ private fun BrowserPickerButton(label: String, modifier: Modifier, select: suspe
     Button(onClick = { scope.launch { select() } }, modifier = modifier) { Text(label) }
 }
 
-private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
-    is PlatformResult.Success -> value.firstOrNull()?.reference
+private fun PlatformResult<List<PlatformFile>>.firstFileOrNull(): PlatformFile? = when (this) {
+    is PlatformResult.Success -> value.firstOrNull()
     is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
 }
 

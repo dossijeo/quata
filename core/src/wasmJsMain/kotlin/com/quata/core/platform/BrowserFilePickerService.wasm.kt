@@ -50,7 +50,7 @@ class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser 
         }
     }
 
-    override suspend fun release(file: PlatformFile): PlatformResult<Unit> {
+    override fun release(file: PlatformFile): PlatformResult<Unit> {
         val reference = file.reference
         if (!reference.startsWith("blob:", ignoreCase = true) || !issuedReferences.remove(reference)) {
             return PlatformResult.Failure("web_picker_file_not_owned")
