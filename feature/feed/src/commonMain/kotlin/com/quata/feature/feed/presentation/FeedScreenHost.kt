@@ -378,6 +378,7 @@ internal fun feedShareResultMessage(
 }
 
 @Composable
+@OptIn(kotlin.time.ExperimentalTime::class)
 private fun FeedCommentsDialog(
     slots: FeedScreenPlatformSlots,
     post: Post,

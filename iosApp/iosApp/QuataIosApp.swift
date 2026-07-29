@@ -366,9 +366,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installPublicFeed { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.publicDependencies(
-                    navigationMessage: "Explora Quata",
-                    onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
-                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    shareService: platformServices.services.share,
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },

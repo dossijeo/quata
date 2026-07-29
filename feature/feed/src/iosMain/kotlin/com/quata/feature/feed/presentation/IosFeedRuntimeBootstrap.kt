@@ -30,15 +30,11 @@ class IosFeedRuntimeBootstrap(
 
     /** Public feed is always available when deployment settings are valid, even without Keychain. */
     fun publicDependencies(
-        navigationMessage: String = "Quata para iOS",
-        onOpenChats: () -> Unit = {},
-        onBackToFeed: () -> Unit = {},
+        shareService: ShareService,
         initialPostId: String? = null,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
-            navigationMessage = navigationMessage,
-            onOpenChats = onOpenChats,
-            onBackToFeed = onBackToFeed,
+            shareService = shareService,
             initialPostId = initialPostId,
         )
 

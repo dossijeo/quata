@@ -9,7 +9,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.quata.core.capability.DefaultFeatureCapabilityText
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
@@ -32,9 +31,6 @@ import platform.UIKit.UIViewController
 class IosFeedHostDependencies(
     val repository: FeedRepository,
     val shareService: ShareService,
-    val navigationMessage: String = "Quata para iOS",
-    val onOpenChats: () -> Unit = {},
-    val onBackToFeed: () -> Unit = {},
     /** Real UIKit member-profile route supplied by the authenticated composition root. */
     val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
@@ -46,16 +42,12 @@ class IosFeedHostDependencies(
  */
 fun iosReadOnlyFeedHostDependencies(
     readRepository: FeedReadRepository,
-    navigationMessage: String = "Quata para iOS",
-    onOpenChats: () -> Unit = {},
-    onBackToFeed: () -> Unit = {},
+    shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
-    navigationMessage = navigationMessage,
-    onOpenChats = onOpenChats,
-    onBackToFeed = onBackToFeed,
+    shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
@@ -67,16 +59,12 @@ fun iosReadOnlyFeedHostDependencies(
  */
 fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
-    navigationMessage: String = "Quata para iOS",
-    onOpenChats: () -> Unit = {},
-    onBackToFeed: () -> Unit = {},
+    shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
-    navigationMessage = navigationMessage,
-    onOpenChats = onOpenChats,
-    onBackToFeed = onBackToFeed,
+    shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
@@ -168,5 +156,5 @@ private val IosFeedHostStrings = FeedBrowserHostStrings(
     readMore = "Leer más",
     close = "Cerrar",
     empty = "Aún no hay publicaciones disponibles.",
-    mediaUnavailable = DefaultFeatureCapabilityText.mediaUnavailable(),
+    mediaUnavailable = "",
 )
