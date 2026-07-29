@@ -45,8 +45,8 @@ const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-t
 // These routes remain public and safe to inspect without manufacturing a session.  Their
 // canonical route is persisted by the app before the unauthenticated boundary presents Login.
 const publicDeepLinks = [
-    { fragment: 'post/publication-123', route: 'post/publication-123' },
-    { fragment: 'official/bulletin-99', route: 'official/bulletin-99' },
+    { fragment: 'post-publication-123', route: 'post/publication-123' },
+    { fragment: 'official-bulletin-99', route: 'official/bulletin-99' },
     { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', route: 'chat/sb:team/42' },
     { fragment: 'unknown-route', route: 'feed' },
 ];
@@ -754,7 +754,7 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
         }
         const layout = await cdp.evaluate(`(() => {
             const root = document.querySelector('#quata-root');
-            const controls = [...document.querySelectorAll('input[aria-label], button[aria-label]')].map(element => {
+            const controls = [...(root?.shadowRoot?.querySelectorAll('input[aria-label], button[aria-label]') ?? [])].map(element => {
                 const rect = element.getBoundingClientRect();
                 return { tag: element.tagName, label: element.getAttribute('aria-label'), type: element.getAttribute('type'), disabled: element.disabled, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             });
@@ -792,14 +792,15 @@ async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
 
 async function assertKeyboardAndAccessibility(cdp) {
     const controlsProbe = await cdp.evaluate(`(() => {
+        const app = document.querySelector('#quata-root')?.shadowRoot;
         const isVisible = element => {
             const rect = element.getBoundingClientRect();
             return rect.width > 0 && rect.height > 0;
         };
-        const inputs = [...document.querySelectorAll('input[aria-label]')].filter(isVisible);
+        const inputs = [...(app?.querySelectorAll('input[aria-label]') ?? [])].filter(isVisible);
         const phone = inputs.find(input => input.type !== 'password');
         const password = inputs.find(input => input.type === 'password');
-        const submit = [...document.querySelectorAll('button[aria-label]')].find(isVisible);
+        const submit = [...(app?.querySelectorAll('button[aria-label]') ?? [])].find(isVisible);
         const describe = element => element && ({
             tag: element.tagName,
             type: element.getAttribute('type'),
@@ -819,9 +820,11 @@ async function assertKeyboardAndAccessibility(cdp) {
     }
 
     const focusPhone = await cdp.evaluate(`(() => {
-        const phone = [...document.querySelectorAll('input[aria-label]')].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+        const root = document.querySelector('#quata-root');
+        const app = root?.shadowRoot;
+        const phone = [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
         phone?.focus();
-        return document.activeElement === phone;
+        return app?.activeElement === phone;
     })()`);
     if (focusPhone?.result?.value !== true) throw new Error('Native Auth phone/user input cannot receive keyboard focus.');
 
@@ -831,43 +834,74 @@ async function assertKeyboardAndAccessibility(cdp) {
     };
     await pressTab();
     const afterFirstTab = await cdp.evaluate(`(() => {
-        const password = [...document.querySelectorAll('input[aria-label]')].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
-        return document.activeElement === password;
+        const root = document.querySelector('#quata-root');
+        const password = [...(root?.shadowRoot?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+        return root?.shadowRoot?.activeElement === password;
     })()`);
     if (afterFirstTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the phone/user input to the password input.');
     await pressTab();
     const afterSecondTab = await cdp.evaluate(`(() => {
-        const submit = [...document.querySelectorAll('button[aria-label]')].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
-        return document.activeElement === submit;
+        const root = document.querySelector('#quata-root');
+        const submit = [...(root?.shadowRoot?.querySelectorAll('button[aria-label]') ?? [])].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
+        return root?.shadowRoot?.activeElement === submit;
     })()`);
     if (afterSecondTab?.result?.value !== true) throw new Error('Keyboard Tab did not move focus from the password input to the submit button.');
 
     const focused = await cdp.evaluate(`(() => {
-        const active = document.activeElement;
+        const active = document.querySelector('#quata-root')?.shadowRoot?.activeElement;
         return active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null;
     })()`);
     const focus = focused?.result?.value;
     if (focus?.tag !== 'BUTTON' || focus.label !== controls.submit.label) throw new Error(`Submit focus identity changed unexpectedly: ${JSON.stringify(focus)}.`);
 
-    const documentRoot = await cdp.send('DOM.getDocument');
-    const selectors = [
-        ['phone', 'input[aria-label]:not([type="password"])', 'textbox', controls.phone.label],
-        ['password', 'input[type="password"][aria-label]', 'textbox', controls.password.label],
-        ['submit', 'button[aria-label]', 'button', controls.submit.label],
+    const documentRoot = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+    const identities = [
+        ['phone', 'INPUT', controls.phone.type, 'textbox', controls.phone.label],
+        ['password', 'INPUT', 'password', 'textbox', controls.password.label],
+        ['submit', 'BUTTON', null, 'button', controls.submit.label],
     ];
     const axControls = [];
-    for (const [kind, selector, expectedRole, expectedName] of selectors) {
-        const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: documentRoot.root.nodeId, selector });
-        if (!nodeId) throw new Error(`Visible native Auth ${kind} control is missing from DOM for AX inspection.`);
+    for (const [kind, tagName, type, expectedRole, expectedName] of identities) {
+        const node = findPiercedDomNode(documentRoot.root, candidate => {
+            const attributes = domNodeAttributes(candidate);
+            return candidate.nodeName === tagName &&
+                attributes.get('aria-label') === expectedName &&
+                (type === null || attributes.get('type') === type);
+        });
+        const nodeId = node?.nodeId;
+        if (!nodeId) throw new Error(`Visible native Auth ${kind} control is missing from the pierced DOM for AX inspection.`);
         const partial = await cdp.send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
-        const node = (partial.nodes ?? []).find(candidate => candidate.role?.value === expectedRole);
-        const name = node?.name?.value;
-        if (!node || typeof name !== 'string' || !name.trim() || name !== expectedName) {
-            throw new Error(`Native Auth ${kind} AX role/name mismatch: ${JSON.stringify({ expectedRole, expectedName, node })}.`);
+        const axNode = (partial.nodes ?? []).find(candidate => candidate.backendDOMNodeId === node.backendNodeId);
+        const name = axNode?.name?.value;
+        if (axNode?.role?.value !== expectedRole || typeof name !== 'string' || !name.trim() || name !== expectedName) {
+            throw new Error(`Native Auth ${kind} AX role/name mismatch: ${JSON.stringify({ expectedRole, expectedName, axNode })}.`);
         }
-        axControls.push({ kind, role: node.role.value, name });
+        axControls.push({ kind, role: axNode.role.value, name });
     }
     return { tabFocus: focus, controls, axControls };
+}
+
+function domNodeAttributes(node) {
+    const attributes = new Map();
+    for (let index = 0; index < (node?.attributes?.length ?? 0); index += 2) {
+        attributes.set(node.attributes[index], node.attributes[index + 1]);
+    }
+    return attributes;
+}
+
+function findPiercedDomNode(node, predicate) {
+    if (!node) return null;
+    if (predicate(node)) return node;
+    for (const child of [
+        ...(node.children ?? []),
+        ...(node.shadowRoots ?? []),
+        ...(node.pseudoElements ?? []),
+        ...(node.contentDocument ? [node.contentDocument] : []),
+    ]) {
+        const match = findPiercedDomNode(child, predicate);
+        if (match) return match;
+    }
+    return null;
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {

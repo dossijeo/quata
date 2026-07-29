@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const smoke = await readFile(new URL('./web-browser-smoke.mjs', import.meta.url), 'utf8');
+const index = await readFile(new URL('../web/src/wasmJsMain/resources/index.html', import.meta.url), 'utf8');
 
 test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the real production smoke', () => {
     for (const fragment of [
-        'post/publication-123',
-        'official/bulletin-99',
+        'post-publication-123',
+        'official-bulletin-99',
         'chat-sb%3Ateam%2F42?message=msg%209',
         'unknown-route',
     ]) assert.match(smoke, new RegExp(`fragment: '${fragment.replace(/[?]/g, '\\?')}'`));
@@ -21,6 +22,7 @@ test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the 
     assert.match(smoke, /Emulation\.setDeviceMetricsOverride/);
     assert.match(smoke, /scrollWidth > viewport\.width/);
     assert.match(smoke, /Responsive \$\{viewport\.name\} Auth layout\/semantic controls failed/);
+    assert.match(index, /html,\s*body\s*\{\s*overflow:\s*hidden;\s*\}/);
 });
 
 test('WEB-UX-001 validates the exact native Auth focus sequence and AX nodes, not global counts or an inert surrogate', () => {
@@ -28,9 +30,10 @@ test('WEB-UX-001 validates the exact native Auth focus sequence and AX nodes, no
     assert.match(smoke, /controls\.password\.type !== 'password'/);
     assert.match(smoke, /controls\?\.submit\?\.tag !== 'BUTTON'/);
     assert.match(smoke, /Input\.dispatchKeyEvent/);
-    assert.match(smoke, /document\.activeElement === password/);
-    assert.match(smoke, /document\.activeElement === submit/);
-    assert.match(smoke, /DOM\.querySelector/);
+    assert.match(smoke, /root\?\.shadowRoot\?\.activeElement === password/);
+    assert.match(smoke, /root\?\.shadowRoot\?\.activeElement === submit/);
+    assert.match(smoke, /DOM\.getDocument', \{ depth: -1, pierce: true \}/);
+    assert.match(smoke, /backendDOMNodeId === node\.backendNodeId/);
     assert.match(smoke, /Accessibility\.getPartialAXTree/);
     assert.match(smoke, /name !== expectedName/);
     assert.doesNotMatch(smoke, /Accessibility\.getFullAXTree/);
