@@ -92,6 +92,9 @@ final class QuataIosHostUITests: XCTestCase {
             ("https://egquata.com/#post-feed-9", "quata-ios-feed-host", "Quata iOS Feed", "fixture-feed"),
             ("https://egquata.com/#chat-conversation-7?message=message-4", "quata-ios-chat-host", "Quata iOS Chat", "fixture-chat"),
             ("https://egquata.com/#official-public-7", "quata-ios-official-host", "Quata iOS Official", "fixture-official"),
+            // RichTextEditorQa intentionally resolves to Official(nil) at the production iOS
+            // adapter boundary until that diagnostic surface has its own native destination.
+            ("https://egquata.com/#editor-qa", "quata-ios-official-host", "Quata iOS Official", "fixture-editor-qa-via-official"),
             ("https://egquata.com/#whats-new", "quata-ios-whats-new-host", "Quata iOS What's New", "fixture-whats-new"),
             ("https://egquata.com/#release-history", "quata-ios-release-history-host", "Quata iOS Release History", "fixture-release-history"),
         ]
