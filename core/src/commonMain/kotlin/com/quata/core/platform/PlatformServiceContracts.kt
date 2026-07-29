@@ -47,14 +47,7 @@ interface FilePickerService {
  * release an arbitrary caller reference.
  */
 interface FilePickerReferenceReleaser {
-    /**
-     * Releases a reference synchronously after its last reader has been detached.
-     *
-     * Browser `URL.revokeObjectURL` has no asynchronous work.  Keeping this boundary synchronous
-     * lets a composition dispose a preview deterministically, rather than scheduling a release in
-     * a scope that may already have been cancelled by route teardown.
-     */
-    fun release(file: PlatformFile): PlatformResult<Unit>
+    suspend fun release(file: PlatformFile): PlatformResult<Unit>
 }
 /**
  * User-gesture contact selection boundary. This deliberately does not imply address-book access:

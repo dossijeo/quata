@@ -36,9 +36,9 @@ fun WebPostComposerRoute(
             imageGallery = { modifier, onSelected ->
                 BrowserPickerButton("Elegir imagen", modifier) {
                     platformServices.filePicker.pick(
-                        FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
+                        FilePickerRequest(listOf("image/*"), allowMultiple = false, source = FilePickerSource.Gallery),
                     ).firstFileOrNull()?.let { file ->
-                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.localFilePickerReferences.releaseNow(file) })
                     }
                 }
             },
@@ -55,18 +55,18 @@ fun WebPostComposerRoute(
             videoGallery = { modifier, onSelected ->
                 BrowserPickerButton("Elegir v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
-                        FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
+                        FilePickerRequest(listOf("video/*"), allowMultiple = false, source = FilePickerSource.Gallery),
                     ).firstFileOrNull()?.let { file ->
-                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.localFilePickerReferences.releaseNow(file) })
                     }
                 }
             },
             videoCamera = { modifier, onSelected ->
                 BrowserPickerButton("Grabar v\u00eddeo", modifier) {
                     platformServices.filePicker.pick(
-                        FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
+                        FilePickerRequest(listOf("video/*"), allowMultiple = false, source = FilePickerSource.Camera),
                     ).firstFileOrNull()?.let { file ->
-                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.filePickerReferences.release(file) })
+                        onSelected(WebComposerMediaSelection.ownedLocal(file) { platformServices.localFilePickerReferences.releaseNow(file) })
                     }
                 }
             },

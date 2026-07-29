@@ -18,7 +18,12 @@ import kotlinx.serialization.json.longOrNull
  * [release] only revokes URLs issued by this picker instance, so it is safe to expose to a
  * composition root without granting it the ability to invalidate remote or another service's URL.
  */
-class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser {
+/** Wasm-local, synchronous disposal capability for browser object URLs. */
+interface BrowserOwnedFileReferenceReleaser {
+    fun releaseNow(file: PlatformFile): PlatformResult<Unit>
+}
+
+class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser, BrowserOwnedFileReferenceReleaser {
     private val issuedReferences = mutableSetOf<String>()
 
     override suspend fun pickFiles(
@@ -50,7 +55,13 @@ class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser 
         }
     }
 
-    override fun release(file: PlatformFile): PlatformResult<Unit> {
+    override suspend fun release(file: PlatformFile): PlatformResult<Unit> = releaseNow(file)
+
+    /**
+     * `URL.revokeObjectURL` is synchronous. This local capability is intentionally not part of
+     * the common suspend ABI: Composer uses it during Compose disposal, after its preview detaches.
+     */
+    override fun releaseNow(file: PlatformFile): PlatformResult<Unit> {
         val reference = file.reference
         if (!reference.startsWith("blob:", ignoreCase = true) || !issuedReferences.remove(reference)) {
             return PlatformResult.Failure("web_picker_file_not_owned")

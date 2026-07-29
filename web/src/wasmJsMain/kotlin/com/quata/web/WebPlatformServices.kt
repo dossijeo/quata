@@ -10,6 +10,7 @@ import com.quata.core.platform.BrowserAudioPlayerService
 import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.BrowserAudioCacheService
 import com.quata.core.platform.BrowserFilePickerService
+import com.quata.core.platform.BrowserOwnedFileReferenceReleaser
 import com.quata.core.platform.BrowserFileCacheService
 import com.quata.core.platform.BrowserLocationService
 import com.quata.core.platform.BrowserShareService
@@ -46,6 +47,8 @@ data class WebPlatformServices(
      * upload has completed. It must not be called while a preview, upload or viewer still reads it.
      */
     val filePickerReferences: FilePickerReferenceReleaser = browserFilePicker,
+    /** Synchronous Wasm-only capability used only after Composer has detached a local preview. */
+    val localFilePickerReferences: BrowserOwnedFileReferenceReleaser = browserFilePicker,
     /** IndexedDB binary cache, kept separate from the small key/value [PreferenceStore] boundary. */
     private val browserFileCache: BrowserFileCacheService = BrowserFileCacheService(),
     val fileCache: FileCacheService = browserFileCache,

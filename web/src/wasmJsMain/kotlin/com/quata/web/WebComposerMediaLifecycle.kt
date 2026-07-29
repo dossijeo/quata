@@ -43,13 +43,20 @@ internal class WebComposerMediaLifecycle {
     private var image: WebComposerMediaSelection? = null
     private var video: WebComposerMediaSelection? = null
     private val pendingRelease = mutableListOf<WebComposerMediaSelection>()
+    private var disposed = false
 
     fun selected(isVideo: Boolean): WebComposerMediaSelection? = if (isVideo) video else image
 
     /** Returns true when the visible Composer state changed and needs a post-commit release pass. */
     fun replace(isVideo: Boolean, replacement: WebComposerMediaSelection?): Boolean {
+        if (disposed) {
+            // A late picker/camera callback must not resurrect a closed Composer. It still owns a
+            // browser resource, however, so consume its capability exactly once.
+            replacement?.releaseOnce()
+            return false
+        }
         val previous = selected(isVideo)
-        if (previous?.file?.reference == replacement?.file?.reference) return false
+        if (previous === replacement) return false
         if (isVideo) video = replacement else image = replacement
         previous?.let(pendingRelease::add)
         return true
@@ -64,6 +71,8 @@ internal class WebComposerMediaLifecycle {
 
     /** Idempotent route-close/cancellation cleanup. */
     fun dispose() {
+        if (disposed) return
+        disposed = true
         releaseReplaced()
         image?.releaseOnce()
         video?.releaseOnce()

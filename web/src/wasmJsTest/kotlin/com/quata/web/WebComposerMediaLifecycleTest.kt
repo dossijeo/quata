@@ -75,8 +75,47 @@ class WebComposerMediaLifecycleTest {
         assertEquals(null, lifecycle.selected(isVideo = false))
     }
 
-    private fun owned(reference: String, released: MutableList<String>): WebComposerMediaSelection {
+    @Test
+    fun lateSelectionAfterDisposeIsReleasedButCannotResurrectComposer() {
+        val released = mutableListOf<String>()
+        val lifecycle = WebComposerMediaLifecycle()
+        val visible = owned("blob:https://quata.test/visible", released)
+        val late = owned("blob:https://quata.test/late", released)
+
+        lifecycle.replace(isVideo = false, replacement = visible)
+        lifecycle.releaseReplaced()
+        lifecycle.dispose()
+
+        assertFalse(lifecycle.replace(isVideo = false, replacement = late))
+        lifecycle.releaseReplaced()
+        lifecycle.dispose()
+
+        assertEquals(listOf(visible.file.reference, late.file.reference), released)
+        assertEquals(null, lifecycle.selected(isVideo = false))
+    }
+
+    @Test
+    fun distinctOwnedSelectionsWithTheSameUrlReplaceByIdentityWithoutLeakingEitherToken() {
+        val released = mutableListOf<String>()
+        val lifecycle = WebComposerMediaLifecycle()
+        val first = owned("blob:https://quata.test/same", released, token = "first")
+        val second = owned("blob:https://quata.test/same", released, token = "second")
+
+        lifecycle.replace(isVideo = false, replacement = first)
+        lifecycle.releaseReplaced()
+        assertTrue(lifecycle.replace(isVideo = false, replacement = second))
+        lifecycle.releaseReplaced()
+        lifecycle.dispose()
+
+        assertEquals(listOf("first", "second"), released)
+    }
+
+    private fun owned(
+        reference: String,
+        released: MutableList<String>,
+        token: String = reference,
+    ): WebComposerMediaSelection {
         val file = PlatformFile(reference)
-        return WebComposerMediaSelection.ownedLocal(file) { released += reference }
+        return WebComposerMediaSelection.ownedLocal(file) { released += token }
     }
 }
