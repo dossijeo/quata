@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.quata.core.platform.ShareService
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
@@ -17,7 +18,6 @@ import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
 import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
 import com.quata.core.session.IosRenewableAuthSession
-import com.quata.core.platform.ShareService
 import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
@@ -30,8 +30,8 @@ import platform.UIKit.UIViewController
  */
 class IosFeedHostDependencies(
     val repository: FeedRepository,
+    val mediaFactory: IosFeedMediaFactory,
     val shareService: ShareService,
-    /** Real UIKit member-profile route supplied by the authenticated composition root. */
     val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
 )
@@ -42,11 +42,13 @@ class IosFeedHostDependencies(
  */
 fun iosReadOnlyFeedHostDependencies(
     readRepository: FeedReadRepository,
+    mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
+    mediaFactory = mediaFactory,
     shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
@@ -59,11 +61,13 @@ fun iosReadOnlyFeedHostDependencies(
  */
 fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
+    mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
+    mediaFactory = mediaFactory,
     shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
@@ -73,6 +77,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
 fun iosAuthenticatedPostgrestFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
+    mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
     initialPostId: String? = null,
     onOpenUserProfile: (String) -> Unit = {},
@@ -81,6 +86,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     val read = RemoteFeedReadRepository(transport)
     return IosFeedHostDependencies(
         repository = IosAuthenticatedFeedRepository(transport, ReadOnlyFeedRepository(read)),
+        mediaFactory = mediaFactory,
         shareService = shareService,
         onOpenUserProfile = onOpenUserProfile,
         initialPostId = initialPostId,
@@ -108,6 +114,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                         onPositionChanged = onPositionChanged,
                         isMuted = muted,
                         onMuteChange = { muted = it },
+                        mediaFactory = dependencies.mediaFactory,
                     )
                 },
                 avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
@@ -156,5 +163,5 @@ private val IosFeedHostStrings = FeedBrowserHostStrings(
     readMore = "Leer más",
     close = "Cerrar",
     empty = "Aún no hay publicaciones disponibles.",
-    mediaUnavailable = "",
+    mediaUnavailable = DefaultFeatureCapabilityText.mediaUnavailable(),
 )
