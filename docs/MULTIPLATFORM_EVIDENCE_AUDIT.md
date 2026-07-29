@@ -1,5 +1,13 @@
 # Matriz de evidencia para la auditoría final KMP
 
+> **Actualización posterior a MP-A14 (2026-07-29):** el corte operativo es
+> `185960769011f03d644130012fe8051ad536e9bf`. PRs #99–#104 aportan evidencia
+> posterior a la reconciliación histórica de abajo: Web público y Android siguen
+> verdes; iOS tiene matriz pública integrada, rutas/factorías y CI
+> [`30425431607`](https://github.com/dossijeo/quata/actions/runs/30425431607)
+> verde sobre `ba6a72a`. Ninguno acredita autenticación final, firma, APNs,
+> dispositivo físico, RLS ni migración completa.
+
 **Corte integrado:** `main` `ea0322c159be61018a60604f6b9134bd4f290787`.
 La ola 1 permanece acreditada por
 `587789ff03df0c1b83baa2b6ca74babc4e4d3499`

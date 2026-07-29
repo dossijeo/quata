@@ -8,6 +8,24 @@ Commit auditado: `bd8a73b03b1139024f9e0447b0d452f156267578` (`main`)
 > validación, consulta `MULTIPLATFORM_MIGRATION_BOARD.md` y
 > `MULTIPLATFORM_VALIDATION_EVIDENCE.md`.
 
+## Addendum de estado — 2026-07-29
+
+El corte actual es `main` `185960769011f03d644130012fe8051ad536e9bf`. Esta
+actualización no reescribe la medición histórica de 2026-07-25: añade la lectura
+posterior a PRs #99–#104 con evidencia trazable.
+
+| Ámbito | Estimación actual prudente | Qué cambió desde la auditoría histórica |
+| --- | ---: | --- |
+| Migración global a KMP | **~80 %** | Más host común y gates verificables, pero aún hay adaptadores Android, paridad funcional, E2E y release pendientes. |
+| Versión Web | **~85–90 %** | Producción pública, UX/AX, rutas y cinco muestras observadas están verificadas; autenticación completa, mutaciones, push, DocMentis de producción y RLS siguen fuera de cierre. |
+| Versión iOS | **~75–80 %** | Host/XCFramework/XCTest, rutas y matriz pública en dos simuladores están verificados; firma, IPA/TestFlight, APNs, App Group físico y E2E autenticado siguen pendientes. |
+
+Estas cifras continúan midiendo paridad funcional con Android y preparación
+verificable, no archivos compilables. `migrationComplete`, `webReady` e
+`iosReady` permanecen en `false`. La autenticación iOS está en validación y se
+mantiene HOLD hasta que exista un resultado final con limpieza, sin credenciales
+en documentación.
+
 ## Resumen ejecutivo
 
 La migración está bien encaminada y no es una migración nominal: existe código de dominio,
