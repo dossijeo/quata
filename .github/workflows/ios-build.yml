@@ -195,6 +195,7 @@ jobs:
           bash ./gradlew \
             :core:compileKotlinIosArm64 \
             :core:compileKotlinIosSimulatorArm64 \
+            :core:compileTestKotlinIosSimulatorArm64 \
             :designsystem:compileKotlinIosArm64 \
             :designsystem:compileKotlinIosSimulatorArm64 \
             :feature:auth:compileKotlinIosArm64 \

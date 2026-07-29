@@ -90,6 +90,12 @@ function assertIosWorkflowSelfCoverage(yaml) {
     yaml,
     /- name: Validate iOS public runtime backup contract\n\s+shell: bash\n\s+run: bash scripts\/test-ios-public-runtime-config-backup\.sh/,
   );
+
+  const compilationBlock = yaml.slice(compilation, yaml.indexOf('      - name: Link QuataShared simulator framework', compilation));
+  assert.ok(
+    compilationBlock.includes(':core:compileTestKotlinIosSimulatorArm64 \\'),
+    'the iOS lane must compile core iosTest contracts without requiring a simulator runtime',
+  );
 }
 
 function assertIosRuntimeFixtureAndUiIsolation(yaml) {
