@@ -29,7 +29,8 @@ test("auth-launch fixture stays isolated from runtime configuration, storage and
   }
   assert.match(fixtureKotlin, /private class IosAuthLaunchFixtureRepository : AuthRepository/);
   assert.match(fixtureKotlin, /Result\.failure\(IllegalStateException\("fixture_auth_unavailable"\)\)/);
-  assert.match(fixtureKotlin, /registrationEnabled = false/);
+  assert.match(fixtureKotlin, /repository = IosAuthLaunchFixtureRepository\(\)/);
+  assert.match(fixtureKotlin, /onLoginSuccess = \{\}/);
   for (const source of [fixtureKotlin, fixtureSwift]) {
     assert.equal(
       /"(?:[^"\\]|\\.)*(?:token|password|secret|supabase|https?:\/\/)(?:[^"\\]|\\.)*"/i.test(source),
