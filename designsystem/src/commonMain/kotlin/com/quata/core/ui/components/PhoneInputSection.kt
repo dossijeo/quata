@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,8 +50,10 @@ fun PhoneInputSection(
     phoneLabel: String,
     searchPlaceholder: String,
     modifier: Modifier = Modifier,
-    /** Optional platform overlay. It must be transparent and leave the Compose field as the visual source of truth. */
-    phoneInputOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    /** Optional platform overlay. It owns focus/accessibility while Compose remains the visual renderer. */
+    phoneInputOverlay: (@Composable (String, (String) -> Unit, (Boolean) -> Unit, Modifier) -> Unit)? = null,
+    onOverlayFocusChanged: (Boolean) -> Unit = {},
+    visualFocused: Boolean = false,
 ) {
     val template = quataTheme()
     Row(
@@ -77,17 +80,19 @@ fun PhoneInputSection(
                 placeholder = { Text(phoneLabel) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(
+                    if (phoneInputOverlay == null) Modifier else Modifier.clearAndSetSemantics { },
+                ),
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = template.colors.surfaceAlt,
                     unfocusedContainerColor = template.colors.surfaceAlt,
                     focusedBorderColor = template.colors.accent,
-                    unfocusedBorderColor = template.colors.inputBorder,
+                    unfocusedBorderColor = if (visualFocused) template.colors.accent else template.colors.inputBorder,
                     cursorColor = template.colors.accent
                 ),
             )
-            phoneInputOverlay?.invoke(phone, onPhoneChange, Modifier.fillMaxSize())
+            phoneInputOverlay?.invoke(phone, onPhoneChange, onOverlayFocusChanged, Modifier.fillMaxSize())
         }
     }
 }

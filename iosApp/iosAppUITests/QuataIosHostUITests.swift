@@ -38,6 +38,42 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-cold-relaunch")
     }
 
+    func testNativeAuthInputsExposeOneFocusableAccessibilityElementEach() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let conversations = app.buttons["Conversaciones"]
+        XCTAssertTrue(conversations.waitForExistence(timeout: 15))
+        XCTAssertTrue(conversations.isHittable)
+        conversations.tap()
+
+        let phone = app.textFields["auth.phone.input"]
+        let password = app.secureTextFields["auth.password.input"]
+        XCTAssertTrue(phone.waitForExistence(timeout: 15))
+        XCTAssertTrue(password.waitForExistence(timeout: 15))
+        XCTAssertEqual(app.textFields.matching(identifier: "auth.phone.input").count, 1)
+        XCTAssertEqual(app.secureTextFields.matching(identifier: "auth.password.input").count, 1)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "auth.phone").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "auth.password").firstMatch.exists)
+
+        // These are intentionally non-production fixture values. The assertion proves that the
+        // native focus bridge updates the visible shared Compose state without an auth request.
+        phone.tap()
+        phone.typeText("5550101")
+        XCTAssertTrue(phone.hasFocus)
+        password.tap()
+        password.typeText("FixtureOnly1")
+        XCTAssertTrue(password.hasFocus)
+
+        let prefix = app.buttons["+240"]
+        XCTAssertTrue(prefix.waitForExistence(timeout: 10))
+        XCTAssertTrue(prefix.isHittable, "The native phone overlay must not cover the prefix selector.")
+        let submit = app.buttons["auth.submit"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 10))
+        XCTAssertTrue(submit.isHittable)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "native-auth-input-focus")
+    }
+
     func testAuthenticatedFixtureColdStartsChatDeepLinkThroughTheSharedRouter() {
         let app = fixtureApp(
             "authenticated",

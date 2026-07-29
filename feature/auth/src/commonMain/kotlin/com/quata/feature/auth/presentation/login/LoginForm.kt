@@ -7,6 +7,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -39,19 +43,21 @@ fun LoginForm(
     showRegistration: Boolean = true,
     phoneInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
     passwordInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
-    phoneInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
-    passwordInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    phoneInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, (Boolean) -> Unit, Modifier) -> Unit)? = null,
+    passwordInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, (Boolean) -> Unit, Modifier) -> Unit)? = null,
     submitButtonOverride: (@Composable (String, Boolean, () -> Unit, Modifier) -> Unit)? = null,
     onEvent: (LoginUiEvent) -> Unit,
     onForgotPassword: () -> Unit,
     onGoToRegister: () -> Unit,
 ) {
+    var phoneVisualFocused by remember { mutableStateOf(false) }
+    var passwordVisualFocused by remember { mutableStateOf(false) }
     val compactSpace = if (isLandscape) 6.dp else 8.dp
     phoneInputOverride?.invoke(state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
-        ?: PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" }, phoneInputAccessibilityOverlay)
+        ?: PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, if (phoneInputAccessibilityOverlay == null) Modifier.fillMaxWidth().semantics { testTag = "auth.phone" } else Modifier.fillMaxWidth(), phoneInputAccessibilityOverlay, onOverlayFocusChanged = { phoneVisualFocused = it }, visualFocused = phoneVisualFocused)
     Spacer(Modifier.height(compactSpace))
     passwordInputOverride?.invoke(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
-        ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" }, inputOverlay = passwordInputAccessibilityOverlay)
+        ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = if (passwordInputAccessibilityOverlay == null) Modifier.fillMaxWidth().semantics { testTag = "auth.password" } else Modifier.fillMaxWidth(), inputOverlay = passwordInputAccessibilityOverlay, onOverlayFocusChanged = { passwordVisualFocused = it }, visualFocused = passwordVisualFocused)
     state.error?.let { Spacer(Modifier.height(compactSpace)); Text(it, color = MaterialTheme.colorScheme.error) }
     Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
     submitButtonOverride?.invoke(if (state.isLoading) strings.signingIn else strings.signIn, !state.isLoading, { onEvent(LoginUiEvent.Submit) }, Modifier.semantics { testTag = "auth.submit" })

@@ -12,6 +12,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -26,8 +27,10 @@ fun QuataTextField(
     singleLine: Boolean = true,
     isPassword: Boolean = false,
     minLines: Int = 1,
-    /** Platform-only transparent input bridge; Compose remains responsible for every visible pixel. */
-    inputOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    /** Platform-only input bridge; Compose remains responsible for every visible pixel. */
+    inputOverlay: (@Composable (String, (String) -> Unit, (Boolean) -> Unit, Modifier) -> Unit)? = null,
+    onOverlayFocusChanged: (Boolean) -> Unit = {},
+    visualFocused: Boolean = false,
 ) {
     val template = quataTheme()
     val fieldModifier = if (singleLine && minLines == 1) {
@@ -39,7 +42,9 @@ fun QuataTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(
+                if (inputOverlay == null) Modifier else Modifier.clearAndSetSemantics { },
+            ),
             singleLine = singleLine,
             minLines = minLines,
             placeholder = { Text(label) },
@@ -49,10 +54,10 @@ fun QuataTextField(
                 focusedContainerColor = template.colors.surfaceAlt,
                 unfocusedContainerColor = template.colors.surfaceAlt,
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = template.colors.inputBorder,
+                unfocusedBorderColor = if (visualFocused) MaterialTheme.colorScheme.primary else template.colors.inputBorder,
                 cursorColor = MaterialTheme.colorScheme.primary
             )
         )
-        inputOverlay?.invoke(value, onValueChange, Modifier.fillMaxSize())
+        inputOverlay?.invoke(value, onValueChange, onOverlayFocusChanged, Modifier.fillMaxSize())
     }
 }
