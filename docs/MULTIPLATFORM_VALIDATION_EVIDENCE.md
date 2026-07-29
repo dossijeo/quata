@@ -1,6 +1,6 @@
 # Evidencia de validación multiplataforma
 
-**Corte documental:** `main` `185960769011f03d644130012fe8051ad536e9bf` (2026-07-29).
+**Corte documental:** `main` `d8652326f61d93f33bb860d64565ad74e3e80ed5` (2026-07-29).
 
 La evidencia se delimita por SHA y tipo de prueba: build acredita artefactos;
 smoke acredita el recorrido descrito; E2E exige backend real, identidad y limpieza.
@@ -28,10 +28,11 @@ Ninguna fila amplía su alcance por inferencia.
 
 | Carril | Resultado | Límite |
 | --- | --- | --- |
-| GitHub Actions | GO limitado | Run [`30425431607`](https://github.com/dossijeo/quata/actions/runs/30425431607), job `90490809295`, `success` sobre `ba6a72a1649239a4abf7408d63712d206a5d0a4c`: Kotlin/Native, framework/XCFramework, host Swift, XCTest, archive sin firma y contratos de la matriz pública. |
+| GitHub Actions | GO limitado | La matriz pública #102 sigue acreditada por [`30425431607`](https://github.com/dossijeo/quata/actions/runs/30425431607). PR #106 añadió logout autenticado y el run [`30429034347`](https://github.com/dossijeo/quata/actions/runs/30429034347) terminó verde sobre `db2c2b1a`: compilación y contratos Swift/Kotlin, sin acreditar interacción visual. |
 | Matriz pública simulador | GO funcional suplementario | PR #102 ejecutó serialmente iOS 18.3 e iOS 26.5 con configuración pública temporal, HTTP 200, PID/logs filtrados, 0 crash/fatal observados, OCR/capturas y cleanup. CPU-raster Intel no acredita SLA ni rendimiento de producto. |
 | Rutas/factorías iOS | GO de contrato | PR #103 añadió contratos de rutas instaladas y factorías; no sustituye una sesión ni un backend real. |
-| Login visual real | En validación / HOLD | La cuenta aislada se prueba en un carril separado. Hasta resultado final y limpieza no se declara autenticación, refresh ni logout. |
+| Backend de cuenta de prueba | Protocolo verificado, no E2E | Una comprobación redactada obtuvo sesión y perfil. No se guardaron ni publicaron credenciales, ni este resultado afirma UI, refresh o logout. |
+| Login visual real | HOLD técnico | Falta el fichero de configuración remoto con modo `0600` y aislar Keychain/test host. PR #107 se cerró sin merge después de que su fixture desconectara el proceso Compose; no se declara autenticación, refresh ni logout visual. |
 | Signing/distribución | HOLD | El archive genérico sin firma está disponible como evidencia de estructura. Faltan identidad Apple/Team, certificados, perfiles, App Group, IPA/TestFlight y dispositivo físico. |
 | APNs | HOLD | Hay bridge/plumbing y requisitos documentados; no hay canal de dispatcher APNs ni entrega en dispositivo físico firmada. |
 

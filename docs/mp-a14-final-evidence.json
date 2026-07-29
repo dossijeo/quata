@@ -1,10 +1,10 @@
 {
   "schemaVersion": 3,
   "recordedAt": "2026-07-29",
-  "scope": "multiplatform evidence reconciliation after PRs 99-104",
+  "scope": "multiplatform evidence reconciliation after PRs 99-106",
   "head": {
     "branch": "main",
-    "sha": "185960769011f03d644130012fe8051ad536e9bf"
+    "sha": "d8652326f61d93f33bb860d64565ad74e3e80ed5"
   },
   "integrations": [
     {"pullRequest": 93, "mergeShaShort": "7c260fa", "result": "wasm watchdog fail-closed cleanup"},
@@ -17,7 +17,8 @@
     {"pullRequest": 101, "mergeSha": "54a2f07ead84390045f251d230924bcfd1a1a518", "result": "fail-closed multiplatform capability drift gate"},
     {"pullRequest": 102, "mergeSha": "32f1bb65c575fe6599f3da8b8dadbb8164ee07c6", "result": "hardened public iOS simulator matrix"},
     {"pullRequest": 103, "mergeSha": "9344b5fa47d953ede9285bcf4510be6f96a503d3", "result": "iOS installed route and factory contracts"},
-    {"pullRequest": 104, "mergeSha": "185960769011f03d644130012fe8051ad536e9bf", "result": "iOS APNs production requirements and dispatcher gap"}
+    {"pullRequest": 104, "mergeSha": "185960769011f03d644130012fe8051ad536e9bf", "result": "iOS APNs production requirements and dispatcher gap"},
+    {"pullRequest": 106, "mergeSha": "d8652326f61d93f33bb860d64565ad74e3e80ed5", "result": "iOS authenticated logout UI; compile and Swift/Kotlin contracts green"}
   ],
   "wasmBaseline": {
     "state": "approved",
@@ -64,7 +65,8 @@
       "evidence": ["serial_lock", "pid_filtered_logs", "ocr", "screenshots", "cleanup"],
       "performanceClaim": "not_a_product_SLO"
     },
-    "authenticatedVisualE2e": {"status": "hold", "reason": "validation in progress; no result claimed until cleanup and review"},
+    "authenticatedBackendProtocol": {"status": "verified_limited", "scope": ["redacted session", "redacted profile"], "claim": "not_visual_e2e"},
+    "authenticatedVisualE2e": {"status": "hold", "reason": "requires a 0600 remote configuration file and Keychain/test-host isolation; PR 107 was closed without merge after fixture-triggered Compose process disconnect"},
     "distribution": {"status": "hold", "archive": "unsigned_delivered", "missing": ["Apple team identity", "certificates", "profiles", "signed IPA", "TestFlight", "signed App Group", "physical-device validation"]},
     "apns": {"status": "hold", "state": "client plumbing and requirements documented; dispatcher APNs channel and physical delivery unverified"}
   },
