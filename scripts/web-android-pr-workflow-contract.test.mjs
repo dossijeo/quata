@@ -43,6 +43,9 @@ function assertWorkflowContract(yaml) {
     'scripts/web-browser-smoke-cleanup.test.mjs',
     'scripts/run-wasm-production-observed.ps1',
     'docs/WEB_PERFORMANCE_REPEATABILITY.md',
+    'capabilities/platform-capability-matrix.json',
+    'scripts/capability-matrix-contract.mjs',
+    'scripts/capability-matrix-contract.test.mjs',
   ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
   assert.match(yaml, /node scripts\/web-performance-repeatability\.mjs[\s\S]*?--docmentis[\s\S]*?--metrics-dir build\/reports\/web-performance-repeatability[\s\S]*?--out build\/reports\/web-performance-repeatability\.json/, 'repeatability evidence must be collected in CI');
   assert.match(yaml, /Collect five cold Chrome measurements and advisory baseline proposal/, 'CI must collect the five-sample advisory baseline proposal');
@@ -76,6 +79,9 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
       'scripts/web-browser-smoke-cleanup.test.mjs',
       'scripts/run-wasm-production-observed.ps1',
       'docs/WEB_PERFORMANCE_REPEATABILITY.md',
+      'capabilities/platform-capability-matrix.json',
+      'scripts/capability-matrix-contract.mjs',
+      'scripts/capability-matrix-contract.test.mjs',
     ].map(path => [`missing required Web/Android PR path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
   ];
 

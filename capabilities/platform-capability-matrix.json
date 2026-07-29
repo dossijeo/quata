@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Machine-checked capability declarations. A non-implemented mutation must never be presented as available without changing this matrix and its code evidence.",
+  "states": ["implemented", "read-only", "contract-only", "blocked", "external"],
+  "capabilities": [
+    {
+      "id": "feed.read",
+      "kind": "flow",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/feature/feed/data/FeedRepositoryImpl.kt", "anchor": "class FeedRepositoryImpl" }] },
+        "web": { "state": "read-only", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt", "anchor": "class WebFeedRepository" }] },
+        "ios": { "state": "read-only", "evidence": [{ "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt", "anchor": "ReadOnlyFeedRepository(readRepository)" }] }
+      }
+    },
+    {
+      "id": "feed.mutate",
+      "kind": "mutation",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/feature/feed/data/FeedRepositoryImpl.kt", "anchor": "override suspend fun toggleLike" }, { "path": "app/src/main/java/com/quata/feature/feed/data/FeedRemoteDataSource.kt", "anchor": "suspend fun toggleLike" }] },
+        "web": { "state": "blocked", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt", "anchor": "web_feed_mutation_not_implemented" }] },
+        "ios": { "state": "read-only", "evidence": [{ "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt", "anchor": "ReadOnlyFeedRepository(readRepository)" }] }
+      }
+    },
+    {
+      "id": "official.read",
+      "kind": "flow",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/feature/official/data/OfficialRepositoryImpl.kt", "anchor": "class OfficialRepositoryImpl" }] },
+        "web": { "state": "read-only", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt", "anchor": "class WebOfficialRepository" }] },
+        "ios": { "state": "read-only", "evidence": [{ "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt", "anchor": "class IosOfficialReadRepository" }] }
+      }
+    },
+    {
+      "id": "official.mutate",
+      "kind": "mutation",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/feature/official/data/OfficialRepositoryImpl.kt", "anchor": "override suspend fun toggleLike" }] },
+        "web": { "state": "blocked", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt", "anchor": "web_official_mutation_not_implemented" }] },
+        "ios": { "state": "blocked", "evidence": [{ "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt", "anchor": "ios_official_mutation_not_implemented" }] }
+      }
+    },
+    {
+      "id": "communities.mutate",
+      "kind": "mutation",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt", "anchor": "override suspend fun reportPost" }] },
+        "web": { "state": "blocked", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt", "anchor": "web_community_chat_not_implemented" }, { "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt", "anchor": "UnsupportedOperationException(reason)" }] },
+        "ios": { "state": "blocked", "evidence": [{ "path": "feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt", "anchor": "CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)" }] }
+      }
+    },
+    {
+      "id": "composer.publish",
+      "kind": "mutation",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt", "anchor": "suspend fun createPost" }] },
+        "web": { "state": "contract-only", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt", "anchor": "web_composer_publication_contract_unverified" }] },
+        "ios": { "state": "contract-only", "evidence": [{ "path": "iosApp/iosApp/QuataIosApp.swift", "anchor": "iOS write/storage path has RLS and E2E evidence" }] }
+      }
+    },
+    {
+      "id": "profile.remote-mutate",
+      "kind": "mutation",
+      "platforms": {
+        "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt", "anchor": "suspend fun updateProfile" }] },
+        "web": { "state": "contract-only", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt", "anchor": "class WebProfileRepository" }] },
+        "ios": { "state": "blocked", "evidence": [{ "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt", "anchor": "remote profile mutation is currently unsupported on iOS" }] }
+      }
+    },
+    {
+      "id": "push.delivery",
+      "kind": "flow",
+      "platforms": {
+        "android": { "state": "external", "evidence": [{ "path": "app/src/main/AndroidManifest.xml", "anchor": "com.google.firebase.MESSAGING_EVENT" }] },
+        "web": { "state": "external", "evidence": [{ "path": "web/src/wasmJsMain/resources/quata-sw.js", "anchor": "self.addEventListener(\"push\"" }] },
+        "ios": { "state": "external", "evidence": [{ "path": "iosApp/iosApp/QuataIos.entitlements", "anchor": "aps-environment" }] }
+      }
+    }
+  ]
+}
