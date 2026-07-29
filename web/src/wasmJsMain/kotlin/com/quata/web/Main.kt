@@ -3,6 +3,7 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,14 +25,16 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
+import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
+import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import com.quata.feature.auth.presentation.AuthSessionShellContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
@@ -144,6 +147,7 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
+    val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
     val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
         WebProfileRepository(
             preferences = platformServices.preferences,
@@ -282,35 +286,24 @@ private fun QuataWebApp(
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             if (isSessionReady) {
-            AuthSessionShellContent(
-                isLoggingOut = isLoggingOut,
-                logoutLabel = "Cerrar sesión",
-                loggingOutLabel = "Cerrando sesión...",
-                logoutButtonOverride = { label, enabled, onClick, modifier ->
-                    WebNativeButton(label, enabled, onClick, modifier.fillMaxWidth().height(48.dp))
-                },
-                onLogout = {
-                    scope.launch {
-                        isLoggingOut = true
-                        val result = sessionCoordinator.logoutCurrentSession()
-                        platformServices.preferences.remove(WebSessionReadyKey)
-                        platformServices.preferences.putString(
-                            "web.auth.logout_status",
-                            result.diagnosticValue(),
-                        )
-                        isSessionReady = false
-                        isLoggingOut = false
-                    }
-                },
+            QuataAuthenticatedShellChrome(
+                notificationCount = notificationCount,
+                isNotificationBouncing = false,
+                isOnline = true,
+                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS 🚨"),
+                onLogoClick = { navigateWebFragment("about") },
+                onNotificationsClick = { navigateWebFragment("notifications") },
+                onSosClick = { navigateWebFragment("profile") },
+                isSosSending = false,
                 bottomNavigation = {
                     QuataPrimaryBottomNavigation(
                         labels = webPrimaryNavigationLabels,
                         selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
                         onRouteSelected = { route -> navigateWebFragment(canonicalPrimaryRouteToWebFragment(route)) },
-                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 },
-            ) {
+            ) { chromePadding ->
+                Box(Modifier.fillMaxSize().padding(chromePadding)) {
                 if (navigation.route == "share-target") {
                     WebExternalShareHost(
                         repository = chatRepository,
@@ -373,7 +366,23 @@ private fun QuataWebApp(
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
-                        WebProfileHost(repository = profileRepository)
+                        WebProfileHost(
+                            repository = profileRepository,
+                            isLoggingOut = isLoggingOut,
+                            onLogout = {
+                                scope.launch {
+                                    isLoggingOut = true
+                                    val result = sessionCoordinator.logoutCurrentSession()
+                                    platformServices.preferences.remove(WebSessionReadyKey)
+                                    platformServices.preferences.putString(
+                                        "web.auth.logout_status",
+                                        result.diagnosticValue(),
+                                    )
+                                    isSessionReady = false
+                                    isLoggingOut = false
+                                }
+                            },
+                        )
                     }
                 } else if (navigation.route == "composer") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Composer) {
@@ -430,6 +439,7 @@ private fun QuataWebApp(
                         )
                     }
                 }
+            }
             }
             } else {
             WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {

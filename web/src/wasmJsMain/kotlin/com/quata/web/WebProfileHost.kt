@@ -73,6 +73,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun WebProfileHost(
     repository: WebProfileRepository,
+    isLoggingOut: Boolean = false,
+    onLogout: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { ProfileViewModel(repository) }
@@ -138,6 +140,15 @@ fun WebProfileHost(
                         actionText = "Guardar cambios",
                         onClick = { viewModel.onEvent(ProfileUiEvent.Save) },
                     )
+                    onLogout?.let { logout ->
+                        OutlinedButton(
+                            enabled = !isLoggingOut,
+                            onClick = logout,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (isLoggingOut) "Cerrando sesión..." else "Cerrar sesión")
+                        }
+                    }
                     OutlinedButton(
                         onClick = {
                             scope.launch {

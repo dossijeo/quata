@@ -760,6 +760,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     )
     private lazy var primaryNavigationController = primaryNavigationHost.viewController()
     private var isPrimaryNavigationInstalled = false
+    private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
+        // iOS has no About route equivalent yet. Keep this callback explicit instead of mapping
+        // the shared Q̈ mark to an unrelated release-history route.
+        onLogoClick: {},
+        onNotificationsClick: { [weak self] in self?.showNotifications() },
+        onSosClick: { [weak self] in self?.showProfileSos() },
+    )
+    private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
+    private var isAuthenticatedTopChromeInstalled = false
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
@@ -816,7 +825,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(routeMenuButton)
         NSLayoutConstraint.activate([
             routeMenuButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            // This is a secondary-route affordance, never part of the shared top chrome. Keep it
+            // below safeTop + 68 so it cannot occupy the common SOS position.
+            routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
         ])
     }
 
@@ -826,9 +837,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             displayedController?.view.frame = view.bounds
             return
         }
+        let topChromeHeight = view.safeAreaInsets.top + 68
         let navigationHeight = 92 + view.safeAreaInsets.bottom
-        let contentBounds = CGRect(x: 0, y: 0, width: view.bounds.width, height: max(0, view.bounds.height - navigationHeight))
+        let contentBounds = CGRect(x: 0, y: topChromeHeight, width: view.bounds.width, height: max(0, view.bounds.height - topChromeHeight - navigationHeight))
         displayedController?.view.frame = contentBounds
+        authenticatedTopChromeController.view.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: topChromeHeight)
         primaryNavigationController.view.frame = CGRect(
             x: 0,
             y: contentBounds.maxY,
@@ -1348,7 +1361,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case .releaseHistory:
             presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
+        routeMenuButton.isHidden = !routeUsesSecondaryMenu(route)
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
+    }
+
+    /// The five primary routes are already represented by the common bottom navigation. UIKit's
+    /// secondary menu is deliberately unavailable there so it neither duplicates nor overlays
+    /// the shared SOS/header chrome.
+    private func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
+        switch route {
+        case .feed, .chat, .official, .profileSos, .communities:
+            return false
+        case .notifications, .composer, .settings, .whatsNew, .releaseHistory:
+            return true
+        }
     }
 
     /// Replaces the visible shared Compose controller atomically.
@@ -1375,6 +1401,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // the newly inserted Compose view; otherwise it remains in the hierarchy but cannot be
         // seen or tapped after the first route transition.
         view.bringSubviewToFront(routeMenuButton)
+        if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
         if isPrimaryNavigationInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
@@ -1388,6 +1415,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func installPrimaryNavigationIfNeeded() {
         guard !isPrimaryNavigationInstalled else { return }
+        addChild(authenticatedTopChromeController)
+        authenticatedTopChromeController.view.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
+        authenticatedTopChromeController.view.isAccessibilityElement = false
+        view.addSubview(authenticatedTopChromeController.view)
+        authenticatedTopChromeController.didMove(toParent: self)
+        isAuthenticatedTopChromeInstalled = true
         addChild(primaryNavigationController)
         primaryNavigationController.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
         primaryNavigationController.view.isAccessibilityElement = false
@@ -1399,6 +1432,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func removePrimaryNavigation() {
         guard isPrimaryNavigationInstalled else { return }
+        authenticatedTopChromeController.willMove(toParent: nil)
+        authenticatedTopChromeController.view.removeFromSuperview()
+        authenticatedTopChromeController.removeFromParent()
+        isAuthenticatedTopChromeInstalled = false
         primaryNavigationController.willMove(toParent: nil)
         primaryNavigationController.view.removeFromSuperview()
         primaryNavigationController.removeFromParent()
