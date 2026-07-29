@@ -42,6 +42,19 @@ const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
 const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+// These routes remain public and safe to inspect without manufacturing a session.  Their
+// canonical route is persisted by the app before the unauthenticated boundary presents Login.
+const publicDeepLinks = [
+    { fragment: 'post-publication-123', route: 'post/publication-123' },
+    { fragment: 'official-bulletin-99', route: 'official/bulletin-99' },
+    { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', route: 'chat/sb:team/42' },
+    { fragment: 'unknown-route', route: 'feed' },
+];
+const responsiveViewports = [
+    { name: 'mobile', width: 360, height: 800 },
+    { name: 'tablet', width: 768, height: 1024 },
+    { name: 'desktop', width: 1440, height: 900 },
+];
 
 const options = parseArguments(process.argv.slice(2));
 const distribution = resolve(options.dist ?? defaultDistribution);
@@ -62,6 +75,13 @@ const browserMetrics = {
         status: 'running',
         expectedRoutes: routeFragments,
         completedRoutes: [],
+    },
+    publicUx: {
+        deepLinks: [],
+        viewports: [],
+        compactKeyboard: null,
+        reloadRecovered: false,
+        keyboardAndAx: null,
     },
     advisories: {
         chromeGpuReadPixelsWarnings: 0,
@@ -193,6 +213,14 @@ try {
         for (const fragment of routeFragments.slice(1)) {
             browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
         }
+
+        await assertPublicDeepLinkRecovery(cdp, staticServer.origin, pageErrors);
+        browserMetrics.publicUx.deepLinks = publicDeepLinks.map(({ fragment, route }) => ({ fragment, route }));
+        browserMetrics.publicUx.reloadRecovered = true;
+        const responsiveUx = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
+        browserMetrics.publicUx.viewports = responsiveUx.viewports;
+        browserMetrics.publicUx.compactKeyboard = responsiveUx.compactKeyboard;
+        browserMetrics.publicUx.keyboardAndAx = await assertKeyboardAndAccessibility(cdp);
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
         // localhost-only product bridge with a query parameter, so it runs after route metrics
@@ -677,6 +705,380 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
         throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
     }
+}
+
+async function assertPublicDeepLinkRecovery(cdp, origin, pageErrors) {
+    for (const { fragment, route } of publicDeepLinks) {
+        const initialErrorCount = pageErrors.length;
+        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+        await waitForShell(cdp, fragment);
+        await waitForNavigationRoute(cdp, route);
+        if (pageErrors.length > initialErrorCount) {
+            throw new Error(`Public deep link #${fragment} produced an uncaught browser exception.`);
+        }
+    }
+
+    const { fragment, route } = publicDeepLinks.at(-1);
+    await cdp.send('Page.reload', { ignoreCache: true });
+    await waitForShell(cdp, fragment);
+    const recoveredHash = await cdp.evaluate(`location.hash`);
+    if (recoveredHash?.result?.value !== `#${fragment}`) {
+        throw new Error(`Public deep-link reload changed location.hash: expected #${fragment}, got ${recoveredHash?.result?.value ?? 'null'}.`);
+    }
+    await waitForNavigationRoute(cdp, route);
+    await assertUnconfiguredAuthBoundary(cdp);
+}
+
+async function waitForNavigationRoute(cdp, expectedRoute) {
+    let lastRoute = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`localStorage.getItem('web.navigation.route')`);
+        lastRoute = probe?.result?.value ?? null;
+        if (lastRoute === expectedRoute) return;
+        await delay(100);
+    }
+    throw new Error(`Public route did not recover its canonical navigation state (${expectedRoute}), got ${lastRoute ?? 'null'}.`);
+}
+
+async function assertResponsiveAuthShell(cdp, origin, pageErrors) {
+    const observations = [];
+    try {
+        for (const viewport of responsiveViewports) {
+            await cdp.send('Emulation.setDeviceMetricsOverride', {
+                width: viewport.width,
+                height: viewport.height,
+                deviceScaleFactor: 1,
+                mobile: false,
+            });
+            const initialErrorCount = pageErrors.length;
+            await cdp.send('Page.navigate', { url: `${origin}/#auth` });
+            await waitForShell(cdp, 'auth');
+            const layout = await waitForStableResponsiveLayout(cdp, viewport);
+            if (pageErrors.length > initialErrorCount) {
+                throw new Error(`Responsive ${viewport.name} auth shell produced an uncaught browser exception.`);
+            }
+            observations.push({ ...viewport, controls: layout.controls.length, stableSamples: layout.stableSamples });
+        }
+
+        const compactViewport = { name: 'compact-keyboard', width: 360, height: 320 };
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+            width: compactViewport.width,
+            height: compactViewport.height,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        const initialErrorCount = pageErrors.length;
+        await cdp.send('Page.navigate', { url: `${origin}/#auth` });
+        await waitForShell(cdp, 'auth');
+        const compactKeyboard = await assertCompactKeyboardReachability(cdp, compactViewport);
+        if (pageErrors.length > initialErrorCount) {
+            throw new Error('Compact keyboard Auth shell produced an uncaught browser exception.');
+        }
+        return { viewports: observations, compactKeyboard };
+    } finally {
+        await cdp.send('Emulation.clearDeviceMetricsOverride');
+    }
+}
+
+async function waitForStableResponsiveLayout(cdp, viewport) {
+    const requiredStableSamples = 3;
+    let stableSamples = 0;
+    let previous = null;
+    const recent = [];
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+        const layout = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+            const root = document.querySelector('#quata-root');
+            const controls = [...(root?.shadowRoot?.querySelectorAll('input[aria-label], button[aria-label]') ?? [])].map(element => {
+                const rect = element.getBoundingClientRect();
+                return { tag: element.tagName, label: element.getAttribute('aria-label'), type: element.getAttribute('type'), disabled: element.disabled, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            });
+            resolve({
+                clientWidth: document.documentElement.clientWidth,
+                clientHeight: document.documentElement.clientHeight,
+                scrollWidth: document.documentElement.scrollWidth,
+                scrollHeight: document.documentElement.scrollHeight,
+                root: root ? { width: root.getBoundingClientRect().width, height: root.getBoundingClientRect().height } : null,
+                controls,
+            });
+        })))`);
+        const value = layout?.result?.value;
+        const visibleControls = value?.controls?.filter(control => control.width > 0 && control.height > 0) ?? [];
+        const inputs = visibleControls.filter(control => control.tag === 'INPUT');
+        const buttons = visibleControls.filter(control => control.tag === 'BUTTON');
+        const allControlsFit = visibleControls.every(control =>
+            control.x >= -1 && control.y >= -1 &&
+            control.x + control.width <= viewport.width + 1 &&
+            control.y + control.height <= viewport.height + 1,
+        );
+        const invalid =
+            value?.clientWidth !== viewport.width ||
+            value?.clientHeight !== viewport.height ||
+            value?.scrollWidth !== viewport.width ||
+            value?.scrollHeight !== viewport.height ||
+            !value.root || value.root.width < viewport.width - 1 || value.root.height < viewport.height - 1 ||
+            inputs.length < 2 || !inputs.some(control => control.type === 'password') || buttons.length < 1 ||
+            !visibleControls.every(control => typeof control.label === 'string' && control.label.trim().length > 0) ||
+            !allControlsFit;
+        const current = {
+            ...value,
+            controls: visibleControls,
+        };
+        recent.push(current);
+        if (recent.length > 5) recent.shift();
+        if (!invalid && responsiveLayoutsEquivalent(previous, current)) stableSamples += 1;
+        else stableSamples = invalid ? 0 : 1;
+        previous = current;
+        if (stableSamples >= requiredStableSamples) {
+            return { ...current, stableSamples };
+        }
+        await delay(50);
+    }
+    throw new Error(`Responsive ${viewport.name} Auth layout did not become valid and stable: ${JSON.stringify(recent)}.`);
+}
+
+function responsiveLayoutsEquivalent(left, right) {
+    if (!left || !right || left.controls.length !== right.controls.length) return false;
+    const scalarKeys = ['clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight'];
+    if (scalarKeys.some(key => left[key] !== right[key])) return false;
+    if (Math.abs(left.root.width - right.root.width) > 0.5 || Math.abs(left.root.height - right.root.height) > 0.5) return false;
+    return left.controls.every((control, index) => {
+        const other = right.controls[index];
+        return control.tag === other.tag && control.type === other.type && control.label === other.label &&
+            ['x', 'y', 'width', 'height'].every(key => Math.abs(control[key] - other[key]) <= 0.5);
+    });
+}
+
+async function assertCompactKeyboardReachability(cdp, viewport) {
+    const password = await focusAndRevealCompactControl(cdp, 'password');
+    if (!password.active || !compactControlFits(password, viewport) || password.pageScrollY !== 0) {
+        throw new Error(`Compact password control is not keyboard-visible without page scrolling: ${JSON.stringify(password)}.`);
+    }
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    const submit = await focusAndRevealCompactControl(cdp, 'submit', false);
+    if (!submit.active || !compactControlFits(submit, viewport) || submit.pageScrollY !== 0) {
+        throw new Error(`Compact submit control is not keyboard-visible without page scrolling: ${JSON.stringify(submit)}.`);
+    }
+    return { ...viewport, password, submit };
+}
+
+async function focusAndRevealCompactControl(cdp, kind, focus = true) {
+    let last = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const candidates = kind => kind === 'password'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].filter(input => input.type === 'password')
+                : [...(app?.querySelectorAll('button[aria-label]') ?? [])];
+            const control = candidates(${JSON.stringify(kind)}).find(element => {
+                const rect = element.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            });
+            if (${focus ? 'true' : 'false'}) control?.focus();
+            control?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                const rect = control?.getBoundingClientRect();
+                resolve({
+                    active: app?.activeElement === control,
+                    tag: control?.tagName ?? null,
+                    label: control?.getAttribute('aria-label') ?? null,
+                    rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+                    pageScrollY: globalThis.scrollY,
+                    rootScrollTop: root?.scrollTop ?? null,
+                });
+            }));
+        })`);
+        last = probe?.result?.value;
+        if (last?.active && last.rect?.width > 0 && last.rect?.height > 0) return last;
+        await delay(50);
+    }
+    throw new Error(`Compact ${kind} control did not become focusable: ${JSON.stringify(last)}.`);
+}
+
+function compactControlFits(observation, viewport) {
+    const rect = observation?.rect;
+    return rect &&
+        rect.x >= -1 && rect.y >= -1 &&
+        rect.x + rect.width <= viewport.width + 1 &&
+        rect.y + rect.height <= viewport.height + 1;
+}
+
+async function assertKeyboardAndAccessibility(cdp) {
+    const controlsProbe = await cdp.evaluate(`(() => {
+        const app = document.querySelector('#quata-root')?.shadowRoot;
+        const isVisible = element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const inputs = [...(app?.querySelectorAll('input[aria-label]') ?? [])].filter(isVisible);
+        const phone = inputs.find(input => input.type !== 'password');
+        const password = inputs.find(input => input.type === 'password');
+        const submit = [...(app?.querySelectorAll('button[aria-label]') ?? [])].find(isVisible);
+        const describe = element => element && ({
+            tag: element.tagName,
+            type: element.getAttribute('type'),
+            label: element.getAttribute('aria-label'),
+            name: element.getAttribute('name'),
+        });
+        return { phone: describe(phone), password: describe(password), submit: describe(submit) };
+    })()`);
+    const controls = controlsProbe?.result?.value;
+    if (
+        controls?.phone?.tag !== 'INPUT' || controls.phone.type === 'password' ||
+        controls?.password?.tag !== 'INPUT' || controls.password.type !== 'password' ||
+        controls?.submit?.tag !== 'BUTTON' ||
+        ![controls.phone, controls.password, controls.submit].every(control => control.label?.trim())
+    ) {
+        throw new Error(`Visible native Auth control identity/labels are invalid: ${JSON.stringify(controls)}.`);
+    }
+
+    await focusExactAuthControl(cdp, 'phone');
+
+    const pressTab = async () => {
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    };
+    await pressTab();
+    await waitForExactAuthFocus(cdp, 'password', 'Keyboard Tab did not move focus from the phone/user input to the password input.');
+    await pressTab();
+    await waitForExactAuthFocus(cdp, 'submit', 'Keyboard Tab did not move focus from the password input to the submit button.');
+
+    const focused = await cdp.evaluate(`(() => {
+        const active = document.querySelector('#quata-root')?.shadowRoot?.activeElement;
+        return active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null;
+    })()`);
+    const focus = focused?.result?.value;
+    if (focus?.tag !== 'BUTTON' || focus.label !== controls.submit.label) throw new Error(`Submit focus identity changed unexpectedly: ${JSON.stringify(focus)}.`);
+
+    const identities = [
+        ['phone', 'INPUT', controls.phone.type, 'textbox', controls.phone.label],
+        ['password', 'INPUT', 'password', 'textbox', controls.password.label],
+        ['submit', 'BUTTON', null, 'button', controls.submit.label],
+    ];
+    const axControls = [];
+    for (const [kind, tagName, type, expectedRole, expectedName] of identities) {
+        const axNode = await readExactNativeAxNode(cdp, { kind, tagName, type, expectedRole, expectedName });
+        const name = axNode.name.value;
+        axControls.push({ kind, role: axNode.role.value, name });
+    }
+    return { tabFocus: focus, controls, axControls };
+}
+
+async function waitForExactAuthFocus(cdp, kind, failureMessage) {
+    let stableSamples = 0;
+    let last = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const kind = ${JSON.stringify(kind)};
+            const expected = kind === 'phone'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                : kind === 'password'
+                    ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                    : [...(app?.querySelectorAll('button[aria-label]') ?? [])].find(button => button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0);
+            const active = app?.activeElement;
+            resolve({
+                matches: active === expected,
+                active: active ? { tag: active.tagName, label: active.getAttribute('aria-label') } : null,
+                expected: expected ? { tag: expected.tagName, label: expected.getAttribute('aria-label') } : null,
+            });
+        }))`);
+        last = probe?.result?.value;
+        stableSamples = last?.matches ? stableSamples + 1 : 0;
+        if (stableSamples >= 2) return last;
+        await delay(50);
+    }
+    throw new Error(`${failureMessage} Last focus: ${JSON.stringify(last)}.`);
+}
+
+async function focusExactAuthControl(cdp, kind) {
+    let last = null;
+    let stableSamples = 0;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`new Promise(resolve => requestAnimationFrame(() => {
+            const root = document.querySelector('#quata-root');
+            const app = root?.shadowRoot;
+            const kind = ${JSON.stringify(kind)};
+            const control = kind === 'phone'
+                ? [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type !== 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0)
+                : [...(app?.querySelectorAll('input[aria-label]') ?? [])].find(input => input.type === 'password' && input.getBoundingClientRect().width > 0 && input.getBoundingClientRect().height > 0);
+            if (app?.activeElement !== control) control?.focus();
+            resolve({
+                matches: app?.activeElement === control,
+                active: app?.activeElement ? { tag: app.activeElement.tagName, label: app.activeElement.getAttribute('aria-label') } : null,
+                control: control ? { tag: control.tagName, label: control.getAttribute('aria-label') } : null,
+            });
+        }))`);
+        last = probe?.result?.value;
+        stableSamples = last?.matches ? stableSamples + 1 : 0;
+        if (stableSamples >= 3) return last;
+        await delay(50);
+    }
+    throw new Error(`Native Auth ${kind} control cannot retain keyboard focus: ${JSON.stringify(last)}.`);
+}
+
+async function readExactNativeAxNode(cdp, identity) {
+    let last = null;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const documentRoot = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+        const node = findPiercedDomNode(documentRoot.root, candidate => {
+            const attributes = domNodeAttributes(candidate);
+            return candidate.nodeName === identity.tagName &&
+                attributes.get('aria-label') === identity.expectedName &&
+                (identity.type === null || attributes.get('type') === identity.type);
+        });
+        if (!node?.nodeId) {
+            last = 'missing_pierced_dom_node';
+            await delay(50);
+            continue;
+        }
+        try {
+            const partial = await cdp.send('Accessibility.getPartialAXTree', { nodeId: node.nodeId, fetchRelatives: false });
+            const axNode = (partial.nodes ?? []).find(candidate => candidate.backendDOMNodeId === node.backendNodeId);
+            last = axNode ?? 'missing_associated_ax_node';
+            const name = axNode?.name?.value;
+            if (
+                axNode?.role?.value === identity.expectedRole &&
+                typeof name === 'string' && name.trim() && name === identity.expectedName
+            ) return axNode;
+            // A stable but incorrect role/name is a product failure, not a transient render.
+            if (axNode) break;
+        } catch (error) {
+            if (!/Could not find node with given id/i.test(error instanceof Error ? error.message : String(error))) throw error;
+            last = 'dom_node_replaced_before_ax_query';
+        }
+        await delay(50);
+    }
+    throw new Error(`Native Auth ${identity.kind} AX role/name mismatch: ${JSON.stringify({
+        expectedRole: identity.expectedRole,
+        expectedName: identity.expectedName,
+        last,
+    })}.`);
+}
+
+function domNodeAttributes(node) {
+    const attributes = new Map();
+    for (let index = 0; index < (node?.attributes?.length ?? 0); index += 2) {
+        attributes.set(node.attributes[index], node.attributes[index + 1]);
+    }
+    return attributes;
+}
+
+function findPiercedDomNode(node, predicate) {
+    if (!node) return null;
+    if (predicate(node)) return node;
+    for (const child of [
+        ...(node.children ?? []),
+        ...(node.shadowRoots ?? []),
+        ...(node.pseudoElements ?? []),
+        ...(node.contentDocument ? [node.contentDocument] : []),
+    ]) {
+        const match = findPiercedDomNode(child, predicate);
+        if (match) return match;
+    }
+    return null;
 }
 
 async function collectNavigationMetrics(cdp, route, mountElapsedMs, fullDocumentNavigation) {
