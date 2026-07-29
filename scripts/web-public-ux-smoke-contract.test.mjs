@@ -50,3 +50,15 @@ test('WEB-UX-001 validates the exact native Auth focus sequence and AX nodes, no
     assert.match(smoke, /pageScrollY !== 0/);
     assert.match(smoke, /Compact submit control is not keyboard-visible without page scrolling/);
 });
+
+test('WEB-UX-001 accepts only a stable viewport-filling Compose canvas when native Login controls are absent', () => {
+    assert.match(smoke, /const nativeControls = visibleControls\.length > 0/);
+    assert.match(smoke, /const renderer = nativeControls \? 'native_controls' : 'compose_canvas'/);
+    assert.match(smoke, /canvas\.width >= viewport\.width - 1 && canvas\.height >= viewport\.height - 1/);
+    assert.match(smoke, /!value\.root \|\| value\.root\.width < viewport\.width - 1 \|\| value\.root\.height < viewport\.height - 1/);
+    assert.match(smoke, /: !canvasMatchesViewport\);/);
+    assert.match(smoke, /left\.renderer !== right\.renderer/);
+    assert.match(smoke, /left\.canvases\.length !== right\.canvases\.length/);
+    assert.match(smoke, /compactKeyboard: \{ mode: 'compose_canvas', skipped: 'native_controls_absent' \}/);
+    assert.match(smoke, /keyboardAndAx = responsiveUx\.nativeControlsPresent/);
+});
