@@ -6,7 +6,12 @@ import com.quata.core.platform.PlatformResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class QuataDocumentReaderOpenBridgeTest {
     private val officeRequest = AndroidDocumentOpenRequest(
         uri = Uri.parse("content://com.quata.fileprovider/cache/letter.docx"),
