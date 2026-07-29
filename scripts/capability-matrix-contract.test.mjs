@@ -59,6 +59,25 @@ test('decisive source changes cannot land without a reviewed matrix hash update'
   }
 });
 
+test('a no-op APNs lifecycle bridge is detected as iOS push capability drift', async () => {
+  const original = await matrix();
+  let bridgeExercised = false;
+  await assert.rejects(() => validateCapabilityMatrix(original, {
+    readFile: async (path) => {
+      const bytes = await readFile(path);
+      if (String(path).endsWith('IosApnsLifecycleBridge.swift')) {
+        bridgeExercised = true;
+        return Buffer.from(bytes.toString('utf8').replace(
+          'UIApplication.shared.registerForRemoteNotifications()',
+          '// simulated no-op registration bridge',
+        ));
+      }
+      return bytes;
+    },
+  }), /source drift/);
+  assert.equal(bridgeExercised, true);
+});
+
 test('evidence paths reject symlinks and canonical paths outside the repository', async () => {
   const original = await matrix();
   await assert.rejects(() => validateCapabilityMatrix(original, {

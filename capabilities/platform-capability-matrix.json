@@ -138,7 +138,7 @@
       "platforms": {
         "android": { "state": "external", "evidence": [{ "path": "app/src/main/java/com/quata/core/notifications/QuataFirebaseMessagingService.kt", "sha256": "fea6759ac43375d022763042a3d06b3b7f7c0751fe03e629c827d3772f3c0cba", "role": "composition" }, { "path": "app/src/main/AndroidManifest.xml", "sha256": "efdb1c6d01ae5bd3616893bf35a47ac8eff531573acf9eaa9425029dfca3b02a", "role": "external-integration" }] },
         "web": { "state": "external", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", "sha256": "36db32fae73f9753fc137e369d50b831bbf16c035c59784a502e820b4fa41948", "role": "composition" }, { "path": "web/src/wasmJsMain/resources/quata-sw.js", "sha256": "8c5c4e37ef1f0272e46527f7dcbe943781300c0c61910684c347bf9ef1fda240", "role": "external-integration" }] },
-        "ios": { "state": "external", "evidence": [{ "path": "iosApp/iosApp/QuataIosApp.swift", "sha256": "0dd3238e772e2c1ac932b25ff1e4bcf2ef85ae29fdcf6795dcd75e4e70fafe19", "role": "composition" }, { "path": "iosApp/iosApp/QuataIos.entitlements", "sha256": "ea6d10d1a1caf388a995eafc6b69279d9b65fade6b7480cc9a20ce5c93ff70df", "role": "external-integration" }] }
+        "ios": { "state": "external", "evidence": [{ "path": "iosApp/iosApp/QuataIosApp.swift", "sha256": "0dd3238e772e2c1ac932b25ff1e4bcf2ef85ae29fdcf6795dcd75e4e70fafe19", "role": "composition" }, { "path": "iosApp/iosApp/IosApnsLifecycleBridge.swift", "sha256": "818a65083c4b07ce347cf128c7951ce068c41ded247e75284e264feb849ac16f", "role": "adapter" }, { "path": "iosApp/iosApp/QuataIos.entitlements", "sha256": "ea6d10d1a1caf388a995eafc6b69279d9b65fade6b7480cc9a20ce5c93ff70df", "role": "external-integration" }] }
       }
     }
   ]
