@@ -60,6 +60,22 @@ test('Info.plist passes public settings to Swift and Swift fails closed for unex
   assert.match(swift, /rangeOfCharacter\(from: \.newlines\)/);
 });
 
+test('the primary iOS app Info.plist declares the modern launch-screen dictionary', async (t) => {
+  const plist = await source('iosApp/iosApp/Info.plist');
+  const launchScreen = /<key>UILaunchScreen<\/key>\s*<dict\s*\/>/;
+
+  assert.match(
+    plist,
+    launchScreen,
+    'the primary app must opt into the modern iOS launch-screen metadata',
+  );
+  assert.doesNotMatch(plist, /<key>UILaunchStoryboardName<\/key>/);
+
+  await t.test('fails closed if launch-screen metadata is removed', () => {
+    assert.throws(() => assert.match(plist.replace(launchScreen, ''), launchScreen));
+  });
+});
+
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {
   const [workflow, readiness] = await Promise.all([
     source('.github/workflows/ios-build.yml'),
