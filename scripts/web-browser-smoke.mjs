@@ -221,6 +221,7 @@ try {
         browserMetrics.publicUx.viewports = responsiveUx.viewports;
         browserMetrics.publicUx.compactKeyboard = responsiveUx.compactKeyboard;
         browserMetrics.publicUx.keyboardAndAx = await assertKeyboardAndAccessibility(cdp);
+        await assertPushConsentUsesTrustedSettingsClick(cdp, staticServer.origin);
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
         // localhost-only product bridge with a query parameter, so it runs after route metrics
@@ -704,6 +705,81 @@ async function assertUnconfiguredAuthBoundary(cdp) {
     }
     if (value?.urlMeta || value?.publishableKeyMeta || value?.backendConfigured !== 'false') {
         throw new Error(`Unauthenticated smoke must remain an unconfigured runtime boundary, got ${JSON.stringify(value)}.`);
+    }
+}
+
+/**
+ * Real DOM/CDP gate for WEB-PUSH-CONSENT-001. CDP's mouse event is trusted, unlike element.click(),
+ * so the mock observes the same transient user activation required by Safari and Firefox.
+ */
+async function assertPushConsentUsesTrustedSettingsClick(cdp, origin) {
+    await cdp.evaluate(`(async () => {
+        localStorage.setItem('web.auth.session_ready', 'true');
+        localStorage.setItem('quata_web_access_token', 'browser-smoke-access');
+        localStorage.setItem('quata_web_refresh_token', '');
+        localStorage.setItem('quata_web_session_token', 'browser-smoke-session');
+        localStorage.setItem('quata_web_user_id', 'browser-smoke-user');
+        localStorage.setItem('quata_web_expires_at', String(Math.floor(Date.now() / 1000) + 3600));
+        localStorage.setItem('web.push.consent.v1', 'disabled');
+        globalThis.__quataPushPermissionProbe = null;
+        Object.defineProperty(globalThis, 'Notification', {
+          configurable: true,
+          value: {
+            permission: 'default',
+            requestPermission: () => {
+              globalThis.__quataPushPermissionProbe = {
+                active: globalThis.navigator?.userActivation?.isActive === true,
+              };
+              return Promise.resolve('denied');
+            },
+          },
+        });
+        const source = await fetch('/index.html').then(response => response.text());
+        const configured = source
+          .replace('name="quata-supabase-url" content=""', 'name="quata-supabase-url" content="https://push-smoke.invalid"')
+          .replace('name="quata-supabase-publishable-key" content=""', 'name="quata-supabase-publishable-key" content="public-smoke-key"');
+        history.replaceState(null, '', '/#settings');
+        document.open();
+        document.write(configured);
+        document.close();
+    })()`);
+
+    let control;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        control = (await cdp.evaluate(`(() => {
+          const button = [...(document.querySelector('#quata-root')?.shadowRoot?.querySelectorAll('button') ?? [])]
+            .find(candidate => candidate.getAttribute('aria-label') === 'Activar notificaciones');
+          if (!button) return null;
+          const rect = button.getBoundingClientRect();
+          return {
+            tagName: button.tagName,
+            ariaLabel: button.getAttribute('aria-label'),
+            nativeRole: button.getAttribute('role') ?? 'button',
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            visible: rect.width > 0 && rect.height > 0,
+          };
+        })()`))?.result?.value;
+        if (control?.visible) break;
+        await delay(100);
+    }
+    if (!control?.visible || control.tagName !== 'BUTTON' || control.nativeRole !== 'button') {
+        throw new Error(`Push consent Settings control is not an accessible native HTML button: ${JSON.stringify(control)}.`);
+    }
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: control.x, y: control.y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: control.x, y: control.y, button: 'left', clickCount: 1 });
+    let probe;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        probe = (await cdp.evaluate(`globalThis.__quataPushPermissionProbe`))?.result?.value;
+        if (probe) break;
+        await delay(50);
+    }
+    if (probe?.active !== true) {
+        throw new Error(`Notification.requestPermission did not start inside trusted Settings activation: ${JSON.stringify(probe)}.`);
+    }
+    const persisted = (await cdp.evaluate(`localStorage.getItem('web.push.consent.v1')`))?.result?.value;
+    if (persisted !== 'disabled') {
+        throw new Error(`Denied permission must preserve disabled consent, got ${persisted ?? 'null'}.`);
     }
 }
 
