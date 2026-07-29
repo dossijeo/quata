@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +42,8 @@ import com.quata.core.ui.components.QuataCommentRowContent
 import com.quata.core.ui.components.QuataCommentRowStrings
 import com.quata.core.ui.components.QuataCommentsPanelHeaderContent
 import com.quata.core.ui.components.QuataCommentsPanelPortraitContent
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
@@ -62,6 +66,8 @@ data class FeedScreenStrings(
     val delete: String = "Eliminar",
     val deleteTitle: String = "Eliminar publicación",
     val deleteMessage: String = "Esta acción no se puede deshacer.",
+    val reportSuccess: String = "Publicación reportada",
+    val deleteSuccess: String = "Publicación eliminada",
     val cancel: String = "Cancelar",
     val close: String = "Cerrar",
     val commentPlaceholder: String = "Escribe un comentario",
@@ -114,6 +120,7 @@ fun FeedScreenHost(
     val scope = rememberCoroutineScope()
     var commentsPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletionPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingDeletedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -139,6 +146,13 @@ fun FeedScreenHost(
     }
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) viewModel.onEvent(FeedUiEvent.Refresh)
+    }
+    LaunchedEffect(state.posts, pendingDeletedPostId) {
+        val deletedId = pendingDeletedPostId ?: return@LaunchedEffect
+        if (state.posts.none { it.id == deletedId }) {
+            slots.message(strings.deleteSuccess)
+            pendingDeletedPostId = null
+        }
     }
     LaunchedEffect(focusedPostId, state.posts) {
         val index = state.posts.indexOfFirst { it.id == focusedPostId }
@@ -205,7 +219,7 @@ fun FeedScreenHost(
                                     seedText = post.text.cleanTextCanvasSeedBody(),
                                     patternId = meta.textPattern,
                                     readMoreText = "Leer más",
-                                    readerDismissButton = { readerModifier, dismiss -> TextButton(dismiss, readerModifier) { Text(strings.close) } },
+                                    readerDismissButton = { readerModifier, dismiss -> CompactIconButton(onClick = dismiss, modifier = readerModifier) { CompactIcon(Icons.Filled.Close, strings.close) } },
                                 )
                             },
                         )
@@ -218,7 +232,7 @@ fun FeedScreenHost(
                     onShare = { scope.launch { slots.share(post) } },
                     onReport = {
                         if (post.isReportedByCurrentUser) Unit
-                        else if (canParticipate) viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
+                        else if (canParticipate) { viewModel.onEvent(FeedUiEvent.ReportPost(post.id)); slots.message(strings.reportSuccess) }
                         else onAuthRequired()
                     },
                     onCreatePost = { if (canParticipate) onCreatePost() else onAuthRequired() },
@@ -247,6 +261,7 @@ fun FeedScreenHost(
     deletionPostId?.let { id ->
         FeedDeletePostConfirmationContent(strings.deleteTitle, strings.deleteMessage, strings.delete, strings.cancel, {
             viewModel.onEvent(FeedUiEvent.DeletePost(id))
+            pendingDeletedPostId = id
             deletionPostId = null
         }) { deletionPostId = null }
     }

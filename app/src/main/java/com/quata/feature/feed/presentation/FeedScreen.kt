@@ -223,6 +223,8 @@ fun FeedScreen(
             share = stringResource(R.string.feed_share), rank = stringResource(R.string.feed_rank),
             live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
             report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
+            reportSuccess = stringResource(R.string.feed_report_success),
+            deleteSuccess = stringResource(R.string.feed_delete_post_success),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
