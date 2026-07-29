@@ -31,20 +31,55 @@ class IosExternalShareClaim internal constructor(
  * process allowed to turn a claimed payload into Chat operations.
  */
 @OptIn(ExperimentalForeignApi::class)
-class IosExternalShareInbox(
-    private val appGroupIdentifier: String = QuataExternalShareAppGroup,
-    private val fileManager: NSFileManager = NSFileManager.defaultManager,
-    private val nowEpochMillis: () -> Long = {
+class IosExternalShareInbox private constructor(
+    private val appGroupIdentifier: String,
+    private val fileManager: NSFileManager,
+    private val appGroupRootUrl: () -> NSURL?,
+    private val nowEpochMillis: () -> Long,
+    private val ownerToken: String,
+) {
+    /** Production constructor. Keep this parameter order stable for existing callers. */
+    constructor(
+        appGroupIdentifier: String = QuataExternalShareAppGroup,
+        fileManager: NSFileManager = NSFileManager.defaultManager,
+        nowEpochMillis: () -> Long = {
         ((CFAbsoluteTimeGetCurrent() + AppleEpochOffsetSeconds) * 1_000.0).toLong()
     },
-    private val ownerToken: String = NSUUID.UUID().UUIDString.replace("-", "").lowercase(),
-) {
+        ownerToken: String = NSUUID.UUID().UUIDString.replace("-", "").lowercase(),
+    ) : this(
+        appGroupIdentifier = appGroupIdentifier,
+        fileManager = fileManager,
+        appGroupRootUrl = { fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier) },
+        nowEpochMillis = nowEpochMillis,
+        ownerToken = ownerToken,
+    )
+
+    companion object {
+        /**
+         * Internal native-test seam: permits a private temporary directory in place of a signed
+         * App Group entitlement. It is not available to production modules or the share extension.
+         */
+        internal fun forTemporaryAppGroupTest(
+            rootUrl: NSURL,
+            nowEpochMillis: () -> Long,
+            ownerToken: String,
+            appGroupIdentifier: String = "test.group.quata.external-share",
+            fileManager: NSFileManager = NSFileManager.defaultManager,
+        ): IosExternalShareInbox = IosExternalShareInbox(
+            appGroupIdentifier = appGroupIdentifier,
+            fileManager = fileManager,
+            appGroupRootUrl = { rootUrl },
+            nowEpochMillis = nowEpochMillis,
+            ownerToken = ownerToken,
+        )
+    }
+
     private val claimLock = NSLock()
     private val activeClaimIds = mutableSetOf<String>()
 
     fun claim(requestedId: String? = null): IosExternalShareClaim? = withClaimLock {
         if (requestedId != null && !isSafeExternalShareId(requestedId)) return@withClaimLock null
-        val root = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)
+        val root = appGroupRootUrl()
             ?: return@withClaimLock null
         val rootPath = root.path ?: return@withClaimLock null
         val canonicalRootPath = verifiedAppGroupRootPath(rootPath) ?: return@withClaimLock null
@@ -109,7 +144,7 @@ class IosExternalShareInbox(
         val parsed = parseExternalShareClaimDirectoryName(processingDirectoryName)
         if (parsed?.id != id) return
         activeClaimIds -= id
-        val rootPath = fileManager.containerURLForSecurityApplicationGroupIdentifier(appGroupIdentifier)?.path ?: return
+        val rootPath = appGroupRootUrl()?.path ?: return
         val canonicalRootPath = verifiedAppGroupRootPath(rootPath) ?: return
         val externalSharesPath = canonicalDirectoryPath(canonicalRootPath, "$canonicalRootPath/ExternalShares") ?: return
         val processingPath = canonicalDirectoryPath(externalSharesPath, "$externalSharesPath/processing") ?: return
