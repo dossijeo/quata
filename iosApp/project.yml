@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.quata
 configs:
   Debug: debug
+  SimulatorSigned: debug
   Release: release
 targets:
   QuataIos:
@@ -13,6 +14,7 @@ targets:
       - path: iosApp
     configFiles:
       Debug: Configuration/QuataPublicRuntime.debug.xcconfig
+      SimulatorSigned: Configuration/QuataPublicRuntime.debug.xcconfig
       Release: Configuration/QuataPublicRuntime.release.xcconfig
     settings:
       base:
@@ -28,6 +30,9 @@ targets:
         # and Edge channel release supplies every other runtime input.
         QUATA_IOS_REGISTRATION_ENABLED: "false"
       configs:
+        SimulatorSigned:
+          CODE_SIGN_ENTITLEMENTS: iosApp/QuataIosSimulatorSigned.entitlements
+          QUATA_APNS_ENVIRONMENT: development
         Release:
           # These values are deliberately supplied only by the signing environment.
           # A signed Release build with any missing value must fail in Xcode instead
@@ -78,6 +83,8 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: "YES"
         SKIP_INSTALL: "YES"
       configs:
+        SimulatorSigned:
+          CODE_SIGN_ENTITLEMENTS: ""
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: Apple Distribution
