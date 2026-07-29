@@ -7,6 +7,7 @@ on:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/ios-auth-native-semantics-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/capability-matrix-contract.mjs"
       - "scripts/capability-matrix-contract.test.mjs"
@@ -41,6 +42,7 @@ on:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
+      - "scripts/ios-auth-native-semantics-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/capability-matrix-contract.mjs"
       - "scripts/capability-matrix-contract.test.mjs"
@@ -89,6 +91,9 @@ jobs:
 
       - name: Validate iOS public runtime contract
         run: node --test scripts/ios-public-runtime-contract.test.mjs
+
+      - name: Validate iOS Auth native semantics contract
+        run: node --test scripts/ios-auth-native-semantics-contract.test.mjs
 
       - name: Validate iOS public simulator matrix contract
         run: node --test scripts/ios-public-simulator-matrix-contract.test.mjs

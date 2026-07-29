@@ -46,6 +46,8 @@ fun AuthBrowserLoginHostContent(
     runtimeConfigurationNotice: String? = null,
     phoneInputOverride: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
     passwordInputOverride: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
+    phoneInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
+    passwordInputAccessibilityOverlay: (@Composable (String, (String) -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
     submitButtonOverride: (@Composable (String, Boolean, () -> Unit, androidx.compose.ui.Modifier) -> Unit)? = null,
     onLoginSuccess: suspend () -> Unit,
 ) {
@@ -88,6 +90,8 @@ fun AuthBrowserLoginHostContent(
                 showRegistration = registerStrings != null || registerUnavailableMessage != null,
                 phoneInputOverride = phoneInputOverride,
                 passwordInputOverride = passwordInputOverride,
+                phoneInputAccessibilityOverlay = phoneInputAccessibilityOverlay,
+                passwordInputAccessibilityOverlay = passwordInputAccessibilityOverlay,
                 submitButtonOverride = submitButtonOverride,
                 onEvent = loginViewModel::onEvent,
                 onForgotPassword = { destination = AuthBrowserDestination.Recovery; notice = null },

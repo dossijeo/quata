@@ -4,6 +4,8 @@ package com.quata.core.ui.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -23,7 +25,9 @@ fun QuataTextField(
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     isPassword: Boolean = false,
-    minLines: Int = 1
+    minLines: Int = 1,
+    /** Platform-only transparent input bridge; Compose remains responsible for every visible pixel. */
+    inputOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
 ) {
     val template = quataTheme()
     val fieldModifier = if (singleLine && minLines == 1) {
@@ -31,21 +35,22 @@ fun QuataTextField(
     } else {
         modifier
     }
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = fieldModifier,
-        singleLine = singleLine,
-        minLines = minLines,
-        placeholder = { Text(label) },
-        shape = RoundedCornerShape(16.dp),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = template.colors.surfaceAlt,
-            unfocusedContainerColor = template.colors.surfaceAlt,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = template.colors.inputBorder,
-            cursorColor = MaterialTheme.colorScheme.primary
+    Box(modifier = fieldModifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxSize(),
+            singleLine = singleLine,
+            minLines = minLines,
+            placeholder = { Text(label) },
+            shape = RoundedCornerShape(16.dp),
+            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = template.colors.surfaceAlt,
+                unfocusedContainerColor = template.colors.inputBorder,
+                cursorColor = MaterialTheme.colorScheme.primary
+            )
         )
-    )
+        inputOverlay?.invoke(value, onValueChange, Modifier.fillMaxSize())
+    }
 }

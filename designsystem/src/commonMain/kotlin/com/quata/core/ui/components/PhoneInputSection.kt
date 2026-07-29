@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,7 +48,9 @@ fun PhoneInputSection(
     onPhoneChange: (String) -> Unit,
     phoneLabel: String,
     searchPlaceholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Optional platform overlay. It must be transparent and leave the Compose field as the visual source of truth. */
+    phoneInputOverlay: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
 ) {
     val template = quataTheme()
     Row(
@@ -63,24 +66,29 @@ fun PhoneInputSection(
             searchPlaceholder = searchPlaceholder,
             modifier = Modifier.weight(0.36f)
         )
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhoneChange,
-            placeholder = { Text(phoneLabel) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            singleLine = true,
+        Box(
             modifier = Modifier
                 .weight(0.64f)
                 .height(CompactTextFieldHeight),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = template.colors.surfaceAlt,
-                unfocusedContainerColor = template.colors.surfaceAlt,
-                focusedBorderColor = template.colors.accent,
-                unfocusedBorderColor = template.colors.inputBorder,
-                cursorColor = template.colors.accent
+        ) {
+            OutlinedTextField(
+                value = phone,
+                onValueChange = onPhoneChange,
+                placeholder = { Text(phoneLabel) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true,
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = template.colors.surfaceAlt,
+                    unfocusedContainerColor = template.colors.surfaceAlt,
+                    focusedBorderColor = template.colors.accent,
+                    unfocusedBorderColor = template.colors.inputBorder,
+                    cursorColor = template.colors.accent
+                ),
             )
-        )
+            phoneInputOverlay?.invoke(phone, onPhoneChange, Modifier.fillMaxSize())
+        }
     }
 }
 

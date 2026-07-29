@@ -93,6 +93,24 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             ) else null,
             registerSubtitle = catalog.register.title.takeIf { dependencies.registrationEnabled },
             registerUnavailableMessage = null,
+            phoneInputAccessibilityOverlay = { value, onValueChange, modifier ->
+                IosNativeAuthAccessibilityInput(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = catalog.login.phone,
+                    password = false,
+                    modifier = modifier,
+                )
+            },
+            passwordInputAccessibilityOverlay = { value, onValueChange, modifier ->
+                IosNativeAuthAccessibilityInput(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = catalog.login.password,
+                    password = true,
+                    modifier = modifier,
+                )
+            },
             onLoginSuccess = { dependencies.onLoginSuccess() },
         )
     }
