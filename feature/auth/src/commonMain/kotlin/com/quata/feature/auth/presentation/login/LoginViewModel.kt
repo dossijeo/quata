@@ -1,7 +1,7 @@
 package com.quata.feature.auth.presentation.login
 
 import com.quata.core.common.AppDispatchers
-import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.LoginRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -14,7 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class LoginViewModel(
-    private val repository: AuthRepository,
+    private val repository: LoginRepository,
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
@@ -38,7 +38,11 @@ class LoginViewModel(
         _uiState.value = state.copy(isLoading = true, error = null)
         repository.login(state.countryCode, state.phone, state.password)
             .onSuccess { _effects.emit(LoginEffect.Success) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "Error al iniciar sesión") }
+            .onFailure {
+                val message = it.message ?: "Error al iniciar sesión"
+                _uiState.value = _uiState.value.copy(error = message)
+                _effects.emit(LoginEffect.Failure(message))
+            }
         _uiState.value = _uiState.value.copy(isLoading = false)
     }
 
@@ -49,4 +53,5 @@ class LoginViewModel(
 
 sealed class LoginEffect {
     data object Success : LoginEffect()
+    data class Failure(val message: String) : LoginEffect()
 }
