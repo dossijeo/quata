@@ -13,10 +13,24 @@ import platform.UIKit.UIViewController
  * failure, so mounting the real Compose form cannot perform an external action or create session
  * state. It exists only behind the launch argument gate owned by the UIKit application delegate.
  */
-fun QuataAuthLaunchFixtureViewController(): UIViewController = QuataAuthViewController(
+fun QuataAuthLaunchFixtureViewController(): UIViewController = fixtureViewController(
+    initialDestination = AuthProductDestination.Login,
+)
+
+/** Swift-safe fixture factory for deterministic launch coverage of Auth destinations. */
+fun QuataAuthLaunchFixtureViewControllerForDestination(destination: String): UIViewController = fixtureViewController(
+    initialDestination = when (destination.lowercase()) {
+        "register" -> AuthProductDestination.Register
+        "recovery" -> AuthProductDestination.Recovery
+        else -> AuthProductDestination.Login
+    },
+)
+
+private fun fixtureViewController(initialDestination: AuthProductDestination): UIViewController = QuataAuthViewController(
     dependencies = IosAuthHostDependencies(
         repository = IosAuthLaunchFixtureRepository(),
         locale = AuthCatalogLocale.English,
+        initialDestination = initialDestination,
         onLoginSuccess = {},
     ),
 )

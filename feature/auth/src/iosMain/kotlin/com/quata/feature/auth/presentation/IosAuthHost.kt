@@ -20,6 +20,7 @@ import platform.UIKit.UIViewController
 class IosAuthHostDependencies(
     val repository: AuthRepository,
     val locale: AuthCatalogLocale,
+    val initialDestination: AuthProductDestination,
     val onLoginSuccess: () -> Unit,
 )
 
@@ -31,6 +32,7 @@ fun createIosAuthHostDependencies(
 ): IosAuthHostDependencies = IosAuthHostDependencies(
     repository = repository,
     locale = AuthCatalogLocale.fromLanguage(languageCode),
+    initialDestination = AuthProductDestination.Login,
     onLoginSuccess = onLoginSuccess,
 )
 
@@ -70,6 +72,7 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             repository = dependencies.repository,
             catalog = catalog,
             prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
+            initialDestination = dependencies.initialDestination,
             onAuthenticated = dependencies.onLoginSuccess,
         )
     }

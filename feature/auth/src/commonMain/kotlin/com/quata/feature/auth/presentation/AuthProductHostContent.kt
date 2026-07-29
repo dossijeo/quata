@@ -23,9 +23,10 @@ fun AuthProductHostContent(
     repository: AuthRepository,
     catalog: AuthCatalogCopy,
     prefixes: List<CountryPrefix>,
+    initialDestination: AuthProductDestination = AuthProductDestination.Login,
     onAuthenticated: () -> Unit,
 ) {
-    var destination by remember { mutableStateOf(AuthProductDestination.Login) }
+    var destination by remember(initialDestination) { mutableStateOf(initialDestination) }
 
     when (destination) {
         AuthProductDestination.Login -> LoginScreenHost(
@@ -57,4 +58,4 @@ fun AuthProductHostContent(
     }
 }
 
-private enum class AuthProductDestination { Login, Register, Recovery }
+enum class AuthProductDestination { Login, Register, Recovery }

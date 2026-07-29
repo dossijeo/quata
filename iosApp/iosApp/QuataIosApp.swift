@@ -282,8 +282,15 @@ private final class IosAppCompositionRoot {
             // The Auth fixture is deliberately constructed before the production composition
             // root. Its Kotlin factory uses a local fail-closed repository, and this UIKit shell
             // provides stable containment/readiness for CI without an account or runtime setup.
+            let destinationArgument = arguments.firstIndex(of: "-quata-auth-destination")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
             return IosAuthLaunchFixtureContainerViewController {
-                IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
+                if let destinationArgument {
+                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewControllerForDestination(
+                        destination: destinationArgument,
+                    )
+                }
+                return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
