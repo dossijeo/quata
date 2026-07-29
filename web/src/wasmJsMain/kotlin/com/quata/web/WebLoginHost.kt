@@ -1,54 +1,36 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
-import com.quata.core.platform.PlatformServices
-import com.quata.feature.auth.presentation.AuthBrowserLoginHostContent
+import androidx.compose.runtime.rememberCoroutineScope
+import com.quata.core.platform.PreferenceStore
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
-import com.quata.feature.auth.presentation.register.RegisterFormStrings
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.unit.dp
+import com.quata.feature.auth.presentation.AuthProductHostContent
+import kotlinx.coroutines.launch
 
-/** Web adapter retains browser-backed session persistence while sharing the app auth session. */
+/**
+ * Web keeps only its session hand-off here; the rendered Auth hierarchy is the same common
+ * product root consumed by Android.
+ */
 @Composable
 fun WebLoginHost(
-    platformServices: PlatformServices,
-    runtimeConfiguration: WebRuntimeConfiguration,
     repository: WebAuthRepository,
+    preferences: PreferenceStore,
     onLoginSuccess: () -> Unit,
 ) {
     val catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish)
-    AuthBrowserLoginHostContent(
+    val scope = rememberCoroutineScope()
+    AuthProductHostContent(
         repository = repository,
+        catalog = catalog,
         prefixes = AuthCatalog.countryPrefixes(AuthCatalogLocale.Spanish),
-        strings = catalog.login,
-        subtitle = "Quata Web",
-        recoveryStrings = catalog.recovery,
-        secretQuestions = catalog.secretQuestions,
-        recoveryQuestionWaiting = catalog.recoveryQuestionWaiting,
-        recoveryQuestionLoading = catalog.recoveryQuestionLoading,
-        passwordUpdatedMessage = catalog.passwordUpdatedMessage,
-        registerStrings = if (runtimeConfiguration.webRegistrationEnabled) RegisterFormStrings(
-            displayName = catalog.register.displayName,
-            neighborhood = catalog.register.neighborhood,
-            phone = catalog.login.phone,
-            password = catalog.login.password,
-            secretAnswer = catalog.register.secretAnswer,
-            searchPrefix = catalog.login.searchPrefix,
-            creating = catalog.register.creating,
-            createAccount = catalog.register.createAccount,
-            back = catalog.register.back,
-        ) else null,
-        registerSubtitle = catalog.register.title,
-        registerUnavailableMessage = if (runtimeConfiguration.webRegistrationEnabled) null else "El registro web aún no está habilitado.",
-        runtimeConfigurationNotice = runtimeConfiguration.authRuntimeDiagnosticOrNull(),
-        phoneInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.phone, modifier.height(56.dp)) },
-        passwordInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, catalog.login.password, modifier.height(56.dp), inputType = "password") },
-        submitButtonOverride = { label, enabled, onClick, modifier -> WebNativeButton(label, enabled, onClick, modifier.height(48.dp)) },
-    ) {
-        platformServices.preferences.putString(WebSessionReadyKey, "true")
-        onLoginSuccess()
-    }
+        onAuthenticated = {
+            scope.launch {
+                preferences.putString(WebSessionReadyKey, "true")
+                onLoginSuccess()
+            }
+        },
+    )
 }
 
 internal const val WebSessionReadyKey = "web.auth.session_ready"
