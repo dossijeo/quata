@@ -16,19 +16,32 @@ class QuataDocumentReaderOpenHost(
     private val isDarkModeProvider: () -> Boolean = { false },
 ) : AndroidDocumentOpenHost {
     private val applicationContext = context.applicationContext
+    private val bridge = QuataDocumentReaderOpenBridge { request ->
+        QuataDocumentReader.open(
+            context = applicationContext,
+            uri = request.uri,
+            fileName = request.displayName,
+            mimeType = request.mimeType,
+            isDarkMode = isDarkModeProvider(),
+        )
+    }
 
     override suspend fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> {
-        val opened = runCatching {
-            QuataDocumentReader.open(
-                context = applicationContext,
-                uri = request.uri,
-                fileName = request.displayName,
-                mimeType = request.mimeType,
-                isDarkMode = isDarkModeProvider(),
-            )
-        }.getOrElse { error ->
-            return PlatformResult.Failure(error.message ?: "android_document_open_failed")
-        }
-        return if (opened) PlatformResult.Success(Unit) else PlatformResult.Unsupported
+        return bridge.open(request)
+    }
+}
+
+/**
+ * Small testable boundary around the vendored renderer. URI admission and FileProvider conversion
+ * happen in :core before this point; this bridge never creates a `file://` reference or guesses
+ * Office MIME types. It merely maps the established renderer result into the shared contract.
+ */
+internal class QuataDocumentReaderOpenBridge(
+    private val launch: (AndroidDocumentOpenRequest) -> Boolean,
+) {
+    fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> = runCatching {
+        if (launch(request)) PlatformResult.Success(Unit) else PlatformResult.Unsupported
+    }.getOrElse { error ->
+        PlatformResult.Failure(error.message ?: "android_document_open_failed")
     }
 }
