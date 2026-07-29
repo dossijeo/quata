@@ -380,6 +380,23 @@ jobs:
             --console=plain \
             2>&1 | tee build/reports/ios/external-share-inbox-ios-test.log
 
+      - name: Run iOS Official public read contract
+        # Keep Kotlin/Native execution serialized on the simulator booted above. Official owns no
+        # backend fixture: its policy/factory tests are hermetic and prove the anonymous reader
+        # stays bearer-free while mutations fail closed.
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          xcrun simctl bootstatus "$simulator_udid" -b
+          bash ./gradlew \
+            :feature:official:iosSimulatorArm64Test \
+            --stacktrace \
+            --warning-mode all \
+            --console=plain \
+            2>&1 | tee build/reports/ios/official-public-read-ios-test.log
+
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
         timeout-minutes: 22

@@ -59,15 +59,18 @@ enum class IosOfficialReadFailureKind {
 }
 
 /**
- * Authenticated, read-only PostgREST adapter for Official content.
+ * Public, read-only PostgREST adapter for Official content.
  *
- * It deliberately has no mutation methods and uses a fresh Keychain-backed session for every
- * request. Therefore a refresh completed by the existing iOS auth boundary is used immediately.
+ * It deliberately has no mutation methods.  Public Official reads use only the Supabase
+ * publishable key, just like the iOS Feed reader: a missing, expired or restored user session
+ * must neither prevent an anonymous visitor from reading Official nor become a bearer header on
+ * that visitor's requests.  An optional session is used exclusively by [refreshCurrentUser] to
+ * enrich the local UI identity when an authenticated host explicitly chooses to provide one.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosOfficialReadRepository(
     private val configuration: IosOfficialRuntimeConfiguration,
-    private val authSession: IosRenewableAuthSession,
+    private val authSession: IosRenewableAuthSession? = null,
 ) : OfficialRepository {
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flow {
         // This transport has no verified Realtime contract. Emit a network snapshot and let the
@@ -93,7 +96,9 @@ class IosOfficialReadRepository(
     }
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
-        val userId = authenticatedSession().userId.trim().takeIf(String::isNotEmpty)
+        // Identity enrichment is intentionally the only Official operation allowed to consult a
+        // session.  Read requests remain strictly anonymous even after a login was restored.
+        val userId = authSession?.currentSession()?.userId?.trim()?.takeIf(String::isNotEmpty)
             ?: return@runCatching null
         loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
     }
@@ -147,7 +152,9 @@ class IosOfficialReadRepository(
             comments = comments,
             likes = likes,
             profiles = profiles,
-            currentUserId = authenticatedSession().userId,
+            // Anonymous Official reads never inspect a user session.  Interactive likes remain
+            // unavailable on iOS, so no current-user marker is needed by this read-only host.
+            currentUserId = null,
             defaultTitle = DefaultTitle,
             defaultCommentAuthor = DefaultCommentAuthor,
         )
@@ -185,22 +192,18 @@ class IosOfficialReadRepository(
             ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Configuration, reason = "supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Configuration, reason = "supabase_publishable_key_missing")
-        val session = authenticatedSession()
-        val endpoint = "$baseUrl/rest/v1/$table?${query.entries.joinToString("&") { (key, value) ->
-            "${key.iosQueryComponent()}=${value.iosQueryComponent()}"
-        }}"
-        val url = NSURL(string = endpoint)
+        val publicRequest = iosPublicOfficialRequest(
+            baseUrl = baseUrl,
+            publishableKey = publishableKey,
+            table = table,
+            query = query,
+        )
+        val url = NSURL(string = publicRequest.url)
             ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Configuration, reason = "postgrest_url_invalid")
         return NSMutableURLRequest.requestWithURL(url).apply {
-            setValue(publishableKey, "apikey")
-            setValue("Bearer ${session.bearerToken}", "Authorization")
-            setValue("application/json", "Accept")
+            publicRequest.headers.forEach { (name, value) -> setValue(value, name) }
         }.executeOfficialRead()
     }
-
-    private suspend fun authenticatedSession() = authSession.currentSession()
-        ?.takeIf { it.bearerToken.isNotBlank() }
-        ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Session, reason = "session_missing")
 
     private fun Collection<String>.toOfficialPostgrestInFilter(): String =
         "in.(${distinct().joinToString(",") { it.requireOfficialPostgrestIdentifier() }})"
@@ -227,9 +230,52 @@ class IosOfficialReadRepository(
 /** Small iOS composition factory; host/UI ownership remains with the launcher. */
 class IosOfficialRuntimeBootstrap(
     configuration: IosOfficialRuntimeConfiguration,
-    authSession: IosRenewableAuthSession,
+    authSession: IosRenewableAuthSession? = null,
 ) {
     val repository: OfficialRepository = IosOfficialReadRepository(configuration, authSession)
+}
+
+/**
+ * Pure request plan for every anonymous Official read endpoint.
+ *
+ * This is deliberately kept outside URLSession so Kotlin/Native tests can prove URL encoding
+ * and the absence of an Authorization slot without a deployment, a Keychain entry or network.
+ */
+internal data class IosPublicOfficialRequest(
+    val method: String,
+    val url: String,
+    val headers: Map<String, String>,
+)
+
+/** Anonymous Official reads are authenticated only with the client-safe publishable key. */
+internal fun iosOfficialPublicHeaders(publishableKey: String): Map<String, String> = mapOf(
+    "apikey" to publishableKey.trim(),
+    "Accept" to "application/json",
+)
+
+internal fun iosPublicOfficialRequest(
+    baseUrl: String,
+    publishableKey: String,
+    table: String,
+    query: Map<String, String>,
+): IosPublicOfficialRequest {
+    require(table.matches(IosPostgrestTableName)) { "ios_official_table_invalid" }
+    val encodedQuery = query.entries.joinToString("&") { (key, value) ->
+        "${key.iosQueryComponent()}=${value.iosQueryComponent()}"
+    }
+    return IosPublicOfficialRequest(
+        method = "GET",
+        url = "${baseUrl.trim().trimEnd('/')}/rest/v1/$table?$encodedQuery",
+        headers = iosOfficialPublicHeaders(publishableKey),
+    )
+}
+
+/** Pure HTTP-status policy so every native transport outcome is covered without URLSession. */
+internal fun iosOfficialReadFailureKind(statusCode: Int?): IosOfficialReadFailureKind = when (statusCode) {
+    401 -> IosOfficialReadFailureKind.Unauthorized
+    403 -> IosOfficialReadFailureKind.RlsDenied
+    null -> IosOfficialReadFailureKind.Network
+    else -> IosOfficialReadFailureKind.Http
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -267,14 +313,8 @@ private class IosOfficialDataTaskDelegate(
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
-            val kind = when (status) {
-                401 -> IosOfficialReadFailureKind.Unauthorized
-                403 -> IosOfficialReadFailureKind.RlsDenied
-                null -> IosOfficialReadFailureKind.Network
-                else -> IosOfficialReadFailureKind.Http
-            }
             continuation.resumeWithException(
-                IosOfficialReadException(kind, status, "postgrest_http_${status ?: "unknown"}"),
+                IosOfficialReadException(iosOfficialReadFailureKind(status), status, "postgrest_http_${status ?: "unknown"}"),
             )
             return
         }

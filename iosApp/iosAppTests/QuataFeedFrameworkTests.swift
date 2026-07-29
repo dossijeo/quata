@@ -209,7 +209,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // exists; it does not claim any backend read or mutation succeeds.
         let protectedRoutes: [(String, (IosFeedHostContainerViewController) -> Void)] = [
             ("quata-ios-chat-host", { $0.showChat(conversationId: "conversation-1", messageId: "message-1") }),
-            ("quata-ios-official-host", { $0.showOfficial(postId: "official-1") }),
             ("quata-ios-notifications-host", { $0.showNotifications() }),
             ("quata-ios-profile-sos-host", { $0.showProfileSos() }),
             ("quata-ios-communities-host", { $0.showCommunities() }),
@@ -224,7 +223,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
             let login = UIViewController()
             router.installAuthenticationFactory { login }
             router.installChatFactory { _, _ in UIViewController() }
-            router.installOfficialFactory { _ in UIViewController() }
             router.installNotificationsFactory { UIViewController() }
             router.installProfileSosFactory { UIViewController() }
             router.installCommunitiesFactory { UIViewController() }
@@ -842,7 +840,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 router.showChat(conversationId: "conversation-1", messageId: "message-1")
             }),
             ("quata-ios-official-host", "Quata iOS Official", { router, controller in
-                router.installFeedFactory { _ in UIViewController() }
                 router.installOfficialFactory { _ in controller }
                 router.showOfficial(postId: "official-1")
             }),
@@ -896,20 +893,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         }
     }
 
-    func testPublicOfficialDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
+    func testPublicOfficialDeepLinkRendersWithoutAnAuthenticatedFeedSession() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
-        let initialChildren = router.children
 
         let routeDispatcher = IosAuthenticatedRouteDispatcher(host: router)
         let deepLinkDispatcher = IosDeepLinkDispatcher()
         deepLinkDispatcher.attachHost(host: routeDispatcher)
-
-        _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#official-public-post-7")
-        XCTAssertEqual(router.children.count, initialChildren.count)
-
-        router.installFeedFactory { _ in UIViewController() }
 
         var receivedPostId: String?
         let exportedFeatureController = UIViewController()
@@ -917,6 +908,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
             receivedPostId = postId
             return exportedFeatureController
         }
+
+        _ = deepLinkDispatcher.handleUrl(url: "https://egquata.com/#official-public-post-7")
 
         XCTAssertEqual(receivedPostId, "public-post-7")
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
@@ -1081,7 +1074,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.loadViewIfNeeded()
         let authenticatedFeed = UIViewController()
         let publicFeed = UIViewController()
+        let authenticatedOfficial = UIViewController()
+        let publicOfficial = UIViewController()
         router.installFeedFactory { _ in authenticatedFeed }
+        router.installOfficialFactory { _ in authenticatedOfficial }
 
         var logoutInvocationCount = 0
         var completeSharedLogout: (() -> Void)?
@@ -1093,6 +1089,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             },
             onLoggedOut: {
                 router.installPublicFeed { _ in publicFeed }
+                router.installOfficialFactory { _ in publicOfficial }
                 returnedToPublicFeed.fulfill()
             },
         )
@@ -1112,6 +1109,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         wait(for: [returnedToPublicFeed], timeout: 1)
 
         XCTAssertTrue(router.children.first === publicFeed)
+        router.showOfficial(postId: "official-public-after-logout")
+        XCTAssertTrue(router.children.first === publicOfficial)
+        XCTAssertEqual(publicOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
+        XCTAssertEqual(publicOfficial.view.accessibilityLabel, "Quata iOS Official")
         let routeButton = router.view.subviews.compactMap { $0 as? UIButton }.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
         }
@@ -1151,7 +1152,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(migrationController.view.accessibilityIdentifier)
         XCTAssertFalse(migrationController.view.isAccessibilityElement)
 
-        router.installFeedFactory { _ in UIViewController() }
         let official = UIViewController()
         router.installOfficialFactory { _ in official }
         XCTAssertEqual(router.children.count, 1)

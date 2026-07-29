@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.feature.official.data.IosOfficialReadRepository
+import com.quata.feature.official.data.IosOfficialRuntimeConfiguration
 import com.quata.feature.official.domain.OfficialRepository
 import platform.UIKit.UIViewController
 
@@ -33,6 +35,23 @@ fun createIosOfficialHostDependencies(
     navigationMessage: String,
 ): IosOfficialHostDependencies = IosOfficialHostDependencies(
     repository = repository,
+    officialPostId = officialPostId,
+    navigationMessage = navigationMessage,
+)
+
+/**
+ * Creates the public iOS Official browser from client-safe deployment values only.
+ *
+ * The repository has no interactive-session parameter on this route.  Its read transport can
+ * therefore neither wait for Keychain restoration nor attach a bearer credential; mutations
+ * remain the repository's explicit unsupported-operation failures.
+ */
+fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
+    configuration: IosOfficialRuntimeConfiguration,
+    officialPostId: String? = null,
+    navigationMessage: String = "Quata para iOS",
+): IosOfficialHostDependencies = createIosOfficialHostDependencies(
+    repository = IosOfficialReadRepository(configuration = configuration),
     officialPostId = officialPostId,
     navigationMessage = navigationMessage,
 )

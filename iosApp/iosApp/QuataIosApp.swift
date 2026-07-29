@@ -176,16 +176,17 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
-    /// Official is composed only after the Keychain-backed authenticated session used by
-    /// Auth/Feed has been restored. Its repository is a real read-only PostgREST adapter.
+    /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
+    /// independent from Keychain restoration, so a valid public deployment can open a shared
+    /// Official link before login and never sends a restored bearer token for that read.
     private lazy var officialRuntimeBootstrap: IosOfficialRuntimeBootstrap? = {
-        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        guard let configuration = runtimeConfiguration else { return nil }
         return IosOfficialRuntimeBootstrap(
             configuration: IosOfficialRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            authSession: nil
         )
     }()
     /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
@@ -249,6 +250,7 @@ private final class IosAppCompositionRoot {
         installSettings()
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
+        installPublicOfficialIfConfigured()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -373,7 +375,6 @@ private final class IosAppCompositionRoot {
             )
         }
         installAuthenticatedChatIfAvailable()
-        installAuthenticatedOfficialIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
         installAuthenticatedCommunitiesIfAvailable()
@@ -415,7 +416,10 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap)
     }
 
-    private func installAuthenticatedOfficialIfAvailable() {
+    /// Official stays available to anonymous visitors.  It is installed before session
+    /// restoration and rebuilt after logout, while its Kotlin repository keeps every PostgREST
+    /// read bearer-free and fails closed for writes.
+    private func installPublicOfficialIfConfigured() {
         guard let officialRuntimeBootstrap else { return }
         authenticatedHost.installOfficialFactory { postId in
             QuataOfficialViewControllerKt.QuataOfficialViewController(
@@ -615,9 +619,10 @@ private final class IosAppCompositionRoot {
             { completed in logoutHandler.logout(onCompleted: completed) },
             onLoggedOut: { [weak self] in
                 // The shared operation has already cleared the Keychain session. Rebuild only
-                // the read-only public Feed and login entry point; no authenticated factory is
+                // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.installPublicFeedIfConfigured()
+                self?.installPublicOfficialIfConfigured()
                 self?.installAuthenticationIfConfigured()
             },
         )
@@ -763,9 +768,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
         var isAuthenticationRequired: Bool {
             switch self {
-            case .feed, .whatsNew, .releaseHistory:
+            case .feed, .official, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .official, .notifications, .profileSos, .communities, .composer, .settings:
+            case .chat, .notifications, .profileSos, .communities, .composer, .settings:
                 return true
             }
         }
