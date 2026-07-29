@@ -32,6 +32,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
   const pullRequestTrigger = yaml.slice(pullRequestStart, pushStart);
   const pushTrigger = yaml.slice(pushStart, concurrencyStart);
   const publicMatrixPaths = [
+    'scripts/ios-auth-launch-fixture-contract.test.mjs',
     'scripts/ios-public-client-config.py',
     'scripts/ios-public-log-evidence.py',
     'scripts/ios-public-runtime-config-backup.sh',
@@ -62,6 +63,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
   const checkout = yaml.indexOf('      - name: Check out source');
   const contract = yaml.indexOf('      - name: Validate iOS workflow contract');
+  const authLaunchContract = yaml.indexOf('      - name: Validate iOS Auth launch fixture contract');
   const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
   const capabilityContract = yaml.indexOf('      - name: Validate platform capability matrix');
   const matrixContract = yaml.indexOf('      - name: Validate iOS public simulator matrix contract');
@@ -70,7 +72,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.ok(
     checkout >= 0 &&
       contract > checkout &&
-      runtimeContract > contract &&
+      authLaunchContract > contract &&
+      runtimeContract > authLaunchContract &&
       matrixContract > runtimeContract &&
       backupContract > matrixContract &&
       capabilityContract > backupContract &&
@@ -79,6 +82,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
+  );
+  assert.match(
+    yaml,
+    /- name: Validate iOS Auth launch fixture contract\n\s+run: node --test scripts\/ios-auth-launch-fixture-contract\.test\.mjs/,
   );
   assert.match(
     yaml,
@@ -212,6 +219,7 @@ test('iOS workflow runs and triggers its own fail-closed contract before compila
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
   const contractPath = '      - "scripts/ios-build-workflow-contract.test.mjs"\n';
+  const authLaunchContractPath = '      - "scripts/ios-auth-launch-fixture-contract.test.mjs"\n';
   const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
   const capabilityContractPath = '      - "scripts/capability-matrix-contract.test.mjs"\n';
   const capabilityImplementationPath = '      - "scripts/capability-matrix-contract.mjs"\n';
@@ -222,6 +230,14 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
   for (const [name, mutation] of [
     ['pull-request trigger removed', yaml.replace(contractPath, '')],
     ['push trigger removed', withoutPushTrigger],
+    ['Auth launch fixture pull-request trigger removed', yaml.replace(authLaunchContractPath, '')],
+    [
+      'Auth launch fixture push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(authLaunchContractPath);
+        return yaml.slice(0, index) + yaml.slice(index + authLaunchContractPath.length);
+      })(),
+    ],
     ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
     ['capability matrix trigger removed', yaml.replace(capabilityContractPath, '')],
     ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
@@ -246,6 +262,13 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       'public runtime contract command weakened',
       yaml.replace(
         'run: node --test scripts/ios-public-runtime-contract.test.mjs',
+        'run: node --version',
+      ),
+    ],
+    [
+      'Auth launch fixture contract command weakened',
+      yaml.replace(
+        'run: node --test scripts/ios-auth-launch-fixture-contract.test.mjs',
         'run: node --version',
       ),
     ],

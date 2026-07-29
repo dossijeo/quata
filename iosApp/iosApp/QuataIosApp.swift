@@ -266,10 +266,14 @@ private final class IosAppCompositionRoot {
     /// Compose/Metal controller can be created on a fixture launch.
     private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
         let arguments = ProcessInfo.processInfo.arguments
-        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture"),
-              arguments.indices.contains(fixtureIndex + 1) else { return nil }
+        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture") else { return nil }
 
         let fixtureRoot = UIViewController()
+        guard arguments.indices.contains(fixtureIndex + 1) else {
+            fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-invalid-fixture"
+            fixtureRoot.view.accessibilityLabel = "Quata iOS invalid fixture"
+            return fixtureRoot
+        }
         switch arguments[fixtureIndex + 1] {
         case "anonymous":
             fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
@@ -327,7 +331,12 @@ private final class IosAppCompositionRoot {
             }
             return router
         default:
-            return nil
+            // A malformed explicit fixture argument must never fall through into the production
+            // composition root. It can otherwise restore local state or turn a typo into an
+            // accidental integration test with ambient runtime configuration.
+            fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-invalid-fixture"
+            fixtureRoot.view.accessibilityLabel = "Quata iOS invalid fixture"
+            return fixtureRoot
         }
         return fixtureRoot
     }

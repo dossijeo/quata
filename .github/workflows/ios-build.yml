@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/ios-auth-launch-fixture-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/capability-matrix-contract.mjs"
@@ -42,6 +43,7 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/ios-auth-launch-fixture-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
       - "scripts/capability-matrix-contract.mjs"
@@ -90,6 +92,9 @@ jobs:
 
       - name: Validate iOS workflow contract
         run: node --test scripts/ios-build-workflow-contract.test.mjs
+
+      - name: Validate iOS Auth launch fixture contract
+        run: node --test scripts/ios-auth-launch-fixture-contract.test.mjs
 
       - name: Validate iOS public runtime contract
         run: node --test scripts/ios-public-runtime-contract.test.mjs
