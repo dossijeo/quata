@@ -432,6 +432,7 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
                         WebFeedHost(
                             repository = feedRepository,
+                            shareService = platformServices.share,
                             sharedPostId = navigation.postId,
                         )
                     }

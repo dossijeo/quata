@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.quata.core.platform.ShareService
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.feed.presentation.FeedScreenHost
 import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
@@ -16,11 +17,11 @@ import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
 @Composable
 fun WebFeedHost(
     repository: WebFeedRepository,
+    shareService: ShareService,
     sharedPostId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
-    // One host-level value intentionally applies to every reel, as on Android.
     var isFeedMuted by rememberSaveable { mutableStateOf(false) }
     val windowLayout = rememberQuataWindowLayoutInfo()
     FeedScreenHost(
@@ -39,6 +40,8 @@ fun WebFeedHost(
                     onMuteChange = { isFeedMuted = it },
                 )
             },
+            share = shareService::share,
+            showComposeMessage = true,
         ),
         modifier = modifier,
     )

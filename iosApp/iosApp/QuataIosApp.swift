@@ -366,6 +366,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installPublicFeed { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.publicDependencies(
+                    shareService: platformServices.services.share,
                     navigationMessage: "Explora Quata",
                     onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
                     onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
@@ -389,7 +390,10 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession() else { return false }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
-                dependencies: runtimeBootstrap.authenticatedDependencies(initialPostId: postId),
+                dependencies: runtimeBootstrap.authenticatedDependencies(
+                    shareService: platformServices.services.share,
+                    initialPostId: postId,
+                ),
             )
         }
         installAuthenticatedChatIfAvailable()

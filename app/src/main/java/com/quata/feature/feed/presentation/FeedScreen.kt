@@ -225,6 +225,7 @@ fun FeedScreen(
             empty = stringResource(R.string.feed_empty),
             like = stringResource(R.string.feed_like), comments = stringResource(R.string.feed_comments),
             share = stringResource(R.string.feed_share), rank = stringResource(R.string.feed_rank),
+            sharePostTitle = stringResource(R.string.feed_share_post),
             live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
             report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
             reportSuccess = stringResource(R.string.feed_report_success),
@@ -262,7 +263,7 @@ fun FeedScreen(
                     modifier = Modifier.size(56.dp).border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
                 )
             },
-            share = { post -> shareService.share(SharePayload(postShareText(post), context.getString(R.string.feed_share_post))) },
+            share = shareService::share,
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
             commentsTranslatorTrigger = { _, modifier ->
                 FangTranslatorIconButton(

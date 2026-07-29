@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -19,6 +17,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
@@ -36,13 +36,13 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.quataPostUrl
+import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.SharePayload
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
@@ -62,18 +62,8 @@ import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
-import com.quata.core.ui.components.CommunityEmojiLabels
-import com.quata.core.ui.components.CommunityEmojiPanelContent
-import com.quata.core.ui.components.communityEmojiSections
-import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
-import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
-import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
-import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
-import com.quata.core.ui.components.insertAtSelection
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.designsystem.translation.quataTranslatableText
-import androidx.compose.material.icons.filled.InsertEmoticon
-import androidx.compose.ui.graphics.Color
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.launch
 
@@ -85,6 +75,9 @@ data class FeedScreenStrings(
     val like: String = "Me gusta",
     val comments: String = "Comentarios",
     val share: String = "Compartir",
+    val sharePostTitle: String = "Compartir publicaciÃ³n",
+    val shareUnavailable: String = "No se puede compartir esta publicación en este dispositivo.",
+    val shareFailed: String = "No se pudo compartir la publicación.",
     val rank: String = "Ranking",
     val live: String = "LIVE",
     val publish: String = "Publicar",
@@ -100,14 +93,11 @@ data class FeedScreenStrings(
     val cancel: String = "Cancelar",
     val close: String = "Cerrar",
     val commentPlaceholder: String = "Escribe un comentario",
-    val translatorContentDescription: String = "Traductor Fang",
     val send: String = "Enviar",
     val reply: String = "Responder",
     val replyingTo: @Composable (String) -> String = { "Respondiendo a $it" }, val cancelReply: String = "Cancelar respuesta",
     val commentsTitle: String = "Comentarios", val commentsYou: String = "Tú", val moderationReport: String = "Reportar",
     val replyTo: (String) -> String = { "En respuesta a $it" },
-    val showEmojis: String = "Mostrar emojis",
-    val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
     val locationLabel: @Composable (String) -> String = { it },
 )
 
@@ -116,20 +106,14 @@ data class FeedScreenPlatformSlots(
     val media: @Composable BoxScope.(Post, Boolean, Long, (Long) -> Unit) -> Unit,
     val avatar: @Composable (Post) -> Unit = {},
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
-    val share: suspend (Post) -> Unit = {},
+    /** Receives the canonical public post URL and the platform's activity-sheet title. */
+    val share: suspend (SharePayload) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     val message: (String) -> Unit = {},
-    /**
-     * A platform may replace the common trigger to activate its native/global translator overlay.
-     * The default is intentionally still the exact shared visual trigger, rather than hiding it.
-     */
+    /** Keeps the shared Fang affordance while allowing Android to activate its overlay. */
     val commentsTranslatorTrigger: @Composable (String, Modifier) -> Unit = { contentDescription, modifier ->
-        FangTranslatorTriggerContent(
-            contentDescription = contentDescription,
-            onClick = {},
-            modifier = modifier,
-        )
+        FangTranslatorTriggerContent(contentDescription = contentDescription, onClick = {}, modifier = modifier)
     },
-    /** Allows hosts with a global translation registry to retain the common row geometry. */
+    /** Registers the exact shared row text with the platform translator overlay. */
     val commentRowModifier: (PostComment, String) -> Modifier = { comment, displayText ->
         Modifier.quataTranslatableText(
             id = "feed-comment:${comment.id}",
@@ -137,6 +121,8 @@ data class FeedScreenPlatformSlots(
             displayText = displayText,
         )
     },
+    /** Web/iOS use the common Snackbar surface; Android keeps its native Toast adapter. */
+    val showComposeMessage: Boolean = false,
     val standardFloatingPanel: @Composable (
         onDismiss: () -> Unit,
         content: @Composable (Modifier, Boolean) -> Unit,
@@ -175,6 +161,11 @@ fun FeedScreenHost(
     DisposableEffect(ownedViewModel, stateHolder) { onDispose { if (stateHolder == null) ownedViewModel.close() } }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    fun showMessage(message: String) {
+        slots.message(message)
+        if (slots.showComposeMessage) scope.launch { snackbarHostState.showSnackbar(message) }
+    }
     var commentsPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletionPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDeletedPostId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -207,7 +198,7 @@ fun FeedScreenHost(
     LaunchedEffect(state.posts, pendingDeletedPostId) {
         val deletedId = pendingDeletedPostId ?: return@LaunchedEffect
         if (state.posts.none { it.id == deletedId }) {
-            slots.message(strings.deleteSuccess)
+            showMessage(strings.deleteSuccess)
             pendingDeletedPostId = null
         }
     }
@@ -238,10 +229,11 @@ fun FeedScreenHost(
         }
     }
 
-    when {
-        state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, modifier.padding(padding))
-        state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, modifier.padding(padding))
-        else -> FeedPagerViewportContent(padding, modifier.nestedScroll(pullRefreshState.nestedScrollConnection)) {
+    androidx.compose.foundation.layout.Box(modifier.fillMaxSize()) {
+        when {
+            state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
+            state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
+            else -> FeedPagerViewportContent(padding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
             FeedReelPagerContent(
                 pagerState = pagerState,
                 posts = state.posts,
@@ -286,10 +278,17 @@ fun FeedScreenHost(
                     onOpenLive = { liveOpen = true },
                     onLike = { if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) else onAuthRequired() },
                     onDelete = { deletionPostId = post.id },
-                    onShare = { scope.launch { slots.share(post) } },
+                    onShare = {
+                        scope.launch {
+                            feedShareResultMessage(
+                                result = slots.share(feedSharePayload(post, strings.sharePostTitle)),
+                                strings = strings,
+                            )?.let(::showMessage)
+                        }
+                    },
                     onReport = {
                         if (post.isReportedByCurrentUser) Unit
-                        else if (canParticipate) { viewModel.onEvent(FeedUiEvent.ReportPost(post.id)); slots.message(strings.reportSuccess) }
+                        else if (canParticipate) { viewModel.onEvent(FeedUiEvent.ReportPost(post.id)); showMessage(strings.reportSuccess) }
                         else onAuthRequired()
                     },
                     onCreatePost = { if (canParticipate) onCreatePost() else onAuthRequired() },
@@ -301,7 +300,12 @@ fun FeedScreenHost(
                 refreshContentDescription = "Actualizar",
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+            }
         }
+        if (slots.showComposeMessage) SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+        )
     }
 
     state.posts.firstOrNull { it.id == commentsPostId }?.let { post ->
@@ -341,6 +345,20 @@ fun FeedScreenHost(
     }
 }
 
+/** Keep every platform action on the exact public link consumed by Android's share sheet. */
+internal fun feedSharePayload(post: Post, title: String): SharePayload =
+    SharePayload(text = quataPostUrl(post.id), title = title)
+
+/** A cancelled native share sheet is not an error; unavailable/failing adapters must be visible. */
+internal fun feedShareResultMessage(
+    result: PlatformResult<Unit>,
+    strings: FeedScreenStrings,
+): String? = when (result) {
+    is PlatformResult.Success, PlatformResult.Cancelled -> null
+    PlatformResult.Unsupported -> strings.shareUnavailable
+    is PlatformResult.Failure -> strings.shareFailed
+}
+
 @Composable
 private fun FeedCommentsDialog(
     slots: FeedScreenPlatformSlots,
@@ -354,18 +372,6 @@ private fun FeedCommentsDialog(
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
-    var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-    val emojiDismissState = rememberCommunityEmojiPanelDismissState { isEmojiPickerVisible = false }
-    val emojiGridMaxHeight = if (WindowInsets.ime.getBottom(LocalDensity.current) > 0) 168.dp else 220.dp
-    fun setEmojiPickerVisible(visible: Boolean) {
-        isEmojiPickerVisible = visible
-        if (visible) {
-            keyboardController?.hide()
-            focusManager.clearFocus(force = true)
-        }
-    }
     var shouldScrollToCommentsEnd by remember(post.id) { mutableStateOf(true) }
     val commentsListState = rememberLazyListState()
     LaunchedEffect(post.id, post.comments.size, shouldScrollToCommentsEnd) {
@@ -373,44 +379,18 @@ private fun FeedCommentsDialog(
     }
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
-                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier) }) },
-                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
+                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }) },
+                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, comment.timestamp, QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
-                emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth()) },
-            modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { "ahora" }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier.fillMaxWidth()) },
+            modifier = panelModifier,
         ) else QuataCommentsPanelLandscapeContent(
-            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier) }, modifier) },
+            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
-            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
+            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, comment.timestamp, QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
-            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier) },
-            emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
-            modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { "ahora" }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier) },
+            modifier = panelModifier,
         )
     }
-}
-
-@Composable
-private fun FeedCommentRow(
-    comment: PostComment,
-    strings: FeedScreenStrings,
-    rowModifier: (PostComment, String) -> Modifier,
-    onReply: () -> Unit,
-    onReport: () -> Unit,
-) {
-    val timestamp = formatCommentTimestamp(comment.timestamp)
-    val displayText = feedCommentTranslatorDisplayText(
-        comment = comment,
-        timestamp = timestamp,
-        replyLabel = comment.replyToAuthorName?.let(strings.replyTo),
-    )
-    QuataCommentRowContent(
-        comment = comment,
-        timestamp = timestamp,
-        strings = QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply),
-        modifier = rowModifier(comment, displayText),
-        onReply = onReply,
-        onReport = onReport,
-    )
 }
