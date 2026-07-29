@@ -53,6 +53,25 @@ enum QuataIosHostUITestSupport {
         return root
     }
 
+    static func assertFixtureRoute(
+        in app: XCUIApplication,
+        identifier: String,
+        label: String,
+        screenshotName: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        let root = fixtureRoot(in: app, identifier: identifier, file: file, line: line)
+        XCTAssertEqual(root.label, label, "The deterministic route surface must retain its accessible name.", file: file, line: line)
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: composeRootIdentifier).firstMatch.exists,
+            "A deterministic route fixture must not instantiate the production Compose surface.",
+            file: file,
+            line: line,
+        )
+        attachRenderedSurface(named: screenshotName)
+    }
+
     static func attachRenderedSurface(named name: String) -> XCTAttachment {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
