@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,19 +77,11 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
  */
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
-        dependencies.initialPostId?.takeIf(String::isNotBlank)?.let { postId ->
-            FeedPostDetailHostContent(
-                repository = dependencies.repository,
-                postId = postId,
-                navigationMessage = dependencies.navigationMessage,
-                strings = IosFeedHostStrings,
-                onBackToFeed = dependencies.onBackToFeed,
-            )
-        } ?: FeedBrowserHostContent(
+        FeedScreenHost(
+            padding = PaddingValues(),
             repository = dependencies.repository,
-            navigationMessage = dependencies.navigationMessage,
-            strings = IosFeedHostStrings,
-            onOpenChats = dependencies.onOpenChats,
+            focusedPostId = dependencies.initialPostId,
+            slots = FeedScreenPlatformSlots(media = { _, _ -> }),
         )
     }
 }
