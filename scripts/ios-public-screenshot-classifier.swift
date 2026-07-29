@@ -9,6 +9,7 @@ struct VisualResult: Encodable {
     let height: Int
     let meanLuminance: Double
     let brightPixelFraction: Double
+    let mediaTextContrastRatio: Double
     let markersFound: [String]
 }
 
@@ -69,19 +70,107 @@ do {
     FileHandle.standardError.write(Data("Vision OCR failed.\n".utf8))
     exit(2)
 }
-let recognized = (request.results ?? [])
-    .compactMap { $0.topCandidates(1).first?.string }
-    .joined(separator: "\n")
-    .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "es_ES"))
-    .lowercased()
-let markers = ["explora quata", "actualizar", "conversaciones"]
+let recognizedLines = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
+    guard let candidate = observation.topCandidates(1).first?.string else { return nil }
+    let normalized = candidate
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "es_ES"))
+        .lowercased()
+    return (normalized, observation.boundingBox)
+}
+let recognized = recognizedLines.map { $0.0 }.joined(separator: "\n")
+let mediaMarker = "contenido multimedia"
+let markers = ["explora quata", "actualizar", "conversaciones", mediaMarker]
 let markersFound = markers.filter { recognized.contains($0) }
 
+struct PixelRect {
+    let minX: Int
+    let maxX: Int
+    let minY: Int
+    let maxY: Int
+}
+
+func pixelRect(fromVisionBoundingBox normalizedRect: CGRect) -> PixelRect {
+    PixelRect(
+        minX: max(0, Int(floor(normalizedRect.minX * CGFloat(width)))),
+        maxX: min(width, Int(ceil(normalizedRect.maxX * CGFloat(width)))),
+        minY: max(0, Int(floor((1.0 - normalizedRect.maxY) * CGFloat(height)))),
+        maxY: min(height, Int(ceil((1.0 - normalizedRect.minY) * CGFloat(height))))
+    )
+}
+
+func linearChannel(_ byte: UInt8) -> Double {
+    let channel = Double(byte) / 255.0
+    return channel <= 0.04045
+        ? channel / 12.92
+        : pow((channel + 0.055) / 1.055, 2.4)
+}
+
+func relativeLuminance(x: Int, y: Int) -> Double {
+    let offset = y * bytesPerRow + x * bytesPerPixel
+    return
+        0.2126 * linearChannel(pixels[offset]) +
+        0.7152 * linearChannel(pixels[offset + 1]) +
+        0.0722 * linearChannel(pixels[offset + 2])
+}
+
+func median(_ values: [Double]) -> Double {
+    guard !values.isEmpty else { return 0.0 }
+    let sorted = values.sorted()
+    let middle = sorted.count / 2
+    return sorted.count.isMultiple(of: 2)
+        ? (sorted[middle - 1] + sorted[middle]) / 2.0
+        : sorted[middle]
+}
+
+func textContrastRatio(in visionBoundingBox: CGRect) -> Double {
+    let rect = pixelRect(fromVisionBoundingBox: visionBoundingBox)
+    guard rect.minX < rect.maxX, rect.minY < rect.maxY else { return 0.0 }
+
+    let padding = max(4, (rect.maxY - rect.minY) / 3)
+    let outer = PixelRect(
+        minX: max(0, rect.minX - padding),
+        maxX: min(width, rect.maxX + padding),
+        minY: max(0, rect.minY - padding),
+        maxY: min(height, rect.maxY + padding)
+    )
+    var backgroundSamples: [Double] = []
+    for y in outer.minY..<outer.maxY {
+        for x in outer.minX..<outer.maxX
+        where x < rect.minX || x >= rect.maxX || y < rect.minY || y >= rect.maxY {
+            backgroundSamples.append(relativeLuminance(x: x, y: y))
+        }
+    }
+    guard !backgroundSamples.isEmpty else { return 0.0 }
+    let background = median(backgroundSamples)
+
+    var glyphCandidates: [(distance: Double, luminance: Double)] = []
+    for y in rect.minY..<rect.maxY {
+        for x in rect.minX..<rect.maxX {
+            let luminance = relativeLuminance(x: x, y: y)
+            glyphCandidates.append((abs(luminance - background), luminance))
+        }
+    }
+    glyphCandidates.sort { $0.distance > $1.distance }
+    let sampleCount = max(8, glyphCandidates.count / 12)
+    let foreground = median(glyphCandidates.prefix(sampleCount).map { $0.luminance })
+    let lighter = max(foreground, background)
+    let darker = min(foreground, background)
+    return (lighter + 0.05) / (darker + 0.05)
+}
+
+let mediaTextContrastRatio = recognizedLines
+    .filter { $0.0.contains(mediaMarker) }
+    .map { textContrastRatio(in: $0.1) }
+    .max() ?? 0.0
+
 let dimensionsValid = width >= 750 && height >= 1300
+let mediaTextContrastValid = mediaTextContrastRatio >= 4.5
 let classification: String
-if dimensionsValid && meanLuminance >= 0.08 && brightPixelFraction >= 0.12 && markersFound.count == markers.count {
+if dimensionsValid && meanLuminance >= 0.08 && brightPixelFraction >= 0.12 &&
+    mediaTextContrastValid && markersFound.count == markers.count {
     classification = "pass"
-} else if dimensionsValid && meanLuminance >= 0.035 && brightPixelFraction >= 0.05 && markersFound.count >= 2 {
+} else if dimensionsValid && meanLuminance >= 0.035 && brightPixelFraction >= 0.05 &&
+    mediaTextContrastValid && markersFound.count >= 3 {
     classification = "degraded"
 } else {
     classification = "fail"
@@ -92,6 +181,7 @@ let result = VisualResult(
     height: height,
     meanLuminance: meanLuminance,
     brightPixelFraction: brightPixelFraction,
+    mediaTextContrastRatio: mediaTextContrastRatio,
     markersFound: markersFound
 )
 let encoder = JSONEncoder()

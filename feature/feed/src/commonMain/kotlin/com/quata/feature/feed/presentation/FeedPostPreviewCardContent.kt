@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.QuataCard
 
+internal val FeedMediaBackgroundColor = Color.Black
+internal val FeedMediaUnavailableContentColor = Color.White
+
 /**
  * Portable post-card/preview hierarchy for lists and detail launchers.
  *
@@ -42,7 +45,7 @@ fun FeedPostPreviewCardContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(mediaAspectRatio)
-                    .background(Color.Black),
+                    .background(FeedMediaBackgroundColor),
             ) {
                 media()
                 navigation()
