@@ -6,8 +6,11 @@ interface LoginRepository {
     suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession>
 }
 
-interface AuthRepository : LoginRepository {
+interface RegisterRepository {
     suspend fun register(request: RegisterAccountRequest): Result<AuthSession>
+}
+
+interface AuthRepository : LoginRepository, RegisterRepository {
     suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?>
     suspend fun resetPassword(countryCode: String, phone: String, secretAnswer: String, newPassword: String): Result<Unit>
     suspend fun deactivateAccount(password: String): Result<Unit>
