@@ -52,6 +52,10 @@ xcodebuild \
 products="$derived_data_path/Build/Products/SimulatorSigned-iphonesimulator"
 app="$products/QuataIos.app"
 [[ -d "$app" ]] || { echo "Expected signed app was not produced." >&2; exit 1; }
+# Xcode writes the Simulator signing entitlement into its simulated plist, but
+# omits it from the final ad-hoc signature. Re-sign the app with the lane's
+# minimal entitlement so a Keychain-backed launch can be exercised locally.
+codesign --force --sign - --entitlements iosApp/iosApp/QuataIosSimulatorSigned.entitlements "$app"
 codesign --verify --deep --strict "$app"
 entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
 grep -q '<key>keychain-access-groups</key>' <<<"$entitlements"
