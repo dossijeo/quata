@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.platform.ShareService
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration

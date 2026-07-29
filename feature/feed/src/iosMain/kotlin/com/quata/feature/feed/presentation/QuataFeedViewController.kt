@@ -149,19 +149,3 @@ fun QuataIosMigrationStatusViewController(): UIViewController = ComposeUIViewCon
         )
     }
 }
-
-private val IosFeedHostStrings = FeedBrowserHostStrings(
-    loading = "Cargando publicaciones…",
-    retry = "Reintentar",
-    loadFailure = "No se pudo cargar el feed.",
-    refresh = "Actualizar",
-    refreshing = "Actualizando…",
-    conversations = "Conversaciones",
-    loadingOlder = "Cargando…",
-    loadOlder = "Cargar anteriores",
-    noText = "Publicación sin texto",
-    readMore = "Leer más",
-    close = "Cerrar",
-    empty = "Aún no hay publicaciones disponibles.",
-    mediaUnavailable = DefaultFeatureCapabilityText.mediaUnavailable(),
-)

@@ -76,7 +76,7 @@ private fun IosFeedAvatar(
     val imageUrl = avatarUrl?.trim()?.takeIf(::isIosAvatarUrl)
     var image by remember(imageUrl) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(imageUrl) {
-        image = imageUrl?.let(::loadIosAvatarOrNull)
+        image = if (imageUrl == null) null else loadIosAvatarOrNull(imageUrl)
     }
     QuataAvatarFrameContent(
         name = name,
