@@ -274,6 +274,13 @@ private final class IosAppCompositionRoot {
         case "anonymous":
             fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-anonymous-host"
             fixtureRoot.view.accessibilityLabel = "Quata iOS anonymous fixture"
+        case "auth-launch":
+            // The Auth fixture is deliberately constructed before the production composition
+            // root. Its Kotlin factory uses a local fail-closed repository, and this UIKit shell
+            // provides stable containment/readiness for CI without an account or runtime setup.
+            return IosAuthLaunchFixtureContainerViewController {
+                IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
+            }
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers

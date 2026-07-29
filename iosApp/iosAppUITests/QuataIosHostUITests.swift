@@ -16,6 +16,30 @@ final class QuataIosHostUITests: XCTestCase {
 
     }
 
+    func testAuthLaunchFixtureColdStartsTwiceWithStableHostAndReadiness() {
+        let app = fixtureApp("auth-launch")
+
+        for launchNumber in 1...2 {
+            app.launch()
+            let host = QuataIosHostUITestSupport.fixtureRoot(
+                in: app,
+                identifier: "quata-ios-auth-launch-host",
+            )
+            XCTAssertEqual(host.label, "Quata iOS Auth launch fixture")
+
+            let readiness = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-launch-ready")
+                .firstMatch
+            XCTAssertTrue(
+                readiness.waitForExistence(timeout: 10),
+                "The Auth Compose fixture must publish readiness after UIKit containment.",
+            )
+            XCTAssertEqual(readiness.label, "Quata iOS Auth fixture ready")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-cold-start-\(launchNumber)")
+            app.terminate()
+        }
+    }
+
     func testNormalLaunchExposesTheUnconfiguredComposeMigrationSemantics() {
         let app = XCUIApplication()
         app.launch()
