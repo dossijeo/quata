@@ -2,7 +2,7 @@
 
 El workflow `.github/workflows/ios-build.yml` es el carril reproducible de
 compilación iOS. No firma ni publica la aplicación. El `main` documental actual
-es `185960769011f03d644130012fe8051ad536e9bf`.
+es `d8652326f61d93f33bb860d64565ad74e3e80ed5`.
 
 ## Corte acreditado
 
@@ -33,8 +33,20 @@ crash/fatal en el alcance observado y capturas/OCR. Es evidencia funcional
 suplementaria de una VM Intel con CPU-raster; no es un SLA ni una medida de
 rendimiento de producto.
 
-La autenticación visual se valida en un carril distinto. Hasta que concluya,
-login, refresh y logout siguen en HOLD aunque los contratos de rutas pasen.
+PR [#106](https://github.com/dossijeo/quata/pull/106) integró la superficie de
+logout autenticado en el host iOS. El carril iOS
+[`30429034347`](https://github.com/dossijeo/quata/actions/runs/30429034347)
+terminó verde sobre su SHA y acredita que el cambio compila y supera los
+contratos Swift/Kotlin. No acredita una interacción visual de login ni logout.
+
+Se verificó en un carril separado, sin publicar identidad, que el backend
+acepta una sesión de cuenta de prueba y devuelve tanto sesión como perfil. La
+evidencia se limita al protocolo: no se guardó ni se documenta ningún secreto.
+La E2E visual de autenticación sigue en HOLD porque el host remoto requiere un
+fichero de configuración con permisos `0600` y el test host/Keychain no permite
+concluir el recorrido visual de forma aislada. PR #107 se cerró sin merge: su
+fixture provocó una desconexión del proceso Compose y no es evidencia de login
+UI.
 
 ## Toolchain y arquitectura
 
@@ -57,7 +69,9 @@ El script despacha el workflow, espera su conclusión y descarga el artefacto en
 
 ## Próximos gates
 
-1. Concluir autenticación iOS aislada con limpieza y evidencia no secreta.
+1. Reanudar E2E visual iOS cuando el host disponga del fichero `0600` y pueda
+   aislar Keychain; validar login, refresh, logout y relanzamiento, con limpieza
+   y evidencia no secreta.
 2. Configurar Team, certificados, perfiles y App Group para obtener archive/IPA
    firmado. El archive actual es deliberadamente sin firma.
 3. Implementar y validar APNs en dispositivo físico según

@@ -1,11 +1,13 @@
 # Matriz de evidencia para la auditoría final KMP
 
 > **Actualización posterior a MP-A14 (2026-07-29):** el corte operativo es
-> `185960769011f03d644130012fe8051ad536e9bf`. PRs #99–#104 aportan evidencia
+> `d8652326f61d93f33bb860d64565ad74e3e80ed5`. PRs #99–#106 aportan evidencia
 > posterior a la reconciliación histórica de abajo: Web público y Android siguen
 > verdes; iOS tiene matriz pública integrada, rutas/factorías y CI
 > [`30425431607`](https://github.com/dossijeo/quata/actions/runs/30425431607)
-> verde sobre `ba6a72a`. Ninguno acredita autenticación final, firma, APNs,
+> verde sobre `ba6a72a`; #106 añadió logout autenticado con CI
+> [`30429034347`](https://github.com/dossijeo/quata/actions/runs/30429034347)
+> verde. Ninguno acredita autenticación visual final, firma, APNs,
 > dispositivo físico, RLS ni migración completa.
 
 **Corte integrado:** `main` `ea0322c159be61018a60604f6b9134bd4f290787`.
@@ -37,6 +39,7 @@ un cambio posterior.
 | Android ola 2 integrada | `9cc84dc2`, [PR #47](https://github.com/dossijeo/quata/pull/47) | `assembleDebug` verde; APK 79.029.367 bytes/SHA-256 registrado. A/B API-37 contra ola 1 recorrió cinco áreas, con crash buffer limpio, sin ANR: 25,392 s ola 1 y 21,159 s ola 2. | Smoke comparativo, no benchmark; ambos hosts lentos se clasificaron `environment_both_slow`. |
 | Web/Wasm ola 2 | `9cc84dc2` | Tests/compilaciones acotados verdes, distribución Wasm verde y smoke DocMentis de seis rutas en 29 s, sin fixtures remotos. | Dos `compileTest` agotaron timeout sin diagnóstico; el smoke no es E2E autenticado. Chat UI sigue bloqueado por AX aunque el preflight remoto y la purga pasaron. |
 | iOS ola 2 | `9cc84dc2`, [CI #30210875187](https://github.com/dossijeo/quata/actions/runs/30210875187) | **Verde**, completada 2026-07-26 16:59:46Z: Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest, archive sin firma y artefacto. | No acredita firma, dispositivo físico, App Group operativo, entrega APNs ni E2E autenticado. |
+| Logout iOS integrado | `d8652326`, [PR #106](https://github.com/dossijeo/quata/pull/106), [CI #30429034347](https://github.com/dossijeo/quata/actions/runs/30429034347) | **Verde** para la UI de logout y sus contratos Swift/Kotlin. Un carril redactado confirmó sesión y perfil de backend. | No acredita login, refresh ni logout visual: falta configuración remota `0600` e aislamiento Keychain/test host. PR #107 se cerró sin merge por fixture que desconectó Compose. |
 | Evidencia mecanizable | [`mp-a14-final-evidence.json`](mp-a14-final-evidence.json) | SHAs, gates locales, hash del APK, run iOS y límites funcionales del corte. | Es documentación; no ejecuta ni transforma un smoke en E2E. |
 
 ## Convenciones de evidencia
