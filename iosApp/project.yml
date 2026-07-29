@@ -11,6 +11,10 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: iosApp
+        excludes:
+          - PrivacyInfo.xcprivacy
+      - path: iosApp/PrivacyInfo.xcprivacy
+        buildPhase: resources
     configFiles:
       Debug: Configuration/QuataPublicRuntime.debug.xcconfig
       Release: Configuration/QuataPublicRuntime.release.xcconfig
@@ -66,6 +70,10 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: iosShareExtension
+        excludes:
+          - PrivacyInfo.xcprivacy
+      - path: iosShareExtension/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios.shareextension

@@ -3,6 +3,7 @@ name: Web/Wasm and Android PR
 on:
   pull_request:
     paths:
+      - ".gitignore"
       - ".github/workflows/web-android-pr.yml"
       - ".github/workflows/wasm-baseline-capture.yml"
       - ".github/workflows/web-docmentis-staging-evidence.yml"
@@ -56,6 +57,10 @@ on:
       - "scripts/web-android-pr-workflow-contract.test.mjs"
       - "scripts/wasm-baseline-capture-workflow-contract.test.mjs"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/ios-privacy-manifest-contract.test.mjs"
+      - "scripts/validate-ios-privacy-artifacts.sh"
+      - "scripts/validate-ios-xcframework-privacy-artifacts.sh"
+      - "scripts/archive-ios-unsigned.sh"
       - "scripts/web-test-contract.test.mjs"
       - "scripts/android-lint-baseline-ratchet.mjs"
       - "scripts/android-lint-baseline-ratchet.test.mjs"

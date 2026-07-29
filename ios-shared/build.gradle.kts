@@ -1,7 +1,46 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
+import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
+}
+
+val privacyManifest = layout.projectDirectory.file("PrivacyInfo.xcprivacy")
+
+tasks.withType<FatFrameworkTask>().configureEach {
+    inputs.file(privacyManifest)
+    outputs.file(destinationDirProperty.file("QuataShared.framework/PrivacyInfo.xcprivacy"))
+    doLast {
+        privacyManifest.asFile.copyTo(
+            fatFramework.resolve("PrivacyInfo.xcprivacy"),
+            overwrite = true,
+        )
+    }
+}
+
+tasks.matching {
+    it.name == "assembleQuataSharedDebugXCFramework" ||
+        it.name == "assembleQuataSharedReleaseXCFramework"
+}.configureEach {
+    val buildType = if (name.contains("Release")) "release" else "debug"
+    val xcFramework = layout.buildDirectory.dir("XCFrameworks/$buildType/QuataShared.xcframework")
+    inputs.file(privacyManifest)
+    outputs.dir(xcFramework)
+    doLast {
+        val frameworks = xcFramework.get().asFile
+            .walkTopDown()
+            .filter { it.isDirectory && it.name == "QuataShared.framework" }
+            .toList()
+        check(frameworks.isNotEmpty()) {
+            "QuataShared XCFramework contains no framework slices: ${xcFramework.get().asFile}"
+        }
+        frameworks.forEach { framework ->
+            privacyManifest.asFile.copyTo(
+                framework.resolve("PrivacyInfo.xcprivacy"),
+                overwrite = true,
+            )
+        }
+    }
 }
 
 /**
@@ -58,6 +97,15 @@ kotlin {
             export(project(":feature:settings"))
             export(project(":feature:whatsnew"))
             export(project(":feature:externalshare"))
+            linkTaskProvider.configure {
+                inputs.file(privacyManifest)
+                doLast {
+                    privacyManifest.asFile.copyTo(
+                        outputFile.get().resolve("PrivacyInfo.xcprivacy"),
+                        overwrite = true,
+                    )
+                }
+            }
         }
     }
 }

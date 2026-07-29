@@ -4,11 +4,16 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - ".gitignore"
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-auth-launch-fixture-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
+      - "scripts/ios-privacy-manifest-contract.test.mjs"
+      - "scripts/validate-ios-privacy-artifacts.sh"
+      - "scripts/validate-ios-xcframework-privacy-artifacts.sh"
+      - "scripts/archive-ios-unsigned.sh"
       - "scripts/capability-matrix-contract.mjs"
       - "scripts/capability-matrix-contract.test.mjs"
       - "capabilities/platform-capability-matrix.json"
@@ -41,11 +46,16 @@ on:
       # the iOS runner on unrelated developer branches.
       - "codex/next-*"
     paths:
+      - ".gitignore"
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/ios-auth-launch-fixture-contract.test.mjs"
       - "scripts/ios-public-runtime-contract.test.mjs"
       - "scripts/ios-nsdata-interop-contract.test.mjs"
+      - "scripts/ios-privacy-manifest-contract.test.mjs"
+      - "scripts/validate-ios-privacy-artifacts.sh"
+      - "scripts/validate-ios-xcframework-privacy-artifacts.sh"
+      - "scripts/archive-ios-unsigned.sh"
       - "scripts/capability-matrix-contract.mjs"
       - "scripts/capability-matrix-contract.test.mjs"
       - "capabilities/platform-capability-matrix.json"
@@ -108,6 +118,9 @@ jobs:
 
       - name: Validate iOS NSData interop contract
         run: node --test scripts/ios-nsdata-interop-contract.test.mjs
+
+      - name: Validate iOS privacy manifest
+        run: node --test scripts/ios-privacy-manifest-contract.test.mjs
 
       - name: Validate platform capability matrix
         run: node --test scripts/capability-matrix-contract.test.mjs
@@ -279,6 +292,8 @@ jobs:
             --stacktrace \
             --warning-mode all \
             --console=plain
+          bash scripts/validate-ios-xcframework-privacy-artifacts.sh \
+            ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
 
       - name: Install hermetic public runtime fixture
         shell: bash
@@ -334,6 +349,13 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build \
             2>&1 | tee build/reports/ios/xcodebuild.log
+
+      - name: Validate built privacy artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="build/ios-derived-data/Build/Products/Debug-iphonesimulator/QuataIos.app"
+          bash scripts/validate-ios-privacy-artifacts.sh "$app_path"
 
       # Keep simulator boot separate from XCTest. The first iOS 26.2 boot performs data
       # migrations; watchdog logs distinguish that failure from a test failure.

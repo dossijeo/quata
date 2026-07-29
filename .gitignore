@@ -9,6 +9,10 @@ keystores/
 *.jks
 *.keystore
 *.p12
+*.mobileprovision
+*.p8
+*.ipa
+*.cer
 *.iml
 .DS_Store
 captures/

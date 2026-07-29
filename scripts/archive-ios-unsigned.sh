@@ -25,6 +25,8 @@ rm -rf "$archive_path" "$derived_data_path"
 # Invoke the wrapper through bash so a fresh checkout stays clean: macOS users
 # do not need to chmod the tracked wrapper before structural validation.
 bash ./gradlew :ios-shared:assembleQuataSharedDebugXCFramework --stacktrace --warning-mode all --console=plain
+bash scripts/validate-ios-xcframework-privacy-artifacts.sh \
+  ios-shared/build/XCFrameworks/debug/QuataShared.xcframework
 
 (
   cd iosApp
@@ -55,5 +57,7 @@ if [[ ! -d "$app_path/Frameworks/QuataShared.framework" ]]; then
   echo "Archive is missing the embedded QuataShared.framework." >&2
   exit 1
 fi
+
+bash scripts/validate-ios-privacy-artifacts.sh "$app_path"
 
 echo "Unsigned generic-device archive validated: $archive_path"
