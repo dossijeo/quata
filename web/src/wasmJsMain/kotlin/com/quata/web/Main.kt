@@ -432,10 +432,7 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
                         WebFeedHost(
                             repository = feedRepository,
-                            navigationMessage = navigation.message,
-                            onOpenChats = { navigateWebFragment("chat") },
                             sharedPostId = navigation.postId,
-                            onBackToFeed = { navigateWebFragment("") },
                         )
                     }
                 }
@@ -566,7 +563,7 @@ internal fun String.toWebNavigationState(): WebNavigationState {
             message = "Enlace de publicación recibido. La vista compartida se habilitará al conectar datos web.",
         )
     }
-    return WebNavigationState(route = "feed", message = "Quata Web se está preparando.")
+    return WebNavigationState(route = "feed", message = "Feed")
 }
 
 private fun browserFragment(): String = js("globalThis.location?.hash?.replace(/^#/, '') || ''")

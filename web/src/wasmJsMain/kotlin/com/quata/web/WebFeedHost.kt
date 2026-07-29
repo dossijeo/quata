@@ -11,10 +11,7 @@ import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
 @Composable
 fun WebFeedHost(
     repository: WebFeedRepository,
-    navigationMessage: String,
-    onOpenChats: () -> Unit,
     sharedPostId: String? = null,
-    onBackToFeed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
