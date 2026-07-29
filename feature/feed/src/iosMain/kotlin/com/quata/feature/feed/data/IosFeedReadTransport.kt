@@ -96,6 +96,27 @@ class IosFeedReadTransport(
             .iosData(url, method, body?.encodeToByteArray()?.toFoundationData())
     }
 
+    /**
+     * Authenticated RPC boundary intentionally limited to the reviewed Feed report procedure.
+     * It reuses the same session and headers as table mutations but never lets a caller build an
+     * arbitrary PostgREST RPC path.
+     */
+    suspend fun reportPostRpc(body: String): Result<Unit> = runCatching {
+        require(authSession != null) { "ios_feed_session_missing" }
+        val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_feed_session_missing")
+        val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_publishable_key_missing")
+        val request = iosFeedReportPostRpcRequest(base, body)
+        val url = NSURL(string = request.url) ?: error("ios_feed_url_invalid")
+        val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
+            put("Authorization", "Bearer ${session.bearerToken}")
+            put("Prefer", "return=representation")
+            put("Content-Type", "application/json")
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
+            .iosData(url, request.method, request.body.encodeToByteArray().toFoundationData())
+    }
+
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {
         require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/')
@@ -135,6 +156,15 @@ internal data class IosPublicFeedRequest(
     val method: String,
     val url: String,
     val headers: Map<Any?, Any?>,
+)
+
+/** Pure contract for the only authenticated Feed RPC currently exposed by iOS. */
+internal data class IosFeedRpcRequest(val method: String, val url: String, val body: String)
+
+internal fun iosFeedReportPostRpcRequest(baseUrl: String, body: String): IosFeedRpcRequest = IosFeedRpcRequest(
+    method = "POST",
+    url = "${baseUrl.trim().trimEnd('/')}/rest/v1/rpc/quata_ugc_report",
+    body = body,
 )
 
 internal fun iosPublicFeedRequest(
