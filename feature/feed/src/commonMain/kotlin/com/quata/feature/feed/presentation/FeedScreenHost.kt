@@ -3,11 +3,15 @@ package com.quata.feature.feed.presentation
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -26,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
@@ -42,6 +47,8 @@ import com.quata.core.ui.components.QuataCommentRowContent
 import com.quata.core.ui.components.QuataCommentRowStrings
 import com.quata.core.ui.components.QuataCommentsPanelHeaderContent
 import com.quata.core.ui.components.QuataCommentsPanelPortraitContent
+import com.quata.core.ui.components.QuataCommentsPanelLandscapeContent
+import com.quata.core.ui.components.QuataReplyTargetBannerContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
@@ -78,6 +85,8 @@ data class FeedScreenStrings(
     val commentPlaceholder: String = "Escribe un comentario",
     val send: String = "Enviar",
     val reply: String = "Responder",
+    val replyingTo: @Composable (String) -> String = { "Respondiendo a $it" }, val cancelReply: String = "Cancelar respuesta",
+    val commentsTitle: String = "Comentarios", val commentsYou: String = "Tú", val moderationReport: String = "Reportar",
     val replyTo: (String) -> String = { "En respuesta a $it" },
     val locationLabel: @Composable (String) -> String = { it },
 )
@@ -258,6 +267,7 @@ fun FeedScreenHost(
 
     state.posts.firstOrNull { it.id == commentsPostId }?.let { post ->
         FeedCommentsDialog(
+            slots = slots,
             post = post,
             canParticipate = canParticipate,
             strings = strings,
@@ -294,6 +304,7 @@ fun FeedScreenHost(
 
 @Composable
 private fun FeedCommentsDialog(
+    slots: FeedScreenPlatformSlots,
     post: Post,
     canParticipate: Boolean,
     strings: FeedScreenStrings,
@@ -302,15 +313,27 @@ private fun FeedCommentsDialog(
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var draft by remember(post.id) { mutableStateOf(TextFieldValue()) }
+    var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(Modifier.fillMaxSize().padding(16.dp)) {
-            QuataCommentsPanelPortraitContent(
-                header = { QuataCommentsPanelHeaderContent(strings.comments, post.comments.size, { modifier -> TextButton(onClick = onDismiss, modifier = modifier) { Text(strings.close) } }) },
-                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, comment.timestamp, QuataCommentRowStrings(strings.replyTo, strings.report, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) } } },
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, "Tú", QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { "ahora" }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null }, {}, modifier.fillMaxWidth()) },
-            )
-        }
+    var shouldScrollToCommentsEnd by remember(post.id) { mutableStateOf(true) }
+    val commentsListState = rememberLazyListState()
+    LaunchedEffect(post.id, post.comments.size, shouldScrollToCommentsEnd) {
+        if (shouldScrollToCommentsEnd) { delay(260); commentsListState.animateScrollToItem(post.comments.size); shouldScrollToCommentsEnd = false }
+    }
+    slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
+        if (!landscape) QuataCommentsPanelPortraitContent(
+                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }) },
+                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, comment.timestamp, QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
+                replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { "ahora" }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier.fillMaxWidth()) },
+            modifier = panelModifier,
+        ) else QuataCommentsPanelLandscapeContent(
+            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { _ -> }, modifier) },
+            closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
+            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> QuataCommentRowContent(comment, comment.timestamp, QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply), onReply = { replyTo = comment }, onReport = { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
+            replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { "ahora" }, {}, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; shouldScrollToCommentsEnd = true }, {}, modifier) },
+            modifier = panelModifier,
+        )
     }
 }

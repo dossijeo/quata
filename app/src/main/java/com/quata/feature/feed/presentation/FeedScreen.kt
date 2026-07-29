@@ -230,6 +230,9 @@ fun FeedScreen(
             liveTitle = stringResource(R.string.feed_live_title), liveSubtitle = stringResource(R.string.feed_live_subtitle),
             liveMonitored = { count -> stringResource(R.string.feed_live_posts_monitored, count) }, liveUpdated = stringResource(R.string.feed_live_updated), liveOpenPost = stringResource(R.string.feed_open_post),
             videoType = stringResource(R.string.feed_post_type_video), imageType = stringResource(R.string.feed_post_type_image), textType = stringResource(R.string.feed_post_type_text),
+            commentsTitle = stringResource(R.string.comments_title), commentsYou = stringResource(R.string.comments_you), moderationReport = stringResource(R.string.moderation_report),
+            reply = stringResource(R.string.comments_reply_button), replyingTo = { author -> stringResource(R.string.comments_replying_to, author) }, cancelReply = stringResource(R.string.comments_cancel_reply),
+            commentPlaceholder = stringResource(R.string.comments_placeholder), send = stringResource(R.string.comments_send),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
