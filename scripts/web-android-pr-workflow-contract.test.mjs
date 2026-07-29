@@ -17,6 +17,30 @@ function assertWebWasmTimeoutBudget(yaml) {
   assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and five cold-profile measurements');
 }
 
+function assertBrowserTestCoverage(yaml) {
+  const testStep = yaml.indexOf('      - name: Test Web/Wasm');
+  const nextStep = yaml.indexOf('      - name: Verify backend compatibility smoke policy (no network)', testStep);
+  assert.ok(testStep >= 0 && nextStep > testStep, 'the Web/Wasm browser test step must precede backend policy checks');
+
+  const testBlock = yaml.slice(testStep, nextStep);
+  const timeout = testBlock.match(/timeout-minutes: (\d+)/);
+  assert.ok(timeout, 'the Web/Wasm browser test step must declare a timeout');
+  assert.ok(Number(timeout[1]) >= 25, 'the serialized browser suites need at least 25 minutes');
+  for (const task of [':core:wasmJsBrowserTest', ':feature:postcomposer:wasmJsBrowserTest']) {
+    assert.match(testBlock, new RegExp(task.replaceAll(':', '\\:')), `missing browser test task: ${task}`);
+  }
+  assert.match(testBlock, /--max-workers=1/, 'Karma browser tasks must remain serialized');
+
+  for (const path of [
+    'core/build/test-results/**/*.xml',
+    'core/build/reports/tests/',
+    'feature/postcomposer/build/test-results/**/*.xml',
+    'feature/postcomposer/build/reports/tests/',
+  ]) {
+    assert.match(yaml, new RegExp(`^            ${path.replaceAll('.', '\\.').replaceAll('*', '\\*')}$`, 'm'), `missing browser test artifact: ${path}`);
+  }
+}
+
 function assertWorkflowContract(yaml) {
   assert.match(yaml, /^on:\n  pull_request:/m);
   assert.doesNotMatch(yaml, /^  (?:push|workflow_dispatch|schedule):/m);
@@ -28,6 +52,7 @@ function assertWorkflowContract(yaml) {
   );
   assertJetBrainsDaemonBootstrap(yaml, 3);
   assertWebWasmTimeoutBudget(yaml);
+  assertBrowserTestCoverage(yaml);
   assert.match(
     yaml,
     /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
@@ -73,6 +98,12 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
     ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
+    ['browser suite timeout below serial budget', yaml.replace(/(- name: Test Web\/Wasm\n\s+timeout-minutes: )25/, (_, prefix) => `${prefix}24`)],
+    ['core browser tests removed', yaml.replace(':core:wasmJsBrowserTest ', '')],
+    ['postcomposer browser tests removed', yaml.replace(':feature:postcomposer:wasmJsBrowserTest ', '')],
+    ['browser test serialization removed', yaml.replace(' --max-workers=1', '')],
+    ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
+    ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
     ['Android capability evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
     ['package capability trigger removed', yaml.replace('      - "package.json"\n', '')],
