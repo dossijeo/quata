@@ -75,8 +75,9 @@ private struct AuthSeederCredentials: Decodable {
         guard effectiveCountry == "240", digits.count > effectiveCountry!.count else {
             throw AuthSeederConfigurationError.unsupportedCountryCode
         }
-        countryCode = effectiveCountry
-        localPhone = String(digits.dropFirst(effectiveCountry!.count))
+        let selectedCountry = effectiveCountry!
+        countryCode = selectedCountry
+        localPhone = String(digits.dropFirst(selectedCountry.count))
     }
 
     static func load(from path: String) throws -> AuthSeederCredentials {
