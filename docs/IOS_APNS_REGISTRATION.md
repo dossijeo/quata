@@ -22,6 +22,9 @@ Esto no acredita entrega APNs. Un release posterior necesita, fuera del reposito
 tokens ni team IDs. La CI y el archive actual son deliberadamente sin firma, por lo que validan
 el enlace Swift/Kotlin y XCTest, no el entitlement ni la entrega APNs.
 
+Los requisitos de operación, firma, backend, seguridad y validación de dispositivo se detallan
+en [IOS_APNS_PRODUCTION_REQUIREMENTS.md](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
+
 Para la ola 2 (`9cc84dc2`), la CI exacta #30210875187 terminó verde. Sólo
 acredita este plumbing y el archive sin firma; la entrega APNs sigue sin
 verificarse hasta completar los requisitos anteriores.
