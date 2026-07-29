@@ -41,7 +41,9 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
 
         let chromeLabels = ["Qüata", "Chats", "Oficial", "Feed", "Cuenta"]
         let firstChromeItem = app.staticTexts[chromeLabels[0]]
-        let hostLabel = app.descendants(matching: .any).matching(label: "Quata para iOS").firstMatch
+        let hostLabel = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Quata para iOS"))
+            .firstMatch
         XCTAssertTrue(
             firstChromeItem.waitForExistence(timeout: 20) || hostLabel.waitForExistence(timeout: 20),
             "A successful sign-in must install the authenticated host or shared primary navigation chrome.",
