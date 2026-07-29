@@ -30,6 +30,15 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
   const pullRequestTrigger = yaml.slice(pullRequestStart, pushStart);
   const pushTrigger = yaml.slice(pushStart, concurrencyStart);
+  const publicMatrixPaths = [
+    'scripts/ios-public-client-config.py',
+    'scripts/ios-public-log-evidence.py',
+    'scripts/ios-public-runtime-config-backup.sh',
+    'scripts/ios-public-screenshot-classifier.swift',
+    'scripts/ios-public-simulator-matrix-contract.test.mjs',
+    'scripts/run-ios-public-simulator-matrix.sh',
+    'scripts/test-ios-public-runtime-config-backup.sh',
+  ];
   for (const trigger of [pullRequestTrigger, pushTrigger]) {
     assert.match(trigger, /- "\.github\/workflows\/ios-build\.yml"/);
     assert.match(trigger, /- "scripts\/ios-build-workflow-contract\.test\.mjs"/);
@@ -40,14 +49,30 @@ function assertIosWorkflowSelfCoverage(yaml) {
     assert.match(trigger, /- "scripts\/check-ios-release-readiness\.sh"/);
     assert.doesNotMatch(trigger, /- "(?:app|web)\/\*\*"/);
     assert.doesNotMatch(trigger, /- "package(?:-lock)?\.json"/);
+    for (const path of publicMatrixPaths) {
+      assert.ok(
+        trigger.includes(`- "${path}"`),
+        `iOS workflow trigger must cover ${path}`,
+      );
+    }
   }
 
   const checkout = yaml.indexOf('      - name: Check out source');
   const contract = yaml.indexOf('      - name: Validate iOS workflow contract');
   const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
   const capabilityContract = yaml.indexOf('      - name: Validate platform capability matrix');
+  const matrixContract = yaml.indexOf('      - name: Validate iOS public simulator matrix contract');
+  const backupContract = yaml.indexOf('      - name: Validate iOS public runtime backup contract');
   const compilation = yaml.indexOf('      - name: Compile all Kotlin iOS targets');
-  assert.ok(checkout >= 0 && contract > checkout && runtimeContract > contract && capabilityContract > runtimeContract && compilation > capabilityContract);
+  assert.ok(
+    checkout >= 0 &&
+      contract > checkout &&
+      runtimeContract > contract &&
+      matrixContract > runtimeContract &&
+      backupContract > matrixContract &&
+      capabilityContract > backupContract &&
+      compilation > capabilityContract,
+  );
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
@@ -57,6 +82,14 @@ function assertIosWorkflowSelfCoverage(yaml) {
     /- name: Validate iOS public runtime contract\n\s+run: node --test scripts\/ios-public-runtime-contract\.test\.mjs/,
   );
   assert.match(yaml, /- name: Validate platform capability matrix\n\s+run: node --test scripts\/capability-matrix-contract\.test\.mjs/);
+  assert.match(
+    yaml,
+    /- name: Validate iOS public simulator matrix contract\n\s+run: node --test scripts\/ios-public-simulator-matrix-contract\.test\.mjs/,
+  );
+  assert.match(
+    yaml,
+    /- name: Validate iOS public runtime backup contract\n\s+shell: bash\n\s+run: bash scripts\/test-ios-public-runtime-config-backup\.sh/,
+  );
 }
 
 function assertIosRuntimeFixtureAndUiIsolation(yaml) {
@@ -146,6 +179,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
   const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
   const capabilityContractPath = '      - "scripts/capability-matrix-contract.test.mjs"\n';
   const capabilityImplementationPath = '      - "scripts/capability-matrix-contract.mjs"\n';
+  const matrixContractPath = '      - "scripts/ios-public-simulator-matrix-contract.test.mjs"\n';
   const pushContractIndex = yaml.lastIndexOf(contractPath);
   const withoutPushTrigger =
     yaml.slice(0, pushContractIndex) + yaml.slice(pushContractIndex + contractPath.length);
@@ -157,6 +191,14 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
     ['Android-only trigger added', yaml.replace('      - "core/**"', '      - "app/**"\n      - "core/**"')],
     ['package-only trigger added', yaml.replace('      - "core/**"', '      - "package.json"\n      - "core/**"')],
+    ['public matrix pull-request trigger removed', yaml.replace(matrixContractPath, '')],
+    [
+      'public matrix push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(matrixContractPath);
+        return yaml.slice(0, index) + yaml.slice(index + matrixContractPath.length);
+      })(),
+    ],
     [
       'contract command weakened',
       yaml.replace(
@@ -174,6 +216,20 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'capability matrix contract command weakened',
       yaml.replace('run: node --test scripts/capability-matrix-contract.test.mjs', 'run: node --version'),
+    ],
+    [
+      'public simulator matrix contract command weakened',
+      yaml.replace(
+        'run: node --test scripts/ios-public-simulator-matrix-contract.test.mjs',
+        'run: node --version',
+      ),
+    ],
+    [
+      'public runtime backup contract command weakened',
+      yaml.replace(
+        'run: bash scripts/test-ios-public-runtime-config-backup.sh',
+        'run: bash --version',
+      ),
     ],
     ['UI runtime isolation removed', yaml.replace(/QUATA_SUPABASE_URL= \\\n\s*QUATA_SUPABASE_PUBLISHABLE_KEY= \\\n/, '')],
     [
