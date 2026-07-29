@@ -29,7 +29,7 @@ class FeedCommentTranslatorDisplayTest {
             "Gabrielo - 03/07/2026 09:08\nEn respuesta a Ana\nMensaje citado\nMensaje original",
             feedCommentTranslatorDisplayText(
                 comment = comment,
-                timestamp = formatFeedCommentTimestamp(comment.timestamp, TimeZone.UTC),
+                timestamp = formatCommentTimestamp(comment.timestamp, TimeZone.UTC),
                 replyLabel = "En respuesta a Ana",
             ),
         )
@@ -37,10 +37,10 @@ class FeedCommentTranslatorDisplayTest {
 
     @Test
     fun formatterKeepsTheAndroidVisibleCommentTimestampContract() {
-        assertEquals("03/07/2026 09:08", formatFeedCommentTimestamp("3/7/2026, 9:08:07", TimeZone.UTC))
-        assertEquals("03/07/2026 07:08", formatFeedCommentTimestamp("2026-07-03T09:08:07+02:00", TimeZone.UTC))
-        assertEquals("", formatFeedCommentTimestamp("  ", TimeZone.UTC))
-        assertEquals("bad-date", formatFeedCommentTimestamp("bad-date", TimeZone.UTC))
+        assertEquals("03/07/2026 09:08", formatCommentTimestamp("3/7/2026, 9:08:07", TimeZone.UTC))
+        assertEquals("03/07/2026 07:08", formatCommentTimestamp("2026-07-03T09:08:07+02:00", TimeZone.UTC))
+        assertEquals("", formatCommentTimestamp("  ", TimeZone.UTC))
+        assertEquals("bad-date", formatCommentTimestamp("bad-date", TimeZone.UTC))
     }
 
     @Test
