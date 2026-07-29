@@ -205,13 +205,13 @@ jobs:
             2>&1 | tee build/reports/web-ci/node-contracts.log
 
       - name: Test Web/Wasm
-        timeout-minutes: 12
+        timeout-minutes: 25
         shell: bash
         run: |
           set -euo pipefail
           test -x "$CHROME_BIN"
           "$CHROME_BIN" --version
-          bash ./gradlew :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest :feature:auth:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :feature:externalshare:wasmJsBrowserTest :feature:feed:wasmJsBrowserTest :feature:neighborhoods:wasmJsBrowserTest :feature:notifications:wasmJsBrowserTest :feature:official:wasmJsBrowserTest :feature:profile:wasmJsBrowserTest :feature:whatsnew:wasmJsBrowserTest -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1 --no-daemon --stacktrace --console=plain \
+          bash ./gradlew :core:wasmJsBrowserTest :web:wasmJsBrowserTest :designsystem:wasmJsBrowserTest :feature:auth:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :feature:externalshare:wasmJsBrowserTest :feature:feed:wasmJsBrowserTest :feature:neighborhoods:wasmJsBrowserTest :feature:notifications:wasmJsBrowserTest :feature:official:wasmJsBrowserTest :feature:postcomposer:wasmJsBrowserTest :feature:profile:wasmJsBrowserTest :feature:whatsnew:wasmJsBrowserTest -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1 --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/web-ci/wasm-test.log
 
       - name: Verify backend compatibility smoke policy (no network)
@@ -286,6 +286,10 @@ jobs:
             build/reports/web-browser-smoke-metrics.json
             build/reports/web-performance-repeatability.json
             build/reports/web-performance-repeatability/
+            core/build/test-results/**/*.xml
+            core/build/reports/tests/
+            feature/postcomposer/build/test-results/**/*.xml
+            feature/postcomposer/build/reports/tests/
             web/build/test-results/**/*.xml
             web/build/reports/tests/
             web/build/dist/wasmJs/productionExecutable/
