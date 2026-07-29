@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "state": "proposed",
+  "state": "approved",
   "baselineFile": "wasm-bundle-baseline.json",
   "maxGrowthBytes": 1048576,
   "maxGrowthGzipBytes": 262144,

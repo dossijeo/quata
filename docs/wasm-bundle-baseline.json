@@ -1,7 +1,6 @@
 {
   "schemaVersion": 1,
-  "baselineState": "candidate",
-  "revision": "abd2f8ece26e0ab7afb496ef0f36194becf2e57a",
+  "revision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
   "distribution": "web/build/dist/wasmJs/productionExecutable",
   "files": [
     {
@@ -21,20 +20,28 @@
       "contributor": "Skiko"
     },
     {
-      "path": "32a5fdb41ea469bd4e8b.wasm",
+      "path": "9c10229af28e5ca88d73.wasm",
       "extension": ".wasm",
-      "bytes": 5893708,
-      "gzipBytes": 1573947,
-      "sha256": "08536c13b1808881e8ae3aad53f95bde2fafdfac467d738700cd7da5a4948279",
+      "bytes": 5986855,
+      "gzipBytes": 1596334,
+      "sha256": "c7417b97cbe4b5417a7a095edae81dac5bc247eba8831c7aaad03c2d8599ef5a",
       "contributor": "Kotlin/Wasm application"
     },
     {
       "path": "web.js.map",
       "extension": ".map",
-      "bytes": 1792224,
-      "gzipBytes": 314454,
-      "sha256": "f89d53751307dfee29e049f4d0dc71b2c629aa9add2ad9b2d7a2834b772e33cc",
+      "bytes": 1800259,
+      "gzipBytes": 316164,
+      "sha256": "c252137486b5f84d77b18e395fdf51b8f5f97cf8dad50cba96e0672b2795123c",
       "contributor": "Source maps"
+    },
+    {
+      "path": "web.js",
+      "extension": ".js",
+      "bytes": 621908,
+      "gzipBytes": 114493,
+      "sha256": "0f32095487427fb50ff1e4e02e6a61dc390e25e9ace695ea5ab1af726f8b2319",
+      "contributor": "JavaScript runtime/chunks"
     },
     {
       "path": "351.js",
@@ -43,14 +50,6 @@
       "gzipBytes": 141595,
       "sha256": "93b9e2b8fc6561bfe2bf008de3e37bcdf9af4859d7584550449ebed689e7340b",
       "contributor": "DocMentis"
-    },
-    {
-      "path": "web.js",
-      "extension": ".js",
-      "bytes": 619208,
-      "gzipBytes": 114033,
-      "sha256": "d9470211b78efadf888071daaa7d0737952d30397b05cd9b60c974fdac5ed097",
-      "contributor": "JavaScript runtime/chunks"
     },
     {
       "path": "351.js.map",
@@ -63,10 +62,26 @@
     {
       "path": "quata-sw.js",
       "extension": ".js",
-      "bytes": 7067,
-      "gzipBytes": 2389,
-      "sha256": "fca9773c23cbb0eb44b51373a169ca96346f8ffdb50ad649d6ef62a9c8871a62",
+      "bytes": 7348,
+      "gzipBytes": 2520,
+      "sha256": "8c5c4e37ef1f0272e46527f7dcbe943781300c0c61910684c347bf9ef1fda240",
       "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "web-test-contract.js",
+      "extension": ".js",
+      "bytes": 2141,
+      "gzipBytes": 714,
+      "sha256": "3ae2a7f1e88d22f9eaad10c11947dde77d60e567db9f56d58cd10e785b74d225",
+      "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "index.html",
+      "extension": ".html",
+      "bytes": 1398,
+      "gzipBytes": 695,
+      "sha256": "0cfdc75b9fafe06f16b8e87e3d8166f590786af393ef4b1995b1b42ca8a62aee",
+      "contributor": "Static/runtime assets"
     },
     {
       "path": "web.js.LICENSE.txt",
@@ -74,14 +89,6 @@
       "bytes": 1298,
       "gzipBytes": 277,
       "sha256": "85a703daf937b69e6a45c75947dcea43f4026a835b84a7ea4300843217311baf",
-      "contributor": "Static/runtime assets"
-    },
-    {
-      "path": "index.html",
-      "extension": ".html",
-      "bytes": 1077,
-      "gzipBytes": 535,
-      "sha256": "fe20b3f04471ef18ec8c4e4079514add8cf3aed38fe6591d931afbe22fee421b",
       "contributor": "Static/runtime assets"
     },
     {
@@ -110,9 +117,10 @@
     }
   ],
   "totals": {
-    "bytes": 37057846,
-    "gzipBytes": 14225528
+    "bytes": 37164471,
+    "gzipBytes": 14251090
   },
+  "inventorySha256": "adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827",
   "contributors": [
     {
       "name": "DocMentis",
@@ -129,30 +137,43 @@
     {
       "name": "Kotlin/Wasm application",
       "files": 1,
-      "bytes": 5893708,
-      "gzipBytes": 1573947
+      "bytes": 5986855,
+      "gzipBytes": 1596334
     },
     {
       "name": "Source maps",
       "files": 3,
-      "bytes": 2215908,
-      "gzipBytes": 409148
+      "bytes": 2223943,
+      "gzipBytes": 410858
     },
     {
       "name": "JavaScript runtime/chunks",
-      "files": 3,
-      "bytes": 626621,
-      "gzipBytes": 116691
+      "files": 4,
+      "bytes": 631743,
+      "gzipBytes": 117996
     },
     {
       "name": "Static/runtime assets",
       "files": 3,
-      "bytes": 2893,
-      "gzipBytes": 1093
+      "bytes": 3214,
+      "gzipBytes": 1253
     }
   ],
   "notes": [
     "DocMentis is dynamically imported; its emitted chunk(s) are identified by file-name hints when webpack preserves them.",
     "The npm package source size is not a distribution-size proxy. Measure emitted chunks after wasmJsBrowserDistribution."
-  ]
+  ],
+  "baselineState": "approved",
+  "capture": {
+    "schemaVersion": 2,
+    "trustedRef": "origin/main",
+    "sourceRevision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
+    "sourceTree": {
+      "algorithm": "git-ls-tree-sha256-v1",
+      "revision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
+      "sha256": "889e0fde698053cb17e2a8b51ef3f607bf4b23f390eb113fc87c0f58b26e157a"
+    },
+    "inventorySha256": "adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827",
+    "command": ":web:wasmJsBrowserDistribution"
+  }
 }
