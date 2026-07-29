@@ -580,6 +580,17 @@ private final class IosAppCompositionRoot {
                 bootstrap: runtimeBootstrap,
             )
         else { return }
+        let logoutHandler = IosAuthHostKt.createIosAuthLogoutHandler(repository: repository)
+        authenticatedHost.installLogoutAction(
+            { completed in logoutHandler.logout(onCompleted: completed) },
+            onLoggedOut: { [weak self] in
+                // The shared operation has already cleared the Keychain session. Rebuild only
+                // the read-only public Feed and login entry point; no authenticated factory is
+                // retained as an anonymous destination.
+                self?.installPublicFeedIfConfigured()
+                self?.installAuthenticationIfConfigured()
+            },
+        )
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
@@ -683,6 +694,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
     private var authenticationFactory: (() -> UIViewController)?
+    private var logoutAction: ((@escaping () -> Void) -> Void)?
+    private var onLoggedOut: (() -> Void)?
+    private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
@@ -782,6 +796,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installAuthenticationFactory {
             IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
         }
+    }
+
+    /// The actual sign-out operation stays in the shared Auth module. UIKit only supplies the
+    /// confirmation UX and replaces authenticated route factories after its completion.
+    func installLogoutAction(
+        _ action: @escaping (@escaping () -> Void) -> Void,
+        onLoggedOut: @escaping () -> Void,
+    ) {
+        logoutAction = action
+        self.onLoggedOut = onLoggedOut
     }
 
     /// Installs the authenticated entry point without granting a session. Keeping this UIKit
@@ -1085,7 +1109,76 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if releaseHistoryFactory != nil {
             sheet.addAction(UIAlertAction(title: "Acerca de Quata", style: .default) { [weak self] _ in self?.showReleaseHistory() })
         }
+        if logoutAction != nil {
+            sheet.addAction(UIAlertAction(
+                title: NSLocalizedString("ios_logout_action", value: "Cerrar sesión", comment: ""),
+                style: .destructive,
+            ) { [weak self] _ in
+                self?.presentLogoutConfirmation()
+            })
+        }
         sheet.addAction(UIAlertAction(title: "Cerrar", style: .cancel))
+    }
+
+    private func presentLogoutConfirmation() {
+        guard logoutAction != nil, !isLoggingOut else { return }
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_logout_confirmation_title", value: "Cerrar sesión", comment: ""),
+            message: NSLocalizedString(
+                "ios_logout_confirmation_message",
+                value: "Volverás al modo de exploración pública.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("ios_logout_action", value: "Cerrar sesión", comment: ""),
+            style: .destructive,
+        ) { [weak self] _ in
+            self?.performLogout()
+        })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_cancel", value: "Cancelar", comment: ""),
+            style: .cancel,
+        ))
+        present(alert, animated: true)
+    }
+
+    /// Internal for XCTest: it makes the one-shot state transition testable without invoking
+    /// network, Keychain or a confirmation alert.
+    func performLogout() {
+        guard let logoutAction, !isLoggingOut else { return }
+        isLoggingOut = true
+        logoutAction { [weak self] in
+            DispatchQueue.main.async {
+                self?.finishLogout()
+            }
+        }
+    }
+
+    private func finishLogout() {
+        guard isLoggingOut else { return }
+        isLoggingOut = false
+        let completion = onLoggedOut
+        // A private route may hold a live Compose controller/repository. Remove every factory
+        // before asking the composition root to reinstall the anonymous public Feed.
+        hasAuthenticatedSession = false
+        hasPublicFeed = false
+        feedFactory = nil
+        chatFactory = nil
+        officialFactory = nil
+        notificationsFactory = nil
+        profileSosFactory = nil
+        communitiesFactory = nil
+        composerFactory = nil
+        settingsFactory = nil
+        whatsNewFactory = nil
+        releaseHistoryFactory = nil
+        pendingRoute = nil
+        logoutAction = nil
+        onLoggedOut = nil
+        routeMenuButton.isHidden = true
+        completion?()
     }
 
     private func showMigrationStatus() {
