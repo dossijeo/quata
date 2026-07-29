@@ -1,24 +1,32 @@
 #!/usr/bin/env node
 /**
- * Real-browser Auth journey. Fixture mode is the default and is fully hermetic. Remote mode is
- * explicit, uses an already-provisioned account, and cannot pass until its issued sessions have
- * been globally revoked and that revocation has been verified.
+ * Real-browser Auth/Profile read-only journey. Fixture mode is the default and is fully hermetic.
+ * Remote mode explicitly accepts the deployed bridge's identity/session mutations, requires a
+ * dedicated preprovisioned account, and cannot pass until global revocation has been verified.
+ * Chat and every product mutation remain outside this runner.
  */
 import { createServer } from "node:http";
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { chromium } from "playwright-core";
 import {
   assertExplicitRefreshTokenRejection,
-  isPublicSupabaseKey,
 } from "./web-authenticated-browser-security.mjs";
+import {
+  DISTRIBUTION_REVISION_FILE,
+  READ_ONLY_ROUTE_EXCLUSIONS,
+  READ_ONLY_ROUTE_MATRIX,
+  assertExactDistributionRevision,
+  backendBrowserRequestDecision,
+  loadRealAuthConfiguration,
+} from "./web-authenticated-browser-policy.mjs";
 
 const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const STORAGE_KEYS = [
   "quata_web_access_token", "quata_web_refresh_token", "quata_web_session_token",
   "quata_web_user_id", "quata_web_expires_at", "web.auth.session_ready",
 ];
-const REAL_OPT_IN = "I_ACCEPT_SESSION_REVOCATION";
 const FIXTURE = Object.freeze({
   // LoginUiState defaults to this prefix; the native Web input deliberately owns
   // just the local phone number, as the Compose field did before it.
@@ -33,14 +41,21 @@ const FIXTURE = Object.freeze({
 
 const options = parseArguments(process.argv.slice(2));
 const report = {
-  check: "WEB-AUTH-BROWSER-02",
+  check: "WEB-AUTH-READONLY-BROWSER-03",
   mode: options.real ? "real_existing_account_opt_in" : "hermetic_local_fixture",
   status: "failed",
   steps: [],
   cleanup: { state: "not_started" },
+  bridgeEffects: {
+    accepted: options.real,
+    scope: "auth_identity_metadata_web_session_and_global_refresh_revocation",
+    productDml: "forbidden",
+  },
 };
 const fixtureState = { login: 0, profileReads: 0, webLogout: 0, globalLogout: 0 };
 const unexpectedNetwork = [];
+const blockedBackendMutations = [];
+const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0 };
 let server;
 let browser;
 let context;
@@ -51,6 +66,8 @@ let stage = "initializing";
 const browserDiagnostics = [];
 
 try {
+  const sourceRevision = await verifyDistributionProvenance(options.distribution);
+  report.sourceRevision = sourceRevision;
   const configuration = loadConfiguration(options.real);
   server = await startServer(options.distribution, fixtureState, configuration);
   backend = options.real ? configuration.baseUrl : server.origin;
@@ -70,7 +87,26 @@ try {
   });
   context = await browser.newContext({ locale: "es-ES" });
   await context.route("**/*", async route => {
-    const url = route.request().url();
+    const request = route.request();
+    const url = request.url();
+    const decision = backendBrowserRequestDecision({
+      backend,
+      url,
+      method: request.method(),
+      stage,
+      body: request.postData(),
+    });
+    if (decision.backendApi) {
+      if (!decision.allowed) {
+        blockedBackendMutations.push({
+          method: request.method().toUpperCase(),
+          path: safeBackendPath(url, backend),
+          reason: decision.reason,
+        });
+        return route.abort("blockedbyclient");
+      }
+      observeProductRead(request, url, backend, cleanupSession, productReadEvidence);
+    }
     if (url.startsWith(`${server.origin}/`)) return route.continue();
     if (url === TURNSTILE_BOOTSTRAP) {
       return route.fulfill({ status: 200, contentType: "text/javascript", body: "globalThis.turnstile={};" });
@@ -85,7 +121,7 @@ try {
       }
       return route.fulfill({ response, body });
     }
-    if (options.real && url.startsWith(`${backend}/`)) return route.continue();
+    if (options.real && decision.allowed && url.startsWith(`${backend}/`)) return route.continue();
     unexpectedNetwork.push(safeOrigin(url));
     return route.abort("blockedbyclient");
   });
@@ -97,8 +133,12 @@ try {
     }
   });
   page = context.pages()[0] ?? await context.newPage();
-  page.on("console", message => browserDiagnostics.push(`console:${message.type()}:${message.text()}`));
-  page.on("pageerror", error => browserDiagnostics.push(`pageerror:${error.stack ?? error.message}`));
+  page.on("console", message => browserDiagnostics.push(
+    options.real ? `console:${message.type()}` : `console:${message.type()}:${message.text()}`,
+  ));
+  page.on("pageerror", error => browserDiagnostics.push(
+    options.real ? "pageerror:present" : `pageerror:${error.stack ?? error.message}`,
+  ));
 
   stage = "mounting_real_product";
   await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
@@ -143,53 +183,22 @@ try {
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("feed_mount_pageerror");
   report.steps.push("product_session_restored_after_reload");
 
-  const chatsNavigation = page.locator('button[aria-label="Chats"]');
-  await chatsNavigation.waitFor();
-  await assertUniqueNativeAx(page, { role: "button", name: "Chats", selector: 'button[aria-label="Chats"]' });
-  await chatsNavigation.focus();
-  await assertUniqueNativeAx(page, { role: "button", name: "Chats", selector: 'button[aria-label="Chats"]', focused: true });
-  await page.keyboard.press("Enter");
-  await page.waitForFunction(() => localStorage.getItem("web.navigation.route") === "chat");
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&quata-chat-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
-
-  stage = "authenticated_profile_read";
-  const profileRead = await page.evaluate(async ({ backend, key, profileId }) => {
-    const response = await fetch(`${backend}/rest/v1/community_profiles?select=id&id=eq.${profileId}`, {
-      headers: {
-        apikey: key,
-        authorization: `Bearer ${localStorage.getItem("quata_web_access_token")}`,
-      },
-    });
-    const rows = response.ok ? await response.json() : [];
-    return { ok: response.ok, exact: rows.length === 1 && rows[0]?.id === profileId };
-  }, { backend, key: credentials.publishableKey ?? "fixture-public-key", profileId: cleanupSession.profileId });
-  if (!profileRead.ok || !profileRead.exact) throw new Error("authenticated_profile_read_failed");
-  report.steps.push("authenticated_browser_profile_read");
-
-  stage = "native_chat_controls";
-  const message = page.locator('input[aria-label="Mensaje"]');
-  const send = page.locator('button[aria-label="Enviar"]');
-  await Promise.all([message.waitFor(), send.waitFor()]);
-  await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]' });
-  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
-  if (await send.isEnabled()) throw new Error("native_chat_send_initial_state_changed");
-  const chatMarker = "mensaje AX local";
-  await message.fill(chatMarker);
-  await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
-  await send.focus();
-  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]', focused: true });
-  await page.keyboard.press("Enter");
-  await page.waitForFunction(marker => {
-    const value = globalThis.__quataChatE2eProduct;
-    return value?.version === 1 && value.sends === 1 && value.text === marker;
-  }, chatMarker);
-  // A second stable sample distinguishes one keyboard activation from a delayed duplicate
-  // callback while keeping this hermetic fixture independent from remote timing.
-  await page.waitForTimeout(250);
-  const chatFixture = await page.evaluate(() => globalThis.__quataChatE2eProduct);
-  if (chatFixture?.version !== 1 || chatFixture.sends !== 1 || chatFixture.text !== chatMarker) throw new Error("native_chat_send_callback_not_exactly_once");
-  report.steps.push("native_chat_role_name_state_keyboard_activation_and_real_fixture_callback_once");
-
+  stage = "authenticated_read_only_route_matrix";
+  for (const route of READ_ONLY_ROUTE_MATRIX) {
+    await navigateReadOnlyRoute(page, route);
+    assertNoBlockedBackendMutations(blockedBackendMutations);
+    report.steps.push(`read_only_route_${route.route}`);
+    if (route.route === "profile") {
+      await waitFor(
+        async () => productReadEvidence.profileSelfReads > 0,
+        "product_profile_get_not_observed",
+      );
+      report.steps.push("product_profile_authenticated_get_observed");
+    }
+  }
+  if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("read_only_route_pageerror");
+  if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
+  assertNoBlockedBackendMutations(blockedBackendMutations);
   stage = "native_logout";
   const logout = page.locator('button[aria-label="Cerrar sesión"]');
   await assertUniqueNativeAx(page, { role: "button", name: "Cerrar sesión", selector: 'button[aria-label="Cerrar sesión"]' });
@@ -202,6 +211,7 @@ try {
     throw new Error("product_logout_storage_remains");
   }
   report.steps.push("native_logout_role_name_focus_keyboard_activation");
+  assertNoBlockedBackendMutations(blockedBackendMutations);
 
   stage = "global_session_cleanup";
   await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
@@ -215,6 +225,16 @@ try {
     }
     if (unexpectedNetwork.length !== 0) throw new Error("unexpected_external_network");
   }
+  await page.waitForTimeout(100);
+  assertNoBlockedBackendMutations(blockedBackendMutations);
+  report.readOnlyEvidence = {
+    routes: READ_ONLY_ROUTE_MATRIX.map(route => route.route),
+    excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS.flatMap(exclusion => exclusion.fragments),
+    authenticatedGets: productReadEvidence.authenticatedGets,
+    profileSelfReads: productReadEvidence.profileSelfReads,
+    blockedMutations: blockedBackendMutations.length,
+    chatExcluded: true,
+  };
   report.status = "passed";
 } catch (error) {
   report.error = safeError(error);
@@ -231,7 +251,6 @@ try {
           const rect = element.getBoundingClientRect();
           return { tag: element.tagName, name: element.getAttribute("aria-label"), type: element.getAttribute("type"), disabled: element.disabled, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
         }),
-      shadowText: document.querySelector("#quata-root")?.shadowRoot?.innerText?.slice(0, 2_000) ?? "",
       hash: location.hash,
     })).catch(() => ({ unavailable: true }));
     report.browserState.diagnostics = browserDiagnostics.slice(-20);
@@ -252,6 +271,10 @@ try {
   await browser?.close().catch(() => {});
   await server?.close().catch(() => {});
   report.finishedAt = new Date().toISOString();
+  report.networkPolicy = {
+    blockedBackendMutations: blockedBackendMutations.map(({ method, path, reason }) => ({ method, path, reason })),
+    chatExcluded: true,
+  };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
   await writeSafeReport(options.output, report);
 }
@@ -288,22 +311,7 @@ function parseArguments(args) {
 
 function loadConfiguration(real) {
   if (!real) return {};
-  if (process.env.QUATA_AUTH_E2E_REAL_OPT_IN !== REAL_OPT_IN) throw new Error("real_mode_opt_in_required");
-  const required = [
-    "QUATA_SUPABASE_URL", "QUATA_SUPABASE_PUBLISHABLE_KEY",
-    "QUATA_E2E_COUNTRY_CODE", "QUATA_E2E_PHONE", "QUATA_E2E_PASSWORD",
-  ];
-  if (required.some(name => !process.env[name]?.trim())) throw new Error("real_mode_environment_missing");
-  const baseUrl = process.env.QUATA_SUPABASE_URL.trim().replace(/\/+$/, "");
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl)) throw new Error("invalid_public_supabase_url");
-  const publishableKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY.trim();
-  if (!isPublicSupabaseKey(publishableKey)) throw new Error("privileged_or_invalid_publishable_key");
-  return {
-    baseUrl, publishableKey,
-    countryCode: process.env.QUATA_E2E_COUNTRY_CODE.trim(),
-    phone: process.env.QUATA_E2E_PHONE.trim(),
-    password: process.env.QUATA_E2E_PASSWORD,
-  };
+  return loadRealAuthConfiguration(process.env);
 }
 
 async function startServer(distribution, state, configuration) {
@@ -332,11 +340,16 @@ async function startServer(distribution, state, configuration) {
       }
       if (url.pathname === "/functions/v1/quata-web-push") {
         const body = await jsonBody(request);
-        if (body.action === "logout" && request.headers.authorization === `Bearer ${FIXTURE.accessToken}` &&
-            request.headers["x-quata-web-session"] === FIXTURE.webSessionToken) state.webLogout += 1;
-        return json(response, 200, { ok: true });
+        if (request.method === "POST" && body.action === "logout" &&
+            request.headers.authorization === `Bearer ${FIXTURE.accessToken}` &&
+            request.headers["x-quata-web-session"] === FIXTURE.webSessionToken) {
+          state.webLogout += 1;
+          return json(response, 200, { ok: true });
+        }
+        return json(response, 405, { error: "fixture_mutation_forbidden" });
       }
       if (url.pathname === "/auth/v1/logout") {
+        if (request.method !== "POST") return json(response, 405, { error: "fixture_method_forbidden" });
         if (request.headers.authorization === `Bearer ${FIXTURE.accessToken}`) state.globalLogout += 1;
         return json(response, 204, null);
       }
@@ -349,10 +362,20 @@ async function startServer(distribution, state, configuration) {
           : { access_token: FIXTURE.accessToken, refresh_token: FIXTURE.refreshToken, expires_in: 3600 });
       }
       if (url.pathname === "/rest/v1/community_profiles") {
+        if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         state.profileReads += 1;
-        return json(response, 200, [{ id: FIXTURE.profileId }]);
+        return json(response, 200, [{
+          id: FIXTURE.profileId,
+          display_name: "Fixture User",
+          neighborhood: "Fixture District",
+          country_code: FIXTURE.countryCode,
+          phone_local: FIXTURE.phone,
+        }]);
       }
-      if (url.pathname.startsWith("/rest/v1/") || url.pathname.startsWith("/rest/v1/rpc/")) return json(response, 200, []);
+      if (url.pathname.startsWith("/rest/v1/")) {
+        if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
+        return json(response, 200, []);
+      }
       if (url.pathname === "/favicon.ico") return response.writeHead(204).end();
 
       const pathname = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
@@ -385,6 +408,69 @@ async function startServer(distribution, state, configuration) {
     origin,
     close: () => new Promise((resolveServer, reject) => server.close(error => error ? reject(error) : resolveServer())),
   };
+}
+
+async function verifyDistributionProvenance(distribution) {
+  if (!(await stat(distribution).catch(() => null))?.isDirectory()) {
+    throw new Error("distribution_missing");
+  }
+  const repositoryRoot = resolve(import.meta.dirname, "..");
+  let repositoryRevision;
+  let trackedChanges;
+  try {
+    repositoryRevision = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    trackedChanges = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    throw new Error("repository_revision_unavailable");
+  }
+  const markerRevision = await readFile(join(distribution, DISTRIBUTION_REVISION_FILE), "utf8")
+    .then(value => value.trim())
+    .catch(() => "");
+  return assertExactDistributionRevision({ repositoryRevision, markerRevision, trackedChanges });
+}
+
+async function navigateReadOnlyRoute(page, route) {
+  await page.evaluate(fragment => {
+    globalThis.location.hash = fragment;
+  }, route.fragment);
+  await page.waitForFunction(expectedRoute => {
+    const root = document.querySelector("#quata-root");
+    return localStorage.getItem("web.navigation.route") === expectedRoute && root &&
+      (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
+  }, route.route);
+  await page.waitForTimeout(150);
+}
+
+function observeProductRead(request, url, _backend, session, evidence) {
+  if (request.method().toUpperCase() !== "GET") return;
+  const authorization = request.headers().authorization ?? "";
+  if (!authorization.startsWith("Bearer ")) return;
+  evidence.authenticatedGets += 1;
+  const parsed = new URL(url);
+  if (parsed.pathname !== "/rest/v1/community_profiles" || !session?.profileId) return;
+  const idFilter = parsed.searchParams.get("id") ?? "";
+  if (idFilter.includes(session.profileId)) evidence.profileSelfReads += 1;
+}
+
+function assertNoBlockedBackendMutations(blocked) {
+  if (blocked.length > 0) throw new Error(blocked[0].reason);
+}
+
+function safeBackendPath(url, backend) {
+  try {
+    const parsed = new URL(url);
+    return url.startsWith(`${backend.replace(/\/+$/, "")}/`) ? parsed.pathname : "unexpected-origin";
+  } catch {
+    return "invalid-url";
+  }
 }
 
 async function readSession(page) {
@@ -481,12 +567,18 @@ function safeOrigin(url) {
 function safeError(error) {
   const value = typeof error?.message === "string" ? error.message : "";
   return [
-    "invalid_arguments", "distribution_missing", "real_mode_opt_in_required",
-    "real_mode_environment_missing", "invalid_public_supabase_url", "privileged_key_forbidden",
-    "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
-    "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_chat_send_callback_not_exactly_once", "native_logout_focus_missing",
+    "invalid_arguments", "distribution_missing", "repository_revision_unavailable",
+    "repository_revision_invalid", "distribution_revision_missing_or_invalid",
+    "distribution_revision_mismatch", "distribution_source_tree_dirty",
+    "real_mode_session_revocation_opt_in_required", "real_mode_bridge_mutation_opt_in_required",
+    "real_mode_dedicated_account_required", "real_mode_preprovisioned_auth_user_required",
+    "real_mode_privileged_environment_forbidden", "real_mode_environment_missing",
+    "invalid_public_supabase_url", "privileged_or_invalid_publishable_key",
+    "product_session_incomplete", "product_profile_get_not_observed",
+    "authenticated_product_get_not_observed", "product_logout_storage_remains",
+    "native_login_submit_disabled", "native_login_focus_missing", "native_logout_focus_missing",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
-    "ax_navigation_not_unique",
+    "read_only_route_pageerror", "backend_mutation_blocked",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";

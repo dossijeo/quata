@@ -5,6 +5,17 @@ import {
   assertExplicitRefreshTokenRejection,
   isPublicSupabaseKey,
 } from "./web-authenticated-browser-security.mjs";
+import {
+  BRIDGE_MUTATION_OPT_IN,
+  DEDICATED_ACCOUNT_SCOPE,
+  PREPROVISIONED_AUTH_USER,
+  READ_ONLY_ROUTE_EXCLUSIONS,
+  READ_ONLY_ROUTE_MATRIX,
+  REAL_SESSION_OPT_IN,
+  assertExactDistributionRevision,
+  backendBrowserRequestDecision,
+  loadRealAuthConfiguration,
+} from "./web-authenticated-browser-policy.mjs";
 
 const runner = await readFile(new URL("./web-authenticated-browser-e2e.mjs", import.meta.url), "utf8");
 const wrapper = await readFile(new URL("./run-web-authenticated-browser-e2e.ps1", import.meta.url), "utf8");
@@ -12,6 +23,9 @@ const bridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/we
 const main = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8");
 const browserFileCache = await readFile(new URL("../core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserFileCacheService.wasm.kt", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../.github/workflows/web-android-pr.yml", import.meta.url), "utf8");
+const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.url), "utf8");
+const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
+const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
 
 test("hermetic Auth gate uses a real browser and the product repository/coordinator", () => {
   assert.match(runner, /chromium\.launch\(/);
@@ -34,27 +48,165 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
   }
 });
 
-test("fixture fails closed on external network and verifies the complete journey", () => {
+test("fixture fails closed on external network and excludes Chat from the read-only journey", () => {
   assert.match(runner, /context\.route\("\*\*\/\*"/);
   assert.match(runner, /proxy-server=http:\/\/127\.0\.0\.1:9/);
   assert.match(runner, /unexpected_external_network/);
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
-  assert.match(runner, /native_chat_role_name_state_keyboard_activation/);
+  assert.match(runner, /product_profile_authenticated_get_observed/);
+  assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
+  assert.doesNotMatch(runner, /quata-chat-e2e|__quataChatE2eProduct|native_chat_controls/);
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
+  assert.deepEqual(
+    READ_ONLY_ROUTE_MATRIX.map(route => route.route),
+    ["feed", "profile", "settings", "communities", "official"],
+  );
+  assert.ok(READ_ONLY_ROUTE_MATRIX.every(route => Object.keys(route).sort().join(",") === "fragment,route"));
+  assert.match(runner, /globalThis\.location\.hash = fragment/);
 });
 
-test("real mode is double opt-in, never provisions an account, and verifies revocation", () => {
+test("WhatsNew RPC POST remains explicitly outside the strict GET-only route matrix", () => {
+  assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, [{
+    fragments: ["whats-new", "about"],
+    method: "POST",
+    path: "/rest/v1/rpc/quata_android_release_history",
+    reason: "postgrest_rpc_post_not_get_only",
+  }]);
+  const routedFragments = new Set(READ_ONLY_ROUTE_MATRIX.flatMap(route => [route.fragment, route.route]));
+  for (const fragment of ["whats-new", "about"]) assert.equal(routedFragments.has(fragment), false);
+  assert.match(
+    whatsNewHost,
+    /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
+  );
+  assert.match(documentation, /Novedades usa un RPC de lectura transportado como `POST`/);
+  assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
+});
+
+test("the final report rechecks mutations and snapshots read-only evidence immediately before passing", () => {
+  assert.match(
+    runner,
+    /await page\.waitForTimeout\(100\);\n  assertNoBlockedBackendMutations\(blockedBackendMutations\);\n  report\.readOnlyEvidence = \{[\s\S]*?blockedMutations: blockedBackendMutations\.length,[\s\S]*?\n  \};\n  report\.status = "passed";/,
+  );
+});
+
+test("real mode requires a dedicated preprovisioned account and accepts bridge effects explicitly", () => {
   assert.match(wrapper, /\[switch\]\$AllowExistingTestUser/);
   assert.match(wrapper, /\[switch\]\$AcceptSessionRevocation/);
-  assert.match(runner, /QUATA_AUTH_E2E_REAL_OPT_IN/);
-  assert.match(runner, /I_ACCEPT_SESSION_REVOCATION/);
+  assert.match(wrapper, /\[switch\]\$AcceptBridgeIdentityAndSessionMutations/);
+  assert.match(wrapper, /\[switch\]\$ConfirmDedicatedWebAccount/);
+  assert.match(wrapper, /\[switch\]\$ConfirmPreprovisionedAuthUser/);
+  assert.match(wrapper, /QUATA_AUTH_E2E_REAL_OPT_IN/);
+  assert.match(runner, /loadRealAuthConfiguration/);
   assert.match(runner, /route\.fetch\(\)/);
   assert.match(runner, /cleanupSession = captured/);
   assert.match(runner, /grant_type=refresh_token/);
   assert.match(runner, /global_session_revocation_unverified/);
   assert.doesNotMatch(runner, /quata-register|admin\/users|account-lifecycle|createUser|deleteUser/);
+  assert.match(documentation, /puede crear el usuario de Supabase Auth/i);
+  assert.match(documentation, /last_login_at/);
+});
+
+test("real preflight rejects missing scope, privileged environment and non-public configuration", () => {
+  const valid = {
+    QUATA_AUTH_E2E_REAL_OPT_IN: REAL_SESSION_OPT_IN,
+    QUATA_AUTH_E2E_BRIDGE_MUTATION_OPT_IN: BRIDGE_MUTATION_OPT_IN,
+    QUATA_E2E_ACCOUNT_SCOPE: DEDICATED_ACCOUNT_SCOPE,
+    QUATA_E2E_AUTH_USER_PREPROVISIONED: PREPROVISIONED_AUTH_USER,
+    QUATA_SUPABASE_URL: "https://project-ref.supabase.co",
+    QUATA_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_public-test-key",
+    QUATA_E2E_COUNTRY_CODE: "240",
+    QUATA_E2E_PHONE: "600000001",
+    QUATA_E2E_PASSWORD: "not-logged",
+  };
+  assert.equal(loadRealAuthConfiguration(valid).baseUrl, valid.QUATA_SUPABASE_URL);
+  assert.throws(
+    () => loadRealAuthConfiguration({ ...valid, QUATA_E2E_ACCOUNT_SCOPE: "shared-ios-account" }),
+    { message: "real_mode_dedicated_account_required" },
+  );
+  assert.throws(
+    () => loadRealAuthConfiguration({ ...valid, QUATA_E2E_AUTH_USER_PREPROVISIONED: "" }),
+    { message: "real_mode_preprovisioned_auth_user_required" },
+  );
+  assert.throws(
+    () => loadRealAuthConfiguration({ ...valid, SUPABASE_DB_URL: "postgresql://forbidden" }),
+    { message: "real_mode_privileged_environment_forbidden" },
+  );
+  assert.throws(
+    () => loadRealAuthConfiguration({ ...valid, QUATA_SUPABASE_PUBLISHABLE_KEY: "sb_secret_forbidden" }),
+    { message: "privileged_or_invalid_publishable_key" },
+  );
+});
+
+test("browser policy allows only reads plus the two declared Auth lifecycle effects", () => {
+  const backend = "https://project-ref.supabase.co";
+  const decision = (overrides = {}) => backendBrowserRequestDecision({
+    backend,
+    url: `${backend}/rest/v1/community_profiles?select=id`,
+    method: "GET",
+    stage: "authenticated_read_only_route_matrix",
+    body: null,
+    ...overrides,
+  });
+  assert.equal(decision().allowed, true);
+  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+    const blocked = decision({ method });
+    assert.equal(blocked.backendApi, true);
+    assert.equal(blocked.allowed, false);
+    assert.match(blocked.reason, /^backend_mutation_blocked_/);
+  }
+  const whatsNewRpc = decision({
+    method: "POST",
+    url: `${backend}/rest/v1/rpc/quata_android_release_history`,
+    body: JSON.stringify({ p_track: "production" }),
+  });
+  assert.equal(whatsNewRpc.allowed, false);
+  assert.equal(whatsNewRpc.reason, "backend_mutation_blocked_post");
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    body: "{}",
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/functions/v1/quata-auth-bridge`,
+    method: "POST",
+    stage: "native_login_controls",
+    body: JSON.stringify({ action: "web_login" }),
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/functions/v1/quata-auth-bridge`,
+    method: "POST",
+    stage: "authenticated_read_only_route_matrix",
+    body: JSON.stringify({ action: "web_login" }),
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/functions/v1/quata-web-push`,
+    method: "POST",
+    stage: "native_logout",
+    body: JSON.stringify({ action: "logout" }),
+  }).allowed, true);
+});
+
+test("distribution gate binds a clean tracked tree to one exact commit", () => {
+  const revision = "a".repeat(40);
+  assert.equal(assertExactDistributionRevision({
+    repositoryRevision: revision,
+    markerRevision: revision.toUpperCase(),
+    trackedChanges: "",
+  }), revision);
+  assert.throws(() => assertExactDistributionRevision({
+    repositoryRevision: revision,
+    markerRevision: "b".repeat(40),
+    trackedChanges: "",
+  }), { message: "distribution_revision_mismatch" });
+  assert.throws(() => assertExactDistributionRevision({
+    repositoryRevision: revision,
+    markerRevision: revision,
+    trackedChanges: " M web/src/wasmJsMain/Main.kt",
+  }), { message: "distribution_source_tree_dirty" });
+  assert.match(webBuild, /quata-source-revision\.txt/);
+  assert.match(webBuild, /wasmJsBrowserDistribution/);
 });
 
 test("revocation verification accepts only explicit refresh credential rejection", () => {

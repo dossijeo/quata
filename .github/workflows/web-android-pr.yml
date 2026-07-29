@@ -74,8 +74,10 @@ on:
       - "scripts/web-browser-metrics.test.mjs"
       - "docs/WEB_PERFORMANCE_REPEATABILITY.md"
       - "scripts/web-authenticated-browser-e2e.mjs"
+      - "scripts/web-authenticated-browser-policy.mjs"
       - "scripts/web-authenticated-browser-security.mjs"
       - "scripts/web-authenticated-browser-e2e.test.mjs"
+      - "scripts/web-chat-a11y-browser-e2e.mjs"
       - "scripts/run-web-authenticated-browser-e2e.ps1"
       - "package.json"
       - "package-lock.json"
@@ -261,6 +263,10 @@ jobs:
             --chrome "${{ steps.chrome.outputs.chrome-path }}" \
             --out build/reports/web-ci/authenticated-browser-e2e.json \
             2>&1 | tee build/reports/web-ci/authenticated-browser-e2e.log
+          node scripts/web-chat-a11y-browser-e2e.mjs \
+            --chrome "${{ steps.chrome.outputs.chrome-path }}" \
+            --out build/reports/web-ci/chat-a11y-browser-e2e.json \
+            2>&1 | tee build/reports/web-ci/chat-a11y-browser-e2e.log
 
       - name: Collect five cold Chrome measurements and advisory baseline proposal
         timeout-minutes: 24

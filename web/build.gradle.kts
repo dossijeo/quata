@@ -7,6 +7,13 @@ plugins {
     id("org.jetbrains.compose")
 }
 
+val webSourceRevision = providers.exec {
+    commandLine("git", "rev-parse", "HEAD")
+}.standardOutput.asText.map { it.trim() }
+val webDistributionRevision = layout.buildDirectory.file(
+    "dist/wasmJs/productionExecutable/quata-source-revision.txt",
+)
+
 kotlin {
     androidLibrary {
         namespace = "com.quata.web"
@@ -65,4 +72,17 @@ kotlin {
 // A normal Web verification must retain the real browser semantics gate.
 tasks.named("check") {
     dependsOn("wasmJsBrowserTest")
+}
+
+// Bind the emitted production distribution to the exact committed source revision. The
+// authenticated browser gate rejects a missing/stale marker and a dirty tracked source tree.
+tasks.named("wasmJsBrowserDistribution") {
+    inputs.property("quataSourceRevision", webSourceRevision)
+    outputs.file(webDistributionRevision)
+    doLast {
+        webDistributionRevision.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("${webSourceRevision.get()}\n")
+        }
+    }
 }
