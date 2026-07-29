@@ -141,6 +141,9 @@ private fun QuataWebApp(
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
         )
     }
+    // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
+    // required. All normal browsers retain the remote WebChatRepository above.
+    val chatHostRepository = remember { webChatE2eFixtureOrNull() ?: chatRepository }
     val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {
         WebNeighborhoodsRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
@@ -414,7 +417,7 @@ private fun QuataWebApp(
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {
                         WebChatHost(
-                            repository = chatRepository,
+                            repository = chatHostRepository,
                             audioPlayer = platformServices.audioPlayer,
                             audioRecorder = platformServices.audioRecorder,
                             audioRecordingReferences = platformServices.audioRecordingReferences,

@@ -38,6 +38,7 @@ function assertWorkflowContract(yaml) {
   assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke the capability contract directly');
   for (const path of [
     'scripts/web-chat-exact-purge-gate.mjs',
+    'scripts/web-chat-a11y-e2e-contract.test.mjs',
     'scripts/web-chat-exact-purge-gate.test.mjs',
     'scripts/run-web-chat-exact-purge-gate.ps1',
     'scripts/attest-web-chat-exact-purge.mjs',
@@ -77,6 +78,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['package capability trigger removed', yaml.replace('      - "package.json"\n', '')],
     ...[
       'scripts/web-chat-exact-purge-gate.mjs',
+      'scripts/web-chat-a11y-e2e-contract.test.mjs',
       'scripts/web-chat-exact-purge-gate.test.mjs',
       'scripts/run-web-chat-exact-purge-gate.ps1',
       'scripts/attest-web-chat-exact-purge.mjs',

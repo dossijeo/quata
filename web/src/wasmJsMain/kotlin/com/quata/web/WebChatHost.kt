@@ -18,13 +18,14 @@ import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
+import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
 @Composable
 fun WebChatHost(
-    repository: WebChatRepository,
+    repository: ChatRepository,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService? = null,
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
