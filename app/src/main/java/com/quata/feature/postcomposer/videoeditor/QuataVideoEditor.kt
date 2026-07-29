@@ -1565,11 +1565,8 @@ private fun rememberVideoEditorMetadata(uri: Uri): VideoEditorMetadata {
                     val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
                     val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
                     val bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
-                    val retrieverFrameRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val retrieverFrameRate =
                         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull()
-                    } else {
-                        null
-                    }
                     VideoEditorMetadata(
                         durationMs = duration,
                         width = width,

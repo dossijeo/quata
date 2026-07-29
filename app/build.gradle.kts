@@ -91,6 +91,11 @@ android {
         buildConfig = true
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+        warningsAsErrors = true
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {

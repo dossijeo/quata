@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -108,11 +107,7 @@ public class  Utility {
 
     public static void vibratePhone(Context context) {
         Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26) {
-            vibrator.vibrate(VibrationEffect.createOneShot(50, -1));
-        } else {
-            vibrator.vibrate(50);
-        }
+        vibrator.vibrate(VibrationEffect.createOneShot(50, -1));
     }
 
 

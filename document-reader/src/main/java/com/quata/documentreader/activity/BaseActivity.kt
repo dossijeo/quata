@@ -72,14 +72,11 @@ open class BaseActivity : AppCompatActivity() {
             )
             return n == 0
         }
-        if (Build.VERSION.SDK_INT >= 23) {
-            val n = ActivityCompat.checkSelfPermission(
-                this.applicationContext,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            return n == 0
-        }
-        return true
+        val n = ActivityCompat.checkSelfPermission(
+            this.applicationContext,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        )
+        return n == 0
     }
 
     protected fun hideSystemUI() {

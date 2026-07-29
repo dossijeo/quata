@@ -57,6 +57,8 @@ on:
       - "scripts/wasm-baseline-capture-workflow-contract.test.mjs"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/web-test-contract.test.mjs"
+      - "scripts/android-lint-baseline-ratchet.mjs"
+      - "scripts/android-lint-baseline-ratchet.test.mjs"
       - "scripts/web-public-ux-smoke-contract.test.mjs"
       - "scripts/web-chat-browser-e2e-report.test.mjs"
       - "scripts/web-chat-browser-e2e-policy.mjs"
@@ -82,6 +84,7 @@ on:
       - "docs/schemas/docmentis-staging-lifecycle-evidence-v1.schema.json"
       - "docs/wasm-bundle-budget.json"
       - "docs/wasm-bundle-baseline.json"
+      - "docs/android-lint-baseline-ratchet.json"
 
 concurrency:
   group: web-android-pr-${{ github.event.pull_request.number }}
@@ -434,8 +437,14 @@ jobs:
             bash ./gradlew --version
           } | tee build/reports/android-ci/toolchain.log
 
-      - name: "Lint Android modules (advisory: inherited lint debt)"
-        continue-on-error: true
+      - name: Validate Android lint baseline ratchet
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/android-lint-baseline-ratchet.test.mjs
+          node scripts/android-lint-baseline-ratchet.mjs docs/android-lint-baseline-ratchet.json
+
+      - name: Lint Android modules
         timeout-minutes: 25
         shell: bash
         run: |
@@ -458,10 +467,10 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "## Android lint (advisory)"
+            echo "## Android lint"
             echo
-            echo ':app:lintDebug and :document-reader:lintDebug are advisory while inherited debt is remediated.'
-            echo 'The app unit tests, document-reader unit tests, and :app:assembleDebug remain required gates.'
+            echo ':app:lintDebug and :document-reader:lintDebug are required gates.'
+            echo 'Versioned baselines retain inherited debt while the ratchet rejects any new issue id or increased occurrence count.'
             echo
             echo "### Reports"
             find app/build/reports document-reader/build/reports -iname 'lint-results-debug.*' -print 2>/dev/null || true
