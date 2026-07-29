@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly bundle_id="com.quata.ios"
-readonly app_config="app/src/main/java/com/quata/core/config/AppConfig.kt"
+readonly public_backend_config="core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"
 readonly runtime_config="iosApp/Configuration/QuataPublicRuntime.local.xcconfig"
 readonly default_simulators=(
   "F4891A29-9B84-4465-8805-E551EFD69CB2"
@@ -33,7 +33,7 @@ done
 [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "x86_64" ]] || {
   echo "This matrix requires the Intel macOS CPU-raster lane." >&2; exit 2;
 }
-[[ -f "$app_config" ]] || { echo "Missing versioned client configuration source." >&2; exit 2; }
+[[ -f "$public_backend_config" ]] || { echo "Missing versioned client configuration source." >&2; exit 2; }
 
 if [[ -f "$HOME/.config/quata/ios-intel.env" ]]; then
   # shellcheck source=/dev/null
@@ -134,7 +134,7 @@ runtime_config_touched=1
 
 # The parser accepts exactly one uncommented Kotlin declaration per public constant, validates
 # both values, and writes an ignored xcconfig without printing either value.
-python3 scripts/ios-public-client-config.py --source "$app_config" --output "$runtime_config"
+python3 scripts/ios-public-client-config.py --source "$public_backend_config" --output "$runtime_config"
 chmod 600 "$runtime_config"
 bash scripts/check-ios-release-readiness.sh --require-public-runtime > "$report_dir/readiness.log"
 xcrun swiftc scripts/ios-public-screenshot-classifier.swift -o "$classifier_bin"

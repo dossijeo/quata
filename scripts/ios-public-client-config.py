@@ -67,7 +67,7 @@ def exact_constant(source: str, name: str) -> str:
 
 def public_values(source: str) -> tuple[str, str]:
     url = exact_constant(source, "SUPABASE_URL")
-    key = exact_constant(source, "SUPABASE_ANON_KEY")
+    key = exact_constant(source, "SUPABASE_PUBLISHABLE_KEY")
     forbidden = re.compile(r"[\r\n$()\\;]")
     if forbidden.search(url) or forbidden.search(key):
         raise ValueError("public client values contain forbidden xcconfig syntax")

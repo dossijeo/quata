@@ -29,6 +29,8 @@ function assertClassifierFixtureRunner(source) {
 }
 
 test('matrix owns one global atomic lock and cleans only its owned resources', () => {
+  assert.match(script, /readonly public_backend_config="core\/src\/commonMain\/kotlin\/com\/quata\/core\/config\/QuataPublicBackendConfig\.kt"/);
+  assert.match(script, /ios-public-client-config\.py --source "\$public_backend_config" --output "\$runtime_config"/);
   assert.match(script, /lock_dir="\$\{TMPDIR:-\/tmp\}\/quata-ios-public-simulator-matrix\.lock"/);
   assert.match(script, /if ! mkdir "\$lock_dir"/);
   assert.match(script, /iOS public simulator matrix is already locked/);
@@ -179,7 +181,7 @@ test('Feed placeholder contrast test exercises the exact style and background us
 
 function runParser(source, expectSuccess) {
   const directory = mkdtempSync(join(tmpdir(), 'quata-ios-parser-'));
-  const input = join(directory, 'AppConfig.kt');
+  const input = join(directory, 'QuataPublicBackendConfig.kt');
   const output = join(directory, 'runtime.xcconfig');
   writeFileSync(input, source);
   try {
@@ -195,9 +197,9 @@ function runParser(source, expectSuccess) {
 }
 
 const valid = `
-object AppConfig {
+object QuataPublicBackendConfig {
   const val SUPABASE_URL = "https://project-ref.supabase.co/"
-  const val SUPABASE_ANON_KEY: String = "sb_publishable_abcdefghijklmnopqrstuvwxyz"
+  const val SUPABASE_PUBLISHABLE_KEY: String = "sb_publishable_abcdefghijklmnopqrstuvwxyz"
 }`;
 
 test('client parser accepts exact unique declarations and emits slash-indirected xcconfig', () => {
