@@ -150,7 +150,7 @@ try {
   await assertUniqueNativeAx(page, { role: "button", name: "Chats", selector: 'button[aria-label="Chats"]', focused: true });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => localStorage.getItem("web.navigation.route") === "chat");
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&quata-chat-e2e=1&backend=${encodeURIComponent(backend)}#chat-local%3Aax`);
 
   stage = "authenticated_profile_read";
   const profileRead = await page.evaluate(async ({ backend, key, profileId }) => {
@@ -173,12 +173,22 @@ try {
   await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]' });
   await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
   if (await send.isEnabled()) throw new Error("native_chat_send_initial_state_changed");
-  await message.fill("mensaje AX local");
+  const chatMarker = "mensaje AX local";
+  await message.fill(chatMarker);
   await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
   await send.focus();
   await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]', focused: true });
   await page.keyboard.press("Enter");
-  report.steps.push("native_chat_role_name_state_keyboard_activation");
+  await page.waitForFunction(marker => {
+    const value = globalThis.__quataChatE2eProduct;
+    return value?.version === 1 && value.sends === 1 && value.text === marker;
+  }, chatMarker);
+  // A second stable sample distinguishes one keyboard activation from a delayed duplicate
+  // callback while keeping this hermetic fixture independent from remote timing.
+  await page.waitForTimeout(250);
+  const chatFixture = await page.evaluate(() => globalThis.__quataChatE2eProduct);
+  if (chatFixture?.version !== 1 || chatFixture.sends !== 1 || chatFixture.text !== chatMarker) throw new Error("native_chat_send_callback_not_exactly_once");
+  report.steps.push("native_chat_role_name_state_keyboard_activation_and_real_fixture_callback_once");
 
   stage = "native_logout";
   const logout = page.locator('button[aria-label="Cerrar sesión"]');
@@ -474,7 +484,7 @@ function safeError(error) {
     "invalid_arguments", "distribution_missing", "real_mode_opt_in_required",
     "real_mode_environment_missing", "invalid_public_supabase_url", "privileged_key_forbidden",
     "product_session_incomplete", "authenticated_profile_read_failed", "product_logout_storage_remains",
-    "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_logout_focus_missing",
+    "native_login_submit_disabled", "native_login_focus_missing", "native_chat_send_initial_state_changed", "native_chat_send_enabled_state_missing", "native_chat_send_callback_not_exactly_once", "native_logout_focus_missing",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
     "ax_navigation_not_unique",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",

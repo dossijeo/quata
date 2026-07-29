@@ -64,6 +64,7 @@ on:
       - "scripts/web-chat-browser-e2e-policy.mjs"
       - "scripts/web-chat-browser-e2e-policy.test.mjs"
       - "scripts/web-chat-browser-e2e.mjs"
+      - "scripts/web-chat-a11y-e2e-contract.test.mjs"
       - "scripts/run-web-chat-browser-e2e.ps1"
       - "scripts/web-chat-exact-purge-gate.mjs"
       - "scripts/web-chat-exact-purge-gate.test.mjs"
