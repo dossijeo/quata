@@ -285,7 +285,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === chat })
         XCTAssertEqual(chat.view.accessibilityIdentifier, "quata-ios-chat-host")
         XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-feed-host" })
-        XCTAssertEqual(router.children.count, 1)
+        XCTAssertEqual(router.children.count, 3)
+        XCTAssertTrue(authenticatedRouteController(in: router) === chat)
     }
 
     func testAnonymousRouterAllowsLocalWhatsNewAndReleaseHistoryWithoutSession() {
@@ -909,10 +910,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
             let controller = UIViewController()
             installAndOpen(router, controller)
 
-            XCTAssertTrue(router.children.first === controller, "Installed factory did not render: \(identifier)")
+            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Installed factory did not render: \(identifier)")
             XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
             XCTAssertEqual(controller.view.accessibilityLabel, label)
-            XCTAssertEqual(router.children.count, 1)
+            XCTAssertEqual(router.children.count, 3)
         }
     }
 
@@ -963,9 +964,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installAuthenticatedChat(chatBootstrap)
         router.showChat(conversationId: "conversation-7", messageId: "message-not-yet-positioned")
 
-        XCTAssertEqual(router.children.count, 1)
-        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-chat-host")
-        XCTAssertTrue(services.activeViewController() === router.children.first)
+        XCTAssertEqual(router.children.count, 3)
+        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-chat-host")
+        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
 
     func testAuthenticatedRouterBuildsTheExportedCommunitiesHostFromSharedRuntime() {
@@ -1008,9 +1009,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         }
         router.showCommunities()
 
-        XCTAssertEqual(router.children.count, 1)
-        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-communities-host")
-        XCTAssertTrue(services.activeViewController() === router.children.first)
+        XCTAssertEqual(router.children.count, 3)
+        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
 
     func testAuthenticatedRouterBuildsTheExportedComposerHostWithRealPlatformAdapters() {
@@ -1033,12 +1034,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         }
         router.showComposer()
 
-        XCTAssertEqual(router.children.count, 1)
-        XCTAssertEqual(router.children.first?.view.accessibilityIdentifier, "quata-ios-composer-host")
-        XCTAssertTrue(router.children.first?.isViewLoaded == true)
-        XCTAssertTrue(services.activeViewController() === router.children.first)
+        XCTAssertEqual(router.children.count, 3)
+        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-composer-host")
+        XCTAssertTrue(authenticatedRouteController(in: router)?.isViewLoaded == true)
+        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
-    func testComposePrimaryNavigationRemainsAboveRouteController() {
+    func testPrimaryRoutesHideTheSecondaryMenuAndKeepSharedChromeAboveRouteController() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         router.installFeedFactory { _ in UIViewController() }
@@ -1049,14 +1050,21 @@ final class QuataFeedFrameworkTests: XCTestCase {
             $0.accessibilityIdentifier == "quata-ios-authenticated-route-menu"
         }
         XCTAssertNotNil(routeButton)
-        XCTAssertFalse(routeButton?.isHidden == true)
+        XCTAssertTrue(routeButton?.isHidden == true)
         let routeControllerView = router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-communities-host" }
+        let topChromeView = router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome" }
+        let primaryNavigationView = router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation" }
         XCTAssertNotNil(routeControllerView)
+        XCTAssertNotNil(topChromeView)
+        XCTAssertNotNil(primaryNavigationView)
         XCTAssertLessThan(
             router.view.subviews.firstIndex(of: routeControllerView!)!,
-            router.view.subviews.firstIndex(of: routeButton!)!,
+            router.view.subviews.firstIndex(of: topChromeView!)!,
         )
-        XCTAssertFalse(router.view.subviews.last === routeButton)
+        XCTAssertLessThan(
+            router.view.subviews.firstIndex(of: routeControllerView!)!,
+            router.view.subviews.firstIndex(of: primaryNavigationView!)!,
+        )
     }
 
     func testAuthenticatedRouteMenuExposesWhatsNewOnlyAfterItsLocalFactoriesAreInstalled() {
@@ -1093,7 +1101,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.populateAuthenticatedRouteMenu(menu)
 
         let titles = menu.actions.compactMap(\.title)
-        ["Notificaciones", "Crear publicaciÃ³n", "Ajustes", "Cerrar"].forEach {
+        ["Notificaciones", "Crear publicaci\u{00F3}n", "Ajustes", "Cerrar"].forEach {
             XCTAssertTrue(titles.contains($0), "Missing installed secondary action: \($0)")
         }
         ["Inicio", "Conversaciones", "Oficial", "Perfil y SOS", "Comunidades"].forEach {
@@ -1200,6 +1208,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(String(describing: result).contains("Unsupported"))
     }
 
+    func testAuthenticatedShellLayoutUsesSafeTopChromeAndBottomSafeAreaExactlyOnce() {
+        let layout = IosAuthenticatedShellLayout.frames(
+            bounds: CGRect(x: 0, y: 0, width: 402, height: 874),
+            safeAreaInsets: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
+        )
+
+        XCTAssertEqual(layout.topChrome, CGRect(x: 0, y: 0, width: 402, height: 130))
+        XCTAssertEqual(layout.content, CGRect(x: 0, y: 130, width: 402, height: 618))
+        XCTAssertEqual(layout.bottomNavigation, CGRect(x: 0, y: 748, width: 402, height: 126))
+    }
+
+}
+
+private func authenticatedRouteController(in router: IosFeedHostContainerViewController) -> UIViewController? {
+    router.children.first { controller in
+        guard let identifier = controller.view.accessibilityIdentifier else { return false }
+        return identifier.hasPrefix("quata-ios-") &&
+            identifier != "quata-ios-authenticated-top-chrome" &&
+            identifier != "quata-ios-authenticated-primary-navigation"
+    }
 }
 
 private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {

@@ -837,17 +837,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             displayedController?.view.frame = view.bounds
             return
         }
-        let topChromeHeight = view.safeAreaInsets.top + 68
-        let navigationHeight = 92 + view.safeAreaInsets.bottom
-        let contentBounds = CGRect(x: 0, y: topChromeHeight, width: view.bounds.width, height: max(0, view.bounds.height - topChromeHeight - navigationHeight))
-        displayedController?.view.frame = contentBounds
-        authenticatedTopChromeController.view.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: topChromeHeight)
-        primaryNavigationController.view.frame = CGRect(
-            x: 0,
-            y: contentBounds.maxY,
-            width: view.bounds.width,
-            height: navigationHeight,
-        )
+        let layout = IosAuthenticatedShellLayout.frames(bounds: view.bounds, safeAreaInsets: view.safeAreaInsets)
+        displayedController?.view.frame = layout.content
+        authenticatedTopChromeController.view.frame = layout.topChrome
+        primaryNavigationController.view.frame = layout.bottomNavigation
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
@@ -1418,12 +1411,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         addChild(authenticatedTopChromeController)
         authenticatedTopChromeController.view.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
         authenticatedTopChromeController.view.isAccessibilityElement = false
+        authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
         view.addSubview(authenticatedTopChromeController.view)
         authenticatedTopChromeController.didMove(toParent: self)
         isAuthenticatedTopChromeInstalled = true
         addChild(primaryNavigationController)
         primaryNavigationController.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
         primaryNavigationController.view.isAccessibilityElement = false
+        primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
         view.addSubview(primaryNavigationController.view)
         primaryNavigationController.didMove(toParent: self)
         isPrimaryNavigationInstalled = true
@@ -1440,6 +1435,26 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         primaryNavigationController.view.removeFromSuperview()
         primaryNavigationController.removeFromParent()
         isPrimaryNavigationInstalled = false
+    }
+}
+
+/// One source of truth for UIKit containment frames. The route host owns exactly the viewport
+/// between the shared safe-top chrome and common primary navigation.
+struct IosAuthenticatedShellLayout {
+    let topChrome: CGRect
+    let content: CGRect
+    let bottomNavigation: CGRect
+
+    static func frames(bounds: CGRect, safeAreaInsets: UIEdgeInsets) -> IosAuthenticatedShellLayout {
+        let topHeight = safeAreaInsets.top + 68
+        let bottomHeight = 92 + safeAreaInsets.bottom
+        let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
+        let content = CGRect(x: bounds.minX, y: bounds.minY + topHeight, width: bounds.width, height: contentHeight)
+        return IosAuthenticatedShellLayout(
+            topChrome: CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: topHeight),
+            content: content,
+            bottomNavigation: CGRect(x: bounds.minX, y: content.maxY, width: bounds.width, height: bottomHeight),
+        )
     }
 }
 
