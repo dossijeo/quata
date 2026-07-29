@@ -196,6 +196,74 @@ fun FeedScreen(
     onCreatePost: () -> Unit = {},
     onReportComment: (String) -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
+    viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository)),
+) {
+    val context = LocalContext.current
+    var muted by rememberSaveable { mutableStateOf(false) }
+    val landscape = rememberQuataWindowLayoutInfo().isLandscape
+    DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
+    FeedScreenHost(
+        padding = padding,
+        repository = feedRepository,
+        currentUserId = currentUserId,
+        focusedPostId = focusedPostId,
+        feedResetToken = feedResetToken,
+        isLandscape = landscape,
+        onFocusedPostHandled = onFocusedPostHandled,
+        onAuthRequired = onAuthRequired,
+        onOpenUserProfile = onOpenUserProfile,
+        onCreatePost = onCreatePost,
+        onReportComment = onReportComment,
+        strings = FeedScreenStrings(
+            empty = stringResource(R.string.feed_empty),
+            like = stringResource(R.string.feed_like), comments = stringResource(R.string.feed_comments),
+            share = stringResource(R.string.feed_share), rank = stringResource(R.string.feed_rank),
+            live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
+            report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
+            locationLabel = { stringResource(R.string.feed_location_chip, it) },
+        ),
+        slots = FeedScreenPlatformSlots(
+            media = { post, isCurrent ->
+                ReelMedia(
+                    post = post, isActive = isCurrent && isAppForeground, isMuted = muted,
+                    networkReconnectToken = networkReconnectToken, isNetworkAvailable = isNetworkAvailable,
+                    initialVideoPositionMs = 0L, onVideoPositionChanged = {}, onMuteChange = { muted = it },
+                )
+            },
+            avatar = { post ->
+                ClickableProfileAvatar(
+                    name = post.author.displayName, avatarUrl = post.author.avatarUrl,
+                    isOfficial = post.author.isOfficial, profileId = post.author.id,
+                    isLoading = openingProfileUserId == post.author.id,
+                    onClick = { onOpenUserProfile(post.author.id) },
+                    modifier = Modifier.size(56.dp).border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                )
+            },
+            share = { post -> shareService.share(SharePayload(postShareText(post), context.getString(R.string.feed_share_post))) },
+            message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+        ),
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun LegacyFeedScreen(
+    padding: PaddingValues,
+    feedRepository: FeedRepository,
+    shareService: ShareService,
+    onOpenUserProfile: (String) -> Unit,
+    currentUserId: String? = null,
+    openingProfileUserId: String? = null,
+    focusedPostId: String? = null,
+    feedResetToken: Int = 0,
+    networkReconnectToken: Long = 0L,
+    isNetworkAvailable: Boolean = true,
+    isAppForeground: Boolean = true,
+    onFocusedPostHandled: () -> Unit = {},
+    onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
+    onReportComment: (String) -> Unit = {},
+    onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
     viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository))
 ) {
     val state by viewModel.uiState.collectAsState()
