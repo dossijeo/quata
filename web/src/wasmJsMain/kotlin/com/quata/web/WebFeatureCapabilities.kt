@@ -107,22 +107,26 @@ fun WebFeatureCapabilityNotice(
 }
 
 /**
- * Keeps every already-wired route mounted and discoverable.
+ * Keeps every already-wired route mounted and discoverable without changing its product viewport.
  *
- * A capability manifest is an honest status projection, not an alternative navigation guard:
- * individual hosts retain their existing configuration/error states.  In particular, suppressing
- * a host here would make a functional local route disappear merely because its remote adapter is
- * not configured yet.
+ * A capability manifest is an honest status projection, not an alternative navigation guard or a
+ * production chrome surface. Diagnostic callers may opt into the notice explicitly; product
+ * routes render only their content so they remain visually comparable with Android.
  */
 @Composable
 fun WebFeatureCapabilityRoute(
     registry: FeatureCapabilityRegistry,
     feature: QuataFeature,
     action: FeatureCapabilityAction = FeatureCapabilityAction.View,
+    showCapabilityNotice: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        WebFeatureCapabilityNotice(registry, feature, action)
+    if (showCapabilityNotice) {
+        Column(Modifier.fillMaxSize()) {
+            WebFeatureCapabilityNotice(registry, feature, action)
+            content()
+        }
+    } else {
         content()
     }
 }
