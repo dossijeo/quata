@@ -129,8 +129,10 @@ La implementación debe ir en una PR separada y revisable. El orden recomendado 
 2. **Servidor emisor.** Separar los destinos por plataforma en
    `quata-push-dispatch`: FCM sólo para Android, Web Push sólo para suscripciones Web,
    y APNs sólo para `platform = 'ios'`. Firmar JWT ES256 de corta vida con la `.p8`,
-   enviar los headers APNs obligatorios (`apns-topic`, `apns-push-type`, prioridad y
-   expiración) y construir `aps.alert` más los campos de deep link comunes.
+   enviar los headers APNs obligatorios `apns-topic` y `apns-push-type`, y construir
+   `aps.alert` más los campos de deep link comunes. La prioridad y expiración se
+   definen y prueban como política de producto/entrega; no son requisitos universales
+   del protocolo para todos los mensajes.
 3. **Errores y revocación.** Marcar como inválido un token APNs sólo en respuestas
    permanentes del proveedor (por ejemplo, token ya no registrado); los timeouts,
    5xx y credenciales ausentes se registran como errores operativos sin borrar ni
@@ -171,12 +173,15 @@ de rollback; no forma parte de esta fase.
 
 ## Matriz mínima de validación
 
-Los simuladores iOS no reciben APNs: sirven para los contratos Swift/Kotlin, UI y deep
-links, nunca para acreditar entrega. La entrega se valida en dispositivos físicos.
+Los simuladores iOS modernos pueden participar en pruebas de Remote Push y son evidencia
+útil del payload, presentación y deep link. Complementan los contratos Swift/Kotlin y la
+UI, pero no sustituyen un dispositivo físico/TestFlight firmado: sólo éste acredita el
+entitlement efectivo, los perfiles, el entorno APNs final y la distribución real.
 
 | Caso | Entorno / dispositivo | Resultado exigido |
 | --- | --- | --- |
 | Build sin firma y XCTest | CI/simulador | Sigue verde; no requiere secreto APNs ni afirma entrega. |
+| Remote Push de simulador | Simulador iOS moderno | El payload aprobado se presenta y el tap resuelve el deep link; evidencia complementaria, no sustituto de firma/entorno APNs real. |
 | Build firmado desarrollo | iPhone físico, perfil development | `aps-environment=development`, obtiene token sin exponerlo. |
 | Permiso denegado | iPhone físico | No registra ni sube token; la app y Chat siguen funcionando. |
 | Permiso concedido + login | iPhone físico | Registra exactamente el token del perfil autenticado como `ios`; reintento idempotente. |
