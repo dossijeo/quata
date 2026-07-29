@@ -87,10 +87,90 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertFalse(officialApp.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
     }
 
-    private func fixtureApp(_ fixture: String, deepLink: String? = nil) -> XCUIApplication {
+    func testAuthenticatedFixtureRendersEverySupportedPublicDeepLinkRouteWithStableAccessibility() {
+        let scenarios: [(deepLink: String, identifier: String, label: String, evidence: String)] = [
+            ("https://egquata.com/#post-feed-9", "quata-ios-feed-host", "Quata iOS Feed", "fixture-feed"),
+            ("https://egquata.com/#chat-conversation-7?message=message-4", "quata-ios-chat-host", "Quata iOS Chat", "fixture-chat"),
+            ("https://egquata.com/#official-public-7", "quata-ios-official-host", "Quata iOS Official", "fixture-official"),
+            // RichTextEditorQa intentionally resolves to Official(nil) at the production iOS
+            // adapter boundary until that diagnostic surface has its own native destination.
+            ("https://egquata.com/#editor-qa", "quata-ios-official-host", "Quata iOS Official", "fixture-editor-qa-via-official"),
+            ("https://egquata.com/#whats-new", "quata-ios-whats-new-host", "Quata iOS What's New", "fixture-whats-new"),
+            ("https://egquata.com/#release-history", "quata-ios-release-history-host", "Quata iOS Release History", "fixture-release-history"),
+        ]
+
+        for scenario in scenarios {
+            let app = fixtureApp("authenticated", deepLink: scenario.deepLink)
+            app.launch()
+            QuataIosHostUITestSupport.assertFixtureRoute(
+                in: app,
+                identifier: scenario.identifier,
+                label: scenario.label,
+                screenshotName: scenario.evidence,
+            )
+            app.terminate()
+        }
+    }
+
+    func testAuthenticatedFixtureRendersInAppOnlyRoutesThroughTheSharedRouterAdapter() {
+        // These destinations deliberately do not have public URL contracts. The fixture reaches
+        // them through IosAuthenticatedRouteDispatcher's real in-app methods, which prevents a
+        // Swift test double from masking a broken Kotlin-to-UIKit route boundary.
+        let scenarios: [(route: String, identifier: String, label: String)] = [
+            ("notifications", "quata-ios-notifications-host", "Quata iOS Notifications"),
+            ("profile-sos", "quata-ios-profile-sos-host", "Quata iOS Profile and SOS"),
+            ("communities", "quata-ios-communities-host", "Quata iOS Communities"),
+            ("composer", "quata-ios-composer-host", "Quata iOS Composer"),
+            ("settings", "quata-ios-settings-host", "Quata iOS Settings"),
+        ]
+
+        for scenario in scenarios {
+            let app = fixtureApp("authenticated", inAppRoute: scenario.route)
+            app.launch()
+            QuataIosHostUITestSupport.assertFixtureRoute(
+                in: app,
+                identifier: scenario.identifier,
+                label: scenario.label,
+                screenshotName: "fixture-\(scenario.route)",
+            )
+            app.terminate()
+        }
+    }
+
+    func testUnknownInAppFixtureRouteFailsClosedWithoutRenderingAProtectedSurface() {
+        let app = fixtureApp("authenticated", inAppRoute: "not-a-quata-route")
+        app.launch()
+
+        XCTAssertEqual(
+            QuataIosHostUITestSupport.fixtureRoot(
+                in: app,
+                identifier: "quata-ios-test-invalid-route",
+            ).label,
+            "Quata iOS invalid fixture route",
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.exists,
+            "An unknown fixture route must not silently fall back to Feed.",
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch.exists,
+            "An unknown fixture route must not expose a protected destination.",
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists,
+            "An unknown fixture route must not construct Compose or a session-backed host.",
+        )
+    }
+
+    private func fixtureApp(
+        _ fixture: String,
+        deepLink: String? = nil,
+        inAppRoute: String? = nil,
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
+        if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         return app
     }
 

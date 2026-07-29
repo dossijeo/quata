@@ -283,6 +283,36 @@ private final class IosAppCompositionRoot {
             if let deepLinkIndex = arguments.firstIndex(of: "-quata-ui-test-deep-link"),
                arguments.indices.contains(deepLinkIndex + 1) {
                 _ = dispatcher.handleUrl(url: arguments[deepLinkIndex + 1])
+            } else if let inAppRouteIndex = arguments.firstIndex(of: "-quata-ui-test-in-app-route"),
+                      arguments.indices.contains(inAppRouteIndex + 1) {
+                // Some authenticated destinations intentionally have no public URL contract.
+                // Exercise those through the production Kotlin route adapter, never by making a
+                // Swift-only destination switch. These remain inert UIKit surfaces: this proves
+                // route/host accessibility wiring only, not a restored session or feature E2E.
+                switch arguments[inAppRouteIndex + 1] {
+                case "notifications":
+                    IosAuthenticatedRouteDispatcher(host: router).openNotifications()
+                case "profile-sos":
+                    IosAuthenticatedRouteDispatcher(host: router).openProfileSos()
+                case "communities":
+                    IosAuthenticatedRouteDispatcher(host: router).openCommunities()
+                case "composer":
+                    IosAuthenticatedRouteDispatcher(host: router).openComposer()
+                case "settings":
+                    IosAuthenticatedRouteDispatcher(host: router).openSettings()
+                case "whats-new":
+                    IosAuthenticatedRouteDispatcher(host: router).openWhatsNew()
+                case "release-history":
+                    IosAuthenticatedRouteDispatcher(host: router).openReleaseHistory()
+                default:
+                    // An unknown fixture route must fail closed rather than silently render
+                    // Feed and obscure a changed or misspelled route contract. Returning an
+                    // inert controller also prevents fixture mode from falling through into the
+                    // real composition root, which could restore Keychain state or Compose.
+                    fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-invalid-route"
+                    fixtureRoot.view.accessibilityLabel = "Quata iOS invalid fixture route"
+                    return fixtureRoot
+                }
             } else {
                 router.showFeed(postId: nil)
             }
