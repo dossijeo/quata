@@ -24,8 +24,8 @@ object AppConfig {
     const val QUATA_WORDPRESS_BASE_URL = "https://egquata.com/"
 
     /** Supabase */
-    const val SUPABASE_URL = "https://yrrlankpwmhluexshxnw.supabase.co/"
-    const val SUPABASE_ANON_KEY = "sb_publishable_dQILq4zEe6xW1TpJPQwMHw_gk6ZlaX3"
+    const val SUPABASE_URL = QuataPublicBackendConfig.SUPABASE_URL
+    const val SUPABASE_ANON_KEY = QuataPublicBackendConfig.SUPABASE_PUBLISHABLE_KEY
     val TURNSTILE_SITE_KEY: String get() = BuildConfig.TURNSTILE_SITE_KEY
     val TURNSTILE_ALLOWED_ORIGIN: String get() = BuildConfig.TURNSTILE_ALLOWED_ORIGIN
 

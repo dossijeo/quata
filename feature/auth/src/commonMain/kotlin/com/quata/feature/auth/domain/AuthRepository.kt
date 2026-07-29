@@ -2,8 +2,11 @@ package com.quata.feature.auth.domain
 
 import com.quata.core.model.AuthSession
 
-interface AuthRepository {
+interface LoginRepository {
     suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession>
+}
+
+interface AuthRepository : LoginRepository {
     suspend fun register(request: RegisterAccountRequest): Result<AuthSession>
     suspend fun getPasswordRecoveryQuestion(countryCode: String, phone: String): Result<PasswordRecoveryQuestion?>
     suspend fun resetPassword(countryCode: String, phone: String, secretAnswer: String, newPassword: String): Result<Unit>

@@ -40,6 +40,7 @@ include(":designsystem")
 // iOS composition/export boundary, not a cross-feature implementation module.
 include(":ios-shared")
 include(":web")
+include(":login-wasm-proof")
 include(":feature:feed")
 include(":feature:chat")
 include(":feature:profile")
