@@ -10,6 +10,11 @@ fun interface RegisterTransport {
     suspend fun register(request: RegisterAccountRequest)
 }
 
+/** Optional platform cleanup for a pending registration after its follow-up login succeeds. */
+interface RegistrationCompletionAware {
+    fun onRegistrationCompleted()
+}
+
 /**
  * Shared registration workflow. A successful backend acceptance is followed by the normal
  * authentication bridge, so callers receive a real session rather than a synthetic success.
@@ -27,6 +32,8 @@ class RemoteRegisterRepository(
         require(request.secretQuestion.isNotBlank()) { "Selecciona una pregunta secreta" }
         require(request.secretAnswer.isNotBlank()) { "Introduce tu respuesta secreta" }
         transport.register(request)
-        loginRepository.login(request.countryCode, request.phone, request.password).getOrThrow()
+        loginRepository.login(request.countryCode, request.phone, request.password).getOrThrow().also {
+            (transport as? RegistrationCompletionAware)?.onRegistrationCompleted()
+        }
     }
 }
