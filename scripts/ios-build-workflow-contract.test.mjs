@@ -102,8 +102,9 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   const fixtureProbe = yaml.indexOf('      - name: Verify Xcode resolves public runtime fixture');
   const bootSimulator = yaml.indexOf('      - name: Boot test simulator');
   const inboxFilesystemTest = yaml.indexOf('      - name: Run iOS external share inbox filesystem contract');
+  const officialPublicReadTest = yaml.indexOf('      - name: Run iOS Official public read contract');
   const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
-  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && testStep > inboxFilesystemTest,
+  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && testStep > officialPublicReadTest,
     'the valid xcconfig fixture probe must remain before the isolated UI test');
 
   const fixtureBlock = yaml.slice(fixtureProbe, testStep);
@@ -122,6 +123,18 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     inboxTestBlock,
     /xcrun simctl bootstatus "\$simulator_udid" -b/,
     'the external share inbox test must reuse the explicitly booted simulator',
+  );
+
+  const officialTestBlock = yaml.slice(officialPublicReadTest, testStep);
+  assert.match(
+    officialTestBlock,
+    /:feature:official:iosSimulatorArm64Test/,
+    'the Official anonymous read policy/factory assertions must execute on the booted iOS simulator',
+  );
+  assert.match(
+    officialTestBlock,
+    /xcrun simctl bootstatus "\$simulator_udid" -b/,
+    'the Official test must reuse the explicitly booted simulator',
   );
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
@@ -259,6 +272,10 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'external share inbox assertions removed',
       yaml.replace(':feature:externalshare:iosSimulatorArm64Test', ':feature:externalshare:compileTestKotlinIosSimulatorArm64'),
+    ],
+    [
+      'Official public read assertions removed',
+      yaml.replace(':feature:official:iosSimulatorArm64Test', ':feature:official:compileTestKotlinIosSimulatorArm64'),
     ],
     [
       'comment terminates the continued xcodebuild command',
