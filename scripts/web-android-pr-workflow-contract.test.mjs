@@ -14,7 +14,7 @@ function assertJetBrainsDaemonBootstrap(yaml, expectedJobs) {
 function assertWebWasmTimeoutBudget(yaml) {
   const match = yaml.match(/  web-wasm:\n[\s\S]*?^    timeout-minutes: (\d+)$/m);
   assert.ok(match, 'the Web/Wasm job must declare a timeout budget');
-  assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and three cold-profile measurements');
+  assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and five cold-profile measurements');
 }
 
 function assertWorkflowContract(yaml) {
@@ -45,6 +45,7 @@ function assertWorkflowContract(yaml) {
     'docs/WEB_PERFORMANCE_REPEATABILITY.md',
   ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
   assert.match(yaml, /node scripts\/web-performance-repeatability\.mjs[\s\S]*?--docmentis[\s\S]*?--metrics-dir build\/reports\/web-performance-repeatability[\s\S]*?--out build\/reports\/web-performance-repeatability\.json/, 'repeatability evidence must be collected in CI');
+  assert.match(yaml, /Collect five cold Chrome measurements and advisory baseline proposal/, 'CI must collect the five-sample advisory baseline proposal');
 }
 
 test('Web/Wasm pull-request workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
