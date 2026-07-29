@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -34,6 +35,8 @@ class IosFeedHostDependencies(
     val navigationMessage: String = "Quata para iOS",
     val onOpenChats: () -> Unit = {},
     val onBackToFeed: () -> Unit = {},
+    /** Real UIKit member-profile route supplied by the authenticated composition root. */
+    val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
 )
 
@@ -43,17 +46,17 @@ class IosFeedHostDependencies(
  */
 fun iosReadOnlyFeedHostDependencies(
     readRepository: FeedReadRepository,
-    shareService: ShareService,
     navigationMessage: String = "Quata para iOS",
     onOpenChats: () -> Unit = {},
     onBackToFeed: () -> Unit = {},
+    onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
-    shareService = shareService,
     navigationMessage = navigationMessage,
     onOpenChats = onOpenChats,
     onBackToFeed = onBackToFeed,
+    onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
 
@@ -64,17 +67,17 @@ fun iosReadOnlyFeedHostDependencies(
  */
 fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
-    shareService: ShareService,
     navigationMessage: String = "Quata para iOS",
     onOpenChats: () -> Unit = {},
     onBackToFeed: () -> Unit = {},
+    onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
-    shareService = shareService,
     navigationMessage = navigationMessage,
     onOpenChats = onOpenChats,
     onBackToFeed = onBackToFeed,
+    onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
 
@@ -84,12 +87,14 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     authSession: IosRenewableAuthSession,
     shareService: ShareService,
     initialPostId: String? = null,
+    onOpenUserProfile: (String) -> Unit = {},
 ): IosFeedHostDependencies {
     val transport = IosFeedReadTransport(configuration, authSession)
     val read = RemoteFeedReadRepository(transport)
     return IosFeedHostDependencies(
         repository = IosAuthenticatedFeedRepository(transport, ReadOnlyFeedRepository(read)),
         shareService = shareService,
+        onOpenUserProfile = onOpenUserProfile,
         initialPostId = initialPostId,
     )
 }
@@ -117,9 +122,12 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                         onMuteChange = { muted = it },
                     )
                 },
+                avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
+                rankingAvatar = ::IosFeedRankingAvatar,
                 share = dependencies.shareService::share,
                 showComposeMessage = true,
             ),
+            onOpenUserProfile = dependencies.onOpenUserProfile,
         )
     }
 }

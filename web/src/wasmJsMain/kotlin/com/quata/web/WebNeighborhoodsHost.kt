@@ -68,6 +68,8 @@ fun WebNeighborhoodsHost(
     rankingItems: List<QuataLiveRankingItem>,
     onOpenConversation: (String) -> Unit,
     onOpenUserRoute: (String) -> Unit,
+    /** Feed author navigation enters the existing shared Community member profile surface. */
+    initialMemberProfileId: String? = null,
     onOpenRankingItem: (String) -> Unit,
     onSubmitComment: (String) -> Unit,
     commentsEnabled: Boolean = true,
@@ -87,6 +89,9 @@ fun WebNeighborhoodsHost(
             viewModel.stopObservingCommunities()
             viewModel.close()
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(initialMemberProfileId) {
+        initialMemberProfileId?.let(viewModel::openUserProfile)
     }
 
     if (showRanking) {

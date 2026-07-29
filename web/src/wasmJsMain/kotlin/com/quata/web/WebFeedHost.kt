@@ -19,6 +19,7 @@ fun WebFeedHost(
     repository: WebFeedRepository,
     shareService: ShareService,
     sharedPostId: String? = null,
+    onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
@@ -40,6 +41,8 @@ fun WebFeedHost(
                     onMuteChange = { isFeedMuted = it },
                 )
             },
+            avatar = { post -> BrowserFeedAuthorAvatar(post, onOpenUserProfile) },
+            rankingAvatar = ::BrowserFeedRankingAvatar,
             share = shareService::share,
             showComposeMessage = true,
         ),

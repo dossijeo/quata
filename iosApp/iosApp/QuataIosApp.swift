@@ -366,7 +366,6 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installPublicFeed { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.publicDependencies(
-                    shareService: platformServices.services.share,
                     navigationMessage: "Explora Quata",
                     onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
                     onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
@@ -393,6 +392,9 @@ private final class IosAppCompositionRoot {
                 dependencies: runtimeBootstrap.authenticatedDependencies(
                     shareService: platformServices.services.share,
                     initialPostId: postId,
+                    onOpenUserProfile: { [weak self] profileId in
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    }
                 ),
             )
         }
@@ -531,20 +533,27 @@ private final class IosAppCompositionRoot {
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
                     onNavigateToProfile: { [weak self] profileId in
-                        guard let self else { return }
-                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-                            profileId: profileId,
-                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-                        )
-                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-                            dependencies: dependencies,
-                        )
-                        controller.modalPresentationStyle = .fullScreen
-                        self.authenticatedHost.present(controller, animated: true)
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                 ),
             )
         }
+    }
+
+    /// Feed and Communities deliberately share the same authenticated member-profile route.
+    /// It uses the real read-only repository from the Profile bootstrap; no Feed-local profile
+    /// screen or placeholder navigation is introduced here.
+    private func presentAuthenticatedMemberProfile(profileId: String) {
+        guard let profileSosRuntimeBootstrap else { return }
+        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+            profileId: profileId,
+            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
+        )
+        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+            dependencies: dependencies,
+        )
+        controller.modalPresentationStyle = .fullScreen
+        authenticatedHost.present(controller, animated: true)
     }
 
     /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still

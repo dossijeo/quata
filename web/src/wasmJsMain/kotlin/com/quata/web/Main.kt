@@ -170,6 +170,9 @@ private fun QuataWebApp(
     var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
+    // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
+    // authenticated shell level so navigation does not manufacture a second browser profile UI.
+    var pendingMemberProfileId by remember { mutableStateOf<String?>(null) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -400,6 +403,7 @@ private fun QuataWebApp(
                             rankingItems = emptyList(),
                             onOpenConversation = ::navigateWebConversation,
                             onOpenUserRoute = { navigateWebFragment("communities") },
+                            initialMemberProfileId = pendingMemberProfileId,
                             onOpenRankingItem = { },
                             onSubmitComment = { },
                             commentsEnabled = false,
@@ -434,6 +438,10 @@ private fun QuataWebApp(
                             repository = feedRepository,
                             shareService = platformServices.share,
                             sharedPostId = navigation.postId,
+                            onOpenUserProfile = { profileId ->
+                                pendingMemberProfileId = profileId
+                                navigateWebFragment("communities")
+                            },
                         )
                     }
                 }
