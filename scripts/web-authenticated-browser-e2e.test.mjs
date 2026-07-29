@@ -48,13 +48,16 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
   }
 });
 
-test("fixture fails closed on external network and excludes Chat from the read-only journey", () => {
+test("fixture fails closed on external network while proving the notification inbox read", () => {
   assert.match(runner, /context\.route\("\*\*\/\*"/);
   assert.match(runner, /proxy-server=http:\/\/127\.0\.0\.1:9/);
   assert.match(runner, /unexpected_external_network/);
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
+  assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
+  assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
+  assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
   assert.doesNotMatch(runner, /quata-chat-e2e|__quataChatE2eProduct|native_chat_controls/);
@@ -80,7 +83,8 @@ test("WhatsNew RPC POST remains explicitly outside the strict GET-only route mat
     whatsNewHost,
     /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
   );
-  assert.match(documentation, /Novedades usa un RPC de lectura transportado como `POST`/);
+  assert.match(documentation, /Novedades usa un RPC de lectura transportado como\s+`POST`/);
+  assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
 
@@ -139,7 +143,7 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
-test("browser policy allows only reads plus the two declared Auth lifecycle effects", () => {
+test("browser policy allows only reads, the exact notification inbox RPC, and declared Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({
     backend,
@@ -163,9 +167,37 @@ test("browser policy allows only reads plus the two declared Auth lifecycle effe
   });
   assert.equal(whatsNewRpc.allowed, false);
   assert.equal(whatsNewRpc.reason, "backend_mutation_blocked_post");
+  const notificationInbox = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    body: "{}",
+  });
+  assert.equal(notificationInbox.allowed, true);
+  assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  for (const path of [
+    "/rest/v1/rpc/quata_chat_get_thread",
+    "/rest/v1/rpc/quata_chat_send_message",
+    "/rest/v1/rpc/quata_chat_get_inbox_extra",
+  ]) {
+    const blocked = decision({ url: `${backend}${path}`, method: "POST", body: "{}" });
+    assert.equal(blocked.allowed, false);
+    assert.equal(blocked.reason, "backend_mutation_blocked_post");
+  }
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",
+    stage: "native_login_controls",
+    body: "{}",
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "POST",
+    stage: "native_logout",
+    body: "{}",
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
+    method: "PATCH",
     body: "{}",
   }).allowed, false);
   assert.equal(decision({

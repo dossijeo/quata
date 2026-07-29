@@ -23,6 +23,12 @@ export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([
   }),
 ]);
 
+const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
+  "browser_restart_restore",
+  "authenticated_read_only_route_matrix",
+  "native_logout",
+]);
+
 const REQUIRED_REAL_ENVIRONMENT = Object.freeze([
   "QUATA_SUPABASE_URL",
   "QUATA_SUPABASE_PUBLISHABLE_KEY",
@@ -94,6 +100,14 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   const normalizedMethod = method.toUpperCase();
   if (["GET", "HEAD", "OPTIONS"].includes(normalizedMethod)) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "read_only_method" });
+  }
+
+  if (
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox" &&
+    NOTIFICATION_INBOX_READ_STAGES.includes(stage)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_read" });
   }
 
   const action = safeJson(body)?.action;

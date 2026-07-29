@@ -4,10 +4,12 @@
 Chrome real. El modo predeterminado es hermético: sirve un backend fixture local, bloquea toda red
 externa y ejecuta login, recarga/restauración, el GET de Profile a través del producto, una matriz
 de rutas de solo lectura y logout mediante `WebAuthRepository` y `WebPushSessionCoordinator`.
-Chat, Notifications y Novedades no forman parte de este carril: Notifications reutiliza el inbox
-RPC de Chat, Novedades usa un RPC de lectura transportado como `POST`, y la mensajería remota
-conserva su propio E2E, datos y limpieza. Esos RPC necesitan un carril semántico separado y no
-debilitan aquí la prohibición causal de métodos mutantes.
+Chat y Novedades no forman parte de este carril: Novedades usa un RPC de lectura transportado como
+`POST`, y la mensajería remota conserva su propio E2E, datos y limpieza. La insignia global de
+Notifications reutiliza exclusivamente `POST /rest/v1/rpc/quata_chat_get_inbox`; el runner lo
+admite sólo durante restauración, la matriz autenticada y el logout mientras la sesión aún existe,
+lo responde con un sobre vacío en el fixture y lo registra como evidencia de lectura. Ningún otro
+RPC o POST queda permitido.
 
 ```powershell
 .\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon
@@ -26,9 +28,10 @@ fallan antes de abrir Chrome.
 La matriz autenticada recorre Feed, Profile, Settings, Communities y Official mediante los deep
 links publicados por el propio producto. El gate observa los GET autenticados emitidos por
 `WebProfileHost`/`WebProfileRemoteGateway`; no fabrica un `fetch` paralelo. En el navegador se
-permiten GET/HEAD/OPTIONS y sólo dos efectos POST declarados: `web_login` durante login y
-`quata-web-push/logout` durante la limpieza. Cualquier otro POST/PUT/PATCH/DELETE, incluido un RPC
-PostgREST, se aborta en origen y hace fallar el resultado.
+permiten GET/HEAD/OPTIONS, dos efectos POST declarados: `web_login` durante login y
+`quata-web-push/logout` durante la limpieza, y la lectura exacta de inbox que exige la insignia de
+Notifications. Cualquier otro POST/PUT/PATCH/DELETE, incluido cualquier otro RPC PostgREST, se
+aborta en origen y hace fallar el resultado.
 
 ## Modo backend real, opt-in
 

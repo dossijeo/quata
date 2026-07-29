@@ -52,10 +52,10 @@ const report = {
     productDml: "forbidden",
   },
 };
-const fixtureState = { login: 0, profileReads: 0, webLogout: 0, globalLogout: 0 };
+const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, webLogout: 0, globalLogout: 0 };
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
-const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0 };
+const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0, notificationInboxReads: 0 };
 let server;
 let browser;
 let context;
@@ -219,7 +219,7 @@ try {
   report.cleanup = { state: "sessions_revoked_and_verified" };
 
   if (!options.real) {
-    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 ||
+    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.notificationInboxReads < 1 ||
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
@@ -232,8 +232,8 @@ try {
     excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS.flatMap(exclusion => exclusion.fragments),
     authenticatedGets: productReadEvidence.authenticatedGets,
     profileSelfReads: productReadEvidence.profileSelfReads,
+    notificationInboxReads: productReadEvidence.notificationInboxReads,
     blockedMutations: blockedBackendMutations.length,
-    chatExcluded: true,
   };
   report.status = "passed";
 } catch (error) {
@@ -273,7 +273,7 @@ try {
   report.finishedAt = new Date().toISOString();
   report.networkPolicy = {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, reason }) => ({ method, path, reason })),
-    chatExcluded: true,
+    notificationInboxReads: productReadEvidence.notificationInboxReads,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
   await writeSafeReport(options.output, report);
@@ -372,6 +372,15 @@ async function startServer(distribution, state, configuration) {
           phone_local: FIXTURE.phone,
         }]);
       }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
+        const body = await jsonBody(request);
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || body.p_limit !== 100) {
+          return json(response, 405, { error: "fixture_notification_inbox_read_forbidden" });
+        }
+        state.notificationInboxReads += 1;
+        return json(response, 200, { threads: [], messages: [], profiles: [] });
+      }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         return json(response, 200, []);
@@ -450,11 +459,16 @@ async function navigateReadOnlyRoute(page, route) {
 }
 
 function observeProductRead(request, url, _backend, session, evidence) {
-  if (request.method().toUpperCase() !== "GET") return;
+  const method = request.method().toUpperCase();
   const authorization = request.headers().authorization ?? "";
   if (!authorization.startsWith("Bearer ")) return;
-  evidence.authenticatedGets += 1;
   const parsed = new URL(url);
+  if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
+    evidence.notificationInboxReads += 1;
+    return;
+  }
+  if (method !== "GET") return;
+  evidence.authenticatedGets += 1;
   if (parsed.pathname !== "/rest/v1/community_profiles" || !session?.profileId) return;
   const idFilter = parsed.searchParams.get("id") ?? "";
   if (idFilter.includes(session.profileId)) evidence.profileSelfReads += 1;
