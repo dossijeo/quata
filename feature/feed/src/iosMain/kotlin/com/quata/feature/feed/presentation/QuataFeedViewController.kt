@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -93,11 +94,23 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
  */
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
+        var muted by rememberSaveable { mutableStateOf(false) }
         FeedScreenHost(
             padding = PaddingValues(),
             repository = dependencies.repository,
             focusedPostId = dependencies.initialPostId,
-            slots = FeedScreenPlatformSlots(media = { _, _, _, _ -> }),
+            slots = FeedScreenPlatformSlots(
+                media = { post, isCurrent, initialPositionMs, onPositionChanged ->
+                    IosFeedMediaSlot(
+                        post = post,
+                        isCurrent = isCurrent,
+                        initialPositionMs = initialPositionMs,
+                        onPositionChanged = onPositionChanged,
+                        isMuted = muted,
+                        onMuteChange = { muted = it },
+                    )
+                },
+            ),
         )
     }
 }
