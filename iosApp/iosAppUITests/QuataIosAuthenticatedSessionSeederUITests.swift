@@ -30,11 +30,11 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
         XCTAssertTrue(passwordSemantic.waitForExistence(timeout: 15), "Shared auth.password semantics must be available.")
         XCTAssertTrue(submit.waitForExistence(timeout: 15), "Shared auth.submit semantics must be available.")
 
-        let phoneField = try editableDescendant(of: phoneSemantic, secure: false)
+        let phoneField = try editableDescendant(of: phoneSemantic, in: app, secure: false)
         phoneField.tap()
         phoneField.typeText(credentials.localPhone)
 
-        let passwordField = try editableDescendant(of: passwordSemantic, secure: true)
+        let passwordField = try editableDescendant(of: passwordSemantic, in: app, secure: true)
         passwordField.tap()
         passwordField.typeText(credentials.password)
         submit.tap()
@@ -60,11 +60,17 @@ final class QuataIosAuthenticatedSessionSeederUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func editableDescendant(of semantic: XCUIElement, secure: Bool) throws -> XCUIElement {
+    private func editableDescendant(of semantic: XCUIElement, in app: XCUIApplication, secure: Bool) throws -> XCUIElement {
         let preferred = secure ? semantic.secureTextFields : semantic.textFields
         if preferred.firstMatch.exists { return preferred.firstMatch }
         let fallback = secure ? semantic.textFields : semantic.secureTextFields
         if fallback.firstMatch.exists { return fallback.firstMatch }
+        // Compose semantics can be flattened by the XCTest accessibility bridge. Preserve the
+        // semantic-first lookup above, then use the sole matching editable control in the app.
+        let flattenedPreferred = secure ? app.secureTextFields : app.textFields
+        if flattenedPreferred.count == 1 { return flattenedPreferred.firstMatch }
+        let flattenedFallback = secure ? app.textFields : app.secureTextFields
+        if flattenedFallback.count == 1 { return flattenedFallback.firstMatch }
         throw XCTSkip("The shared auth semantic did not expose an editable descendant on this runtime.")
     }
 }
