@@ -3,20 +3,15 @@
 package com.quata.web
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -78,7 +73,7 @@ internal object BrowserCanvasImageLoader {
 
     private fun complete(url: String, state: BrowserCanvasImageState) {
         val request = requests.remove(url) ?: return
-        (state as? BrowserCanvasImageState.Ready)?.let { putReady(url, it) }
+        if (browserCanvasImageIsCacheable(state)) putReady(url, state as BrowserCanvasImageState.Ready)
         request.observers.toList().forEach { it(state) }
         request.observers.clear()
     }
@@ -109,7 +104,7 @@ internal fun rememberBrowserCanvasImage(url: String): BrowserCanvasImageState {
     return state
 }
 
-/** A Compose-canvas image with an explicit loading and transport/decode failure surface. */
+/** Compose-canvas image pixels. Its caller owns the shared seeded media surface for all states. */
 @Composable
 internal fun BrowserCanvasImage(
     url: String,
@@ -118,14 +113,8 @@ internal fun BrowserCanvasImage(
     modifier: Modifier = Modifier,
 ) {
     when (val state = rememberBrowserCanvasImage(url)) {
-        BrowserCanvasImageState.Loading -> Box(
-            modifier = modifier.background(Color.Black.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center,
-        ) { CircularProgressIndicator() }
-        BrowserCanvasImageState.Error -> Box(
-            modifier = modifier.background(Color.Black.copy(alpha = 0.28f)),
-            contentAlignment = Alignment.Center,
-        ) { Text("No se pudo cargar la imagen", color = Color.White) }
+        BrowserCanvasImageState.Loading,
+        BrowserCanvasImageState.Error -> Box(modifier = modifier)
         is BrowserCanvasImageState.Ready -> Image(
             painter = BitmapPainter(state.bitmap),
             contentDescription = contentDescription,

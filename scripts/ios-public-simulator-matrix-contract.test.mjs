@@ -15,6 +15,7 @@ const feedHost = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/
 const feedCard = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedPostPreviewCardContent.kt'), 'utf8');
 const feedContrastTest = readFileSync(resolve(root, 'feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedMediaPlaceholderContrastTest.kt'), 'utf8');
 const webFeedMedia = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt'), 'utf8');
+const webCanvasImage = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserCanvasImageLoader.kt'), 'utf8');
 const webFeedHost = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt'), 'utf8');
 const iosFeedHost = readFileSync(resolve(root, 'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt'), 'utf8');
 const parser = resolve(root, 'scripts/ios-public-client-config.py');
@@ -178,11 +179,14 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(feedContrastTest, /background = FeedMediaBackgroundColor/);
   assert.match(feedContrastTest, /contrast >= 4\.5/);
   assert.match(webFeedMedia, /FeedReelVideoPlaybackHostContent\(/);
+  assert.match(webFeedMedia, /ReelMediaSurfaceContent\(background = textCanvasBrush\(imageUrl\)\)/);
   assert.match(webFeedMedia, /WebElementView\(/);
   assert.match(webFeedMedia, /HTMLVideoElement/);
   assert.match(webFeedMedia, /controls = false/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
   assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
+  assert.doesNotMatch(webCanvasImage, /CircularProgressIndicator|No se pudo cargar la imagen/);
+  assert.match(webCanvasImage, /browserCanvasImageIsCacheable\(state\)/);
 });
 
 test('Feed hosts pass ranking avatars through Compose lambdas, never callable references', () => {

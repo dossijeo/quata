@@ -17,8 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.WebElementView
 import com.quata.core.model.Post
+import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.feed.presentation.FeedReelVideoPlaybackHostContent
+import com.quata.feature.feed.presentation.ReelMediaSurfaceContent
 import com.quata.feature.feed.presentation.VideoPlaybackFeedback
 import com.quata.feature.feed.presentation.VideoPlaybackState
 import com.quata.feature.feed.presentation.VideoPlaybackStrings
@@ -56,12 +58,14 @@ fun BrowserFeedMediaContent(
             onPositionChanged = onPositionChanged,
             onMuteChange = onMuteChange,
         )
-        imageUrl != null -> BrowserCanvasImage(
-            url = imageUrl,
-            contentDescription = post.text.take(120).takeIf { it.isNotBlank() },
-            contentScale = browserFeedImageContentScale(isLandscape),
-            modifier = Modifier.fillMaxSize(),
-        )
+        imageUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(imageUrl)) {
+            BrowserCanvasImage(
+                url = imageUrl,
+                contentDescription = post.text.take(120).takeIf { it.isNotBlank() },
+                contentScale = browserFeedImageContentScale(isLandscape),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         else -> Unit
     }
 }
