@@ -6,6 +6,22 @@ import kotlin.test.assertEquals
 class FeedBrowserHostStringsTest {
     @Test
     fun detailLoadingKeepsTheEllipsisGlyph() {
-        assertEquals("Loading post…", FeedBrowserHostStrings().detailLoading)
+        val strings = FeedBrowserHostStrings(
+            loading = "loading",
+            retry = "retry",
+            loadFailure = "failure",
+            refresh = "refresh",
+            refreshing = "refreshing",
+            conversations = "conversations",
+            loadingOlder = "older",
+            loadOlder = "load older",
+            noText = "no text",
+            readMore = "read more",
+            close = "close",
+            empty = "empty",
+            mediaUnavailable = "media unavailable",
+        )
+
+        assertEquals("Loading post…", strings.detailLoading)
     }
 }
