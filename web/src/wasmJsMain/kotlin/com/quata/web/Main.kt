@@ -25,7 +25,7 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
-import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
+import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
@@ -41,6 +41,8 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
+
+internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -297,7 +299,7 @@ private fun QuataWebApp(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
                 isOnline = true,
-                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS"),
+                strings = WebAuthenticatedChromeStrings,
                 onLogoClick = { navigateWebFragment("about") },
                 onNotificationsClick = { navigateWebFragment("notifications") },
                 onSosClick = { navigateWebFragment("profile") },
