@@ -192,6 +192,13 @@ test('Feed hosts pass ranking avatars through Compose lambdas, never callable re
   assert.doesNotMatch(iosFeedHost, /rankingAvatar = ::IosFeedRankingAvatar/);
 });
 
+test('Web Feed host cannot regress to the CutreFeed chrome', () => {
+  for (const source of [webFeedHost, webFeedMedia]) {
+    assert.doesNotMatch(source, /Quata Web se est(?:á|Ã¡) preparando/);
+    assert.doesNotMatch(source, /FeedBrowserHostContent|FeedBrowserStatusContent/);
+  }
+});
+
 function runParser(source, expectSuccess) {
   const directory = mkdtempSync(join(tmpdir(), 'quata-ios-parser-'));
   const input = join(directory, 'QuataPublicBackendConfig.kt');

@@ -116,8 +116,11 @@ data class FeedScreenStrings(
     val replyTo: (String) -> String = { "En respuesta a $it" },
     val showEmojis: String = "Mostrar emojis",
     val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
-    val locationLabel: @Composable (String) -> String = { it },
+    val locationLabel: @Composable (String) -> String = { location -> formatFeedLocationLabel(location) },
 )
+
+/** Shared location chip text; Android's localized resource intentionally uses the same red pin. */
+fun formatFeedLocationLabel(location: String): String = "\uD83D\uDCCD $location"
 
 /** Platform-only rendering and service hooks. The Feed state machine stays in commonMain. */
 data class FeedScreenPlatformSlots(
