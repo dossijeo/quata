@@ -31,4 +31,10 @@ class BrowserFeedMediaUrlTest {
         assertEquals(ContentScale.Crop, browserFeedImageContentScale(isLandscape = false))
         assertEquals(ContentScale.Fit, browserFeedImageContentScale(isLandscape = true))
     }
+
+    @Test
+    fun failedCanvasImageLoadsAreNotCachedSoReentryRetries() {
+        assertFalse(browserCanvasImageIsCacheable(BrowserCanvasImageState.Loading))
+        assertFalse(browserCanvasImageIsCacheable(BrowserCanvasImageState.Error))
+    }
 }

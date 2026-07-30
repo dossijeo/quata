@@ -41,14 +41,14 @@ internal sealed interface BrowserCanvasImageState {
  * canvas. A request is aborted when its final subscriber leaves composition.
  */
 internal object BrowserCanvasImageLoader {
-    private const val maxTerminalEntries = 64
+    private const val maxReadyEntries = 64
 
-    private val terminal = LinkedHashMap<String, BrowserCanvasImageState>()
+    private val readyCache = LinkedHashMap<String, BrowserCanvasImageState.Ready>()
     private val requests = mutableMapOf<String, Request>()
 
     fun subscribe(url: String, observer: (BrowserCanvasImageState) -> Unit): () -> Unit {
-        terminal[url]?.let(observer)
-        if (terminal.containsKey(url)) return {}
+        readyCache[url]?.let(observer)
+        if (readyCache.containsKey(url)) return {}
 
         val request = requests.getOrPut(url) {
             Request().also { created ->
@@ -78,15 +78,15 @@ internal object BrowserCanvasImageLoader {
 
     private fun complete(url: String, state: BrowserCanvasImageState) {
         val request = requests.remove(url) ?: return
-        putTerminal(url, state)
+        (state as? BrowserCanvasImageState.Ready)?.let { putReady(url, it) }
         request.observers.toList().forEach { it(state) }
         request.observers.clear()
     }
 
-    private fun putTerminal(url: String, state: BrowserCanvasImageState) {
-        terminal.remove(url)
-        terminal[url] = state
-        while (terminal.size > maxTerminalEntries) terminal.entries.iterator().next().also { terminal.remove(it.key) }
+    private fun putReady(url: String, state: BrowserCanvasImageState.Ready) {
+        readyCache.remove(url)
+        readyCache[url] = state
+        while (readyCache.size > maxReadyEntries) readyCache.entries.iterator().next().also { readyCache.remove(it.key) }
     }
 
     private class Request {
@@ -94,6 +94,10 @@ internal object BrowserCanvasImageLoader {
         lateinit var cancel: () -> Unit
     }
 }
+
+/** Failed decodes and transport failures are deliberately not cached so a new composition retries. */
+internal fun browserCanvasImageIsCacheable(state: BrowserCanvasImageState): Boolean =
+    state is BrowserCanvasImageState.Ready
 
 @Composable
 internal fun rememberBrowserCanvasImage(url: String): BrowserCanvasImageState {
