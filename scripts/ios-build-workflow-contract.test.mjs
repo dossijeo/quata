@@ -34,6 +34,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
   const publicMatrixPaths = [
     'scripts/run-ios-command-watchdog.py',
     'scripts/test_run_ios_command_watchdog.py',
+    'scripts/check-ios-simulator-booted.py',
+    'scripts/test_check_ios_simulator_booted.py',
     'scripts/ios-compose-resources-contract.test.mjs',
     'scripts/sync-ios-compose-resources.sh',
     'scripts/build-ios-intel-simulator.sh',
@@ -100,7 +102,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
   );
   assert.match(
     yaml,
-    /- name: Validate iOS watchdog cleanup contract\n\s+run: python3 -m unittest scripts\/test_run_ios_command_watchdog\.py/,
+    /- name: Validate iOS watchdog cleanup contract\n\s+run: python3 -m unittest scripts\/test_run_ios_command_watchdog\.py scripts\/test_check_ios_simulator_booted\.py/,
   );
   assert.match(
     yaml,
@@ -187,12 +189,12 @@ function assertBootWatchdogRevalidation(yaml) {
 
   assert.match(
     bootBlock,
-    /verify_selected_simulator_booted\(\)[\s\S]*?xcrun simctl list devices -j \| tee build\/reports\/ios\/simulator-devices-after-boot\.json/,
+    /verify_selected_simulator_booted\(\)[\s\S]*?xcrun simctl list devices -j \| tee build\/reports\/ios\/simulator-devices-after-boot\.json[\s\S]*?python3 scripts\/check-ios-simulator-booted\.py \\\n+\s+--udid "\$simulator_udid"/,
     'timeout revalidation must preserve the authoritative JSON diagnostic',
   );
   assert.match(
     bootBlock,
-    /device\.get\("udid"\) == expected_udid and device\.get\("state"\) == "Booted"/,
+    /scripts\/check-ios-simulator-booted\.py/,
     'revalidation must require the exact selected UDID, not any booted simulator',
   );
   assert.match(
@@ -290,7 +292,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'watchdog cleanup contract command weakened',
       yaml.replace(
-        'run: python3 -m unittest scripts/test_run_ios_command_watchdog.py',
+        'run: python3 -m unittest scripts/test_run_ios_command_watchdog.py scripts/test_check_ios_simulator_booted.py',
         'run: python3 --version',
       ),
     ],
@@ -408,8 +410,8 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'boot watchdog accepts any booted simulator',
       yaml.replace(
-        'device.get("udid") == expected_udid and device.get("state") == "Booted"',
-        'device.get("state") == "Booted"',
+        'scripts/check-ios-simulator-booted.py',
+        'check-ios-any-booted.py',
       ),
     ],
     [
