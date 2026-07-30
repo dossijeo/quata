@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -42,9 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataOrange
 
-/** Cross-platform brand color for the ranking flame vector. */
-internal val FeedRankFlameColor = Color(0xFFFF8A00)
-
 @Composable
 fun QuataFeedActionRail(
     likes: Int, isLiked: Boolean, comments: Int, postRank: Int, isLandscape: Boolean,
@@ -60,7 +56,7 @@ fun QuataFeedActionRail(
         verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 14.dp),
     ) {
         if (!isLandscape) {
-            FeedVectorAction(Icons.Filled.Whatshot, rankLabel, postRank.toString(), tint = FeedRankFlameColor, onClick = onOpenLive)
+            FeedTextAction("🔥", rankLabel, postRank.toString(), onClick = onOpenLive)
             FeedTextAction(liveLabel, liveLabel, onClick = onOpenLive)
         }
         FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike)
@@ -78,25 +74,9 @@ fun QuataFeedOverflowActionButton(postRank: Int, rankLabel: String, liveLabel: S
     Box(modifier) {
         FeedIconAction(Icons.Filled.MoreVert, liveLabel, onClick = { open = true })
         DropdownMenu(open, { open = false }) {
-            DropdownMenuItem({ Text("$rankLabel #$postRank") }, leadingIcon = { Icon(Icons.Filled.Whatshot, null, tint = FeedRankFlameColor) }, onClick = { open = false; onOpenLive() })
+            DropdownMenuItem({ Text("$rankLabel #$postRank") }, leadingIcon = { Text("🔥", fontWeight = FontWeight.Black) }, onClick = { open = false; onOpenLive() })
             DropdownMenuItem({ Text(liveLabel) }, leadingIcon = { Icon(Icons.Filled.PlayArrow, null) }, onClick = { open = false; onOpenLive() })
             if (showReport && reportLabel != null) DropdownMenuItem({ Text(reportLabel) }, leadingIcon = { Icon(Icons.Filled.Flag, null) }, onClick = { open = false; onReport() })
-        }
-    }
-}
-
-/**
- * A vector rank marker is deliberately used instead of an emoji: browser and native emoji fonts
- * do not share glyph coverage or color rendering.
- */
-@Composable
-private fun FeedVectorAction(icon: ImageVector, description: String, count: String? = null, tint: Color, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Color.Black.copy(alpha = .42f)).semantics { contentDescription = description }.clickable(onClick = onClick), Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, null, modifier = Modifier.size(19.dp), tint = tint)
-                count?.let { Text(it, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp) }
-            }
         }
     }
 }
