@@ -256,6 +256,14 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   }).allowed, true);
 });
 
+test("navigation stress permits only the exact read-only inbox RPC", () => {
+  const backend = "https://project-ref.supabase.co";
+  const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_navigation_stress", body: "{}" });
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
+  for (const path of ["/rest/v1/rpc/quata_chat_get_inbox_extra", "/rest/v1/rpc/quata_chat_send_message"]) assert.equal(decide(path).allowed, false);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
+});
+
 test("distribution gate binds a clean tracked tree to one exact commit", () => {
   const revision = "a".repeat(40);
   assert.equal(assertExactDistributionRevision({

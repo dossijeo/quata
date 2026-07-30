@@ -30,6 +30,11 @@ fun FeedReelPagerContent(
     prefetchDistance: Int = DefaultFeedOlderPostsPrefetchDistance,
     pageContent: @Composable (page: Int, post: Post, isCurrentPage: Boolean) -> Unit
 ) {
+    // A FeedScreenHost is composed with its initial loading state before its first emission.
+    // On Wasm, a VerticalPager may still request page 0 during that composition even when its
+    // page count is zero. Never let that transient state reach posts[page].
+    if (!canRenderFeedPager(posts)) return
+
     val latestOnPostDisplayed = rememberUpdatedState(onPostDisplayed)
     val latestOnLoadOlder = rememberUpdatedState(onLoadOlder)
     val visiblePost = posts.getOrNull(pagerState.currentPage)
@@ -65,5 +70,8 @@ fun FeedReelPagerContent(
         pageContent(page, post, pagerState.currentPage == page)
     }
 }
+
+/** A pager page is meaningful only when there is a post available for that page. */
+internal fun canRenderFeedPager(posts: List<Post>): Boolean = posts.isNotEmpty()
 
 const val DefaultFeedOlderPostsPrefetchDistance = 8

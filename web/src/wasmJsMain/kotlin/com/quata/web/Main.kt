@@ -287,6 +287,10 @@ private fun QuataWebApp(
     LaunchedEffect(navigationState, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
         platformServices.preferences.putString("web.navigation.route", navigationState.route)
+        setWebNavigationShellMarker(
+            route = navigationState.route,
+            selectedPrimaryRoute = webFragmentToCanonicalPrimaryRoute(navigationState.route),
+        )
         navigationState.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
         platformServices.preferences.putString(
             "web.runtime.backend_configured",
@@ -654,6 +658,16 @@ internal fun String.toWebNavigationState(): WebNavigationState {
 private fun browserFragment(): String = js("globalThis.location?.hash?.replace(/^#/, '') || ''")
 
 private fun setBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+
+/** Browser-test semantic marker for the real Compose shell; it does not render a parallel UI. */
+@JsFun("""(route, selectedPrimaryRoute) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  root.setAttribute('data-quata-shell-route', route);
+  if (selectedPrimaryRoute) root.setAttribute('data-quata-primary-selected-route', selectedPrimaryRoute);
+  else root.removeAttribute('data-quata-primary-selected-route');
+}""")
+private external fun setWebNavigationShellMarker(route: String, selectedPrimaryRoute: String?)
 
 /**
  * Observes in-place browser hash navigation. The returned callback must be retained for the
