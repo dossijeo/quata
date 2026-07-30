@@ -74,7 +74,8 @@ if (options.policyBase) {
         baseBudget: readBudgetAtRevision(baseRevision),
         baseRevision,
         changedFiles: changedFiles(options.policyBase),
-        currentInventorySha256: inventoryFingerprint(files),
+        currentFiles: files,
+        currentRevision: report.revision,
     });
 } else if (budget?.state === 'approved' && process.env.GITHUB_EVENT_NAME === 'pull_request') {
     throw new Error('Approved bundle budget requires --policy-base for pull_request CI');
