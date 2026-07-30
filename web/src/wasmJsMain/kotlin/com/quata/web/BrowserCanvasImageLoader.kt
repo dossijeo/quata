@@ -135,14 +135,16 @@ internal fun BrowserCanvasImage(
     }
 }
 
-private fun JsArray<JsNumber>.toByteArray(): ByteArray = ByteArray(length) { index -> this[index].toInt().toByte() }
+private fun JsArray<JsNumber>.toByteArray(): ByteArray = ByteArray(length) { index ->
+    (this[index]?.toInt() ?: 0).toByte()
+}
 
 @JsFun(
     """(url, onSuccess, onFailure) => {
       const controller = new AbortController();
       fetch(url, { signal: controller.signal })
         .then(response => {
-          if (!response.ok) throw new Error(`http_${response.status}`);
+          if (!response.ok) throw new Error('http_' + response.status);
           return response.arrayBuffer();
         })
         .then(buffer => onSuccess(Array.from(new Uint8Array(buffer))))
