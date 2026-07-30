@@ -212,9 +212,12 @@ class WebOfficialRepository(
         return this
     }
 
-    private fun authenticatedUserId(): String = authRepository.restoreLocalSession()?.userId
+    private suspend fun authenticatedUserId(): String = authRepository.restoreLocalSession()?.userId
         ?.takeIf(String::isNotBlank)
         ?: error("web_official_session_missing")
+
+    private fun <T> unsupportedMutation(): Result<T> =
+        Result.failure(UnsupportedOperationException("web_official_mutation_not_implemented"))
 
     private companion object {
         const val FeedPageSize = 50

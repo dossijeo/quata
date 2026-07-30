@@ -423,9 +423,9 @@ private fun QuataWebApp(
                             shareService = platformServices.share,
                             officialPostId = navigation.officialPostId,
                             currentUserId = currentUserId,
-                            onAuthRequired = { navigateWebFragment("auth") },
+                            onAuthRequired = { navigation.navigate("auth") },
                             onOpenUserProfile = feedMemberProfileRoute::open,
-                            onCreateOfficialPost = { navigateWebFragment("composer") },
+                            onCreateOfficialPost = { navigation.navigate("composer") },
                         )
                     }
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
