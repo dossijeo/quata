@@ -1,25 +1,20 @@
 package com.quata.web
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.WebElementView
 import com.quata.core.model.Post
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
-import org.w3c.dom.HTMLImageElement
-import kotlinx.browser.document
 
 /**
  * Browser image adapter for the shared Feed identity slots.
@@ -55,7 +50,6 @@ fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = nu
     )
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun BrowserFeedAvatar(
     name: String,
@@ -66,31 +60,19 @@ private fun BrowserFeedAvatar(
     modifier: Modifier,
 ) {
     val imageUrl = avatarUrl?.trim()?.takeIf(::isBrowserAvatarUrl)
-    var failedUrl by remember(imageUrl) { mutableStateOf<String?>(null) }
-    val usableImageUrl = imageUrl?.takeUnless { it == failedUrl }
+    val imageState = if (imageUrl != null) rememberBrowserCanvasImage(imageUrl) else null
     QuataAvatarFrameContent(
         name = name,
         stableId = profileId,
         isOfficial = isOfficial,
         isOnline = isOnline,
         modifier = modifier,
-        avatar = usableImageUrl?.let { url ->
+        avatar = (imageState as? BrowserCanvasImageState.Ready)?.let { ready ->
             {
-                WebElementView(
-                    factory = {
-                        (document.createElement("img") as HTMLImageElement).apply {
-                            alt = name
-                            setAttribute("loading", "lazy")
-                            style.width = "100%"
-                            style.height = "100%"
-                            style.objectFit = "cover"
-                            addEventListener("error", { failedUrl = url })
-                        }
-                    },
-                    update = { image ->
-                        image.alt = name
-                        image.src = url
-                    },
+                Image(
+                    painter = BitmapPainter(ready.bitmap),
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

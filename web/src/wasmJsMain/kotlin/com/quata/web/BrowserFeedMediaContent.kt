@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.WebElementView
 import com.quata.core.model.Post
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -23,7 +24,6 @@ import com.quata.feature.feed.presentation.VideoPlaybackState
 import com.quata.feature.feed.presentation.VideoPlaybackStrings
 import kotlinx.browser.document
 import kotlinx.coroutines.delay
-import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLVideoElement
 
 /**
@@ -56,17 +56,10 @@ fun BrowserFeedMediaContent(
             onPositionChanged = onPositionChanged,
             onMuteChange = onMuteChange,
         )
-        imageUrl != null -> WebElementView(
-            factory = { (document.createElement("img") as HTMLImageElement).apply {
-                alt = post.text.take(120)
-                setAttribute("loading", "lazy")
-                style.width = "100%"
-                style.height = "100%"
-            } },
-            update = {
-                it.src = imageUrl
-                it.style.objectFit = if (isLandscape) "contain" else "cover"
-            },
+        imageUrl != null -> BrowserCanvasImage(
+            url = imageUrl,
+            contentDescription = post.text.take(120).takeIf { it.isNotBlank() },
+            contentScale = browserFeedImageContentScale(isLandscape),
             modifier = Modifier.fillMaxSize(),
         )
         else -> Unit
@@ -328,3 +321,7 @@ internal fun isBrowserFeedMediaUrl(url: String): Boolean =
 internal fun isBrowserAutoplayPolicyRejection(rejection: String): Boolean =
     rejection.contains("NotAllowedError", ignoreCase = true) ||
         rejection.contains("autoplay", ignoreCase = true)
+
+/** Reels crop in portrait and preserve the complete frame in landscape. */
+internal fun browserFeedImageContentScale(isLandscape: Boolean): ContentScale =
+    if (isLandscape) ContentScale.Fit else ContentScale.Crop
