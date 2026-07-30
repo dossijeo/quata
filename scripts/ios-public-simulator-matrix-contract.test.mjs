@@ -15,6 +15,9 @@ const feedHost = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/
 const feedCard = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedPostPreviewCardContent.kt'), 'utf8');
 const feedContrastTest = readFileSync(resolve(root, 'feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedMediaPlaceholderContrastTest.kt'), 'utf8');
 const webFeedMedia = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt'), 'utf8');
+const webCanvasImage = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserCanvasImageLoader.kt'), 'utf8');
+const webFeedHost = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt'), 'utf8');
+const iosFeedHost = readFileSync(resolve(root, 'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt'), 'utf8');
 const parser = resolve(root, 'scripts/ios-public-client-config.py');
 const logEvidence = resolve(root, 'scripts/ios-public-log-evidence.py');
 const backupLibrary = readFileSync(resolve(root, 'scripts/ios-public-runtime-config-backup.sh'), 'utf8');
@@ -167,7 +170,7 @@ test('classifier fixture runner fails closed without Python and never regresses 
   ));
 });
 
-test('Feed placeholder contrast test exercises the exact style and background used by the composable', () => {
+test('Feed media contract keeps the common contrast gate and requires the browser decoder beneath Compose controls', () => {
   assert.match(feedHost, /fun FeedMediaUnavailablePlaceholderContent\(/);
   assert.match(feedHost, /style = feedMediaUnavailableTextStyle\(MaterialTheme\.typography\.bodySmall\)/);
   assert.match(feedHost, /base\.copy\(color = FeedMediaUnavailableContentColor\)/);
@@ -175,8 +178,31 @@ test('Feed placeholder contrast test exercises the exact style and background us
   assert.match(feedContrastTest, /feedMediaUnavailableTextStyle\(TextStyle\.Default\)/);
   assert.match(feedContrastTest, /background = FeedMediaBackgroundColor/);
   assert.match(feedContrastTest, /contrast >= 4\.5/);
-  assert.match(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
-  assert.doesNotMatch(webFeedMedia, /MaterialTheme\.typography\.bodySmall/);
+  assert.match(webFeedMedia, /FeedReelVideoPlaybackHostContent\(/);
+  assert.match(webFeedMedia, /ReelMediaSurfaceContent\(background = textCanvasBrush\(imageUrl\)\)/);
+  assert.match(webFeedMedia, /HTMLVideoElement/);
+  assert.match(webFeedMedia, /controls = false/);
+  assert.match(webFeedMedia, /attachBrowserFeedVideoUnderlay\(video\)/);
+  assert.match(webFeedMedia, /parent\.insertBefore\(video, canvas\)/);
+  assert.match(webFeedMedia, /BlendMode\.Clear/);
+  assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
+  assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
+  assert.doesNotMatch(webCanvasImage, /CircularProgressIndicator|No se pudo cargar la imagen/);
+  assert.match(webCanvasImage, /browserCanvasImageIsCacheable\(state\)/);
+});
+
+test('Feed hosts pass ranking avatars through Compose lambdas, never callable references', () => {
+  assert.match(webFeedHost, /rankingAvatar = \{ item -> BrowserFeedRankingAvatar\(item\) \}/);
+  assert.doesNotMatch(webFeedHost, /rankingAvatar = ::BrowserFeedRankingAvatar/);
+  assert.match(iosFeedHost, /rankingAvatar = \{ item -> IosFeedRankingAvatar\(item\) \}/);
+  assert.doesNotMatch(iosFeedHost, /rankingAvatar = ::IosFeedRankingAvatar/);
+});
+
+test('Web Feed host cannot regress to the CutreFeed chrome', () => {
+  for (const source of [webFeedHost, webFeedMedia]) {
+    assert.doesNotMatch(source, /Quata Web se est(?:á|Ã¡) preparando/);
+    assert.doesNotMatch(source, /FeedBrowserHostContent|FeedBrowserStatusContent/);
+  }
 });
 
 function runParser(source, expectSuccess) {

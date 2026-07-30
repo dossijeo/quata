@@ -14,13 +14,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
+interface FeedStateHolder {
+    val uiState: StateFlow<FeedUiState>
+    fun onEvent(event: FeedUiEvent)
+}
+
 class FeedViewModel(
     private val repository: FeedRepository,
     dispatchers: AppDispatchers = AppDispatchers()
-) {
+) : FeedStateHolder {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(FeedUiState())
-    val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
+    override val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
     private val loadedDetailPostIds = mutableSetOf<String>()
     private val loadingDetailPostIds = mutableSetOf<String>()
     private val feedStore = QuataPagedFeedStore(
@@ -37,7 +42,7 @@ class FeedViewModel(
         refreshCurrentUser()
     }
 
-    fun onEvent(event: FeedUiEvent) {
+    override fun onEvent(event: FeedUiEvent) {
         when (event) {
             FeedUiEvent.Refresh -> refresh()
             FeedUiEvent.LoadOlderPage -> loadOlderPage()

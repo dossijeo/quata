@@ -65,6 +65,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import com.quata.core.ui.components.CommunityEmojiPanel
+import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -73,6 +74,7 @@ import com.quata.core.ui.components.QuataLiveRankingPanel
 import com.quata.core.ui.components.QuataFeedActionRail
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
+import com.quata.core.ui.components.QuataStandardFloatingPanel
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
@@ -151,6 +153,7 @@ import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CommunityEmojiPanelDismissState
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.findQuataTextureView
@@ -196,436 +199,112 @@ fun FeedScreen(
     onCreatePost: () -> Unit = {},
     onReportComment: (String) -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
-    viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository))
+    viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository)),
 ) {
-    val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var commentsPost by remember { mutableStateOf<Post?>(null) }
-    var isLiveOpen by remember { mutableStateOf(false) }
-    var postPendingDeletion by remember { mutableStateOf<Post?>(null) }
-    var pendingDeletedPostId by remember { mutableStateOf<String?>(null) }
-    var isFeedMuted by rememberSaveable { mutableStateOf(false) }
-    val canParticipate = currentUserId != null
-    val canModerateAll = state.currentUser?.isAdmin == true
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-
-    LaunchedEffect(commentsPost, isLandscapeLayout) {
-        onLandscapeCommentsOverlayActiveChange(commentsPost != null && isLandscapeLayout)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { onLandscapeCommentsOverlayActiveChange(false) }
-    }
-
-    LaunchedEffect(networkReconnectToken) {
-        if (networkReconnectToken != 0L) {
-            viewModel.onEvent(FeedUiEvent.Refresh)
-        }
-    }
-
-    LaunchedEffect(state.posts, pendingDeletedPostId) {
-        val deletedPostId = pendingDeletedPostId ?: return@LaunchedEffect
-        if (state.posts.none { it.id == deletedPostId }) {
-            Toast.makeText(context, context.getString(R.string.feed_delete_post_success), Toast.LENGTH_SHORT).show()
-            pendingDeletedPostId = null
-        }
-    }
-
-    when {
-        state.error != null && state.posts.isEmpty() -> FeedMessageScreen(padding, state.error ?: "", onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
-        state.posts.isEmpty() && !state.isLoading -> FeedMessageScreen(padding, stringResource(R.string.feed_empty), onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) })
-        else -> {
-            val pagerState = rememberPagerState(pageCount = { state.posts.size })
-            val postRanks = remember(state.posts) { calculatePostRankingMap(state.posts) }
-            val videoPositions = remember { mutableMapOf<String, Long>() }
-            var handledFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
-            var retainedVisiblePostId by rememberSaveable { mutableStateOf<String?>(null) }
-            var hasAppliedRetainedPost by remember { mutableStateOf(retainedVisiblePostId == null) }
-            var lastHandledFeedResetToken by rememberSaveable { mutableStateOf(feedResetToken) }
-            val canPullRefresh =
-                pagerState.currentPage == 0 &&
-                    !state.isRefreshing &&
-                    commentsPost == null &&
-                    !isLiveOpen
-            val pullRefreshState = rememberQuataFeedPullRefreshState(
-                enabled = canPullRefresh,
-                isRefreshing = state.isRefreshing,
-                onRefresh = { viewModel.onEvent(FeedUiEvent.Refresh) }
-            )
-
-            LaunchedEffect(focusedPostId) {
-                if (focusedPostId != null && focusedPostId != handledFocusedPostId) {
-                    viewModel.onEvent(FeedUiEvent.Refresh)
-                }
-            }
-
-            LaunchedEffect(focusedPostId, state.posts) {
-                val targetId = focusedPostId ?: return@LaunchedEffect
-                if (targetId == handledFocusedPostId) return@LaunchedEffect
-                val targetIndex = state.posts.indexOfFirst { it.id == targetId }
-                if (targetIndex >= 0) {
-                    pagerState.scrollToPage(targetIndex)
-                    retainedVisiblePostId = targetId
-                    hasAppliedRetainedPost = true
-                    handledFocusedPostId = targetId
-                    onFocusedPostHandled()
-                }
-            }
-
-            LaunchedEffect(retainedVisiblePostId, state.posts, focusedPostId) {
-                val targetId = retainedVisiblePostId
-                if (
-                    !hasAppliedRetainedPost &&
-                    focusedPostId == null &&
-                    targetId != null &&
-                    state.posts.isNotEmpty()
-                ) {
-                    val targetIndex = state.posts.indexOfFirst { it.id == targetId }
-                    if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
-                        pagerState.scrollToPage(targetIndex)
-                    }
-                    hasAppliedRetainedPost = true
-                }
-            }
-
-            LaunchedEffect(feedResetToken, state.posts.size) {
-                if (
-                    feedResetToken != lastHandledFeedResetToken &&
-                    focusedPostId == null &&
-                    state.posts.isNotEmpty()
-                ) {
-                    pagerState.scrollToPage(0)
-                    retainedVisiblePostId = state.posts.firstOrNull()?.id
-                    hasAppliedRetainedPost = true
-                    lastHandledFeedResetToken = feedResetToken
-                }
-            }
-
-            FeedPagerViewportContent(
-                padding = padding,
-                modifier = Modifier.nestedScroll(pullRefreshState.nestedScrollConnection)
-            ) {
-                FeedReelPagerContent(
-                    pagerState = pagerState,
-                    posts = state.posts,
-                    hasMoreOlderPosts = state.hasMoreOlderPosts,
-                    isLoadingOlder = state.isLoadingOlder,
-                    onPostDisplayed = { visiblePost, nextPost ->
-                        val visiblePostId = visiblePost.id
-                        val nextPostId = nextPost?.id
-                        if (hasAppliedRetainedPost) {
-                            retainedVisiblePostId = visiblePostId
-                        }
-                        viewModel.onEvent(FeedUiEvent.PostDisplayed(visiblePostId, nextPostId))
-                    },
-                    onLoadOlder = { viewModel.onEvent(FeedUiEvent.LoadOlderPage) }
-                ) { page, post, isCurrentPage ->
-                    val videoPositionKey = post.videoUrl
-                    val canDeletePost = post.author.id == currentUserId || canModerateAll
-                    key(post.id, post.videoUrl) {
-                        ReelPost(
-                            post = post,
-                            postRankInfo = postRanks[post.id] ?: PostRankingInfo(position = 1, likes = post.likesCount),
-                            isCurrentPage = isCurrentPage,
-                            isAppForeground = isAppForeground,
-                            isFeedMuted = isFeedMuted,
-                            currentUserId = currentUserId,
-                            isAuthorProfileLoading = openingProfileUserId == post.author.id,
-                            networkReconnectToken = networkReconnectToken,
-                            isNetworkAvailable = isNetworkAvailable,
-                            canDelete = canDeletePost,
-                            initialVideoPositionMs = videoPositionKey?.let { videoPositions[it] } ?: 0L,
-                            onVideoPositionChanged = { positionMs ->
-                                videoPositionKey?.let { videoPositions[it] = positionMs }
-                            },
-                            onOpenComments = { commentsPost = post },
-                            onOpenUserProfile = { onOpenUserProfile(post.author.id) },
-                            onOpenLive = { isLiveOpen = true },
-                            onFeedMutedChange = { isFeedMuted = it },
-                            onLike = {
-                                if (canParticipate) {
-                                    viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
-                                } else {
-                                    onAuthRequired()
-                                }
-                            },
-                            onDelete = { postPendingDeletion = post },
-                            onShare = {
-                                scope.launch {
-                                    shareService.share(
-                                        SharePayload(
-                                            text = postShareText(post),
-                                            title = context.getString(R.string.feed_share_post)
-                                        )
-                                    )
-                                }
-                            },
-                            onReport = {
-                                if (!post.isReportedByCurrentUser) {
-                                    if (canParticipate) {
-                                        viewModel.onEvent(FeedUiEvent.ReportPost(post.id))
-                                        Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        onAuthRequired()
-                                    }
-                                }
-                            },
-                            onCreatePost = {
-                                if (canParticipate) onCreatePost() else onAuthRequired()
-                            }
-                        )
-                    }
-                }
-                QuataFeedPullRefreshIndicator(
-                    state = pullRefreshState,
-                    isRefreshing = state.isRefreshing && pagerState.currentPage == 0,
-                    refreshContentDescription = stringResource(R.string.common_refresh),
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
-            }
-
-            commentsPost?.let { post ->
-                val currentPost = state.posts.firstOrNull { it.id == post.id } ?: post
-                QuataCommentsPanel(
-                    postId = currentPost.id,
-                    comments = currentPost.comments,
-                    canParticipate = canParticipate,
-                    onAuthRequired = onAuthRequired,
-                    onAddComment = { comment ->
-                        viewModel.onEvent(FeedUiEvent.AddComment(currentPost.id, comment))
-                    },
-                    onReportComment = { comment ->
-                        if (canParticipate) onReportComment(comment.id) else onAuthRequired()
-                    },
-                    onDismiss = { commentsPost = null }
-                )
-            }
-
-            if (isLiveOpen) {
-                LiveRankingDialog(
-                    posts = state.posts,
-                    postRanks = postRanks,
-                    onDismiss = { isLiveOpen = false },
-                    onOpenPost = { post ->
-                        val index = state.posts.indexOfFirst { it.id == post.id }
-                        if (index >= 0) {
-                            isLiveOpen = false
-                            scope.launch { pagerState.animateScrollToPage(index) }
-                        }
-                    }
-                )
-            }
-
-            postPendingDeletion?.let { post ->
-                FeedDeletePostConfirmationContent(
-                    title = stringResource(R.string.feed_delete_post_confirm_title),
-                    message = stringResource(R.string.feed_delete_post_confirm_message),
-                    confirmLabel = stringResource(R.string.feed_delete_post),
-                    cancelLabel = stringResource(R.string.common_cancel),
-                    onConfirm = {
-                        pendingDeletedPostId = post.id
-                        postPendingDeletion = null
-                        viewModel.onEvent(FeedUiEvent.DeletePost(post.id))
-                    },
-                    onDismiss = { postPendingDeletion = null }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeedMessageScreen(
-    padding: PaddingValues,
-    message: String,
-    onRefresh: () -> Unit
-) {
-    QuataScreen(padding, applyLandscapeSafeDrawing = false) {
-        FeedStatusContent(
-            message = message,
-            retryLabel = stringResource(R.string.common_refresh),
-            onRetry = onRefresh
-        )
-    }
-}
-
-@Composable
-private fun LiveRankingDialog(
-    posts: List<Post>,
-    postRanks: Map<String, PostRankingInfo>,
-    onDismiss: () -> Unit,
-    onOpenPost: (Post) -> Unit
-) {
-    FeedLiveRankingDialogContent(
-        posts = posts,
-        rankForPost = { post -> postRanks[post.id]?.position ?: Int.MAX_VALUE },
-        postTypeLabel = ::postTypeLabel,
-        panel = { items, dismiss, openItem ->
-            QuataLiveRankingPanel(
-                items = items,
-                onDismiss = dismiss,
-                onOpenItem = openItem,
-            )
-        },
-        onDismiss = onDismiss,
-        onOpenPost = onOpenPost,
-    )
-}
-
-@Composable
-private fun postTypeLabel(post: Post): String = when {
-    post.videoUrl != null -> stringResource(R.string.feed_post_type_video)
-    post.imageUrl != null -> stringResource(R.string.feed_post_type_image)
-    else -> stringResource(R.string.feed_post_type_text)
-}
-
-@Composable
-private fun ReelPost(
-    post: Post,
-    postRankInfo: PostRankingInfo,
-    isCurrentPage: Boolean,
-    isAppForeground: Boolean,
-    isFeedMuted: Boolean,
-    currentUserId: String?,
-    isAuthorProfileLoading: Boolean,
-    networkReconnectToken: Long,
-    isNetworkAvailable: Boolean,
-    canDelete: Boolean,
-    initialVideoPositionMs: Long,
-    onVideoPositionChanged: (Long) -> Unit,
-    onOpenComments: () -> Unit,
-    onOpenUserProfile: () -> Unit,
-    onOpenLive: () -> Unit,
-    onFeedMutedChange: (Boolean) -> Unit,
-    onLike: () -> Unit,
-    onDelete: () -> Unit,
-    onShare: () -> Unit,
-    onReport: () -> Unit,
-    onCreatePost: () -> Unit
-) {
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val isVideoActive = isCurrentPage && isAppForeground
-    FeedReelPostContent(
-        post = post,
-        postRank = postRankInfo.position,
-        isLandscape = isLandscapeLayout,
-        canDelete = canDelete,
-        strings = FeedReelStrings(
-            like = stringResource(R.string.feed_like),
-            comments = stringResource(R.string.feed_comments),
-            share = stringResource(R.string.feed_share),
-            rank = stringResource(R.string.feed_rank),
-            live = stringResource(R.string.common_live),
-            publish = stringResource(R.string.nav_publish),
-            report = stringResource(R.string.feed_report),
-            delete = stringResource(R.string.feed_delete_post),
+    val translatorModeController = LocalQuataTranslatorModeController.current
+    var muted by rememberSaveable { mutableStateOf(false) }
+    val landscape = rememberQuataWindowLayoutInfo().isLandscape
+    DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
+    FeedScreenHost(
+        padding = padding,
+        repository = feedRepository,
+        stateHolder = viewModel,
+        currentUserId = currentUserId,
+        focusedPostId = focusedPostId,
+        feedResetToken = feedResetToken,
+        networkReconnectToken = networkReconnectToken,
+        isLandscape = landscape,
+        onFocusedPostHandled = onFocusedPostHandled,
+        onAuthRequired = onAuthRequired,
+        onOpenUserProfile = onOpenUserProfile,
+        onCreatePost = onCreatePost,
+        onReportComment = onReportComment,
+        onCommentsVisibilityChanged = onLandscapeCommentsOverlayActiveChange,
+        strings = FeedScreenStrings(
+            empty = stringResource(R.string.feed_empty),
+            like = stringResource(R.string.feed_like), comments = stringResource(R.string.feed_comments),
+            share = stringResource(R.string.feed_share), rank = stringResource(R.string.feed_rank),
+            sharePostTitle = stringResource(R.string.feed_share_post),
+            live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
+            report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
+            deleteTitle = stringResource(R.string.feed_delete_post_confirm_title),
+            deleteMessage = stringResource(R.string.feed_delete_post_confirm_message),
+            reportSuccess = stringResource(R.string.feed_report_success),
+            deleteSuccess = stringResource(R.string.feed_delete_post_success),
+            liveTitle = stringResource(R.string.feed_live_title), liveSubtitle = stringResource(R.string.feed_live_subtitle),
+            liveMonitored = { count -> stringResource(R.string.feed_live_posts_monitored, count) }, liveUpdated = stringResource(R.string.feed_live_updated), liveOpenPost = stringResource(R.string.feed_open_post),
+            videoType = stringResource(R.string.feed_post_type_video), imageType = stringResource(R.string.feed_post_type_image), textType = stringResource(R.string.feed_post_type_text),
+            commentsTitle = stringResource(R.string.comments_title), commentsYou = stringResource(R.string.comments_you), moderationReport = stringResource(R.string.moderation_report),
+            translatorContentDescription = stringResource(R.string.translator_button_content_description),
+            reply = stringResource(R.string.comments_reply_button), replyingTo = { author -> stringResource(R.string.comments_replying_to, author) }, cancelReply = stringResource(R.string.comments_cancel_reply),
+            commentPlaceholder = stringResource(R.string.comments_placeholder), send = stringResource(R.string.comments_send),
+            showEmojis = stringResource(R.string.comments_show_emojis),
+            emojiLabels = CommunityEmojiLabels(
+                recent = stringResource(R.string.emoji_recent), frequent = stringResource(R.string.emoji_frequent),
+                gestures = stringResource(R.string.emoji_gestures), people = stringResource(R.string.emoji_people),
+                animalsNature = stringResource(R.string.emoji_animals_nature), foodDrink = stringResource(R.string.emoji_food_drink),
+                objectsSymbols = stringResource(R.string.emoji_objects_symbols), flags = stringResource(R.string.emoji_flags),
+            ),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
-        media = {
-            ReelMedia(
-                post = post,
-                isActive = isVideoActive,
-                isMuted = isFeedMuted,
-                networkReconnectToken = networkReconnectToken,
-                isNetworkAvailable = isNetworkAvailable,
-                initialVideoPositionMs = initialVideoPositionMs,
-                onVideoPositionChanged = onVideoPositionChanged,
-                onMuteChange = onFeedMutedChange
-            )
-        },
-        avatar = {
-            ClickableProfileAvatar(
-                name = post.author.displayName,
-                avatarUrl = post.author.avatarUrl,
-                isOfficial = post.author.isOfficial,
-                profileId = post.author.id,
-                isLoading = isAuthorProfileLoading,
-                onClick = onOpenUserProfile,
-                modifier = Modifier
-                    .size(56.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
-            )
-        },
-        onOpenComments = onOpenComments,
-        onOpenLive = onOpenLive,
-        onLike = onLike,
-        onDelete = onDelete,
-        onShare = onShare,
-        onReport = onReport,
-        onCreatePost = onCreatePost,
+        slots = FeedScreenPlatformSlots(
+            media = { post, isCurrent, positionMs, onPositionChanged ->
+                AndroidFeedMediaSlot(
+                    post = post, isActive = isCurrent && isAppForeground, isMuted = muted,
+                    networkReconnectToken = networkReconnectToken, isNetworkAvailable = isNetworkAvailable,
+                    initialVideoPositionMs = positionMs, onVideoPositionChanged = onPositionChanged, onMuteChange = { muted = it },
+                )
+            },
+            avatar = { post ->
+                ClickableProfileAvatar(
+                    name = post.author.displayName, avatarUrl = post.author.avatarUrl,
+                    isOfficial = post.author.isOfficial, profileId = post.author.id,
+                    isLoading = openingProfileUserId == post.author.id,
+                    onClick = { onOpenUserProfile(post.author.id) },
+                    modifier = Modifier.size(56.dp).border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                )
+            },
+            share = shareService::share,
+            message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+            commentsTranslatorTrigger = { _, modifier ->
+                FangTranslatorIconButton(
+                    onClick = { view ->
+                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                    },
+                    modifier = modifier,
+                )
+            },
+            rankingAvatar = { item -> AvatarImage(item.avatarName, item.avatarUrl, item.isOfficial, item.profileId, Modifier.size(44.dp)) },
+            standardFloatingPanel = { dismiss, content -> QuataStandardFloatingPanel(onDismiss = dismiss, content = content) },
+        ),
     )
 }
 
+/** Platform slot at the media-surface level; variant selection belongs exclusively to FeedScreenHost. */
 @Composable
-private fun ReelMedia(
-    post: Post,
-    isActive: Boolean,
-    isMuted: Boolean,
-    networkReconnectToken: Long,
-    isNetworkAvailable: Boolean,
-    initialVideoPositionMs: Long,
-    onVideoPositionChanged: (Long) -> Unit,
-    onMuteChange: (Boolean) -> Unit
+private fun AndroidFeedMediaSlot(
+    post: Post, isActive: Boolean, isMuted: Boolean, networkReconnectToken: Long,
+    isNetworkAvailable: Boolean, initialVideoPositionMs: Long,
+    onVideoPositionChanged: (Long) -> Unit, onMuteChange: (Boolean) -> Unit,
 ) {
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val hasText = post.text.parsePostShortcodeContent().cleanText.isNotBlank()
-    ReelMediaVariantContent(
-        hasVideo = post.videoUrl != null,
-        hasImage = post.imageUrl != null,
-        hasText = hasText,
-        video = {
-            ReelMediaSurfaceContent(background = textCanvasBrush(post.videoUrl ?: post.id)) {
-                ReelVideo(
-                    videoUrl = post.videoUrl.orEmpty(),
-                    isActive = isActive,
-                    isMuted = isMuted,
-                    networkReconnectToken = networkReconnectToken,
-                    isNetworkAvailable = isNetworkAvailable,
-                    initialPositionMs = initialVideoPositionMs,
-                    onPositionChanged = onVideoPositionChanged,
-                    onMuteChange = onMuteChange
-                )
-            }
-        },
-        image = {
-            val imageModel = rememberCachedRemoteImageRequest(post.imageUrl)
-            ReelMediaSurfaceContent(
-                background = textCanvasBrush(post.imageUrl ?: post.id),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = imageModel,
-                    contentDescription = post.imageTitle(),
-                    contentScale = if (isLandscapeLayout) ContentScale.Fit else ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        },
-        text = { TextOnlyReel(post = post) }
-    )
-}
-
-@Composable
-private fun TextOnlyReel(post: Post) {
-    val meta = remember(post.text) { post.text.extractPostMeta() }
-    val displayText = meta.cleanBody
-    val seedText = remember(displayText) { displayText.cleanTextCanvasSeedBody() }
-    val patternId = meta.textPattern.takeIf { it.isNotBlank() }
-    TextOnlyReelContent(
-        stableId = post.id,
-        displayText = displayText,
-        seedText = seedText,
-        patternId = patternId,
-        readMoreText = stringResource(R.string.feed_read_more),
-        readerDismissButton = { modifier, onDismiss ->
-            CompactIconButton(onClick = onDismiss, modifier = modifier) {
-                CompactIcon(Icons.Filled.Close, stringResource(R.string.common_close), tint = Color.White)
-            }
+    val landscape = rememberQuataWindowLayoutInfo().isLandscape
+    val videoUrl = post.videoUrl
+    val imageUrl = post.imageUrl
+    when {
+        videoUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(videoUrl)) {
+            ReelVideo(videoUrl, isActive, isMuted, networkReconnectToken, isNetworkAvailable, initialVideoPositionMs, onVideoPositionChanged, onMuteChange)
         }
-    )
+        imageUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(imageUrl), contentAlignment = Alignment.Center) {
+            AsyncImage(
+                model = rememberCachedRemoteImageRequest(imageUrl), contentDescription = post.imageTitle(),
+                contentScale = if (landscape) ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ReelVideo(
     videoUrl: String,

@@ -10,7 +10,8 @@ const matrix = () => readFile(matrixPath, 'utf8').then(JSON.parse);
 test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Android catalogue', async () => {
   const emitted = await loadAndValidateCapabilityMatrix();
   assert.equal(emitted.length, 12);
-  assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'read-only' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'feed.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
@@ -23,8 +24,8 @@ test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, schema and source 
     ['one-ID matrix', (value) => { value.capabilities = value.capabilities.slice(0, 1); }],
     ['unknown ID', (value) => { value.capabilities[0].id = 'unknown.flow'; }],
     ['missing operation', (value) => { value.capabilities[1].operations.pop(); }],
-    ['implemented Web mutation with dead blocker source intact', (value) => { value.capabilities[1].platforms.web.state = 'implemented'; value.capabilities[1].platforms.web.evidence[1].role = 'implementation'; }],
-    ['evidence role incompatible with blocked state', (value) => { value.capabilities[1].platforms.web.evidence[1].role = 'implementation'; }],
+    ['implemented Web mutation with dead blocker source intact', (value) => { value.capabilities[1].platforms.web.evidence[1].role = 'explicit-block'; }],
+    ['evidence role incompatible with implemented state', (value) => { value.capabilities[1].platforms.web.evidence[1].role = 'read-only-adapter'; }],
     ['source hash replaced', (value) => { value.capabilities[1].platforms.web.evidence[1].sha256 = '0'.repeat(64); }],
     ['path traversal', (value) => { value.capabilities[1].platforms.web.evidence[1].path = '../outside.kt'; }],
     ['root marker', (value) => { value.generated = true; }],

@@ -6,11 +6,11 @@ import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle adapter for the shared FeedViewModel. */
-class FeedAndroidViewModel(repository: FeedRepository) : ViewModel() {
+class FeedAndroidViewModel(repository: FeedRepository) : ViewModel(), FeedStateHolder {
     private val delegate = FeedViewModel(repository)
-    val uiState: StateFlow<FeedUiState> = delegate.uiState
+    override val uiState: StateFlow<FeedUiState> = delegate.uiState
 
-    fun onEvent(event: FeedUiEvent) = delegate.onEvent(event)
+    override fun onEvent(event: FeedUiEvent) = delegate.onEvent(event)
 
     override fun onCleared() {
         delegate.close()

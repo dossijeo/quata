@@ -80,4 +80,7 @@ xcodebuild \
   CODE_SIGNING_REQUIRED=NO \
   build
 
+app="$derived_data_path/Build/Products/Debug-iphonesimulator/QuataIos.app"
+bash scripts/sync-ios-compose-resources.sh --verify "$app"
+
 echo "Intel x86_64 simulator host build validated."

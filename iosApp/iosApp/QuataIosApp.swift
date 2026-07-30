@@ -15,6 +15,33 @@ enum IosWhatsNewLocale {
     }
 }
 
+/// iOS application-open contract for public Quata routes.
+///
+/// The app registers only the custom scheme `quata`. Its canonical shape is
+/// `quata://egquata.com/#post-<id>`; `official-<id>` and `chat-<conversation>`
+/// fragments use the shared Kotlin parser as well. HTTPS URLs remain web/share URLs and are
+/// intentionally not claimed here: this target has no Associated Domains entitlement and does
+/// not represent them as Universal Links.
+enum IosDeepLinkUrlContract {
+    static let scheme = "quata"
+    static let host = "egquata.com"
+
+    static func acceptsApplicationOpenUrl(_ url: URL) -> Bool {
+        url.scheme?.caseInsensitiveCompare(scheme) == .orderedSame &&
+            url.host?.caseInsensitiveCompare(host) == .orderedSame
+    }
+
+    /// Keeps the Info.plist declaration testable without treating XCTest's own bundle as the
+    /// application bundle.
+    static func isRegistered(in infoDictionary: [String: Any]) -> Bool {
+        let urlTypes = infoDictionary["CFBundleURLTypes"] as? [[String: Any]] ?? []
+        return urlTypes.contains { urlType in
+            let schemes = urlType["CFBundleURLSchemes"] as? [String] ?? []
+            return schemes.contains { $0.caseInsensitiveCompare(scheme) == .orderedSame }
+        }
+    }
+}
+
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
@@ -132,7 +159,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:],
     ) -> Bool {
-        compositionRoot.handleDeepLink(url)
+        guard IosDeepLinkUrlContract.acceptsApplicationOpenUrl(url) else { return false }
+        return compositionRoot.handleDeepLink(url)
     }
 }
 
@@ -176,6 +204,15 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
+    // The inbox and the shared top chrome deliberately retain one notification repository. This
+    // prevents the badge from becoming a separate Swift count with different unread semantics.
+    private lazy var notificationsRuntimeBootstrap: IosNotificationsRuntimeBootstrap? = {
+        guard let chatRuntimeBootstrap else { return nil }
+        return IosNotificationsRuntimeBootstrapKt
+            .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
+    }()
+    private var notificationCountObserver: IosNotificationCountObserver?
+    private var notificationCountObservationID = UUID()
     /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
     /// independent from Keychain restoration, so a valid public deployment can open a shared
     /// Official link before login and never sends a restored bearer token for that read.
@@ -366,9 +403,11 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installPublicFeed { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.publicDependencies(
-                    navigationMessage: "Explora Quata",
-                    onOpenChats: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
-                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    mediaFactory: IosFeedNativeMediaFactory.shared,
+                    shareService: self.platformServices.services.share,
+                    onOpenUserProfile: { [weak self] profileId in
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    },
                     initialPostId: postId,
                 ),
             )
@@ -389,11 +428,13 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession() else { return false }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
-                dependencies: runtimeBootstrap.publicDependencies(
-                    navigationMessage: "Quata para iOS",
-                    onOpenChats: { [weak self] in self?.authenticatedHost.openChatList() },
-                    onBackToFeed: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                dependencies: runtimeBootstrap.authenticatedDependencies(
+                    mediaFactory: IosFeedNativeMediaFactory.shared,
+                    shareService: self.platformServices.services.share,
                     initialPostId: postId,
+                    onOpenUserProfile: { [weak self] profileId in
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    },
                 ),
             )
         }
@@ -456,12 +497,10 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedNotificationsIfAvailable() {
-        guard let chatRuntimeBootstrap else { return }
-        let notificationsBootstrap = IosNotificationsRuntimeBootstrapKt
-            .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
+        guard let bootstrap = notificationsRuntimeBootstrap else { return }
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
-                repository: notificationsBootstrap.repository(),
+                repository: bootstrap.repository(),
                 timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
@@ -487,6 +526,30 @@ private final class IosAppCompositionRoot {
                 onHandleDeepLink: { _ in },
             ),
         )
+        installNotificationCountObserver(bootstrap)
+    }
+
+    private func installNotificationCountObserver(_ bootstrap: IosNotificationsRuntimeBootstrap) {
+        notificationCountObserver?.close()
+        let observer = bootstrap.notificationCountObserver()
+        let observationID = UUID()
+        notificationCountObservationID = observationID
+        notificationCountObserver = observer
+        observer.start { [weak self] count in
+            // The Kotlin bridge collects on MainScope; dispatching also protects this state if a
+            // future repository changes its upstream dispatcher.
+            DispatchQueue.main.async {
+                guard let self, self.notificationCountObservationID == observationID else { return }
+                self.authenticatedHost.updateNotificationCount(Int(count.intValue))
+            }
+        }
+    }
+
+    private func closeNotificationCountObserver() {
+        notificationCountObserver?.close()
+        notificationCountObserver = nil
+        // Ignore a value that was already queued on the main run loop before cancellation.
+        notificationCountObservationID = UUID()
     }
 
     private func installAuthenticatedProfileSosIfAvailable() {
@@ -546,6 +609,20 @@ private final class IosAppCompositionRoot {
                 ),
             )
         }
+    }
+
+    /// Feed and Communities share the existing authenticated member-profile presentation.
+    fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
+        guard let profileSosRuntimeBootstrap else { return }
+        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+            profileId: profileId,
+            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
+        )
+        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+            dependencies: dependencies,
+        )
+        controller.modalPresentationStyle = .fullScreen
+        authenticatedHost.present(controller, animated: true)
     }
 
     /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still
@@ -644,6 +721,7 @@ private final class IosAppCompositionRoot {
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
+                self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
                 self?.installAuthenticationIfConfigured()
@@ -759,7 +837,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
     )
     private lazy var primaryNavigationController = primaryNavigationHost.viewController()
-    private var isPrimaryNavigationInstalled = false
+    /// Feed browsing is public, but the shared application shell is not authenticated-only.
+    /// Android keeps this chrome visible for anonymous Feed/Official routes too; the callbacks
+    /// below decide whether a selected destination must first acquire a session.
+    private var isSharedShellInstalled = false
     private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
         // iOS has no About route equivalent yet. Keep this callback explicit instead of mapping
         // the shared Q̈ mark to an unrelated release-history route.
@@ -769,6 +850,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     )
     private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
     private var isAuthenticatedTopChromeInstalled = false
+
+    /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
+    func updateNotificationCount(_ count: Int) {
+        authenticatedTopChromeHost.updateNotificationCount(count: Int32(clamping: count))
+    }
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
@@ -833,7 +919,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard isPrimaryNavigationInstalled else {
+        guard isSharedShellInstalled else {
             displayedController?.view.frame = view.bounds
             return
         }
@@ -847,14 +933,24 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installFeedFactory { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
     }
 
-    /// Public Feed factory never enables the authenticated menu or interactive verticals.
+    /// Public Feed is a real app route, not a full-screen fallback. Keep the common top chrome
+    /// and primary navigation installed exactly as Android does; private destinations remain
+    /// gated by `PendingRoute.isAuthenticationRequired` in `route(_:)`.
     func installPublicFeed(_ factory: @escaping (String?) -> UIViewController) {
         guard !hasAuthenticatedSession else { return }
         feedFactory = factory
         hasPublicFeed = true
+        installSharedShellIfNeeded()
         routeMenuButton.isHidden = true
         renderPendingRouteIfPossible()
-        if pendingRoute == nil { showFeed(postId: nil) }
+        if pendingRoute == nil {
+            showFeed(postId: nil)
+        } else if pendingRoute?.isAuthenticationRequired == true, let feedController = feedFactory?(nil) {
+            // A protected deep link can arrive before the public runtime and Auth factories are
+            // composed. Keep that destination pending, but make the public Feed (and its shell)
+            // visible rather than leaving the migration placeholder on screen.
+            showRouteController(feedController, route: .feed(postId: nil))
+        }
     }
 
     /// Installs the authenticated root route. Kept separate from dependency composition so the
@@ -863,7 +959,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         feedFactory = factory
         hasAuthenticatedSession = true
         hasPublicFeed = false
-        installPrimaryNavigationIfNeeded()
+        installSharedShellIfNeeded()
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
@@ -899,7 +995,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authenticationFactory = factory
         // On an unconfigured deployment this remains the honest initial state. With a valid
         // public Feed it is deferred until an anonymous user explicitly asks to log in.
-        if !hasPublicFeed { presentLoginIfAvailable() }
+        if !hasPublicFeed || pendingRoute?.isAuthenticationRequired == true {
+            presentLoginIfAvailable()
+        }
     }
 
     func presentLoginIfAvailable() {
@@ -928,7 +1026,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         releaseHistoryFactory = fixture
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
-        installPrimaryNavigationIfNeeded()
+        installSharedShellIfNeeded()
     }
 
     /// The shared Feed can already expose its Conversations affordance, but the authenticated
@@ -1259,7 +1357,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         logoutAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
-        removePrimaryNavigation()
+        // The public application chrome is deliberately kept mounted while the composition
+        // rebuilds anonymous factories. Removing it first creates a visible full-screen gap and
+        // contradicts Android's shell contract for anonymous Feed browsing.
+        authenticatedTopChromeHost.updateNotificationCount(count: 0)
+        primaryNavigationHost.updateSelectedRoute(route: "feed")
+        showMigrationStatus()
         completion?()
     }
 
@@ -1269,7 +1372,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // The identifier belongs to the real Compose semantics node. Keeping a second UIKit
             // identifier here would make the UI test unable to distinguish content from wrapper.
             accessibilityIdentifier: nil,
-            accessibilityLabel: "Quata iOS requires an authenticated Feed session",
+            accessibilityLabel: "Quata iOS is preparing the public Feed",
         )
     }
 
@@ -1323,6 +1426,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        // Public Official/deep-link routes may be resolved before the Feed factory has been
+        // installed. They still belong to the application viewport and therefore get the same
+        // shared shell as Feed rather than becoming a full-screen UIKit exception.
+        installSharedShellIfNeeded()
         switch route {
         case .communities: primaryNavigationHost.updateSelectedRoute(route: "neighborhoods")
         case .chat: primaryNavigationHost.updateSelectedRoute(route: "conversations")
@@ -1395,7 +1502,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // seen or tapped after the first route transition.
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
-        if isPrimaryNavigationInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
+        if isSharedShellInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -1406,11 +1513,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.setNeedsLayout()
     }
 
-    private func installPrimaryNavigationIfNeeded() {
-        guard !isPrimaryNavigationInstalled else { return }
+    /// Installs the common visual shell for both public and authenticated application routes.
+    /// Authentication is a navigation capability, not a condition for rendering app chrome.
+    private func installSharedShellIfNeeded() {
+        guard !isSharedShellInstalled else { return }
         addChild(authenticatedTopChromeController)
         authenticatedTopChromeController.view.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
         authenticatedTopChromeController.view.isAccessibilityElement = false
+        // Stable legacy automation identifier: this is now the shared public/authenticated
+        // shell chrome, but changing the externally observed identifier would break clients.
         authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
         view.addSubview(authenticatedTopChromeController.view)
         authenticatedTopChromeController.didMove(toParent: self)
@@ -1418,24 +1529,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         addChild(primaryNavigationController)
         primaryNavigationController.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
         primaryNavigationController.view.isAccessibilityElement = false
+        // Stable legacy automation identifier; see the top-chrome compatibility note above.
         primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
         view.addSubview(primaryNavigationController.view)
         primaryNavigationController.didMove(toParent: self)
-        isPrimaryNavigationInstalled = true
+        isSharedShellInstalled = true
         view.setNeedsLayout()
     }
 
-    private func removePrimaryNavigation() {
-        guard isPrimaryNavigationInstalled else { return }
-        authenticatedTopChromeController.willMove(toParent: nil)
-        authenticatedTopChromeController.view.removeFromSuperview()
-        authenticatedTopChromeController.removeFromParent()
-        isAuthenticatedTopChromeInstalled = false
-        primaryNavigationController.willMove(toParent: nil)
-        primaryNavigationController.view.removeFromSuperview()
-        primaryNavigationController.removeFromParent()
-        isPrimaryNavigationInstalled = false
-    }
 }
 
 /// One source of truth for UIKit containment frames. The route host owns exactly the viewport

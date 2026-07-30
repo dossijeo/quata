@@ -1,6 +1,7 @@
 package com.quata.feature.feed.data
 
 import com.quata.core.data.toFoundationData
+import com.quata.core.session.IosRenewableAuthSession
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
@@ -21,6 +22,7 @@ import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLResponse
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.setHTTPMethod
+import platform.Foundation.setHTTPBody
 import platform.darwin.NSObject
 
 /** Client-safe deployment settings; never provide a service-role key through this boundary. */
@@ -37,6 +39,7 @@ data class IosFeedRuntimeConfiguration(
 @OptIn(ExperimentalForeignApi::class)
 class IosFeedReadTransport(
     private val configuration: IosFeedRuntimeConfiguration,
+    private val authSession: IosRenewableAuthSession? = null,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
         val query = buildMap {
@@ -74,7 +77,45 @@ class IosFeedReadTransport(
         ).map { it.toFeedRemoteProfile() }
     }
 
-    override suspend fun currentUserId(): Result<String?> = Result.success(null)
+    override suspend fun currentUserId(): Result<String?> = runCatching { authSession?.currentSession()?.userId }
+
+    /** Authenticated-only PostgREST mutation reused by the full iOS Feed repository. */
+    suspend fun mutate(table: String, method: String, query: Map<String, String> = emptyMap(), body: String? = null): Result<Unit> = runCatching {
+        require(authSession != null) { "ios_feed_session_missing" }
+        require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
+        val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_feed_session_missing")
+        val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_publishable_key_missing")
+        val url = NSURL(string = "$base/rest/v1/$table${query.toIosQueryString()}") ?: error("ios_feed_url_invalid")
+        val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
+            put("Authorization", "Bearer ${session.bearerToken}")
+            put("Prefer", "return=representation")
+            if (body != null) put("Content-Type", "application/json")
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
+            .iosData(url, method, body?.encodeToByteArray()?.toFoundationData())
+    }
+
+    /**
+     * Authenticated RPC boundary intentionally limited to the reviewed Feed report procedure.
+     * It reuses the same session and headers as table mutations but never lets a caller build an
+     * arbitrary PostgREST RPC path.
+     */
+    suspend fun reportPostRpc(body: String): Result<Unit> = runCatching {
+        require(authSession != null) { "ios_feed_session_missing" }
+        val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_feed_session_missing")
+        val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_publishable_key_missing")
+        val request = iosFeedReportPostRpcRequest(base, body)
+        val url = NSURL(string = request.url) ?: error("ios_feed_url_invalid")
+        val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
+            put("Authorization", "Bearer ${session.bearerToken}")
+            put("Prefer", "return=representation")
+            put("Content-Type", "application/json")
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
+            .iosData(url, request.method, request.body.encodeToByteArray().toFoundationData())
+    }
 
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {
         require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
@@ -91,8 +132,11 @@ class IosFeedReadTransport(
         )
         val url = NSURL(string = publicRequest.url)
             ?: error("ios_feed_url_invalid")
+        val requestHeaders = publicRequest.headers.toMutableMap().apply {
+            authSession?.currentSession()?.bearerToken?.takeIf(String::isNotBlank)?.let { put("Authorization", "Bearer $it") }
+        }
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-            HTTPAdditionalHeaders = publicRequest.headers
+            HTTPAdditionalHeaders = requestHeaders
         }
         return requestConfiguration.iosData(url, publicRequest.method).toIosJsonRows()
     }
@@ -114,6 +158,15 @@ internal data class IosPublicFeedRequest(
     val headers: Map<Any?, Any?>,
 )
 
+/** Pure contract for the only authenticated Feed RPC currently exposed by iOS. */
+internal data class IosFeedRpcRequest(val method: String, val url: String, val body: String)
+
+internal fun iosFeedReportPostRpcRequest(baseUrl: String, body: String): IosFeedRpcRequest = IosFeedRpcRequest(
+    method = "POST",
+    url = "${baseUrl.trim().trimEnd('/')}/rest/v1/rpc/quata_ugc_report",
+    body = body,
+)
+
 internal fun iosPublicFeedRequest(
     baseUrl: String,
     publishableKey: String,
@@ -129,10 +182,10 @@ internal fun iosPublicFeedRequest(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSessionConfiguration.iosData(url: NSURL, method: String): NSData = suspendCancellableCoroutine { continuation ->
+private suspend fun NSURLSessionConfiguration.iosData(url: NSURL, method: String, body: NSData? = null): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosFeedDataTaskDelegate(continuation)
     val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
-    val task = session.dataTaskWithRequest(NSMutableURLRequest.requestWithURL(url).apply { setHTTPMethod(method) })
+    val task = session.dataTaskWithRequest(NSMutableURLRequest.requestWithURL(url).apply { setHTTPMethod(method); body?.let(::setHTTPBody) })
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()

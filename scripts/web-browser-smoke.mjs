@@ -23,6 +23,7 @@ import {
     classifyBrowserRequest,
     validateDocmentisPermitRequest,
 } from './web-browser-network-policy.mjs';
+import { isInvalidatedFetchInterceptionError } from './web-browser-smoke-interception.mjs';
 import { removeChromeProfile } from './web-browser-smoke-cleanup.mjs';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
@@ -193,7 +194,9 @@ try {
                 command = cdp.send('Fetch.continueRequest', { requestId });
             }
             command.catch(error => {
-                if (!closingCdp) failures.push(`Could not resolve intercepted request ${request.url}: ${error.message}`);
+                if (!closingCdp && !isInvalidatedFetchInterceptionError(error)) {
+                    failures.push(`Could not resolve intercepted request ${request.url}: ${error.message}`);
+                }
             });
         });
         await cdp.send('Runtime.enable');

@@ -25,7 +25,7 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
-import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
+import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
@@ -41,6 +41,8 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
+
+internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -124,6 +126,10 @@ private fun QuataWebApp(
             authRepository = authRepository,
         )
     }
+    val feedPresence = remember(runtimeConfiguration, authRepository) {
+        WebFeedPresence(runtimeConfiguration, authRepository)
+    }
+    DisposableEffect(feedPresence) { onDispose { feedPresence.close() } }
     val officialRepository = remember(runtimeConfiguration, authRepository) {
         WebOfficialRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
@@ -170,6 +176,9 @@ private fun QuataWebApp(
     var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
+    // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
+    // authenticated shell level so navigation does not manufacture a second browser profile UI.
+    val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -270,14 +279,15 @@ private fun QuataWebApp(
     }
     DisposableEffect(isSessionReady) {
         val stopObserving = observeIncomingWebShares {
-            if (isSessionReady) navigateWebFragment("share-target")
+            if (isSessionReady) navigation.navigate("share-target")
         }
         onDispose(stopObserving)
     }
-    LaunchedEffect(navigation, runtimeConfiguration.isBackendConfigured) {
+    val navigationState = navigation.state
+    LaunchedEffect(navigationState, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
-        platformServices.preferences.putString("web.navigation.route", navigation.route)
-        navigation.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
+        platformServices.preferences.putString("web.navigation.route", navigationState.route)
+        navigationState.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
         platformServices.preferences.putString(
             "web.runtime.backend_configured",
             runtimeConfiguration.isBackendConfigured.toString(),
@@ -290,16 +300,16 @@ private fun QuataWebApp(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
                 isOnline = true,
-                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS 🚨"),
-                onLogoClick = { navigateWebFragment("about") },
-                onNotificationsClick = { navigateWebFragment("notifications") },
-                onSosClick = { navigateWebFragment("profile") },
+                strings = WebAuthenticatedChromeStrings,
+                onLogoClick = { navigation.navigate("about") },
+                onNotificationsClick = { navigation.navigate("notifications") },
+                onSosClick = { navigation.navigate("profile") },
                 isSosSending = false,
                 bottomNavigation = {
                     QuataPrimaryBottomNavigation(
                         labels = webPrimaryNavigationLabels,
                         selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
-                        onRouteSelected = { route -> navigateWebFragment(canonicalPrimaryRouteToWebFragment(route)) },
+                        onRouteSelected = { route -> navigation.navigate(canonicalPrimaryRouteToWebFragment(route)) },
                     )
                 },
             ) { chromePadding ->
@@ -310,12 +320,12 @@ private fun QuataWebApp(
                         clipboardService = platformServices.clipboard,
                         store = incomingShareStore,
                         onFinished = { conversationId ->
-                            if (conversationId != null) navigateWebConversation(conversationId) else navigateWebFragment("chat")
+                            if (conversationId != null) navigation.navigateConversation(conversationId) else navigation.navigate("chat")
                         },
-                        onDismiss = { navigateWebFragment("chat") },
+                        onDismiss = { navigation.navigate("chat") },
                     )
                 } else if (navigation.route == "share-target-error") {
-                    WebShareTargetErrorHost(onDismiss = { navigateWebFragment("chat") })
+                    WebShareTargetErrorHost(onDismiss = { navigation.navigate("chat") })
                 } else if (navigation.route == "settings") {
                     WebSettingsHost(
                         touchFlowEnabled = touchFlowEnabled,
@@ -346,7 +356,7 @@ private fun QuataWebApp(
                                 val result = sessionCoordinator.logoutCurrentSession()
                                 platformServices.preferences.remove(WebSessionReadyKey)
                                 platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
-                                navigateWebFragment("")
+                                navigation.navigate("")
                                 isSessionReady = false
                             }
                         },
@@ -355,14 +365,14 @@ private fun QuataWebApp(
                     WebWhatsNewHost(
                         repository = whatsNewRepository,
                         installedVersionCode = runtimeConfiguration.releaseVersionCode,
-                        onBack = { navigateWebFragment("settings") },
+                        onBack = { navigation.navigate("settings") },
                     )
                 } else if (navigation.route == "notifications") {
                     WebNotificationsHost(
                         repository = notificationsRepository,
                         runtimeConfiguration = runtimeConfiguration,
-                        onBack = { navigateWebFragment("") },
-                        onOpenConversation = ::navigateWebConversation,
+                        onBack = { navigation.navigate("") },
+                        onOpenConversation = navigation::navigateConversation,
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
@@ -398,8 +408,9 @@ private fun QuataWebApp(
                             strings = webNeighborhoodsStrings,
                             slots = webNeighborhoodsSlots,
                             rankingItems = emptyList(),
-                            onOpenConversation = ::navigateWebConversation,
-                            onOpenUserRoute = { navigateWebFragment("communities") },
+                            onOpenConversation = navigation::navigateConversation,
+                            onOpenUserRoute = { navigation.navigate("communities") },
+                            initialMemberProfileId = null,
                             onOpenRankingItem = { },
                             onSubmitComment = { },
                             commentsEnabled = false,
@@ -424,19 +435,40 @@ private fun QuataWebApp(
                             documentOpener = platformServices.documentOpener,
                             conversationId = navigation.chatConversationId,
                             navigationMessage = navigation.message,
-                            onOpenConversation = ::navigateWebConversation,
-                            onBackToList = { navigateWebFragment("chat") },
+                            onOpenConversation = navigation::navigateConversation,
+                            onBackToList = { navigation.navigate("chat") },
                         )
                     }
                 } else {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
-                        WebFeedHost(
-                            repository = feedRepository,
-                            navigationMessage = navigation.message,
-                            onOpenChats = { navigateWebFragment("chat") },
-                            sharedPostId = navigation.postId,
-                            onBackToFeed = { navigateWebFragment("") },
-                        )
+                        val memberProfileId = feedMemberProfileRoute.profileId
+                        if (memberProfileId != null) {
+                            // Keep Feed selected in the primary navigation. This is the same
+                            // shared member profile used by Communities, presented in-place over
+                            // the Feed route rather than redirecting the user to another tab.
+                            WebNeighborhoodsHost(
+                                repository = neighborhoodsRepository,
+                                currentUserId = currentUserId,
+                                strings = webNeighborhoodsStrings,
+                                slots = webNeighborhoodsSlots,
+                                rankingItems = emptyList(),
+                                onOpenConversation = navigation::navigateConversation,
+                                onOpenUserRoute = feedMemberProfileRoute::open,
+                                initialMemberProfileId = memberProfileId,
+                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
+                                onOpenRankingItem = { },
+                                onSubmitComment = { },
+                                commentsEnabled = false,
+                            )
+                        } else {
+                            WebFeedHost(
+                                repository = feedRepository,
+                                shareService = platformServices.share,
+                                presence = feedPresence,
+                                sharedPostId = navigation.postId,
+                                onOpenUserProfile = feedMemberProfileRoute::open,
+                            )
+                        }
                     }
                 }
             }
@@ -500,14 +532,42 @@ internal data class WebNavigationState(
     val postId: String? = null,
 )
 
-@Composable
-private fun rememberWebNavigation(): WebNavigationState {
-    var fragment by remember { mutableStateOf(browserFragment()) }
-    DisposableEffect(Unit) {
-        observeBrowserFragmentChanges { fragment = it }
-        onDispose { }
+internal class WebNavigationController(
+    initialFragment: String,
+    private val updateBrowserFragment: (String) -> Unit = ::setBrowserFragment,
+) {
+    var state by mutableStateOf(initialFragment.toWebNavigationState())
+        private set
+
+    val route: String get() = state.route
+    val message: String get() = state.message
+    val chatConversationId: String? get() = state.chatConversationId
+    val officialPostId: String? get() = state.officialPostId
+    val postId: String? get() = state.postId
+
+    /** Updates Compose first; browser hashchange remains responsible for external history changes. */
+    fun navigate(fragment: String) {
+        acceptBrowserFragment(fragment)
+        updateBrowserFragment(fragment)
     }
-    return remember(fragment) { fragment.toWebNavigationState() }
+
+    fun navigateConversation(conversationId: String) {
+        navigate(quataChatUrl(conversationId).substringAfter('#'))
+    }
+
+    fun acceptBrowserFragment(fragment: String) {
+        state = fragment.toWebNavigationState()
+    }
+}
+
+@Composable
+private fun rememberWebNavigation(): WebNavigationController {
+    val controller = remember { WebNavigationController(browserFragment()) }
+    DisposableEffect(Unit) {
+        val stopObserving = observeBrowserFragmentChanges(controller::acceptBrowserFragment)
+        onDispose(stopObserving)
+    }
+    return controller
 }
 
 internal fun String.toWebNavigationState(): WebNavigationState {
@@ -566,23 +626,23 @@ internal fun String.toWebNavigationState(): WebNavigationState {
             message = "Enlace de publicación recibido. La vista compartida se habilitará al conectar datos web.",
         )
     }
-    return WebNavigationState(route = "feed", message = "Quata Web se está preparando.")
+    return WebNavigationState(route = "feed", message = "Feed")
 }
 
 private fun browserFragment(): String = js("globalThis.location?.hash?.replace(/^#/, '') || ''")
 
-private fun navigateWebFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+private fun setBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
 
-/** Emits the same encoded fragment consumed by the common chat deep-link parser. */
-private fun navigateWebConversation(conversationId: String) {
-    navigateWebFragment(quataChatUrl(conversationId).substringAfter('#'))
-}
-
-private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = js(
+/**
+ * Observes in-place browser hash navigation. The returned callback must be retained for the
+ * composition lifetime so the JavaScript listener and its Kotlin callback bridge stay alive.
+ */
+internal fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): () -> Unit = js(
     """
     (() => {
     const listener = () => onChanged(globalThis.location?.hash?.replace(/^#/, '') || '');
     globalThis.addEventListener?.('hashchange', listener);
+    return () => globalThis.removeEventListener?.('hashchange', listener);
     })()
     """,
 )

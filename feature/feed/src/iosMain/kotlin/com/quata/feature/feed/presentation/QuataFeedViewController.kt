@@ -1,19 +1,23 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.quata.core.capability.DefaultFeatureCapabilityText
+import com.quata.core.platform.ShareService
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
+import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
@@ -26,10 +30,11 @@ import platform.UIKit.UIViewController
  */
 class IosFeedHostDependencies(
     val repository: FeedRepository,
-    val navigationMessage: String = "Quata para iOS",
-    val onOpenChats: () -> Unit = {},
-    val onBackToFeed: () -> Unit = {},
+    val mediaFactory: IosFeedMediaFactory,
+    val shareService: ShareService,
+    val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
+    val presence: FeedUserPresence? = null,
 )
 
 /**
@@ -38,15 +43,15 @@ class IosFeedHostDependencies(
  */
 fun iosReadOnlyFeedHostDependencies(
     readRepository: FeedReadRepository,
-    navigationMessage: String = "Quata para iOS",
-    onOpenChats: () -> Unit = {},
-    onBackToFeed: () -> Unit = {},
+    mediaFactory: IosFeedMediaFactory,
+    shareService: ShareService,
+    onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
-    navigationMessage = navigationMessage,
-    onOpenChats = onOpenChats,
-    onBackToFeed = onBackToFeed,
+    mediaFactory = mediaFactory,
+    shareService = shareService,
+    onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
 
@@ -57,17 +62,38 @@ fun iosReadOnlyFeedHostDependencies(
  */
 fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     configuration: IosFeedRuntimeConfiguration,
-    navigationMessage: String = "Quata para iOS",
-    onOpenChats: () -> Unit = {},
-    onBackToFeed: () -> Unit = {},
+    mediaFactory: IosFeedMediaFactory,
+    shareService: ShareService,
+    onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
-    navigationMessage = navigationMessage,
-    onOpenChats = onOpenChats,
-    onBackToFeed = onBackToFeed,
+    mediaFactory = mediaFactory,
+    shareService = shareService,
+    onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
 )
+
+/** Authenticated launch path: it shares the Keychain session owner and enables reviewed writes. */
+fun iosAuthenticatedPostgrestFeedHostDependencies(
+    configuration: IosFeedRuntimeConfiguration,
+    authSession: IosRenewableAuthSession,
+    mediaFactory: IosFeedMediaFactory,
+    shareService: ShareService,
+    initialPostId: String? = null,
+    onOpenUserProfile: (String) -> Unit = {},
+): IosFeedHostDependencies {
+    val transport = IosFeedReadTransport(configuration, authSession)
+    val read = RemoteFeedReadRepository(transport)
+    return IosFeedHostDependencies(
+        repository = IosAuthenticatedFeedRepository(transport, ReadOnlyFeedRepository(read)),
+        mediaFactory = mediaFactory,
+        shareService = shareService,
+        onOpenUserProfile = onOpenUserProfile,
+        initialPostId = initialPostId,
+        presence = IosFeedPresence(configuration, authSession),
+    )
+}
 
 /**
  * Stable Swift entry point for a real [FeedRepository] supplied by the iOS composition root.
@@ -76,19 +102,32 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
  */
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
-        dependencies.initialPostId?.takeIf(String::isNotBlank)?.let { postId ->
-            FeedPostDetailHostContent(
-                repository = dependencies.repository,
-                postId = postId,
-                navigationMessage = dependencies.navigationMessage,
-                strings = IosFeedHostStrings,
-                onBackToFeed = dependencies.onBackToFeed,
-            )
-        } ?: FeedBrowserHostContent(
+        var muted by rememberSaveable { mutableStateOf(false) }
+        FeedScreenHost(
+            padding = PaddingValues(),
             repository = dependencies.repository,
-            navigationMessage = dependencies.navigationMessage,
-            strings = IosFeedHostStrings,
-            onOpenChats = dependencies.onOpenChats,
+            focusedPostId = dependencies.initialPostId,
+            presence = dependencies.presence,
+            slots = FeedScreenPlatformSlots(
+                media = { post, isCurrent, initialPositionMs, onPositionChanged ->
+                    IosFeedMediaSlot(
+                        post = post,
+                        isCurrent = isCurrent,
+                        initialPositionMs = initialPositionMs,
+                        onPositionChanged = onPositionChanged,
+                        isMuted = muted,
+                        onMuteChange = { muted = it },
+                        mediaFactory = dependencies.mediaFactory,
+                    )
+                },
+                avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
+                rankingAvatar = { item -> IosFeedRankingAvatar(item) },
+                avatarWithPresence = { post, isOnline -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile, isOnline) },
+                rankingAvatarWithPresence = { item, isOnline -> IosFeedRankingAvatar(item, isOnline) },
+                share = dependencies.shareService::share,
+                showComposeMessage = true,
+            ),
+            onOpenUserProfile = dependencies.onOpenUserProfile,
         )
     }
 }
@@ -115,19 +154,3 @@ fun QuataIosMigrationStatusViewController(): UIViewController = ComposeUIViewCon
         )
     }
 }
-
-private val IosFeedHostStrings = FeedBrowserHostStrings(
-    loading = "Cargando publicaciones…",
-    retry = "Reintentar",
-    loadFailure = "No se pudo cargar el feed.",
-    refresh = "Actualizar",
-    refreshing = "Actualizando…",
-    conversations = "Conversaciones",
-    loadingOlder = "Cargando…",
-    loadOlder = "Cargar anteriores",
-    noText = "Publicación sin texto",
-    readMore = "Leer más",
-    close = "Cerrar",
-    empty = "Aún no hay publicaciones disponibles.",
-    mediaUnavailable = DefaultFeatureCapabilityText.mediaUnavailable(),
-)

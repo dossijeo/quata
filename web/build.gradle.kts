@@ -1,10 +1,21 @@
 @file:OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
 
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+
 plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.multiplatform")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose")
+}
+
+// Kotlin configures release webpack builds with `source-map` by default. Those maps are
+// debugging artifacts and should not be part of the browser distribution we publish.
+// Keep development/test webpack defaults intact by changing only the production task.
+tasks.withType<KotlinWebpack>().configureEach {
+    if (name == "wasmJsBrowserProductionWebpack") {
+        sourceMaps = false
+    }
 }
 
 val webSourceRevision = providers.exec {
@@ -51,6 +62,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
+            implementation(compose.runtimeSaveable)
         }
         wasmJsTest.dependencies {
             implementation(kotlin("test"))
@@ -83,6 +95,23 @@ tasks.named("wasmJsBrowserDistribution") {
         webDistributionRevision.get().asFile.apply {
             parentFile.mkdirs()
             writeText("${webSourceRevision.get()}\n")
+        }
+    }
+}
+
+// Keep the published production directory free of source-map artifacts. This runs after
+// packaging, so it also covers any map a future webpack fragment or copied resource emits.
+tasks.register("verifyWasmJsProductionDistributionNoSourceMaps") {
+    dependsOn("wasmJsBrowserDistribution")
+    inputs.dir(layout.buildDirectory.dir("dist/wasmJs/productionExecutable"))
+    doLast {
+        val distribution = layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile
+        val sourceMaps = distribution.walkTopDown()
+            .filter { it.isFile && it.extension.equals("map", ignoreCase = true) }
+            .map { it.relativeTo(distribution).invariantSeparatorsPath }
+            .toList()
+        check(sourceMaps.isEmpty()) {
+            "Production Wasm distribution must not contain source maps: ${sourceMaps.joinToString()}"
         }
     }
 }

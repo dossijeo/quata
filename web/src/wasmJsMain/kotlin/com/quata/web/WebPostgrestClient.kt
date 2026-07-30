@@ -123,6 +123,20 @@ class WebPostgrestClient(
         query: Map<String, String>,
     ): WebPostgrestResult = mutate("DELETE", table, query, null)
 
+    /** Authenticated Supabase RPC call; function names are kept as strict identifiers. */
+    suspend fun rpc(function: String, body: String): WebPostgrestResult {
+        if (!function.matches(PostgrestTableName)) {
+            return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_rpc_invalid")
+        }
+        val baseUrl = configuration.supabaseUrl?.trimEnd('/')?.takeIf { it.isNotBlank() }
+            ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
+        val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
+            ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
+        val token = webPostgrestSessionAccessToken(authRepository.currentWebPushCredentials()?.accessToken)
+            .getOrElse { return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing") }
+        return browserPostgrestMutation("POST", "$baseUrl/rest/v1/rpc/$function", apiKey, token, body)
+    }
+
     private suspend fun mutate(
         method: String,
         table: String,

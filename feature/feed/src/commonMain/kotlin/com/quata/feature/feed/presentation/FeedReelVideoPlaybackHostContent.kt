@@ -10,15 +10,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 
@@ -89,8 +95,12 @@ fun FeedReelVideoPlaybackHostContent(
                 .fillMaxSize()
                 .clickable { toggle(showFeedback = true) },
         )
-        FeedReelPlaybackFeedbackTextContent(
-            feedback = state.feedback,
+        FeedReelPlaybackFeedbackIconContent(
+            feedbackIcon = when (state.feedback) {
+                VideoPlaybackFeedback.Play -> Icons.Filled.PlayArrow
+                VideoPlaybackFeedback.Pause -> Icons.Filled.Pause
+                null -> null
+            },
             isRebuffering = state.isRebuffering,
             modifier = Modifier.align(Alignment.Center),
         )
@@ -137,24 +147,36 @@ fun FeedReelVideoPlaybackHostContent(
     }
 }
 
+/**
+ * Keeps the Android reel-feedback silhouette while avoiding font-dependent control glyphs.
+ *
+ * The old implementation used a 54sp glyph inside this rounded rectangular surface. The
+ * vector is deliberately 54dp and retains the original horizontal/vertical padding, alpha and
+ * corner radius so it does not inherit the circular geometry used by other reel feedback hosts.
+ */
 @Composable
-private fun FeedReelPlaybackFeedbackTextContent(
-    feedback: VideoPlaybackFeedback?,
+private fun FeedReelPlaybackFeedbackIconContent(
+    feedbackIcon: ImageVector?,
     isRebuffering: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        if (feedback != null) {
-            Text(
-                text = if (feedback == VideoPlaybackFeedback.Play) "▶" else "Ⅱ",
-                color = Color.White,
-                fontSize = 54.sp,
+        if (feedbackIcon != null) {
+            Box(
                 modifier = Modifier
                     .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(46.dp))
                     .padding(horizontal = 20.dp, vertical = 10.dp),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = feedbackIcon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(54.dp),
+                )
+            }
         } else if (isRebuffering) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.height(48.dp).width(48.dp))
+            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(48.dp))
         }
     }
 }

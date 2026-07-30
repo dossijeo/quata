@@ -6,13 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
 
 /**
@@ -87,6 +89,11 @@ fun ChatMutedConversationBadgeContent(
             .border(1.dp, theme.colors.divider, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text("\uD83D\uDD15", fontSize = 9.sp)
+        Icon(
+            imageVector = Icons.Filled.NotificationsOff,
+            contentDescription = null,
+            tint = theme.colors.textSecondary,
+            modifier = Modifier.size(10.dp),
+        )
     }
 }

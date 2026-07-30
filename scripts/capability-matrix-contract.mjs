@@ -23,8 +23,8 @@ const stateSemantics = {
 };
 
 const catalog = {
-  'feed.read': ['flow', ['observeFeed', 'getFeed', 'refreshFeed', 'loadOlderFeedPage', 'refreshCurrentUser', 'refreshAuthor', 'refreshPost'], ['implemented', 'read-only', 'read-only']],
-  'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'addComment', 'deletePost'], ['implemented', 'blocked', 'read-only']],
+  'feed.read': ['flow', ['observeFeed', 'getFeed', 'refreshFeed', 'loadOlderFeedPage', 'refreshCurrentUser', 'refreshAuthor', 'refreshPost'], ['implemented', 'implemented', 'implemented']],
+  'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'addComment', 'deletePost'], ['implemented', 'implemented', 'implemented']],
   'official.read': ['flow', ['observeOfficialFeed', 'getOfficialFeed', 'refreshOfficialFeed', 'loadOlderOfficialFeedPage', 'getOfficialPost', 'refreshCurrentUser'], ['implemented', 'read-only', 'read-only']],
   'official.mutate': ['mutation', ['createPost', 'createPosts', 'deletePost', 'toggleLike', 'addComment'], ['implemented', 'blocked', 'blocked']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'read-only', 'read-only']],

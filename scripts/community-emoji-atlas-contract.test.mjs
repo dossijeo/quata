@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('..', import.meta.url));
+const drawable = join(root, 'designsystem/src/commonMain/composeResources/drawable');
+const manifest = JSON.parse(readFileSync(join(root, 'tools/community_emoji_atlases.manifest.json'), 'utf8'));
+const panel = readFileSync(join(root, 'designsystem/src/commonMain/kotlin/com/quata/core/ui/components/CommunityEmojiPanelContent.kt'), 'utf8');
+
+assert.equal(manifest.notoEmojiCommit, '8998f5dd683424a73e2314a8c1f1e359c19e8742');
+assert.match(manifest.license, /^Apache-2\.0/);
+assert.deepEqual(manifest.encoding, { format: 'PNG', paletteColors: 64 });
+assert.deepEqual(Object.keys(manifest.sections), ['recent', 'frequent', 'gestures', 'people', 'animals_nature', 'food_drink', 'objects_symbols', 'flags']);
+assert.equal(Object.values(manifest.sections).flatMap(section => section.emojis).length, 338);
+
+for (const section of Object.values(manifest.sections)) {
+  const file = join(drawable, section.file);
+  assert.ok(statSync(file).size > 0, `${section.file} must not be empty`);
+  assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'), section.sha256, `${section.file} hash mismatch`);
+  assert.equal(section.columns, 6);
+  assert.equal(section.cellPx, 72);
+  assert.equal(section.paletteColors, 64);
+}
+
+assert.match(panel, /imageResource\(selectedAtlasLayout\.resource\)/);
+assert.match(panel, /drawImage\(/);
+assert.doesNotMatch(panel, /Text\(emoji[,) ]/);
+assert.match(panel, /clickable \{ onEmojiClick\(emoji\) \}/);
+console.log('Community emoji atlas contract passed.');

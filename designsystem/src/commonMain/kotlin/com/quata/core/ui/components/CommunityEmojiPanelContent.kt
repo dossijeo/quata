@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -29,11 +29,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.imageResource
+import quata.designsystem.generated.resources.Res
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_animals_nature
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_flags
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_food_drink
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_frequent
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_gestures
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_objects_symbols
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_people
+import quata.designsystem.generated.resources.quata_community_emoji_atlas_recent
 
 data class QuataEmojiSection(val key: String, val label: String, val emojis: List<String>)
 
@@ -68,16 +82,69 @@ fun CommunityEmojiPanelContent(
                 }
             }
             Spacer(Modifier.height(12.dp))
+            // Compose resources resolves only the selected atlas; inactive sections are not decoded.
+            val selectedAtlasLayout = communityEmojiAtlas(selectedSection.key)
+            val selectedAtlas = imageResource(selectedAtlasLayout.resource)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 44.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp, max = gridMaxHeight),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(selectedSection.emojis) { emoji ->
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(template.colors.surfaceAlt).border(1.dp, template.colors.divider, RoundedCornerShape(14.dp)).clickable { onEmojiClick(emoji) }, contentAlignment = Alignment.Center) { Text(emoji, fontSize = 24.sp) }
+                itemsIndexed(selectedSection.emojis) { index, emoji ->
+                    Box(
+                        Modifier.size(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(template.colors.surfaceAlt)
+                            .border(1.dp, template.colors.divider, RoundedCornerShape(14.dp))
+                            .clickable { onEmojiClick(emoji) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CommunityEmojiAtlasCell(selectedAtlas, selectedAtlasLayout, index)
+                    }
                 }
             }
         }
+    }
+}
+
+/** A 72 px Noto PNG atlas is the common source of picker artwork on Android, Wasm and iOS. */
+internal data class CommunityEmojiAtlas(
+    val resource: DrawableResource,
+    val emojiCount: Int,
+    val columns: Int = 6,
+    val cellPx: Int = 72,
+)
+
+/** Kept separate from the composable so common tests can prove every catalog entry has a cell. */
+internal fun communityEmojiAtlasCoordinates(sectionKey: String, index: Int): Pair<Int, Int> {
+    val atlas = communityEmojiAtlas(sectionKey)
+    require(index >= 0) { "Emoji atlas index must not be negative: $index" }
+    require(index < atlas.emojiCount) { "Emoji atlas index $index exceeds ${atlas.emojiCount} cells for $sectionKey" }
+    return index % atlas.columns to index / atlas.columns
+}
+
+private fun communityEmojiAtlas(sectionKey: String): CommunityEmojiAtlas = when (sectionKey) {
+    "recent" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_recent, emojiCount = 24)
+    "frequent" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_frequent, emojiCount = 45)
+    "gestures" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_gestures, emojiCount = 35)
+    "people" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_people, emojiCount = 34)
+    "animals_nature" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_animals_nature, emojiCount = 58)
+    "food_drink" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_food_drink, emojiCount = 57)
+    "objects_symbols" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_objects_symbols, emojiCount = 51)
+    "flags" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_flags, emojiCount = 34)
+    else -> error("Unknown community emoji atlas section: $sectionKey")
+}
+
+@Composable
+private fun CommunityEmojiAtlasCell(image: ImageBitmap, atlas: CommunityEmojiAtlas, index: Int) {
+    val (column, row) = index % atlas.columns to index / atlas.columns
+    Canvas(Modifier.size(32.dp)) {
+        drawImage(
+            image = image,
+            srcOffset = IntOffset(column * atlas.cellPx, row * atlas.cellPx),
+            srcSize = IntSize(atlas.cellPx, atlas.cellPx),
+            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+        )
     }
 }

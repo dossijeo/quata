@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.platform.ShareService
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
@@ -29,17 +30,26 @@ class IosFeedRuntimeBootstrap(
 
     /** Public feed is always available when deployment settings are valid, even without Keychain. */
     fun publicDependencies(
-        navigationMessage: String = "Quata para iOS",
-        onOpenChats: () -> Unit = {},
-        onBackToFeed: () -> Unit = {},
+        mediaFactory: IosFeedMediaFactory,
+        shareService: ShareService,
+        onOpenUserProfile: (String) -> Unit = {},
         initialPostId: String? = null,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
-            navigationMessage = navigationMessage,
-            onOpenChats = onOpenChats,
-            onBackToFeed = onBackToFeed,
+            mediaFactory = mediaFactory,
+            shareService = shareService,
+            onOpenUserProfile = onOpenUserProfile,
             initialPostId = initialPostId,
         )
+
+    fun authenticatedDependencies(
+        mediaFactory: IosFeedMediaFactory,
+        shareService: ShareService,
+        initialPostId: String? = null,
+        onOpenUserProfile: (String) -> Unit = {},
+    ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
+        configuration, authSession, mediaFactory, shareService, initialPostId, onOpenUserProfile,
+    )
 
     /** Session restoration remains the gate for interactive iOS feature factories. */
     fun hasRestoredSession(): Boolean = authSession.restoredSession() != null

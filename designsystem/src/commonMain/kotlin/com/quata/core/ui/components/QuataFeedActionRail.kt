@@ -56,7 +56,7 @@ fun QuataFeedActionRail(
         verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 14.dp),
     ) {
         if (!isLandscape) {
-            FeedTextAction("🔥", rankLabel, postRank.toString(), onClick = onOpenLive)
+            FeedTextAction(QuataFeedEmoji.Rank, rankLabel, postRank.toString(), onClick = onOpenLive)
             FeedTextAction(liveLabel, liveLabel, onClick = onOpenLive)
         }
         FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike)
@@ -74,7 +74,7 @@ fun QuataFeedOverflowActionButton(postRank: Int, rankLabel: String, liveLabel: S
     Box(modifier) {
         FeedIconAction(Icons.Filled.MoreVert, liveLabel, onClick = { open = true })
         DropdownMenu(open, { open = false }) {
-            DropdownMenuItem({ Text("$rankLabel #$postRank") }, leadingIcon = { Text("🔥", fontWeight = FontWeight.Black) }, onClick = { open = false; onOpenLive() })
+            DropdownMenuItem({ Text("$rankLabel #$postRank") }, leadingIcon = { FeedEmojiText(QuataFeedEmoji.Rank, fontWeight = FontWeight.Black) }, onClick = { open = false; onOpenLive() })
             DropdownMenuItem({ Text(liveLabel) }, leadingIcon = { Icon(Icons.Filled.PlayArrow, null) }, onClick = { open = false; onOpenLive() })
             if (showReport && reportLabel != null) DropdownMenuItem({ Text(reportLabel) }, leadingIcon = { Icon(Icons.Filled.Flag, null) }, onClick = { open = false; onReport() })
         }
@@ -98,9 +98,15 @@ private fun FeedTextAction(text: String, description: String, count: String? = n
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(48.dp).clip(CircleShape).background(Color.Black.copy(alpha = .42f)).semantics { contentDescription = description }.clickable(onClick = onClick), Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text, color = tint, fontSize = if (text.length <= 2) 19.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = if (text.length <= 2) 20.sp else 12.sp, modifier = Modifier.padding(horizontal = 5.dp))
+                FeedEmojiText(text, color = tint, fontSize = if (text.length <= 2) 19.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = if (text.length <= 2) 20.sp else 12.sp, modifier = Modifier.padding(horizontal = 5.dp))
                 count?.let { Text(it, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp) }
             }
         }
     }
+}
+
+@Composable
+private fun FeedEmojiText(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified, fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified, fontWeight: FontWeight? = null, maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, textAlign: TextAlign? = null, lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified) {
+    val inlineText = rememberQuataFeedEmojiInlineText(text)
+    Text(inlineText.text, modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, textAlign = textAlign, lineHeight = lineHeight, inlineContent = inlineText.inlineContent)
 }

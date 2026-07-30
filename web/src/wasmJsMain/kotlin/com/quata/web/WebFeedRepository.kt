@@ -27,12 +27,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Browser Feed repository with the common read/polling/domain-mapping implementation.
- * PostgREST remains a Web-only [FeedReadTransport]; writes stay unavailable until reviewed.
+ * Browser Feed repository with common read/polling/domain mapping and authenticated PostgREST
+ * mutations. [FeedReadTransport] remains Web-specific while the repository exposes the complete
+ * shared Feed contract.
  */
 class WebFeedRepository(
-    client: WebPostgrestClient,
-    authRepository: WebAuthRepository,
+    private val client: WebPostgrestClient,
+    private val authRepository: WebAuthRepository,
     pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : FeedRepository {
     private val readRepository: FeedReadRepository = RemoteFeedReadRepository(
@@ -52,15 +53,43 @@ class WebFeedRepository(
     override suspend fun refreshAuthor(userId: String): Result<User?> = readRepository.refreshAuthor(userId)
     override suspend fun refreshPost(postId: String): Result<Post?> = readRepository.refreshPost(postId)
 
-    override suspend fun toggleLike(postId: String): Result<Post?> = unsupportedMutation()
-    override suspend fun reportPost(postId: String): Result<Post?> = unsupportedMutation()
-    override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = unsupportedMutation()
-    override suspend fun deletePost(postId: String): Result<Unit> = unsupportedMutation()
-
-    private fun <T> unsupportedMutation(): Result<T> =
-        Result.failure(UnsupportedOperationException("web_feed_mutation_not_implemented"))
+    override suspend fun toggleLike(postId: String): Result<Post?> = runCatching {
+        val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
+        val existing = client.get("community_post_likes", mapOf("select" to "id", "post_id" to "eq.${postId.requirePostgrestIdentifier()}", "profile_id" to "eq.${userId.requirePostgrestIdentifier()}"))
+        when (existing) {
+            is WebPostgrestResult.Success -> if (existing.body.trim() == "[]") {
+                client.post("community_post_likes", "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\"}").requireWebSuccess()
+            } else client.delete("community_post_likes", mapOf("post_id" to "eq.$postId", "profile_id" to "eq.$userId")).requireWebSuccess()
+            is WebPostgrestResult.Failure -> error("web_postgrest_${existing.reason}")
+        }
+        refreshPost(postId).getOrThrow()
+    }
+    override suspend fun reportPost(postId: String): Result<Post?> = runCatching {
+        val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
+        client.rpc("quata_ugc_report", "{\"p_reporter_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").requireWebSuccess()
+        refreshPost(postId).getOrThrow()
+    }
+    override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
+        client.post("community_comments", "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.message.webJsonString()}}").requireWebSuccess()
+        refreshPost(postId).getOrThrow()
+    }
+    override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
+        val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
+        val post = refreshPost(postId).getOrThrow() ?: error("web_feed_post_missing")
+        val admin = refreshCurrentUser().getOrNull()?.isAdmin == true
+        check(admin || post.author.id == userId) { "web_feed_delete_forbidden" }
+        client.delete("community_posts", mapOf("id" to "eq.${postId.requirePostgrestIdentifier()}")).requireWebSuccess()
+    }
 
     private companion object { const val DefaultPollIntervalMillis = 30_000L }
+}
+
+private fun WebPostgrestResult.requireWebSuccess() {
+    if (this is WebPostgrestResult.Failure) error("web_postgrest_${reason}")
+}
+private fun String.webJsonString(): String = buildString {
+    append('"'); for (char in this@webJsonString) append(if (char == '"' || char == '\\') "\\$char" else char); append('"')
 }
 
 /**
