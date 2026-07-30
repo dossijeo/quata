@@ -54,7 +54,9 @@ test('QuataIos synchronizes the exact common Compose resource set before signing
 });
 
 test('synchronizer produces and verifies exactly the six expected app-bundle resources', async (t) => {
-  const temporaryRoot = await mkdtemp(resolve(root, 'build', 'ios-compose-resources-contract-'));
+  const temporaryParent = resolve(root, 'build');
+  await mkdir(temporaryParent, { recursive: true });
+  const temporaryRoot = await mkdtemp(resolve(temporaryParent, 'ios-compose-resources-contract-'));
   t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
   const appBundle = join(temporaryRoot, 'QuataIos.app');
   const bashAppBundle = `/mnt/${appBundle[0].toLowerCase()}${appBundle.slice(2).replaceAll('\\', '/')}`;
