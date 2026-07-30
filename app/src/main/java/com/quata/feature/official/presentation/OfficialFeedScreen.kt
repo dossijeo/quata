@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -100,7 +101,12 @@ internal fun OfficialPostMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, 
     val mediaUrl = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
     OfficialPostMediaFrameContent(onOpenMedia = onOpenMedia, media = { mediaModifier ->
         if (post.mediaType == OfficialMediaType.Image) {
-            coil.compose.AsyncImage(model = mediaUrl, contentDescription = post.title, modifier = mediaModifier)
+            coil.compose.AsyncImage(
+                model = mediaUrl,
+                contentDescription = post.title,
+                modifier = mediaModifier,
+                contentScale = ContentScale.Crop,
+            )
         } else {
             com.quata.core.ui.components.VideoAttachmentThumbnail(uri = mediaUrl, name = post.title, showPlayButton = true, modifier = mediaModifier)
         }
