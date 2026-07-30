@@ -505,6 +505,7 @@ private final class IosAppCompositionRoot {
                         officialPostId: postId,
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
+                        currentUserId: nil,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
