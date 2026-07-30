@@ -1,783 +1,119 @@
 package com.quata.feature.chat.presentation.conversations
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import com.quata.core.ui.components.CompactButtonContentPadding
-import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
-import com.quata.R
-import com.quata.core.designsystem.theme.QuataOrange
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import androidx.compose.runtime.remember
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material3.Icon
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import com.quata.core.designsystem.theme.quataTheme
-import com.quata.core.model.Conversation
-import com.quata.core.model.User
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.R
 import com.quata.core.platform.ClipboardService
-import com.quata.core.text.localizedChatPreview
-import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.QuataAvatarFallback
-import com.quata.core.ui.components.ClickableProfileAvatar
-import com.quata.core.ui.components.QuataStandardFloatingPanel
-import com.quata.core.ui.components.QuataFloatingPanel
-import com.quata.core.ui.components.QuataCard
-import com.quata.core.ui.components.QuataPermissionPromptCardContent
-import com.quata.core.ui.components.QuataScreen
-import com.quata.core.ui.components.compactButtonMinSize
-import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
-import com.quata.feature.chat.domain.ChatConversationCandidate
-import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
-import com.quata.feature.chat.presentation.chatDisplayTitle
-import com.quata.feature.chat.presentation.relativeUpdatedAt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.quata.feature.chat.domain.ChatInviteContact
 
+/** Android owns lifecycle, resources, Coil and contact permission; the UI itself is common. */
 @Composable
 fun ConversationsScreen(
-    padding: PaddingValues,
+    padding: androidx.compose.foundation.layout.PaddingValues,
     repository: ChatRepository,
     clipboardService: ClipboardService,
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null,
     onOpenFavorites: () -> Unit = {},
-    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current))
+    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current)),
 ) {
-    val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var query by rememberSaveable { mutableStateOf("") }
-    var contactsPermissionGranted by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
-    }
-    var contactsPermissionRequested by rememberSaveable { mutableStateOf(false) }
-    val contactsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        contactsPermissionGranted = granted
-        contactsPermissionRequested = true
+    var contactsGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
+    var contactsRequested by rememberSaveable { mutableStateOf(false) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsGranted = granted; contactsRequested = true
         if (granted) viewModel.loadInviteContacts()
     }
-    var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val visibleConversations = remember(context, state.conversations, state.messagesByConversation, state.usersById, query) {
-        val cleanQuery = query.trim()
-        if (cleanQuery.isBlank()) {
-            state.conversations
-        } else {
-            state.conversations.filter { conversation ->
-                val messages = state.messagesByConversation[conversation.id].orEmpty()
-                val rawPreview = messages.lastOrNull()?.text ?: conversation.lastMessagePreview
-                val preview = context.localizedChatPreview(rawPreview)
-                val participantNames = conversation.participantIds
-                    .mapNotNull { state.usersById[it]?.displayName }
-                    .joinToString(" ")
-                listOf(
-                    conversation.chatDisplayTitle(),
-                    conversation.title,
-                    conversation.participantNames.joinToString(" "),
-                    participantNames,
-                    preview
-                ).any { value -> value.contains(cleanQuery, ignoreCase = true) }
-            }
-        }
-    }
-
-    val visibleConversationRows = remember(
-        context,
-        visibleConversations,
-        state.messagesByConversation,
-        timestampNowMillis,
-    ) {
-        visibleConversations.map { conversation ->
-            val rawPreview = state.messagesByConversation[conversation.id]
-                .orEmpty()
-                .lastOrNull()
-                ?.text
-                ?: conversation.lastMessagePreview
-            ConversationListRow(
-                conversation = conversation,
-                title = conversation.chatDisplayTitle(),
-                preview = context.localizedChatPreview(rawPreview),
-                updatedAt = conversation.relativeUpdatedAt(context, timestampNowMillis),
-            )
-        }
-    }
-
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-    val contentPadding = if (isLandscapeLayout) {
-        PaddingValues(start = 8.dp, top = 18.dp, end = 18.dp, bottom = 18.dp)
-    } else {
-        PaddingValues(18.dp)
-    }
-
-    QuataScreen(padding) {
-        Box(Modifier.fillMaxSize()) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(contentPadding)
-            ) {
-                ConversationsListHeaderContent(
-                    title = stringResource(R.string.conversations_title),
-                    query = query,
-                    searchPlaceholder = stringResource(R.string.conversations_search_placeholder),
-                    onQueryChange = { query = it },
-                    trailingAction = {
-                        CompactIconButton(onClick = onOpenFavorites) {
-                            CompactIcon(Icons.Filled.Star, contentDescription = stringResource(R.string.conversation_favorites_title), tint = QuataOrange)
-                        }
-                    }
-                )
-                Spacer(Modifier.padding(8.dp))
-                ConversationsListContent(
-                    rows = visibleConversationRows,
-                    isLoading = state.isLoading && state.conversations.isEmpty(),
-                    avatar = { row ->
-                        ConversationAvatar(
-                            item = row.conversation,
-                            currentUser = state.currentUser,
-                            usersById = state.usersById,
-                            openingProfileUserId = openingProfileUserId,
-                            onOpenUserProfile = onOpenUserProfile,
-                        )
-                    },
-                    onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            state.pendingDeletedConversation?.let { conversation ->
-                UndoDeleteButton(
-                    title = conversation.chatDisplayTitle(),
-                    onUndo = { viewModel.onEvent(ConversationsUiEvent.RestoreDeletedConversation) },
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth(0.72f)
-                        .padding(18.dp)
-                )
-            }
-            NewConversationFabContent(
-                contentDescription = stringResource(R.string.conversations_new_chat),
-                onClick = { viewModel.openNewConversationPicker() },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(18.dp)
-            )
-        }
-    }
-
-    if (state.isNewConversationPickerOpen) {
-        ConversationCandidatePickerDialog(
-            state = state,
-            clipboardService = clipboardService,
-            onSearchChange = viewModel::onCandidateQueryChanged,
-            onLoadMore = viewModel::loadMoreConversationCandidates,
-            onOpenCandidate = { candidate ->
-                viewModel.openCandidateConversation(candidate, onOpenConversation)
-            },
-            inviteContactsEnabled = contactsPermissionGranted,
-            onRequestInviteContactsPermission = {
-                contactsPermissionRequested = true
-                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-            },
-            onInviteContact = {},
-            onDismiss = viewModel::closeNewConversationPicker
-        )
-    }
-
+    val strings = androidConversationsStrings()
+    val state by viewModel.uiState.collectAsState()
+    ConversationsScreenHost(
+        viewModel = viewModel.delegate,
+        clipboardService = clipboardService,
+        strings = strings,
+        onOpenConversation = onOpenConversation,
+        onOpenFavorites = onOpenFavorites,
+        padding = padding,
+        onOpenUserProfile = onOpenUserProfile,
+        openingProfileUserId = openingProfileUserId,
+        remoteAvatar = { name, url, _, modifier ->
+            if (url.isNullOrBlank()) QuataAvatarFallback(name, modifier = modifier)
+            else AsyncImage(model = url, contentDescription = name, modifier = modifier, contentScale = ContentScale.Crop)
+        },
+        avatarLoadingOverlay = { isLoading, modifier -> QuataAvatarLoadingHaloContent(isLoading, modifier) {} },
+        inviteContactsEnabled = contactsGranted,
+        onRequestInviteContactsPermission = { contactsRequested = true; launcher.launch(Manifest.permission.READ_CONTACTS) },
+        inviteSheet = { contact, clipboard, dismiss -> AndroidInviteChannelSheet(contact, clipboard, dismiss) },
+    )
     LaunchedEffect(state.isNewConversationPickerOpen) {
         if (!state.isNewConversationPickerOpen) return@LaunchedEffect
-        contactsPermissionGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_CONTACTS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (contactsPermissionGranted) {
-            viewModel.loadInviteContacts()
-        } else if (!contactsPermissionRequested) {
-            contactsPermissionRequested = true
-            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-        }
-    }
-
-    LaunchedEffect(state.pendingDeletedConversation?.id) {
-        if (state.pendingDeletedConversation == null) return@LaunchedEffect
-        delay(4_000L)
-        viewModel.onEvent(ConversationsUiEvent.FinalizeDeletedConversation)
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1_000L)
-            timestampNowMillis = System.currentTimeMillis()
-        }
+        if (contactsGranted) viewModel.loadInviteContacts()
+        else if (!contactsRequested) { contactsRequested = true; launcher.launch(Manifest.permission.READ_CONTACTS) }
     }
 }
 
 @Composable
-private fun UndoDeleteButton(
-    title: String,
-    onUndo: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    ConversationDeleteUndoContent(
-        title = title,
-        undoLabel = stringResource(R.string.conversation_undo_delete),
-        onUndo = onUndo,
-        modifier = modifier,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ConversationCandidatePickerDialog(
-    state: ConversationsUiState,
-    clipboardService: ClipboardService,
-    onSearchChange: (String) -> Unit,
-    onLoadMore: () -> Unit,
-    onOpenCandidate: (ChatConversationCandidate) -> Unit,
-    onDismiss: () -> Unit,
-    inviteContactsEnabled: Boolean = false,
-    onRequestInviteContactsPermission: (() -> Unit)? = null,
-    onInviteContact: ((ChatInviteContact) -> Unit)? = null,
-    title: String = stringResource(R.string.conversations_new_chat_title),
-    actionIcon: ImageVector = Icons.Filled.ChatBubble,
-    actionContentDescription: String = stringResource(R.string.common_chat),
-    excludedProfileIds: Set<String> = emptySet(),
-    selectedCandidateIds: Set<String> = emptySet(),
-    onToggleCandidate: ((ChatConversationCandidate) -> Unit)? = null,
-    onConfirmSelection: (() -> Unit)? = null,
-    confirmEnabled: Boolean = selectedCandidateIds.isNotEmpty(),
-    selectionSummary: String = "",
-    confirmIcon: ImageVector = Icons.AutoMirrored.Filled.Send,
-    confirmContentDescription: String = stringResource(R.string.common_send)
-) {
-    ConversationCandidatePickerDialogContent(
-        state = state,
-        clipboardService = clipboardService,
-        strings = ConversationCandidatePickerStrings(
-            searchPlaceholder = stringResource(R.string.conversations_new_chat_search_placeholder),
-            noResults = stringResource(R.string.conversations_new_chat_no_results),
-            cancel = stringResource(R.string.common_cancel),
-            contacts = stringResource(R.string.conversations_new_chat_contacts),
-            following = stringResource(R.string.conversations_new_chat_following),
-            followers = stringResource(R.string.conversations_new_chat_followers),
-            recent = stringResource(R.string.share_to_quata_recent_conversations),
-            otherNeighborhoods = stringResource(R.string.conversations_new_chat_other_neighborhoods),
-            unknownNeighborhood = stringResource(R.string.conversations_new_chat_unknown_neighborhood),
-            inviteTitle = stringResource(R.string.conversations_invite_to_quata),
-            invitePermission = stringResource(R.string.conversations_invite_contacts_permission),
-            inviteAllow = stringResource(R.string.conversations_invite_allow),
-            inviteAction = stringResource(R.string.conversations_invite_action),
-            noneSelected = stringResource(R.string.conversation_forward_none_selected),
-        ),
-        onSearchChange = onSearchChange,
-        onLoadMore = onLoadMore,
-        onOpenCandidate = onOpenCandidate,
-        onDismiss = onDismiss,
-        panelHost = { content ->
-            QuataStandardFloatingPanel(onDismiss = onDismiss, template = quataTheme()) { modifier, landscape -> content(modifier, landscape) }
-        },
-        candidateAvatar = { candidate, modifier ->
-            AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier)
-        },
-        inviteAvatar = { contact, modifier -> QuataAvatarFallback(name = contact.displayName, modifier = modifier, stableId = contact.id) },
-        inviteSheet = if (onInviteContact != null) { { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) } } else null,
-        inviteContactsEnabled = inviteContactsEnabled,
-        onRequestInviteContactsPermission = onRequestInviteContactsPermission,
-        title = title,
-        actionIcon = actionIcon,
-        actionContentDescription = actionContentDescription,
-        excludedProfileIds = excludedProfileIds,
-        selectedCandidateIds = selectedCandidateIds,
-        onToggleCandidate = onToggleCandidate,
-        onConfirmSelection = onConfirmSelection,
-        confirmEnabled = confirmEnabled,
-        selectionSummary = selectionSummary,
-        confirmIcon = confirmIcon,
-        confirmContentDescription = confirmContentDescription,
-    )
-}
-
-@Composable
-private fun NewConversationPanelContent(
-    state: ConversationsUiState,
-    clipboardService: ClipboardService,
-    displayItems: List<CandidateDisplayItem>,
-    listState: LazyListState,
-    title: String,
-    actionIcon: ImageVector,
-    actionContentDescription: String,
-    selectedCandidateIds: Set<String>,
-    onToggleCandidate: ((ChatConversationCandidate) -> Unit)?,
-    onConfirmSelection: (() -> Unit)?,
-    confirmEnabled: Boolean,
-    selectionSummary: String,
-    confirmIcon: ImageVector,
-    confirmContentDescription: String,
-    onSearchChange: (String) -> Unit,
-    onOpenCandidate: (ChatConversationCandidate) -> Unit,
-    inviteContactsEnabled: Boolean,
-    onRequestInviteContactsPermission: (() -> Unit)?,
-    onInviteContact: ((ChatInviteContact) -> Unit)?,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    var pendingInviteContact by remember { mutableStateOf<ChatInviteContact?>(null) }
-    val cleanQuery = state.candidateQuery.trim()
-    val filteredInviteContacts = remember(state.inviteContacts, cleanQuery) {
-        filterInviteContacts(state.inviteContacts, cleanQuery)
-    }
-    val canShowInviteSection = onInviteContact != null && !state.candidateHasMore
-    val hasInviteContent = canShowInviteSection && (
-        filteredInviteContacts.isNotEmpty() ||
-            state.isInviteContactsLoading ||
-            !inviteContactsEnabled ||
-            state.inviteContactsError != null
-        )
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                title,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.weight(1f)
-            )
-            CompactIconButton(onClick = onDismiss) {
-                CompactIcon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_cancel), tint = template.colors.textPrimary)
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = state.candidateQuery,
-            onValueChange = onSearchChange,
-            placeholder = { Text(stringResource(R.string.conversations_new_chat_search_placeholder)) },
-            leadingIcon = {
-                CompactIcon(Icons.Filled.Search, contentDescription = null, tint = template.colors.textSecondary)
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
-        )
-        state.candidateError?.let { error ->
-            Spacer(Modifier.height(8.dp))
-            Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(12.dp))
-        when {
-            state.isCandidateInitialLoading && state.conversationCandidates.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = template.colors.accent)
-                }
-            }
-            displayItems.isEmpty() && !hasInviteContent -> {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        stringResource(R.string.conversations_new_chat_no_results),
-                        color = template.colors.textSecondary
-                    )
-                }
-            }
-            else -> {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(displayItems, key = { it.key }) { item ->
-                        when (item) {
-                            is CandidateDisplayItem.SectionHeader -> CandidateSectionHeader(item.title)
-                            is CandidateDisplayItem.NeighborhoodHeader -> CandidateNeighborhoodHeader(item.title)
-                            is CandidateDisplayItem.CandidateRow -> CandidateUserCard(
-                                candidate = item.candidate,
-                                isOpening = state.openingCandidateProfileId == item.candidate.profileId,
-                                actionIcon = actionIcon,
-                                actionContentDescription = actionContentDescription,
-                                isSelected = item.candidate.profileId in selectedCandidateIds,
-                                onToggleSelection = onToggleCandidate?.let { toggle -> { toggle(item.candidate) } },
-                                onOpen = { onOpenCandidate(item.candidate) }
-                            )
-                        }
-                    }
-                    if (state.isCandidatePageLoading) {
-                        item(key = "loading-more") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator(color = template.colors.accent, modifier = Modifier.size(24.dp))
-                            }
-                        }
-                    }
-                    if (canShowInviteSection) {
-                        item(key = "invite-section") {
-                            CandidateSectionHeader(stringResource(R.string.conversations_invite_to_quata))
-                        }
-                        when {
-                            !inviteContactsEnabled -> item(key = "invite-permission") {
-                                InviteContactsPermissionCard(onRequestInviteContactsPermission)
-                            }
-                            state.isInviteContactsLoading -> item(key = "invite-loading") {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    CircularProgressIndicator(color = template.colors.accent, modifier = Modifier.size(24.dp))
-                                }
-                            }
-                            state.inviteContactsError != null -> item(key = "invite-error") {
-                                Text(state.inviteContactsError.orEmpty(), color = MaterialTheme.colorScheme.error)
-                            }
-                            else -> items(filteredInviteContacts, key = { "invite:${it.id}" }) { contact ->
-                                InviteContactCard(contact = contact, onInvite = { pendingInviteContact = contact })
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        onConfirmSelection?.let { confirm ->
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-                    .background(template.colors.surface.copy(alpha = 0.76f), RoundedCornerShape(18.dp))
-                    .padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    selectionSummary.ifBlank { stringResource(R.string.conversation_forward_none_selected) },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = template.colors.textPrimary.copy(alpha = if (selectedCandidateIds.isEmpty()) 0.54f else 0.94f),
-                    modifier = Modifier.weight(1f)
-                )
-                Button(
-                    onClick = confirm,
-                    enabled = confirmEnabled,
-                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .compactButtonMinSize(),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    CompactIcon(confirmIcon, contentDescription = confirmContentDescription, tint = template.colors.accentContent)
-                }
-            }
-        }
-    }
-    pendingInviteContact?.let { contact ->
-        InviteChannelSheet(
-            contact = contact,
-            clipboardService = clipboardService,
-            onDismiss = { pendingInviteContact = null }
-        )
-    }
-}
-
-@Composable
-private fun InviteContactsPermissionCard(onRequestPermission: (() -> Unit)?) {
-    QuataPermissionPromptCardContent(
-        message = stringResource(R.string.conversations_invite_contacts_permission),
-        actionLabel = stringResource(R.string.conversations_invite_allow),
-        actionAvailable = onRequestPermission != null,
-        onRequestPermission = { onRequestPermission?.invoke() },
-    )
-}
-
-@Composable
-private fun InviteContactCard(contact: ChatInviteContact, onInvite: () -> Unit) {
-    val template = quataTheme()
-    Surface(
-        color = template.colors.surface,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-    ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            QuataAvatarFallback(contact.displayName, modifier = Modifier.size(48.dp), stableId = contact.id)
-            Spacer(Modifier.size(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(contact.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(contact.phone, color = template.colors.textSecondary, fontSize = 13.sp, maxLines = 1)
-            }
-            Spacer(Modifier.size(8.dp))
-            Button(
-                onClick = onInvite,
-                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = CompactButtonContentPadding
-            ) {
-                Text(stringResource(R.string.conversations_invite_action), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun InviteChannelSheet(
-    contact: ChatInviteContact,
-    clipboardService: ClipboardService,
-    onDismiss: () -> Unit,
-) {
+private fun AndroidInviteChannelSheet(contact: ChatInviteContact, clipboard: ClipboardService, dismiss: () -> Unit) {
     val context = LocalContext.current
     val targets = remember(contact) { availableInviteTargets(context, contact) }
+    val byId = remember(targets) { targets.associateBy(InviteTarget::id) }
     val message = stringResource(R.string.conversations_invite_message)
     val chooserTitle = stringResource(R.string.conversations_invite_chooser_title)
     val smsLabel = stringResource(R.string.conversations_invite_channel_sms)
     val template = quataTheme()
-    val targetById = remember(targets) { targets.associateBy(InviteTarget::id) }
     InviteChannelSheetContent(
         invitationMessage = message,
-        targets = targets.map { target ->
-            InviteChannelTargetUi(
-                id = target.id,
-                label = if (target.route == InviteRoute.Sms) target.label.ifBlank { smsLabel } else target.label,
-            )
-        },
-        strings = InviteChannelSheetStrings(
-            shareTextTitle = stringResource(R.string.conversations_invite_text_to_share),
-            copyMessage = stringResource(R.string.conversations_invite_copy_message),
-            chooseAppFor = stringResource(R.string.conversations_invite_choose_app_for, contact.displayName),
-        ),
-        clipboardService = clipboardService,
-        onDismiss = onDismiss,
-        onTargetSelected = { uiTarget ->
-            targetById[uiTarget.id]?.let { target ->
-                onDismiss()
-                launchQuataInvitation(context, contact, target, message, chooserTitle)
-            }
-        },
-        panelHost = { content ->
-            QuataFloatingPanel(
-                onDismiss = onDismiss,
-                template = template,
-                portraitHeightFraction = 0.50f,
-                landscapeWidthFraction = 0.74f,
-                landscapeHeightFraction = 0.78f,
-            ) { panelModifier, _ -> content(panelModifier) }
-        },
-        targetIcon = { uiTarget, modifier ->
-            val target = targetById[uiTarget.id]
-            if (target?.icon != null) {
-                AsyncImage(
-                    model = target.icon,
-                    contentDescription = uiTarget.label,
-                    contentScale = ContentScale.Fit,
-                    modifier = modifier.padding(7.dp),
-                )
-            } else {
-                Icon(
-                    Icons.Default.ChatBubble,
-                    contentDescription = uiTarget.label,
-                    tint = template.colors.accent,
-                    modifier = modifier.padding(14.dp),
-                )
-            }
+        targets = targets.map { InviteChannelTargetUi(it.id, if (it.route == InviteRoute.Sms) it.label.ifBlank { smsLabel } else it.label) },
+        strings = InviteChannelSheetStrings(stringResource(R.string.conversations_invite_text_to_share), stringResource(R.string.conversations_invite_copy_message), stringResource(R.string.conversations_invite_choose_app_for, contact.displayName)),
+        clipboardService = clipboard,
+        onDismiss = dismiss,
+        onTargetSelected = { target -> byId[target.id]?.let { dismiss(); launchQuataInvitation(context, contact, it, message, chooserTitle) } },
+        panelHost = { content -> com.quata.core.ui.components.QuataFloatingPanel(onDismiss = dismiss, template = template, portraitHeightFraction = .50f, landscapeWidthFraction = .74f, landscapeHeightFraction = .78f) { modifier, _ -> content(modifier) } },
+        targetIcon = { target, modifier ->
+            byId[target.id]?.icon?.let { AsyncImage(it, target.label, modifier = modifier.padding(7.dp), contentScale = ContentScale.Fit) }
+                ?: Icon(Icons.Default.ChatBubble, target.label, tint = template.colors.accent, modifier = modifier.padding(14.dp))
         },
     )
 }
 
-internal fun filterInviteContacts(contacts: List<ChatInviteContact>, query: String): List<ChatInviteContact> {
-    val cleanQuery = query.trim()
-    if (cleanQuery.isBlank()) return contacts
-    val queryDigits = cleanQuery.filter(Char::isDigit)
-    return contacts.filter { contact ->
-        contact.displayName.contains(cleanQuery, ignoreCase = true) ||
-            contact.phone.contains(cleanQuery, ignoreCase = true) ||
-            (queryDigits.isNotEmpty() && contact.phoneKeys.any { key -> key.contains(queryDigits) })
-    }
-}
-
 @Composable
-private fun CandidateSectionHeader(title: String) {
-    val template = quataTheme()
-    Text(
-        text = title,
-        color = template.colors.textPrimary,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 18.sp,
-        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+private fun androidConversationsStrings(): ConversationsScreenStrings {
+    val context = LocalContext.current
+    return ConversationsScreenStrings(
+    title = stringResource(R.string.conversations_title), searchPlaceholder = stringResource(R.string.conversations_search_placeholder), favorites = stringResource(R.string.conversation_favorites_title), newChat = stringResource(R.string.conversations_new_chat), newChatTitle = stringResource(R.string.conversations_new_chat_title), empty = null, undo = stringResource(R.string.conversation_undo_delete), emergencyTitle = "🚨 ${stringResource(R.string.common_sos)}", sosLabel = stringResource(R.string.common_sos), sosLocationUpdate = stringResource(R.string.sos_location_update), sosLocationUnavailable = stringResource(R.string.sos_location_unavailable),
+    photo = stringResource(R.string.conversation_preview_photo), video = stringResource(R.string.conversation_preview_video), document = stringResource(R.string.conversation_preview_document), voiceNote = stringResource(R.string.conversation_preview_voice_note), file = stringResource(R.string.conversation_preview_file),
+    time = { context.getString(R.string.time_seconds_ago, it) }, oneMinute = stringResource(R.string.time_one_minute_ago), minutes = { context.getString(R.string.time_minutes_ago, it) }, hours = { context.getString(R.string.time_hours_ago, it) }, days = { context.getString(R.string.time_days_ago, it) }, oneWeek = stringResource(R.string.time_one_week_ago), weeks = { context.getString(R.string.time_weeks_ago, it) }, oneMonth = stringResource(R.string.time_one_month_ago), months = { context.getString(R.string.time_months_ago, it) }, oneYear = stringResource(R.string.time_one_year_ago), years = { context.getString(R.string.time_years_ago, it) },
+    loadCandidatesError = stringResource(R.string.chat_error_load_candidates),
+    openConversationError = stringResource(R.string.chat_error_open_conversation),
+    loadConversationsError = stringResource(R.string.chat_error_load_conversations),
+    restoreConversationError = stringResource(R.string.chat_error_restore_conversation),
+    deleteConversationError = stringResource(R.string.chat_error_delete_conversation),
+    picker = ConversationCandidatePickerStrings(stringResource(R.string.conversations_new_chat_search_placeholder), stringResource(R.string.conversations_new_chat_no_results), stringResource(R.string.common_cancel), stringResource(R.string.conversations_new_chat_contacts), stringResource(R.string.conversations_new_chat_following), stringResource(R.string.conversations_new_chat_followers), stringResource(R.string.share_to_quata_recent_conversations), stringResource(R.string.conversations_new_chat_other_neighborhoods), stringResource(R.string.conversations_new_chat_unknown_neighborhood), stringResource(R.string.conversations_invite_to_quata), stringResource(R.string.conversations_invite_contacts_permission), stringResource(R.string.conversations_invite_allow), stringResource(R.string.conversations_invite_action), stringResource(R.string.conversation_forward_none_selected)),
     )
-}
-
-@Composable
-private fun CandidateNeighborhoodHeader(title: String) {
-    val template = quataTheme()
-    Text(
-        text = title,
-        color = template.colors.textSecondary,
-        fontWeight = FontWeight.Bold,
-        fontSize = 13.sp,
-        modifier = Modifier.padding(start = 6.dp, top = 4.dp)
-    )
-}
-
-@Composable
-private fun CandidateUserCard(
-    candidate: ChatConversationCandidate,
-    isOpening: Boolean,
-    actionIcon: ImageVector,
-    actionContentDescription: String,
-    isSelected: Boolean = false,
-    onToggleSelection: (() -> Unit)? = null,
-    onOpen: () -> Unit
-) {
-    ConversationCandidateCardContent(
-        title = candidate.displayName,
-        subtitle = candidate.neighborhood,
-        isOpening = isOpening,
-        actionIcon = actionIcon,
-        actionContentDescription = actionContentDescription,
-        isSelected = isSelected,
-        onToggleSelection = onToggleSelection,
-        onOpen = onOpen,
-        avatar = {
-            AvatarImage(
-                name = candidate.displayName,
-                avatarUrl = candidate.avatarUrl,
-                profileId = candidate.profileId,
-                modifier = Modifier.size(48.dp)
-            )
-        }
-    )
-}
-
-@Composable
-private fun ConversationAvatar(
-    item: Conversation,
-    currentUser: User?,
-    usersById: Map<String, User>,
-    openingProfileUserId: String?,
-    onOpenUserProfile: (String) -> Unit
-) {
-    val template = quataTheme()
-    val privateUser = item.participantIds
-        .firstOrNull { it != currentUser?.id }
-        ?.let { usersById[it] }
-    Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-        if (item.isEmergency) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.sosSurface)
-                    .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
-            }
-        } else if (item.isGroup) {
-            AvatarImage(
-                name = item.chatDisplayTitle(),
-                avatarUrl = item.avatarUrl,
-                profileId = item.id,
-                modifier = Modifier.size(46.dp)
-            )
-        } else {
-            if (privateUser != null) {
-                ClickableProfileAvatar(
-                    name = privateUser.displayName,
-                    avatarUrl = privateUser.avatarUrl,
-                    profileId = privateUser.id,
-                    isLoading = openingProfileUserId == privateUser.id,
-                    onClick = { onOpenUserProfile(privateUser.id) },
-                    modifier = Modifier.size(46.dp)
-                )
-            } else {
-                QuataAvatarFallback(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
-            }
-        }
-        if (item.isMuted) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surfaceRaised)
-                    .border(1.dp, template.colors.divider, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("\uD83D\uDD15", fontSize = 13.sp)
-            }
-        }
-    }
 }
