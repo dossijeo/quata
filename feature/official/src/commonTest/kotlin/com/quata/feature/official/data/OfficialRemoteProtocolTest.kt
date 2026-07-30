@@ -9,6 +9,21 @@ import kotlin.test.assertTrue
 
 class OfficialRemoteProtocolTest {
     @Test
+    fun selectsRequestedTranslationThenSpanishFallbackPerGroup() {
+        val selected = listOf(
+            OfficialRemotePost(id = "es", translationGroupId = "group", language = "es", publishedAt = "2026-01-01"),
+            OfficialRemotePost(id = "fr", translationGroupId = "group", language = "fr", publishedAt = "2026-01-02"),
+            OfficialRemotePost(id = "standalone", language = "en", publishedAt = "2026-01-03"),
+        ).selectOfficialTranslations("fr-FR")
+
+        assertEquals(listOf("standalone", "fr"), selected.map(OfficialRemotePost::id))
+        assertEquals("es", listOf(
+            OfficialRemotePost(id = "es", translationGroupId = "group", language = "es"),
+            OfficialRemotePost(id = "en", translationGroupId = "group", language = "en"),
+        ).selectOfficialTranslations("de").single().id)
+    }
+
+    @Test
     fun mapsSharedWireScalarsWithoutTakingOverPlatformDecodingOrErrors() {
         val fields = OfficialRemoteWireFields.from(
             OfficialRemoteWireSchema.postScalarKeys + OfficialRemoteWireSchema.commentScalarKeys + OfficialRemoteWireSchema.profileScalarKeys,

@@ -7,6 +7,12 @@ import com.quata.core.data.toFoundationData
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.official.data.selectOfficialTranslations
+import com.quata.feature.official.data.officialLikeLookupPlan
+import com.quata.feature.official.data.officialLikeInsertPlan
+import com.quata.feature.official.data.officialLikeDeletePlan
+import com.quata.feature.official.data.officialCommentPlan
+import com.quata.feature.official.data.officialSoftDeletePlan
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -24,7 +30,10 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.NSLocale
 import platform.Foundation.setValue
+import platform.Foundation.setHTTPBody
+import platform.Foundation.setHTTPMethod
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -107,11 +116,32 @@ class IosOfficialReadRepository(
 
     override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
 
-    override suspend fun deletePost(postId: String): Result<Unit> = unsupportedMutation()
+    override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId()
+        val post = getOfficialPost(postId).getOrThrow() ?: error("ios_official_post_missing")
+        val currentUser = refreshCurrentUser().getOrThrow()
+        check(post.author.id == userId || currentUser?.isAdmin == true) { "ios_official_delete_forbidden" }
+        officialSoftDeletePlan(postId.requireOfficialPostgrestIdentifier(), post.translationGroupId, currentOfficialTimestamp()).let { mutate(it.table, it.method, it.filter, it.body) }
+    }
 
-    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        val lookup = officialLikeLookupPlan(safePostId, safeUserId)
+        val existing = authenticatedRows(lookup.table, lookup.filter)
+        if (existing.isEmpty()) officialLikeInsertPlan(safePostId, safeUserId).let { mutate(it.table, it.method, it.filter, it.body) }
+        else officialLikeDeletePlan(safePostId, safeUserId).let { mutate(it.table, it.method, it.filter, it.body) }
+        getOfficialPost(postId).getOrThrow()
+    }
 
-    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        officialCommentPlan(safePostId, safeUserId, comment.message).let { mutate(it.table, it.method, it.filter, it.body) }
+        getOfficialPost(postId).getOrThrow()
+    }
 
     private suspend fun loadFeed(
         limit: Int,
@@ -122,12 +152,14 @@ class IosOfficialReadRepository(
             table = "official_posts",
             query = buildMap {
                 put("select", PostSelect)
-                put("order", "published_at.desc")
+                put("is_published", "eq.true")
+                put("deleted_at", "is.null")
+                put("order", "published_at.desc,created_at.desc")
                 publishedBefore?.let { put("published_at", "lt.$it") }
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
             limit = limit,
-        ).map(Map<*, *>::toOfficialRemotePost)
+        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(NSLocale.currentLocale.languageCode)
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -136,6 +168,7 @@ class IosOfficialReadRepository(
             query = mapOf(
                 "select" to CommentSelect,
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
+                "deleted_at" to "is.null",
                 "order" to "created_at.asc",
             ),
         ).map(Map<*, *>::toOfficialRemoteComment)
@@ -205,6 +238,33 @@ class IosOfficialReadRepository(
         }.executeOfficialRead()
     }
 
+    private suspend fun authenticatedRows(table: String, query: Map<String, String>): List<Map<*, *>> {
+        val result = authenticatedRequest(table, "GET", query, null)
+        val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*> ?: error("ios_official_response_not_array")
+        return root.map { it as? Map<*, *> ?: error("ios_official_response_not_object") }
+    }
+
+    private suspend fun mutate(table: String, method: String, query: Map<String, String>, body: String?) {
+        authenticatedRequest(table, method, query, body)
+    }
+
+    private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
+        require(table.matches(IosPostgrestTableName)) { "ios_official_table_invalid" }
+        val session = authSession?.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_official_session_missing")
+        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_official_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_official_publishable_key_missing")
+        val encodedQuery = query.entries.joinToString("&") { (name, value) -> "${name.iosQueryComponent()}=${value.iosQueryComponent()}" }
+        val url = NSURL(string = "$baseUrl/rest/v1/$table${if (encodedQuery.isEmpty()) "" else "?$encodedQuery"}") ?: error("ios_official_postgrest_url_invalid")
+        return NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod(method)
+            setValue(key, "apikey")
+            setValue("Bearer ${session.bearerToken}", "Authorization")
+            setValue("application/json", "Accept")
+            setValue("return=representation", "Prefer")
+            if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) }
+        }.executeOfficialRead()
+    }
+
     private fun Collection<String>.toOfficialPostgrestInFilter(): String =
         "in.(${distinct().joinToString(",") { it.requireOfficialPostgrestIdentifier() }})"
 
@@ -226,6 +286,9 @@ class IosOfficialReadRepository(
         const val ProfileSelect = "id,display_name,barrio,neighborhood,nombre,avatar_url,avatar,is_admin,is_official"
     }
 }
+
+private fun iosJsonString(value: String): String = buildString { append('"'); value.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+private fun currentOfficialTimestamp(): String = kotlin.time.Clock.System.now().toString()
 
 /** Small iOS composition factory; host/UI ownership remains with the launcher. */
 class IosOfficialRuntimeBootstrap(

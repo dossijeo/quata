@@ -958,6 +958,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 router.installOfficialFactory { _ in controller }
                 router.showOfficial(postId: "official-1")
             }),
+            ("quata-ios-official-editor-host", "Quata iOS Official Editor", true, { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installOfficialEditorFactory { controller }
+                router.showOfficialEditor()
+            }),
             ("quata-ios-notifications-host", "Quata iOS Notifications", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installNotificationsFactory { controller }
@@ -1007,6 +1012,55 @@ final class QuataFeedFrameworkTests: XCTestCase {
             }
             XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
             XCTAssertEqual(controller.view.accessibilityLabel, label)
+        }
+    }
+
+    func testOfficialEditorRouteResolvesOnlyAfterItsRealFactoryIsInstalled() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let editor = UIViewController()
+        router.installFeedFactory { _ in feed }
+
+        router.showOfficialEditor()
+        XCTAssertTrue(authenticatedRouteController(in: router) === feed)
+
+        router.installOfficialEditorFactory { editor }
+        XCTAssertTrue(authenticatedRouteController(in: router) === editor)
+        XCTAssertEqual(editor.view.accessibilityIdentifier, "quata-ios-official-editor-host")
+        XCTAssertEqual(editor.view.accessibilityLabel, "Quata iOS Official Editor")
+    }
+
+    func testOfficialEditorRouteDefersUntilAuthenticationCompletes() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let login = UIViewController()
+        let editor = UIViewController()
+        router.installAuthenticationFactory { login }
+        router.installOfficialEditorFactory { editor }
+
+        router.showOfficialEditor()
+        XCTAssertTrue(router.children.first === login)
+        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+
+        router.installFeedFactory { _ in UIViewController() }
+        XCTAssertTrue(authenticatedRouteController(in: router) === editor)
+        XCTAssertEqual(editor.view.accessibilityIdentifier, "quata-ios-official-editor-host")
+    }
+
+    func testOfficialFactoryCallSitesUseTheDedicatedEditorCallbackContract() throws {
+        let appSourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/QuataIosApp.swift")
+        let source = try String(contentsOf: appSourceURL, encoding: .utf8)
+
+        [
+            "onCreateOfficialPost: onCreateOfficialPost",
+            "hasOfficialEditorFactory",
+            "showOfficialEditor()",
+        ].forEach { expectedCallSite in
+            XCTAssertTrue(source.contains(expectedCallSite), "Missing Official editor call site: \(expectedCallSite)")
         }
     }
 
@@ -1188,19 +1242,20 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installProfileSosFactory { UIViewController() }
         router.installCommunitiesFactory { UIViewController() }
         router.installComposerFactory { UIViewController() }
+        router.installOfficialEditorFactory { UIViewController() }
         router.installSettingsFactory { UIViewController() }
 
         let menu = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         router.populateAuthenticatedRouteMenu(menu)
 
         let titles = menu.actions.compactMap(\.title)
-        ["Notificaciones", "Crear publicaci\u{00F3}n", "Ajustes", "Cerrar"].forEach {
+        ["Notificaciones", "Crear publicaci\u{00F3}n", "Crear comunicado", "Ajustes", "Cerrar"].forEach {
             XCTAssertTrue(titles.contains($0), "Missing installed secondary action: \($0)")
         }
         ["Inicio", "Conversaciones", "Oficial", "Perfil y SOS", "Comunidades"].forEach {
             XCTAssertFalse(titles.contains($0), "Primary route must not remain in the UIKit secondary actions menu: \($0)")
         }
-        XCTAssertEqual(titles.count, 4)
+        XCTAssertEqual(titles.count, 5)
     }
 
     func testLogoutActionUsesOneSharedCompletionAndReturnsToPublicFeed() {
@@ -1210,8 +1265,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let publicFeed = UIViewController()
         let authenticatedOfficial = UIViewController()
         let publicOfficial = UIViewController()
+        let officialEditor = UIViewController()
         router.installFeedFactory { _ in authenticatedFeed }
         router.installOfficialFactory { _ in authenticatedOfficial }
+        router.installOfficialEditorFactory { officialEditor }
 
         var logoutInvocationCount = 0
         var completeSharedLogout: (() -> Void)?
@@ -1230,6 +1287,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         let beforeLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         router.populateAuthenticatedRouteMenu(beforeLogout)
+        XCTAssertTrue(beforeLogout.actions.contains { $0.title == "Crear comunicado" })
         XCTAssertTrue(beforeLogout.actions.contains {
             $0.title == "Cerrar sesión" && $0.style == .destructive
         })
@@ -1261,6 +1319,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let afterLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         router.populateAuthenticatedRouteMenu(afterLogout)
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
+    }
+
+    func testOfficialEditorFactoryIsRemovedWithAuthenticatedLogoutState() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+        let loggedOut = expectation(description: "logged out")
+        router.installFeedFactory { _ in UIViewController() }
+        router.installOfficialEditorFactory { UIViewController() }
+        router.installLogoutAction({ completed in completed() }, onLoggedOut: {
+            router.installPublicFeed { _ in publicFeed }
+            loggedOut.fulfill()
+        })
+
+        router.performLogout()
+        wait(for: [loggedOut], timeout: 1)
+        XCTAssertFalse(router.hasOfficialEditorFactory)
+        router.showOfficialEditor()
+        XCTAssertTrue(router.children.first === publicFeed)
     }
 
     func testBackReturnsToInstalledAuthenticatedFeedWithoutCreatingAFallback() {

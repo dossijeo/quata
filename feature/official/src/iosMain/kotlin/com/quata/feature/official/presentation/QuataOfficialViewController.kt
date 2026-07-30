@@ -8,19 +8,37 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.official.data.IosOfficialReadRepository
 import com.quata.feature.official.data.IosOfficialRuntimeConfiguration
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.platform.IosShareService
+import com.quata.core.platform.ShareService
 import platform.UIKit.UIViewController
+
+/** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
+interface IosOfficialMediaViewerFactory {
+    fun create(url: String, isVideo: Boolean): IosOfficialMediaViewerSurface
+}
+
+interface IosOfficialMediaViewerSurface {
+    fun nativeView(): platform.UIKit.UIView
+    fun dispose()
+}
 
 /**
  * iOS composition input for the shared Official list and detail flow.
  *
  * [repository] belongs to the iOS launcher: it supplies authenticated transport and lifecycle.
- * [browserSlots] keep native avatar/media renderers and navigation outside common presentation.
+ * The UIKit launcher supplies only target seams; the product screen remains common.
  */
 class IosOfficialHostDependencies(
     val repository: OfficialRepository,
     val officialPostId: String? = null,
-    val navigationMessage: String = "Quata para iOS",
-    val browserSlots: OfficialBrowserHostSlots = OfficialBrowserHostSlots(),
+    val currentUserId: String? = null,
+    val shareService: ShareService = IosShareService(),
+    val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    val canCreateOfficialPost: Boolean = false,
+    val onAuthRequired: () -> Unit = {},
+    val onOpenUserProfile: (String) -> Unit = {},
+    val onCreateOfficialPost: () -> Unit = {},
 )
 
 /**
@@ -32,11 +50,16 @@ class IosOfficialHostDependencies(
 fun createIosOfficialHostDependencies(
     repository: OfficialRepository,
     officialPostId: String?,
-    navigationMessage: String,
+    shareService: ShareService = IosShareService(), mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    canCreateOfficialPost: Boolean = false,
 ): IosOfficialHostDependencies = IosOfficialHostDependencies(
     repository = repository,
     officialPostId = officialPostId,
-    navigationMessage = navigationMessage,
+    shareService = shareService,
+    mediaViewerFactory = mediaViewerFactory,
+    onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    canCreateOfficialPost = canCreateOfficialPost,
 )
 
 /**
@@ -49,11 +72,29 @@ fun createIosOfficialHostDependencies(
 fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     configuration: IosOfficialRuntimeConfiguration,
     officialPostId: String? = null,
-    navigationMessage: String = "Quata para iOS",
+    shareService: ShareService = IosShareService(),
+    mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
     repository = IosOfficialReadRepository(configuration = configuration),
     officialPostId = officialPostId,
-    navigationMessage = navigationMessage,
+    shareService = shareService,
+    mediaViewerFactory = mediaViewerFactory,
+    onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+)
+
+/** Authenticated iOS path reuses the renewable Keychain session for reviewed Official writes. */
+fun iosAuthenticatedPostgrestOfficialHostDependencies(
+    configuration: IosOfficialRuntimeConfiguration,
+    authSession: IosRenewableAuthSession,
+    officialPostId: String? = null,
+    shareService: ShareService = IosShareService(),
+    mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+): IosOfficialHostDependencies = createIosOfficialHostDependencies(
+    repository = IosOfficialReadRepository(configuration = configuration, authSession = authSession),
+    officialPostId = officialPostId,
+    shareService = shareService,
+    mediaViewerFactory = mediaViewerFactory,
 )
 
 /**
@@ -63,11 +104,15 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
 fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
-            OfficialBrowserHostContent(
+            OfficialFeedScreenHost(
+                padding = PaddingValues(),
                 repository = dependencies.repository,
-                officialPostId = dependencies.officialPostId,
-                navigationMessage = dependencies.navigationMessage,
-                slots = dependencies.browserSlots,
+                currentUserId = dependencies.currentUserId,
+                focusedPostId = dependencies.officialPostId,
+                onAuthRequired = dependencies.onAuthRequired,
+                onOpenUserProfile = dependencies.onOpenUserProfile,
+                onCreateOfficialPost = dependencies.onCreateOfficialPost,
+                slots = iosOfficialPlatformSlots(dependencies.shareService, dependencies.mediaViewerFactory, dependencies.canCreateOfficialPost),
             )
         }
     }

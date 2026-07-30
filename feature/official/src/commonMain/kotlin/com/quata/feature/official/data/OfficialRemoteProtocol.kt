@@ -146,7 +146,17 @@ fun officialRemoteProfileIds(
     posts.mapNotNull(OfficialRemotePost::profileId) +
         comments.mapNotNull(OfficialRemoteComment::profileId) +
         likes.mapNotNull(OfficialRemoteLike::profileId)
-    ).distinct()
+).distinct()
+
+/** Picks the requested locale for each group, with Spanish as the stable fallback. */
+fun List<OfficialRemotePost>.selectOfficialTranslations(requestedLanguage: String?): List<OfficialRemotePost> {
+    val requested = requestedLanguage?.substringBefore('-')?.lowercase()
+    return groupBy { it.translationGroupId?.takeIf(String::isNotBlank) ?: it.id }.values
+        .mapNotNull { variants -> variants.minWithOrNull(compareBy<OfficialRemotePost> {
+            when (it.language?.lowercase()) { requested -> 0; "es" -> 1; else -> 2 }
+        }.thenByDescending { it.publishedAt ?: it.createdAt.orEmpty() }) }
+        .sortedByDescending { it.publishedAt ?: it.createdAt.orEmpty() }
+}
 
 fun buildOfficialDomainPosts(
     posts: List<OfficialRemotePost>,

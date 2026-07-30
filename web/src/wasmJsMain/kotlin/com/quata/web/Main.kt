@@ -420,8 +420,12 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
                         WebOfficialHost(
                             repository = officialRepository,
+                            shareService = platformServices.share,
                             officialPostId = navigation.officialPostId,
-                            navigationMessage = navigation.message,
+                            currentUserId = currentUserId,
+                            onAuthRequired = { navigateWebFragment("auth") },
+                            onOpenUserProfile = feedMemberProfileRoute::open,
+                            onCreateOfficialPost = { navigateWebFragment("composer") },
                         )
                     }
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
