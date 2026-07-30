@@ -289,8 +289,12 @@ class IosOfficialReadRepository(
         return this
     }
 
-    private suspend fun authenticatedUserId(): String = authSession?.currentSession()?.userId
-        ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
+    private suspend fun authenticatedUserId(): String {
+        val sessionProvider = authSession
+            ?: throw UnsupportedOperationException("ios_official_mutation_not_implemented")
+        return sessionProvider.currentSession()?.userId
+            ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
+    }
 
     private fun <T> unsupportedMutation(): Result<T> =
         Result.failure(UnsupportedOperationException("ios_official_mutation_not_implemented"))

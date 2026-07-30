@@ -5,9 +5,9 @@ import kotlin.test.assertEquals
 
 class OfficialFeedScreenStringsTest {
     @Test fun selectsCompleteSpanishEnglishAndFrenchCatalogs() {
-        assertEquals(OfficialFeedScreenStrings(), defaultOfficialFeedScreenStrings("es-ES"))
-        assertEquals(OfficialFeedScreenStrings(), defaultOfficialFeedScreenStrings("de-DE"))
-        assertEquals(
+        assertCatalogEquals(OfficialFeedScreenStrings(), defaultOfficialFeedScreenStrings("es-ES"))
+        assertCatalogEquals(OfficialFeedScreenStrings(), defaultOfficialFeedScreenStrings("de-DE"))
+        assertCatalogEquals(
             OfficialFeedScreenStrings(
                 empty = "No official notices are available.", create = "Create notice", retry = "Retry",
                 loadingError = "Could not load official notices.", like = "Like", comments = "Comments",
@@ -23,7 +23,7 @@ class OfficialFeedScreenStringsTest {
             ),
             defaultOfficialFeedScreenStrings("en-US"),
         )
-        assertEquals(
+        assertCatalogEquals(
             OfficialFeedScreenStrings(
                 empty = "Aucun communiqu\u00e9 officiel disponible.", create = "Cr\u00e9er un communiqu\u00e9", retry = "R\u00e9essayer",
                 loadingError = "Impossible de charger les communiqu\u00e9s officiels.", like = "J'aime", comments = "Commentaires",
@@ -38,6 +38,31 @@ class OfficialFeedScreenStringsTest {
                 shareUnavailable = "Ce communiqu\u00e9 ne peut pas \u00eatre partag\u00e9 sur cet appareil.", shareFailed = "Impossible de partager le communiqu\u00e9",
             ),
             defaultOfficialFeedScreenStrings("fr-FR"),
+        )
+    }
+
+    private fun assertCatalogEquals(expected: OfficialFeedScreenStrings, actual: OfficialFeedScreenStrings) {
+        assertEquals(
+            listOf(
+                expected.empty, expected.create, expected.retry, expected.loadingError, expected.like,
+                expected.comments, expected.share, expected.rank, expected.live, expected.delete,
+                expected.close, expected.profile, expected.readMore, expected.refresh,
+                expected.readMoreMoreInformation, expected.readMoreContinueReading, expected.readMoreDetails,
+                expected.typeAnnouncement, expected.typeNews, expected.typeEvent, expected.typeUrgent,
+                expected.officialAccountFallback, expected.deleteTitle, expected.deleteMessage,
+                expected.confirm, expected.cancel, expected.deleted, expected.reportSent, expected.reportFailed,
+                expected.shareUnavailable, expected.shareFailed,
+            ),
+            listOf(
+                actual.empty, actual.create, actual.retry, actual.loadingError, actual.like,
+                actual.comments, actual.share, actual.rank, actual.live, actual.delete,
+                actual.close, actual.profile, actual.readMore, actual.refresh,
+                actual.readMoreMoreInformation, actual.readMoreContinueReading, actual.readMoreDetails,
+                actual.typeAnnouncement, actual.typeNews, actual.typeEvent, actual.typeUrgent,
+                actual.officialAccountFallback, actual.deleteTitle, actual.deleteMessage,
+                actual.confirm, actual.cancel, actual.deleted, actual.reportSent, actual.reportFailed,
+                actual.shareUnavailable, actual.shareFailed,
+            ),
         )
     }
 }

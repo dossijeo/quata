@@ -47,9 +47,13 @@ internal fun iosOfficialPlatformSlots(shareService: ShareService, viewerFactory:
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
     mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, dismiss) },
+    openUrl = {},
     share = { payload -> shareService.share(payload) },
+    message = {},
+    showComposeMessage = false,
     rankingAvatar = { item -> IosOfficialRankingAvatar(item) },
     canCreateOfficialPost = canCreateOfficialPost,
+    floatingPanel = ::OfficialDefaultFloatingPanel,
 )
 
 @Composable

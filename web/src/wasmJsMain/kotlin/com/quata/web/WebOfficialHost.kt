@@ -10,6 +10,7 @@ import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
+import com.quata.feature.official.presentation.OfficialDefaultFloatingPanel
 import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 
@@ -32,6 +33,7 @@ fun WebOfficialHost(
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
+    onFocusedPostHandled = {},
     strings = defaultOfficialFeedScreenStrings(webOfficialLanguageTag()),
     modifier = modifier,
     slots = OfficialFeedScreenPlatformSlots(
@@ -47,9 +49,12 @@ fun WebOfficialHost(
         article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
         mediaViewer = { post, dismiss -> post.mediaUrl?.let { url -> openBrowserUrl(url) }; dismiss() },
         share = { payload -> shareService.share(payload) },
+        message = {},
         showComposeMessage = true,
+        canCreateOfficialPost = false,
         openUrl = { url -> openBrowserUrl(url) },
         rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
+        floatingPanel = ::OfficialDefaultFloatingPanel,
     ),
 )
 

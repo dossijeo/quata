@@ -76,7 +76,7 @@ fun OfficialCommentsPanelContent(
     }
 }
 
-data class OfficialCommentsStrings(
+class OfficialCommentsStrings(
     val title: String = "Comentarios",
     val close: String = "Cerrar",
     val placeholder: String = "Escribe un comentario",

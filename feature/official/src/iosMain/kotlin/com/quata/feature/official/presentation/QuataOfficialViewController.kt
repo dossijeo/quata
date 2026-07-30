@@ -2,6 +2,7 @@ package com.quata.feature.official.presentation
 
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
@@ -133,6 +134,8 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
                 slots = iosOfficialPlatformSlots(dependencies.shareService, dependencies.mediaViewerFactory, dependencies.canCreateOfficialPost),
+                onFocusedPostHandled = {},
+                modifier = Modifier,
             )
         }
     }

@@ -80,6 +80,8 @@ fun OfficialFeedScreen(
             typeEvent = stringResource(R.string.official_type_event),
             typeUrgent = stringResource(R.string.official_type_urgent),
             officialAccountFallback = stringResource(R.string.official_account_fallback),
+            shareUnavailable = "No se puede compartir este comunicado en este dispositivo.",
+            shareFailed = "No se pudo compartir el comunicado.",
         ),
         slots = OfficialFeedScreenPlatformSlots(
             avatar = { post, avatarModifier ->
@@ -91,7 +93,10 @@ fun OfficialFeedScreen(
             openUrl = { url -> context.openOfficialPostLink(url) },
             share = { payload -> shareService.share(payload) },
             message = { value -> Toast.makeText(context, value, Toast.LENGTH_SHORT).show() },
+            showComposeMessage = false,
             canCreateOfficialPost = onCreateOfficialPost != null,
+            rankingAvatar = {},
+            floatingPanel = ::OfficialDefaultFloatingPanel,
         ),
     )
 }

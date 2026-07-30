@@ -45,39 +45,55 @@ import com.quata.feature.official.domain.calculateOfficialPostRanking
 import kotlinx.coroutines.launch
 
 /** Localized copy and platform-visible feedback for the shared Official product surface. */
-data class OfficialFeedScreenStrings(
-    val empty: String = "No hay comunicados oficiales disponibles.",
-    val create: String = "Crear comunicado",
-    val retry: String = "Reintentar",
-    val loadingError: String = "No se pudieron cargar los comunicados oficiales.",
-    val like: String = "Me gusta",
-    val comments: String = "Comentarios",
-    val share: String = "Compartir",
-    val rank: String = "Ranking",
-    val live: String = "LIVE",
-    val delete: String = "Eliminar",
-    val close: String = "Cerrar",
-    val profile: String = "Perfil",
-    val readMore: String = "Leer más",
-    val refresh: String = "Actualizar",
-    val readMoreMoreInformation: String = "Más información",
-    val readMoreContinueReading: String = "Seguir leyendo",
-    val readMoreDetails: String = "Detalles",
-    val typeAnnouncement: String = "Comunicado",
-    val typeNews: String = "Noticias",
-    val typeEvent: String = "Evento",
-    val typeUrgent: String = "Urgente",
-    val officialAccountFallback: String = "Cuenta oficial",
-    val deleteTitle: String = "Eliminar comunicado",
-    val deleteMessage: String = "Esta acción no se puede deshacer.",
-    val confirm: String = "Confirmar",
-    val cancel: String = "Cancelar",
-    val deleted: String = "Comunicado eliminado",
-    val reportSent: String = "Reporte enviado",
-    val reportFailed: String = "No se pudo enviar el reporte",
-    val shareUnavailable: String = "No se puede compartir este comunicado en este dispositivo.",
-    val shareFailed: String = "No se pudo compartir el comunicado.",
-)
+class OfficialFeedScreenStrings(
+    val empty: String,
+    val create: String,
+    val retry: String,
+    val loadingError: String,
+    val like: String,
+    val comments: String,
+    val share: String,
+    val rank: String,
+    val live: String,
+    val delete: String,
+    val close: String,
+    val profile: String,
+    val readMore: String,
+    val refresh: String,
+    val readMoreMoreInformation: String,
+    val readMoreContinueReading: String,
+    val readMoreDetails: String,
+    val typeAnnouncement: String,
+    val typeNews: String,
+    val typeEvent: String,
+    val typeUrgent: String,
+    val officialAccountFallback: String,
+    val deleteTitle: String,
+    val deleteMessage: String,
+    val confirm: String,
+    val cancel: String,
+    val deleted: String,
+    val reportSent: String,
+    val reportFailed: String,
+    val shareUnavailable: String,
+    val shareFailed: String,
+) {
+    constructor() : this(
+        empty = "No hay comunicados oficiales disponibles.", create = "Crear comunicado",
+        retry = "Reintentar", loadingError = "No se pudieron cargar los comunicados oficiales.",
+        like = "Me gusta", comments = "Comentarios", share = "Compartir", rank = "Ranking",
+        live = "LIVE", delete = "Eliminar", close = "Cerrar", profile = "Perfil",
+        readMore = "Leer más", refresh = "Actualizar", readMoreMoreInformation = "Más información",
+        readMoreContinueReading = "Seguir leyendo", readMoreDetails = "Detalles",
+        typeAnnouncement = "Comunicado", typeNews = "Noticias", typeEvent = "Evento",
+        typeUrgent = "Urgente", officialAccountFallback = "Cuenta oficial",
+        deleteTitle = "Eliminar comunicado", deleteMessage = "Esta acción no se puede deshacer.",
+        confirm = "Confirmar", cancel = "Cancelar", deleted = "Comunicado eliminado",
+        reportSent = "Reporte enviado", reportFailed = "No se pudo enviar el reporte",
+        shareUnavailable = "No se puede compartir este comunicado en este dispositivo.",
+        shareFailed = "No se pudo compartir el comunicado.",
+    )
+}
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
     "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report")
@@ -100,20 +116,25 @@ internal fun OfficialFeedScreenStrings.readMoreLabel(storedValue: String): Strin
 }
 
 /** The only target-specific seams: rendering and externally-owned services/navigation. */
-data class OfficialFeedScreenPlatformSlots(
+class OfficialFeedScreenPlatformSlots(
     val avatar: @Composable (OfficialPostItem, Modifier) -> Unit,
     val media: @Composable (OfficialPostItem, Modifier, () -> Unit) -> Unit,
-    val article: @Composable (OfficialPostItem, Modifier) -> Unit = { post, modifier -> Text(post.contentPlain.ifBlank { post.summary }, modifier) },
-    val mediaViewer: @Composable (OfficialPostItem, () -> Unit) -> Unit = { _, _ -> },
-    val openUrl: (String) -> Unit = {},
-    val share: suspend (SharePayload) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
-    val message: (String) -> Unit = {},
-    val showComposeMessage: Boolean = false,
-    val canCreateOfficialPost: Boolean = false,
-    val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
-    val floatingPanel: @Composable (onDismiss: () -> Unit, content: @Composable (Modifier, Boolean) -> Unit) -> Unit =
-        { dismiss, content -> QuataStandardFloatingPanelContent(onDismiss = dismiss, content = content) },
+    val article: @Composable (OfficialPostItem, Modifier) -> Unit,
+    val mediaViewer: @Composable (OfficialPostItem, () -> Unit) -> Unit,
+    val openUrl: (String) -> Unit,
+    val share: suspend (SharePayload) -> PlatformResult<Unit>,
+    val message: (String) -> Unit,
+    val showComposeMessage: Boolean,
+    val canCreateOfficialPost: Boolean,
+    val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit,
+    val floatingPanel: @Composable (onDismiss: () -> Unit, content: @Composable (Modifier, Boolean) -> Unit) -> Unit,
 )
+
+@Composable
+fun OfficialDefaultFloatingPanel(
+    onDismiss: () -> Unit,
+    content: @Composable (Modifier, Boolean) -> Unit,
+) = QuataStandardFloatingPanelContent(onDismiss = onDismiss, content = content)
 
 /**
  * Sole Official screen root shared by Android, Wasm and iOS.
@@ -126,14 +147,14 @@ fun OfficialFeedScreenHost(
     padding: PaddingValues,
     repository: OfficialRepository,
     slots: OfficialFeedScreenPlatformSlots,
-    currentUserId: String? = null,
-    focusedPostId: String? = null,
-    strings: OfficialFeedScreenStrings = OfficialFeedScreenStrings(),
-    onFocusedPostHandled: () -> Unit = {},
-    onAuthRequired: () -> Unit = {},
-    onOpenUserProfile: (String) -> Unit = {},
-    onCreateOfficialPost: () -> Unit = {},
-    modifier: Modifier = Modifier,
+    currentUserId: String?,
+    focusedPostId: String?,
+    strings: OfficialFeedScreenStrings,
+    onFocusedPostHandled: () -> Unit,
+    onAuthRequired: () -> Unit,
+    onOpenUserProfile: (String) -> Unit,
+    onCreateOfficialPost: () -> Unit,
+    modifier: Modifier,
 ) {
     val viewModel = remember(repository) { OfficialFeedViewModel(repository) }
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
