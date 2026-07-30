@@ -19,6 +19,10 @@ class IosNotificationsRuntimeBootstrap(
 
     /** One injected repository instance is retained for the lifetime of the authenticated host. */
     fun repository(): NotificationsRepository = notificationsRepository
+
+    /** Observes the very same repository used by the iOS notification inbox. */
+    fun notificationCountObserver(): IosNotificationCountObserver =
+        IosNotificationCountObserver(notificationsRepository)
 }
 
 /** Swift-facing factory that avoids relying on Kotlin constructor export details. */

@@ -204,6 +204,15 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
         )
     }()
+    // The inbox and the shared top chrome deliberately retain one notification repository. This
+    // prevents the badge from becoming a separate Swift count with different unread semantics.
+    private lazy var notificationsRuntimeBootstrap: IosNotificationsRuntimeBootstrap? = {
+        guard let chatRuntimeBootstrap else { return nil }
+        return IosNotificationsRuntimeBootstrapKt
+            .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
+    }()
+    private var notificationCountObserver: IosNotificationCountObserver?
+    private var notificationCountObservationID = UUID()
     /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
     /// independent from Keychain restoration, so a valid public deployment can open a shared
     /// Official link before login and never sends a restored bearer token for that read.
@@ -488,12 +497,10 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedNotificationsIfAvailable() {
-        guard let chatRuntimeBootstrap else { return }
-        let notificationsBootstrap = IosNotificationsRuntimeBootstrapKt
-            .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
+        guard let bootstrap = notificationsRuntimeBootstrap else { return }
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
-                repository: notificationsBootstrap.repository(),
+                repository: bootstrap.repository(),
                 timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
@@ -519,6 +526,30 @@ private final class IosAppCompositionRoot {
                 onHandleDeepLink: { _ in },
             ),
         )
+        installNotificationCountObserver(bootstrap)
+    }
+
+    private func installNotificationCountObserver(_ bootstrap: IosNotificationsRuntimeBootstrap) {
+        notificationCountObserver?.close()
+        let observer = bootstrap.notificationCountObserver()
+        let observationID = UUID()
+        notificationCountObservationID = observationID
+        notificationCountObserver = observer
+        observer.start { [weak self] count in
+            // The Kotlin bridge collects on MainScope; dispatching also protects this state if a
+            // future repository changes its upstream dispatcher.
+            DispatchQueue.main.async {
+                guard let self, self.notificationCountObservationID == observationID else { return }
+                self.authenticatedHost.updateNotificationCount(count)
+            }
+        }
+    }
+
+    private func closeNotificationCountObserver() {
+        notificationCountObserver?.close()
+        notificationCountObserver = nil
+        // Ignore a value that was already queued on the main run loop before cancellation.
+        notificationCountObservationID = UUID()
     }
 
     private func installAuthenticatedProfileSosIfAvailable() {
@@ -690,6 +721,7 @@ private final class IosAppCompositionRoot {
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
+                self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
                 self?.installAuthenticationIfConfigured()
@@ -815,6 +847,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     )
     private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
     private var isAuthenticatedTopChromeInstalled = false
+
+    /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
+    func updateNotificationCount(_ count: Int) {
+        authenticatedTopChromeHost.updateNotificationCount(count: count)
+    }
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
