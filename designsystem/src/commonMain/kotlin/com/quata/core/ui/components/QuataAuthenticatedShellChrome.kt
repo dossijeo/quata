@@ -42,7 +42,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,8 +62,11 @@ data class QuataAuthenticatedChromeStrings(
 val QuataAuthenticatedChromeSpanish = QuataAuthenticatedChromeStrings(
     notifications = "Avisos",
     offline = "Sin conexi\u00f3n",
-    sos = "SOS \ud83d\udea8",
+    sos = "SOS",
 )
+
+/** The siren is drawn as a vector; this only removes legacy copy from its visual label. */
+internal fun sosVisibleLabel(label: String): String = label.replace("🚨", "").trim()
 
 /**
  * The one authenticated viewport contract shared by Android, Wasm and iOS.
@@ -184,7 +190,7 @@ private fun QuataHeaderIdentity(
                 .clickable(onClick = onLogoClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Q\u0308", color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp, lineHeight = 17.sp, letterSpacing = (-0.6).sp)
+            QuataHeaderMark()
         }
         Box(
             modifier = Modifier.offset(x = AuthenticatedShellChromeContract.notificationsOffset).size(AuthenticatedShellChromeContract.notificationsSize).graphicsLayer { scaleX = scale; scaleY = scale }
@@ -212,9 +218,41 @@ private fun QuataSosButton(label: String, isSending: Boolean, pulseScale: Float,
         modifier = Modifier.size(AuthenticatedShellChromeContract.sosWidth, AuthenticatedShellChromeContract.sosHeight).graphicsLayer {
             val scale = if (isSending) pulseScale else 1f
             scaleX = scale; scaleY = scale
-        }.clickable(enabled = !isSending, onClick = onClick),
+        }.semantics { contentDescription = label }.clickable(enabled = !isSending, onClick = onClick),
     ) {
-        Box(contentAlignment = Alignment.Center) { Text(label, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption) }
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize(),) {
+            Text(sosVisibleLabel(label), fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
+            SosEmergencyGlyph(Modifier.size(16.dp))
+        }
+    }
+}
+
+/** Fixed siren geometry used instead of the system-dependent 🚨 emoji glyph. */
+@Composable
+private fun SosEmergencyGlyph(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val stroke = Stroke(width = size.minDimension * .13f)
+        val white = Color.White
+        drawRoundRect(white, topLeft = androidx.compose.ui.geometry.Offset(size.width * .13f, size.height * .66f), size = androidx.compose.ui.geometry.Size(size.width * .74f, size.height * .20f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f, size.width * .08f))
+        drawArc(white, 180f, 180f, false, topLeft = androidx.compose.ui.geometry.Offset(size.width * .27f, size.height * .23f), size = androidx.compose.ui.geometry.Size(size.width * .46f, size.height * .57f), style = stroke)
+        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .5f, 0f), androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .14f), strokeWidth = stroke.width)
+        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .08f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .19f, size.height * .29f), strokeWidth = stroke.width)
+        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .92f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .81f, size.height * .29f), strokeWidth = stroke.width)
+    }
+}
+
+/** A small Canvas mark avoids relying on a platform font for the Q-with-diaeresis header icon. */
+@Composable
+private fun QuataHeaderMark() {
+    androidx.compose.foundation.Canvas(Modifier.size(22.dp)) {
+        val white = Color.White
+        val stroke = Stroke(width = size.minDimension * .15f)
+        val center = androidx.compose.ui.geometry.Offset(size.width * .47f, size.height * .55f)
+        val radius = size.minDimension * .29f
+        drawCircle(white, radius = radius, center = center, style = stroke)
+        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .60f, size.height * .69f), androidx.compose.ui.geometry.Offset(size.width * .88f, size.height * .95f), strokeWidth = stroke.width)
+        drawCircle(white, radius = size.minDimension * .075f, center = androidx.compose.ui.geometry.Offset(size.width * .35f, size.height * .10f))
+        drawCircle(white, radius = size.minDimension * .075f, center = androidx.compose.ui.geometry.Offset(size.width * .60f, size.height * .10f))
     }
 }
 

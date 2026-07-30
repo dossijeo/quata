@@ -297,7 +297,7 @@ private fun QuataWebApp(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
                 isOnline = true,
-                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS 🚨"),
+                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS"),
                 onLogoClick = { navigateWebFragment("about") },
                 onNotificationsClick = { navigateWebFragment("notifications") },
                 onSosClick = { navigateWebFragment("profile") },
