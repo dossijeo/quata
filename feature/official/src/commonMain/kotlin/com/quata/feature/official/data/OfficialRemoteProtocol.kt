@@ -7,8 +7,8 @@ import com.quata.core.text.parsePostCommentBody
 import com.quata.core.text.stripHtmlTagsAndDecode
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
-import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
+import com.quata.feature.official.domain.OfficialPostLanguage
 
 /** Portable PostgREST fields used to assemble the Official feed. */
 data class OfficialRemotePost(
@@ -156,6 +156,18 @@ fun List<OfficialRemotePost>.selectOfficialTranslations(requestedLanguage: Strin
             when (it.language?.lowercase()) { requested -> 0; "es" -> 1; else -> 2 }
         }.thenByDescending { it.publishedAt ?: it.createdAt.orEmpty() }) }
         .sortedByDescending { it.publishedAt ?: it.createdAt.orEmpty() }
+}
+
+/** Portable PostgREST plan: keep both locale variants until group selection is complete. */
+data class OfficialTranslationReadPlan(val filters: Map<String, String>, val fetchLimit: Int)
+
+fun officialTranslationReadPlan(requestedLanguage: String?, limit: Int, postId: String? = null): OfficialTranslationReadPlan {
+    if (!postId.isNullOrBlank()) return OfficialTranslationReadPlan(emptyMap(), 1)
+    val language = OfficialPostLanguage.fromAppLanguage(requestedLanguage?.substringBefore('-')).remoteValue
+    return OfficialTranslationReadPlan(
+        filters = if (language == "es") mapOf("language" to "eq.es") else mapOf("or" to "(language.eq.$language,language.eq.es)"),
+        fetchLimit = limit.coerceAtLeast(1) * if (language == "es") 1 else 2,
+    )
 }
 
 fun buildOfficialDomainPosts(

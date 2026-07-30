@@ -9,6 +9,17 @@ import kotlin.test.assertTrue
 
 class OfficialRemoteProtocolTest {
     @Test
+    fun translationReadPlanMatchesAndroidLocalePolicyAndPreservesVariants() {
+        assertEquals(mapOf("language" to "eq.es"), officialTranslationReadPlan("es-ES", 20).filters)
+        assertEquals(20, officialTranslationReadPlan("es", 20).fetchLimit)
+        assertEquals(mapOf("or" to "(language.eq.fr,language.eq.es)"), officialTranslationReadPlan("fr-FR", 20).filters)
+        assertEquals(40, officialTranslationReadPlan("fr", 20).fetchLimit)
+        assertEquals(mapOf("language" to "eq.es"), officialTranslationReadPlan("x);drop", 20).filters)
+        assertEquals(emptyMap(), officialTranslationReadPlan("fr", 20, postId = "exact").filters)
+        assertEquals(1, officialTranslationReadPlan("fr", 20, postId = "exact").fetchLimit)
+    }
+
+    @Test
     fun selectsRequestedTranslationThenSpanishFallbackPerGroup() {
         val selected = listOf(
             OfficialRemotePost(id = "es", translationGroupId = "group", language = "es", publishedAt = "2026-01-01"),

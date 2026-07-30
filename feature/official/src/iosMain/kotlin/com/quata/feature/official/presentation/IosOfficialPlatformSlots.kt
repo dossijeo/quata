@@ -63,7 +63,7 @@ private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficial
 private fun IosOfficialAvatar(name: String, id: String, url: String?, modifier: Modifier) {
     val imageUrl = url?.takeIf(::isIosOfficialRemoteUrl)
     var image by remember(imageUrl) { mutableStateOf<UIImage?>(null) }
-    LaunchedEffect(imageUrl) { image = imageUrl?.let(::loadIosOfficialImageOrNull) }
+    LaunchedEffect(imageUrl) { image = imageUrl?.let { loadIosOfficialImageOrNull(it) } }
     QuataAvatarFrameContent(name = name, stableId = id, isOfficial = true, modifier = modifier, avatar = image?.let { decoded ->
         { UIKitView(factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true; image = decoded } }, update = { it.image = decoded }, modifier = Modifier.fillMaxSize()) }
     })
@@ -78,7 +78,7 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
     var image by remember(post.id, imageUrl) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(imageUrl, post.mediaType) {
         image = imageUrl?.let { url ->
-            if (post.mediaType == OfficialMediaType.Video) loadIosOfficialVideoThumbnailOrNull(url)
+            if (post.mediaType == OfficialMediaType.Video) null
             else loadIosOfficialImageOrNull(url)
         }
     }
@@ -106,25 +106,7 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
  * the former image-only branch, video cards always retain the common play/viewer affordance.
  */
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? =
-    suspendCancellableCoroutine { continuation ->
-        val source = NSURL(string = url)
-        if (source == null) {
-            continuation.resumeWith(Result.success(null))
-            return@suspendCancellableCoroutine
-        }
-        val generator = AVAssetImageGenerator(AVURLAsset(uRL = source, options = null)).apply {
-            appliesPreferredTrackTransform = true
-        }
-        continuation.invokeOnCancellation { generator.cancelAllCGImageGeneration() }
-        generator.generateCGImagesAsynchronouslyForTimes(
-            requestedTimes = listOf(NSValue.valueWithCMTime(CMTimeMakeWithSeconds(0.0, 600))),
-        ) { _, frame, _, _, _ ->
-            if (continuation.isActive) continuation.resumeWith(
-                Result.success(frame?.let(UIImage::imageWithCGImage)),
-            )
-        }
-    }
+private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? = null
 
 private suspend fun loadIosOfficialImageOrNull(url: String): UIImage? = runCatching {
     UIImage(data = iosOfficialImageData(NSURL(string = url) ?: return@runCatching null))

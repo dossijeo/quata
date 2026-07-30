@@ -51,14 +51,18 @@ fun createIosOfficialHostDependencies(
     repository: OfficialRepository,
     officialPostId: String?,
     shareService: ShareService = IosShareService(), mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    currentUserId: String? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    onCreateOfficialPost: () -> Unit = {},
     canCreateOfficialPost: Boolean = false,
 ): IosOfficialHostDependencies = IosOfficialHostDependencies(
     repository = repository,
     officialPostId = officialPostId,
+    currentUserId = currentUserId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    onCreateOfficialPost = onCreateOfficialPost,
     canCreateOfficialPost = canCreateOfficialPost,
 )
 
@@ -90,11 +94,20 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     officialPostId: String? = null,
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    currentUserId: String? = authSession.restoredSession()?.userId,
+    onAuthRequired: () -> Unit = {},
+    onOpenUserProfile: (String) -> Unit = {},
+    onCreateOfficialPost: () -> Unit = {},
+    canCreateOfficialPost: Boolean = false,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
     repository = IosOfficialReadRepository(configuration = configuration, authSession = authSession),
     officialPostId = officialPostId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    currentUserId = currentUserId,
+    onAuthRequired = onAuthRequired,
+    onOpenUserProfile = onOpenUserProfile,
+    canCreateOfficialPost = canCreateOfficialPost,
 )
 
 /**

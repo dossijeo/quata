@@ -8,6 +8,7 @@ import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.data.selectOfficialTranslations
+import com.quata.feature.official.data.officialTranslationReadPlan
 import com.quata.feature.official.data.officialLikeLookupPlan
 import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
@@ -148,6 +149,7 @@ class IosOfficialReadRepository(
         publishedBefore: String? = null,
         postId: String? = null,
     ): Result<List<OfficialPostItem>> = runCatching {
+        val translation = officialTranslationReadPlan(null, limit, postId)
         val posts = rows(
             table = "official_posts",
             query = buildMap {
@@ -155,11 +157,12 @@ class IosOfficialReadRepository(
                 put("is_published", "eq.true")
                 put("deleted_at", "is.null")
                 put("order", "published_at.desc,created_at.desc")
+                putAll(translation.filters)
                 publishedBefore?.let { put("published_at", "lt.$it") }
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
-            limit = limit,
-        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(NSLocale.currentLocale.languageCode)
+            limit = translation.fetchLimit,
+        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(null)
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -185,9 +188,9 @@ class IosOfficialReadRepository(
             comments = comments,
             likes = likes,
             profiles = profiles,
-            // Anonymous Official reads never inspect a user session.  Interactive likes remain
-            // unavailable on iOS, so no current-user marker is needed by this read-only host.
-            currentUserId = null,
+            // This is identity-only metadata for the already-public response. It never changes
+            // the bearer-free GET transport used above.
+            currentUserId = authSession?.currentSession()?.userId,
             defaultTitle = DefaultTitle,
             defaultCommentAuthor = DefaultCommentAuthor,
         )
@@ -273,6 +276,9 @@ class IosOfficialReadRepository(
         return this
     }
 
+    private suspend fun authenticatedUserId(): String = authSession?.currentSession()?.userId
+        ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
+
     private fun <T> unsupportedMutation(): Result<T> =
         Result.failure(UnsupportedOperationException("ios_official_mutation_not_implemented"))
 
@@ -288,6 +294,7 @@ class IosOfficialReadRepository(
 }
 
 private fun iosJsonString(value: String): String = buildString { append('"'); value.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+@OptIn(kotlin.time.ExperimentalTime::class)
 private fun currentOfficialTimestamp(): String = kotlin.time.Clock.System.now().toString()
 
 /** Small iOS composition factory; host/UI ownership remains with the launcher. */

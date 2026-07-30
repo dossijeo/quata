@@ -16,6 +16,7 @@ import com.quata.feature.official.data.OfficialRemoteWireSchema
 import com.quata.feature.official.data.officialRemoteProfileIds
 import com.quata.feature.official.data.toOfficialDomainUser
 import com.quata.feature.official.data.selectOfficialTranslations
+import com.quata.feature.official.data.officialTranslationReadPlan
 import com.quata.feature.official.data.officialLikeLookupPlan
 import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
@@ -126,6 +127,7 @@ class WebOfficialRepository(
         publishedBefore: String? = null,
         postId: String? = null,
     ): Result<List<OfficialPostItem>> = runCatching {
+        val translation = officialTranslationReadPlan(currentWebOfficialLanguage(), limit, postId)
         val posts = client.rows(
             table = "official_posts",
             query = buildMap {
@@ -133,10 +135,11 @@ class WebOfficialRepository(
                 put("is_published", "eq.true")
                 put("deleted_at", "is.null")
                 put("order", "published_at.desc,created_at.desc")
+                putAll(translation.filters)
                 publishedBefore?.let { put("published_at", "lt.$it") }
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
-            limit = limit,
+            limit = translation.fetchLimit,
         ).map(JsonObject::toOfficialRemotePost).selectOfficialTranslations(currentWebOfficialLanguage())
         if (posts.isEmpty()) return@runCatching emptyList()
 

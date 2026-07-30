@@ -71,6 +71,13 @@ fun OfficialFeedScreen(
             cancel = stringResource(R.string.common_cancel),
             refresh = stringResource(R.string.common_refresh),
             readMore = stringResource(R.string.official_read_more),
+            readMoreMoreInformation = stringResource(R.string.official_read_more_more_information),
+            readMoreContinueReading = stringResource(R.string.official_read_more_continue_reading),
+            readMoreDetails = stringResource(R.string.official_read_more_details),
+            typeAnnouncement = stringResource(R.string.official_type_announcement),
+            typeNews = stringResource(R.string.official_type_news),
+            typeEvent = stringResource(R.string.official_type_event),
+            typeUrgent = stringResource(R.string.official_type_urgent),
             officialAccountFallback = stringResource(R.string.official_account_fallback),
         ),
         slots = OfficialFeedScreenPlatformSlots(

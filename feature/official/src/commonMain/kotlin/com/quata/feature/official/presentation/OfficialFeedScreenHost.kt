@@ -30,6 +30,7 @@ import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
+import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
@@ -38,6 +39,7 @@ import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.domain.calculateOfficialPostRanking
 import kotlinx.coroutines.launch
@@ -58,6 +60,13 @@ data class OfficialFeedScreenStrings(
     val profile: String = "Perfil",
     val readMore: String = "Leer más",
     val refresh: String = "Actualizar",
+    val readMoreMoreInformation: String = "Más información",
+    val readMoreContinueReading: String = "Seguir leyendo",
+    val readMoreDetails: String = "Detalles",
+    val typeAnnouncement: String = "Comunicado",
+    val typeNews: String = "Noticias",
+    val typeEvent: String = "Evento",
+    val typeUrgent: String = "Urgente",
     val officialAccountFallback: String = "Cuenta oficial",
     val deleteTitle: String = "Eliminar comunicado",
     val deleteMessage: String = "Esta acción no se puede deshacer.",
@@ -67,6 +76,20 @@ data class OfficialFeedScreenStrings(
     val shareUnavailable: String = "No se puede compartir este comunicado en este dispositivo.",
     val shareFailed: String = "No se pudo compartir el comunicado.",
 )
+
+internal fun OfficialFeedScreenStrings.typeLabel(type: OfficialPostType): String = when (type) {
+    OfficialPostType.Announcement -> typeAnnouncement
+    OfficialPostType.News -> typeNews
+    OfficialPostType.Event -> typeEvent
+    OfficialPostType.Urgent -> typeUrgent
+}
+
+internal fun OfficialFeedScreenStrings.readMoreLabel(storedValue: String): String = when (storedValue.trim().lowercase()) {
+    "more_information" -> readMoreMoreInformation
+    "continue_reading" -> readMoreContinueReading
+    "details" -> readMoreDetails
+    else -> readMore
+}
 
 /** The only target-specific seams: rendering and externally-owned services/navigation. */
 data class OfficialFeedScreenPlatformSlots(
@@ -163,7 +186,7 @@ fun OfficialFeedScreenHost(
                 pageContent = { index, post, _ ->
                     OfficialPagerPostPageContent(card = { cardModifier ->
                         OfficialPostCardContent(
-                            post = post, typeLabel = post.type.remoteValue.uppercase(), readMoreLabel = post.readMoreLabel.ifBlank { strings.readMore }, isLandscape = windowInfo.isLandscape,
+                            post = post, typeLabel = strings.typeLabel(post.type), readMoreLabel = strings.readMoreLabel(post.readMoreLabel), isLandscape = windowInfo.isLandscape,
                             author = { authorModifier -> OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, authorModifier.clickable { onOpenUserProfile(post.author.id) }) },
                             media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { mediaModifier -> slots.media(post, mediaModifier) { mediaPost = post.id } } },
                             actionRail = { landscape, railModifier ->
@@ -191,6 +214,7 @@ fun OfficialFeedScreenHost(
                                     modifier = railModifier,
                                 )
                             },
+                            overflowAction = { overflowModifier -> QuataFeedOverflowActionButton(ranks[post.id]?.position ?: index + 1, strings.rank, strings.live, null, false, { liveOpen = true }, {}, overflowModifier) },
                             onReadMore = { readMorePost = post.id }, modifier = cardModifier,
                         )
                     }, modifier = Modifier.fillMaxSize())
@@ -204,7 +228,7 @@ fun OfficialFeedScreenHost(
         if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
-        OfficialPostDetailPanelContent(post.title, strings.close, post.linkUrl, { readMorePost = null }, { slots.article(post, it) }, { OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, it.clickable { onOpenUserProfile(post.author.id) }) }, post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } }, post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } }, { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } })
+        OfficialPostDetailPanelContent(strings.readMoreLabel(post.readMoreLabel), strings.close, post.linkUrl, { readMorePost = null }, { slots.article(post, it) }, { OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, it.clickable { onOpenUserProfile(post.author.id) }) }, post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } }, post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } }, { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } })
     }
     OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, onReportComment, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->
         OfficialCommentsPanelContent(post, canParticipate, OfficialCommentsStrings(close = strings.close, title = strings.comments), onAuthRequired, add, report, dismiss)
