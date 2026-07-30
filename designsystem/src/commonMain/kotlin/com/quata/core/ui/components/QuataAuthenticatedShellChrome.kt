@@ -215,7 +215,8 @@ private fun QuataSosButton(label: String, isSending: Boolean, pulseScale: Float,
         }.clickable(enabled = !isSending, onClick = onClick),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(rememberQuataFeedEmojiAnnotatedString(label), fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
+            val inlineText = rememberQuataFeedEmojiInlineText(label)
+            Text(inlineText.text, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption, inlineContent = inlineText.inlineContent)
         }
     }
 }
