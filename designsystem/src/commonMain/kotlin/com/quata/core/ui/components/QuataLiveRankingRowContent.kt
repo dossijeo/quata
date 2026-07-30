@@ -12,8 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +49,16 @@ fun QuataLiveRankingRowContent(
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.width(86.dp), horizontalAlignment = Alignment.End) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("♥", color = Color(0xFFFF5A8E), fontSize = 18.sp); Spacer(Modifier.width(4.dp)); Text(item.likesCount.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = Color(0xFFFF262E),
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(item.likesCount.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+            }
             Spacer(Modifier.height(8.dp))
             Surface(color = template.colors.surfaceAlt, shape = RoundedCornerShape(14.dp), modifier = Modifier.width(86.dp).height(38.dp).clickable(onClick = onOpenItem)) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(openLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold) } }
         }
