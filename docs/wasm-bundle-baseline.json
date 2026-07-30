@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
+  "revision": "3604039c0b5be5f2906220494c728ccb1f8b3177",
   "distribution": "web/build/dist/wasmJs/productionExecutable",
   "files": [
     {
@@ -20,44 +20,116 @@
       "contributor": "Skiko"
     },
     {
-      "path": "9c10229af28e5ca88d73.wasm",
+      "path": "1e096acabdeff2a33810.wasm",
       "extension": ".wasm",
-      "bytes": 5986855,
-      "gzipBytes": 1596334,
-      "sha256": "c7417b97cbe4b5417a7a095edae81dac5bc247eba8831c7aaad03c2d8599ef5a",
+      "bytes": 7076458,
+      "gzipBytes": 1920297,
+      "sha256": "81817efe5e96048267df0ba0cfdca94b9076124ba6b91b2ccd3357f1593c3904",
       "contributor": "Kotlin/Wasm application"
-    },
-    {
-      "path": "web.js.map",
-      "extension": ".map",
-      "bytes": 1800259,
-      "gzipBytes": 316164,
-      "sha256": "c252137486b5f84d77b18e395fdf51b8f5f97cf8dad50cba96e0672b2795123c",
-      "contributor": "Source maps"
     },
     {
       "path": "web.js",
       "extension": ".js",
-      "bytes": 621908,
-      "gzipBytes": 114493,
-      "sha256": "0f32095487427fb50ff1e4e02e6a61dc390e25e9ace695ea5ab1af726f8b2319",
+      "bytes": 633302,
+      "gzipBytes": 116899,
+      "sha256": "7a85d6b7afd818e94a0a8a9b1273690f6e1384bc6d5b1d80e8e5e14fa6d56f02",
       "contributor": "JavaScript runtime/chunks"
     },
     {
-      "path": "351.js",
+      "path": "993.js",
       "extension": ".js",
-      "bytes": 620695,
-      "gzipBytes": 141595,
-      "sha256": "93b9e2b8fc6561bfe2bf008de3e37bcdf9af4859d7584550449ebed689e7340b",
+      "bytes": 620663,
+      "gzipBytes": 141568,
+      "sha256": "1218c67e9d80b5bf999f310fc8d1d078e5bea45052e32a5eac9ad5ea9e6617bc",
       "contributor": "DocMentis"
     },
     {
-      "path": "351.js.map",
-      "extension": ".map",
-      "bytes": 423456,
-      "gzipBytes": 94510,
-      "sha256": "b5ccc1c5fbd795ff715099e37da3208fbadda89ea1ea16b505d7e032b32d9504",
-      "contributor": "Source maps"
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_animals_nature.png",
+      "extension": ".png",
+      "bytes": 47303,
+      "gzipBytes": 47290,
+      "sha256": "6bd7e1c5546923ff4c60a5040aa0f3cc6da977f752e5369e8b2683eff795baef",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_food_drink.png",
+      "extension": ".png",
+      "bytes": 47222,
+      "gzipBytes": 47203,
+      "sha256": "ce37f04137a992026ee93b465efd9d270caab1d9bc3b8b50f7f67f122bbd5428",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_objects_symbols.png",
+      "extension": ".png",
+      "bytes": 39739,
+      "gzipBytes": 39719,
+      "sha256": "c86b3e4561e21a242caed9634bea5961885475fcbb5bd96e86b229ac827ad954",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_rank.png",
+      "extension": ".png",
+      "bytes": 35332,
+      "gzipBytes": 34600,
+      "sha256": "961bd999ffe3518f728f675091812a7f601941c49260b67d480f31794cbf0dd2",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_frequent.png",
+      "extension": ".png",
+      "bytes": 30717,
+      "gzipBytes": 30702,
+      "sha256": "642bbae08a530067fe345face37e371b14141291e1e5d6aa449a5297f264e7df",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_people.png",
+      "extension": ".png",
+      "bytes": 27864,
+      "gzipBytes": 27840,
+      "sha256": "86817a004b29f04f21bcf9d4eebaaa3ef17754e9401b926d4697a8034ecc0a3f",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_sos.png",
+      "extension": ".png",
+      "bytes": 27835,
+      "gzipBytes": 27369,
+      "sha256": "5a39b0daab6255dfd109190688237ccf8709401b70e1b30575f6fe4c99a2e572",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_gestures.png",
+      "extension": ".png",
+      "bytes": 25405,
+      "gzipBytes": 25383,
+      "sha256": "bc6b71d45e7160b200b341550d5d3bad359793b794cdddc0999901a3b0fb3ad3",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_note.png",
+      "extension": ".png",
+      "bytes": 23438,
+      "gzipBytes": 22295,
+      "sha256": "0f987674a69d1cfa4bf36574a038422282644dc3621cefd7c787bb8d31e5745a",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_recent.png",
+      "extension": ".png",
+      "bytes": 16512,
+      "gzipBytes": 16482,
+      "sha256": "2137fb39b22a53d4131b04f83a39881a3fc81a4dbd6d9041f07e3ddad093f098",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/font/quata_header_logo_q_subset.ttf",
+      "extension": ".ttf",
+      "bytes": 10820,
+      "gzipBytes": 4783,
+      "sha256": "ffa1b5d6a5c254ffd9621f53619479563da8df9d05f9171192046edb6bbd5516",
+      "contributor": "Static/runtime assets"
     },
     {
       "path": "quata-sw.js",
@@ -66,6 +138,30 @@
       "gzipBytes": 2520,
       "sha256": "8c5c4e37ef1f0272e46527f7dcbe943781300c0c61910684c347bf9ef1fda240",
       "contributor": "JavaScript runtime/chunks"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_flags.png",
+      "extension": ".png",
+      "bytes": 7338,
+      "gzipBytes": 7033,
+      "sha256": "b04e1762a6f2b51d4ffa2a2a95d0fb2f23f7f3fba62562b138940c41e5e66fc1",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_location.png",
+      "extension": ".png",
+      "bytes": 6479,
+      "gzipBytes": 5689,
+      "sha256": "3f8c2cdbf6097bbdda8e31cb91cbe5daaaf077bbeb47d1cb6081ef31187db748",
+      "contributor": "Static/runtime assets"
+    },
+    {
+      "path": "composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_document.png",
+      "extension": ".png",
+      "bytes": 4045,
+      "gzipBytes": 2926,
+      "sha256": "d0c9c8c0cafb1b12bfedec9f89209ed78277ff18e4385385f3884ca8d1062179",
+      "contributor": "Static/runtime assets"
     },
     {
       "path": "web-test-contract.js",
@@ -78,9 +174,9 @@
     {
       "path": "index.html",
       "extension": ".html",
-      "bytes": 1398,
-      "gzipBytes": 695,
-      "sha256": "0cfdc75b9fafe06f16b8e87e3d8166f590786af393ef4b1995b1b42ca8a62aee",
+      "bytes": 1443,
+      "gzipBytes": 708,
+      "sha256": "95475416cd8e885e39f4bbad7931280dfe4af3a1a71f6ce221df7ebd05c3d34b",
       "contributor": "Static/runtime assets"
     },
     {
@@ -100,33 +196,33 @@
       "contributor": "Static/runtime assets"
     },
     {
-      "path": "382.js",
+      "path": "913.js",
       "extension": ".js",
-      "bytes": 346,
-      "gzipBytes": 269,
-      "sha256": "83cd03012094b75d8a3f52be40e6622315297ca62476dd4190896c5da838b2e7",
+      "bytes": 314,
+      "gzipBytes": 242,
+      "sha256": "ab1c1157c23ae85cb232fbd75b0124b02ecf89434b7f9a203961a74b9e01ceb7",
       "contributor": "JavaScript runtime/chunks"
     },
     {
-      "path": "382.js.map",
-      "extension": ".map",
-      "bytes": 228,
-      "gzipBytes": 184,
-      "sha256": "9703fa2906d576b12edffa4ff840e2e25fbd50abde37c085bcef082dfc1e2999",
-      "contributor": "Source maps"
+      "path": "quata-source-revision.txt",
+      "extension": ".txt",
+      "bytes": 41,
+      "gzipBytes": 59,
+      "sha256": "676a1dd797e31988c6e4c6970d4d061d5cc7f482e61b7cc6a139d2e62ddb008c",
+      "contributor": "Static/runtime assets"
     }
   ],
   "totals": {
-    "bytes": 37164471,
-    "gzipBytes": 14251090
+    "bytes": 36391596,
+    "gzipBytes": 14505933
   },
-  "inventorySha256": "adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827",
+  "inventorySha256": "69d66a43aba67fb99ea0aebb3f55add01a6429c303cf95548b338b2a25c59538",
   "contributors": [
     {
       "name": "DocMentis",
       "files": 2,
-      "bytes": 19677070,
-      "gzipBytes": 8814438
+      "bytes": 19677038,
+      "gzipBytes": 8814411
     },
     {
       "name": "Skiko",
@@ -137,26 +233,20 @@
     {
       "name": "Kotlin/Wasm application",
       "files": 1,
-      "bytes": 5986855,
-      "gzipBytes": 1596334
-    },
-    {
-      "name": "Source maps",
-      "files": 3,
-      "bytes": 2223943,
-      "gzipBytes": 410858
+      "bytes": 7076458,
+      "gzipBytes": 1920297
     },
     {
       "name": "JavaScript runtime/chunks",
       "files": 4,
-      "bytes": 631743,
-      "gzipBytes": 117996
+      "bytes": 643105,
+      "gzipBytes": 120375
     },
     {
       "name": "Static/runtime assets",
-      "files": 3,
-      "bytes": 3214,
-      "gzipBytes": 1253
+      "files": 18,
+      "bytes": 353349,
+      "gzipBytes": 340639
     }
   ],
   "notes": [
@@ -167,13 +257,13 @@
   "capture": {
     "schemaVersion": 2,
     "trustedRef": "origin/main",
-    "sourceRevision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
+    "sourceRevision": "3604039c0b5be5f2906220494c728ccb1f8b3177",
     "sourceTree": {
       "algorithm": "git-ls-tree-sha256-v1",
-      "revision": "3068242778d2817265e8d60ab5d9d5b863d2834b",
-      "sha256": "889e0fde698053cb17e2a8b51ef3f607bf4b23f390eb113fc87c0f58b26e157a"
+      "revision": "3604039c0b5be5f2906220494c728ccb1f8b3177",
+      "sha256": "7717d58898ca0b0af0480b3fb5e31a8a052a0ac949749e234734134501c11318"
     },
-    "inventorySha256": "adf71ab7455205f2a7baac38443c310742334bee91ecc745ef47e58937755827",
+    "inventorySha256": "69d66a43aba67fb99ea0aebb3f55add01a6429c303cf95548b338b2a25c59538",
     "command": ":web:wasmJsBrowserDistribution"
   }
 }
