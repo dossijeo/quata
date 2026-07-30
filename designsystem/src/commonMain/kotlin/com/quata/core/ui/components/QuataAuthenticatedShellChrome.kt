@@ -184,7 +184,7 @@ private fun QuataHeaderIdentity(
                 .clickable(onClick = onLogoClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Q\u0308", color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp, lineHeight = 17.sp, letterSpacing = (-0.6).sp)
+            Text(QuataHeaderLogoGlyph, color = Color.White, fontFamily = quataHeaderLogoFontFamily(), fontWeight = FontWeight.Black, fontSize = 17.sp, lineHeight = 17.sp, letterSpacing = (-0.6).sp)
         }
         Box(
             modifier = Modifier.offset(x = AuthenticatedShellChromeContract.notificationsOffset).size(AuthenticatedShellChromeContract.notificationsSize).graphicsLayer { scaleX = scale; scaleY = scale }
@@ -214,7 +214,9 @@ private fun QuataSosButton(label: String, isSending: Boolean, pulseScale: Float,
             scaleX = scale; scaleY = scale
         }.clickable(enabled = !isSending, onClick = onClick),
     ) {
-        Box(contentAlignment = Alignment.Center) { Text(label, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption) }
+        Box(contentAlignment = Alignment.Center) {
+            Text(rememberQuataFeedEmojiAnnotatedString(label), fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
+        }
     }
 }
 

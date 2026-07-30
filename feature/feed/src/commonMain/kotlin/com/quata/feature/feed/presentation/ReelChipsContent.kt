@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quata.core.ui.components.QuataFeedEmoji
+import com.quata.core.ui.components.rememberQuataFeedEmojiAnnotatedString
 import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
@@ -30,9 +32,9 @@ fun ReelScrimContent(showTopScrim: Boolean, modifier: Modifier = Modifier) {
 fun ReelTopChipsContent(documentText: String?, mediaBadgeText: String, isVideo: Boolean, locationLabel: @Composable (String) -> String, modifier: Modifier = Modifier) {
     Column(modifier.statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         mediaBadgeText.trim().takeIf { it.isNotBlank() }?.let { badge ->
-            Text(if (isVideo) "📝 $badge" else locationLabel(badge), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(rememberQuataFeedEmojiAnnotatedString(if (isVideo) "${QuataFeedEmoji.Note} $badge" else locationLabel(badge)), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        documentText?.let { ReelChipContent("📄 $it") }
+        documentText?.let { ReelChipContent("${QuataFeedEmoji.Document} $it") }
     }
 }
 
@@ -42,6 +44,6 @@ fun ReelChipContent(text: String, highlighted: Boolean = false, onClick: (() -> 
     val borderColor = if (highlighted) template.colors.live else Color.White.copy(alpha = .22f)
     val textColor = if (highlighted) template.colors.live else Color.White
     Surface(color = if (highlighted) template.colors.surface.copy(alpha = .74f) else Color.White.copy(alpha = .12f), contentColor = textColor, shape = RoundedCornerShape(28.dp), modifier = modifier.border(1.dp, borderColor, RoundedCornerShape(28.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
-        Text(text, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
+        Text(rememberQuataFeedEmojiAnnotatedString(text), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
     }
 }

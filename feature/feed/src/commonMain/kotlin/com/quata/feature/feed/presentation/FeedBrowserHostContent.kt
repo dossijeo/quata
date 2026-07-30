@@ -28,7 +28,7 @@ data class FeedBrowserHostStrings(
     val empty: String,
     val mediaUnavailable: String,
     val backToFeed: String = "Back to feed",
-    val detailLoading: String = "Loading postâ€¦",
+    val detailLoading: String = "Loading post\u2026",
     val detailUnavailable: String = "This post is no longer available.",
 )
 

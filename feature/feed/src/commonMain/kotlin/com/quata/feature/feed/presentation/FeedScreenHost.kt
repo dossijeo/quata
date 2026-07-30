@@ -90,7 +90,7 @@ data class FeedScreenStrings(
     val like: String = "Me gusta",
     val comments: String = "Comentarios",
     val share: String = "Compartir",
-    val sharePostTitle: String = "Compartir publicaciÃ³n",
+    val sharePostTitle: String = "Compartir publicaci\u00f3n",
     val shareUnavailable: String = "No se puede compartir esta publicación en este dispositivo.",
     val shareFailed: String = "No se pudo compartir la publicación.",
     val rank: String = "Ranking",

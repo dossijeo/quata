@@ -16,11 +16,16 @@ class FeedSharePayloadTest {
                 text = "",
                 createdAt = "2026-07-30T12:00:00Z",
             ),
-            title = "Compartir publicaciÃ³n",
+            title = "Compartir publicaci\u00f3n",
         )
 
         assertEquals("https://egquata.com/#post-post with / unicode ü", payload.text)
-        assertEquals("Compartir publicaciÃ³n", payload.title)
+        assertEquals("Compartir publicaci\u00f3n", payload.title)
+    }
+
+    @Test
+    fun spanishShareTitleKeepsItsUtf8Accent() {
+        assertEquals("Compartir publicación", FeedScreenStrings().sharePostTitle)
     }
 
     @Test
