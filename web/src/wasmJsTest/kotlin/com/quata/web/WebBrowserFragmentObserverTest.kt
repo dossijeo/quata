@@ -7,6 +7,28 @@ import kotlin.test.assertEquals
 
 class WebBrowserFragmentObserverTest {
     @Test
+    fun internalNavigationUpdatesComposeStateBeforeWritingHashAndExternalHashesStillApply() {
+        val writtenFragments = mutableListOf<String>()
+        val navigation = WebNavigationController(initialFragment = "", updateBrowserFragment = writtenFragments::add)
+
+        val shellFragments = listOf("notifications", "profile", "chat", "official", "", "post-publication-123")
+        val expectedRoutes = listOf("notifications", "profile", "chat", "official", "feed", "post/publication-123")
+        shellFragments.zip(expectedRoutes).forEach { (fragment, route) ->
+            navigation.navigate(fragment)
+            assertEquals(route, navigation.route)
+        }
+        assertEquals(shellFragments, writtenFragments)
+
+        navigation.navigateConversation("sb:team/42")
+        assertEquals("chat/sb:team/42", navigation.route)
+        assertEquals(7, writtenFragments.size)
+
+        navigation.acceptBrowserFragment("official")
+        assertEquals("official", navigation.route)
+        assertEquals(7, writtenFragments.size)
+    }
+
+    @Test
     fun browserHashObserverInstallsOnceDeliversShellRoutesAndCleansUp() {
         installBrowserFragmentObserverHarness()
         val received = mutableListOf<String>()
