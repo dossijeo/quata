@@ -283,10 +283,11 @@ private fun QuataWebApp(
         }
         onDispose(stopObserving)
     }
-    LaunchedEffect(navigation, runtimeConfiguration.isBackendConfigured) {
+    val navigationState = navigation.state
+    LaunchedEffect(navigationState, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
-        platformServices.preferences.putString("web.navigation.route", navigation.route)
-        navigation.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
+        platformServices.preferences.putString("web.navigation.route", navigationState.route)
+        navigationState.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
         platformServices.preferences.putString(
             "web.runtime.backend_configured",
             runtimeConfiguration.isBackendConfigured.toString(),
