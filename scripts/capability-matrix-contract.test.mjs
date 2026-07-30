@@ -10,7 +10,8 @@ const matrix = () => readFile(matrixPath, 'utf8').then(JSON.parse);
 test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Android catalogue', async () => {
   const emitted = await loadAndValidateCapabilityMatrix();
   assert.equal(emitted.length, 12);
-  assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'read-only' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'feed.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });

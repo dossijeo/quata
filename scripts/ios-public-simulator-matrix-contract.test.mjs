@@ -167,7 +167,7 @@ test('classifier fixture runner fails closed without Python and never regresses 
   ));
 });
 
-test('Feed placeholder contrast test exercises the exact style and background used by the composable', () => {
+test('Feed media contract keeps the common contrast gate and requires the browser decoder beneath Compose controls', () => {
   assert.match(feedHost, /fun FeedMediaUnavailablePlaceholderContent\(/);
   assert.match(feedHost, /style = feedMediaUnavailableTextStyle\(MaterialTheme\.typography\.bodySmall\)/);
   assert.match(feedHost, /base\.copy\(color = FeedMediaUnavailableContentColor\)/);
@@ -175,8 +175,12 @@ test('Feed placeholder contrast test exercises the exact style and background us
   assert.match(feedContrastTest, /feedMediaUnavailableTextStyle\(TextStyle\.Default\)/);
   assert.match(feedContrastTest, /background = FeedMediaBackgroundColor/);
   assert.match(feedContrastTest, /contrast >= 4\.5/);
-  assert.match(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
-  assert.doesNotMatch(webFeedMedia, /MaterialTheme\.typography\.bodySmall/);
+  assert.match(webFeedMedia, /FeedReelVideoPlaybackHostContent\(/);
+  assert.match(webFeedMedia, /WebElementView\(/);
+  assert.match(webFeedMedia, /HTMLVideoElement/);
+  assert.match(webFeedMedia, /controls = false/);
+  assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
+  assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
 });
 
 function runParser(source, expectSuccess) {

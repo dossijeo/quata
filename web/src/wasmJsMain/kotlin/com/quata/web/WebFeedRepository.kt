@@ -27,8 +27,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Browser Feed repository with the common read/polling/domain-mapping implementation.
- * PostgREST remains a Web-only [FeedReadTransport]; writes stay unavailable until reviewed.
+ * Browser Feed repository with common read/polling/domain mapping and authenticated PostgREST
+ * mutations. [FeedReadTransport] remains Web-specific while the repository exposes the complete
+ * shared Feed contract.
  */
 class WebFeedRepository(
     private val client: WebPostgrestClient,
