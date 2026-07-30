@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,6 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material3.Icon
 import com.quata.core.designsystem.theme.quataTheme
 
 /** Shared comments-panel header; hosts inject actions that require navigation or platform capture. */
@@ -37,7 +41,12 @@ fun QuataCommentsPanelHeaderContent(
                 color = template.colors.textSecondary,
             )
             Spacer(Modifier.width(10.dp))
-            androidx.compose.material3.Text("\uD83D\uDCAC", fontSize = 16.sp)
+            Icon(
+                imageVector = Icons.Filled.ChatBubble,
+                contentDescription = null,
+                tint = template.colors.textSecondary,
+                modifier = Modifier.size(16.dp),
+            )
             Spacer(Modifier.width(4.dp))
             androidx.compose.material3.Text(
                 text = commentsCount.toString(),

@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,8 +91,12 @@ fun FeedReelVideoPlaybackHostContent(
                 .fillMaxSize()
                 .clickable { toggle(showFeedback = true) },
         )
-        FeedReelPlaybackFeedbackTextContent(
-            feedback = state.feedback,
+        ReelPlaybackFeedbackContent(
+            feedbackIcon = when (state.feedback) {
+                VideoPlaybackFeedback.Play -> Icons.Filled.PlayArrow
+                VideoPlaybackFeedback.Pause -> Icons.Filled.Pause
+                null -> null
+            },
             isRebuffering = state.isRebuffering,
             modifier = Modifier.align(Alignment.Center),
         )
@@ -133,28 +139,6 @@ fun FeedReelVideoPlaybackHostContent(
                     modifier = Modifier.clickable(onClick = onToggleMute),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun FeedReelPlaybackFeedbackTextContent(
-    feedback: VideoPlaybackFeedback?,
-    isRebuffering: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        if (feedback != null) {
-            Text(
-                text = if (feedback == VideoPlaybackFeedback.Play) "▶" else "Ⅱ",
-                color = Color.White,
-                fontSize = 54.sp,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.38f), RoundedCornerShape(46.dp))
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            )
-        } else if (isRebuffering) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.height(48.dp).width(48.dp))
         }
     }
 }

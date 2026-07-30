@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -53,7 +57,20 @@ fun ChatMessageDeliveryIndicatorContent(state: MessageDeliveryState, tint: Color
     when (state) {
         MessageDeliveryState.Pending -> CircularProgressIndicator(Modifier.size(12.dp), color = tint.copy(alpha = .72f), strokeWidth = 1.7.dp)
         MessageDeliveryState.Failed -> Text("!", color = Color(0xFFD32F2F), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-        MessageDeliveryState.Sent -> Text("✓", color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        MessageDeliveryState.Delivered, MessageDeliveryState.Read -> Text("✓✓", color = if (state == MessageDeliveryState.Read) readTint else tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        MessageDeliveryState.Sent -> DeliveryIcon(Icons.Filled.Done, tint)
+        MessageDeliveryState.Delivered, MessageDeliveryState.Read -> DeliveryIcon(
+            Icons.Filled.DoneAll,
+            if (state == MessageDeliveryState.Read) readTint else tint,
+        )
     }
+}
+
+@Composable
+private fun DeliveryIcon(imageVector: androidx.compose.ui.graphics.vector.ImageVector, tint: Color) {
+    Icon(
+        imageVector = imageVector,
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier.size(12.dp),
+    )
 }
