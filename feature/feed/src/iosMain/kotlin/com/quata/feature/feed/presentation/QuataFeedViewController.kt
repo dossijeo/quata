@@ -34,6 +34,7 @@ class IosFeedHostDependencies(
     val shareService: ShareService,
     val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
+    val presence: FeedUserPresence? = null,
 )
 
 /**
@@ -90,6 +91,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         shareService = shareService,
         onOpenUserProfile = onOpenUserProfile,
         initialPostId = initialPostId,
+        presence = IosFeedPresence(configuration, authSession),
     )
 }
 
@@ -105,6 +107,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
             padding = PaddingValues(),
             repository = dependencies.repository,
             focusedPostId = dependencies.initialPostId,
+            presence = dependencies.presence,
             slots = FeedScreenPlatformSlots(
                 media = { post, isCurrent, initialPositionMs, onPositionChanged ->
                     IosFeedMediaSlot(
@@ -119,6 +122,8 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 },
                 avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
                 rankingAvatar = { item -> IosFeedRankingAvatar(item) },
+                avatarWithPresence = { post, isOnline -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile, isOnline) },
+                rankingAvatarWithPresence = { item, isOnline -> IosFeedRankingAvatar(item, isOnline) },
                 share = dependencies.shareService::share,
                 showComposeMessage = true,
             ),

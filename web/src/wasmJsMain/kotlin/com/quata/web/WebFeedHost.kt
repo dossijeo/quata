@@ -12,12 +12,14 @@ import com.quata.core.platform.ShareService
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.feed.presentation.FeedScreenHost
 import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
+import com.quata.feature.feed.presentation.FeedUserPresence
 
 /** Browser route adapter. Product rendering is the common [FeedScreenHost], including details. */
 @Composable
 fun WebFeedHost(
     repository: WebFeedRepository,
     shareService: ShareService,
+    presence: FeedUserPresence? = null,
     sharedPostId: String? = null,
     onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -43,9 +45,12 @@ fun WebFeedHost(
             },
             avatar = { post -> BrowserFeedAuthorAvatar(post, onOpenUserProfile) },
             rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
+            avatarWithPresence = { post, isOnline -> BrowserFeedAuthorAvatar(post, onOpenUserProfile, isOnline) },
+            rankingAvatarWithPresence = { item, isOnline -> BrowserFeedRankingAvatar(item, isOnline) },
             share = shareService::share,
             showComposeMessage = true,
         ),
+        presence = presence,
         modifier = modifier,
     )
 }

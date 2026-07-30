@@ -124,6 +124,10 @@ private fun QuataWebApp(
             authRepository = authRepository,
         )
     }
+    val feedPresence = remember(runtimeConfiguration, authRepository) {
+        WebFeedPresence(runtimeConfiguration, authRepository)
+    }
+    DisposableEffect(feedPresence) { onDispose { feedPresence.close() } }
     val officialRepository = remember(runtimeConfiguration, authRepository) {
         WebOfficialRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
@@ -457,6 +461,7 @@ private fun QuataWebApp(
                             WebFeedHost(
                                 repository = feedRepository,
                                 shareService = platformServices.share,
+                                presence = feedPresence,
                                 sharedPostId = navigation.postId,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                             )

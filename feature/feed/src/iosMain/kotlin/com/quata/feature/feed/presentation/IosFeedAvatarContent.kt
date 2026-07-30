@@ -41,12 +41,13 @@ import platform.UIKit.UIViewContentMode
 
 /** iOS image boundary for Feed avatars; all shape, fallback and official UI stays common. */
 @Composable
-fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
+fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null) {
     IosFeedAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
         isOfficial = post.author.isOfficial,
+        isOnline = isOnline,
         modifier = Modifier
             .size(56.dp)
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
@@ -55,12 +56,13 @@ fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
 }
 
 @Composable
-fun IosFeedRankingAvatar(item: QuataLiveRankingItem) {
+fun IosFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) {
     IosFeedAvatar(
         name = item.avatarName,
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
         isOfficial = item.isOfficial,
+        isOnline = isOnline,
         modifier = Modifier.size(44.dp),
     )
 }
@@ -71,6 +73,7 @@ private fun IosFeedAvatar(
     profileId: String,
     avatarUrl: String?,
     isOfficial: Boolean,
+    isOnline: Boolean?,
     modifier: Modifier,
 ) {
     val imageUrl = avatarUrl?.trim()?.takeIf(::isIosAvatarUrl)
@@ -82,6 +85,7 @@ private fun IosFeedAvatar(
         name = name,
         stableId = profileId,
         isOfficial = isOfficial,
+        isOnline = isOnline,
         modifier = modifier,
         avatar = image?.let { decoded ->
             {

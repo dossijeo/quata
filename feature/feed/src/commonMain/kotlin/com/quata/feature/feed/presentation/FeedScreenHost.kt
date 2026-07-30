@@ -127,6 +127,9 @@ data class FeedScreenPlatformSlots(
     val media: @Composable BoxScope.(Post, Boolean, Long, (Long) -> Unit) -> Unit,
     val avatar: @Composable (Post) -> Unit = {},
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
+    /** Presence-aware avatar hooks; legacy hooks remain available to Android and old hosts. */
+    val avatarWithPresence: @Composable (Post, Boolean?) -> Unit = { post, _ -> avatar(post) },
+    val rankingAvatarWithPresence: @Composable (QuataLiveRankingItem, Boolean?) -> Unit = { item, _ -> rankingAvatar(item) },
     /** Receives the canonical public post URL and the platform's activity-sheet title. */
     val share: suspend (SharePayload) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     val message: (String) -> Unit = {},
@@ -163,6 +166,7 @@ fun FeedScreenHost(
     repository: FeedRepository,
     stateHolder: FeedStateHolder? = null,
     slots: FeedScreenPlatformSlots,
+    presence: FeedUserPresence? = null,
     currentUserId: String? = null,
     focusedPostId: String? = null,
     feedResetToken: Int = 0,
@@ -181,6 +185,7 @@ fun FeedScreenHost(
     val viewModel = stateHolder ?: ownedViewModel
     DisposableEffect(ownedViewModel, stateHolder) { onDispose { if (stateHolder == null) ownedViewModel.close() } }
     val state by viewModel.uiState.collectAsState()
+    val onlineProfileIds by (presence?.onlineProfileIds ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptySet()) }).collectAsState()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     fun showMessage(message: String) {
@@ -200,6 +205,16 @@ fun FeedScreenHost(
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val canParticipate = effectiveCurrentUserId != null
     val ranks = remember(state.posts) { calculateFeedRanking(state.posts) }
+    LaunchedEffect(state.posts, presence) {
+        // Ranking rows are derived from these posts, so this also covers their author avatars.
+        presence?.observeProfiles(state.posts.map { it.author.id })
+    }
+    DisposableEffect(presence) {
+        presence?.setForeground(true)
+        // The composition can leave and re-enter the Feed while the platform owner remains alive.
+        // Pause here; the app owner releases transport/listeners through close().
+        onDispose { presence?.setForeground(false) }
+    }
     val canPullRefresh = pagerState.currentPage == 0 && !state.isRefreshing && commentsPostId == null && !liveOpen
     val pullRefreshState = rememberQuataFeedPullRefreshState(
         enabled = canPullRefresh,
@@ -294,7 +309,7 @@ fun FeedScreenHost(
                             },
                         )
                     },
-                    avatar = { slots.avatar(post) },
+                    avatar = { slots.avatarWithPresence(post, presence?.let { post.author.id in onlineProfileIds }) },
                     onOpenComments = { commentsPostId = post.id },
                     onOpenLive = { liveOpen = true },
                     onLike = { if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) else onAuthRequired() },
@@ -354,7 +369,7 @@ fun FeedScreenHost(
                 posts = state.posts,
                 rankForPost = { ranks[it.id] ?: 1 },
                 postTypeLabel = { if (it.videoUrl != null) strings.videoType else if (it.imageUrl != null) strings.imageType else strings.textType },
-                panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatar(item) }, dismiss, open) },
+                panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatarWithPresence(item, presence?.let { item.profileId in onlineProfileIds }) }, dismiss, open) },
                 onDismiss = { liveOpen = false },
                 onOpenPost = { post ->
                     val index = state.posts.indexOf(post)

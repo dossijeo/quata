@@ -29,12 +29,13 @@ import kotlinx.browser.document
  * same common fallback rather than leaving an empty native element in the reel.
  */
 @Composable
-fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
+fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null) {
     BrowserFeedAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
         isOfficial = post.author.isOfficial,
+        isOnline = isOnline,
         modifier = Modifier
             .size(56.dp)
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
@@ -43,12 +44,13 @@ fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit) {
 }
 
 @Composable
-fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem) {
+fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) {
     BrowserFeedAvatar(
         name = item.avatarName,
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
         isOfficial = item.isOfficial,
+        isOnline = isOnline,
         modifier = Modifier.size(44.dp),
     )
 }
@@ -60,6 +62,7 @@ private fun BrowserFeedAvatar(
     profileId: String,
     avatarUrl: String?,
     isOfficial: Boolean,
+    isOnline: Boolean?,
     modifier: Modifier,
 ) {
     val imageUrl = avatarUrl?.trim()?.takeIf(::isBrowserAvatarUrl)
@@ -69,6 +72,7 @@ private fun BrowserFeedAvatar(
         name = name,
         stableId = profileId,
         isOfficial = isOfficial,
+        isOnline = isOnline,
         modifier = modifier,
         avatar = usableImageUrl?.let { url ->
             {
