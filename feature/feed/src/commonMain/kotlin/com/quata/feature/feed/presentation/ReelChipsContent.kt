@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,7 +29,14 @@ fun ReelScrimContent(showTopScrim: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun ReelTopChipsContent(documentText: String?, mediaBadgeText: String, isVideo: Boolean, locationLabel: @Composable (String) -> String, modifier: Modifier = Modifier) {
-    Column(modifier.statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier.padding(
+            start = 22.dp,
+            end = 22.dp,
+            top = ReelOverlayLayoutContract.topChipsOffset
+        ),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         mediaBadgeText.trim().takeIf { it.isNotBlank() }?.let { badge ->
             Text(rememberQuataFeedEmojiAnnotatedString(if (isVideo) "${QuataFeedEmoji.Note} $badge" else locationLabel(badge)), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
