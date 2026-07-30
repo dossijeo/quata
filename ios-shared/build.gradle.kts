@@ -28,6 +28,7 @@ kotlin {
             // Kotlin/Native declarations to Swift. Keep this list constrained
             // to the feature entry points currently composed by iosApp.
             api(project(":core"))
+            api(project(":designsystem"))
             api(project(":feature:auth"))
             api(project(":feature:feed"))
             api(project(":feature:chat"))
@@ -47,6 +48,7 @@ kotlin {
             baseName = "QuataShared"
             quataSharedXcFramework.add(this)
             export(project(":core"))
+            export(project(":designsystem"))
             export(project(":feature:auth"))
             export(project(":feature:feed"))
             export(project(":feature:chat"))

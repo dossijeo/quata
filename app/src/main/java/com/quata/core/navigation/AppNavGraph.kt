@@ -77,6 +77,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -136,6 +137,8 @@ import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
+import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
+import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
@@ -270,6 +273,9 @@ fun AppNavGraph(
     var hasObservedNotificationCount by rememberSaveable { mutableStateOf(false) }
     var previousNotificationCount by rememberSaveable { mutableStateOf(0) }
     var isNotificationBounceActive by rememberSaveable { mutableStateOf(false) }
+    var globalSosIsSending by remember { mutableStateOf(false) }
+    var globalSosPulseScale by remember { mutableStateOf(1f) }
+    var globalSosClick by remember { mutableStateOf<() -> Unit>({}) }
     var isAboutDialogOpen by rememberSaveable { mutableStateOf(false) }
     var pendingAccountAction by remember { mutableStateOf<AccountLifecycleAction?>(null) }
     var isAccountOperationInProgress by remember { mutableStateOf(false) }
@@ -552,26 +558,45 @@ fun AppNavGraph(
                 .background(template.colors.background)
                 .fluidTouchEffect(enabled = touchFlowEnabled)
         ) {
-        Scaffold(
-            containerColor = template.colors.background,
-            contentColor = template.colors.textPrimary,
-            topBar = {
-                if (showAppChrome) {
-                    Column {
-                        if (!isLandscapeLayout) {
-                            QuataAppTopSpacer(extraHeight = 68.dp)
-                        }
-                        if (!isAppOnline) {
-                            AppOfflineBanner()
-                        }
-                    }
+        if (showAppChrome && !isLandscapeLayout) {
+            // Keeps Android SOS transport/state in this host while the common renderer owns pixels.
+            GlobalSosButton(
+                container = container,
+                isAuthenticated = isAuthenticated,
+                onAuthRequired = { requestAuthentication() },
+                layoutPadding = appContentPadding.toPaddingValues(),
+                renderButton = false,
+                onChromeChanged = { sending, pulse, click ->
+                    if (globalSosIsSending != sending) globalSosIsSending = sending
+                    if (globalSosPulseScale != pulse) globalSosPulseScale = pulse
+                    if (globalSosClick !== click) globalSosClick = click
+                },
+            )
+        }
+        QuataAuthenticatedShellChrome(
+            notificationCount = notificationCount,
+            isNotificationBouncing = isNotificationBounceActive,
+            isOnline = isAppOnline,
+            strings = QuataAuthenticatedChromeStrings(
+                notifications = stringResource(R.string.notifications_title),
+                offline = stringResource(R.string.app_offline_banner),
+                sos = stringResource(R.string.sos_button),
+            ),
+            onLogoClick = { isAboutDialogOpen = true },
+            onNotificationsClick = {
+                navController.navigate(AppDestinations.Notifications.route) {
+                    popUpTo(AppDestinations.Feed.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
                 }
             },
-            bottomBar = {
-                if (showBottomNavigation) {
-                    QuataBottomBar(currentRoute = navigationChromeRoute, onDestinationClick = ::handleBottomRoute)
-                }
-            }
+            onSosClick = globalSosClick,
+            isSosSending = globalSosIsSending,
+            sosPulseScale = globalSosPulseScale,
+            showTopChrome = showAppChrome && !isLandscapeLayout,
+            bottomNavigation = {
+                if (showBottomNavigation) QuataBottomBar(currentRoute = navigationChromeRoute, onDestinationClick = ::handleBottomRoute)
+            },
         ) { scaffoldPadding ->
             val scaffoldStartPadding = scaffoldPadding.calculateStartPadding(layoutDirection)
             val railStartSafePadding = WindowInsets.safeDrawing
@@ -938,40 +963,7 @@ fun AppNavGraph(
             }
         }
 
-        if (showAppChrome && !isLandscapeLayout) {
-            val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
-            val statusBarTop = safeDrawingPadding.calculateTopPadding()
-            QuataAppHeaderActions(
-                notificationCount = notificationCount,
-                isBouncing = isNotificationBounceActive,
-                onLogoClick = { isAboutDialogOpen = true },
-                onNotificationsClick = {
-                    navController.navigate(AppDestinations.Notifications.route) {
-                        popUpTo(AppDestinations.Feed.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(
-                        top = statusBarTop + 14.dp,
-                        start = 16.dp + safeDrawingPadding.calculateStartPadding(layoutDirection)
-                    )
-            )
-            GlobalSosButton(
-                container = container,
-                isAuthenticated = isAuthenticated,
-                onAuthRequired = { requestAuthentication() },
-                layoutPadding = appContentPadding.toPaddingValues(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(
-                        top = statusBarTop + 14.dp,
-                        end = 16.dp + safeDrawingPadding.calculateEndPadding(layoutDirection)
-                    )
-            )
-        } else if (showAppChrome) {
+        if (showAppChrome && isLandscapeLayout) {
             val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
             val statusBarTop = safeDrawingPadding.calculateTopPadding()
             GlobalSosButton(
@@ -1735,20 +1727,23 @@ private fun GlobalSosButton(
     onAuthRequired: () -> Unit,
     layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
- ) {
+    renderButton: Boolean = true,
+    onChromeChanged: (Boolean, Float, () -> Unit) -> Unit = { _, _, _ -> },
+) {
     if (!isAuthenticated) {
-        GlobalSosButtonSurface(
-            modifier = modifier,
-            isSendingSos = false,
-            onClick = onAuthRequired
-        )
+        val latestAuthRequired by rememberUpdatedState(onAuthRequired)
+        val stableSosClick = remember { { latestAuthRequired() } }
+        SideEffect { onChromeChanged(false, 1f, stableSosClick) }
+        if (renderButton) GlobalSosButtonSurface(modifier = modifier, isSendingSos = false, onClick = stableSosClick)
         return
     }
 
     AuthenticatedGlobalSosButton(
         container = container,
         layoutPadding = layoutPadding,
-        modifier = modifier
+        modifier = modifier,
+        renderButton = renderButton,
+        onChromeChanged = onChromeChanged,
     )
 }
 
@@ -1757,6 +1752,8 @@ private fun AuthenticatedGlobalSosButton(
     container: AppContainer,
     layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
+    renderButton: Boolean = true,
+    onChromeChanged: (Boolean, Float, () -> Unit) -> Unit = { _, _, _ -> },
     profileViewModel: ProfileAndroidViewModel = viewModel(
         key = "global_sos_profile",
         factory = ProfileAndroidViewModel.Factory(container.profileRepository)
@@ -1953,15 +1950,18 @@ private fun AuthenticatedGlobalSosButton(
         configContactIds = selected
     }
 
-    GlobalSosButtonSurface(
+    val latestSosState by rememberUpdatedState(state)
+    val latestSosSending by rememberUpdatedState(isSendingSos)
+    val latestStartSos by rememberUpdatedState<(UserProfile) -> Unit>({ profile -> startSos(profile) })
+    val stableSosClick = remember {
+        { if (!latestSosSending) latestSosState.profile?.let(latestStartSos) }
+    }
+    SideEffect { onChromeChanged(isSendingSos, sosPulseScale, stableSosClick) }
+    if (renderButton) GlobalSosButtonSurface(
         modifier = modifier,
         isSendingSos = isSendingSos,
         pulseScale = sosPulseScale,
-        onClick = {
-            if (isSendingSos) return@GlobalSosButtonSurface
-            val profile = state.profile ?: return@GlobalSosButtonSurface
-            startSos(profile)
-        }
+        onClick = stableSosClick,
     )
 
     val profile = configProfile

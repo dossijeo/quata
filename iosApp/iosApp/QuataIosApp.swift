@@ -754,6 +754,21 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
+    private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
+        initialSelectedRoute: "feed",
+        onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
+    )
+    private lazy var primaryNavigationController = primaryNavigationHost.viewController()
+    private var isPrimaryNavigationInstalled = false
+    private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
+        // iOS has no About route equivalent yet. Keep this callback explicit instead of mapping
+        // the shared Q̈ mark to an unrelated release-history route.
+        onLogoClick: {},
+        onNotificationsClick: { [weak self] in self?.showNotifications() },
+        onSosClick: { [weak self] in self?.showProfileSos() },
+    )
+    private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
+    private var isAuthenticatedTopChromeInstalled = false
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
@@ -810,8 +825,22 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(routeMenuButton)
         NSLayoutConstraint.activate([
             routeMenuButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            // This is a secondary-route affordance, never part of the shared top chrome. Keep it
+            // below safeTop + 68 so it cannot occupy the common SOS position.
+            routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
         ])
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard isPrimaryNavigationInstalled else {
+            displayedController?.view.frame = view.bounds
+            return
+        }
+        let layout = IosAuthenticatedShellLayout.frames(bounds: view.bounds, safeAreaInsets: view.safeAreaInsets)
+        displayedController?.view.frame = layout.content
+        authenticatedTopChromeController.view.frame = layout.topChrome
+        primaryNavigationController.view.frame = layout.bottomNavigation
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
@@ -834,6 +863,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         feedFactory = factory
         hasAuthenticatedSession = true
         hasPublicFeed = false
+        installPrimaryNavigationIfNeeded()
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
@@ -898,6 +928,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         releaseHistoryFactory = fixture
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
+        installPrimaryNavigationIfNeeded()
     }
 
     /// The shared Feed can already expose its Conversations affordance, but the authenticated
@@ -1105,6 +1136,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func openChatList() { route(.chat(conversationId: nil, messageId: nil)) }
 
+    private func openPrimaryRoute(_ route: String) {
+        switch route {
+        case "neighborhoods": showCommunities()
+        case "conversations": openChatList()
+        case "official": showOfficial(postId: nil)
+        case "feed": showFeed(postId: nil)
+        case "profile": showProfileSos()
+        default: break
+        }
+    }
+
     /// Feature back actions always return to the real authenticated Feed root. A route is never
     /// fabricated if the session/root factory is not ready yet.
     func returnToAuthenticatedFeed() {
@@ -1121,7 +1163,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     @objc private func presentAuthenticatedRouteMenu() {
         guard hasAuthenticatedSession else { return }
         let sheet = UIAlertController(
-            title: NSLocalizedString("ios_authenticated_route_menu_title", value: "Quata", comment: ""),
+            title: NSLocalizedString("ios_authenticated_secondary_actions_title", value: "Acciones", comment: ""),
             message: nil,
             preferredStyle: .actionSheet,
         )
@@ -1133,23 +1175,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// has been installed. Internal visibility lets XCTest verify that local-only destinations
     /// remain discoverable without introducing a Swift replacement screen.
     func populateAuthenticatedRouteMenu(_ sheet: UIAlertController) {
-        if feedFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Inicio", style: .default) { [weak self] _ in self?.showFeed(postId: nil) })
-        }
-        if chatFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Conversaciones", style: .default) { [weak self] _ in self?.openChatList() })
-        }
-        if officialFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Oficial", style: .default) { [weak self] _ in self?.showOfficial(postId: nil) })
-        }
         if notificationsFactory != nil {
             sheet.addAction(UIAlertAction(title: "Notificaciones", style: .default) { [weak self] _ in self?.showNotifications() })
-        }
-        if profileSosFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Perfil y SOS", style: .default) { [weak self] _ in self?.showProfileSos() })
-        }
-        if communitiesFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Comunidades", style: .default) { [weak self] _ in self?.showCommunities() })
         }
         if composerFactory != nil {
             sheet.addAction(UIAlertAction(title: "Crear publicación", style: .default) { [weak self] _ in self?.showComposer() })
@@ -1232,6 +1259,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         logoutAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
+        removePrimaryNavigation()
         completion?()
     }
 
@@ -1295,6 +1323,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        switch route {
+        case .communities: primaryNavigationHost.updateSelectedRoute(route: "neighborhoods")
+        case .chat: primaryNavigationHost.updateSelectedRoute(route: "conversations")
+        case .official: primaryNavigationHost.updateSelectedRoute(route: "official")
+        case .feed: primaryNavigationHost.updateSelectedRoute(route: "feed")
+        case .profileSos: primaryNavigationHost.updateSelectedRoute(route: "profile")
+        default: break
+        }
         let presentation: (identifier: String, label: String)
         switch route {
         case .feed:
@@ -1318,7 +1354,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case .releaseHistory:
             presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
+        routeMenuButton.isHidden = !routeUsesSecondaryMenu(route)
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
+    }
+
+    /// The five primary routes are already represented by the common bottom navigation. UIKit's
+    /// secondary menu is deliberately unavailable there so it neither duplicates nor overlays
+    /// the shared SOS/header chrome.
+    private func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
+        switch route {
+        case .feed, .chat, .official, .profileSos, .communities:
+            return false
+        case .notifications, .composer, .settings, .whatsNew, .releaseHistory:
+            return true
+        }
     }
 
     /// Replaces the visible shared Compose controller atomically.
@@ -1345,6 +1394,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // the newly inserted Compose view; otherwise it remains in the hierarchy but cannot be
         // seen or tapped after the first route transition.
         view.bringSubviewToFront(routeMenuButton)
+        if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
+        if isPrimaryNavigationInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -1352,6 +1403,58 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         previous?.view.removeFromSuperview()
         previous?.removeFromParent()
         displayedController = controller
+        view.setNeedsLayout()
+    }
+
+    private func installPrimaryNavigationIfNeeded() {
+        guard !isPrimaryNavigationInstalled else { return }
+        addChild(authenticatedTopChromeController)
+        authenticatedTopChromeController.view.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
+        authenticatedTopChromeController.view.isAccessibilityElement = false
+        authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
+        view.addSubview(authenticatedTopChromeController.view)
+        authenticatedTopChromeController.didMove(toParent: self)
+        isAuthenticatedTopChromeInstalled = true
+        addChild(primaryNavigationController)
+        primaryNavigationController.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
+        primaryNavigationController.view.isAccessibilityElement = false
+        primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
+        view.addSubview(primaryNavigationController.view)
+        primaryNavigationController.didMove(toParent: self)
+        isPrimaryNavigationInstalled = true
+        view.setNeedsLayout()
+    }
+
+    private func removePrimaryNavigation() {
+        guard isPrimaryNavigationInstalled else { return }
+        authenticatedTopChromeController.willMove(toParent: nil)
+        authenticatedTopChromeController.view.removeFromSuperview()
+        authenticatedTopChromeController.removeFromParent()
+        isAuthenticatedTopChromeInstalled = false
+        primaryNavigationController.willMove(toParent: nil)
+        primaryNavigationController.view.removeFromSuperview()
+        primaryNavigationController.removeFromParent()
+        isPrimaryNavigationInstalled = false
+    }
+}
+
+/// One source of truth for UIKit containment frames. The route host owns exactly the viewport
+/// between the shared safe-top chrome and common primary navigation.
+struct IosAuthenticatedShellLayout {
+    let topChrome: CGRect
+    let content: CGRect
+    let bottomNavigation: CGRect
+
+    static func frames(bounds: CGRect, safeAreaInsets: UIEdgeInsets) -> IosAuthenticatedShellLayout {
+        let topHeight = safeAreaInsets.top + 68
+        let bottomHeight = 92 + safeAreaInsets.bottom
+        let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
+        let content = CGRect(x: bounds.minX, y: bounds.minY + topHeight, width: bounds.width, height: contentHeight)
+        return IosAuthenticatedShellLayout(
+            topChrome: CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: topHeight),
+            content: content,
+            bottomNavigation: CGRect(x: bounds.minX, y: content.maxY, width: bounds.width, height: bottomHeight),
+        )
     }
 }
 

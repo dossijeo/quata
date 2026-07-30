@@ -3,6 +3,7 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,23 +23,18 @@ import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
-import com.quata.core.ui.components.QuataBottomNavigation
-import com.quata.core.ui.components.QuataNavigationItem
+import com.quata.core.ui.components.QuataPrimaryBottomNavigation
+import com.quata.core.ui.components.QuataPrimaryNavigationLabels
+import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
+import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import com.quata.feature.auth.presentation.AuthSessionShellContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
@@ -151,6 +147,7 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
+    val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
     val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
         WebProfileRepository(
             preferences = platformServices.preferences,
@@ -289,38 +286,24 @@ private fun QuataWebApp(
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             if (isSessionReady) {
-            AuthSessionShellContent(
-                isLoggingOut = isLoggingOut,
-                logoutLabel = "Cerrar sesión",
-                loggingOutLabel = "Cerrando sesión...",
-                logoutButtonOverride = { label, enabled, onClick, modifier ->
-                    WebNativeButton(label, enabled, onClick, modifier.fillMaxWidth().height(48.dp))
-                },
-                onLogout = {
-                    scope.launch {
-                        isLoggingOut = true
-                        val result = sessionCoordinator.logoutCurrentSession()
-                        platformServices.preferences.remove(WebSessionReadyKey)
-                        platformServices.preferences.putString(
-                            "web.auth.logout_status",
-                            result.diagnosticValue(),
-                        )
-                        isSessionReady = false
-                        isLoggingOut = false
-                    }
-                },
+            QuataAuthenticatedShellChrome(
+                notificationCount = notificationCount,
+                isNotificationBouncing = false,
+                isOnline = true,
+                strings = QuataAuthenticatedChromeStrings("Avisos", "Sin conexión", "SOS 🚨"),
+                onLogoClick = { navigateWebFragment("about") },
+                onNotificationsClick = { navigateWebFragment("notifications") },
+                onSosClick = { navigateWebFragment("profile") },
+                isSosSending = false,
                 bottomNavigation = {
-                    QuataBottomNavigation(
-                        items = webNavigationItems,
-                        selectedId = navigation.route,
-                        onItemClick = ::navigateWebFragment,
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                        itemOverride = { item, selected, onClick, itemModifier ->
-                            WebNativeButton(item.label, true, onClick, itemModifier.height(72.dp), selected)
-                        },
+                    QuataPrimaryBottomNavigation(
+                        labels = webPrimaryNavigationLabels,
+                        selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
+                        onRouteSelected = { route -> navigateWebFragment(canonicalPrimaryRouteToWebFragment(route)) },
                     )
                 },
-            ) {
+            ) { chromePadding ->
+                Box(Modifier.fillMaxSize().padding(chromePadding)) {
                 if (navigation.route == "share-target") {
                     WebExternalShareHost(
                         repository = chatRepository,
@@ -383,7 +366,23 @@ private fun QuataWebApp(
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
-                        WebProfileHost(repository = profileRepository)
+                        WebProfileHost(
+                            repository = profileRepository,
+                            isLoggingOut = isLoggingOut,
+                            onLogout = {
+                                scope.launch {
+                                    isLoggingOut = true
+                                    val result = sessionCoordinator.logoutCurrentSession()
+                                    platformServices.preferences.remove(WebSessionReadyKey)
+                                    platformServices.preferences.putString(
+                                        "web.auth.logout_status",
+                                        result.diagnosticValue(),
+                                    )
+                                    isSessionReady = false
+                                    isLoggingOut = false
+                                }
+                            },
+                        )
                     }
                 } else if (navigation.route == "composer") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Composer) {
@@ -441,12 +440,12 @@ private fun QuataWebApp(
                     }
                 }
             }
+            }
             } else {
             WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
                 WebLoginHost(
-                    platformServices = platformServices,
-                    runtimeConfiguration = runtimeConfiguration,
                     repository = authRepository,
+                    preferences = platformServices.preferences,
                     onLoginSuccess = {
                         isSessionReady = true
                         currentUserId = authRepository.activeProfileSessionOrNull()?.userId
@@ -458,19 +457,32 @@ private fun QuataWebApp(
     }
 }
 
-/**
- * Every authenticated Web vertical remains reachable from normal navigation, not only through a
- * hand-written hash URL. Composer exposes its local shell here, while publication stays
- * fail-closed until the actor, wall-membership and Storage authorization contract is verified.
- */
-internal val webNavigationItems = listOf(
-    QuataNavigationItem("", "Inicio", Icons.Filled.Home),
-    QuataNavigationItem("composer", "Publicar", Icons.Filled.AddCircle),
-    QuataNavigationItem("chat", "Chats", Icons.AutoMirrored.Filled.Chat),
-    QuataNavigationItem("notifications", "Avisos", Icons.Filled.Notifications),
-    QuataNavigationItem("profile", "Perfil", Icons.Filled.Person),
-    QuataNavigationItem("settings", "Ajustes", Icons.Filled.Settings),
+internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
+    neighborhoods = "Qüata",
+    conversations = "Chats",
+    official = "Oficial",
+    feed = "Feed",
+    profile = "Cuenta",
 )
+
+/** Explicit boundary between canonical primary routes and legacy Web hash fragments. */
+internal fun canonicalPrimaryRouteToWebFragment(route: String): String = when (route) {
+    "neighborhoods" -> "communities"
+    "conversations" -> "chat"
+    "official" -> "official"
+    "feed" -> ""
+    "profile" -> "profile"
+    else -> ""
+}
+
+internal fun webFragmentToCanonicalPrimaryRoute(route: String): String? = when (route.substringBefore('/')) {
+    "communities" -> "neighborhoods"
+    "chat" -> "conversations"
+    "official" -> "official"
+    "feed", "", "post" -> "feed"
+    "profile" -> "profile"
+    else -> null
+}
 
 private fun WebPushSessionResult.diagnosticValue(): String = when (this) {
     WebPushSessionResult.Success -> "subscribed"
