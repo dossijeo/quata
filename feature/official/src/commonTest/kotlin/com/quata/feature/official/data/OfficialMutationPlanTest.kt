@@ -1,8 +1,10 @@
 package com.quata.feature.official.data
 
+import com.quata.core.model.PostComment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class OfficialMutationPlanTest {
     @Test fun commentReportUsesExactUgcContract() {
@@ -19,4 +21,17 @@ class OfficialMutationPlanTest {
         assertEquals("eq.p", officialSoftDeletePlan("p", null, "now").filter["id"])
     }
     @Test fun payloadEscapesQuotesAndBackslashes() { assertEquals("\"a\\\"b\\\\c\"", officialJson("a\"b\\c")) }
+    @Test fun replyCommentPlanPreservesTheRemoteReplyEnvelope() {
+        val comment = PostComment(
+            id = "local",
+            authorId = "u",
+            authorName = "User",
+            message = "Reply",
+            timestamp = "now",
+            replyToCommentId = "root",
+            replyToAuthorName = "Author",
+        )
+        val body = requireNotNull(officialCommentPlan("p", "u", comment).body)
+        assertTrue("[reply:root:Author] Reply" in body)
+    }
 }

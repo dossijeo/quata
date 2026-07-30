@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -215,8 +216,11 @@ private fun QuataSosButton(label: String, isSending: Boolean, pulseScale: Float,
         }.clickable(enabled = !isSending, onClick = onClick),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            val inlineText = rememberQuataFeedEmojiInlineText(label)
-            Text(inlineText.text, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption, inlineContent = inlineText.inlineContent)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label.removeSuffix(QuataFeedEmoji.Sos).trimEnd(), fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
+                Spacer(Modifier.width(3.dp))
+                QuataFeedEmojiIcon(QuataFeedEmoji.Sos, size = 13.dp)
+            }
         }
     }
 }

@@ -41,6 +41,40 @@ class OfficialFeedScreenStringsTest {
         )
     }
 
+    @Test fun commentCatalogNeverFallsBackToSpanishForEnglishOrFrench() {
+        val english = defaultOfficialFeedScreenStrings("en-US")
+        assertEquals("Write a comment…", english.commentPlaceholder)
+        assertEquals("Send comment", english.commentSend)
+        assertEquals("Report", english.commentReport)
+        assertEquals("Reply", english.commentReply)
+        assertEquals("Replying to Ana", english.commentReplyingTo("Ana"))
+        assertEquals("Cancel reply", english.commentCancelReply)
+        assertEquals("You", english.commentsYou)
+        assertEquals("↳ Reply to Ana", english.commentReplyTo("Ana"))
+        assertEquals("Show emojis", english.showEmojis)
+        assertEquals("Fang translator", english.translatorContentDescription)
+        assertEquals(
+            listOf("Recent", "Frequent", "Gestures", "People", "Animals and nature", "Food and drink", "Objects and symbols", "Flags"),
+            with(english.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags) },
+        )
+
+        val french = defaultOfficialFeedScreenStrings("fr-FR")
+        assertEquals("Écris un commentaire…", french.commentPlaceholder)
+        assertEquals("Envoyer le commentaire", french.commentSend)
+        assertEquals("Signaler", french.commentReport)
+        assertEquals("Répondre", french.commentReply)
+        assertEquals("Réponse à Ana", french.commentReplyingTo("Ana"))
+        assertEquals("Annuler la réponse", french.commentCancelReply)
+        assertEquals("Toi", french.commentsYou)
+        assertEquals("↳ Réponse à Ana", french.commentReplyTo("Ana"))
+        assertEquals("Afficher les emojis", french.showEmojis)
+        assertEquals("Traducteur Fang", french.translatorContentDescription)
+        assertEquals(
+            listOf("Récents", "Fréquents", "Gestes", "Personnes", "Animaux et nature", "Cuisine et boissons", "Objets et symboles", "Drapeaux"),
+            with(french.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags) },
+        )
+    }
+
     private fun assertCatalogEquals(expected: OfficialFeedScreenStrings, actual: OfficialFeedScreenStrings) {
         assertEquals(
             listOf(

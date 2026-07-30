@@ -1,10 +1,17 @@
 package com.quata.core.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
@@ -14,6 +21,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.em
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.Font
+import org.jetbrains.compose.resources.imageResource
 import org.jetbrains.compose.resources.painterResource
 import quata.designsystem.generated.resources.Res
 import quata.designsystem.generated.resources.quata_feed_emoji_document
@@ -90,6 +98,16 @@ private fun feedEmojiDrawable(resourceName: String): DrawableResource = when (re
     "quata-feed-emoji-note" -> Res.drawable.quata_feed_emoji_note
     "quata-feed-emoji-document" -> Res.drawable.quata_feed_emoji_document
     else -> error("Unknown Quata feed emoji resource: $resourceName")
+}
+
+/** Deterministic fixed-glyph surface for renderers that do not invoke InlineTextContent children. */
+@Composable
+fun QuataFeedEmojiIcon(emoji: String, modifier: Modifier = Modifier, size: Dp = 18.dp) {
+    val resourceName = QuataFeedEmoji.inlineResourceNames[emoji] ?: return
+    val image: ImageBitmap = imageResource(feedEmojiDrawable(resourceName))
+    Canvas(modifier.size(size)) {
+        drawImage(image, dstSize = IntSize(this.size.width.toInt(), this.size.height.toInt()))
+    }
 }
 
 /** The Q plus combining diaeresis used by the authenticated header's fixed logo mark. */

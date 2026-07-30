@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.zip.ZipFile
 
 plugins {
     id("com.android.application")
@@ -208,4 +209,31 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+}
+
+tasks.register("verifyDebugComposeResources") {
+    group = "verification"
+    description = "Verifies fixed feed emoji assets are packaged in the debug APK."
+    dependsOn("assembleDebug")
+
+    doLast {
+        val apk = layout.buildDirectory
+            .file("outputs/apk/debug/app-debug.apk")
+            .get()
+            .asFile
+        check(apk.isFile) { "Debug APK not found: ${apk.absolutePath}" }
+
+        val expectedEntries = setOf(
+            "assets/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_sos.png",
+            "assets/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_rank.png",
+        )
+        ZipFile(apk).use { zip ->
+            val missing = expectedEntries.filter { path ->
+                zip.getEntry(path)?.takeIf { it.size > 0L } == null
+            }
+            check(missing.isEmpty()) {
+                "Debug APK is missing required non-empty Compose resources: ${missing.joinToString()}"
+            }
+        }
+    }
 }

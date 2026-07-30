@@ -45,12 +45,12 @@ internal fun webOfficialReadAuthMode(operation: WebOfficialReadOperation): WebPo
 }
 
 /**
- * Browser implementation of the read-only Official feed contract.
+ * Browser implementation of the public-read and authenticated-interaction Official contract.
  *
  * Its public feed reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
  * deliberately omit Authorization. Private/admin reads remain [WebPostgrestAuthMode.SessionRequired]
- * and fail closed without a session; browser write flows need a separately reviewed API and fail
- * explicitly.
+ * and fail closed without a session. Reviewed delete/like/comment/report interactions use that
+ * renewable session; publishing remains explicitly unsupported until the editor is shipped.
  */
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
@@ -119,7 +119,7 @@ class WebOfficialRepository(
         val userId = authenticatedUserId()
         val safePostId = postId.requireOfficialPostgrestIdentifier()
         val safeUserId = userId.requireOfficialPostgrestIdentifier()
-        officialCommentPlan(safePostId, safeUserId, comment.message).let { client.post(it.table, it.body!!).requireWebOfficialSuccess() }
+        officialCommentPlan(safePostId, safeUserId, comment).let { client.post(it.table, it.body!!).requireWebOfficialSuccess() }
         getOfficialPost(postId).getOrThrow()
     }
 

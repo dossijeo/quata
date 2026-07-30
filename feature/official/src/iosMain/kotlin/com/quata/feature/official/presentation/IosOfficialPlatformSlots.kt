@@ -1,7 +1,15 @@
 package com.quata.feature.official.presentation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -9,6 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.ShareService
@@ -36,33 +46,51 @@ import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageView
+import platform.UIKit.UIApplication
 import platform.UIKit.UIViewContentMode
 import platform.AVFoundation.AVAssetImageGenerator
 import platform.AVFoundation.AVURLAsset
 import platform.CoreMedia.CMTimeMakeWithSeconds
 
 /** iOS-only native render seams; they do not own any Official state or navigation. */
-internal fun iosOfficialPlatformSlots(shareService: ShareService, viewerFactory: IosOfficialMediaViewerFactory?, canCreateOfficialPost: Boolean) = OfficialFeedScreenPlatformSlots(
+internal fun iosOfficialPlatformSlots(shareService: ShareService, viewerFactory: IosOfficialMediaViewerFactory?, canCreateOfficialPost: Boolean, closeLabel: String) = OfficialFeedScreenPlatformSlots(
     avatar = { post, modifier -> IosOfficialAvatar(post.author.displayName, post.author.id, post.author.avatarUrl, modifier) },
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
-    mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, dismiss) },
-    openUrl = {},
+    mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, closeLabel, dismiss) },
+    openUrl = ::openIosOfficialUrl,
     share = { payload -> shareService.share(payload) },
     message = {},
-    showComposeMessage = false,
+    showComposeMessage = true,
     rankingAvatar = { item -> IosOfficialRankingAvatar(item) },
     canCreateOfficialPost = canCreateOfficialPost,
-    floatingPanel = ::OfficialDefaultFloatingPanel,
 )
 
 @Composable
-private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficialMediaViewerFactory?, dismiss: () -> Unit) {
+private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficialMediaViewerFactory?, closeLabel: String, dismiss: () -> Unit) {
     val url = post.mediaUrl ?: return
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
     androidx.compose.runtime.DisposableEffect(surface) { onDispose { surface?.dispose() } }
-    if (surface != null) UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
-    else dismiss()
+    LaunchedEffect(surface) { if (surface == null) dismiss() }
+    if (surface != null) {
+        Box(Modifier.fillMaxSize()) {
+            UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
+            Surface(
+                color = Color.Black.copy(alpha = 0.45f),
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+            ) {
+                IconButton(onClick = dismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = closeLabel)
+                }
+            }
+        }
+    }
+}
+
+private fun openIosOfficialUrl(value: String) {
+    NSURL(string = value)?.let { UIApplication.sharedApplication.openURL(it, emptyMap<Any?, Any>(), null) }
 }
 
 @Composable

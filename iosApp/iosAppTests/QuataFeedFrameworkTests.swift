@@ -1040,7 +1040,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installOfficialEditorFactory { editor }
 
         router.showOfficialEditor()
-        XCTAssertTrue(router.children.first === login)
+        XCTAssertTrue(authenticatedRouteController(in: router) === login)
         XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
 
         router.installFeedFactory { _ in UIViewController() }
@@ -1337,7 +1337,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         wait(for: [loggedOut], timeout: 1)
         XCTAssertFalse(router.hasOfficialEditorFactory)
         router.showOfficialEditor()
-        XCTAssertTrue(router.children.first === publicFeed)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
     }
 
     func testBackReturnsToInstalledAuthenticatedFeedWithoutCreatingAFallback() {
@@ -1394,6 +1394,17 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(layout.topChrome, CGRect(x: 0, y: 0, width: 402, height: 130))
         XCTAssertEqual(layout.content, CGRect(x: 0, y: 130, width: 402, height: 618))
         XCTAssertEqual(layout.bottomNavigation, CGRect(x: 0, y: 748, width: 402, height: 126))
+    }
+
+    func testAuthenticatedShellLayoutKeepsLandscapeContentBetweenHorizontalSafeAreas() {
+        let layout = IosAuthenticatedShellLayout.frames(
+            bounds: CGRect(x: 0, y: 0, width: 874, height: 402),
+            safeAreaInsets: UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 21),
+        )
+
+        XCTAssertEqual(layout.topChrome, CGRect(x: 0, y: 0, width: 874, height: 68))
+        XCTAssertEqual(layout.content, CGRect(x: 62, y: 68, width: 791, height: 221))
+        XCTAssertEqual(layout.bottomNavigation, CGRect(x: 0, y: 289, width: 874, height: 113))
     }
 
 }

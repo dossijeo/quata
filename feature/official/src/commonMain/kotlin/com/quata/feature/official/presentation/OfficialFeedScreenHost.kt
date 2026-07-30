@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.SnackbarHost
@@ -30,6 +31,7 @@ import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
+import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
@@ -37,6 +39,7 @@ import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostType
@@ -77,6 +80,17 @@ class OfficialFeedScreenStrings(
     val reportFailed: String,
     val shareUnavailable: String,
     val shareFailed: String,
+    val commentPlaceholder: String = "Escribe un comentario…",
+    val commentSend: String = "Enviar comentario",
+    val commentReport: String = "Reportar",
+    val commentReply: String = "Responder",
+    val commentReplyingTo: (String) -> String = { "Respondiendo a $it" },
+    val commentCancelReply: String = "Cancelar respuesta",
+    val commentsYou: String = "Tú",
+    val commentReplyTo: (String) -> String = { "↳ Respuesta a $it" },
+    val showEmojis: String = "Mostrar emojis",
+    val translatorContentDescription: String = "Traductor Fang",
+    val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
 ) {
     constructor() : this(
         empty = "No hay comunicados oficiales disponibles.", create = "Crear comunicado",
@@ -96,8 +110,8 @@ class OfficialFeedScreenStrings(
 }
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
-    "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report")
-    "fr" -> OfficialFeedScreenStrings(loadingError="Impossible de charger les communiqués officiels.",live="DIRECT",readMoreMoreInformation="Plus d'informations",readMoreContinueReading="Continuer la lecture",readMoreDetails="Détails",typeAnnouncement="Communiqué",typeNews="Actualités",typeEvent="Événement",typeUrgent="Urgent",officialAccountFallback="Compte officiel",deleteTitle="Supprimer le communiqué",deleteMessage="Cette action est irréversible.",confirm="Confirmer",cancel="Annuler",deleted="Communiqué supprimé",shareUnavailable="Ce communiqué ne peut pas être partagé sur cet appareil.",shareFailed="Impossible de partager le communiqué",empty="Aucun communiqué officiel disponible.",create="Créer un communiqué",retry="Réessayer",like="J'aime",comments="Commentaires",share="Partager",rank="Classement",delete="Supprimer",close="Fermer",profile="Profil",readMore="Lire plus",refresh="Actualiser",reportSent="Signalement envoyé pour examen",reportFailed="Impossible d'envoyer le signalement")
+    "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags"))
+    "fr" -> OfficialFeedScreenStrings(loadingError="Impossible de charger les communiqués officiels.",live="DIRECT",readMoreMoreInformation="Plus d'informations",readMoreContinueReading="Continuer la lecture",readMoreDetails="Détails",typeAnnouncement="Communiqué",typeNews="Actualités",typeEvent="Événement",typeUrgent="Urgent",officialAccountFallback="Compte officiel",deleteTitle="Supprimer le communiqué",deleteMessage="Cette action est irréversible.",confirm="Confirmer",cancel="Annuler",deleted="Communiqué supprimé",shareUnavailable="Ce communiqué ne peut pas être partagé sur cet appareil.",shareFailed="Impossible de partager le communiqué",empty="Aucun communiqué officiel disponible.",create="Créer un communiqué",retry="Réessayer",like="J'aime",comments="Commentaires",share="Partager",rank="Classement",delete="Supprimer",close="Fermer",profile="Profil",readMore="Lire plus",refresh="Actualiser",reportSent="Signalement envoyé pour examen",reportFailed="Impossible d'envoyer le signalement",commentPlaceholder="Écris un commentaire…",commentSend="Envoyer le commentaire",commentReport="Signaler",commentReply="Répondre",commentReplyingTo={ "Réponse à $it" },commentCancelReply="Annuler la réponse",commentsYou="Toi",commentReplyTo={ "↳ Réponse à $it" },showEmojis="Afficher les emojis",translatorContentDescription="Traducteur Fang",emojiLabels=CommunityEmojiLabels(recent="Récents",frequent="Fréquents",gestures="Gestes",people="Personnes",animalsNature="Animaux et nature",foodDrink="Cuisine et boissons",objectsSymbols="Objets et symboles",flags="Drapeaux"))
     else -> OfficialFeedScreenStrings()
 }
 
@@ -127,14 +141,10 @@ class OfficialFeedScreenPlatformSlots(
     val showComposeMessage: Boolean,
     val canCreateOfficialPost: Boolean,
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit,
-    val floatingPanel: @Composable (onDismiss: () -> Unit, content: @Composable (Modifier, Boolean) -> Unit) -> Unit,
+    val commentsTranslatorTrigger: @Composable (String, Modifier) -> Unit = { contentDescription, modifier ->
+        FangTranslatorTriggerContent(contentDescription = contentDescription, onClick = {}, modifier = modifier)
+    },
 )
-
-@Composable
-fun OfficialDefaultFloatingPanel(
-    onDismiss: () -> Unit,
-    content: @Composable (Modifier, Boolean) -> Unit,
-) = QuataStandardFloatingPanelContent(onDismiss = onDismiss, content = content)
 
 /**
  * Sole Official screen root shared by Android, Wasm and iOS.
@@ -167,6 +177,8 @@ fun OfficialFeedScreenHost(
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
     var deletePost by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
+    var overflowPost by rememberSaveable { mutableStateOf<String?>(null) }
+    var rankingTargetPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(retainedPostId == null) }
@@ -200,6 +212,15 @@ fun OfficialFeedScreenHost(
         if (!restored && focusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
     }
     LaunchedEffect(pagerState.currentPage, state.posts) { if (restored) state.posts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
+    LaunchedEffect(rankingTargetPostId, state.posts) {
+        val target = rankingTargetPostId ?: return@LaunchedEffect
+        val index = state.posts.indexOfFirst { it.id == target }
+        if (index >= 0) {
+            pagerState.scrollToPage(index)
+            retainedPostId = target
+        }
+        rankingTargetPostId = null
+    }
 
     Box(modifier.fillMaxSize()) {
         when {
@@ -244,9 +265,29 @@ fun OfficialFeedScreenHost(
                                     modifier = railModifier,
                                 )
                             },
-                            overflowAction = { overflowModifier -> QuataFeedOverflowActionButton(ranks[post.id]?.position ?: index + 1, strings.rank, strings.live, null, false, { liveOpen = true }, {}, overflowModifier) },
+                            overflowAction = null,
                             onReadMore = { readMorePost = post.id }, modifier = cardModifier,
                         )
+                    }, overlay = {
+                        if (windowInfo.isLandscape) {
+                            QuataFeedOverflowActionButton(
+                                postRank = ranks[post.id]?.position ?: index + 1,
+                                rankLabel = strings.rank,
+                                liveLabel = strings.live,
+                                reportLabel = null,
+                                showReport = false,
+                                expanded = overflowPost == post.id,
+                                onExpandedChange = { expanded ->
+                                    overflowPost = post.id.takeIf { expanded }
+                                },
+                                onOpenLive = {
+                                    overflowPost = null
+                                    liveOpen = true
+                                },
+                                onReport = {},
+                                modifier = Modifier.align(Alignment.BottomStart).padding(start = 28.dp, bottom = 38.dp),
+                            )
+                        }
                     }, modifier = Modifier.fillMaxSize())
                 },
                 modifier = Modifier.fillMaxSize().nestedScroll(pullRefresh.nestedScrollConnection),
@@ -261,12 +302,35 @@ fun OfficialFeedScreenHost(
         OfficialPostDetailPanelContent(strings.readMoreLabel(post.readMoreLabel), strings.close, post.linkUrl, { readMorePost = null }, { slots.article(post, it) }, { OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, it.clickable { onOpenUserProfile(post.author.id) }) }, post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } }, post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } }, { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } })
     }
     OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, { id -> viewModel.onEvent(OfficialFeedUiEvent.ReportComment(id)) }, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->
-        OfficialCommentsPanelContent(post, canParticipate, OfficialCommentsStrings(close = strings.close, title = strings.comments), onAuthRequired, add, report, dismiss)
+        OfficialCommentsPanelContent(
+            post = post,
+            canParticipate = canParticipate,
+            strings = OfficialCommentsStrings(
+                title = strings.comments,
+                close = strings.close,
+                placeholder = strings.commentPlaceholder,
+                send = strings.commentSend,
+                report = strings.commentReport,
+                reply = strings.commentReply,
+                replyingTo = strings.commentReplyingTo,
+                cancelReply = strings.commentCancelReply,
+                commentsYou = strings.commentsYou,
+                replyTo = strings.commentReplyTo,
+                showEmojis = strings.showEmojis,
+                translatorContentDescription = strings.translatorContentDescription,
+                emojiLabels = strings.emojiLabels,
+            ),
+            onAuthRequired = onAuthRequired,
+            onAddComment = add,
+            onReportComment = report,
+            onDismiss = dismiss,
+            translatorTrigger = slots.commentsTranslatorTrigger,
+        )
     }
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }
-    if (liveOpen) slots.floatingPanel({ liveOpen = false }) { panelModifier, panelLandscape ->
+    if (liveOpen) QuataStandardFloatingPanelContent(onDismiss = { liveOpen = false }) { panelModifier, panelLandscape ->
         val items = state.posts.sortedWith(compareByDescending<OfficialPostItem> { it.likesCount }.thenByDescending { it.createdAt }).mapIndexed { index, post -> QuataLiveRankingItem(post.id, post.author.id, ranks[post.id]?.position ?: index + 1, post.title, post.author.displayName, post.author.displayName, post.author.avatarUrl, true, post.likesCount) }
-        QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore), slots.rankingAvatar, { liveOpen = false }, { id -> state.posts.indexOfFirst { it.id == id }.takeIf { it >= 0 }?.let { scope.launch { pagerState.animateScrollToPage(it) } }; liveOpen = false }, panelModifier)
+        QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore), slots.rankingAvatar, { liveOpen = false }, { id -> rankingTargetPostId = id; liveOpen = false }, panelModifier)
     }
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
     mediaPost?.let { id -> state.posts.firstOrNull { it.id == id }?.let { post -> slots.mediaViewer(post) { mediaPost = null } } }

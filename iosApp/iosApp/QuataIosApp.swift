@@ -1041,6 +1041,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func presentLoginIfAvailable() {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
+        guard displayedController?.view.accessibilityIdentifier != "quata-ios-auth-host" else { return }
         routeMenuButton.isHidden = true
         show(
             authenticationFactory(),
@@ -1609,7 +1610,13 @@ struct IosAuthenticatedShellLayout {
         let topHeight = safeAreaInsets.top + 68
         let bottomHeight = 92 + safeAreaInsets.bottom
         let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
-        let content = CGRect(x: bounds.minX, y: bounds.minY + topHeight, width: bounds.width, height: contentHeight)
+        let contentWidth = max(0, bounds.width - safeAreaInsets.left - safeAreaInsets.right)
+        let content = CGRect(
+            x: bounds.minX + safeAreaInsets.left,
+            y: bounds.minY + topHeight,
+            width: contentWidth,
+            height: contentHeight
+        )
         return IosAuthenticatedShellLayout(
             topChrome: CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: topHeight),
             content: content,

@@ -10,6 +10,7 @@ kotlin {
         namespace = "com.quata.designsystem"
         compileSdk = 36
         minSdk = 26
+        androidResources.enable = true
     }
     iosX64()
     iosArm64()

@@ -418,15 +418,33 @@ private fun QuataWebApp(
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
-                        WebOfficialHost(
-                            repository = officialRepository,
-                            shareService = platformServices.share,
-                            officialPostId = navigation.officialPostId,
-                            currentUserId = currentUserId,
-                            onAuthRequired = { navigation.navigate("auth") },
-                            onOpenUserProfile = feedMemberProfileRoute::open,
-                            onCreateOfficialPost = { navigation.navigate("composer") },
-                        )
+                        val memberProfileId = feedMemberProfileRoute.profileId
+                        if (memberProfileId != null) {
+                            WebNeighborhoodsHost(
+                                repository = neighborhoodsRepository,
+                                currentUserId = currentUserId,
+                                strings = webNeighborhoodsStrings,
+                                slots = webNeighborhoodsSlots,
+                                rankingItems = emptyList(),
+                                onOpenConversation = navigation::navigateConversation,
+                                onOpenUserRoute = feedMemberProfileRoute::open,
+                                initialMemberProfileId = memberProfileId,
+                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
+                                onOpenRankingItem = { },
+                                onSubmitComment = { },
+                                commentsEnabled = false,
+                            )
+                        } else {
+                            WebOfficialHost(
+                                repository = officialRepository,
+                                shareService = platformServices.share,
+                                officialPostId = navigation.officialPostId,
+                                currentUserId = currentUserId,
+                                onAuthRequired = { navigation.navigate("auth") },
+                                onOpenUserProfile = feedMemberProfileRoute::open,
+                                onCreateOfficialPost = { navigation.navigate("composer") },
+                            )
+                        }
                     }
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {

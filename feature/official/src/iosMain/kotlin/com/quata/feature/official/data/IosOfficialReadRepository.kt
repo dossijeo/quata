@@ -69,13 +69,15 @@ enum class IosOfficialReadFailureKind {
 }
 
 /**
- * Public, read-only PostgREST adapter for Official content.
+ * Public-read and authenticated-interaction PostgREST adapter for Official content.
  *
- * It deliberately has no mutation methods.  Public Official reads use only the Supabase
+ * Public Official reads use only the Supabase
  * publishable key, just like the iOS Feed reader: a missing, expired or restored user session
  * must neither prevent an anonymous visitor from reading Official nor become a bearer header on
  * that visitor's requests.  An optional session is used exclusively by [refreshCurrentUser] to
  * enrich the local UI identity when an authenticated host explicitly chooses to provide one.
+ * That authenticated host may delete, like, comment and report through reviewed RLS paths;
+ * createPost/createPosts remain explicit unsupported operations until publishing is shipped.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosOfficialReadRepository(
@@ -141,7 +143,7 @@ class IosOfficialReadRepository(
         val userId = authenticatedUserId()
         val safePostId = postId.requireOfficialPostgrestIdentifier()
         val safeUserId = userId.requireOfficialPostgrestIdentifier()
-        officialCommentPlan(safePostId, safeUserId, comment.message).let { mutate(it.table, it.method, it.filter, it.body) }
+        officialCommentPlan(safePostId, safeUserId, comment).let { mutate(it.table, it.method, it.filter, it.body) }
         getOfficialPost(postId).getOrThrow()
     }
 

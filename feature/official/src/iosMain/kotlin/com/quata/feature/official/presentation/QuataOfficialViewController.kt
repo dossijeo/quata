@@ -44,7 +44,7 @@ class IosOfficialHostDependencies(
 )
 
 /**
- * Swift-facing dependency factory for the read-only iOS Official vertical.
+ * Swift-facing dependency factory for the shared iOS Official vertical.
  *
  * Keeping the default platform slots in Kotlin avoids making the UIKit launcher construct
  * Compose slot objects or depend on Kotlin default-argument Objective-C export details.
@@ -73,9 +73,9 @@ fun createIosOfficialHostDependencies(
 /**
  * Creates the public iOS Official browser from client-safe deployment values only.
  *
- * The repository has no interactive-session parameter on this route.  Its read transport can
- * therefore neither wait for Keychain restoration nor attach a bearer credential; mutations
- * remain the repository's explicit unsupported-operation failures.
+ * The repository has no interactive-session parameter on this route. Its read transport can
+ * therefore neither wait for Keychain restoration nor attach a bearer credential; authenticated
+ * interactions fail closed and publishing remains unsupported.
  */
 fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     configuration: IosOfficialRuntimeConfiguration,
@@ -124,16 +124,17 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
 fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
+            val strings = defaultOfficialFeedScreenStrings(dependencies.preferredLanguageTag)
             OfficialFeedScreenHost(
                 padding = PaddingValues(),
                 repository = dependencies.repository,
                 currentUserId = dependencies.currentUserId,
-                strings = defaultOfficialFeedScreenStrings(dependencies.preferredLanguageTag),
+                strings = strings,
                 focusedPostId = dependencies.officialPostId,
                 onAuthRequired = dependencies.onAuthRequired,
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
-                slots = iosOfficialPlatformSlots(dependencies.shareService, dependencies.mediaViewerFactory, dependencies.canCreateOfficialPost),
+                slots = iosOfficialPlatformSlots(dependencies.shareService, dependencies.mediaViewerFactory, dependencies.canCreateOfficialPost, strings.close),
                 onFocusedPostHandled = {},
                 modifier = Modifier,
             )

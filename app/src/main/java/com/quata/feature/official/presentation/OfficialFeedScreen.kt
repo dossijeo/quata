@@ -19,7 +19,10 @@ import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
-import com.quata.core.ui.components.QuataCommentsPanel
+import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.translation.FangTranslatorIconButton
+import com.quata.core.translation.LocalQuataTranslatorModeController
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
@@ -40,6 +43,12 @@ fun OfficialFeedScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val translatorModeController = LocalQuataTranslatorModeController.current
+    val commentNamePlaceholder = "\u0000"
+    val commentReplyingToTemplate =
+        stringResource(R.string.comments_replying_to, commentNamePlaceholder)
+    val commentReplyToTemplate =
+        stringResource(R.string.comments_reply_to, commentNamePlaceholder)
     OfficialFeedScreenHost(
         padding = padding,
         repository = repository,
@@ -82,6 +91,26 @@ fun OfficialFeedScreen(
             officialAccountFallback = stringResource(R.string.official_account_fallback),
             shareUnavailable = "No se puede compartir este comunicado en este dispositivo.",
             shareFailed = "No se pudo compartir el comunicado.",
+            commentPlaceholder = stringResource(R.string.comments_placeholder),
+            commentSend = stringResource(R.string.comments_send),
+            commentReport = stringResource(R.string.moderation_report),
+            commentReply = stringResource(R.string.comments_reply_button),
+            commentReplyingTo = { name -> commentReplyingToTemplate.replace(commentNamePlaceholder, name) },
+            commentCancelReply = stringResource(R.string.comments_cancel_reply),
+            commentsYou = stringResource(R.string.comments_you),
+            commentReplyTo = { name -> commentReplyToTemplate.replace(commentNamePlaceholder, name) },
+            showEmojis = stringResource(R.string.comments_show_emojis),
+            translatorContentDescription = stringResource(R.string.translator_button_content_description),
+            emojiLabels = CommunityEmojiLabels(
+                recent = stringResource(R.string.emoji_recent),
+                frequent = stringResource(R.string.emoji_frequent),
+                gestures = stringResource(R.string.emoji_gestures),
+                people = stringResource(R.string.emoji_people),
+                animalsNature = stringResource(R.string.emoji_animals_nature),
+                foodDrink = stringResource(R.string.emoji_food_drink),
+                objectsSymbols = stringResource(R.string.emoji_objects_symbols),
+                flags = stringResource(R.string.emoji_flags),
+            ),
         ),
         slots = OfficialFeedScreenPlatformSlots(
             avatar = { post, avatarModifier ->
@@ -95,8 +124,17 @@ fun OfficialFeedScreen(
             message = { value -> Toast.makeText(context, value, Toast.LENGTH_SHORT).show() },
             showComposeMessage = false,
             canCreateOfficialPost = onCreateOfficialPost != null,
-            rankingAvatar = {},
-            floatingPanel = ::OfficialDefaultFloatingPanel,
+            rankingAvatar = { item ->
+                AvatarImage(item.avatarName, item.avatarUrl, true, item.profileId, Modifier.size(44.dp))
+            },
+            commentsTranslatorTrigger = { _, triggerModifier ->
+                FangTranslatorIconButton(
+                    onClick = { view ->
+                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                    },
+                    modifier = triggerModifier,
+                )
+            },
         ),
     )
 }

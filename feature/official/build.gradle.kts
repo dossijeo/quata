@@ -14,6 +14,7 @@ kotlin {
             implementation(project(":core"))
             implementation(project(":designsystem"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
