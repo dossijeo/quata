@@ -77,6 +77,18 @@ fun shouldConnectFeedPresence(
     isAuthenticated: Boolean,
 ): Boolean = isForeground && isNetworkAvailable && isAuthenticated
 
+/**
+ * The policy applied to native reachability flags. A reachable route that needs a connection is
+ * usable only when the system can establish it without asking the user.
+ */
+internal fun isFeedPresenceNetworkReachable(
+    isReachable: Boolean,
+    connectionRequired: Boolean,
+    canConnectAutomatically: Boolean,
+    requiresUserIntervention: Boolean,
+): Boolean = isReachable &&
+    (!connectionRequired || (canConnectAutomatically && !requiresUserIntervention))
+
 /** A track is legal only for the successful reply to this channel's current join. */
 fun isSuccessfulFeedPresenceJoinReply(
     event: String,

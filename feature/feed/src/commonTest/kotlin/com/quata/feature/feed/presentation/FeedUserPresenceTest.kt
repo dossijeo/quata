@@ -36,6 +36,14 @@ class FeedUserPresenceTest {
         assertEquals(true, shouldConnectFeedPresence(true, true, true))
     }
 
+    @Test fun `reachability accepts only usable system routes`() {
+        assertEquals(true, isFeedPresenceNetworkReachable(true, false, false, false))
+        assertEquals(true, isFeedPresenceNetworkReachable(true, true, true, false))
+        assertEquals(false, isFeedPresenceNetworkReachable(false, false, true, false))
+        assertEquals(false, isFeedPresenceNetworkReachable(true, true, false, false))
+        assertEquals(false, isFeedPresenceNetworkReachable(true, true, true, true))
+    }
+
     @Test fun `only the current realtime join reply may track presence`() {
         val ok = Json.parseToJsonElement("{\"status\":\"ok\"}")
         assertEquals(true, isSuccessfulFeedPresenceJoinReply("phx_reply", FeedPresenceTopic, "4", "4", ok))

@@ -4,6 +4,11 @@ import com.quata.core.model.AuthSession
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.UIntVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,9 +31,15 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionWebSocketMessage
 import platform.Foundation.NSURLSessionWebSocketTask
-import platform.Network.NWPathMonitor
-import platform.Network.NWPathStatusSatisfied
-import platform.darwin.dispatch_queue_create
+import platform.CoreFoundation.CFRelease
+import platform.SystemConfiguration.SCNetworkReachabilityCreateWithName
+import platform.SystemConfiguration.SCNetworkReachabilityGetFlags
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsConnectionAutomatic
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsConnectionOnDemand
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsConnectionOnTraffic
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsConnectionRequired
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsInterventionRequired
+import platform.SystemConfiguration.kSCNetworkReachabilityFlagsReachable
 
 /** Native iOS Realtime transport. It deliberately starts only with a restored authenticated session. */
 @OptIn(ExperimentalForeignApi::class)
@@ -41,20 +52,26 @@ class IosFeedPresence(
     override val onlineProfileIds: StateFlow<Set<String>> = online
     private var snapshot = FeedPresenceSnapshot()
     private var foreground = false
-    private var networkAvailable = true
+    private val reachabilityHost = configuration.supabaseUrl.reachabilityHost()
+    private var networkAvailable = reachabilityHost?.let(::systemNetworkAvailable) ?: false
     private var closed = false
     private var reconnect: Job? = null
     private var heartbeat: Job? = null
+    private var reachabilityPolling: Job? = null
     private var task: NSURLSessionWebSocketTask? = null
     private var attempt = 0
     private var ref = 0
     private var activeJoinRef: String? = null
-    private val pathMonitor = NWPathMonitor()
-    private val pathQueue = dispatch_queue_create("com.quata.feed.presence.path", null)
 
     init {
-        pathMonitor.pathUpdateHandler = { path -> setNetworkAvailable(path?.status == NWPathStatusSatisfied) }
-        pathMonitor.startWithQueue(pathQueue)
+        // Kotlin 2.2.21's iosX64 platform library does not export NWPathMonitor. System
+        // Configuration is exported for every project iOS target and provides real reachability.
+        reachabilityPolling = scope.launch {
+            while (!closed) {
+                delay(FeedPresenceReachabilityPollMillis)
+                reachabilityHost?.let(::systemNetworkAvailable)?.let(::setNetworkAvailable)
+            }
+        }
     }
 
     override fun observeProfiles(profileIds: Collection<String>) { snapshot = snapshot.observe(profileIds); publish() }
@@ -64,7 +81,8 @@ class IosFeedPresence(
         if (closed) return
         closed = true
         foreground = false
-        pathMonitor.cancel()
+        reachabilityPolling?.cancel()
+        reachabilityPolling = null
         disconnect()
         scope.cancel()
     }
@@ -147,7 +165,7 @@ class IosFeedPresence(
         reconnect?.cancel(); reconnect = null
         stopHeartbeat()
         activeJoinRef = null
-        task?.cancelWithCloseCode(1000u, null)
+        task?.cancelWithCloseCode(1000L, null)
         task = null
         online.value = emptySet()
     }
@@ -157,5 +175,38 @@ class IosFeedPresence(
     private fun scheduleReconnect() {
         if (closed || !shouldConnectFeedPresence(foreground, networkAvailable, authSession?.restoredSession() != null) || reconnect?.isActive == true) return
         reconnect = scope.launch { delay(feedPresenceReconnectDelayMillis(attempt)); attempt = (attempt + 1).coerceAtMost(6); reconcile() }
+    }
+}
+
+private const val FeedPresenceReachabilityPollMillis = 5_000L
+
+/** Extracts the host passed to SCNetworkReachability without retaining an NSURL instance. */
+private fun String.reachabilityHost(): String? =
+    substringAfter("://", this)
+        .substringBefore('/')
+        .substringBefore('?')
+        .substringBefore('@')
+        .substringBefore(':')
+        .trim()
+        .takeIf(String::isNotEmpty)
+
+@OptIn(ExperimentalForeignApi::class)
+private fun systemNetworkAvailable(host: String): Boolean? = memScoped {
+    val reachability = SCNetworkReachabilityCreateWithName(null, host) ?: return@memScoped null
+    try {
+        val flags = alloc<UIntVar>()
+        if (!SCNetworkReachabilityGetFlags(reachability, flags.ptr)) return@memScoped null
+        isFeedPresenceNetworkReachable(
+            isReachable = flags.value and kSCNetworkReachabilityFlagsReachable != 0u,
+            connectionRequired = flags.value and kSCNetworkReachabilityFlagsConnectionRequired != 0u,
+            canConnectAutomatically = flags.value and (
+                kSCNetworkReachabilityFlagsConnectionOnTraffic or
+                    kSCNetworkReachabilityFlagsConnectionOnDemand or
+                    kSCNetworkReachabilityFlagsConnectionAutomatic
+                ) != 0u,
+            requiresUserIntervention = flags.value and kSCNetworkReachabilityFlagsInterventionRequired != 0u,
+        )
+    } finally {
+        CFRelease(reachability)
     }
 }
