@@ -37,6 +37,7 @@ data class NotificationsStrings(
     val backContentDescription: String,
     val relativeTimeCatalog: RelativeTimeCatalog,
     val previewCatalog: ChatPreviewCatalog,
+    val sosPreviewCatalog: SosPreviewCatalog,
 )
 
 @Composable
@@ -129,7 +130,7 @@ private fun DismissibleNotificationCard(
                     val createdAt = formatNotificationRelativeTime(item.createdAt, timestampNowMillis, strings.relativeTimeCatalog)
                     Text(item.title, fontWeight = FontWeight.Bold)
                     Text(
-                        text = resolveChatPreview(item.body, strings.previewCatalog),
+                        text = resolveChatPreview(item.body, strings.previewCatalog, strings.sosPreviewCatalog),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(

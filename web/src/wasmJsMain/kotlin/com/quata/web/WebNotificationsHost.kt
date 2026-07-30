@@ -8,6 +8,7 @@ import com.quata.feature.notifications.presentation.ChatPreviewCatalog
 import com.quata.feature.notifications.presentation.NotificationsHostContent
 import com.quata.feature.notifications.presentation.NotificationsStrings
 import com.quata.feature.notifications.presentation.RelativeTimeCatalog
+import com.quata.feature.notifications.presentation.SosPreviewCatalog
 import com.quata.feature.notifications.presentation.NotificationDeliveryState
 import com.quata.feature.notifications.presentation.notificationDeliveryNotice
 
@@ -27,7 +28,12 @@ fun WebNotificationsHost(
                 days = { "hace $it d" }, oneWeek = "hace 1 semana", weeks = { "hace $it semanas" }, oneMonth = "hace 1 mes",
                 months = { "hace $it meses" }, oneYear = "hace 1 año", years = { "hace $it años" },
             ),
-            ChatPreviewCatalog("Foto", "Vídeo", "Documento", "Nota de voz", "Archivo"),
+            ChatPreviewCatalog("🖼️ Foto", "🎥 Vídeo", "📄 Documento", "🎤 Nota de voz", "📎 Archivo"),
+            SosPreviewCatalog(
+                locationUpdate = "Actualizacion de ubicacion SOS",
+                locationUnavailable = "📍 Ubicación no disponible",
+                approximateLocation = { "Ubicacion aproximada: $it" },
+            ),
         ),
         deliveryNotice = notificationDeliveryNotice(
             if (runtimeConfiguration.isBackendConfigured) {

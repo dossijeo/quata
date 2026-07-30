@@ -40,12 +40,17 @@ fun createIosNotificationsHostDependencies(
             days = { "hace $it d" }, oneWeek = "hace 1 semana", weeks = { "hace $it semanas" }, oneMonth = "hace 1 mes",
             months = { "hace $it meses" }, oneYear = "hace 1 año", years = { "hace $it años" },
         ),
-        previewCatalog = ChatPreviewCatalog("Foto", "Vídeo", "Documento", "Nota de voz", "Archivo"),
+        previewCatalog = ChatPreviewCatalog("🖼️ Foto", "🎥 Vídeo", "📄 Documento", "🎤 Nota de voz", "📎 Archivo"),
+        sosPreviewCatalog = SosPreviewCatalog(
+            locationUpdate = "Actualizacion de ubicacion SOS",
+            locationUnavailable = "📍 Ubicación no disponible",
+            approximateLocation = { "Ubicacion aproximada: $it" },
+        ),
     ),
-    deliveryNotice = notificationDeliveryNotice(
-        state = if (notificationPermissionGranted) NotificationDeliveryState.DeliveryUnverified else NotificationDeliveryState.PermissionRequired,
-        actionLabel = if (notificationPermissionGranted) null else "Permitir notificaciones",
-        onAction = if (notificationPermissionGranted) null else onRequestNotificationPermission,
+    deliveryNotice = if (notificationPermissionGranted) null else notificationDeliveryNotice(
+        state = NotificationDeliveryState.PermissionRequired,
+        actionLabel = "Permitir notificaciones",
+        onAction = onRequestNotificationPermission,
     ),
     onBack = onBack,
     onOpenConversation = onOpenConversation,

@@ -39,10 +39,18 @@ class NotificationPresentationTest {
     }
 
     @Test fun resolvesAttachmentsAndLegacyPreviewsWithoutLeakingTechnicalKeys() {
-        val previews = ChatPreviewCatalog("photo", "video", "document", "voice", "file")
-        assertEquals("photo", resolveChatPreview("[QUATA_ATTACHMENT:photo]", previews))
-        assertEquals("voice", resolveChatPreview("[QUATA_NOTIFICATION:chat_voice_note]", previews))
-        assertEquals("file", resolveChatPreview("[QUATA_NOTIFICATION:chat_attachment]", previews))
-        assertEquals("Hello", resolveChatPreview("Hello", previews))
+        val previews = ChatPreviewCatalog("🖼️ photo", "🎥 video", "📄 document", "🎤 voice", "📎 file")
+        val sos = SosPreviewCatalog("location update", "location unavailable") { "approximate location: $it" }
+        assertEquals("🖼️ photo", resolveChatPreview("[QUATA_ATTACHMENT:photo]", previews, sos))
+        assertEquals("🎤 voice", resolveChatPreview("[QUATA_NOTIFICATION:chat_voice_note]", previews, sos))
+        assertEquals("📎 file", resolveChatPreview("[QUATA_NOTIFICATION:chat_attachment]", previews, sos))
+        assertEquals("Hello", resolveChatPreview("Hello", previews, sos))
+    }
+
+    @Test fun resolvesSosAlertUpdateAndUnavailableWithTheProvidedCatalog() {
+        val sos = SosPreviewCatalog("location update", "location unavailable") { "approximate location: $it" }
+        assertEquals("approximate location: https://maps.google.com/?q=40.4,-3.7", resolveSosPreview("[SOS:kind=alert;name=Ana;lat=40.4;lng=-3.7]", sos))
+        assertEquals("location update", resolveSosPreview("[SOS:kind=update;name=Ana]", sos))
+        assertEquals("location unavailable", resolveSosPreview("[SOS:kind=alert;name=Ana]", sos))
     }
 }

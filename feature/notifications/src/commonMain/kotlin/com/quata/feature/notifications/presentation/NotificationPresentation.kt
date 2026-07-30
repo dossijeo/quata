@@ -4,6 +4,8 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import com.quata.core.text.SosShortcodeKind
+import com.quata.core.text.parseSosShortcode
 import kotlin.time.ExperimentalTime
 
 /** Localized labels used by the portable relative-time formatter. */
@@ -28,6 +30,13 @@ data class ChatPreviewCatalog(
     val document: String,
     val voiceNote: String,
     val file: String,
+)
+
+/** Localized equivalents of Android's SOS inbox preview labels. */
+data class SosPreviewCatalog(
+    val locationUpdate: String,
+    val locationUnavailable: String,
+    val approximateLocation: (String) -> String,
 )
 
 fun formatNotificationRelativeTime(
@@ -63,13 +72,26 @@ fun parseNotificationTimestamp(value: String, nowMillis: Long): Long? {
         ?: runCatching { LocalDateTime.parse(normalized).toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }.getOrNull()
 }
 
-fun resolveChatPreview(raw: String, catalog: ChatPreviewCatalog): String = when (raw.trim()) {
+fun resolveChatPreview(
+    raw: String,
+    catalog: ChatPreviewCatalog,
+    sosCatalog: SosPreviewCatalog,
+): String = resolveSosPreview(raw, sosCatalog) ?: when (raw.trim()) {
     "[QUATA_ATTACHMENT:photo]" -> catalog.photo
     "[QUATA_ATTACHMENT:video]" -> catalog.video
     "[QUATA_ATTACHMENT:document]" -> catalog.document
     "[QUATA_ATTACHMENT:voice_note]", "[QUATA_NOTIFICATION:chat_voice_note]" -> catalog.voiceNote
     "[QUATA_ATTACHMENT:file]", "[QUATA_NOTIFICATION:chat_attachment]" -> catalog.file
     else -> raw
+}
+
+fun resolveSosPreview(raw: String, catalog: SosPreviewCatalog): String? {
+    val message = raw.parseSosShortcode() ?: return null
+    return when {
+        message.kind == SosShortcodeKind.LocationUpdate -> catalog.locationUpdate
+        !message.hasLocation -> catalog.locationUnavailable
+        else -> catalog.approximateLocation(requireNotNull(message.mapsUrl))
+    }
 }
 
 private const val DAY_MILLIS = 24L * 60L * 60L * 1_000L

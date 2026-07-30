@@ -31,6 +31,11 @@ fun NotificationsScreen(
             photo = context.getString(R.string.conversation_preview_photo), video = context.getString(R.string.conversation_preview_video),
             document = context.getString(R.string.conversation_preview_document), voiceNote = context.getString(R.string.conversation_preview_voice_note), file = context.getString(R.string.conversation_preview_file),
         ),
+        sosPreviewCatalog = SosPreviewCatalog(
+            locationUpdate = context.getString(R.string.sos_location_update),
+            locationUnavailable = context.getString(R.string.sos_location_unavailable),
+            approximateLocation = { context.getString(R.string.sos_location_approx, it) },
+        ),
     )
 
     NotificationsHostContent(
