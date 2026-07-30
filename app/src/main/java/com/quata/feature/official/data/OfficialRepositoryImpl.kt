@@ -305,6 +305,12 @@ class OfficialRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: throw UserFacingException(appContext.getString(R.string.error_backend_unauthorized))
+        supabaseApi.reportUgc(session.userId, "official_comment", commentId, "other")
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     private suspend fun loadOfficialFeed(
         cacheMode: SupabaseCacheMode,
         limit: Int,

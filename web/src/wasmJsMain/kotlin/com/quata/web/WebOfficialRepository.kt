@@ -17,6 +17,7 @@ import com.quata.feature.official.data.officialRemoteProfileIds
 import com.quata.feature.official.data.toOfficialDomainUser
 import com.quata.feature.official.data.selectOfficialTranslations
 import com.quata.feature.official.data.officialTranslationReadPlan
+import com.quata.feature.official.data.officialCommentReportPayload
 import com.quata.feature.official.data.officialLikeLookupPlan
 import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
@@ -120,6 +121,12 @@ class WebOfficialRepository(
         val safeUserId = userId.requireOfficialPostgrestIdentifier()
         officialCommentPlan(safePostId, safeUserId, comment.message).let { client.post(it.table, it.body!!).requireWebOfficialSuccess() }
         getOfficialPost(postId).getOrThrow()
+    }
+
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val targetId = commentId.requireOfficialPostgrestIdentifier()
+        client.rpc("quata_ugc_report", officialCommentReportPayload(userId, targetId)).requireWebOfficialSuccess()
     }
 
     private suspend fun loadFeed(

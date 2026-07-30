@@ -19,10 +19,6 @@ class IosOfficialPublicFactoryTest {
                 supabasePublishableKey = "public-client-key",
             ),
             officialPostId = "official-public-7",
-            slots = OfficialFeedScreenPlatformSlots(
-                avatar = { _, _ -> },
-                media = { _, _, _ -> },
-            ),
         )
 
         assertEquals("official-public-7", dependencies.officialPostId)

@@ -17,6 +17,8 @@ data class OfficialFeedUiState(
 )
 
 object OfficialFeedMessages {
+    const val CommentReported = "comment_reported"
+    const val CommentReportFailed = "comment_report_failed"
     const val PostCreated = "post_created"
     const val PostDeleted = "post_deleted"
 }

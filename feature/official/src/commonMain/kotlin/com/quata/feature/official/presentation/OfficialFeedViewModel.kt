@@ -45,6 +45,7 @@ class OfficialFeedViewModel(
             )
             is OfficialFeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is OfficialFeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
+            is OfficialFeedUiEvent.ReportComment -> reportComment(event.commentId)
             is OfficialFeedUiEvent.DeletePost -> deletePost(event.postId)
             is OfficialFeedUiEvent.CreatePost -> createPost(event.draft)
             is OfficialFeedUiEvent.CreatePosts -> createPosts(event.drafts)
@@ -194,6 +195,14 @@ class OfficialFeedViewModel(
             .onFailure { error ->
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
             }
+    }
+
+    private fun reportComment(commentId: String) = scope.launch {
+        repository.reportComment(commentId).onSuccess {
+            _uiState.value = _uiState.value.copy(message = OfficialFeedMessages.CommentReported, error = null)
+        }.onFailure {
+            _uiState.value = _uiState.value.copy(message = OfficialFeedMessages.CommentReportFailed)
+        }
     }
 
     private fun ensurePostLoaded(postId: String) = scope.launch {

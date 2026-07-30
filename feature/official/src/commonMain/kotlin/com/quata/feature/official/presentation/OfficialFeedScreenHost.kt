@@ -73,9 +73,17 @@ data class OfficialFeedScreenStrings(
     val confirm: String = "Confirmar",
     val cancel: String = "Cancelar",
     val deleted: String = "Comunicado eliminado",
+    val reportSent: String = "Reporte enviado",
+    val reportFailed: String = "No se pudo enviar el reporte",
     val shareUnavailable: String = "No se puede compartir este comunicado en este dispositivo.",
     val shareFailed: String = "No se pudo compartir el comunicado.",
 )
+
+fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
+    "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report")
+    "fr" -> OfficialFeedScreenStrings(loadingError="Impossible de charger les communiqués officiels.",live="DIRECT",readMoreMoreInformation="Plus d'informations",readMoreContinueReading="Continuer la lecture",readMoreDetails="Détails",typeAnnouncement="Communiqué",typeNews="Actualités",typeEvent="Événement",typeUrgent="Urgent",officialAccountFallback="Compte officiel",deleteTitle="Supprimer le communiqué",deleteMessage="Cette action est irréversible.",confirm="Confirmer",cancel="Annuler",deleted="Communiqué supprimé",shareUnavailable="Ce communiqué ne peut pas être partagé sur cet appareil.",shareFailed="Impossible de partager le communiqué",empty="Aucun communiqué officiel disponible.",create="Créer un communiqué",retry="Réessayer",like="J'aime",comments="Commentaires",share="Partager",rank="Classement",delete="Supprimer",close="Fermer",profile="Profil",readMore="Lire plus",refresh="Actualiser",reportSent="Signalement envoyé pour examen",reportFailed="Impossible d'envoyer le signalement")
+    else -> OfficialFeedScreenStrings()
+}
 
 internal fun OfficialFeedScreenStrings.typeLabel(type: OfficialPostType): String = when (type) {
     OfficialPostType.Announcement -> typeAnnouncement
@@ -125,7 +133,6 @@ fun OfficialFeedScreenHost(
     onAuthRequired: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
-    onReportComment: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { OfficialFeedViewModel(repository) }
@@ -156,6 +163,8 @@ fun OfficialFeedScreenHost(
 
     LaunchedEffect(state.message) {
         if (state.message == OfficialFeedMessages.PostDeleted) { message(strings.deleted); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
+        if (state.message == OfficialFeedMessages.CommentReported) { message(strings.reportSent); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
+        if (state.message == OfficialFeedMessages.CommentReportFailed) { message(strings.reportFailed); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
     }
     LaunchedEffect(focusedPostId) {
         focusedPostId?.takeIf { it != handledFocus && state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
@@ -230,7 +239,7 @@ fun OfficialFeedScreenHost(
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
         OfficialPostDetailPanelContent(strings.readMoreLabel(post.readMoreLabel), strings.close, post.linkUrl, { readMorePost = null }, { slots.article(post, it) }, { OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, it.clickable { onOpenUserProfile(post.author.id) }) }, post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } }, post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } }, { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } })
     }
-    OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, onReportComment, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->
+    OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, { id -> viewModel.onEvent(OfficialFeedUiEvent.ReportComment(id)) }, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->
         OfficialCommentsPanelContent(post, canParticipate, OfficialCommentsStrings(close = strings.close, title = strings.comments), onAuthRequired, add, report, dismiss)
     }
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }

@@ -10,6 +10,7 @@ import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
+import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 
 /** Browser adapter: navigation and browser services only; the Official screen itself is common. */
@@ -31,9 +32,10 @@ fun WebOfficialHost(
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
+    strings = defaultOfficialFeedScreenStrings(webOfficialLanguageTag()),
     modifier = modifier,
     slots = OfficialFeedScreenPlatformSlots(
-        avatar = { post, avatarModifier -> BrowserFeedAuthorAvatar(post.asFeedPost(), onOpenUserProfile) },
+        avatar = { post, avatarModifier -> BrowserFeedAuthorAvatar(post.asFeedPost(), onOpenUserProfile, modifier = avatarModifier) },
         media = { post, mediaModifier, open ->
             OfficialPostMediaFrameContent(
                 onOpenMedia = open,
@@ -61,3 +63,4 @@ private fun OfficialPostItem.asFeedPost() = Post(
 )
 
 private fun openBrowserUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+private fun webOfficialLanguageTag(): String? = js("globalThis.navigator?.language || 'es'")

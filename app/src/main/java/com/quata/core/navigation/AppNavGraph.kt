@@ -741,13 +741,6 @@ fun AppNavGraph(
                         onCreateOfficialPost = {
                             navController.navigate(AppDestinations.OfficialPostEditor.route)
                         },
-                        onReportComment = { commentId ->
-                            appScope.launch {
-                                container.moderationRepository.report(ModerationTarget.OfficialComment, commentId)
-                                    .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
-                                    .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
-                            }
-                        }
                     )
                 }
 

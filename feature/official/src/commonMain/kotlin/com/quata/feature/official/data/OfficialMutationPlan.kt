@@ -9,3 +9,5 @@ internal fun officialLikeDeletePlan(postId: String, profileId: String) = Officia
 internal fun officialCommentPlan(postId: String, profileId: String, body: String) = OfficialMutationPlan("POST", "official_post_comments", body = "{\"official_post_id\":\"$postId\",\"profile_id\":\"$profileId\",\"body\":${officialJson(body)}}")
 internal fun officialSoftDeletePlan(postId: String, groupId: String?, timestamp: String) = OfficialMutationPlan("PATCH", "official_posts", if (groupId.isNullOrBlank()) mapOf("id" to "eq.$postId") else mapOf("translation_group_id" to "eq.$groupId"), "{\"deleted_at\":${officialJson(timestamp)}}")
 internal fun officialJson(value: String): String = buildString { append('"'); value.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+internal fun officialCommentReportPayload(actorId: String, commentId: String): String =
+    "{\"p_actor_profile_id\":${officialJson(actorId)},\"p_target_type\":\"official_comment\",\"p_target_id\":${officialJson(commentId)},\"p_reason\":\"other\"}"

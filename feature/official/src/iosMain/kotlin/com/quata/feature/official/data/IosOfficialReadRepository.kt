@@ -145,6 +145,18 @@ class IosOfficialReadRepository(
         getOfficialPost(postId).getOrThrow()
     }
 
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val targetId = commentId.requireOfficialPostgrestIdentifier()
+        authenticatedRequest(
+            table = "rpc/quata_ugc_report",
+            method = "POST",
+            query = emptyMap(),
+            body = officialCommentReportPayload(userId, targetId),
+        )
+        Unit
+    }
+
     private suspend fun loadFeed(
         limit: Int,
         publishedBefore: String? = null,
@@ -253,7 +265,7 @@ class IosOfficialReadRepository(
     }
 
     private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
-        require(table.matches(IosPostgrestTableName)) { "ios_official_table_invalid" }
+        require(table.matches(IosPostgrestTableName) || table.matches(IosPostgrestRpcPath)) { "ios_official_table_invalid" }
         val session = authSession?.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_official_session_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_official_supabase_url_missing")
         val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_official_publishable_key_missing")
@@ -445,4 +457,5 @@ private fun String.iosQueryComponent(): String = encodeToByteArray().joinToStrin
 }
 
 private val IosPostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
+private val IosPostgrestRpcPath = Regex("rpc/[A-Za-z_][A-Za-z0-9_]*")
 private val IosOfficialIdentifier = Regex("[A-Za-z0-9_-]+")

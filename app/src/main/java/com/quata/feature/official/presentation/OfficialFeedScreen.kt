@@ -36,7 +36,6 @@ fun OfficialFeedScreen(
     onAuthRequired: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: (() -> Unit)? = null,
-    onReportComment: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -49,7 +48,6 @@ fun OfficialFeedScreen(
         onAuthRequired = onAuthRequired,
         onOpenUserProfile = onOpenUserProfile,
         onCreateOfficialPost = { onCreateOfficialPost?.invoke() },
-        onReportComment = onReportComment,
         modifier = modifier,
         strings = OfficialFeedScreenStrings(
             empty = stringResource(R.string.official_empty),
@@ -71,6 +69,8 @@ fun OfficialFeedScreen(
             cancel = stringResource(R.string.common_cancel),
             refresh = stringResource(R.string.common_refresh),
             readMore = stringResource(R.string.official_read_more),
+            reportSent = stringResource(R.string.moderation_report_sent),
+            reportFailed = stringResource(R.string.error_backend_generic),
             readMoreMoreInformation = stringResource(R.string.official_read_more_more_information),
             readMoreContinueReading = stringResource(R.string.official_read_more_continue_reading),
             readMoreDetails = stringResource(R.string.official_read_more_details),
