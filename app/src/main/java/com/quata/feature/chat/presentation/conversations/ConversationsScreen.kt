@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -104,11 +105,11 @@ private fun AndroidInviteChannelSheet(contact: ChatInviteContact, clipboard: Cli
 
 @Composable
 private fun androidConversationsStrings(): ConversationsScreenStrings {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     return ConversationsScreenStrings(
     title = stringResource(R.string.conversations_title), searchPlaceholder = stringResource(R.string.conversations_search_placeholder), favorites = stringResource(R.string.conversation_favorites_title), newChat = stringResource(R.string.conversations_new_chat), newChatTitle = stringResource(R.string.conversations_new_chat_title), empty = null, undo = stringResource(R.string.conversation_undo_delete), emergencyTitle = "🚨 ${stringResource(R.string.common_sos)}", sosLabel = stringResource(R.string.common_sos), sosLocationUpdate = stringResource(R.string.sos_location_update), sosLocationUnavailable = stringResource(R.string.sos_location_unavailable),
     photo = stringResource(R.string.conversation_preview_photo), video = stringResource(R.string.conversation_preview_video), document = stringResource(R.string.conversation_preview_document), voiceNote = stringResource(R.string.conversation_preview_voice_note), file = stringResource(R.string.conversation_preview_file),
-    time = { context.getString(R.string.time_seconds_ago, it) }, oneMinute = stringResource(R.string.time_one_minute_ago), minutes = { context.getString(R.string.time_minutes_ago, it) }, hours = { context.getString(R.string.time_hours_ago, it) }, days = { context.getString(R.string.time_days_ago, it) }, oneWeek = stringResource(R.string.time_one_week_ago), weeks = { context.getString(R.string.time_weeks_ago, it) }, oneMonth = stringResource(R.string.time_one_month_ago), months = { context.getString(R.string.time_months_ago, it) }, oneYear = stringResource(R.string.time_one_year_ago), years = { context.getString(R.string.time_years_ago, it) },
+    time = { resources.getString(R.string.time_seconds_ago, it) }, oneMinute = stringResource(R.string.time_one_minute_ago), minutes = { resources.getString(R.string.time_minutes_ago, it) }, hours = { resources.getString(R.string.time_hours_ago, it) }, days = { resources.getString(R.string.time_days_ago, it) }, oneWeek = stringResource(R.string.time_one_week_ago), weeks = { resources.getString(R.string.time_weeks_ago, it) }, oneMonth = stringResource(R.string.time_one_month_ago), months = { resources.getString(R.string.time_months_ago, it) }, oneYear = stringResource(R.string.time_one_year_ago), years = { resources.getString(R.string.time_years_ago, it) },
     loadCandidatesError = stringResource(R.string.chat_error_load_candidates),
     openConversationError = stringResource(R.string.chat_error_open_conversation),
     loadConversationsError = stringResource(R.string.chat_error_load_conversations),
