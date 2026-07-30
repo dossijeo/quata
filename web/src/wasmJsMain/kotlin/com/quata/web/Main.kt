@@ -533,8 +533,8 @@ internal data class WebNavigationState(
 private fun rememberWebNavigation(): WebNavigationState {
     var fragment by remember { mutableStateOf(browserFragment()) }
     DisposableEffect(Unit) {
-        observeBrowserFragmentChanges { fragment = it }
-        onDispose { }
+        val stopObserving = observeBrowserFragmentChanges { fragment = it }
+        onDispose(stopObserving)
     }
     return remember(fragment) { fragment.toWebNavigationState() }
 }
@@ -607,11 +607,16 @@ private fun navigateWebConversation(conversationId: String) {
     navigateWebFragment(quataChatUrl(conversationId).substringAfter('#'))
 }
 
-private fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): Unit = js(
+/**
+ * Observes in-place browser hash navigation. The returned callback must be retained for the
+ * composition lifetime so the JavaScript listener and its Kotlin callback bridge stay alive.
+ */
+internal fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): () -> Unit = js(
     """
     (() => {
     const listener = () => onChanged(globalThis.location?.hash?.replace(/^#/, '') || '');
     globalThis.addEventListener?.('hashchange', listener);
+    return () => globalThis.removeEventListener?.('hashchange', listener);
     })()
     """,
 )
