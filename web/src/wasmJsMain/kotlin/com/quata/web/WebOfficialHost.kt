@@ -10,6 +10,7 @@ import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
+import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 
 /** Browser adapter: navigation and browser services only; the Official screen itself is common. */
 @Composable
@@ -33,7 +34,14 @@ fun WebOfficialHost(
     modifier = modifier,
     slots = OfficialFeedScreenPlatformSlots(
         avatar = { post, avatarModifier -> BrowserFeedAuthorAvatar(post.asFeedPost(), onOpenUserProfile) },
-        media = { post, mediaModifier, _ -> Box(mediaModifier) { BrowserFeedMediaContent(post.asFeedPost(), true, true, 0L, {}, {}) } },
+        media = { post, mediaModifier, open ->
+            OfficialPostMediaFrameContent(
+                onOpenMedia = open,
+                showPlayButton = post.mediaType == com.quata.feature.official.domain.OfficialMediaType.Video,
+                modifier = mediaModifier,
+                media = { surface -> Box(surface) { BrowserFeedMediaContent(post.asFeedPost(), false, true, 0L, {}, {}) } },
+            )
+        },
         article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
         mediaViewer = { post, dismiss -> post.mediaUrl?.let { url -> openBrowserUrl(url) }; dismiss() },
         share = { payload -> shareService.share(payload) },
