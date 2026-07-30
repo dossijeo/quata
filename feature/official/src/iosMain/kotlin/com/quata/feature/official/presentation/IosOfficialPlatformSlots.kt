@@ -78,7 +78,7 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
     var image by remember(post.id, imageUrl) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(imageUrl, post.mediaType) {
         image = imageUrl?.let { url ->
-            if (post.mediaType == OfficialMediaType.Video) null
+            if (post.mediaType == OfficialMediaType.Video) loadIosOfficialVideoThumbnailOrNull(url)
             else loadIosOfficialImageOrNull(url)
         }
     }
@@ -106,7 +106,17 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
  * the former image-only branch, video cards always retain the common play/viewer affordance.
  */
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? = null
+private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? = runCatching {
+    val source = NSURL(string = url) ?: return@runCatching null
+    val generator = AVAssetImageGenerator(AVURLAsset(uRL = source, options = null)).apply {
+        appliesPreferredTrackTransform = true
+    }
+    generator.copyCGImageAtTime(
+        requestedTime = CMTimeMakeWithSeconds(0.0, 600),
+        actualTime = null,
+        error = null,
+    )?.let(UIImage::imageWithCGImage)
+}.getOrNull()
 
 private suspend fun loadIosOfficialImageOrNull(url: String): UIImage? = runCatching {
     UIImage(data = iosOfficialImageData(NSURL(string = url) ?: return@runCatching null))

@@ -508,6 +508,7 @@ private final class IosAppCompositionRoot {
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
+                        preferredLanguageTag: Locale.preferredLanguages.first,
                     )
                 )
             }

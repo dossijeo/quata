@@ -81,6 +81,7 @@ enum class IosOfficialReadFailureKind {
 class IosOfficialReadRepository(
     private val configuration: IosOfficialRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession? = null,
+    private val preferredLanguageTag: String? = null,
 ) : OfficialRepository {
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flow {
         // This transport has no verified Realtime contract. Emit a network snapshot and let the
@@ -149,7 +150,7 @@ class IosOfficialReadRepository(
         publishedBefore: String? = null,
         postId: String? = null,
     ): Result<List<OfficialPostItem>> = runCatching {
-        val translation = officialTranslationReadPlan(null, limit, postId)
+        val translation = officialTranslationReadPlan(preferredLanguageTag, limit, postId)
         val posts = rows(
             table = "official_posts",
             query = buildMap {
@@ -162,7 +163,7 @@ class IosOfficialReadRepository(
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
             limit = translation.fetchLimit,
-        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(null)
+        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(preferredLanguageTag)
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)

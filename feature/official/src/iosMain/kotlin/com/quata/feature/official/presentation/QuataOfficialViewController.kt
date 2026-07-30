@@ -99,8 +99,9 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
     canCreateOfficialPost: Boolean = false,
+    preferredLanguageTag: String? = null,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
-    repository = IosOfficialReadRepository(configuration = configuration, authSession = authSession),
+    repository = IosOfficialReadRepository(configuration = configuration, authSession = authSession, preferredLanguageTag = preferredLanguageTag),
     officialPostId = officialPostId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
@@ -108,6 +109,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
     canCreateOfficialPost = canCreateOfficialPost,
+    onCreateOfficialPost = onCreateOfficialPost,
 )
 
 /**
