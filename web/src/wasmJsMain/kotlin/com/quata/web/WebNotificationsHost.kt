@@ -22,11 +22,11 @@ fun WebNotificationsHost(
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
 ) {
-    var nowMillis by remember { mutableLongStateOf(browserNowMillis()) }
-    LaunchedEffect(Unit) { while (true) { delay(60_000L); nowMillis = browserNowMillis() } }
+    var nowMillis by remember { mutableLongStateOf(notificationsBrowserNowMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(60_000L); nowMillis = notificationsBrowserNowMillis() } }
     NotificationsHostContent(
         padding = PaddingValues(), repository = repository, timestampNowMillis = nowMillis,
-        strings = NotificationsStrings("Notificaciones", "Mensajes no leídos", "Volver", { createdAt, _ -> createdAt.ifBlank { "Ahora" } }, { it }),
+        strings = NotificationsStrings("Notificaciones", webNotificationsUnreadSubtitle, "Volver", { createdAt, _ -> createdAt.ifBlank { "Ahora" } }, { it }),
         deliveryNotice = notificationDeliveryNotice(
             if (runtimeConfiguration.isBackendConfigured) {
                 NotificationDeliveryState.DeliveryUnverified
@@ -38,4 +38,10 @@ fun WebNotificationsHost(
     )
 }
 
-private fun browserNowMillis(): Long = js("Date.now()")
+internal const val webNotificationsUnreadSubtitle = "Mensajes no leídos"
+
+@JsFun("() => Date.now()")
+private external fun notificationsBrowserNowMillisAsDouble(): Double
+
+/** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
+internal fun notificationsBrowserNowMillis(): Long = notificationsBrowserNowMillisAsDouble().toLong()

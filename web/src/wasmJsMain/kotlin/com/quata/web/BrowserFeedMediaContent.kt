@@ -259,7 +259,11 @@ private fun BrowserFeedVideoContent(
     )
 }
 
-private fun currentBrowserTimeMillis(): Long = js("Date.now()")
+@JsFun("() => Date.now()")
+private external fun currentBrowserTimeMillisAsDouble(): Double
+
+/** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
+internal fun currentBrowserTimeMillis(): Long = currentBrowserTimeMillisAsDouble().toLong()
 
 @Composable
 private fun BrowserFeedVideoUnderlayHole(
