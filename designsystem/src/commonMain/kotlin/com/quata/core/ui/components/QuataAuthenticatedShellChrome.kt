@@ -68,6 +68,11 @@ val QuataAuthenticatedChromeSpanish = QuataAuthenticatedChromeStrings(
 /** The siren is drawn as a vector; this only removes legacy copy from its visual label. */
 internal fun sosVisibleLabel(label: String): String = label.replace("🚨", "").trim()
 
+/** Fixed palette matching the published multicolor emergency-light affordance. */
+internal val SosSirenRayColor = Color(0xFFFFD54F)
+internal val SosSirenDomeColor = Color(0xFFFF5A5F)
+internal val SosSirenBaseColor = Color(0xFF2563EB)
+
 /**
  * The one authenticated viewport contract shared by Android, Wasm and iOS.
  *
@@ -232,12 +237,14 @@ private fun QuataSosButton(label: String, isSending: Boolean, pulseScale: Float,
 private fun SosEmergencyGlyph(modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier) {
         val stroke = Stroke(width = size.minDimension * .13f)
-        val white = Color.White
-        drawRoundRect(white, topLeft = androidx.compose.ui.geometry.Offset(size.width * .13f, size.height * .66f), size = androidx.compose.ui.geometry.Size(size.width * .74f, size.height * .20f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f, size.width * .08f))
-        drawArc(white, 180f, 180f, false, topLeft = androidx.compose.ui.geometry.Offset(size.width * .27f, size.height * .23f), size = androidx.compose.ui.geometry.Size(size.width * .46f, size.height * .57f), style = stroke)
-        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .5f, 0f), androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .14f), strokeWidth = stroke.width)
-        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .08f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .19f, size.height * .29f), strokeWidth = stroke.width)
-        drawLine(white, androidx.compose.ui.geometry.Offset(size.width * .92f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .81f, size.height * .29f), strokeWidth = stroke.width)
+        val domeTopLeft = androidx.compose.ui.geometry.Offset(size.width * .27f, size.height * .23f)
+        val domeSize = androidx.compose.ui.geometry.Size(size.width * .46f, size.height * .57f)
+        drawRoundRect(SosSirenBaseColor, topLeft = androidx.compose.ui.geometry.Offset(size.width * .13f, size.height * .66f), size = androidx.compose.ui.geometry.Size(size.width * .74f, size.height * .20f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f, size.width * .08f))
+        drawArc(SosSirenDomeColor, 180f, 180f, true, topLeft = domeTopLeft, size = domeSize)
+        drawArc(Color.White.copy(alpha = .84f), 180f, 180f, false, topLeft = domeTopLeft, size = domeSize, style = stroke)
+        drawLine(SosSirenRayColor, androidx.compose.ui.geometry.Offset(size.width * .5f, 0f), androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .14f), strokeWidth = stroke.width)
+        drawLine(SosSirenRayColor, androidx.compose.ui.geometry.Offset(size.width * .08f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .19f, size.height * .29f), strokeWidth = stroke.width)
+        drawLine(SosSirenRayColor, androidx.compose.ui.geometry.Offset(size.width * .92f, size.height * .18f), androidx.compose.ui.geometry.Offset(size.width * .81f, size.height * .29f), strokeWidth = stroke.width)
     }
 }
 
