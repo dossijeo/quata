@@ -33,6 +33,9 @@ BASE_URL = f"https://raw.githubusercontent.com/googlefonts/noto-emoji/{COMMIT}/p
 REGION_FLAG_BASE_URL = f"https://raw.githubusercontent.com/googlefonts/noto-emoji/{COMMIT}/third_party/region-flags/png"
 CELL_PX = 72
 COLUMNS = 6
+# 64 colors retains the Noto artwork's 72 px edges at the 32 dp picker size while
+# keeping the shipped common assets inside the reviewed Wasm growth budget.
+PNG_PALETTE_COLORS = 64
 SECTION_ORDER = ("recent", "frequent", "gestures", "people", "animals_nature", "food_drink", "objects_symbols", "flags")
 FLAG_CODES = ("ES", "US", "GB", "FR", "DE", "IT", "PT", "BR", "AR", "CO", "MX", "EC", "PE", "CL", "UY", "PY", "BO", "VE", "DO", "CU", "MA", "DZ", "EG", "NG", "ZA", "CM", "GA", "GQ", "JP", "KR", "CN", "IN", "AU", "CA")
 
@@ -105,7 +108,14 @@ def make_atlas(emojis: list[str], destination: Path, cache: Path) -> dict:
             x = (index % COLUMNS) * CELL_PX + (CELL_PX - glyph.width) // 2
             y = (index // COLUMNS) * CELL_PX + (CELL_PX - glyph.height) // 2
             atlas.alpha_composite(glyph, (x, y))
-    atlas.save(destination, format="PNG", optimize=True)
+    # Indexed PNG is decoded by Android Bitmap, Skia/Wasm and Skia/iOS alike. Unlike a smaller
+    # raster it preserves the 72 px source resolution for retina destinations; FASTOCTREE is
+    # deterministic under the pinned Pillow version and keeps transparent antialiasing intact.
+    atlas.quantize(colors=PNG_PALETTE_COLORS, method=Image.Quantize.FASTOCTREE).save(
+        destination,
+        format="PNG",
+        optimize=True,
+    )
     return {
         "file": destination.name,
         "sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
@@ -113,6 +123,7 @@ def make_atlas(emojis: list[str], destination: Path, cache: Path) -> dict:
         "columns": COLUMNS,
         "rows": rows,
         "cellPx": CELL_PX,
+        "paletteColors": PNG_PALETTE_COLORS,
         "emojis": emojis,
     }
 
@@ -127,13 +138,15 @@ def verify() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if manifest.get("notoEmojiCommit") != COMMIT or not str(manifest.get("license", "")).startswith("Apache-2.0"):
         raise RuntimeError("Manifest does not pin the expected Noto Emoji source and license")
+    if manifest.get("encoding") != {"format": "PNG", "paletteColors": PNG_PALETTE_COLORS}:
+        raise RuntimeError("Manifest does not record the deterministic indexed-PNG encoding")
     sections = catalog_sections()
     if list(manifest.get("sections", {})) != list(SECTION_ORDER):
         raise RuntimeError("Manifest section order differs from the product catalog")
     for key, emojis in sections.items():
         entry = manifest["sections"][key]
         path = OUTPUT / entry["file"]
-        if entry.get("emojis") != emojis or not path.exists() or path.stat().st_size == 0:
+        if entry.get("emojis") != emojis or entry.get("paletteColors") != PNG_PALETTE_COLORS or not path.exists() or path.stat().st_size == 0:
             raise RuntimeError(f"Invalid atlas manifest entry for {key}")
         if hashlib.sha256(path.read_bytes()).hexdigest() != entry.get("sha256"):
             raise RuntimeError(f"Hash mismatch for {path.name}; regenerate the atlas")
@@ -158,6 +171,7 @@ def generate() -> None:
         "license": "Apache-2.0 (Noto glyphs); Public Domain (upstream region flag assets)",
         "cellPx": CELL_PX,
         "columns": COLUMNS,
+        "encoding": {"format": "PNG", "paletteColors": PNG_PALETTE_COLORS},
         "generator": {"python": f"{sys.version_info.major}.{sys.version_info.minor}", "pillow": PILLOW_VERSION},
         "sections": entries,
     }

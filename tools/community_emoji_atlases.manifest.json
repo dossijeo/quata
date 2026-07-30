@@ -5,6 +5,10 @@
   "license": "Apache-2.0 (Noto glyphs); Public Domain (upstream region flag assets)",
   "cellPx": 72,
   "columns": 6,
+  "encoding": {
+    "format": "PNG",
+    "paletteColors": 64
+  },
   "generator": {
     "python": "3.12",
     "pillow": "9.5.0"
@@ -12,11 +16,12 @@
   "sections": {
     "recent": {
       "file": "quata_community_emoji_atlas_recent.png",
-      "sha256": "295e57e9147cae6cbc878faa78b936b720f80b7b38497eb179354245a0b642c0",
-      "bytes": 130382,
+      "sha256": "2137fb39b22a53d4131b04f83a39881a3fc81a4dbd6d9041f07e3ddad093f098",
+      "bytes": 16512,
       "columns": 6,
       "rows": 4,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\ude00",
         "\ud83d\ude01",
@@ -46,11 +51,12 @@
     },
     "frequent": {
       "file": "quata_community_emoji_atlas_frequent.png",
-      "sha256": "bb35e06cd8da56dc8b3ceb0ee17c8bb5566483d6b491ed2ec4235123221cfaa3",
-      "bytes": 234709,
+      "sha256": "642bbae08a530067fe345face37e371b14141291e1e5d6aa449a5297f264e7df",
+      "bytes": 30717,
       "columns": 6,
       "rows": 8,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\ude00",
         "\ud83d\ude01",
@@ -101,11 +107,12 @@
     },
     "gestures": {
       "file": "quata_community_emoji_atlas_gestures.png",
-      "sha256": "d2149744f7422edfaa9deaa443233e418e8f7b99b837cbca1e3c131bd3afd7c0",
-      "bytes": 168837,
+      "sha256": "bc6b71d45e7160b200b341550d5d3bad359793b794cdddc0999901a3b0fb3ad3",
+      "bytes": 25405,
       "columns": 6,
       "rows": 6,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\udc4b",
         "\ud83e\udd1a",
@@ -146,11 +153,12 @@
     },
     "people": {
       "file": "quata_community_emoji_atlas_people.png",
-      "sha256": "a9c33e35a2650f910fe9d9c6428c2db0d22df631dbc4c084d787576c0f213b7a",
-      "bytes": 204546,
+      "sha256": "86817a004b29f04f21bcf9d4eebaaa3ef17754e9401b926d4697a8034ecc0a3f",
+      "bytes": 27864,
       "columns": 6,
       "rows": 6,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\udc76",
         "\ud83e\uddd2",
@@ -190,11 +198,12 @@
     },
     "animals_nature": {
       "file": "quata_community_emoji_atlas_animals_nature.png",
-      "sha256": "ac1af88da6dc56323e7f2856359f4d09c7731ae3df1eb2864968ed18c0d385cf",
-      "bytes": 348391,
+      "sha256": "6bd7e1c5546923ff4c60a5040aa0f3cc6da977f752e5369e8b2683eff795baef",
+      "bytes": 47303,
       "columns": 6,
       "rows": 10,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\udc36",
         "\ud83d\udc31",
@@ -258,11 +267,12 @@
     },
     "food_drink": {
       "file": "quata_community_emoji_atlas_food_drink.png",
-      "sha256": "9a45cc148b4e766e0f25d3da8087edea36d4928c5dfc64b5e541c026487595bf",
-      "bytes": 345445,
+      "sha256": "ce37f04137a992026ee93b465efd9d270caab1d9bc3b8b50f7f67f122bbd5428",
+      "bytes": 47222,
       "columns": 6,
       "rows": 10,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83c\udf4f",
         "\ud83c\udf4e",
@@ -325,11 +335,12 @@
     },
     "objects_symbols": {
       "file": "quata_community_emoji_atlas_objects_symbols.png",
-      "sha256": "c7de88917a62ad8a90de4e52ce0ad95f93be01263e5988fbfb3abcd34e6c00a7",
-      "bytes": 295004,
+      "sha256": "c86b3e4561e21a242caed9634bea5961885475fcbb5bd96e86b229ac827ad954",
+      "bytes": 39739,
       "columns": 6,
       "rows": 9,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83d\udcf1",
         "\ud83d\udcbb",
@@ -386,11 +397,12 @@
     },
     "flags": {
       "file": "quata_community_emoji_atlas_flags.png",
-      "sha256": "4735998f1f67882609ec64eb479ed36a94867abfa220595cc7f3aeaf45eeccb3",
-      "bytes": 41722,
+      "sha256": "b04e1762a6f2b51d4ffa2a2a95d0fb2f23f7f3fba62562b138940c41e5e66fc1",
+      "bytes": 7338,
       "columns": 6,
       "rows": 6,
       "cellPx": 72,
+      "paletteColors": 64,
       "emojis": [
         "\ud83c\uddea\ud83c\uddf8",
         "\ud83c\uddfa\ud83c\uddf8",

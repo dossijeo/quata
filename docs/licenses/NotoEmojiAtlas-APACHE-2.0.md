@@ -13,6 +13,8 @@ section therefore uses the repository's explicitly documented
 assets, whose upstream `README.third_party` identifies them as Public Domain. This is a pinned,
 documented source rule, not a fallback font or invented glyph. The atlas layout changes only
 transparent canvas placement and downscales each original glyph; it does not claim artwork as Quata-created.
+The checked-in PNGs are deterministically reduced to a 64-colour indexed palette after placement;
+they remain 72 px per atlas cell so no lower-resolution substitute is distributed.
 
 Regenerate after an intentional catalog or source update with:
 

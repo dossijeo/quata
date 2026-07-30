@@ -11,6 +11,7 @@ const panel = readFileSync(join(root, 'designsystem/src/commonMain/kotlin/com/qu
 
 assert.equal(manifest.notoEmojiCommit, '8998f5dd683424a73e2314a8c1f1e359c19e8742');
 assert.match(manifest.license, /^Apache-2\.0/);
+assert.deepEqual(manifest.encoding, { format: 'PNG', paletteColors: 64 });
 assert.deepEqual(Object.keys(manifest.sections), ['recent', 'frequent', 'gestures', 'people', 'animals_nature', 'food_drink', 'objects_symbols', 'flags']);
 assert.equal(Object.values(manifest.sections).flatMap(section => section.emojis).length, 338);
 
@@ -20,6 +21,7 @@ for (const section of Object.values(manifest.sections)) {
   assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'), section.sha256, `${section.file} hash mismatch`);
   assert.equal(section.columns, 6);
   assert.equal(section.cellPx, 72);
+  assert.equal(section.paletteColors, 64);
 }
 
 assert.match(panel, /imageResource\(selectedAtlasLayout\.resource\)/);
