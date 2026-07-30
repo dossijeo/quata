@@ -51,6 +51,7 @@ xcodebuild \
 products="$derived_data_path/Build/Products/SimulatorSigned-iphonesimulator"
 app="$products/QuataIos.app"
 [[ -d "$app" ]] || { echo "Expected signed app was not produced." >&2; exit 1; }
+bash scripts/sync-ios-compose-resources.sh --verify "$app"
 # Keep the final local signature entitlement-free. The simulator rejects ad-hoc
 # signatures that claim restricted Keychain access groups.
 codesign --force --sign - "$app"

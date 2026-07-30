@@ -32,6 +32,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
   const pullRequestTrigger = yaml.slice(pullRequestStart, pushStart);
   const pushTrigger = yaml.slice(pushStart, concurrencyStart);
   const publicMatrixPaths = [
+    'scripts/ios-compose-resources-contract.test.mjs',
+    'scripts/sync-ios-compose-resources.sh',
+    'scripts/build-ios-intel-simulator.sh',
+    'scripts/build-ios-intel-simulator-signed.sh',
     'scripts/ios-auth-launch-fixture-contract.test.mjs',
     'scripts/ios-public-client-config.py',
     'scripts/ios-public-log-evidence.py',
@@ -63,6 +67,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
   const checkout = yaml.indexOf('      - name: Check out source');
   const contract = yaml.indexOf('      - name: Validate iOS workflow contract');
+  const composeResourcesContract = yaml.indexOf('      - name: Validate iOS Compose resources contract');
   const authLaunchContract = yaml.indexOf('      - name: Validate iOS Auth launch fixture contract');
   const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
   const capabilityContract = yaml.indexOf('      - name: Validate platform capability matrix');
@@ -72,7 +77,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.ok(
     checkout >= 0 &&
       contract > checkout &&
-      authLaunchContract > contract &&
+      composeResourcesContract > contract &&
+      authLaunchContract > composeResourcesContract &&
       runtimeContract > authLaunchContract &&
       matrixContract > runtimeContract &&
       backupContract > matrixContract &&
@@ -82,6 +88,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
+  );
+  assert.match(
+    yaml,
+    /- name: Validate iOS Compose resources contract\n\s+run: node --test scripts\/ios-compose-resources-contract\.test\.mjs/,
   );
   assert.match(
     yaml,
@@ -219,6 +229,10 @@ test('iOS workflow runs and triggers its own fail-closed contract before compila
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
   const contractPath = '      - "scripts/ios-build-workflow-contract.test.mjs"\n';
+  const composeResourcesContractPath = '      - "scripts/ios-compose-resources-contract.test.mjs"\n';
+  const composeResourcesSynchronizerPath = '      - "scripts/sync-ios-compose-resources.sh"\n';
+  const composeResourcesUnsignedLanePath = '      - "scripts/build-ios-intel-simulator.sh"\n';
+  const composeResourcesSignedLanePath = '      - "scripts/build-ios-intel-simulator-signed.sh"\n';
   const authLaunchContractPath = '      - "scripts/ios-auth-launch-fixture-contract.test.mjs"\n';
   const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
   const capabilityContractPath = '      - "scripts/capability-matrix-contract.test.mjs"\n';
@@ -238,6 +252,38 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
         return yaml.slice(0, index) + yaml.slice(index + authLaunchContractPath.length);
       })(),
     ],
+    ['Compose resources contract pull-request trigger removed', yaml.replace(composeResourcesContractPath, '')],
+    [
+      'Compose resources contract push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(composeResourcesContractPath);
+        return yaml.slice(0, index) + yaml.slice(index + composeResourcesContractPath.length);
+      })(),
+    ],
+    ['Compose resources synchronizer pull-request trigger removed', yaml.replace(composeResourcesSynchronizerPath, '')],
+    [
+      'Compose resources synchronizer push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(composeResourcesSynchronizerPath);
+        return yaml.slice(0, index) + yaml.slice(index + composeResourcesSynchronizerPath.length);
+      })(),
+    ],
+    ['Compose resources unsigned lane pull-request trigger removed', yaml.replace(composeResourcesUnsignedLanePath, '')],
+    [
+      'Compose resources unsigned lane push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(composeResourcesUnsignedLanePath);
+        return yaml.slice(0, index) + yaml.slice(index + composeResourcesUnsignedLanePath.length);
+      })(),
+    ],
+    ['Compose resources signed lane pull-request trigger removed', yaml.replace(composeResourcesSignedLanePath, '')],
+    [
+      'Compose resources signed lane push trigger removed',
+      (() => {
+        const index = yaml.lastIndexOf(composeResourcesSignedLanePath);
+        return yaml.slice(0, index) + yaml.slice(index + composeResourcesSignedLanePath.length);
+      })(),
+    ],
     ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
     ['capability matrix trigger removed', yaml.replace(capabilityContractPath, '')],
     ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
@@ -255,6 +301,13 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       'contract command weakened',
       yaml.replace(
         'run: node --test scripts/ios-build-workflow-contract.test.mjs',
+        'run: node --version',
+      ),
+    ],
+    [
+      'Compose resources contract command weakened',
+      yaml.replace(
+        'run: node --test scripts/ios-compose-resources-contract.test.mjs',
         'run: node --version',
       ),
     ],

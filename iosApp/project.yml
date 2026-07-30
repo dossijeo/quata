@@ -26,6 +26,9 @@ targets:
         INFOPLIST_FILE: iosApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: iosApp/QuataIos.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
+        # This phase writes Compose resources into the final app bundle, so
+        # Xcode must permit it and run it before its normal signing phases.
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
         # Registration remains explicitly disabled until a coordinated iOS challenge host
         # and Edge channel release supplies every other runtime input.
         QUATA_IOS_REGISTRATION_ENABLED: "false"
@@ -49,6 +52,15 @@ targets:
         embed: true
       - target: QuataShareExtension
         embed: true
+    postBuildScripts:
+      - name: Synchronize Compose resources into QuataIos.app
+        basedOnDependencyAnalysis: false
+        script: |
+          "${SRCROOT}/../scripts/sync-ios-compose-resources.sh" \
+            "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/font/quata_feed_emoji_subset.ttf
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/font/quata_header_logo_q_subset.ttf
   QuataShareQueue:
     type: library.static
     platform: iOS
