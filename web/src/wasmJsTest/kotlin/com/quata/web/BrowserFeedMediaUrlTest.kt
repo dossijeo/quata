@@ -37,4 +37,19 @@ class BrowserFeedMediaUrlTest {
         assertFalse(browserCanvasImageIsCacheable(BrowserCanvasImageState.Loading))
         assertFalse(browserCanvasImageIsCacheable(BrowserCanvasImageState.Error))
     }
+
+    @Test
+    fun nativeUnderlayUsesTheSameCropAndFitPolicyAsTheFeed() {
+        assertTrue(browserFeedVideoUnderlayObjectFit(isLandscape = false) == "cover")
+        assertTrue(browserFeedVideoUnderlayObjectFit(isLandscape = true) == "contain")
+    }
+
+    @Test
+    fun nativeUnderlayContractRequiresComposeShadowCanvasAndNoHtmlUi() {
+        val contract = browserFeedVideoUnderlayDomContract()
+
+        assertTrue(contract.requiresCanvasInShadowRoot)
+        assertTrue(contract.insertsBeforeCanvas)
+        assertFalse(contract.exposesHtmlProductControls)
+    }
 }

@@ -180,9 +180,11 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(feedContrastTest, /contrast >= 4\.5/);
   assert.match(webFeedMedia, /FeedReelVideoPlaybackHostContent\(/);
   assert.match(webFeedMedia, /ReelMediaSurfaceContent\(background = textCanvasBrush\(imageUrl\)\)/);
-  assert.match(webFeedMedia, /WebElementView\(/);
   assert.match(webFeedMedia, /HTMLVideoElement/);
   assert.match(webFeedMedia, /controls = false/);
+  assert.match(webFeedMedia, /attachBrowserFeedVideoUnderlay\(video\)/);
+  assert.match(webFeedMedia, /parent\.insertBefore\(video, canvas\)/);
+  assert.match(webFeedMedia, /BlendMode\.Clear/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
   assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
   assert.doesNotMatch(webCanvasImage, /CircularProgressIndicator|No se pudo cargar la imagen/);
