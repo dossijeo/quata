@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/run-ios-command-watchdog.py"
+      - "scripts/test_run_ios_command_watchdog.py"
       - "scripts/ios-compose-resources-contract.test.mjs"
       - "scripts/sync-ios-compose-resources.sh"
       - "designsystem/src/commonMain/composeResources/**"
@@ -48,6 +50,8 @@ on:
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
+      - "scripts/run-ios-command-watchdog.py"
+      - "scripts/test_run_ios_command_watchdog.py"
       - "scripts/ios-compose-resources-contract.test.mjs"
       - "scripts/sync-ios-compose-resources.sh"
       - "designsystem/src/commonMain/composeResources/**"
@@ -102,6 +106,9 @@ jobs:
 
       - name: Validate iOS workflow contract
         run: node --test scripts/ios-build-workflow-contract.test.mjs
+
+      - name: Validate iOS watchdog cleanup contract
+        run: python3 -m unittest scripts/test_run_ios_command_watchdog.py
 
       - name: Validate iOS Compose resources contract
         run: node --test scripts/ios-compose-resources-contract.test.mjs
@@ -372,22 +379,63 @@ jobs:
             cat "$log_file"
             return "$status"
           }
+          verify_selected_simulator_booted() {
+            # Capture the authoritative registry response even when the
+            # preceding simctl command timed out, then require this exact UDID.
+            xcrun simctl list devices -j | tee build/reports/ios/simulator-devices-after-boot.json
+            python3 -c '
+import json
+import sys
+
+expected_udid = sys.argv[1]
+try:
+    devices = json.load(sys.stdin).get("devices", {})
+except (json.JSONDecodeError, OSError, ValueError) as error:
+    print(f"Could not parse simctl device JSON: {error}", file=sys.stderr)
+    raise SystemExit(1)
+
+is_booted = any(
+    device.get("udid") == expected_udid and device.get("state") == "Booted"
+    for runtime_devices in devices.values()
+    for device in runtime_devices
+)
+raise SystemExit(0 if is_booted else 1)
+' "$simulator_udid" < build/reports/ios/simulator-devices-after-boot.json
+          }
           echo "Booting the simulator created for this job: $simulator_udid"
           # A non-zero boot commonly means the device is already booted. A
-          # watchdog timeout is different: fail with its process snapshot.
+          # timeout is accepted only after the registry proves this exact UDID
+          # is Booted; every other timeout remains fail-closed with status 124.
           if run_watchdog 60 build/reports/ios/simctl-boot.log \
             xcrun simctl boot "$simulator_udid"; then
             :
           else
             boot_status=$?
             if [[ "$boot_status" -eq 124 ]]; then
-              exit "$boot_status"
+              if verify_selected_simulator_booted; then
+                echo "simctl boot timed out, but the selected simulator is Booted."
+              else
+                exit 124
+              fi
+            else
+              echo "simctl boot exited $boot_status; verifying its current boot status."
             fi
-            echo "simctl boot exited $boot_status; verifying its current boot status."
           fi
-          run_watchdog 180 build/reports/ios/simctl-bootstatus.log \
-            xcrun simctl bootstatus "$simulator_udid" -b
-          xcrun simctl list devices -j > build/reports/ios/simulator-devices-after-boot.json
+          if run_watchdog 180 build/reports/ios/simctl-bootstatus.log \
+            xcrun simctl bootstatus "$simulator_udid" -b; then
+            :
+          else
+            bootstatus_status=$?
+            if [[ "$bootstatus_status" -eq 124 ]] && verify_selected_simulator_booted; then
+              echo "simctl bootstatus timed out, but the selected simulator is Booted."
+            else
+              exit "$bootstatus_status"
+            fi
+          fi
+          if ! verify_selected_simulator_booted; then
+            echo "The selected simulator is not Booted after simctl boot verification." >&2
+            exit 1
+          fi
 
       - name: Run iOS external share inbox filesystem contract
         # This is intentionally serial and reuses the simulator booted above. The test owns only

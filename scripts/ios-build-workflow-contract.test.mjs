@@ -32,6 +32,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
   const pullRequestTrigger = yaml.slice(pullRequestStart, pushStart);
   const pushTrigger = yaml.slice(pushStart, concurrencyStart);
   const publicMatrixPaths = [
+    'scripts/run-ios-command-watchdog.py',
+    'scripts/test_run_ios_command_watchdog.py',
     'scripts/ios-compose-resources-contract.test.mjs',
     'scripts/sync-ios-compose-resources.sh',
     'scripts/build-ios-intel-simulator.sh',
@@ -72,6 +74,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
 
   const checkout = yaml.indexOf('      - name: Check out source');
   const contract = yaml.indexOf('      - name: Validate iOS workflow contract');
+  const watchdogContract = yaml.indexOf('      - name: Validate iOS watchdog cleanup contract');
   const composeResourcesContract = yaml.indexOf('      - name: Validate iOS Compose resources contract');
   const authLaunchContract = yaml.indexOf('      - name: Validate iOS Auth launch fixture contract');
   const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
@@ -82,7 +85,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.ok(
     checkout >= 0 &&
       contract > checkout &&
-      composeResourcesContract > contract &&
+      watchdogContract > contract &&
+      composeResourcesContract > watchdogContract &&
       authLaunchContract > composeResourcesContract &&
       runtimeContract > authLaunchContract &&
       matrixContract > runtimeContract &&
@@ -93,6 +97,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.match(
     yaml,
     /- name: Validate iOS workflow contract\n\s+run: node --test scripts\/ios-build-workflow-contract\.test\.mjs/,
+  );
+  assert.match(
+    yaml,
+    /- name: Validate iOS watchdog cleanup contract\n\s+run: python3 -m unittest scripts\/test_run_ios_command_watchdog\.py/,
   );
   assert.match(
     yaml,
@@ -171,6 +179,34 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   );
 }
 
+function assertBootWatchdogRevalidation(yaml) {
+  const bootStart = yaml.indexOf('      - name: Boot test simulator');
+  const nextStep = yaml.indexOf('      - name: Run iOS external share inbox filesystem contract', bootStart);
+  assert.ok(bootStart >= 0 && nextStep > bootStart, 'Boot simulator step must remain isolated');
+  const bootBlock = yaml.slice(bootStart, nextStep);
+
+  assert.match(
+    bootBlock,
+    /verify_selected_simulator_booted\(\)[\s\S]*?xcrun simctl list devices -j \| tee build\/reports\/ios\/simulator-devices-after-boot\.json/,
+    'timeout revalidation must preserve the authoritative JSON diagnostic',
+  );
+  assert.match(
+    bootBlock,
+    /device\.get\("udid"\) == expected_udid and device\.get\("state"\) == "Booted"/,
+    'revalidation must require the exact selected UDID, not any booted simulator',
+  );
+  assert.match(
+    bootBlock,
+    /if \[\[ "\$boot_status" -eq 124 \]\]; then[\s\S]*?if verify_selected_simulator_booted; then[\s\S]*?else\n\s+exit 124/,
+    'an initial boot timeout must fail closed unless exact revalidation proves Booted',
+  );
+  assert.match(
+    bootBlock,
+    /if \[\[ "\$bootstatus_status" -eq 124 \]\] && verify_selected_simulator_booted; then[\s\S]*?else\n\s+exit "\$bootstatus_status"/,
+    'a bootstatus timeout must fail closed unless exact revalidation proves Booted',
+  );
+}
+
 function effectiveContinuedCommand(block, commandStart) {
   const lines = block.split(/\r?\n/);
   const start = lines.findIndex((line) => line.trimStart().startsWith(commandStart));
@@ -229,6 +265,7 @@ test('iOS workflow runs and triggers its own fail-closed contract before compila
   const yaml = await readFile(workflow, 'utf8');
   assertIosWorkflowSelfCoverage(yaml);
   assertIosRuntimeFixtureAndUiIsolation(yaml);
+  assertBootWatchdogRevalidation(yaml);
 });
 
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
@@ -250,6 +287,13 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['pull-request trigger removed', yaml.replace(contractPath, '')],
     ['push trigger removed', withoutPushTrigger],
     ['Auth launch fixture pull-request trigger removed', yaml.replace(authLaunchContractPath, '')],
+    [
+      'watchdog cleanup contract command weakened',
+      yaml.replace(
+        'run: python3 -m unittest scripts/test_run_ios_command_watchdog.py',
+        'run: python3 --version',
+      ),
+    ],
     [
       'Auth launch fixture push trigger removed',
       (() => {
@@ -362,6 +406,17 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       yaml.replace(':feature:official:iosSimulatorArm64Test', ':feature:official:compileTestKotlinIosSimulatorArm64'),
     ],
     [
+      'boot watchdog accepts any booted simulator',
+      yaml.replace(
+        'device.get("udid") == expected_udid and device.get("state") == "Booted"',
+        'device.get("state") == "Booted"',
+      ),
+    ],
+    [
+      'bootstatus timeout no longer fails closed',
+      yaml.replace('else\n              exit "$bootstatus_status"', 'else\n              exit 0'),
+    ],
+    [
       'comment terminates the continued xcodebuild command',
       yaml.replace(
         '            CODE_SIGNING_REQUIRED=NO \\\n            -test-timeouts-enabled YES',
@@ -376,6 +431,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     assert.throws(() => {
       assertIosWorkflowSelfCoverage(mutation);
       assertIosRuntimeFixtureAndUiIsolation(mutation);
+      assertBootWatchdogRevalidation(mutation);
     });
   });
 });
