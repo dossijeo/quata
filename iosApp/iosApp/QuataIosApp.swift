@@ -514,7 +514,7 @@ private final class IosAppCompositionRoot {
                     )
                 )
             }
-            QuataOfficialViewControllerKt.QuataOfficialViewController(
+            return QuataOfficialViewControllerKt.QuataOfficialViewController(
                 dependencies: QuataOfficialViewControllerKt.createIosOfficialHostDependencies(
                     repository: officialRuntimeBootstrap.repository,
                     officialPostId: postId,
