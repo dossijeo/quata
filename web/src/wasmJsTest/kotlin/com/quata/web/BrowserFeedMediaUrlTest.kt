@@ -45,11 +45,16 @@ class BrowserFeedMediaUrlTest {
     }
 
     @Test
-    fun nativeUnderlayContractRequiresComposeShadowCanvasAndNoHtmlUi() {
+    fun nativeUnderlayContractKeepsComposeCanvasAboveDecoderAndNoHtmlUi() {
         val contract = browserFeedVideoUnderlayDomContract()
 
         assertTrue(contract.requiresCanvasInShadowRoot)
         assertTrue(contract.insertsBeforeCanvas)
         assertFalse(contract.exposesHtmlProductControls)
+        assertTrue(contract.isolatesCanvasParent)
+        assertEquals(1, contract.composeCanvasZIndex)
+        assertEquals(0, contract.decoderZIndex)
+        assertTrue(contract.composeCanvasZIndex > contract.decoderZIndex)
+        assertTrue(contract.restoresHostStylesOnDetach)
     }
 }

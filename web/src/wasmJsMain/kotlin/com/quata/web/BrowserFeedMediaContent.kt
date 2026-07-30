@@ -312,17 +312,29 @@ private data class BrowserFeedVideoUnderlayBounds(
     val height: Float,
 )
 
-/** Inserts the decoder before the Compose canvas; DOM order, not z-index, establishes the underlay. */
+/**
+ * The native decoder must remain below the Compose canvas even when the browser promotes the
+ * video to a hardware compositor layer. The host styles changed to establish that relationship
+ * are restored after the last attached decoder is removed.
+ */
 internal data class BrowserFeedVideoUnderlayDomContract(
     val requiresCanvasInShadowRoot: Boolean,
     val insertsBeforeCanvas: Boolean,
     val exposesHtmlProductControls: Boolean,
+    val isolatesCanvasParent: Boolean,
+    val composeCanvasZIndex: Int,
+    val decoderZIndex: Int,
+    val restoresHostStylesOnDetach: Boolean,
 )
 
 internal fun browserFeedVideoUnderlayDomContract() = BrowserFeedVideoUnderlayDomContract(
     requiresCanvasInShadowRoot = true,
     insertsBeforeCanvas = true,
     exposesHtmlProductControls = false,
+    isolatesCanvasParent = true,
+    composeCanvasZIndex = 1,
+    decoderZIndex = 0,
+    restoresHostStylesOnDetach = true,
 )
 
 private fun attachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Boolean = js(
@@ -337,6 +349,23 @@ private fun attachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Boolean = j
     video.style.pointerEvents = 'none';
     video.style.visibility = 'hidden';
     video.style.background = 'black';
+    video.style.zIndex = '0';
+    const stackingKey = '__quataFeedVideoUnderlayStacking';
+    const stacking = parent[stackingKey] || {
+      canvas,
+      parentIsolation: parent.style.isolation,
+      canvasPosition: canvas.style.position,
+      canvasZIndex: canvas.style.zIndex,
+      count: 0,
+    };
+    parent[stackingKey] = stacking;
+    stacking.count += 1;
+    // DOM order alone loses to a promoted HTMLVideoElement compositor layer on some browsers.
+    // Isolate the siblings and put the transparent Compose canvas in an explicit higher layer.
+    parent.style.isolation = 'isolate';
+    canvas.style.position = 'relative';
+    canvas.style.zIndex = '1';
+    video.__quataFeedVideoUnderlayStacking = stacking;
     parent.insertBefore(video, canvas);
     return true;
     }""",
@@ -361,9 +390,25 @@ private fun updateBrowserFeedVideoUnderlayBounds(
     }""",
 )
 
-private fun detachBrowserFeedVideoUnderlay(video: HTMLVideoElement) {
-    video.remove()
-}
+private fun detachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Unit = js(
+    """{
+    const stacking = video.__quataFeedVideoUnderlayStacking;
+    if (stacking) {
+      stacking.count -= 1;
+      if (stacking.count === 0) {
+        const parent = stacking.canvas?.parentElement;
+        if (parent) {
+          parent.style.isolation = stacking.parentIsolation;
+          delete parent.__quataFeedVideoUnderlayStacking;
+        }
+        stacking.canvas.style.position = stacking.canvasPosition;
+        stacking.canvas.style.zIndex = stacking.canvasZIndex;
+      }
+      delete video.__quataFeedVideoUnderlayStacking;
+    }
+    video.remove();
+    }""",
+)
 
 /** Shared portrait/landscape contract for the native underlay and the pre-existing image renderer. */
 internal fun browserFeedVideoUnderlayObjectFit(isLandscape: Boolean): String =
