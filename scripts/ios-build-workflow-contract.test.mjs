@@ -473,7 +473,7 @@ test('public Official composition explicitly keeps its Kotlin bootstrap bearer-f
   assert.ok(bootstrap, 'Official public bootstrap composition must remain present');
   assert.match(
     bootstrap,
-    /IosOfficialRuntimeBootstrap\([\s\S]*?authSession:\s*nil\s*\)/,
+    /IosOfficialRuntimeBootstrap\([\s\S]*?authSession:\s*nil(?:\s*,|\s*\))/,
     'Swift must pass the Kotlin-exported authSession argument explicitly and keep public reads anonymous',
   );
   assert.doesNotMatch(

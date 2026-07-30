@@ -26,7 +26,7 @@ const catalog = {
   'feed.read': ['flow', ['observeFeed', 'getFeed', 'refreshFeed', 'loadOlderFeedPage', 'refreshCurrentUser', 'refreshAuthor', 'refreshPost'], ['implemented', 'implemented', 'implemented']],
   'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'addComment', 'deletePost'], ['implemented', 'implemented', 'implemented']],
   'official.read': ['flow', ['observeOfficialFeed', 'getOfficialFeed', 'refreshOfficialFeed', 'loadOlderOfficialFeedPage', 'getOfficialPost', 'refreshCurrentUser'], ['implemented', 'read-only', 'read-only']],
-  'official.mutate': ['mutation', ['createPost', 'createPosts', 'deletePost', 'toggleLike', 'addComment'], ['implemented', 'blocked', 'blocked']],
+  'official.mutate': ['mutation', ['createPost', 'createPosts', 'deletePost', 'toggleLike', 'addComment', 'reportComment'], ['implemented', 'blocked', 'blocked']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'read-only', 'read-only']],
   'communities.mutate': ['mutation', ['toggleFollowUser', 'reportPost', 'setUserRoles'], ['implemented', 'blocked', 'blocked']],
   'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'blocked', 'blocked']],
