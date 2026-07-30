@@ -44,6 +44,11 @@ import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
+import com.quata.feature.chat.presentation.conversations.ConversationsScreenStrings
+import com.quata.feature.chat.presentation.conversations.chatText
+import com.quata.core.platform.ClipboardService
+import com.quata.core.ui.components.QuataAvatarFallback
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -74,6 +79,11 @@ fun ChatBrowserHostContent(
     filePicker: FilePickerService,
     conversationId: String?,
     navigationMessage: String,
+    conversationsClipboardService: ClipboardService,
+    conversationsStrings: ConversationsScreenStrings,
+    onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null,
+    conversationAvatar: @Composable (String, String?, String, Modifier) -> Unit = { name, _, id, modifier -> QuataAvatarFallback(name, id, modifier) },
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
@@ -85,10 +95,19 @@ fun ChatBrowserHostContent(
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
-        ChatBrowserConversationList(
-            repository = repository,
-            navigationMessage = navigationMessage,
+        val conversations = remember(repository) {
+            ConversationsViewModel(repository, text = conversationsStrings::chatText)
+        }
+        DisposableEffect(conversations) { onDispose(conversations::close) }
+        ConversationsScreenHost(
+            viewModel = conversations,
+            clipboardService = conversationsClipboardService,
+            strings = conversationsStrings,
             onOpenConversation = onOpenConversation,
+            onOpenFavorites = { onOpenConversation(com.quata.core.navigation.AppDestinations.FavoriteMessagesConversationId) },
+            onOpenUserProfile = onOpenUserProfile,
+            openingProfileUserId = openingProfileUserId,
+            remoteAvatar = conversationAvatar,
             modifier = modifier,
         )
     } else {
@@ -108,155 +127,6 @@ fun ChatBrowserHostContent(
             sendButtonOverride = sendButtonOverride,
             modifier = modifier,
         )
-    }
-}
-
-@Composable
-private fun ChatBrowserConversationList(
-    repository: ChatRepository,
-    navigationMessage: String,
-    onOpenConversation: (String) -> Unit,
-    modifier: Modifier,
-) {
-    val viewModel = remember(repository) {
-        ConversationsViewModel(repository = repository, text = { "No se pudieron cargar los chats." })
-    }
-    val state by viewModel.uiState.collectAsState()
-    var isGroupComposerOpen by remember { mutableStateOf(false) }
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
-
-    Column(modifier.fillMaxSize()) {
-        Surface(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Conversaciones", style = MaterialTheme.typography.titleLarge)
-                Text(navigationMessage, style = MaterialTheme.typography.bodySmall)
-                Button(
-                    onClick = { viewModel.onEvent(ConversationsUiEvent.Refresh) },
-                    modifier = Modifier.semantics { testTag = "chat.refresh" },
-                ) { Text("Actualizar") }
-                Button(onClick = {
-                    isGroupComposerOpen = false
-                    viewModel.openNewConversationPicker()
-                }, modifier = Modifier.semantics { testTag = "chat.new-conversation" }) { Text("Nuevo chat") }
-            }
-        }
-        if (state.isNewConversationPickerOpen) {
-            ChatConversationCreationContent(
-                state = state,
-                isGroupComposerOpen = isGroupComposerOpen,
-                onGroupComposerOpenChanged = { isGroupComposerOpen = it },
-                onQueryChanged = viewModel::onCandidateQueryChanged,
-                onOpenPrivate = { candidate -> viewModel.openCandidateConversation(candidate, onOpenConversation) },
-                onToggleGroupCandidate = viewModel::toggleNewConversationCandidate,
-                onGroupTitleChanged = viewModel::onNewGroupTitleChanged,
-                onCreateGroup = { viewModel.openSelectedGroupConversation(onOpenConversation) },
-                onLoadMore = viewModel::loadMoreConversationCandidates,
-                onDismiss = viewModel::closeNewConversationPicker,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        ConversationsListContent(
-            rows = state.conversations.map { conversation ->
-                ConversationListRow(
-                    conversation = conversation,
-                    title = conversation.title.ifBlank { "Conversación" },
-                    preview = conversation.lastMessagePreview.ifBlank { "Sin mensajes" },
-                    updatedAt = conversation.updatedAt,
-                )
-            },
-            isLoading = state.isLoading,
-            avatar = {},
-            onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
-            emptyContent = {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("No hay conversaciones disponibles.")
-                }
-            },
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-/** Common, host-neutral new private/group chat flow backed by [ConversationsViewModel]. */
-@Composable
-private fun ChatConversationCreationContent(
-    state: com.quata.feature.chat.presentation.conversations.ConversationsUiState,
-    isGroupComposerOpen: Boolean,
-    onGroupComposerOpenChanged: (Boolean) -> Unit,
-    onQueryChanged: (String) -> Unit,
-    onOpenPrivate: (com.quata.feature.chat.domain.ChatConversationCandidate) -> Unit,
-    onToggleGroupCandidate: (com.quata.feature.chat.domain.ChatConversationCandidate) -> Unit,
-    onGroupTitleChanged: (String) -> Unit,
-    onCreateGroup: () -> Unit,
-    onLoadMore: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(modifier) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (isGroupComposerOpen) "Nuevo grupo" else "Nueva conversación", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = state.candidateQuery,
-                onValueChange = onQueryChanged,
-                label = { Text("Buscar personas") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (isGroupComposerOpen) {
-                OutlinedTextField(
-                    value = state.newGroupTitle,
-                    onValueChange = onGroupTitleChanged,
-                    label = { Text("Nombre del grupo (opcional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text("Selecciona al menos dos personas.", style = MaterialTheme.typography.bodySmall)
-            }
-            state.candidateError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            when {
-                state.isCandidateInitialLoading -> Text("Buscando personas…", style = MaterialTheme.typography.bodySmall)
-                state.conversationCandidates.isEmpty() -> Text("No se encontraron personas.", style = MaterialTheme.typography.bodySmall)
-                else -> state.conversationCandidates.forEach { candidate ->
-                    Surface(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(candidate.displayName, style = MaterialTheme.typography.titleSmall)
-                            candidate.neighborhood.takeIf { it.isNotBlank() }?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall)
-                            }
-                            if (isGroupComposerOpen) {
-                                val selected = candidate.profileId in state.selectedNewConversationProfileIds
-                                Checkbox(
-                                    checked = selected,
-                                    onCheckedChange = { onToggleGroupCandidate(candidate) },
-                                )
-                            } else {
-                                Button(
-                                    onClick = { onOpenPrivate(candidate) },
-                                    enabled = state.openingCandidateProfileId == null,
-                                ) {
-                                    Text(if (state.openingCandidateProfileId == candidate.profileId) "Abriendo…" else "Abrir chat")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (state.candidateHasMore && !state.isCandidateInitialLoading) {
-                Button(onClick = onLoadMore, enabled = !state.isCandidatePageLoading) {
-                    Text(if (state.isCandidatePageLoading) "Cargando…" else "Cargar más")
-                }
-            }
-            if (isGroupComposerOpen) {
-                Button(
-                    onClick = onCreateGroup,
-                    enabled = state.selectedNewConversationProfileIds.size >= 2 && !state.isOpeningGroupConversation,
-                ) { Text(if (state.isOpeningGroupConversation) "Creando…" else "Crear grupo") }
-            }
-            Button(onClick = { onGroupComposerOpenChanged(!isGroupComposerOpen) }) {
-                Text(if (isGroupComposerOpen) "Crear chat privado" else "Crear grupo")
-            }
-            Button(onClick = onDismiss) { Text("Cancelar") }
-        }
     }
 }
 

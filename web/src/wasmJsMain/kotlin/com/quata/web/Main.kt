@@ -426,18 +426,38 @@ private fun QuataWebApp(
                     }
                 } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {
-                        WebChatHost(
-                            repository = chatHostRepository,
-                            audioPlayer = platformServices.audioPlayer,
-                            audioRecorder = platformServices.audioRecorder,
-                            audioRecordingReferences = platformServices.audioRecordingReferences,
-                            filePicker = platformServices.filePicker,
-                            documentOpener = platformServices.documentOpener,
-                            conversationId = navigation.chatConversationId,
-                            navigationMessage = navigation.message,
-                            onOpenConversation = navigation::navigateConversation,
-                            onBackToList = { navigation.navigate("chat") },
-                        )
+                        val memberProfileId = feedMemberProfileRoute.profileId
+                        if (memberProfileId != null) {
+                            WebNeighborhoodsHost(
+                                repository = neighborhoodsRepository,
+                                currentUserId = currentUserId,
+                                strings = webNeighborhoodsStrings,
+                                slots = webNeighborhoodsSlots,
+                                rankingItems = emptyList(),
+                                onOpenConversation = navigation::navigateConversation,
+                                onOpenUserRoute = feedMemberProfileRoute::open,
+                                initialMemberProfileId = memberProfileId,
+                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
+                                onOpenRankingItem = { },
+                                onSubmitComment = { },
+                                commentsEnabled = false,
+                            )
+                        } else {
+                            WebChatHost(
+                                repository = chatHostRepository,
+                                audioPlayer = platformServices.audioPlayer,
+                                audioRecorder = platformServices.audioRecorder,
+                                audioRecordingReferences = platformServices.audioRecordingReferences,
+                                filePicker = platformServices.filePicker,
+                                documentOpener = platformServices.documentOpener,
+                                conversationId = navigation.chatConversationId,
+                                navigationMessage = navigation.message,
+                                clipboardService = platformServices.clipboard,
+                                onOpenConversation = navigation::navigateConversation,
+                                onOpenUserProfile = feedMemberProfileRoute::open,
+                                onBackToList = { navigation.navigate("chat") },
+                            )
+                        }
                     }
                 } else {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {

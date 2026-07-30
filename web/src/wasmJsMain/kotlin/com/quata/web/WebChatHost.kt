@@ -9,6 +9,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
@@ -20,6 +23,12 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.conversations.defaultConversationsStrings
+import com.quata.core.platform.ClipboardService
+import com.quata.core.ui.components.QuataAvatarFallback
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -33,7 +42,9 @@ fun WebChatHost(
     documentOpener: DocumentOpenService,
     conversationId: String?,
     navigationMessage: String,
+    clipboardService: ClipboardService,
     onOpenConversation: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
     onBackToList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -58,6 +69,10 @@ fun WebChatHost(
         filePicker = filePicker,
         conversationId = conversationId,
         navigationMessage = navigationMessage,
+        conversationsClipboardService = clipboardService,
+        conversationsStrings = defaultConversationsStrings(browserLanguage()),
+        onOpenUserProfile = onOpenUserProfile,
+        conversationAvatar = { name, url, id, avatarModifier -> BrowserConversationAvatar(name, url, id, avatarModifier) },
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
@@ -66,6 +81,22 @@ fun WebChatHost(
         modifier = modifier,
     )
 }
+
+/** Local browser image adapter: DOM owns decoding while Compose retains the common fallback. */
+@Composable
+private fun BrowserConversationAvatar(name: String, avatarUrl: String?, stableId: String, modifier: Modifier) {
+    if (avatarUrl.isNullOrBlank()) {
+        QuataAvatarFallback(name, stableId, modifier)
+    } else {
+        when (val state = rememberBrowserCanvasImage(avatarUrl)) {
+            BrowserCanvasImageState.Loading -> QuataAvatarFallback(name, stableId, modifier)
+            BrowserCanvasImageState.Error -> QuataAvatarFallback(name, stableId, modifier)
+            is BrowserCanvasImageState.Ready -> Image(BitmapPainter(state.bitmap), name, modifier, contentScale = ContentScale.Crop)
+        }
+    }
+}
+
+private fun browserLanguage(): String = js("globalThis.navigator?.language || 'en'")
 
 private fun browserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",

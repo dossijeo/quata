@@ -54,9 +54,11 @@ class IosChatRuntimeBootstrap(
         filePicker: FilePickerService,
         conversationId: String?,
         focusedMessageId: String?,
+        languageTag: String,
         onOpenConversation: (String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
+        onOpenAvatar: (String) -> Unit,
     ): IosChatHostDependencies = IosChatHostDependencies(
         repository = repository(),
         audioPlayer = audioPlayer,
@@ -64,9 +66,11 @@ class IosChatRuntimeBootstrap(
         filePicker = filePicker,
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
+        languageTag = languageTag,
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = onOpenAttachment,
+        onOpenAvatar = onOpenAvatar,
     )
 }
 

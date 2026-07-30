@@ -1102,6 +1102,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 filePicker: services.filePicker,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
+                languageTag: Locale.preferredLanguages.first ?? "en",
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
                 },
@@ -1120,6 +1121,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                             self?.presentRemoteAttachmentDownloadFailureNotice()
                         }
                     }
+                },
+                onOpenAvatar: { [weak self] profileId in
+                    self?.presentAuthenticatedMemberProfile(profileId: profileId)
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
