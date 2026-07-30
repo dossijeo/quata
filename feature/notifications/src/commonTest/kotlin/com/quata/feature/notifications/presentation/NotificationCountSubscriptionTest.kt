@@ -16,16 +16,16 @@ class NotificationCountSubscriptionTest {
     fun `forwards repository count and stops after close`() = runTest {
         val repository = CountRepository()
         val receivedCounts = mutableListOf<Int>()
-        val subscription = NotificationCountSubscription(repository, backgroundScope)
+        val subscription = NotificationCountSubscription(repository, this)
 
         subscription.start(receivedCounts::add)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         repository.count.value = 4
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         subscription.close()
         repository.count.value = 0
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertEquals(listOf(0, 4), receivedCounts)
     }
@@ -35,17 +35,30 @@ class NotificationCountSubscriptionTest {
         val repository = CountRepository()
         val first = mutableListOf<Int>()
         val second = mutableListOf<Int>()
-        val subscription = NotificationCountSubscription(repository, backgroundScope)
+        val subscription = NotificationCountSubscription(repository, this)
 
         subscription.start(first::add)
-        testScheduler.advanceUntilIdle()
         subscription.start(second::add)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         repository.count.value = 4
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
-        assertEquals(listOf(0), first)
+        assertEquals(emptyList(), first)
         assertEquals(listOf(0, 4), second)
+        subscription.close()
+    }
+
+    @Test
+    fun `close invalidates an observer before its queued initial value runs`() = runTest {
+        val repository = CountRepository()
+        val receivedCounts = mutableListOf<Int>()
+        val subscription = NotificationCountSubscription(repository, this)
+
+        subscription.start(receivedCounts::add)
+        subscription.close()
+        testScheduler.runCurrent()
+
+        assertEquals(emptyList(), receivedCounts)
     }
 
     private class CountRepository : NotificationsRepository {

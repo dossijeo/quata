@@ -17,15 +17,23 @@ internal class NotificationCountSubscription(
     private val scope: CoroutineScope,
 ) {
     private var observation: Job? = null
+    private var generation = 0L
 
     fun start(onCountChanged: (Int) -> Unit) {
+        val activeGeneration = ++generation
         observation?.cancel()
         observation = scope.launch {
-            repository.observeNotificationCount().collect(onCountChanged)
+            repository.observeNotificationCount().collect { count ->
+                // Cancellation does not retract a value that was already dispatched by some
+                // Flow implementations. A generation check makes close/restart a hard delivery
+                // boundary for every platform, including the Wasm event loop.
+                if (activeGeneration == generation) onCountChanged(count)
+            }
         }
     }
 
     fun close() {
+        generation++
         observation?.cancel()
         observation = null
     }
