@@ -47,6 +47,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
     'scripts/run-ios-public-simulator-matrix.sh',
     'scripts/test-ios-public-runtime-config-backup.sh',
   ];
+  const composeResourcePath = 'designsystem/src/commonMain/composeResources/**';
   for (const trigger of [pullRequestTrigger, pushTrigger]) {
     assert.match(trigger, /- "\.github\/workflows\/ios-build\.yml"/);
     assert.match(trigger, /- "scripts\/ios-build-workflow-contract\.test\.mjs"/);
@@ -57,6 +58,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
     assert.match(trigger, /- "scripts\/check-ios-release-readiness\.sh"/);
     assert.doesNotMatch(trigger, /- "(?:app|web)\/\*\*"/);
     assert.doesNotMatch(trigger, /- "package(?:-lock)?\.json"/);
+    assert.ok(
+      trigger.includes(`- "${composeResourcePath}"`),
+      `iOS workflow trigger must cover ${composeResourcePath}`,
+    );
     for (const path of publicMatrixPaths) {
       assert.ok(
         trigger.includes(`- "${path}"`),

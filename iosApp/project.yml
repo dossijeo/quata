@@ -59,8 +59,12 @@ targets:
           "${SRCROOT}/../scripts/sync-ios-compose-resources.sh" \
             "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
         outputFiles:
-          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/font/quata_feed_emoji_subset.ttf
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/font/quata_header_logo_q_subset.ttf
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_sos.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_rank.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_location.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_note.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_document.png
   QuataShareQueue:
     type: library.static
     platform: iOS
