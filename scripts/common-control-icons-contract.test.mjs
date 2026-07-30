@@ -36,6 +36,10 @@ test('common UI controls use portable Material ImageVectors instead of font glyp
 
   assert.match(reelHost, /Icons\.Filled\.PlayArrow/);
   assert.match(reelHost, /Icons\.Filled\.Pause/);
-  assert.match(reelHost, /ReelPlaybackFeedbackContent\(/);
-  assert.doesNotMatch(reelHost, /FeedReelPlaybackFeedbackTextContent|"▶"|"Ⅱ"/);
+  assert.match(reelHost, /FeedReelPlaybackFeedbackIconContent\(/);
+  assert.match(reelHost, /RoundedCornerShape\(46\.dp\)/);
+  assert.match(reelHost, /Color\.Black\.copy\(alpha = 0\.38f\)/);
+  assert.match(reelHost, /padding\(horizontal = 20\.dp, vertical = 10\.dp\)/);
+  assert.match(reelHost, /modifier = Modifier\.size\(54\.dp\)/);
+  assert.doesNotMatch(reelHost, /ReelPlaybackFeedbackContent\(|FeedReelPlaybackFeedbackTextContent|"▶"|"Ⅱ"/);
 });
