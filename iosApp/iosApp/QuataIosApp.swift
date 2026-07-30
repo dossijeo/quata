@@ -540,7 +540,7 @@ private final class IosAppCompositionRoot {
             // future repository changes its upstream dispatcher.
             DispatchQueue.main.async {
                 guard let self, self.notificationCountObservationID == observationID else { return }
-                self.authenticatedHost.updateNotificationCount(count)
+                self.authenticatedHost.updateNotificationCount(Int(count.intValue))
             }
         }
     }
@@ -850,7 +850,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
     func updateNotificationCount(_ count: Int) {
-        authenticatedTopChromeHost.updateNotificationCount(count: count)
+        authenticatedTopChromeHost.updateNotificationCount(count: Int32(clamping: count))
     }
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
