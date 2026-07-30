@@ -1,0 +1,2 @@
+# Pinned so regenerated PNG filtering and compression are reproducible.
+Pillow==9.5.0

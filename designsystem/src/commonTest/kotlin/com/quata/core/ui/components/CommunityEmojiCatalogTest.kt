@@ -2,6 +2,7 @@ package com.quata.core.ui.components
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class CommunityEmojiCatalogTest {
@@ -25,6 +26,20 @@ class CommunityEmojiCatalogTest {
             val codePoints = flag.unicodeCodePoints()
             codePoints.size == 2 && codePoints.all { it in RegionalIndicatorRange }
         })
+    }
+
+    @Test
+    fun `every one of the 338 catalog entries maps to a deterministic atlas cell`() {
+        val sections = communityEmojiSections()
+        assertEquals(338, sections.sumOf { it.emojis.size })
+        sections.forEach { section ->
+            section.emojis.indices.forEach { index ->
+                val (column, row) = communityEmojiAtlasCoordinates(section.key, index)
+                assertTrue(column in 0..5, "${section.key}[$index] must stay in the six-column atlas")
+                assertEquals(index / 6, row, "${section.key}[$index] must preserve catalog order")
+            }
+        }
+        assertFailsWith<IllegalArgumentException> { communityEmojiAtlasCoordinates("flags", 34) }
     }
 }
 
