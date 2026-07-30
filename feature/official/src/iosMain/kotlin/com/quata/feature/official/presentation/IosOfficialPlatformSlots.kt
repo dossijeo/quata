@@ -22,6 +22,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -106,7 +108,7 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
  * the former image-only branch, video cards always retain the common play/viewer affordance.
  */
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? = runCatching {
+private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? = withContext(Dispatchers.Default) { runCatching {
     val source = NSURL(string = url) ?: return@runCatching null
     val generator = AVAssetImageGenerator(AVURLAsset(uRL = source, options = null)).apply {
         appliesPreferredTrackTransform = true
@@ -116,7 +118,7 @@ private suspend fun loadIosOfficialVideoThumbnailOrNull(url: String): UIImage? =
         actualTime = null,
         error = null,
     )?.let(UIImage::imageWithCGImage)
-}.getOrNull()
+}.getOrNull() }
 
 private suspend fun loadIosOfficialImageOrNull(url: String): UIImage? = runCatching {
     UIImage(data = iosOfficialImageData(NSURL(string = url) ?: return@runCatching null))

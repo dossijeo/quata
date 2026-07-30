@@ -302,8 +302,9 @@ private fun currentOfficialTimestamp(): String = kotlin.time.Clock.System.now().
 class IosOfficialRuntimeBootstrap(
     configuration: IosOfficialRuntimeConfiguration,
     authSession: IosRenewableAuthSession? = null,
+    preferredLanguageTag: String? = null,
 ) {
-    val repository: OfficialRepository = IosOfficialReadRepository(configuration, authSession)
+    val repository: OfficialRepository = IosOfficialReadRepository(configuration, authSession, preferredLanguageTag)
 }
 
 /**
