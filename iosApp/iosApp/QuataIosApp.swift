@@ -160,7 +160,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         options: [UIApplication.OpenURLOptionsKey: Any] = [:],
     ) -> Bool {
         guard IosDeepLinkUrlContract.acceptsApplicationOpenUrl(url) else { return false }
-        compositionRoot.handleDeepLink(url)
+        return compositionRoot.handleDeepLink(url)
     }
 }
 
