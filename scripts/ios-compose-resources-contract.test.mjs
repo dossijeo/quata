@@ -20,6 +20,34 @@ const resources = [
 ];
 const drawableResources = resources.filter((resource) => resource.startsWith('drawable/'));
 
+const bashPathEnvironment = () => {
+  if (process.platform !== 'win32') return 'posix';
+  return process.env.MSYSTEM ? 'git-bash' : 'wsl';
+};
+
+const toBashPath = (path, environment = bashPathEnvironment()) => {
+  const windowsPath = /^([A-Za-z]):[\\/](.*)$/.exec(path);
+  if (!windowsPath) return path;
+
+  const [, drive, remainder] = windowsPath;
+  const normalizedRemainder = remainder.replaceAll('\\', '/');
+  if (environment === 'git-bash') return `/${drive.toLowerCase()}/${normalizedRemainder}`;
+  if (environment === 'wsl') return `/mnt/${drive.toLowerCase()}/${normalizedRemainder}`;
+  throw new Error(`Unsupported Bash path environment: ${environment}`);
+};
+
+test('bash paths preserve POSIX app bundles unchanged', () => {
+  const appBundle = '/Users/runner/work/quata/build/QuataIos.app';
+  assert.equal(toBashPath(appBundle, 'posix'), appBundle);
+});
+
+test('bash paths convert Windows drive-letter app bundles fail-closed by environment', () => {
+  const appBundle = 'C:\\Users\\PC\\quata\\build\\QuataIos.app';
+  assert.equal(toBashPath(appBundle, 'git-bash'), '/c/Users/PC/quata/build/QuataIos.app');
+  assert.equal(toBashPath(appBundle, 'wsl'), '/mnt/c/Users/PC/quata/build/QuataIos.app');
+  assert.throws(() => toBashPath(appBundle, 'unknown'), /Unsupported Bash path environment/);
+});
+
 test('QuataIos synchronizes the exact common Compose resource set before signing', async () => {
   const [project, synchronizer, unsignedLane, signedLane] = await Promise.all([
     source('iosApp/project.yml'),
@@ -59,7 +87,7 @@ test('synchronizer produces and verifies exactly the six expected app-bundle res
   const temporaryRoot = await mkdtemp(resolve(temporaryParent, 'ios-compose-resources-contract-'));
   t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
   const appBundle = join(temporaryRoot, 'QuataIos.app');
-  const bashAppBundle = `/mnt/${appBundle[0].toLowerCase()}${appBundle.slice(2).replaceAll('\\', '/')}`;
+  const bashAppBundle = toBashPath(appBundle);
   const staleResource = join(appBundle, canonicalDestination, 'font', 'quata_feed_emoji_subset.ttf');
 
   await mkdir(appBundle, { recursive: true });
