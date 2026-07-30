@@ -161,7 +161,9 @@ def generate() -> None:
         "generator": {"python": f"{sys.version_info.major}.{sys.version_info.minor}", "pillow": PILLOW_VERSION},
         "sections": entries,
     }
-    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    # Explicit LF avoids a Windows checkout changing the manifest and its audit diff.
+    with MANIFEST.open("w", encoding="utf-8", newline="\n") as manifest_file:
+        manifest_file.write(json.dumps(manifest, ensure_ascii=True, indent=2) + "\n")
     verify()
 
 

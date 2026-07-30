@@ -65,6 +65,14 @@ targets:
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_location.png
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_note.png
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_feed_emoji_document.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_recent.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_frequent.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_gestures.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_people.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_animals_nature.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_food_drink.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_objects_symbols.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_flags.png
   QuataShareQueue:
     type: library.static
     platform: iOS
