@@ -2,6 +2,8 @@ package com.quata.core.navigation
 
 private const val QuataWebHost = "egquata.com"
 private const val QuataWebWwwHost = "www.egquata.com"
+private const val QuataWebScheme = "https"
+private const val QuataIosCustomScheme = "quata"
 private const val PostFragmentPrefix = "post-"
 private const val OfficialPostFragmentPrefix = "official-"
 private const val ChatFragmentPrefix = "chat-"
@@ -66,7 +68,14 @@ sealed interface QuataDeepLinkTarget {
     }
 }
 
-/** Resolves only public Quata links already supported by the shared navigation contract. */
+/**
+ * Resolves public Quata routes already supported by the shared navigation contract.
+ *
+ * `https://egquata.com/#…` remains the web/share form. iOS app delivery is explicitly the
+ * registered custom form `quata://egquata.com/#…`, not an HTTPS Universal Link. Both forms
+ * intentionally resolve through this one parser so post, official and chat fragments cannot
+ * drift between the platform boundary and public links.
+ */
 fun String.quataDeepLinkTargetOrNull(): QuataDeepLinkTarget? =
     quataChatDeepLinkOrNull()?.let(QuataDeepLinkTarget::Chat)
         ?: quataPostIdOrNull()?.let(QuataDeepLinkTarget::FeedPost)
@@ -112,10 +121,19 @@ fun String.quataConversationIdOrNull(): String? = quataChatDeepLinkOrNull()?.con
 private fun String.quataFragmentOrNull(): String? {
     val schemeBoundary = indexOf("://")
     if (schemeBoundary <= 0) return null
+    val scheme = substring(0, schemeBoundary)
+    if (!scheme.equals(QuataWebScheme, ignoreCase = true) &&
+        !scheme.equals(QuataIosCustomScheme, ignoreCase = true)
+    ) return null
     val hostStart = schemeBoundary + 3
     val hostEnd = indexOfAny(charArrayOf('/', '#', '?'), hostStart).let { if (it == -1) length else it }
     val host = substring(hostStart, hostEnd)
-    if (!host.equals(QuataWebHost, ignoreCase = true) && !host.equals(QuataWebWwwHost, ignoreCase = true)) return null
+    val acceptedHost = if (scheme.equals(QuataIosCustomScheme, ignoreCase = true)) {
+        host.equals(QuataWebHost, ignoreCase = true)
+    } else {
+        host.equals(QuataWebHost, ignoreCase = true) || host.equals(QuataWebWwwHost, ignoreCase = true)
+    }
+    if (!acceptedHost) return null
     return substringAfter('#', missingDelimiterValue = "")
         .trim()
         .takeIf { it.isNotBlank() }

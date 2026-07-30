@@ -41,6 +41,21 @@ adaptadores, y composición de las demás features. El estado detallado y los
 límites verificables están en [el tablero de migración](../docs/MULTIPLATFORM_MIGRATION_BOARD.md)
 y [la auditoría de evidencia](../docs/MULTIPLATFORM_EVIDENCE_AUDIT.md).
 
+## Enlaces directos iOS
+
+El host registra el esquema personalizado estable `quata`. El formato que iOS
+entrega al `AppDelegate` es `quata://egquata.com/#post-<id>`; los fragmentos
+`official-<id>` y `chat-<conversation>?message=<id>` se resuelven por el mismo
+parser Kotlin compartido. Por ejemplo, en un simulador arrancado:
+
+```bash
+xcrun simctl openurl booted 'quata://egquata.com/#post-<id>'
+```
+
+Los enlaces `https://egquata.com/#...` siguen siendo el formato web/compartido.
+No son Universal Links en iOS: este target no declara Associated Domains ni
+pretende que el sistema entregue URLs HTTPS a la app.
+
 ## Configuración pública de runtime
 
 Para mostrar Auth o restaurar/cargar Feed, el bundle necesita estos *build

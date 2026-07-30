@@ -33,6 +33,24 @@ class IosNavigationRoutingContractTest {
 
         assertIs<PlatformResult.Failure>(dispatcher.handleUrl("https://example.com/#chat-sb%3A7"))
         assertIs<PlatformResult.Failure>(dispatcher.handleUrl("https://egquata.com/#composer"))
+        assertIs<PlatformResult.Failure>(dispatcher.handleUrl("other://egquata.com/#post-7"))
+        assertIs<PlatformResult.Failure>(dispatcher.handleUrl("quata://www.egquata.com/#post-7"))
+    }
+
+    @Test
+    fun registeredCustomSchemeRoutesPostOfficialAndChatThroughTheSharedParser() {
+        val dispatcher = IosDeepLinkDispatcher()
+        val host = RecordingDestinationHost()
+        dispatcher.attachHost(host)
+
+        assertIs<PlatformResult.Success<Unit>>(dispatcher.handleUrl("quata://egquata.com/#post-video-7"))
+        assertEquals(QuataDeepLinkTarget.FeedPost("video-7"), host.target)
+
+        assertIs<PlatformResult.Success<Unit>>(dispatcher.handleUrl("quata://egquata.com/#official-news-8"))
+        assertEquals(QuataDeepLinkTarget.OfficialPost("news-8"), host.target)
+
+        assertIs<PlatformResult.Success<Unit>>(dispatcher.handleUrl("quata://egquata.com/#chat-sb%3A9?message=m-3"))
+        assertEquals(QuataDeepLinkTarget.Chat(QuataChatDeepLink("sb:9", "m-3")), host.target)
     }
 
     @Test

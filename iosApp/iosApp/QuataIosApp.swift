@@ -15,6 +15,33 @@ enum IosWhatsNewLocale {
     }
 }
 
+/// iOS application-open contract for public Quata routes.
+///
+/// The app registers only the custom scheme `quata`. Its canonical shape is
+/// `quata://egquata.com/#post-<id>`; `official-<id>` and `chat-<conversation>`
+/// fragments use the shared Kotlin parser as well. HTTPS URLs remain web/share URLs and are
+/// intentionally not claimed here: this target has no Associated Domains entitlement and does
+/// not represent them as Universal Links.
+enum IosDeepLinkUrlContract {
+    static let scheme = "quata"
+    static let host = "egquata.com"
+
+    static func acceptsApplicationOpenUrl(_ url: URL) -> Bool {
+        url.scheme?.caseInsensitiveCompare(scheme) == .orderedSame &&
+            url.host?.caseInsensitiveCompare(host) == .orderedSame
+    }
+
+    /// Keeps the Info.plist declaration testable without treating XCTest's own bundle as the
+    /// application bundle.
+    static func isRegistered(in infoDictionary: [String: Any]) -> Bool {
+        let urlTypes = infoDictionary["CFBundleURLTypes"] as? [[String: Any]] ?? []
+        return urlTypes.contains { urlType in
+            let schemes = urlType["CFBundleURLSchemes"] as? [String] ?? []
+            return schemes.contains { $0.caseInsensitiveCompare(scheme) == .orderedSame }
+        }
+    }
+}
+
 enum IosPublicRuntimeConfiguration {
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
@@ -132,6 +159,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:],
     ) -> Bool {
+        guard IosDeepLinkUrlContract.acceptsApplicationOpenUrl(url) else { return false }
         compositionRoot.handleDeepLink(url)
     }
 }

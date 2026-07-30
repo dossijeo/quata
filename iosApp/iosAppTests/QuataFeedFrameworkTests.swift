@@ -12,6 +12,23 @@ import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    func testAppRegistersTheStableQuataCustomUrlScheme() {
+        let appBundle = Bundle(for: AppDelegate.self)
+
+        XCTAssertTrue(
+            IosDeepLinkUrlContract.isRegistered(in: appBundle.infoDictionary ?? [:]),
+            "The app bundle must register the quata URL scheme so iOS can deliver app-open URLs."
+        )
+    }
+
+    func testCustomUrlContractAcceptsOnlyTheRegisteredQuataHost() {
+        XCTAssertTrue(IosDeepLinkUrlContract.acceptsApplicationOpenUrl(URL(string: "quata://egquata.com/#post-video-7")!))
+        XCTAssertTrue(IosDeepLinkUrlContract.acceptsApplicationOpenUrl(URL(string: "quata://egquata.com/#official-news-8")!))
+        XCTAssertTrue(IosDeepLinkUrlContract.acceptsApplicationOpenUrl(URL(string: "quata://egquata.com/#chat-sb%3A9?message=m-3")!))
+        XCTAssertFalse(IosDeepLinkUrlContract.acceptsApplicationOpenUrl(URL(string: "https://egquata.com/#post-video-7")!))
+        XCTAssertFalse(IosDeepLinkUrlContract.acceptsApplicationOpenUrl(URL(string: "quata://example.com/#post-video-7")!))
+    }
+
     func testSimulatorExposesMetalDevice() throws {
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice(), "The iOS Simulator did not expose a Metal device.")
         let attachment = XCTAttachment(string: "Metal device: \(device.name)")
