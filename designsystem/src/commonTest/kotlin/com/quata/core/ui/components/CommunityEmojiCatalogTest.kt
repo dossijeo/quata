@@ -21,6 +21,27 @@ class CommunityEmojiCatalogTest {
         assertEquals("🐻‍❄️", sections.getValue("animals_nature").emojis[8])
         assertEquals("🇪🇸", sections.getValue("flags").emojis.first())
         assertEquals("🇨🇦", sections.getValue("flags").emojis.last())
-        assertTrue(sections.getValue("flags").emojis.all { it.codePointCount(0, it.length) == 2 })
+        assertTrue(sections.getValue("flags").emojis.all { flag ->
+            val codePoints = flag.unicodeCodePoints()
+            codePoints.size == 2 && codePoints.all { it in RegionalIndicatorRange }
+        })
+    }
+}
+
+private val RegionalIndicatorRange = 0x1F1E6..0x1F1FF
+
+/** JVM-free UTF-16 decoder so this common test also exercises Wasm and native targets. */
+private fun String.unicodeCodePoints(): List<Int> = buildList {
+    var index = 0
+    while (index < this@unicodeCodePoints.length) {
+        val high = this@unicodeCodePoints[index]
+        val low: Char? = if (index + 1 < this@unicodeCodePoints.length) this@unicodeCodePoints[index + 1] else null
+        if (high in '\uD800'..'\uDBFF' && low != null && low in '\uDC00'..'\uDFFF') {
+            add(0x10000 + ((high.code - 0xD800) shl 10) + (low.code - 0xDC00))
+            index += 2
+        } else {
+            add(high.code)
+            index += 1
+        }
     }
 }

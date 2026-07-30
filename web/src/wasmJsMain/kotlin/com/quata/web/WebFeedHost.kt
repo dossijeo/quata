@@ -42,7 +42,7 @@ fun WebFeedHost(
                 )
             },
             avatar = { post -> BrowserFeedAuthorAvatar(post, onOpenUserProfile) },
-            rankingAvatar = ::BrowserFeedRankingAvatar,
+            rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
             share = shareService::share,
             showComposeMessage = true,
         ),

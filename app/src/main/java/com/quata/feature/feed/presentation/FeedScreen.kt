@@ -228,6 +228,8 @@ fun FeedScreen(
             sharePostTitle = stringResource(R.string.feed_share_post),
             live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
             report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
+            deleteTitle = stringResource(R.string.feed_delete_post_confirm_title),
+            deleteMessage = stringResource(R.string.feed_delete_post_confirm_message),
             reportSuccess = stringResource(R.string.feed_report_success),
             deleteSuccess = stringResource(R.string.feed_delete_post_success),
             liveTitle = stringResource(R.string.feed_live_title), liveSubtitle = stringResource(R.string.feed_live_subtitle),

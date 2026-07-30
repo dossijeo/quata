@@ -118,7 +118,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                     )
                 },
                 avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
-                rankingAvatar = ::IosFeedRankingAvatar,
+                rankingAvatar = { item -> IosFeedRankingAvatar(item) },
                 share = dependencies.shareService::share,
                 showComposeMessage = true,
             ),

@@ -15,6 +15,8 @@ const feedHost = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/
 const feedCard = readFileSync(resolve(root, 'feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedPostPreviewCardContent.kt'), 'utf8');
 const feedContrastTest = readFileSync(resolve(root, 'feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedMediaPlaceholderContrastTest.kt'), 'utf8');
 const webFeedMedia = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt'), 'utf8');
+const webFeedHost = readFileSync(resolve(root, 'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt'), 'utf8');
+const iosFeedHost = readFileSync(resolve(root, 'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt'), 'utf8');
 const parser = resolve(root, 'scripts/ios-public-client-config.py');
 const logEvidence = resolve(root, 'scripts/ios-public-log-evidence.py');
 const backupLibrary = readFileSync(resolve(root, 'scripts/ios-public-runtime-config-backup.sh'), 'utf8');
@@ -181,6 +183,13 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(webFeedMedia, /controls = false/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
   assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
+});
+
+test('Feed hosts pass ranking avatars through Compose lambdas, never callable references', () => {
+  assert.match(webFeedHost, /rankingAvatar = \{ item -> BrowserFeedRankingAvatar\(item\) \}/);
+  assert.doesNotMatch(webFeedHost, /rankingAvatar = ::BrowserFeedRankingAvatar/);
+  assert.match(iosFeedHost, /rankingAvatar = \{ item -> IosFeedRankingAvatar\(item\) \}/);
+  assert.doesNotMatch(iosFeedHost, /rankingAvatar = ::IosFeedRankingAvatar/);
 });
 
 function runParser(source, expectSuccess) {
