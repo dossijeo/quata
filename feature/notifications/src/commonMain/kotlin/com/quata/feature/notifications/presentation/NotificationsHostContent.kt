@@ -6,10 +6,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.model.NotificationItem
 import com.quata.feature.notifications.domain.NotificationsRepository
+import kotlinx.coroutines.delay
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Platform-neutral presentation host for the notification list.
@@ -17,17 +22,25 @@ import com.quata.feature.notifications.domain.NotificationsRepository
  * Launchers/receivers supply navigation callbacks, while this host owns only the shared
  * ViewModel lifecycle and routes its state into [NotificationsContent].
  */
+@OptIn(ExperimentalTime::class)
 @Composable
 fun NotificationsHostContent(
     padding: PaddingValues,
     repository: NotificationsRepository,
-    timestampNowMillis: Long,
     strings: NotificationsStrings,
+    nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     deliveryNotice: NotificationDeliveryNotice? = null,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var timestampNowMillis by remember { mutableLongStateOf(nowMillis()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000L)
+            timestampNowMillis = nowMillis()
+        }
+    }
     val viewModel = remember(repository) { NotificationsViewModel(repository) }
     val state by viewModel.uiState.collectAsState()
     DisposableEffect(viewModel) { onDispose(viewModel::close) }

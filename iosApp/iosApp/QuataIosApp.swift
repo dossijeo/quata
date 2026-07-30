@@ -498,10 +498,21 @@ private final class IosAppCompositionRoot {
 
     private func installAuthenticatedNotificationsIfAvailable() {
         guard let bootstrap = notificationsRuntimeBootstrap else { return }
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                self?.installAuthenticatedNotifications(bootstrap, notificationPermissionGranted: settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional || settings.authorizationStatus == .ephemeral)
+            }
+        }
+    }
+
+    private func installAuthenticatedNotifications(
+        _ bootstrap: IosNotificationsRuntimeBootstrap,
+        notificationPermissionGranted: Bool
+    ) {
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
                 repository: bootstrap.repository(),
-                timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
+                notificationPermissionGranted: notificationPermissionGranted,
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
                     self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)

@@ -4,16 +4,12 @@ package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import com.quata.feature.notifications.presentation.ChatPreviewCatalog
 import com.quata.feature.notifications.presentation.NotificationsHostContent
 import com.quata.feature.notifications.presentation.NotificationsStrings
+import com.quata.feature.notifications.presentation.RelativeTimeCatalog
 import com.quata.feature.notifications.presentation.NotificationDeliveryState
 import com.quata.feature.notifications.presentation.notificationDeliveryNotice
-import kotlinx.coroutines.delay
 
 @Composable
 fun WebNotificationsHost(
@@ -22,11 +18,17 @@ fun WebNotificationsHost(
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
 ) {
-    var nowMillis by remember { mutableLongStateOf(notificationsBrowserNowMillis()) }
-    LaunchedEffect(Unit) { while (true) { delay(60_000L); nowMillis = notificationsBrowserNowMillis() } }
     NotificationsHostContent(
-        padding = PaddingValues(), repository = repository, timestampNowMillis = nowMillis,
-        strings = NotificationsStrings("Notificaciones", webNotificationsUnreadSubtitle, "Volver", { createdAt, _ -> createdAt.ifBlank { "Ahora" } }, { it }),
+        padding = PaddingValues(), repository = repository, nowMillis = ::notificationsBrowserNowMillis,
+        strings = NotificationsStrings(
+            "Notificaciones", webNotificationsUnreadSubtitle, "Volver",
+            RelativeTimeCatalog(
+                seconds = { "hace $it s" }, oneMinute = "hace 1 min", minutes = { "hace $it min" }, hours = { "hace $it h" },
+                days = { "hace $it d" }, oneWeek = "hace 1 semana", weeks = { "hace $it semanas" }, oneMonth = "hace 1 mes",
+                months = { "hace $it meses" }, oneYear = "hace 1 año", years = { "hace $it años" },
+            ),
+            ChatPreviewCatalog("Foto", "Vídeo", "Documento", "Nota de voz", "Archivo"),
+        ),
         deliveryNotice = notificationDeliveryNotice(
             if (runtimeConfiguration.isBackendConfigured) {
                 NotificationDeliveryState.DeliveryUnverified

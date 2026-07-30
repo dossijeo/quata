@@ -9,7 +9,6 @@ import platform.UIKit.UIViewController
 /** Swift supplies data, deep-link navigation and permission presentation; no push provider lives here. */
 class IosNotificationsHostDependencies(
     val repository: NotificationsRepository,
-    val timestampNowMillis: Long,
     val strings: NotificationsStrings,
     val deliveryNotice: NotificationDeliveryNotice?,
     val onBack: () -> Unit,
@@ -25,25 +24,28 @@ class IosNotificationsHostDependencies(
  */
 fun createIosNotificationsHostDependencies(
     repository: NotificationsRepository,
-    timestampNowMillis: Long,
+    notificationPermissionGranted: Boolean,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onHandleDeepLink: (String) -> Unit,
 ): IosNotificationsHostDependencies = IosNotificationsHostDependencies(
     repository = repository,
-    timestampNowMillis = timestampNowMillis,
     strings = NotificationsStrings(
         title = "Notificaciones",
         subtitle = "Mensajes no leídos",
         backContentDescription = "Volver",
-        relativeTime = { createdAt, _ -> createdAt.ifBlank { "Ahora" } },
-        localizedBody = { it },
+        relativeTimeCatalog = RelativeTimeCatalog(
+            seconds = { "hace $it s" }, oneMinute = "hace 1 min", minutes = { "hace $it min" }, hours = { "hace $it h" },
+            days = { "hace $it d" }, oneWeek = "hace 1 semana", weeks = { "hace $it semanas" }, oneMonth = "hace 1 mes",
+            months = { "hace $it meses" }, oneYear = "hace 1 año", years = { "hace $it años" },
+        ),
+        previewCatalog = ChatPreviewCatalog("Foto", "Vídeo", "Documento", "Nota de voz", "Archivo"),
     ),
     deliveryNotice = notificationDeliveryNotice(
-        state = NotificationDeliveryState.PermissionRequired,
-        actionLabel = "Permitir notificaciones",
-        onAction = onRequestNotificationPermission,
+        state = if (notificationPermissionGranted) NotificationDeliveryState.DeliveryUnverified else NotificationDeliveryState.PermissionRequired,
+        actionLabel = if (notificationPermissionGranted) null else "Permitir notificaciones",
+        onAction = if (notificationPermissionGranted) null else onRequestNotificationPermission,
     ),
     onBack = onBack,
     onOpenConversation = onOpenConversation,
@@ -56,7 +58,6 @@ fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependenc
         NotificationsHostContent(
             padding = PaddingValues(),
             repository = dependencies.repository,
-            timestampNowMillis = dependencies.timestampNowMillis,
             strings = dependencies.strings,
             deliveryNotice = dependencies.deliveryNotice,
             onBack = dependencies.onBack,

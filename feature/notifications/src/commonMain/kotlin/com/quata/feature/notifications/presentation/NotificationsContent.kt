@@ -35,8 +35,8 @@ data class NotificationsStrings(
     val title: String,
     val subtitle: String,
     val backContentDescription: String,
-    val relativeTime: (createdAt: String, nowMillis: Long) -> String,
-    val localizedBody: (String) -> String
+    val relativeTimeCatalog: RelativeTimeCatalog,
+    val previewCatalog: ChatPreviewCatalog,
 )
 
 @Composable
@@ -126,10 +126,10 @@ private fun DismissibleNotificationCard(
         content = {
             QuataCard(modifier = Modifier.clickable(onClick = onClick)) {
                 Column(Modifier.padding(16.dp)) {
-                    val createdAt = strings.relativeTime(item.createdAt, timestampNowMillis)
+                    val createdAt = formatNotificationRelativeTime(item.createdAt, timestampNowMillis, strings.relativeTimeCatalog)
                     Text(item.title, fontWeight = FontWeight.Bold)
                     Text(
-                        text = strings.localizedBody(item.body),
+                        text = resolveChatPreview(item.body, strings.previewCatalog),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
