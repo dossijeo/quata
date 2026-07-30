@@ -837,7 +837,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
     )
     private lazy var primaryNavigationController = primaryNavigationHost.viewController()
-    private var isPrimaryNavigationInstalled = false
+    /// Feed browsing is public, but the shared application shell is not authenticated-only.
+    /// Android keeps this chrome visible for anonymous Feed/Official routes too; the callbacks
+    /// below decide whether a selected destination must first acquire a session.
+    private var isSharedShellInstalled = false
     private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
         // iOS has no About route equivalent yet. Keep this callback explicit instead of mapping
         // the shared Q̈ mark to an unrelated release-history route.
@@ -916,7 +919,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard isPrimaryNavigationInstalled else {
+        guard isSharedShellInstalled else {
             displayedController?.view.frame = view.bounds
             return
         }
@@ -930,14 +933,24 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installFeedFactory { _ in QuataFeedViewControllerKt.QuataFeedViewController(dependencies: dependencies) }
     }
 
-    /// Public Feed factory never enables the authenticated menu or interactive verticals.
+    /// Public Feed is a real app route, not a full-screen fallback. Keep the common top chrome
+    /// and primary navigation installed exactly as Android does; private destinations remain
+    /// gated by `PendingRoute.isAuthenticationRequired` in `route(_:)`.
     func installPublicFeed(_ factory: @escaping (String?) -> UIViewController) {
         guard !hasAuthenticatedSession else { return }
         feedFactory = factory
         hasPublicFeed = true
+        installSharedShellIfNeeded()
         routeMenuButton.isHidden = true
         renderPendingRouteIfPossible()
-        if pendingRoute == nil { showFeed(postId: nil) }
+        if pendingRoute == nil {
+            showFeed(postId: nil)
+        } else if pendingRoute?.isAuthenticationRequired == true, let feedController = feedFactory?(nil) {
+            // A protected deep link can arrive before the public runtime and Auth factories are
+            // composed. Keep that destination pending, but make the public Feed (and its shell)
+            // visible rather than leaving the migration placeholder on screen.
+            showRouteController(feedController, route: .feed(postId: nil))
+        }
     }
 
     /// Installs the authenticated root route. Kept separate from dependency composition so the
@@ -946,7 +959,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         feedFactory = factory
         hasAuthenticatedSession = true
         hasPublicFeed = false
-        installPrimaryNavigationIfNeeded()
+        installSharedShellIfNeeded()
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
@@ -982,7 +995,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authenticationFactory = factory
         // On an unconfigured deployment this remains the honest initial state. With a valid
         // public Feed it is deferred until an anonymous user explicitly asks to log in.
-        if !hasPublicFeed { presentLoginIfAvailable() }
+        if !hasPublicFeed || pendingRoute?.isAuthenticationRequired == true {
+            presentLoginIfAvailable()
+        }
     }
 
     func presentLoginIfAvailable() {
@@ -1011,7 +1026,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         releaseHistoryFactory = fixture
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
-        installPrimaryNavigationIfNeeded()
+        installSharedShellIfNeeded()
     }
 
     /// The shared Feed can already expose its Conversations affordance, but the authenticated
@@ -1342,7 +1357,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         logoutAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
-        removePrimaryNavigation()
+        // The public application chrome is deliberately kept mounted while the composition
+        // rebuilds anonymous factories. Removing it first creates a visible full-screen gap and
+        // contradicts Android's shell contract for anonymous Feed browsing.
+        authenticatedTopChromeHost.updateNotificationCount(count: 0)
+        primaryNavigationHost.updateSelectedRoute(route: "feed")
+        showMigrationStatus()
         completion?()
     }
 
@@ -1352,7 +1372,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // The identifier belongs to the real Compose semantics node. Keeping a second UIKit
             // identifier here would make the UI test unable to distinguish content from wrapper.
             accessibilityIdentifier: nil,
-            accessibilityLabel: "Quata iOS requires an authenticated Feed session",
+            accessibilityLabel: "Quata iOS is preparing the public Feed",
         )
     }
 
@@ -1406,6 +1426,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        // Public Official/deep-link routes may be resolved before the Feed factory has been
+        // installed. They still belong to the application viewport and therefore get the same
+        // shared shell as Feed rather than becoming a full-screen UIKit exception.
+        installSharedShellIfNeeded()
         switch route {
         case .communities: primaryNavigationHost.updateSelectedRoute(route: "neighborhoods")
         case .chat: primaryNavigationHost.updateSelectedRoute(route: "conversations")
@@ -1478,7 +1502,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // seen or tapped after the first route transition.
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
-        if isPrimaryNavigationInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
+        if isSharedShellInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -1489,11 +1513,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.setNeedsLayout()
     }
 
-    private func installPrimaryNavigationIfNeeded() {
-        guard !isPrimaryNavigationInstalled else { return }
+    /// Installs the common visual shell for both public and authenticated application routes.
+    /// Authentication is a navigation capability, not a condition for rendering app chrome.
+    private func installSharedShellIfNeeded() {
+        guard !isSharedShellInstalled else { return }
         addChild(authenticatedTopChromeController)
         authenticatedTopChromeController.view.autoresizingMask = [.flexibleWidth, .flexibleBottomMargin]
         authenticatedTopChromeController.view.isAccessibilityElement = false
+        // Stable legacy automation identifier: this is now the shared public/authenticated
+        // shell chrome, but changing the externally observed identifier would break clients.
         authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
         view.addSubview(authenticatedTopChromeController.view)
         authenticatedTopChromeController.didMove(toParent: self)
@@ -1501,24 +1529,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         addChild(primaryNavigationController)
         primaryNavigationController.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
         primaryNavigationController.view.isAccessibilityElement = false
+        // Stable legacy automation identifier; see the top-chrome compatibility note above.
         primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
         view.addSubview(primaryNavigationController.view)
         primaryNavigationController.didMove(toParent: self)
-        isPrimaryNavigationInstalled = true
+        isSharedShellInstalled = true
         view.setNeedsLayout()
     }
 
-    private func removePrimaryNavigation() {
-        guard isPrimaryNavigationInstalled else { return }
-        authenticatedTopChromeController.willMove(toParent: nil)
-        authenticatedTopChromeController.view.removeFromSuperview()
-        authenticatedTopChromeController.removeFromParent()
-        isAuthenticatedTopChromeInstalled = false
-        primaryNavigationController.willMove(toParent: nil)
-        primaryNavigationController.view.removeFromSuperview()
-        primaryNavigationController.removeFromParent()
-        isPrimaryNavigationInstalled = false
-    }
 }
 
 /// One source of truth for UIKit containment frames. The route host owns exactly the viewport
