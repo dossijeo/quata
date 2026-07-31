@@ -13,12 +13,12 @@ import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.IosClipboardService
-import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
+import com.quata.feature.feed.presentation.IosRemoteAvatar
 import platform.UIKit.UIViewController
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 
@@ -82,9 +82,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         strings = spanishConversationsHostStrings(),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
-                        conversationAvatar = { conversation, _ -> QuataAvatarFallback(conversation.title.ifBlank { "Conversación" }, conversation.id, Modifier.size(46.dp)) },
-                        candidateAvatar = { candidate, modifier -> QuataAvatarFallback(candidate.displayName, candidate.profileId, modifier) },
-                        inviteAvatar = { contact, modifier -> QuataAvatarFallback(contact.displayName, contact.id, modifier) },
+                        conversationAvatar = { conversation, _ -> IosRemoteAvatar(conversation.title.ifBlank { "Conversación" }, conversation.id, conversation.avatarUrl, false, null, Modifier.size(46.dp)) },
+                        candidateAvatar = { candidate, modifier -> IosRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, modifier) },
+                        inviteAvatar = { contact, modifier -> IosRemoteAvatar(contact.displayName, contact.id, null, false, null, modifier) },
                         panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },
                         nowMillisProvider = { ((CFAbsoluteTimeGetCurrent() + 978_307_200.0) * 1000.0).toLong() },
                         modifier = listModifier,

@@ -25,7 +25,7 @@ import com.quata.core.ui.components.QuataLiveRankingItem
  */
 @Composable
 fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null, modifier: Modifier = Modifier.size(56.dp)) {
-    BrowserFeedAvatar(
+    BrowserRemoteAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
@@ -39,7 +39,7 @@ fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isO
 
 @Composable
 fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) {
-    BrowserFeedAvatar(
+    BrowserRemoteAvatar(
         name = item.avatarName,
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
@@ -49,8 +49,9 @@ fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = nu
     )
 }
 
+/** Shared Web remote-avatar adapter for all Compose feature slots. */
 @Composable
-private fun BrowserFeedAvatar(
+internal fun BrowserRemoteAvatar(
     name: String,
     profileId: String,
     avatarUrl: String?,

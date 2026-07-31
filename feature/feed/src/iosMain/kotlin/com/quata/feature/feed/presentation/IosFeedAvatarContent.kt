@@ -42,7 +42,7 @@ import platform.UIKit.UIViewContentMode
 /** iOS image boundary for Feed avatars; all shape, fallback and official UI stays common. */
 @Composable
 fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null) {
-    IosFeedAvatar(
+    IosRemoteAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
@@ -57,7 +57,7 @@ fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnlin
 
 @Composable
 fun IosFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) {
-    IosFeedAvatar(
+    IosRemoteAvatar(
         name = item.avatarName,
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
@@ -67,8 +67,9 @@ fun IosFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) 
     )
 }
 
+/** Shared iOS remote-avatar adapter for Compose feature slots. */
 @Composable
-private fun IosFeedAvatar(
+fun IosRemoteAvatar(
     name: String,
     profileId: String,
     avatarUrl: String?,

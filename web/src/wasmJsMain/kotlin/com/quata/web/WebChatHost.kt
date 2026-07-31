@@ -20,7 +20,6 @@ import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ClipboardService
-import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
@@ -78,9 +77,9 @@ fun WebChatHost(
                 clipboardService = clipboardService,
                 strings = spanishConversationsHostStrings(),
                 onOpenConversation = onOpenConversation,
-                conversationAvatar = { conversation, _ -> QuataAvatarFallback(conversation.title.ifBlank { "Conversación" }, conversation.id, Modifier.size(46.dp)) },
-                candidateAvatar = { candidate, avatarModifier -> QuataAvatarFallback(candidate.displayName, candidate.profileId, avatarModifier) },
-                inviteAvatar = { contact, avatarModifier -> QuataAvatarFallback(contact.displayName, contact.id, avatarModifier) },
+                conversationAvatar = { conversation, _ -> BrowserRemoteAvatar(conversation.title.ifBlank { "Conversación" }, conversation.id, conversation.avatarUrl, false, null, Modifier.size(46.dp)) },
+                candidateAvatar = { candidate, avatarModifier -> BrowserRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, avatarModifier) },
+                inviteAvatar = { contact, avatarModifier -> BrowserRemoteAvatar(contact.displayName, contact.id, null, false, null, avatarModifier) },
                 panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },
                 nowMillisProvider = ::webNowMillis,
                 modifier = listModifier,

@@ -23,7 +23,8 @@ kotlin {
             implementation(kotlin("test"))
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
+        // Reuse the established Compose/UIKit remote-avatar loader instead of a second native list.
+        iosMain.dependencies { implementation(project(":feature:feed")) }
         wasmJsMain.dependencies { }
     }
 }
