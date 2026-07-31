@@ -41,6 +41,7 @@ import com.quata.feature.chat.presentation.conversations.InviteChannelSheetConte
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrings
 import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.core.navigation.AppDestinations
 import kotlinx.coroutines.launch
@@ -176,19 +177,19 @@ private fun WebInviteChannelSheet(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val invitation = "Únete a Qüata: conecta, publica y conversa con tu comunidad."
+    val invitationStrings = conversationsLocaleCatalogForLanguage(webBrowserLanguage()).invitation
     InviteChannelSheetContent(
-        invitationMessage = invitation,
-        targets = listOf(InviteChannelTargetUi(id = "browser-share", label = "Compartir")),
+        invitationMessage = invitationStrings.message,
+        targets = listOf(InviteChannelTargetUi(id = "browser-share", label = invitationStrings.shareTarget)),
         strings = InviteChannelSheetStrings(
-            shareTextTitle = "Invitar a ${contact.displayName}",
-            copyMessage = "Copiar invitación",
-            chooseAppFor = "Elige cómo enviar la invitación",
+            shareTextTitle = invitationStrings.sheetTitle(contact.displayName),
+            copyMessage = invitationStrings.copyMessage,
+            chooseAppFor = invitationStrings.chooseAppFor(contact.displayName),
         ),
         clipboardService = clipboardService,
         onDismiss = onDismiss,
         onTargetSelected = {
-            scope.launch { shareService.share(SharePayload(text = invitation, title = "Qüata")) }
+            scope.launch { shareService.share(SharePayload(text = invitationStrings.message, title = invitationStrings.shareTitle)) }
             onDismiss()
         },
         panelHost = { content -> QuataFloatingPanelContent(onDismiss = onDismiss) { modifier, _ -> content(modifier) } },
