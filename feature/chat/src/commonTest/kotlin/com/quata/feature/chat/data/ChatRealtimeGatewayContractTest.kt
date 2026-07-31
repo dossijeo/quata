@@ -1,5 +1,7 @@
 package com.quata.feature.chat.data
 
+import com.quata.core.model.Conversation
+import com.quata.core.model.Message
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +51,24 @@ class ChatRealtimeGatewayContractTest {
         assertEquals(30_000L, chatRealtimeReconnectDelayMillis(6))
         assertEquals(30_000L, chatRealtimeReconnectDelayMillis(100))
     }
+
+    @Test
+    fun cleanupOnlyTargetsEmptyPrivateThreads() {
+        val private = conversation(isGroup = false, isEmergency = false)
+        assertTrue(shouldCleanupEmptyPrivateConversation(private, emptyList()))
+        assertFalse(shouldCleanupEmptyPrivateConversation(conversation(isGroup = true, isEmergency = false), emptyList()))
+        assertFalse(shouldCleanupEmptyPrivateConversation(conversation(isGroup = false, isEmergency = true), emptyList()))
+        assertFalse(shouldCleanupEmptyPrivateConversation(private, listOf(message())))
+    }
 }
+
+private fun conversation(isGroup: Boolean, isEmergency: Boolean) = Conversation(
+    id = "sb:7", title = "Chat", lastMessagePreview = "", isGroup = isGroup, isEmergency = isEmergency,
+)
+
+private fun message() = Message(
+    id = "1", conversationId = "sb:7", senderId = "p", senderName = "P", text = "hola", sentAt = "now",
+)
 
 private class RecordingGateway : ChatRealtimeGateway {
     override val isOnline = MutableStateFlow(false)

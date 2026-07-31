@@ -134,8 +134,24 @@ open class PostgrestChatRepository(
     override fun setAppForeground(isForeground: Boolean) { _isAppForeground.value = isForeground; realtimeGateway?.setForeground(isForeground) }
     override fun setTyping(conversationId: String, isTyping: Boolean) { realtimeGateway?.setTyping(conversationId, isTyping) }
     override fun cleanupEmptyConversation(conversationId: String) {
-        // This is best-effort lifecycle cleanup in Android too.  Keep the public contract
-        // synchronous while executing the same server operation from the next refresh.
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) return
+        val conversation = conversations.value.firstOrNull { it.id == conversationId }
+        if (!shouldCleanupEmptyPrivateConversation(conversation, messagesByConversation[conversationId]?.value.orEmpty())) return
+        scope.launch {
+            runCatching {
+                val userId = currentUserId()
+                val threadId = conversationId.requirePostgrestThreadId()
+                val payload = transport.post(
+                    "quata_chat_cleanup_empty_private_thread",
+                    threadActionRequest(userId, threadId),
+                ).successOrThrow()
+                val deleted = Json.parseToJsonElement(payload).jsonObject["deleted"]?.jsonPrimitive?.booleanOrNull == true
+                if (deleted) {
+                    messagesByConversation.remove(conversationId)
+                    conversations.value = conversations.value.filterNot { it.id == conversationId }
+                }
+            }.onFailure { updateReadFailure() }
+        }
     }
     override fun clearChatNotifications() = Unit
     override suspend fun getConversations(): Result<List<Conversation>> = refreshInbox()
@@ -445,6 +461,9 @@ open class PostgrestChatRepository(
     private fun mutedRequest(userId: String, threadId: Long, muted: Boolean) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_muted", muted) }.toString()
     private companion object { const val ConversationPrefix = "sb:"; const val InboxPageSize = 100; const val ThreadPageSize = 250; const val FavoritesPageSize = 250; const val CandidatePageSize = 100; const val DefaultPollIntervalMillis = 30_000L; const val MinimumPollIntervalMillis = 5_000L; const val ChatAttachmentsBucket = "chat-attachments" }
 }
+
+internal fun shouldCleanupEmptyPrivateConversation(conversation: Conversation?, messages: List<Message>): Boolean =
+    conversation?.isGroup != true && conversation?.isEmergency != true && messages.isEmpty()
 
 private fun ChatPostgrestResponse.successOrThrow(): String = when (this) {
     is ChatPostgrestResponse.Success -> body
