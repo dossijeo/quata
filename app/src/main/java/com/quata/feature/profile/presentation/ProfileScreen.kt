@@ -5,110 +5,58 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import com.quata.core.ui.components.CompactButtonContentPadding
-import com.quata.core.ui.components.CompactDropdownHeight
-import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import com.quata.core.ui.components.CompactTextFieldHeight
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataThemeMode
-import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.quataTheme
-import com.quata.core.session.SessionManager
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
-import com.quata.core.ui.components.PhoneInputSection
-import com.quata.core.ui.components.QuataDropdownField
-import com.quata.core.ui.components.QuataCameraDialog
-import com.quata.core.ui.components.QuataCameraMode
-import com.quata.core.ui.components.QuataSavingButton
-import com.quata.core.ui.components.QuataScreen
-import com.quata.core.ui.components.QuataTextField
-import com.quata.core.ui.components.compactButtonMinSize
+import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
-import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
-import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
+import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.core.ui.components.QuataCameraDialog
+import com.quata.core.ui.components.QuataCameraMode
 
-private enum class ProfileAccountPage {
-    Overview,
-    Details,
-    Management
-}
-
+/** Android owns only native media/resources. Account UI and state live in commonMain. */
 @Composable
 fun ProfileScreen(
     padding: PaddingValues,
@@ -124,344 +72,75 @@ fun ProfileScreen(
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     onProfileSaved: () -> Unit,
-    viewModel: ProfileAndroidViewModel = viewModel(factory = ProfileAndroidViewModel.Factory(repository))
+    @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
-    val template = quataTheme()
     val context = LocalContext.current
-    val state by viewModel.uiState.collectAsState()
-    var isEmergencyDialogOpen by rememberSaveable { mutableStateOf(false) }
-    var isPhotoMenuOpen by rememberSaveable { mutableStateOf(false) }
-    var accountPage by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
-    var isProfileCameraOpen by rememberSaveable { mutableStateOf(false) }
-    var pendingAvatarEditorUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedAvatarPreview by remember { mutableStateOf<AttachmentPreview?>(null) }
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        pendingAvatarEditorUri = uri
+    val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
+    var photoMenuOpen by rememberSaveable { mutableStateOf(false) }
+    var cameraOpen by rememberSaveable { mutableStateOf(false) }
+    var editorUri by remember { mutableStateOf<Uri?>(null) }
+    var preview by remember { mutableStateOf<AttachmentPreview?>(null) }
+    var avatarChanged by remember { mutableStateOf<((String?) -> Unit)?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { editorUri = it }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (context.hasCameraPermission()) cameraOpen = true
+        else Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
     }
-
-    fun launchProfilePhotoCapture() {
-        isProfileCameraOpen = true
-    }
-
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (context.hasCameraPermission()) {
-            launchProfilePhotoCapture()
-        } else {
-            Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    LaunchedEffect(networkReconnectToken) {
-        if (networkReconnectToken != 0L) {
-            viewModel.onEvent(ProfileUiEvent.Refresh)
-        }
-    }
-
-    LaunchedEffect(pendingAvatarEditorUri) {
-        onFullscreenEditorVisibilityChange(pendingAvatarEditorUri != null)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { onFullscreenEditorVisibilityChange(false) }
-    }
-
-    BackHandler(enabled = accountPage != ProfileAccountPage.Overview) {
-        accountPage = ProfileAccountPage.Overview
-    }
-
-    LaunchedEffect(state.successMessage) {
-        val message = state.successMessage ?: return@LaunchedEffect
-        val shouldNotifyProfileSaved = state.successMessageTriggersProfileSaved
-        val shouldCloseEmergencyDialog = state.emergencySettingsSaved
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        if (shouldCloseEmergencyDialog) {
-            isEmergencyDialogOpen = false
-        }
-        viewModel.onEvent(ProfileUiEvent.ClearMessages)
-        if (shouldNotifyProfileSaved) {
-            onProfileSaved()
-        }
-    }
-
-    LaunchedEffect(state.errorMessage) {
-        val message = state.errorMessage ?: return@LaunchedEffect
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        viewModel.onEvent(ProfileUiEvent.ClearMessages)
-    }
+    LaunchedEffect(editorUri) { onFullscreenEditorVisibilityChange(editorUri != null) }
+    DisposableEffect(Unit) { onDispose { onFullscreenEditorVisibilityChange(false) } }
 
     Box(Modifier.fillMaxSize()) {
-        QuataScreen(padding) {
-            val profile = state.profile
-            val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-            val accountScrollState = rememberScrollState(accountPage.ordinal)
-            if (state.isLoading || profile == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.profile_loading), color = template.colors.textSecondary)
-                }
-                return@QuataScreen
-            }
-
-            ProfilePageLayoutContent(
-                isLandscapeLayout = isLandscapeLayout,
-                scrollState = accountScrollState,
-                content = {
-                when (accountPage) {
-                    ProfileAccountPage.Overview -> {
-                    AppearanceSettingsSectionContent(
-                        touchFlowEnabled = touchFlowEnabled,
-                        themeMode = themeMode,
-                        strings = AppearanceSettingsStrings(
-                            touchFlow = stringResource(R.string.profile_touch_flow_setting),
-                            theme = stringResource(R.string.profile_theme_setting),
-                            system = stringResource(R.string.theme_mode_system),
-                            dark = stringResource(R.string.theme_mode_dark),
-                            light = stringResource(R.string.theme_mode_light),
-                        ),
-                        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
-                        onThemeModeChange = onThemeModeChange,
-                    )
-
-                    ProfileOverviewAccountCardContent(
-                        avatar = {
-                            val profileAvatarUri = profile.avatarUri?.trim()?.takeIf { it.isNotBlank() }
-                            AvatarImage(
-                                name = profile.displayName.ifBlank { "Q" },
-                                avatarUrl = profileAvatarUri,
-                                profileId = profileId,
-                                modifier = Modifier
-                                    .size(76.dp)
-                                    .clickable(enabled = profileAvatarUri != null) {
-                                        val avatarUri = profileAvatarUri ?: return@clickable
-                                        selectedAvatarPreview = AttachmentPreview(
-                                            name = profile.displayName.ifBlank { context.getString(R.string.profile_photo) },
-                                            uri = avatarUri,
-                                            mimeType = "image/jpeg"
-                                        )
-                                    }
-                            )
-                        },
-                        actions = {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(7.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { isPhotoMenuOpen = true },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .compactButtonMinSize(),
-                                    shape = RoundedCornerShape(9.dp),
-                                    contentPadding = CompactButtonContentPadding
-                                ) {
-                                    CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.profile_change_photo))
-                                }
-                                DropdownMenu(
-                                    expanded = isPhotoMenuOpen,
-                                    onDismissRequest = { isPhotoMenuOpen = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.profile_pick_gallery)) },
-                                        leadingIcon = { CompactIcon(Icons.Filled.PhotoLibrary, contentDescription = null) },
-                                        onClick = {
-                                            isPhotoMenuOpen = false
-                                            photoPicker.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                            )
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.profile_take_photo)) },
-                                        leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, contentDescription = null) },
-                                        onClick = {
-                                            isPhotoMenuOpen = false
-                                            if (context.hasCameraPermission()) {
-                                                launchProfilePhotoCapture()
-                                            } else {
-                                                cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
-                                            }
-                                        }
-                                    )
-                                }
-                                OutlinedButton(
-                                    onClick = { accountPage = ProfileAccountPage.Details },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .compactButtonMinSize(),
-                                    shape = RoundedCornerShape(9.dp),
-                                    contentPadding = CompactButtonContentPadding
-                                ) {
-                                    Text(stringResource(R.string.profile_my_data), fontWeight = FontWeight.ExtraBold)
-                                }
-                                OutlinedButton(
-                                    onClick = { accountPage = ProfileAccountPage.Management },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .compactButtonMinSize(),
-                                    shape = RoundedCornerShape(9.dp),
-                                    contentPadding = CompactButtonContentPadding
-                                ) {
-                                    Text(stringResource(R.string.profile_account_management), fontWeight = FontWeight.ExtraBold)
-                                }
-                            }
-                        }
-                    )
-
-                    EmergencyContactsSettingsActionContent(
-                        label = stringResource(R.string.profile_configure_emergency_contacts),
-                        selectedCount = profile.emergencyContactIds.size,
-                        onClick = { isEmergencyDialogOpen = true },
-                    )
-                    Spacer(Modifier.height(if (isLandscapeLayout) 2.dp else 10.dp))
-                    QuataSavingButton(
-                        isSaving = state.isSaving,
-                        savingText = stringResource(R.string.common_saving),
-                        actionText = stringResource(R.string.common_save_changes),
-                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            onLogout()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .compactButtonMinSize(),
-                        shape = RoundedCornerShape(9.dp),
-                        contentPadding = CompactButtonContentPadding
-                    ) {
-                        Text(stringResource(R.string.profile_logout), fontWeight = FontWeight.ExtraBold)
+        ProfileScreenHost(
+            repository = repository,
+            strings = androidProfileStrings(context),
+            touchFlowEnabled = touchFlowEnabled,
+            onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            onLogout = onLogout,
+            onDeactivateAccount = onDeactivateAccount,
+            onDeleteAccountData = onDeleteAccountData,
+            refreshKey = networkReconnectToken,
+            contentPadding = padding,
+            slots = ProfileScreenSlots(
+                isLandscapeLayout = { isLandscape },
+                avatar = { name, uri -> AvatarImage(
+                    name, uri, profileId = profileId,
+                    modifier = Modifier.size(76.dp).clickable(enabled = !uri.isNullOrBlank()) {
+                        preview = AttachmentPreview(name, uri ?: return@clickable, "image/jpeg")
+                    },
+                ) },
+                avatarActions = { change ->
+                    avatarChanged = change
+                    OutlinedButton(onClick = { photoMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                        CompactIcon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(4.dp)); Text(context.getString(R.string.profile_change_photo))
                     }
+                    DropdownMenu(photoMenuOpen, { photoMenuOpen = false }) {
+                        DropdownMenuItem(text = { Text(context.getString(R.string.profile_pick_gallery)) }, onClick = {
+                            photoMenuOpen = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        })
+                        DropdownMenuItem(text = { Text(context.getString(R.string.profile_take_photo)) }, onClick = {
+                            photoMenuOpen = false
+                            if (context.hasCameraPermission()) cameraOpen = true else permission.launch(arrayOf(Manifest.permission.CAMERA))
+                        })
                     }
-
-                    ProfileAccountPage.Details -> {
-                    ProfileDetailsFormContent(
-                        title = stringResource(R.string.profile_my_data),
-                        bottomSpacing = if (isLandscapeLayout) 2.dp else 10.dp,
-                        backAction = {
-                        CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
-                            CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                        }
-                        },
-                        fields = {
-                    QuataTextField(
-                        value = profile.displayName,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
-                        label = stringResource(R.string.auth_name)
-                    )
-                    QuataTextField(
-                        value = profile.neighborhood,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
-                        label = stringResource(R.string.profile_neighborhood)
-                    )
-                    PhoneInputSection(
-                        prefixes = state.countryPrefixes,
-                        selectedPrefix = profile.countryCode,
-                        onPrefixChange = { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) },
-                        phone = profile.phone,
-                        onPhoneChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
-                        phoneLabel = stringResource(R.string.profile_phone),
-                        searchPlaceholder = stringResource(R.string.profile_search_prefix)
-                    )
-                    QuataTextField(
-                        value = state.newPassword,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NewPasswordChanged(it)) },
-                        label = stringResource(R.string.profile_new_password),
-                        isPassword = true
-                    )
-                    QuataDropdownField(
-                        value = profile.selectedSecretQuestion,
-                        options = state.secretQuestions,
-                        optionLabel = { it.label },
-                        onSelected = { viewModel.onEvent(ProfileUiEvent.SecretQuestionChanged(it.value)) },
-                        displayText = state.secretQuestions.firstOrNull { it.value == profile.selectedSecretQuestion }?.label.orEmpty()
-                    )
-                    QuataTextField(
-                        value = state.newSecretAnswer,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(it)) },
-                        label = stringResource(R.string.profile_new_secret_answer)
-                    )
-                        },
-                        saveAction = {
-                    QuataSavingButton(
-                        isSaving = state.isSaving,
-                        savingText = stringResource(R.string.common_saving),
-                        actionText = stringResource(R.string.common_save_changes),
-                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) }
-                    )
-                        }
-                    )
-                    }
-
-                    ProfileAccountPage.Management -> {
-                    ProfileAccountManagementContent(
-                        title = stringResource(R.string.profile_account_management),
-                        description = stringResource(R.string.profile_account_management_description),
-                        descriptionColor = template.colors.textSecondary,
-                        actions = listOf(
-                            ProfileManagementAction(stringResource(R.string.legal_account_deletion), onDeactivateAccount),
-                            ProfileManagementAction(stringResource(R.string.legal_data_deletion), onDeleteAccountData)
-                        ),
-                        backButton = {
-                            CompactIconButton(onClick = { accountPage = ProfileAccountPage.Overview }) {
-                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                            }
-                        }
-                    )
-                    }
-                }
                 },
-            )
-        }
-
-        val profile = state.profile
-        if (isEmergencyDialogOpen && profile != null) {
-            EmergencyContactsDialog(
-                layoutPadding = padding,
-                candidates = state.emergencyCandidates,
-                selectedIds = profile.emergencyContactIds,
-                message = profile.emergencyMessage,
-                isSaving = state.isSaving,
-                onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
-                onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
-                onDismiss = { isEmergencyDialogOpen = false },
-                onSave = {
-                    viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
-                }
-            )
-        }
-        selectedAvatarPreview?.let { avatar ->
-            AttachmentViewerDialog(
-                attachment = avatar,
-                onDismiss = { selectedAvatarPreview = null }
-            )
-        }
-        pendingAvatarEditorUri?.let { avatarUri ->
-            QuataImageEditorDialog(
-                imageUri = avatarUri,
-                mode = QuataImageEditorMode.Avatar,
-                onDismiss = { pendingAvatarEditorUri = null },
-                onEdited = { editedUri ->
-                    pendingAvatarEditorUri = null
-                    viewModel.onEvent(ProfileUiEvent.AvatarChanged(editedUri.toString()))
-                }
-            )
-        }
-        if (isProfileCameraOpen) {
-            QuataCameraDialog(
-                mode = QuataCameraMode.Photo,
-                onDismiss = { isProfileCameraOpen = false },
-                onPhotoCaptured = { uri, _, _ ->
-                    isProfileCameraOpen = false
-                    pendingAvatarEditorUri = uri
-                }
-            )
-        }
+                emergencyContactRow = { user, selected, toggle -> EmergencyUserRowContent(
+                    user, selected, context.getString(R.string.common_add), context.getString(R.string.common_remove),
+                    avatar = { AvatarImage(user.displayName, null, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
+                ) },
+                onProfileSaved = onProfileSaved,
+            ),
+        )
+        preview?.let { AttachmentViewerDialog(it) { preview = null } }
+        editorUri?.let { uri -> QuataImageEditorDialog(uri, onDismiss = { editorUri = null }, onEdited = {
+            editorUri = null; avatarChanged?.invoke(it.toString())
+        }, mode = QuataImageEditorMode.Avatar) }
+        if (cameraOpen) QuataCameraDialog(QuataCameraMode.Photo, onDismiss = { cameraOpen = false }, onPhotoCaptured = { uri, _, _ -> cameraOpen = false; editorUri = uri })
     }
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun EmergencyContactsDialog(
     layoutPadding: PaddingValues = PaddingValues(),
     candidates: List<EmergencyContactCandidate>,
@@ -471,80 +150,32 @@ fun EmergencyContactsDialog(
     onMessageChange: (String) -> Unit,
     onToggleContact: (EmergencyContactCandidate) -> Unit,
     onDismiss: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
 ) {
-    val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
+    val context = LocalContext.current
+    val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
-    BackHandler(enabled = true, onBack = onDismiss)
+    BackHandler(true, onDismiss)
     EmergencyContactsDialogContent(
-        layoutPadding = layoutPadding,
-        isLandscapeLayout = isLandscapeLayout,
-        isImeVisible = imeBottom > 0,
-        candidates = candidates,
-        selectedIds = selectedIds,
-        message = message,
-        isSaving = isSaving,
-        strings = EmergencyContactsEditorStrings(
-            header = EmergencyContactsHeaderStrings(
-                back = stringResource(R.string.common_back),
-                sos = stringResource(R.string.common_sos),
-                title = stringResource(R.string.emergency_contacts_title),
-                description = stringResource(R.string.emergency_contacts_description),
-                contactsTab = stringResource(R.string.emergency_contacts_tab),
-                messageTab = stringResource(R.string.emergency_message_tab),
-            ),
-            selectedCount = { count -> stringResource(R.string.emergency_selected_count, count) },
-            networkUsers = stringResource(R.string.emergency_network_users),
-            searchPlaceholder = stringResource(R.string.emergency_search_placeholder),
-            messageTitle = stringResource(R.string.emergency_message_title),
-            messageHint = stringResource(R.string.emergency_message_hint),
-            savePortrait = stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts),
-            saveLandscape = stringResource(if (isSaving) R.string.common_saving else R.string.emergency_save_contacts_short),
-        ),
-        onMessageChange = onMessageChange,
-        onToggleContact = onToggleContact,
-        onDismiss = onDismiss,
-        onSave = onSave,
-        slots = EmergencyContactsDialogSlots(
-            contactRow = { user, selected, onToggle ->
-                EmergencyUserRow(user = user, selected = selected, onToggle = onToggle)
-            },
-            messageInput = { modifier, value, onValueChange, minLines, maxLines ->
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    minLines = minLines,
-                    maxLines = maxLines ?: Int.MAX_VALUE,
-                    modifier = modifier,
-                    shape = RoundedCornerShape(18.dp),
-                )
-            },
+        layoutPadding, isLandscape, imeBottom > 0, candidates, selectedIds, message, isSaving,
+        androidProfileStrings(context).emergency,
+        onMessageChange, onToggleContact, onDismiss, onSave,
+        EmergencyContactsDialogSlots(
+            contactRow = { user, selected, toggle -> EmergencyUserRowContent(
+                user, selected, stringResource(R.string.common_add), stringResource(R.string.common_remove),
+                avatar = { AvatarImage(user.displayName, null, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
+            ) },
+            messageInput = { modifier, value, change, minLines, maxLines -> OutlinedTextField(
+                value, change, modifier = modifier, minLines = minLines, maxLines = maxLines ?: Int.MAX_VALUE, shape = RoundedCornerShape(18.dp),
+            ) },
         ),
     )
 }
 
-@Composable
-private fun EmergencyUserRow(
-    user: EmergencyContactCandidate,
-    selected: Boolean,
-    onToggle: () -> Unit
-) {
-    EmergencyUserRowContent(
-        user = user,
-        selected = selected,
-        addLabel = stringResource(R.string.common_add),
-        removeLabel = stringResource(R.string.common_remove),
-        avatar = {
-            AvatarImage(
-                name = user.displayName,
-                avatarUrl = null,
-                profileId = user.id,
-                modifier = Modifier.size(46.dp)
-            )
-        },
-        onToggle = onToggle
-    )
-}
+private fun Context.hasCameraPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-private fun Context.hasCameraPermission(): Boolean =
-    ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
+    context.getString(R.string.profile_loading), context.getString(R.string.profile_my_data), context.getString(R.string.profile_account_management), context.getString(R.string.profile_account_management_description), context.getString(R.string.profile_configure_emergency_contacts), context.getString(R.string.common_save_changes), context.getString(R.string.common_saving), context.getString(R.string.profile_logout), context.getString(R.string.auth_name), context.getString(R.string.profile_neighborhood), context.getString(R.string.profile_phone), context.getString(R.string.profile_new_secret_answer), context.getString(R.string.profile_new_secret_answer), context.getString(R.string.common_back), context.getString(R.string.legal_account_deletion), context.getString(R.string.legal_data_deletion), context.getString(R.string.profile_account_management_description), context.getString(R.string.common_save_changes), context.getString(R.string.common_back),
+    AppearanceSettingsStrings(context.getString(R.string.profile_touch_flow_setting), context.getString(R.string.profile_theme_setting), context.getString(R.string.theme_mode_system), context.getString(R.string.theme_mode_dark), context.getString(R.string.theme_mode_light)),
+    EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings(context.getString(R.string.common_back), context.getString(R.string.common_sos), context.getString(R.string.emergency_contacts_title), context.getString(R.string.emergency_contacts_description), context.getString(R.string.emergency_contacts_tab), context.getString(R.string.emergency_message_tab)), { context.getString(R.string.emergency_selected_count, it) }, context.getString(R.string.emergency_network_users), context.getString(R.string.emergency_search_placeholder), context.getString(R.string.emergency_message_title), context.getString(R.string.emergency_message_hint), context.getString(R.string.emergency_save_contacts), context.getString(R.string.emergency_save_contacts_short)),
+)

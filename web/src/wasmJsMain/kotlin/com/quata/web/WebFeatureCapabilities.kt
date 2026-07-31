@@ -22,10 +22,8 @@ import com.quata.core.capability.StaticFeatureCapabilityRegistry
 import com.quata.core.ui.components.QuataCard
 
 /**
- * Browser evidence manifest. Most remote capability is configuration-driven, while Profile/SOS
- * deliberately falls back to an explicitly local draft until a real authenticated session is
- * available. The profile gateway must never be advertised as remote merely because a public
- * endpoint is configured.
+ * Browser evidence manifest. Profile/SOS is remote only with a real authenticated session; an
+ * unconfigured session is unavailable rather than a local product draft.
  */
 fun webFeatureCapabilityRegistry(
     configuration: WebRuntimeConfiguration,
@@ -34,7 +32,7 @@ fun webFeatureCapabilityRegistry(
     val remoteRead = configuration.isBackendConfigured
     val remoteOrigin = if (remoteRead) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     val remoteProfile = remoteRead && hasAuthenticatedSession
-    val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local
+    val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     fun capability(
         source: CapabilityStateOrigin = remoteOrigin,
         mutation: CapabilityStateOrigin = CapabilityStateOrigin.Unsupported,
@@ -58,14 +56,13 @@ fun webFeatureCapabilityRegistry(
                 QuataFeature.Auth to capability(mutation = remoteOrigin),
                 QuataFeature.Feed to capability(),
                 QuataFeature.Chat to capability(mutation = remoteOrigin),
-                // The Web Profile repository selects PostgREST only when both public runtime
-                // metadata and an authenticated session exist; otherwise its local draft is
-                // intentionally visible and labelled as such.
+                // Cuenta has no preference-backed fallback: signed-in sessions use remote
+                // PostgREST/bridge mutations and missing configuration remains unavailable.
                 QuataFeature.Profile to capability(
                     source = profileOrigin,
-                    // Profile writes are explicitly local OfflineDrafts until Web RLS/E2E
-                    // evidence exists; do not hide that usable local capability as unsupported.
-                    mutation = CapabilityStateOrigin.Local,
+                    // The code path is actor-scoped, but it is not marked real until the
+                    // versioned edge action and reversible authenticated E2E are deployed.
+                    mutation = CapabilityStateOrigin.Unsupported,
                     backend = remoteProfile,
                 ),
                 QuataFeature.Communities to capability(),

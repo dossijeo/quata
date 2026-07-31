@@ -589,33 +589,15 @@ private final class IosAppCompositionRoot {
 
     private func installAuthenticatedProfileSosIfAvailable() {
         guard let profileSosRuntimeBootstrap else { return }
-        let services = platformServices.services
         authenticatedHost.installProfileSosFactory { [weak self] in
-            let dependencies = profileSosRuntimeBootstrap.hostDependencies(
-                contacts: services.contacts,
-                permissions: services.permissions,
-                // ContactsUI returns real device contacts, but Profile currently accepts Quata
-                // profile IDs only. Do not turn phone numbers into persistence identifiers.
-                onContactsPicked: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.selectedDeviceContactsNotMatched(languageTag: Locale.current.identifier)
-                    )
-                },
-                onContactPickerResult: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.contactsPickerUnavailable(languageTag: Locale.current.identifier)
-                    )
-                },
-                onContactsPermissionResult: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.contactsPermissionNotGranted(languageTag: Locale.current.identifier)
-                    )
-                },
-                onClose: { [weak self] in
-                    self?.authenticatedHost.showFeed(postId: nil)
-                },
+            // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
+            // it is not a substitute route for Profile on iOS.
+            let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
+                onLogout: { [weak self] in self?.authenticatedHost.performLogout() },
+                onDeactivateAccount: { [weak self] in self?.presentAccountMutationUnavailableNotice() },
+                onDeleteAccountData: { [weak self] in self?.presentAccountMutationUnavailableNotice() },
             )
-            return IosProfileSosHostKt.QuataProfileSosViewController(dependencies: dependencies)
+            return IosProfileHostKt.QuataProfileViewController(dependencies: dependencies)
         }
     }
 
@@ -724,6 +706,20 @@ private final class IosAppCompositionRoot {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_profile_sos_capability_title", value: "SOS contacts", comment: ""),
             message: message,
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))
+        authenticatedHost.present(alert, animated: true)
+    }
+
+    private func presentAccountMutationUnavailableNotice() {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_profile_account_mutation_title", value: "Account management", comment: ""),
+            message: NSLocalizedString(
+                "ios_profile_account_mutation_message",
+                value: "This account operation is not available until its server contract is verified. No account data has been changed.",
+                comment: "",
+            ),
             preferredStyle: .alert,
         )
         alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))

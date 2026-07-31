@@ -6,7 +6,6 @@ sealed class ProfileUiEvent {
     data class NeighborhoodChanged(val value: String) : ProfileUiEvent()
     data class CountryCodeChanged(val value: String) : ProfileUiEvent()
     data class PhoneChanged(val value: String) : ProfileUiEvent()
-    data class NewPasswordChanged(val value: String) : ProfileUiEvent()
     data class SecretQuestionChanged(val value: String) : ProfileUiEvent()
     data class SecretAnswerChanged(val value: String) : ProfileUiEvent()
     data class EmergencyMessageChanged(val value: String) : ProfileUiEvent()

@@ -17,23 +17,79 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonPrimitive
 
 class WebProfilePersistenceTest {
     @Test
-    fun selectsRemoteReadOnlyForConfiguredAuthenticatedSession() {
+    fun selectsRemoteOnlyForConfiguredAuthenticatedSession() {
         assertEquals(
             WebProfilePersistenceMode.Remote,
             webProfilePersistenceMode(hasRemoteRepository = true, hasConfiguredAuthenticatedSession = true),
         )
         assertEquals(
-            WebProfilePersistenceMode.OfflineDraft,
+            WebProfilePersistenceMode.Unavailable,
             webProfilePersistenceMode(hasRemoteRepository = true, hasConfiguredAuthenticatedSession = false),
         )
         assertEquals(
-            WebProfilePersistenceMode.OfflineDraft,
+            WebProfilePersistenceMode.Unavailable,
             webProfilePersistenceMode(hasRemoteRepository = false, hasConfiguredAuthenticatedSession = true),
         )
+    }
+
+    @Test
+    fun unavailableRuntimeDoesNotTouchTheConstructedRemoteRepository() = runTest {
+        val gateway = RecordingGateway()
+        val repository = WebProfileRepository(
+            preferences = RecordingPreferences(),
+            contactPicker = UnsupportedContactPicker,
+            remoteGateway = gateway,
+            remoteSessionProvider = FixedSessionProvider,
+            remoteAvailable = { false },
+        )
+
+        val result = repository.getProfileEditModel()
+
+        assertTrue(result.isFailure)
+        assertEquals("web_profile_remote_session_unavailable", result.exceptionOrNull()?.message)
+        assertTrue(gateway.getRequests.isEmpty())
+    }
+
+    @Test
+    fun mutationActorGateOnlyAcceptsTheAuthenticatedProfile() {
+        assertEquals("profile-1", requireWebProfileActor("profile-1", "profile-1"))
+        val mismatch = runCatching { requireWebProfileActor("profile-1", "profile-2") }.exceptionOrNull()
+        assertEquals("web_profile_actor_mismatch", mismatch?.message)
+    }
+
+    @Test
+    fun profileMutationHttpFailureNeverLooksLikeSuccess() {
+        val failure = runCatching {
+            WebPostgrestResult.Failure(WebPostgrestFailureKind.RlsDenied, "denied", 403)
+                .requireProfileMutationSuccess("patch")
+        }.exceptionOrNull()
+        assertEquals("web_profile_patch_rlsdenied_403", failure?.message)
+    }
+
+    @Test
+    fun recoverySecretRequestCarriesTheRequiredVersionAndAction() {
+        val request = webRecoverySecretRequest("  mascota ", "Luna")
+        assertEquals(1, request.getValue("version").jsonPrimitive.int)
+        assertEquals("update_recovery_secret", request.getValue("action").jsonPrimitive.content)
+        assertEquals("mascota", request.getValue("secret_question").jsonPrimitive.content)
+        assertEquals("Luna", request.getValue("secret_answer").jsonPrimitive.content)
+    }
+
+    @Test
+    fun existingRemoteAvatarPassesThroughButANewLocalReferenceFailsClosed() {
+        assertEquals("https://cdn.example/avatar.jpg", webProfileAvatarUploadReference(" https://cdn.example/avatar.jpg "))
+        assertEquals(null, webProfileAvatarUploadReference("  "))
+        val failure = assertFailsWith<UnsupportedOperationException> {
+            webProfileAvatarUploadReference("blob:browser-avatar")
+        }
+        assertEquals("web_profile_avatar_upload_not_available", failure.message)
     }
 
     @Test
@@ -59,7 +115,7 @@ class WebProfilePersistenceTest {
     }
 
     @Test
-    fun authenticatedGetFailureDoesNotFallBackToOfflineDraft() = runTest {
+    fun authenticatedGetFailureDoesNotFallBackToAProductDraft() = runTest {
         val preferences = RecordingPreferences().also { it.values["web.profile.display_name"] = "Borrador" }
         val repository = WebProfileRepository(
             preferences = preferences,
@@ -78,7 +134,7 @@ class WebProfilePersistenceTest {
     }
 
     @Test
-    fun authenticatedMutationsFailClosedWithoutPatchPostDeleteOrLocalWrites() = runTest {
+    fun authenticatedMutationsUseRemoteGatewayAndNeverWriteLocalDraft() = runTest {
         val gateway = RecordingGateway()
         val preferences = RecordingPreferences()
         val repository = WebProfileRepository(
@@ -106,9 +162,9 @@ class WebProfilePersistenceTest {
         )
         val sosResult = repository.saveEmergencySettings(listOf("sos-1"), "Ayuda", false)
 
-        assertEquals("web_profile_mutation_contract_unverified", profileResult.exceptionOrNull()?.message)
-        assertEquals("web_profile_mutation_contract_unverified", sosResult.exceptionOrNull()?.message)
-        assertFalse(gateway.mutationAttempted)
+        assertTrue(profileResult.isSuccess)
+        assertTrue(sosResult.isSuccess)
+        assertTrue(gateway.mutationAttempted)
         assertTrue(preferences.writes.isEmpty())
     }
 

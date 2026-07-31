@@ -160,7 +160,7 @@ private fun QuataWebApp(
         WebProfileRepository(
             preferences = platformServices.preferences,
             contactPicker = platformServices.contacts,
-            remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository)),
+            remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository), authRepository),
             remoteSessionProvider = WebProfileSessionProvider(authRepository),
             remoteAvailable = {
                 runtimeConfiguration.supabaseUrl?.isNotBlank() == true &&
@@ -489,6 +489,10 @@ private fun QuataWebApp(
                             onLogout = {
                                 completeLogout()
                             },
+                            // Settings owns the verified password-confirmation lifecycle flow.
+                            // Cuenta performs its first confirmation, then hands off there.
+                            onDeactivateAccount = { navigation.navigate("settings") },
+                            onDeleteAccountData = { navigation.navigate("settings") },
                         )
                     }
                 } else if (navigation.route == "composer") {

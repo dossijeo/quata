@@ -48,6 +48,7 @@ class AndroidProfileRemoteGateway(
     override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) =
         authApi.updateRecoverySecretWithAuthBridge(profileId, secretQuestion, secretAnswer)
 
+
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) =
         source.saveEmergencyContacts(profileId, contactIds)
 }

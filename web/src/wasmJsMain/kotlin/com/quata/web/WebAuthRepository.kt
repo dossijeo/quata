@@ -168,6 +168,24 @@ class WebAuthRepository(
         Unit
     }
 
+    /** Authenticated counterpart of Android's updateRecoverySecretWithAuthBridge. */
+    suspend fun updateRecoverySecret(secretQuestion: String, secretAnswer: String): Result<Unit> = runCatching {
+        require(secretQuestion.isNotBlank()) { "web_auth_secret_question_required" }
+        require(secretAnswer.isNotBlank()) { "web_auth_secret_answer_required" }
+        val session = sessionForAuthenticatedRequest() ?: error("web_auth_session_required")
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val response = webPostJson(
+            endpoint = configuration.authBridgeEndpoint(),
+            apiKey = apiKey,
+            accessToken = session.accessToken,
+            body = webRecoverySecretRequest(secretQuestion, secretAnswer).toString(),
+        )
+        check(Json.parseToJsonElement(response).jsonObject["ok"]?.jsonPrimitive?.booleanOrNull == true) {
+            "web_profile_recovery_secret_update_failed"
+        }
+    }
+
+
     override suspend fun deactivateAccount(password: String): Result<Unit> =
         performAccountLifecycle(action = "deactivate", password = password)
 
@@ -260,6 +278,13 @@ class WebAuthRepository(
 
 private const val PendingRegistrationIdentity = "web.auth.registration.identity"
 private const val PendingRegistrationKey = "web.auth.registration.idempotency_key"
+
+internal fun webRecoverySecretRequest(secretQuestion: String, secretAnswer: String): JsonObject = buildJsonObject {
+    put("version", 1)
+    put("action", "update_recovery_secret")
+    put("secret_question", secretQuestion.trim())
+    put("secret_answer", secretAnswer)
+}
 
 data class WebPushCredentials(
     val accessToken: String,

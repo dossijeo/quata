@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 
 class KmpProfileRepositoryTest {
     @Test
@@ -59,5 +60,14 @@ class KmpProfileRepositoryTest {
             listOf("a", "b", "c", "d", "e"),
             normalizeEmergencyContactIds(listOf(" a ", "", "a", "b", "c", "d", "e", "f"))
         )
+    }
+
+    @Test
+    fun `profile password cannot report success without an atomic bridge contract`() {
+        val failure = assertFailsWith<IllegalArgumentException> {
+            requireProfilePasswordUpdateSupported("NewPassword7")
+        }
+        assertEquals("profile_password_update_unavailable", failure.message)
+        requireProfilePasswordUpdateSupported("")
     }
 }

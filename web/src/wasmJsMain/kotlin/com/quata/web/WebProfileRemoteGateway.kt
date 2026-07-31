@@ -7,10 +7,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Authenticated browser transport for Profile's portable repository.
@@ -20,13 +23,13 @@ import kotlinx.serialization.json.jsonPrimitive
  * subscription. A future realtime adapter can replace these flows without changing Profile's
  * common contract.
  *
- * This gateway is deliberately read-only. The deployed Web contract has not proved a safe
- * profile/SOS write path yet, so accepting a mutation here could produce an incorrect success
- * state or change data governed by legacy RLS policies. Callers receive a stable, explicit
- * failure before any PATCH/POST/DELETE request can be constructed.
+ * Mutations reuse Android's deployed actor-scoped profile, recovery-secret and SOS contracts.
+ * The gateway checks that the requested profile equals the renewed Web session identity before it
+ * emits a PATCH/POST/DELETE request; HTTP failures remain failures to the shared ViewModel.
  */
 class WebProfileRemoteGateway(
     private val client: WebPostgrestClient,
+    private val authRepository: WebAuthRepository,
 ) : ProfileRemoteGateway {
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? {
         requireProfileId(profileId)
@@ -71,21 +74,46 @@ class WebProfileRemoteGateway(
             .take(MaxEmergencyContacts)
     }
 
-    override suspend fun saveProfile(profileId: String, @Suppress("UNUSED_PARAMETER") patch: Map<String, String?>): Nothing =
-        webProfileMutationContractUnverified(profileId)
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        val allowed = patch.filterKeys { it in ProfileWritableColumns }
+        require(allowed.isNotEmpty()) { "web_profile_patch_empty" }
+        client.patch(
+            table = ProfilesTable,
+            query = mapOf("id" to "eq.$profileId"),
+            body = allowed.toPostgrestProfileJson(),
+        ).requireProfileMutationSuccess("patch")
+    }
 
     override suspend fun saveRecoverySecret(
         profileId: String,
         @Suppress("UNUSED_PARAMETER") secretQuestion: String,
         @Suppress("UNUSED_PARAMETER") secretAnswer: String,
-    ): Nothing =
-        webProfileMutationContractUnverified(profileId)
+    ) {
+        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        authRepository.updateRecoverySecret(secretQuestion, secretAnswer).getOrElse { throw it }
+    }
+
 
     override suspend fun saveEmergencyContacts(
         profileId: String,
-        @Suppress("UNUSED_PARAMETER") contactIds: List<String>,
-    ): Nothing =
-        webProfileMutationContractUnverified(profileId)
+        contactIds: List<String>,
+    ) {
+        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        val normalized = contactIds.map { it.requireProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
+        client.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId"))
+            .requireProfileMutationSuccess("delete_contacts")
+        if (normalized.isNotEmpty()) {
+            val body = normalized.mapIndexed { index, contactId ->
+                buildJsonObject {
+                    put("profile_id", profileId)
+                    put("contact_profile_id", contactId)
+                    put("position", index + 1)
+                }
+            }.joinToString(prefix = "[", postfix = "]")
+            client.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
+        }
+    }
 
     private suspend fun loadProfiles(
         ids: Collection<String>? = null,
@@ -118,12 +146,22 @@ class WebProfileRemoteGateway(
         const val MaxEmergencyContacts = 5
         const val ProfileSelect =
             "id,display_name,nombre,neighborhood,barrio,country_code,code,phone_local,phone_e164,phone,telefono,avatar_url,avatar,secret_question"
+        val ProfileWritableColumns = setOf(
+            "display_name", "nombre", "neighborhood", "barrio", "country_code", "code",
+            "phone_local", "phone", "telefono", "avatar_url",
+        )
     }
 }
 
-internal fun webProfileMutationContractUnverified(profileId: String): Nothing {
-    requireProfileId(profileId)
-    throw IllegalStateException("web_profile_mutation_contract_unverified")
+private fun Map<String, String?>.toPostgrestProfileJson(): String = buildJsonObject {
+    forEach { (key, value) -> if (value == null) put(key, JsonNull) else put(key, value) }
+}.toString()
+
+internal fun WebPostgrestResult.requireProfileMutationSuccess(operation: String) {
+    when (this) {
+        is WebPostgrestResult.Success -> Unit
+        is WebPostgrestResult.Failure -> throw IllegalStateException("web_profile_${operation}_${kind.name.lowercase()}_${statusCode ?: "network"}")
+    }
 }
 
 private val WebProfileIdentifier = Regex("[A-Za-z0-9_-]+")
@@ -133,6 +171,13 @@ private fun Collection<String>.toPostgrestInFilter(): String =
 
 private fun requireProfileId(value: String) {
     value.requireProfileIdentifier()
+}
+
+/** Pure gate: a browser session may only mutate its own profile row. */
+internal fun requireWebProfileActor(profileId: String, sessionProfileId: String?): String {
+    val normalized = profileId.requireProfileIdentifier()
+    check(sessionProfileId?.requireProfileIdentifier() == normalized) { "web_profile_actor_mismatch" }
+    return normalized
 }
 
 private fun String.requireProfileIdentifier(): String {

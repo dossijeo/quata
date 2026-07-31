@@ -12,7 +12,6 @@ data class ProfileUiState(
     val countryPrefixes: List<CountryPrefix> = emptyList(),
     val secretQuestions: List<SecretQuestionOption> = emptyList(),
     val emergencyCandidates: List<EmergencyContactCandidate> = emptyList(),
-    val newPassword: String = "",
     val newSecretAnswer: String = "",
     val errorMessage: String? = null,
     val successMessage: String? = null,

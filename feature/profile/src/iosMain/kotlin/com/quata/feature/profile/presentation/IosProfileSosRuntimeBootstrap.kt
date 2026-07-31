@@ -23,9 +23,9 @@ import platform.Foundation.NSUserDefaults
 /**
  * Authenticated iOS composition for the portable Profile/SOS surface.
  *
- * The existing Keychain session and URLSession/PostgREST gateway are reused. Profile writes and
- * avatar uploads remain deliberately unsupported until their iOS RLS/storage contracts have E2E
- * evidence; the shared ViewModel exposes that failure instead of persisting a false local success.
+ * The existing Keychain session and URLSession/PostgREST gateway are reused. Actor-scoped profile
+ * and SOS writes use their deployed contracts; selecting a new avatar remains disabled until an
+ * iOS storage upload contract has E2E evidence.
  */
 class IosProfileSosRuntimeBootstrap(
     configuration: IosProfileRuntimeConfiguration,
@@ -69,6 +69,18 @@ class IosProfileSosRuntimeBootstrap(
         onClose = onClose,
     )
 
+    /** Factory for the full Cuenta route; callers no longer route Cuenta to SOS only. */
+    fun profileHostDependencies(
+        onLogout: () -> Unit,
+        onDeactivateAccount: () -> Unit,
+        onDeleteAccountData: () -> Unit,
+    ): IosProfileHostDependencies = IosProfileHostDependencies(
+        repository = repository,
+        onLogout = onLogout,
+        onDeactivateAccount = onDeactivateAccount,
+        onDeleteAccountData = onDeleteAccountData,
+    )
+
     /**
      * Uses the same authenticated transport and Keychain-backed identity as Profile/SOS, but
      * exposes only the dedicated read-only member projection. The launcher must not substitute
@@ -98,16 +110,22 @@ private class IosProfileSessionAdapter(
         ?.let { ProfileSession(profileId = it.userId, displayName = it.displayName) }
 
     override fun updateDisplayName(session: ProfileSession, displayName: String) {
-        // The remote profile mutation is currently unsupported on iOS. Do not rewrite Keychain
-        // identity optimistically; a future verified mutation path may update it after success.
+        // The authoritative display name is read from the remote profile. Do not rewrite the
+        // Keychain identity projection optimistically after an unrelated local failure.
     }
 }
 
 private object IosUnsupportedProfileAvatarUploader : ProfileAvatarUploader {
-    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? {
-        if (avatarUri.isNullOrBlank()) return null
-        throw UnsupportedOperationException("ios_profile_avatar_upload_not_verified")
-    }
+    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? =
+        iosProfileAvatarUploadReference(avatarUri)
+}
+
+internal fun iosProfileAvatarUploadReference(avatarUri: String?): String? {
+    val normalized = avatarUri?.trim()?.takeIf(String::isNotBlank) ?: return null
+    // Preserve an existing server URL during unrelated edits. Only a new device-local URI
+    // requires the unavailable upload boundary.
+    if (normalized.startsWith("https://") || normalized.startsWith("http://")) return normalized
+    throw UnsupportedOperationException("ios_profile_avatar_upload_not_verified")
 }
 
 private class IosProfileEmergencyMessageDefaults(
@@ -149,7 +167,7 @@ private object IosProfilePresentationCatalog : ProfilePresentationCatalog {
     override fun emergencyContactsSavedMessage(): String = "SOS contacts saved"
 }
 
-private val IosEmergencyContactsEditorStrings = EmergencyContactsEditorStrings(
+internal val IosEmergencyContactsEditorStrings = EmergencyContactsEditorStrings(
     header = EmergencyContactsHeaderStrings(
         back = "Back",
         sos = "SOS",

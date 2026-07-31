@@ -81,6 +81,9 @@ class KmpProfileRepository(
     }
 
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = runCatching {
+        // Validate before any upload or remote mutation: a rejected password request must not
+        // leave the remaining profile fields partially persisted.
+        requireProfilePasswordUpdateSupported(update.newPassword)
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
@@ -174,6 +177,10 @@ class KmpProfileRepository(
 
 internal fun normalizeEmergencyContactIds(contactIds: List<String>): List<String> =
     contactIds.map { it.trim() }.filter { it.isNotBlank() }.distinct().take(MaxEmergencyContacts)
+
+internal fun requireProfilePasswordUpdateSupported(newPassword: String) {
+    require(newPassword.isBlank()) { "profile_password_update_unavailable" }
+}
 
 internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
     put("display_name", displayName)

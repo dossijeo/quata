@@ -17,11 +17,15 @@ import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
+import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.setHTTPBody
+import platform.Foundation.setHTTPMethod
+import platform.Foundation.setValue
 import platform.darwin.NSObject
 
 /** Client-safe deployment settings for Profile's iOS PostgREST boundary. */
@@ -51,7 +55,7 @@ class IosProfileKeychainSessionProvider(
 }
 
 /**
- * Authenticated, read-only PostgREST adapter for the shared Profile repository.
+ * Authenticated PostgREST adapter for the shared Profile repository.
  *
  * The request session is obtained from the existing renewable Keychain-backed owner for every
  * snapshot. The `observe*` methods intentionally emit one network snapshot and finish: Profile
@@ -123,11 +127,35 @@ class IosProfilePostgrestGateway(
             .take(MaxEmergencyContacts)
     }
 
-    override suspend fun saveProfile(@Suppress("UNUSED_PARAMETER") profileId: String, @Suppress("UNUSED_PARAMETER") patch: Map<String, String?>): Nothing =
-        throw UnsupportedOperationException("ios_profile_mutations_not_verified")
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
+        val allowed = patch.filterKeys { it in IosProfileWritableColumns }
+        require(allowed.isNotEmpty()) { "ios_profile_patch_empty" }
+        mutate(
+            table = CommunityProfilesTable,
+            method = "PATCH",
+            query = mapOf("id" to "eq.$profileId"),
+            body = allowed.toIosProfileJson(),
+        )
+    }
 
-    override suspend fun saveEmergencyContacts(@Suppress("UNUSED_PARAMETER") profileId: String, @Suppress("UNUSED_PARAMETER") contactIds: List<String>): Nothing =
-        throw UnsupportedOperationException("ios_profile_emergency_contacts_mutations_not_verified")
+    override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
+        requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
+        require(secretQuestion.isNotBlank() && secretAnswer.isNotBlank()) { "ios_profile_recovery_secret_required" }
+        authenticatedFunction("quata-auth-bridge", iosProfileRecoverySecretBody(secretQuestion, secretAnswer))
+    }
+
+    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
+        requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
+        val normalized = contactIds.map { it.requireIosProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
+        mutate(CommunityEmergencyContactsTable, "DELETE", mapOf("profile_id" to "eq.$profileId"), null)
+        if (normalized.isNotEmpty()) {
+            val rows = normalized.mapIndexed { index, contactId ->
+                "{\"profile_id\":${profileId.toIosProfileJsonString()},\"contact_profile_id\":${contactId.toIosProfileJsonString()},\"position\":${index + 1}}"
+            }.joinToString(prefix = "[", postfix = "]")
+            mutate(CommunityEmergencyContactsTable, "POST", emptyMap(), rows)
+        }
+    }
 
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {
         require(table.matches(IosProfilePostgrestTableName)) { "ios_profile_postgrest_table_invalid" }
@@ -148,6 +176,34 @@ class IosProfilePostgrestGateway(
         }
         return requestConfiguration.iosProfileData(url).toIosProfileRows()
     }
+
+    private suspend fun mutate(table: String, method: String, query: Map<String, String>, body: String?) {
+        authenticatedRequest(table, method, query, body)
+    }
+
+    private suspend fun authenticatedFunction(function: String, body: String) {
+        val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
+        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_publishable_key_missing")
+        val url = NSURL(string = "$baseUrl/functions/v1/$function") ?: error("ios_profile_function_url_invalid")
+        val request = NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod("POST"); setValue(key, "apikey"); setValue("Bearer ${session.accessToken}", "Authorization"); setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData())
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
+    }
+
+    private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
+        require(table.matches(IosProfilePostgrestTableName)) { "ios_profile_postgrest_table_invalid" }
+        val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
+        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_publishable_key_missing")
+        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}") ?: error("ios_profile_url_invalid")
+        val request = NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod(method); setValue(key, "apikey"); setValue("Bearer ${session.accessToken}", "Authorization"); setValue("application/json", "Accept"); setValue("return=representation", "Prefer")
+            if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) }
+        }
+        return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -160,6 +216,16 @@ private suspend fun NSURLSessionConfiguration.iosProfileData(url: NSURL): NSData
             task.cancel()
             session.invalidateAndCancel()
         }
+        task.resume()
+    }
+
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun NSURLSessionConfiguration.iosProfileData(request: NSMutableURLRequest): NSData =
+    suspendCancellableCoroutine { continuation ->
+        val delegate = IosProfileDataTaskDelegate(continuation)
+        val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
+        val task = session.dataTaskWithRequest(request)
+        continuation.invokeOnCancellation { task.cancel(); session.invalidateAndCancel() }
         task.resume()
     }
 
@@ -239,6 +305,12 @@ private fun String.requireIosProfileIdentifier(): String {
     return this
 }
 
+internal fun requireIosProfileActor(profileId: String, sessionProfileId: String?): String {
+    val normalized = profileId.requireIosProfileIdentifier()
+    check(sessionProfileId?.requireIosProfileIdentifier() == normalized) { "ios_profile_actor_mismatch" }
+    return normalized
+}
+
 private fun Map<String, String>.toIosProfileQueryString(): String = entries.joinToString(prefix = "?", separator = "&") { (key, value) ->
     "${key.toIosProfileQueryComponent()}=${value.toIosProfileQueryComponent()}"
 }
@@ -252,6 +324,19 @@ private fun String.toIosProfileQueryComponent(): String = encodeToByteArray().jo
     }
 }
 
+private fun Map<String, String?>.toIosProfileJson(): String = entries.joinToString(prefix = "{", postfix = "}") { (key, value) ->
+    "${key.toIosProfileJsonString()}:${value?.toIosProfileJsonString() ?: "null"}"
+}
+
+private fun String.toIosProfileJsonString(): String = buildString {
+    append('"')
+    forEach { c -> when (c) { '\\' -> append("\\\\"); '"' -> append("\\\""); '\n' -> append("\\n"); '\r' -> append("\\r"); '\t' -> append("\\t"); else -> if (c.code < 0x20) append("\\u${c.code.toString(16).padStart(4, '0')}") else append(c) } }
+    append('"')
+}
+
+internal fun iosProfileRecoverySecretBody(secretQuestion: String, secretAnswer: String): String =
+    "{\"version\":1,\"action\":\"update_recovery_secret\",\"secret_question\":${secretQuestion.trim().toIosProfileJsonString()},\"secret_answer\":${secretAnswer.toIosProfileJsonString()}}"
+
 private const val CommunityProfilesTable = "community_profiles"
 private const val CommunityEmergencyContactsTable = "community_emergency_contacts"
 private const val ProfileSelect = "id,display_name,phone,country_code,phone_local,phone_e164,barrio,neighborhood,code,telefono,nombre,avatar_url,avatar,secret_question"
@@ -260,3 +345,4 @@ private const val MaxProfilesPerSnapshot = 5_000
 private const val MaxEmergencyContacts = 5
 private val IosProfilePostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosProfileIdentifier = Regex("[A-Za-z0-9_-]+")
+private val IosProfileWritableColumns = setOf("display_name", "nombre", "neighborhood", "barrio", "country_code", "code", "phone_local", "phone", "telefono", "avatar_url")
