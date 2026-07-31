@@ -25,6 +25,7 @@ import {
 } from './web-browser-network-policy.mjs';
 import { isInvalidatedFetchInterceptionError } from './web-browser-smoke-interception.mjs';
 import { removeChromeProfile } from './web-browser-smoke-cleanup.mjs';
+import { SMOKE_ROUTE_CONTRACTS } from './web-browser-route-contract.mjs';
 
 // Node 20 exposes the standards-compatible client behind this flag. Re-exec automatically so
 // callers only need `node scripts/web-browser-smoke.mjs`; Node versions that expose WebSocket by
@@ -42,14 +43,19 @@ const defaultDistribution = 'web/build/dist/wasmJs/productionExecutable';
 const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
-const routeFragments = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
-// These routes remain public and safe to inspect without manufacturing a session.  Their
-// canonical route is persisted by the app before the unauthenticated boundary presents Login.
+// One exhaustive unauthenticated product-route contract. Keep private routes out of the generic
+// shell probe: they must resolve to the common Auth surface until a real session exists.
+const routeContracts = SMOKE_ROUTE_CONTRACTS;
+// These routes remain public and safe to inspect without manufacturing a session.
 const publicDeepLinks = [
     { fragment: 'post-publication-123', route: 'post/publication-123' },
     { fragment: 'official-bulletin-99', route: 'official/bulletin-99' },
-    { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', route: 'chat/sb:team/42' },
     { fragment: 'unknown-route', route: 'feed' },
+];
+// Chat owns private conversations: preserve its requested fragment in the common Auth return
+// flow, but never leave its shell visible before a successful session is available.
+const privateDeepLinks = [
+    { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', returnRoute: 'chat/sb:team/42' },
 ];
 const responsiveViewports = [
     { name: 'mobile', width: 360, height: 800 },
@@ -74,15 +80,17 @@ const browserMetrics = {
     environment: measurementEnvironment(),
     smoke: {
         status: 'running',
-        expectedRoutes: routeFragments,
+        expectedRoutes: routeContracts.map(({ fragment }) => fragment),
         completedRoutes: [],
     },
     publicUx: {
         deepLinks: [],
+        privateDeepLinks: [],
         viewports: [],
         compactKeyboard: null,
         reloadRecovered: false,
         keyboardAndAx: null,
+        pushConsent: { mode: 'authenticated_required', skipped: 'settings_is_private' },
     },
     advisories: {
         chromeGpuReadPixelsWarnings: 0,
@@ -206,19 +214,19 @@ try {
         await cdp.send('Page.enable');
         await cdp.send('Performance.enable');
 
-        // The first probe is deliberately unauthenticated and therefore exercises the shared
-        // Auth compose shell without requiring a Supabase instance.
-        browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, 'auth', pageErrors));
-        await assertUnconfiguredAuthBoundary(cdp);
-
-        // No session is invented for the remaining hashes. The visible surface correctly stays
-        // at Auth until a real login changes Compose state.
-        for (const fragment of routeFragments.slice(1)) {
-            browserMetrics.navigations.push(await navigateAndAssertShell(cdp, staticServer.origin, fragment, pageErrors));
+        for (const contract of routeContracts) {
+            if (contract.kind === 'public') {
+                browserMetrics.navigations.push(await navigateAndAssertPublicShell(cdp, staticServer.origin, contract, pageErrors));
+            } else if (contract.kind === 'auth') {
+                browserMetrics.navigations.push(await navigateAndAssertAuthBoundary(cdp, staticServer.origin, contract, pageErrors));
+            } else {
+                browserMetrics.navigations.push(await navigateAndAssertPrivateAuthBoundary(cdp, staticServer.origin, contract, pageErrors));
+            }
         }
 
-        await assertPublicDeepLinkRecovery(cdp, staticServer.origin, pageErrors);
+        await assertUnauthenticatedDeepLinkRecovery(cdp, staticServer.origin, pageErrors);
         browserMetrics.publicUx.deepLinks = publicDeepLinks.map(({ fragment, route }) => ({ fragment, route }));
+        browserMetrics.publicUx.privateDeepLinks = privateDeepLinks.map(({ fragment, returnRoute }) => ({ fragment, returnRoute }));
         browserMetrics.publicUx.reloadRecovered = true;
         const responsiveUx = await assertResponsiveAuthShell(cdp, staticServer.origin, pageErrors);
         browserMetrics.publicUx.viewports = responsiveUx.viewports;
@@ -226,7 +234,9 @@ try {
         browserMetrics.publicUx.keyboardAndAx = responsiveUx.nativeControlsPresent
             ? await assertKeyboardAndAccessibility(cdp)
             : { mode: 'compose_canvas', nativeControlsPresent: false };
-        await assertPushConsentUsesTrustedSettingsClick(cdp, staticServer.origin);
+        // Settings is deliberately private. This anonymous route-matrix smoke must not forge a
+        // session merely to click its push-consent control; that gesture belongs to the
+        // authenticated product journey.
 
         // Keep the measured six-route series on one stable base document. DocMentis opts into its
         // localhost-only product bridge with a query parameter, so it runs after route metrics
@@ -282,7 +292,7 @@ if (failures.length > 0) {
     console.error(`Web browser smoke failed:\n${failures.join('\n\n')}`);
     process.exitCode = 1;
 } else {
-    console.log(`Web browser smoke passed for ${routeFragments.join(', ')}.`);
+    console.log(`Web browser smoke passed for ${routeContracts.map(({ fragment }) => fragment).join(', ')}.`);
     console.log(`Advisory Chrome GPU ReadPixels warnings: ${browserMetrics.advisories.chromeGpuReadPixelsWarnings}.`);
 }
 }
@@ -685,15 +695,38 @@ async function waitForPageTarget(port) {
     throw new Error('Chrome did not create a page target.');
 }
 
-async function navigateAndAssertShell(cdp, origin, fragment, pageErrors) {
+async function navigateAndAssertPublicShell(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
-    await waitForShell(cdp, fragment);
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    await waitForShell(cdp, contract.fragment);
+    await waitForNavigationRoute(cdp, contract.route);
+    await waitForShellMarker(cdp, contract.route);
     if (pageErrors.length > initialErrorCount) {
-        throw new Error(`Route #${fragment} produced an uncaught browser exception.`);
+        throw new Error(`Public route #${contract.fragment} produced an uncaught browser exception.`);
     }
-    return collectNavigationMetrics(cdp, fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
+    return collectNavigationMetrics(cdp, contract.fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
+}
+
+async function navigateAndAssertAuthBoundary(cdp, origin, contract, pageErrors) {
+    const initialErrorCount = pageErrors.length;
+    const startedAt = performance.now();
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    await waitForShell(cdp, contract.fragment);
+    await waitForNavigationRoute(cdp, contract.route);
+    await assertShellHidden(cdp, contract.fragment);
+    await assertUnconfiguredAuthBoundary(cdp);
+    if (pageErrors.length > initialErrorCount) throw new Error(`Auth route #${contract.fragment} produced an uncaught browser exception.`);
+    return collectNavigationMetrics(cdp, contract.fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
+}
+
+async function navigateAndAssertPrivateAuthBoundary(cdp, origin, contract, pageErrors) {
+    const initialErrorCount = pageErrors.length;
+    const startedAt = performance.now();
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    await waitForPrivateDeepLinkAuthBoundary(cdp, contract.fragment, contract.returnRoute);
+    if (pageErrors.length > initialErrorCount) throw new Error(`Private route #${contract.fragment} produced an uncaught browser exception.`);
+    return collectNavigationMetrics(cdp, contract.fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
 }
 
 async function assertUnconfiguredAuthBoundary(cdp) {
@@ -788,7 +821,7 @@ async function assertPushConsentUsesTrustedSettingsClick(cdp, origin) {
     }
 }
 
-async function assertPublicDeepLinkRecovery(cdp, origin, pageErrors) {
+async function assertUnauthenticatedDeepLinkRecovery(cdp, origin, pageErrors) {
     for (const { fragment, route } of publicDeepLinks) {
         const initialErrorCount = pageErrors.length;
         await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
@@ -808,6 +841,46 @@ async function assertPublicDeepLinkRecovery(cdp, origin, pageErrors) {
     }
     await waitForNavigationRoute(cdp, route);
     await assertUnconfiguredAuthBoundary(cdp);
+
+    for (const { fragment, returnRoute } of privateDeepLinks) {
+        const initialErrorCount = pageErrors.length;
+        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+        await waitForPrivateDeepLinkAuthBoundary(cdp, fragment, returnRoute);
+        if (pageErrors.length > initialErrorCount) {
+            throw new Error(`Private deep link #${fragment} produced an uncaught browser exception.`);
+        }
+    }
+}
+
+async function waitForPrivateDeepLinkAuthBoundary(cdp, fragment, returnRoute) {
+    let lastProbe = null;
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+        const probe = await cdp.evaluate(`(() => ({
+            hash: location.hash,
+            route: localStorage.getItem('web.navigation.route'),
+            shellRoute: document.documentElement.getAttribute('data-quata-shell-route'),
+        }))()`);
+        lastProbe = probe?.result?.value ?? null;
+        if (lastProbe?.hash === '#auth' && lastProbe.route === 'auth' && !lastProbe.shellRoute) return;
+        await delay(100);
+    }
+    throw new Error(`Private deep link #${fragment} did not reach the shell-free common Auth boundary for return route ${returnRoute}: ${JSON.stringify(lastProbe)}.`);
+}
+
+async function waitForShellMarker(cdp, expectedRoute) {
+    let lastMarker = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const probe = await cdp.evaluate(`document.documentElement.getAttribute('data-quata-shell-route')`);
+        lastMarker = probe?.result?.value ?? null;
+        if (lastMarker === expectedRoute) return;
+        await delay(100);
+    }
+    throw new Error(`Public route shell marker did not resolve to ${expectedRoute}, got ${lastMarker ?? 'null'}.`);
+}
+
+async function assertShellHidden(cdp, fragment) {
+    const marker = (await cdp.evaluate(`document.documentElement.getAttribute('data-quata-shell-route')`))?.result?.value ?? null;
+    if (marker) throw new Error(`Auth route #${fragment} unexpectedly retained shell marker ${marker}.`);
 }
 
 async function waitForNavigationRoute(cdp, expectedRoute) {

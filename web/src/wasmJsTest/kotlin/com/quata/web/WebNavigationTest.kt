@@ -68,6 +68,27 @@ class WebNavigationTest {
         assertRoute("feed", "post-".toWebNavigationState())
     }
 
+    @Test
+    fun classifiesPublicAndPrivateRoutesForThePermanentShell() {
+        check("".toWebNavigationState().isPublicRoute)
+        check("official-bulletin-99".toWebNavigationState().isPublicRoute)
+        check("post-publication-123".toWebNavigationState().isPublicRoute)
+        check(!"chat".toWebNavigationState().isPublicRoute)
+        check("chat".toWebNavigationState().requiresAuthentication)
+        check("profile".toWebNavigationState().requiresAuthentication)
+        check(!"auth".toWebNavigationState().requiresAuthentication)
+    }
+
+    @Test
+    fun retainsTheExactFragmentAcrossNavigationControllerUpdates() {
+        var browserFragment = ""
+        val controller = WebNavigationController("chat-sb%3Ateam%2F42") { browserFragment = it }
+        assertEquals("chat-sb%3Ateam%2F42", controller.fragment)
+        controller.navigate("official-bulletin-99")
+        assertEquals("official-bulletin-99", controller.fragment)
+        assertEquals("official-bulletin-99", browserFragment)
+    }
+
     private fun assertRoute(expected: String, navigation: WebNavigationState) {
         assertEquals(expected, navigation.route)
     }

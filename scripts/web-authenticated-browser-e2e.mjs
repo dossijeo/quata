@@ -47,6 +47,8 @@ const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
 const NAVIGATION_STRESS_CYCLES = 50;
+const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
+const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
 
 const options = parseArguments(process.argv.slice(2));
 const report = {
@@ -152,6 +154,10 @@ try {
   ));
 
   stage = "mounting_real_product";
+  // Start on Auth so the Compose hash listener is installed before the private-route contract
+  // drives its transition. Initial deep-link bootstrap is covered separately by the raw-CDP
+  // smoke; this authenticated journey must not depend on a browser omitting hashchange for its
+  // already-present initial fragment.
   await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
@@ -159,8 +165,20 @@ try {
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   });
   report.steps.push("real_compose_auth_shell_mounted");
+  await page.waitForFunction(() =>
+    location.hash === "#auth" && localStorage.getItem("web.navigation.route") === "auth" &&
+    !document.documentElement.hasAttribute("data-quata-shell-route"),
+  );
+  report.steps.push("auth_router_bootstrap_ready_before_private_transition");
 
   const authSurface = await resolveAuthSurface(page);
+  stage = "private_return_redirect";
+  await assertPrivateRedirectToCommonAuth(page);
+  report.steps.push("encoded_private_chat_redirects_to_common_auth_without_shell");
+  stage = "anonymous_public_shell";
+  await assertAnonymousPublicShell(page);
+  await assertPrivateRedirectToCommonAuth(page);
+  report.steps.push("anonymous_feed_official_shell_and_private_chat_login_redirect");
   if (authSurface === "native_controls") {
     stage = "native_auth_control_login";
     await loginWithNativeControls(page, credentials);
@@ -170,20 +188,20 @@ try {
     await loginWithComposeAuthBridge(page, credentials);
     report.steps.push("compose_auth_bridge_login_product_repository_activation");
   }
-  await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") === "true");
+  await assertAutomaticLoginReturn(page);
   cleanupSession = await readSession(page);
   assertCompleteSession(cleanupSession);
 
   stage = "authenticated_browser_restore";
   await page.reload();
   await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
-  await page.evaluate(() => globalThis.__quataAuthE2eProduct.restore());
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#feed`);
-  await page.waitForFunction(() => {
+  await page.waitForFunction(({ fragment, route }) => {
     const root = document.querySelector("#quata-root");
-    return localStorage.getItem("web.auth.session_ready") === "true" && localStorage.getItem("web.navigation.route") === "feed" && root &&
+    return localStorage.getItem("web.auth.session_ready") === "true" && location.hash === `#${fragment}` &&
+      localStorage.getItem("web.navigation.route") === route && root &&
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
-  });
+  }, { fragment: PRIVATE_RETURN_FRAGMENT, route: PRIVATE_RETURN_ROUTE });
+  if (browserDiagnostics.some(entry => entry.includes("#auth"))) throw new Error("private_reload_redirected_to_auth");
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("feed_mount_pageerror");
   report.steps.push("product_session_restored_after_reload");
 
@@ -204,6 +222,10 @@ try {
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
+  stage = "authenticated_settings_push_consent";
+  await assertAuthenticatedSettingsPushConsent(page, options.output);
+  report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
+
   stage = "authenticated_navigation_stress";
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
@@ -222,6 +244,9 @@ try {
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
     throw new Error("product_logout_storage_remains");
   }
+  stage = "logout_to_anonymous_public_shell";
+  await assertAnonymousPublicShellAfterLogout(page);
+  report.steps.push("product_logout_returns_to_anonymous_feed_and_official_shell");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
   stage = "global_session_cleanup";
@@ -474,6 +499,167 @@ async function navigateReadOnlyRoute(page, route) {
   await page.waitForTimeout(150);
 }
 
+/** Exercises the actual Compose hash router before authenticating against the hermetic bridge. */
+async function assertAnonymousPublicShell(page) {
+  for (const route of [
+    { fragment: "", route: "feed" },
+    { fragment: "official", route: "official" },
+  ]) {
+    await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route.fragment);
+    await page.waitForFunction(expected =>
+      localStorage.getItem("web.navigation.route") === expected &&
+      document.documentElement.getAttribute("data-quata-shell-route") === expected,
+    route.route);
+  }
+}
+
+async function assertPrivateRedirectToCommonAuth(page) {
+  await page.evaluate(fragment => { globalThis.location.hash = fragment; }, PRIVATE_RETURN_FRAGMENT);
+  await page.waitForFunction(() =>
+    location.hash === "#auth" && localStorage.getItem("web.navigation.route") === "auth" &&
+    !document.documentElement.hasAttribute("data-quata-shell-route"),
+  );
+}
+
+async function assertAutomaticLoginReturn(page) {
+  await page.waitForFunction(({ fragment, route }) =>
+    localStorage.getItem("web.auth.session_ready") === "true" &&
+    location.hash === `#${fragment}` &&
+    localStorage.getItem("web.navigation.route") === route &&
+    document.documentElement.getAttribute("data-quata-shell-route") === route,
+  { fragment: PRIVATE_RETURN_FRAGMENT, route: PRIVATE_RETURN_ROUTE });
+}
+
+async function assertAnonymousPublicShellAfterLogout(page) {
+  await page.waitForFunction(() =>
+    location.hash === "" && localStorage.getItem("web.navigation.route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed",
+  );
+  await page.evaluate(() => { globalThis.location.hash = "official"; });
+  await page.waitForFunction(() =>
+    localStorage.getItem("web.auth.session_ready") !== "true" &&
+    localStorage.getItem("web.navigation.route") === "official" &&
+    document.documentElement.getAttribute("data-quata-shell-route") === "official",
+  );
+}
+
+/**
+ * The permission request must originate in the real, authenticated Settings control. Playwright's
+ * locator click is a trusted browser interaction; the local Notification mock lets this fixture
+ * prove that the request begins while the transient activation is still present without showing a
+ * real browser prompt or registering a subscription.
+ */
+async function assertAuthenticatedSettingsPushConsent(page, reportOutput) {
+  await page.evaluate(() => {
+    localStorage.setItem("web.push.consent.v1", "disabled");
+    globalThis.__quataPushPermissionProbe = [];
+    Object.defineProperty(globalThis, "Notification", {
+      configurable: true,
+      value: {
+        permission: "default",
+        requestPermission: () => {
+          globalThis.__quataPushPermissionProbe.push({
+            active: globalThis.navigator?.userActivation?.isActive === true,
+          });
+          return Promise.resolve("denied");
+        },
+      },
+    });
+    globalThis.location.hash = "settings";
+  });
+  report.pushConsentEvidence = { stage: "settings_ready" };
+  await waitForShellRoute(page, "settings");
+  await waitFor(async () => {
+    const availability = await page.evaluate(() => {
+      const button = document.querySelector("#quata-root")?.shadowRoot
+        ?.querySelector('button[aria-label="Activar notificaciones"]');
+      const rect = button?.getBoundingClientRect();
+      return { exists: !!button, visible: !!rect && rect.width > 0 && rect.height > 0 };
+    });
+    report.pushConsentEvidence = { stage: "settings_ready", availability };
+    return availability.exists && availability.visible;
+  }, "push_control_not_ready");
+  const enablePush = page.locator('button[aria-label="Activar notificaciones"]');
+  await assertUniqueNativeAx(page, {
+    role: "button",
+    name: "Activar notificaciones",
+    selector: 'button[aria-label="Activar notificaciones"]',
+  });
+  const bounds = await enablePush.boundingBox();
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) throw new Error("push_control_bounds_missing");
+  const screenshot = reportOutput.replace(/\.json$/i, ".push-settings.png");
+  const controlScreenshot = reportOutput.replace(/\.json$/i, ".push-settings-control.png");
+  await page.screenshot({ path: screenshot, fullPage: true });
+  await enablePush.screenshot({ path: controlScreenshot });
+  const hitTest = await enablePush.evaluate(button => {
+    const rect = button.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const describe = element => element ? {
+      tag: element.tagName,
+      id: element.id || null,
+      ariaLabel: element.getAttribute?.("aria-label") ?? null,
+      className: typeof element.className === "string" ? element.className : null,
+    } : null;
+    const parentChain = [];
+    for (let element = button; element; element = element.parentElement) parentChain.push(describe(element));
+    const shadow = button.getRootNode();
+    const style = getComputedStyle(button);
+    return {
+      nativeRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom },
+      viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
+      center: { x, y },
+      documentElementFromPoint: describe(document.elementFromPoint(x, y)),
+      shadowElementFromPoint: shadow instanceof ShadowRoot ? describe(shadow.elementFromPoint(x, y)) : null,
+      computed: { pointerEvents: style.pointerEvents, zIndex: style.zIndex, position: style.position },
+      parentChain,
+      state: { disabled: button.disabled, ariaDisabled: button.getAttribute("aria-disabled"), ariaCurrent: button.getAttribute("aria-current"), ariaLabel: button.getAttribute("aria-label") },
+    };
+  });
+  report.pushConsentEvidence = { stage: "pointer_event", screenshot, controlScreenshot, bounds, hitTest };
+  if (hitTest.computed.pointerEvents !== "auto" || hitTest.documentElementFromPoint?.id !== "quata-root" ||
+      hitTest.shadowElementFromPoint?.tag !== "BUTTON" || hitTest.state.disabled || hitTest.state.ariaDisabled !== "false") {
+    throw new Error(`push_control_hit_test_invalid:${JSON.stringify(hitTest)}`);
+  }
+  await enablePush.evaluate(button => {
+    globalThis.__quataPushClickProbe = [];
+    button.addEventListener("click", () => {
+      globalThis.__quataPushClickProbe.push({
+        active: globalThis.navigator?.userActivation?.isActive === true,
+      });
+    });
+  });
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  report.pushConsentEvidence.stage = "pointer_exact_once";
+  await waitFor(async () => (await page.evaluate(() => globalThis.__quataPushClickProbe?.length)) === 1, "push_pointer_callback_missing");
+  await page.waitForTimeout(250);
+  let clicks = await page.evaluate(() => globalThis.__quataPushClickProbe);
+  let permissions = await page.evaluate(() => globalThis.__quataPushPermissionProbe);
+  if (clicks?.length !== 1 || permissions?.length !== 1 || permissions[0]?.active !== true) {
+    throw new Error(`push_pointer_callback_not_exactly_once:${JSON.stringify({ clicks, permissions: permissions ?? null })}`);
+  }
+  await enablePush.focus();
+  if (!(await enablePush.evaluate(button => button.getRootNode().activeElement === button))) {
+    throw new Error("push_control_focus_missing");
+  }
+  report.pushConsentEvidence.stage = "Enter";
+  await page.keyboard.press("Enter");
+  await waitFor(async () => (await page.evaluate(() => globalThis.__quataPushClickProbe?.length)) === 2, "push_enter_callback_missing");
+  report.pushConsentEvidence.stage = "Space";
+  await page.keyboard.press("Space");
+  await waitFor(async () => (await page.evaluate(() => globalThis.__quataPushClickProbe?.length)) === 3, "push_space_callback_missing");
+  await page.waitForTimeout(250);
+  clicks = await page.evaluate(() => globalThis.__quataPushClickProbe);
+  permissions = await page.evaluate(() => globalThis.__quataPushPermissionProbe);
+  report.pushConsentEvidence.stage = "permission";
+  if (clicks?.length !== 3 || clicks.some(click => click.active !== true) || permissions?.length !== 3 || permissions.some(probe => probe.active !== true)) {
+    const status = await page.evaluate(() => localStorage.getItem("web.push.subscription_status"));
+    throw new Error(`push_keyboard_callback_not_exactly_once_or_not_trusted:${JSON.stringify({ clicks, permissions: permissions ?? null, status })}`);
+  }
+  const consent = await page.evaluate(() => localStorage.getItem("web.push.consent.v1"));
+  if (consent !== "disabled") throw new Error(`push_consent_denied_state_unexpected:${consent ?? "null"}`);
+}
+
 
 async function runAuthenticatedNavigationStress(page, diagnostics) {
   const results = [];
@@ -537,10 +723,13 @@ async function waitForShellRoute(page, expectedRoute) {
   await page.waitForFunction(route => {
     const root = document.querySelector("#quata-root");
     const expectedPrimary = route === "communities" ? "neighborhoods" : route === "chat" ? "conversations" : route;
+    const isPrimaryRoute = ["feed", "official", "communities", "chat", "profile"].includes(route);
     const shellChildren = root?.shadowRoot?.childElementCount ?? root?.childElementCount ?? 0;
     return localStorage.getItem("web.navigation.route") === route &&
       document.documentElement.getAttribute("data-quata-shell-route") === route &&
-      document.documentElement.getAttribute("data-quata-primary-selected-route") === expectedPrimary &&
+      (isPrimaryRoute
+        ? document.documentElement.getAttribute("data-quata-primary-selected-route") === expectedPrimary
+        : !document.documentElement.hasAttribute("data-quata-primary-selected-route")) &&
       root && shellChildren > 0;
   }, expectedRoute);
 }
@@ -763,7 +952,7 @@ function safeError(error) {
     "compose_auth_bridge_login_missing", "compose_auth_bridge_login_unexpected_result",
     "compose_auth_bridge_logout_missing", "compose_auth_bridge_logout_unexpected_result",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
-    "read_only_route_pageerror", "backend_mutation_blocked",
+    "read_only_route_pageerror", "private_reload_redirected_to_auth", "backend_mutation_blocked",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";

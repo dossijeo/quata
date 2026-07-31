@@ -7,9 +7,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { SMOKE_ROUTE_FRAGMENTS } from './web-browser-route-contract.mjs';
 
 const options = parseArguments(process.argv.slice(2));
-const expectedRoutes = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+const expectedRoutes = SMOKE_ROUTE_FRAGMENTS;
 const maxClockSkewMs = 5 * 60 * 1000;
 const reports = options.reports.map(path => JSON.parse(readFileSync(resolve(path), 'utf8')));
 reports.forEach(validateReport);

@@ -11,6 +11,7 @@ const serviceSource = await readFile(
     'utf8',
 );
 const smokeSource = await readFile(new URL('./web-browser-smoke.mjs', import.meta.url), 'utf8');
+const routeContractSource = await readFile(new URL('./web-browser-route-contract.mjs', import.meta.url), 'utf8');
 
 test('DocMentis smoke bridge delegates to the composition-root product service', () => {
     assert.doesNotMatch(mainSource, /installDocmentisSmokeProbe\(\)/);
@@ -46,9 +47,12 @@ test('an integrated success is gated by documented DocMentis render lifecycle, n
     assert.doesNotMatch(serviceSource, /querySelector\(['"]canvas/);
 });
 
-test('DocMentis query opt-in runs only after the stable six-route metric series', () => {
-    const routeSeries = smokeSource.indexOf('for (const fragment of routeFragments.slice(1))');
+test('DocMentis query opt-in runs only after the complete classified route-contract series', () => {
+    const routeSeries = smokeSource.indexOf('for (const contract of routeContracts)');
     const docmentisProbe = smokeSource.indexOf('if (options.docmentis)', routeSeries);
     const metricsAssertion = smokeSource.indexOf('assertTurnstileBootstrapFlow', docmentisProbe);
+    assert.match(smokeSource, /const routeContracts = SMOKE_ROUTE_CONTRACTS;/);
+    assert.match(routeContractSource, /kind: 'auth'[\s\S]*?kind: 'public'[\s\S]*?kind: 'private'/);
+    assert.match(smokeSource, /navigateAndAssertPublicShell[\s\S]*?navigateAndAssertAuthBoundary[\s\S]*?navigateAndAssertPrivateAuthBoundary/);
     assert.ok(routeSeries >= 0 && docmentisProbe > routeSeries && metricsAssertion > docmentisProbe);
 });

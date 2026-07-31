@@ -30,7 +30,7 @@ const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/qu
 test("hermetic Auth gate uses native controls when present or the localhost-only product bridge for a stable Compose canvas", () => {
   assert.match(runner, /chromium\.launch\(/);
   assert.match(runner, /input\[aria-label="Teléfono"\]/);
-  assert.match(runner, /__quataAuthE2eProduct\.restore/);
+  assert.doesNotMatch(runner, /__quataAuthE2eProduct\.restore\(\)/);
   assert.match(runner, /resolveAuthSurface\(page\)/);
   assert.match(runner, /authSurface === "native_controls"/);
   assert.match(runner, /loginWithComposeAuthBridge\(page, credentials\)/);
@@ -46,6 +46,51 @@ test("hermetic Auth gate uses native controls when present or the localhost-only
   assert.match(main, /authRepository\.restoreLocalSession\(\)/);
   assert.match(main, /sessionCoordinator\.logoutCurrentSession\(\)/);
   assert.doesNotMatch(bridge, /innerHTML|createElement\(['"]input|addEventListener\(['"]click/);
+});
+
+test("the hermetic browser journey proves the permanent public shell and the common private-route login return", () => {
+  assert.match(runner, /const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42\?message=msg%209"/);
+  assert.match(runner, /await assertPrivateRedirectToCommonAuth\(page\)/);
+  assert.match(runner, /auth_router_bootstrap_ready_before_private_transition/);
+  assert.match(runner, /localStorage\.getItem\("web\.navigation\.route"\) === "auth"/);
+  assert.match(runner, /await assertAutomaticLoginReturn\(page\)/);
+  assert.match(runner, /await assertAnonymousPublicShellAfterLogout\(page\)/);
+  assert.match(runner, /anonymous_feed_official_shell_and_private_chat_login_redirect/);
+  assert.match(runner, /product_logout_returns_to_anonymous_feed_and_official_shell/);
+  assert.match(runner, /data-quata-shell-route/);
+  assert.match(runner, /location\.hash === "#auth"/);
+  assert.match(runner, /location\.hash === `#\$\{fragment\}`/);
+  assert.doesNotMatch(runner, /page\.goto\([^\n]*#feed/);
+  assert.match(main, /internal val WebNavigationState\.isPublicRoute/);
+  assert.match(main, /internal val WebNavigationState\.requiresAuthentication/);
+  assert.match(main, /pendingAuthenticationFragment/);
+  assert.match(main, /onAuthRequired = ::requestAuthenticationForCurrentRoute/);
+  assert.match(main, /clearWebNavigationShellMarker\(\)/);
+  assert.match(main, /fun completeLogin\(\)[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
+  assert.match(main, /fun completeLogout[\s\S]*?navigation\.navigate\(""\)/);
+  assert.match(main, /onLoginSuccess = ::completeLogin/);
+  assert.match(main, /var isSessionResolved by remember/);
+  assert.match(main, /!isSessionResolved && navigationState\.requiresAuthentication -> \{/);
+  assert.match(main, /isSessionResolved = true/);
+  assert.match(runner, /private_reload_redirected_to_auth/);
+});
+
+test("authenticated Settings proves web-push consent starts from its native trusted control", () => {
+  assert.match(runner, /stage = "authenticated_settings_push_consent"/);
+  assert.match(runner, /await assertAuthenticatedSettingsPushConsent\(page, options\.output\)/);
+  assert.match(runner, /authenticated_settings_push_consent_uses_trusted_native_click/);
+  assert.match(runner, /globalThis\.location\.hash = "settings"/);
+  assert.match(runner, /button\[aria-label="Activar notificaciones"\]/);
+  assert.match(runner, /await enablePush\.focus\(\)/);
+  assert.match(runner, /push_control_focus_missing/);
+  assert.match(runner, /await page\.keyboard\.press\("Space"\)/);
+  assert.match(runner, /await page\.mouse\.click\(/);
+  assert.match(runner, /documentElementFromPoint/);
+  assert.match(runner, /shadowElementFromPoint/);
+  assert.match(runner, /push_pointer_callback_not_exactly_once/);
+  assert.match(runner, /push_keyboard_callback_not_exactly_once_or_not_trusted/);
+  assert.match(runner, /navigator\?\.userActivation\?\.isActive === true/);
+  assert.match(runner, /push_consent_denied_state_unexpected/);
 });
 
 test("Wasm file-cache interop expressions remain valid object-property expressions", () => {
