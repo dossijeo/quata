@@ -35,6 +35,7 @@ fun notificationRelativeTimeLabel(
     strings: NotificationRelativeTimeStrings,
     timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
+    if (value.isBlank()) return ""
     val timestampMillis = parseNotificationTimestampMillis(value, nowMillis, timeZone) ?: return value
     val seconds = ((nowMillis - timestampMillis).coerceAtLeast(0L) / 1_000L)
     val minutes = seconds / 60L
@@ -60,7 +61,6 @@ private fun parseNotificationTimestampMillis(
     timeZone: TimeZone,
 ): Long? {
     val normalized = value.trim()
-    if (normalized.isBlank()) return nowMillis
     if (normalized.equals("Ahora", ignoreCase = true) ||
         normalized.equals("Now", ignoreCase = true) ||
         normalized.equals("Maintenant", ignoreCase = true)

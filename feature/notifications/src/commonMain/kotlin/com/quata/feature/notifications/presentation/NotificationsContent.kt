@@ -79,6 +79,7 @@ fun NotificationsContent(
     onDismiss: (NotificationItem) -> Unit,
     canMutate: Boolean = true,
     onAuthenticationRequired: (NotificationItem) -> Unit = {},
+    onDismissAuthenticationRequired: (NotificationItem) -> Unit = onAuthenticationRequired,
 ) {
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
@@ -120,16 +121,17 @@ fun NotificationsContent(
                             timestampNowMillis = timestampNowMillis,
                             strings = strings,
                             onClick = {
-                                if (canMutate) {
-                                    onMarkRead(item)
-                                    onOpenConversation(item.conversationId)
-                                } else {
-                                    onAuthenticationRequired(item)
-                                }
+                                handleNotificationClick(
+                                    item = item,
+                                    canMutate = canMutate,
+                                    onMarkRead = onMarkRead,
+                                    onOpenConversation = onOpenConversation,
+                                    onAuthenticationRequired = onAuthenticationRequired,
+                                )
                             },
-                            onDismiss = {
-                                if (canMutate) onDismiss(item) else onAuthenticationRequired(item)
-                            }
+                            canDismiss = canMutate,
+                            onDismiss = { onDismiss(item) },
+                            onDismissBlocked = { onDismissAuthenticationRequired(item) },
                         )
                     }
                 }
@@ -176,13 +178,18 @@ private fun DismissibleNotificationCard(
     timestampNowMillis: Long,
     strings: NotificationsStrings,
     onClick: () -> Unit,
-    onDismiss: () -> Unit
+    canDismiss: Boolean,
+    onDismiss: () -> Unit,
+    onDismissBlocked: () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value != SwipeToDismissBoxValue.Settled) {
-                onDismiss()
-                true
+                handleNotificationDismissAttempt(
+                    canDismiss = canDismiss,
+                    onDismiss = onDismiss,
+                    onDismissBlocked = onDismissBlocked,
+                )
             } else {
                 false
             }
@@ -209,4 +216,32 @@ private fun DismissibleNotificationCard(
             }
         }
     )
+}
+
+internal fun handleNotificationClick(
+    item: NotificationItem,
+    canMutate: Boolean,
+    onMarkRead: (NotificationItem) -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onAuthenticationRequired: (NotificationItem) -> Unit,
+) {
+    if (canMutate) {
+        onMarkRead(item)
+        onOpenConversation(item.conversationId)
+    } else {
+        onAuthenticationRequired(item)
+    }
+}
+
+internal fun handleNotificationDismissAttempt(
+    canDismiss: Boolean,
+    onDismiss: () -> Unit,
+    onDismissBlocked: () -> Unit,
+): Boolean {
+    if (!canDismiss) {
+        onDismissBlocked()
+        return false
+    }
+    onDismiss()
+    return true
 }

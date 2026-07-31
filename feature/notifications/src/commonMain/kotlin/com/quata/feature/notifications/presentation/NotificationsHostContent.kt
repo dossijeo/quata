@@ -28,6 +28,7 @@ fun NotificationsHostContent(
     onOpenConversation: (String) -> Unit,
     canMutate: Boolean = true,
     onAuthenticationRequired: (NotificationItem) -> Unit = {},
+    onDismissAuthenticationRequired: (NotificationItem) -> Unit = onAuthenticationRequired,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { NotificationsViewModel(repository) }
@@ -46,6 +47,7 @@ fun NotificationsHostContent(
             onDismiss = viewModel::dismiss,
             canMutate = canMutate,
             onAuthenticationRequired = onAuthenticationRequired,
+            onDismissAuthenticationRequired = onDismissAuthenticationRequired,
         )
     }
 }

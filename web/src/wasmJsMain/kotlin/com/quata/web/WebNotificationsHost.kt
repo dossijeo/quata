@@ -64,6 +64,9 @@ fun WebNotificationsHost(
         onOpenConversation = onOpenConversation,
         canMutate = canMutate,
         onAuthenticationRequired = { item -> onAuthenticationRequired(item.conversationId) },
+        // Preserve the current browser contract: both anonymous interactions retain the
+        // conversation target while the common auth prompt is shown.
+        onDismissAuthenticationRequired = { item -> onAuthenticationRequired(item.conversationId) },
     )
 }
 

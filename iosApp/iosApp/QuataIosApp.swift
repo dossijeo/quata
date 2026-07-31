@@ -596,7 +596,17 @@ private final class IosAppCompositionRoot {
                 // is observability only and must not manufacture a URL or a route.
                 onHandleDeepLink: { _ in },
                 canMutate: authenticatedHost.canMutateNotifications,
-                onAuthenticationRequired: { [weak self] _ in
+                onAuthenticationRequired: { [weak self] item in
+                    // A row click represents intent to enter this conversation. Let the router
+                    // retain PendingRoute.chat while its normal anonymous gate shows Auth.
+                    self?.authenticatedHost.showChat(
+                        conversationId: item.conversationId,
+                        messageId: nil
+                    )
+                },
+                onDismissAuthenticationRequired: { [weak self] _ in
+                    // A blocked swipe is not navigation intent: show Auth without replacing the
+                    // current route or hiding the row.
                     self?.authenticatedHost.presentAuthRequiredPrompt()
                 },
             ),

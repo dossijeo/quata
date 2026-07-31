@@ -363,6 +363,56 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.canMutateNotifications)
     }
 
+    func testAnonymousNotificationSwipeGateDoesNotQueueConversation() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let notifications = UIViewController()
+        let chat = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installNotificationsFactory { notifications }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        router.showNotifications()
+        let promptPresented = expectation(description: "Blocked swipe auth prompt presented")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        // This is the Swift callback used only by a rejected anonymous swipe.
+        router.presentAuthRequiredPrompt()
+        wait(for: [promptPresented], timeout: 2)
+        router.installChatFactory { _, _ in chat }
+        router.installFeedFactory { _ in publicFeed }
+
+        XCTAssertFalse(router.children.contains { $0 === chat })
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+    }
+
+    func testAnonymousNotificationClickQueuesConversationUntilAuthentication() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let notifications = UIViewController()
+        let chat = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installNotificationsFactory { notifications }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        router.showNotifications()
+
+        // This is the Swift callback used by a row click: unlike swipe, it carries navigation
+        // intent and must retain PendingRoute.chat through authentication.
+        router.showChat(conversationId: "notification-chat", messageId: nil)
+        router.installChatFactory { conversationId, messageId in
+            XCTAssertEqual(conversationId, "notification-chat")
+            XCTAssertNil(messageId)
+            return chat
+        }
+        XCTAssertFalse(router.children.contains { $0 === chat })
+
+        router.installFeedFactory { _ in UIViewController() }
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === chat)
+        XCTAssertEqual(chat.view.accessibilityIdentifier, "quata-ios-chat-host")
+    }
+
     func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
         let mounted = mountRouter()
         let router = mounted.router

@@ -27,6 +27,7 @@ class IosNotificationsHostDependencies(
     val onHandleDeepLink: (String) -> Unit,
     val canMutate: Boolean,
     val onAuthenticationRequired: (NotificationItem) -> Unit,
+    val onDismissAuthenticationRequired: (NotificationItem) -> Unit,
 )
 
 fun createIosNotificationsHostDependencies(
@@ -38,6 +39,7 @@ fun createIosNotificationsHostDependencies(
     onHandleDeepLink: (String) -> Unit,
     canMutate: Boolean = true,
     onAuthenticationRequired: (NotificationItem) -> Unit = {},
+    onDismissAuthenticationRequired: (NotificationItem) -> Unit = onAuthenticationRequired,
 ): IosNotificationsHostDependencies = IosNotificationsHostDependencies(
     repository = repository,
     timestampNowMillis = timestampNowMillis,
@@ -68,6 +70,7 @@ fun createIosNotificationsHostDependencies(
     onHandleDeepLink = onHandleDeepLink,
     canMutate = canMutate,
     onAuthenticationRequired = onAuthenticationRequired,
+    onDismissAuthenticationRequired = onDismissAuthenticationRequired,
 )
 
 fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependencies): UIViewController = ComposeUIViewController {
@@ -94,6 +97,7 @@ fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependenc
             },
             canMutate = dependencies.canMutate,
             onAuthenticationRequired = dependencies.onAuthenticationRequired,
+            onDismissAuthenticationRequired = dependencies.onDismissAuthenticationRequired,
         )
     }
 }
