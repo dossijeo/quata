@@ -1096,7 +1096,32 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.accessibilityIdentifier = "quata-ios-auth-host"
         controller.view.accessibilityLabel = "Quata iOS authentication"
         controller.view.isAccessibilityElement = false
+        // Full-screen Auth deliberately has no app chrome/rail.  It still needs an explicit
+        // iOS back affordance because a full-screen modal cannot be reliably swipe-dismissed.
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark"), for: .normal)
+        close.tintColor = .secondaryLabel
+        close.accessibilityIdentifier = "quata-ios-auth-close"
+        close.accessibilityLabel = NSLocalizedString("common_close", value: "Cerrar", comment: "")
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.addTarget(self, action: #selector(cancelAuthentication), for: .touchUpInside)
+        controller.view.addSubview(close)
+        NSLayoutConstraint.activate([
+            close.leadingAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            close.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            close.widthAnchor.constraint(equalToConstant: 44),
+            close.heightAnchor.constraint(equalToConstant: 44),
+        ])
         present(controller, animated: true)
+    }
+
+    /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
+    @objc private func cancelAuthentication() {
+        pendingRoute = nil
+        dismiss(animated: true) { [weak self] in
+            guard let self, !self.hasAuthenticatedSession else { return }
+            self.showFeed(postId: nil)
+        }
     }
 
     /// The shared Auth host has completed a successful login.  Remove the full-screen Auth
