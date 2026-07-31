@@ -1605,8 +1605,7 @@ private func waitForPresentedModalToSettle(_ router: IosFeedHostContainerViewCon
     waitUntil(timeout: 2) {
         guard let modal = router.presentedViewController else { return false }
         return modal.viewIfLoaded?.window != nil &&
-            !modal.isBeingPresented &&
-            modal.transitionCoordinator == nil
+            !modal.isBeingPresented
     }
 }
 
