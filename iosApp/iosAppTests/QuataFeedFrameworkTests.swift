@@ -1439,6 +1439,52 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
     }
 
+    func testColdStartRestoredSessionInstallsLogoutAndReturnsPrivateRoutesToThePublicGate() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let authenticatedFeed = UIViewController()
+        let publicFeed = UIViewController()
+        let prompt = UIViewController()
+        var bindingsInstallCount = 0
+        var logoutInvocationCount = 0
+        let returnedToPublicFeed = expectation(description: "restored session logs out to public Feed")
+
+        router.installPublicFeed { _ in publicFeed }
+        router.installFeedFactory { _ in authenticatedFeed }
+        IosAuthLifecycleBootstrap.installBindings(afterRestoredSessionAttempt: true) {
+            bindingsInstallCount += 1
+            router.installAuthRequiredPromptFactory { prompt }
+            router.installAuthenticationFactory { UIViewController() }
+            router.installLogoutAction(
+                { completed in
+                    logoutInvocationCount += 1
+                    completed()
+                },
+                onLoggedOut: {
+                    router.installPublicFeed { _ in publicFeed }
+                    returnedToPublicFeed.fulfill()
+                },
+            )
+        }
+
+        XCTAssertEqual(bindingsInstallCount, 1)
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+        let restoredSessionMenu = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(restoredSessionMenu)
+        XCTAssertTrue(restoredSessionMenu.actions.contains {
+            $0.title == "Cerrar sesión" && $0.style == .destructive
+        })
+
+        router.performLogout()
+        wait(for: [returnedToPublicFeed], timeout: 3)
+        XCTAssertEqual(logoutInvocationCount, 1)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+
+        router.showChat(conversationId: "private-after-restored-session-logout", messageId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+    }
+
     func testOfficialEditorFactoryIsRemovedWithAuthenticatedLogoutState() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()

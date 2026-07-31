@@ -126,6 +126,21 @@ enum IosPublicRuntimeConfiguration {
     }
 }
 
+/// Installs the Auth entry points and logout operation after the launch-time session probe.
+///
+/// A restored session changes which Feed factory is mounted, but it must not skip these
+/// lifecycle bindings: authenticated users still need to sign out and anonymous private-route
+/// attempts still need the common Auth gate.
+enum IosAuthLifecycleBootstrap {
+    static func installBindings(
+        afterRestoredSessionAttempt restoredSessionInstalled: Bool,
+        install: () -> Void,
+    ) {
+        _ = restoredSessionInstalled
+        install()
+    }
+}
+
 /// UIKit launcher and composition boundary for the iOS application.
 ///
 /// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
@@ -303,9 +318,10 @@ private final class IosAppCompositionRoot {
         installPublicOfficialIfConfigured()
         installCommunitiesIfAvailable()
         installNotificationsIfAvailable()
-        if !installRestoredFeedSessionIfAvailable() {
-            installAuthenticationIfConfigured()
-        }
+        IosAuthLifecycleBootstrap.installBindings(
+            afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable(),
+            install: installAuthenticationIfConfigured,
+        )
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
