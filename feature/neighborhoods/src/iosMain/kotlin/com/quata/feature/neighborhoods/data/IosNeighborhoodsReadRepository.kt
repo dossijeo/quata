@@ -87,7 +87,7 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
-        val session = authSession?.currentSession()
+        val session = authenticatedSession()
         loadProfiles(listOf(session.userId)).firstOrNull()?.isAdmin == true
     }.getOrDefault(false)
 
