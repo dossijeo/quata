@@ -29,8 +29,11 @@ fun WebNativeInput(value: String, onValueChange: (String) -> Unit, name: String,
 @Composable
 fun WebNativeButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier, selected: Boolean = false) {
     WebElementView(
-        factory = { (document.createElement("button") as HTMLButtonElement).apply { setAttribute("aria-label", label); style.width = "100%"; style.height = "100%" } },
-        update = { button -> button.textContent = label; button.setAttribute("aria-label", label); if (selected) button.setAttribute("aria-current", "page") else button.removeAttribute("aria-current"); button.disabled = !enabled; button.onclick = { onClick(); null } },
+        factory = { (document.createElement("button") as HTMLButtonElement).apply {
+            setAttribute("aria-label", label)
+            style.width = "100%"; style.height = "100%"; style.setProperty("pointer-events", "auto"); style.position = "relative"; style.zIndex = "1"
+        } },
+        update = { button -> button.textContent = label; button.setAttribute("aria-label", label); if (selected) button.setAttribute("aria-current", "page") else button.removeAttribute("aria-current"); button.disabled = !enabled; button.setAttribute("aria-disabled", (!enabled).toString()); button.onclick = { onClick(); null } },
         onRelease = { button -> button.onclick = null },
         modifier = modifier.fillMaxWidth(),
     )

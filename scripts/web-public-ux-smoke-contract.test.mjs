@@ -3,16 +3,34 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const smoke = await readFile(new URL('./web-browser-smoke.mjs', import.meta.url), 'utf8');
+const routeContract = await readFile(new URL('./web-browser-route-contract.mjs', import.meta.url), 'utf8');
 const index = await readFile(new URL('../web/src/wasmJsMain/resources/index.html', import.meta.url), 'utf8');
 
 test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the real production smoke', () => {
+    assert.match(smoke, /import \{ SMOKE_ROUTE_CONTRACTS \} from '\.\/web-browser-route-contract\.mjs';/);
+    assert.match(smoke, /const routeContracts = SMOKE_ROUTE_CONTRACTS;/);
+    for (const fragment of ['auth', 'feed', 'official', 'chat', 'settings', 'share-target', 'share-target-error', 'notifications', 'profile', 'composer', 'communities', 'whats-new', 'about']) {
+        assert.match(routeContract, new RegExp(`fragment: '${fragment}'`));
+    }
+    assert.match(routeContract, /kind: 'auth'/);
+    assert.match(routeContract, /kind: 'public'/);
+    assert.match(routeContract, /kind: 'private'/);
+    assert.match(smoke, /navigateAndAssertPublicShell\(cdp, staticServer\.origin, contract, pageErrors\)/);
+    assert.match(smoke, /navigateAndAssertAuthBoundary\(cdp, staticServer\.origin, contract, pageErrors\)/);
+    assert.match(smoke, /navigateAndAssertPrivateAuthBoundary\(cdp, staticServer\.origin, contract, pageErrors\)/);
+    assert.doesNotMatch(smoke, /navigateAndAssertShell/);
     for (const fragment of [
         'post-publication-123',
         'official-bulletin-99',
-        'chat-sb%3Ateam%2F42?message=msg%209',
         'unknown-route',
     ]) assert.match(smoke, new RegExp(`fragment: '${fragment.replace(/[?]/g, '\\?')}'`));
-    assert.match(smoke, /await assertPublicDeepLinkRecovery\(cdp, staticServer\.origin, pageErrors\)/);
+    assert.match(smoke, /await assertUnauthenticatedDeepLinkRecovery\(cdp, staticServer\.origin, pageErrors\)/);
+    assert.match(smoke, /const privateDeepLinks = \[/);
+    assert.match(smoke, /fragment: 'chat-sb%3Ateam%2F42\?message=msg%209'/);
+    assert.match(smoke, /waitForPrivateDeepLinkAuthBoundary\(cdp, fragment, returnRoute\)/);
+    assert.match(smoke, /hash === '#auth' && lastProbe\.route === 'auth' && !lastProbe\.shellRoute/);
+    assert.match(smoke, /waitForShellMarker\(cdp, contract\.route\)/);
+    assert.match(smoke, /assertShellHidden\(cdp, contract\.fragment\)/);
     assert.match(smoke, /Page\.reload/);
     assert.match(smoke, /recoveredHash\?\.result\?\.value !== `#\$\{fragment\}`/);
     assert.match(smoke, /waitForNavigationRoute\(cdp, route\)/);

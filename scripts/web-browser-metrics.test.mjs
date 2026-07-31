@@ -5,11 +5,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { SMOKE_ROUTE_FRAGMENTS } from './web-browser-route-contract.mjs';
 
-const routes = ['auth', 'feed', 'chat', 'official', 'settings', 'share-target'];
+const routes = SMOKE_ROUTE_FRAGMENTS;
 const reporter = fileURLToPath(new URL('./web-browser-metrics.mjs', import.meta.url));
 
-test('accepts all six routes without imposing an absolute performance threshold', async () => {
+test('accepts the exhaustive ordered route contract without imposing an absolute performance threshold', async () => {
     const result = await runReporter(validReport({
         mountElapsedMs: 999_999_999,
         jsHeapUsedSize: 999_999_999_999,

@@ -175,13 +175,38 @@ private fun QuataWebApp(
     val incomingShareStore = remember { WebIncomingShareStore() }
     var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
+    // Do not treat the first composition as anonymous: persisted Web credentials are restored
+    // asynchronously, and private deep links must retain their hash while that resolves.
+    var isSessionResolved by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
+    // Preserve the exact hash that led to the common login screen so a successful web_login
+    // resumes the product journey instead of dropping the person at an unrelated destination.
+    var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
+    fun completeLogin() {
+        isSessionReady = true
+        currentUserId = authRepository.activeProfileSessionOrNull()?.userId
+        navigation.navigate(pendingAuthenticationFragment ?: "")
+        pendingAuthenticationFragment = null
+    }
+    fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
+        scope.launch {
+            isLoggingOut = true
+            val result = sessionCoordinator.logoutCurrentSession()
+            platformServices.preferences.remove(WebSessionReadyKey)
+            platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
+            currentUserId = null
+            isSessionReady = false
+            navigation.navigate("")
+            isLoggingOut = false
+            onFinished(result)
+        }
+    }
     DisposableEffect(authRepository, sessionCoordinator, platformServices.preferences) {
         val removeBridge = installWebAuthE2eBridge(
             login = { countryCode, phone, password, resolve, reject ->
@@ -189,8 +214,7 @@ private fun QuataWebApp(
                     authRepository.login(countryCode, phone, password).fold(
                         onSuccess = {
                             platformServices.preferences.putString(WebSessionReadyKey, "true")
-                            isSessionReady = true
-                            currentUserId = authRepository.activeProfileSessionOrNull()?.userId
+                            completeLogin()
                             resolve("authenticated")
                         },
                         onFailure = { reject("login_failed") },
@@ -210,11 +234,7 @@ private fun QuataWebApp(
                 }
             },
             logout = { resolve, reject ->
-                scope.launch {
-                    val result = sessionCoordinator.logoutCurrentSession()
-                    platformServices.preferences.remove(WebSessionReadyKey)
-                    isSessionReady = false
-                    currentUserId = null
+                completeLogout { result ->
                     if (result is WebPushSessionResult.Success) resolve("logged_out") else reject("logout_failed")
                 }
             },
@@ -253,6 +273,7 @@ private fun QuataWebApp(
         themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
         touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
         webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
+        isSessionResolved = true
     }
     LaunchedEffect(isSessionReady, sessionCoordinator) {
         if (isSessionReady) {
@@ -287,19 +308,48 @@ private fun QuataWebApp(
     LaunchedEffect(navigationState, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
         platformServices.preferences.putString("web.navigation.route", navigationState.route)
-        setWebNavigationShellMarker(
-            route = navigationState.route,
-            selectedPrimaryRoute = webFragmentToCanonicalPrimaryRoute(navigationState.route),
-        )
         navigationState.chatConversationId?.let { platformServices.preferences.putString("web.navigation.chat", it) }
         platformServices.preferences.putString(
             "web.runtime.backend_configured",
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
+    fun requestAuthenticationForCurrentRoute() {
+        pendingAuthenticationFragment = navigation.fragment
+        navigation.navigate("auth")
+    }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
-            if (isSessionReady) {
+            when {
+                navigationState.isAuthenticationRoute -> {
+                    LaunchedEffect(navigationState.route) { clearWebNavigationShellMarker() }
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
+                        WebLoginHost(
+                            repository = authRepository,
+                            preferences = platformServices.preferences,
+                            onLoginSuccess = ::completeLogin,
+                        )
+                    }
+                }
+                !isSessionResolved && navigationState.requiresAuthentication -> {
+                    // Keep the viewport empty until persisted Auth state is known. This prevents
+                    // a private deep link from being rewritten to #auth during restoration.
+                    LaunchedEffect(Unit) { clearWebNavigationShellMarker() }
+                }
+                !isSessionReady && navigationState.requiresAuthentication -> {
+                    // Private destinations never mount anonymously; public Feed and Official do.
+                    LaunchedEffect(navigationState) {
+                        clearWebNavigationShellMarker()
+                        requestAuthenticationForCurrentRoute()
+                    }
+                }
+                else -> {
+            LaunchedEffect(navigationState.route) {
+                setWebNavigationShellMarker(
+                    route = navigationState.route,
+                    selectedPrimaryRoute = webFragmentToCanonicalPrimaryRoute(navigationState.route),
+                )
+            }
             QuataAuthenticatedShellChrome(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
@@ -355,14 +405,8 @@ private fun QuataWebApp(
                                 platformServices.preferences.putString("web.push.subscription_status", result.diagnosticValue())
                             }
                         },
-                        onAccountLifecycleSuccess = {
-                            scope.launch {
-                                val result = sessionCoordinator.logoutCurrentSession()
-                                platformServices.preferences.remove(WebSessionReadyKey)
-                                platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
-                                navigation.navigate("")
-                                isSessionReady = false
-                            }
+                            onAccountLifecycleSuccess = {
+                            completeLogout()
                         },
                     )
                 } else if (navigation.route == "whats-new" || navigation.route == "about") {
@@ -384,17 +428,7 @@ private fun QuataWebApp(
                             repository = profileRepository,
                             isLoggingOut = isLoggingOut,
                             onLogout = {
-                                scope.launch {
-                                    isLoggingOut = true
-                                    val result = sessionCoordinator.logoutCurrentSession()
-                                    platformServices.preferences.remove(WebSessionReadyKey)
-                                    platformServices.preferences.putString(
-                                        "web.auth.logout_status",
-                                        result.diagnosticValue(),
-                                    )
-                                    isSessionReady = false
-                                    isLoggingOut = false
-                                }
+                                completeLogout()
                             },
                         )
                     }
@@ -444,7 +478,7 @@ private fun QuataWebApp(
                                 shareService = platformServices.share,
                                 officialPostId = navigation.officialPostId,
                                 currentUserId = currentUserId,
-                                onAuthRequired = { navigation.navigate("auth") },
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("composer") },
                             )
@@ -499,20 +533,10 @@ private fun QuataWebApp(
                 }
             }
             }
-            } else {
-            WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Auth) {
-                WebLoginHost(
-                    repository = authRepository,
-                    preferences = platformServices.preferences,
-                    onLoginSuccess = {
-                        isSessionReady = true
-                        currentUserId = authRepository.activeProfileSessionOrNull()?.userId
-                    },
-                )
-            }
+                }
             }
         }
-    }
+}
 }
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
@@ -558,6 +582,16 @@ internal data class WebNavigationState(
     val postId: String? = null,
 )
 
+/** Feed and Official (including shared-post deep links) remain available without a session. */
+internal val WebNavigationState.isPublicRoute: Boolean
+    get() = route == "feed" || route == "official" || postId != null || officialPostId != null
+
+internal val WebNavigationState.isAuthenticationRoute: Boolean
+    get() = route == "auth"
+
+internal val WebNavigationState.requiresAuthentication: Boolean
+    get() = !isPublicRoute && !isAuthenticationRoute
+
 internal class WebNavigationController(
     initialFragment: String,
     private val updateBrowserFragment: (String) -> Unit = ::setBrowserFragment,
@@ -570,6 +604,9 @@ internal class WebNavigationController(
     val chatConversationId: String? get() = state.chatConversationId
     val officialPostId: String? get() = state.officialPostId
     val postId: String? get() = state.postId
+    val fragment: String get() = currentFragment
+
+    private var currentFragment = initialFragment
 
     /** Updates Compose first; browser hashchange remains responsible for external history changes. */
     fun navigate(fragment: String) {
@@ -582,6 +619,7 @@ internal class WebNavigationController(
     }
 
     fun acceptBrowserFragment(fragment: String) {
+        currentFragment = fragment
         state = fragment.toWebNavigationState()
     }
 }
@@ -668,6 +706,13 @@ private fun setBrowserFragment(fragment: String): Unit = js("globalThis.location
   else root.removeAttribute('data-quata-primary-selected-route');
 }""")
 private external fun setWebNavigationShellMarker(route: String, selectedPrimaryRoute: String?)
+
+@JsFun("""() => {
+  const root = globalThis.document?.documentElement;
+  root?.removeAttribute('data-quata-shell-route');
+  root?.removeAttribute('data-quata-primary-selected-route');
+}""")
+private external fun clearWebNavigationShellMarker()
 
 /**
  * Observes in-place browser hash navigation. The returned callback must be retained for the
