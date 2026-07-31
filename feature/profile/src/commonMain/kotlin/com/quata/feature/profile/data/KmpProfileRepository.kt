@@ -162,7 +162,7 @@ class KmpProfileRepository(
                 id = missingId,
                 displayName = catalog.fallbackUserName(),
                 email = "",
-                neighborhood = ""
+                neighborhood = "",
             )
         }
         return candidates.values.toList()
@@ -216,11 +216,12 @@ internal fun ProfileRemoteRecord.toUserProfile(
     )
 }
 
-private fun ProfileRemoteRecord.toEmergencyCandidate(): EmergencyContactCandidate = EmergencyContactCandidate(
+internal fun ProfileRemoteRecord.toEmergencyCandidate(): EmergencyContactCandidate = EmergencyContactCandidate(
     id = id,
     displayName = displayName.cleanProfileValue() ?: legacyName.cleanProfileValue() ?: phoneLocal.orEmpty(),
     email = "${countryCode.orEmpty()}${phoneLocal.orEmpty()}@phone.quata.app",
     neighborhood = neighborhood.cleanProfileValue() ?: legacyNeighborhood.orEmpty(),
+    avatarUrl = avatarUrl.cleanProfileValue() ?: legacyAvatar.cleanProfileValue(),
     phone = phoneLocal.cleanProfileValue() ?: phone.orEmpty()
 )
 

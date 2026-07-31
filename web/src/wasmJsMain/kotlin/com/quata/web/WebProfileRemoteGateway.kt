@@ -23,9 +23,9 @@ import kotlinx.serialization.json.put
  * subscription. A future realtime adapter can replace these flows without changing Profile's
  * common contract.
  *
- * Mutations reuse Android's deployed actor-scoped profile, recovery-secret and SOS contracts.
- * The gateway checks that the requested profile equals the renewed Web session identity before it
- * emits a PATCH/POST/DELETE request; HTTP failures remain failures to the shared ViewModel.
+ * Reads use PostgREST. Writes are deliberately fail-closed: profile tables currently have no
+ * verified server-bound actor contract, so this client must never emit PATCH/POST/DELETE directly.
+ * A future `quata-profile-bridge` is the only permitted mutation boundary.
  */
 class WebProfileRemoteGateway(
     private val client: WebPostgrestClient,
@@ -76,13 +76,8 @@ class WebProfileRemoteGateway(
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
         requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
-        val allowed = patch.filterKeys { it in ProfileWritableColumns }
-        require(allowed.isNotEmpty()) { "web_profile_patch_empty" }
-        client.patch(
-            table = ProfilesTable,
-            query = mapOf("id" to "eq.$profileId"),
-            body = allowed.toPostgrestProfileJson(),
-        ).requireProfileMutationSuccess("patch")
+        require(patch.isNotEmpty()) { "web_profile_patch_empty" }
+        throw UnsupportedOperationException("web_profile_bridge_unavailable")
     }
 
     override suspend fun saveRecoverySecret(
@@ -100,19 +95,8 @@ class WebProfileRemoteGateway(
         contactIds: List<String>,
     ) {
         requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
-        val normalized = contactIds.map { it.requireProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
-        client.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId"))
-            .requireProfileMutationSuccess("delete_contacts")
-        if (normalized.isNotEmpty()) {
-            val body = normalized.mapIndexed { index, contactId ->
-                buildJsonObject {
-                    put("profile_id", profileId)
-                    put("contact_profile_id", contactId)
-                    put("position", index + 1)
-                }
-            }.joinToString(prefix = "[", postfix = "]")
-            client.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
-        }
+        contactIds.forEach { it.requireProfileIdentifier() }
+        throw UnsupportedOperationException("web_profile_bridge_unavailable")
     }
 
     private suspend fun loadProfiles(

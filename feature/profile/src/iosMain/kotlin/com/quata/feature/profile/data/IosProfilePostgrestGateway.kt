@@ -60,8 +60,7 @@ class IosProfileKeychainSessionProvider(
  * The request session is obtained from the existing renewable Keychain-backed owner for every
  * snapshot. The `observe*` methods intentionally emit one network snapshot and finish: Profile
  * has no verified Realtime contract yet, so this adapter must not pretend that polling or a local
- * cache is a live subscription. Mutations fail explicitly until their RLS policies and endpoint
- * contract have been exercised on iOS.
+ * cache is a live subscription. Mutations fail closed until a server-bound profile bridge exists.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosProfilePostgrestGateway(
@@ -129,14 +128,8 @@ class IosProfilePostgrestGateway(
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
         requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
-        val allowed = patch.filterKeys { it in IosProfileWritableColumns }
-        require(allowed.isNotEmpty()) { "ios_profile_patch_empty" }
-        mutate(
-            table = CommunityProfilesTable,
-            method = "PATCH",
-            query = mapOf("id" to "eq.$profileId"),
-            body = allowed.toIosProfileJson(),
-        )
+        require(patch.isNotEmpty()) { "ios_profile_patch_empty" }
+        throw UnsupportedOperationException("ios_profile_bridge_unavailable")
     }
 
     override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
@@ -147,14 +140,8 @@ class IosProfilePostgrestGateway(
 
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
         requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
-        val normalized = contactIds.map { it.requireIosProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
-        mutate(CommunityEmergencyContactsTable, "DELETE", mapOf("profile_id" to "eq.$profileId"), null)
-        if (normalized.isNotEmpty()) {
-            val rows = normalized.mapIndexed { index, contactId ->
-                "{\"profile_id\":${profileId.toIosProfileJsonString()},\"contact_profile_id\":${contactId.toIosProfileJsonString()},\"position\":${index + 1}}"
-            }.joinToString(prefix = "[", postfix = "]")
-            mutate(CommunityEmergencyContactsTable, "POST", emptyMap(), rows)
-        }
+        contactIds.forEach { it.requireIosProfileIdentifier() }
+        throw UnsupportedOperationException("ios_profile_bridge_unavailable")
     }
 
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {
@@ -177,10 +164,6 @@ class IosProfilePostgrestGateway(
         return requestConfiguration.iosProfileData(url).toIosProfileRows()
     }
 
-    private suspend fun mutate(table: String, method: String, query: Map<String, String>, body: String?) {
-        authenticatedRequest(table, method, query, body)
-    }
-
     private suspend fun authenticatedFunction(function: String, body: String) {
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_url_missing")
@@ -192,18 +175,6 @@ class IosProfilePostgrestGateway(
         NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
     }
 
-    private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
-        require(table.matches(IosProfilePostgrestTableName)) { "ios_profile_postgrest_table_invalid" }
-        val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
-        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_url_missing")
-        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_publishable_key_missing")
-        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}") ?: error("ios_profile_url_invalid")
-        val request = NSMutableURLRequest.requestWithURL(url).apply {
-            setHTTPMethod(method); setValue(key, "apikey"); setValue("Bearer ${session.accessToken}", "Authorization"); setValue("application/json", "Accept"); setValue("return=representation", "Prefer")
-            if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) }
-        }
-        return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
-    }
 }
 
 @OptIn(ExperimentalForeignApi::class)

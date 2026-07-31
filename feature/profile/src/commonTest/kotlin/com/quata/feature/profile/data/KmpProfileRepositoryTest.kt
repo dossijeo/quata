@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class KmpProfileRepositoryTest {
     @Test
@@ -69,5 +70,26 @@ class KmpProfileRepositoryTest {
         }
         assertEquals("profile_password_update_unavailable", failure.message)
         requireProfilePasswordUpdateSupported("")
+    }
+
+    @Test
+    fun `password rejection happens before any remote mutation boundary`() {
+        val calls = mutableListOf<String>()
+        val rejected = runCatching {
+            requireProfilePasswordUpdateSupported("NewPassword7")
+            calls += "remote_mutation"
+        }.exceptionOrNull()
+        assertEquals("profile_password_update_unavailable", rejected?.message)
+        assertTrue(calls.isEmpty())
+    }
+
+    @Test
+    fun `sos candidate retains its remote avatar for the shared row slot`() {
+        val candidate = ProfileRemoteRecord(
+            id = "sos-1",
+            displayName = "SOS",
+            avatarUrl = "https://cdn.example/sos.jpg",
+        ).toEmergencyCandidate()
+        assertEquals("https://cdn.example/sos.jpg", candidate.avatarUrl)
     }
 }

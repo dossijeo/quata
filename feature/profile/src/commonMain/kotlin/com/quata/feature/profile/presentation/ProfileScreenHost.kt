@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +76,25 @@ fun ProfileScreenHost(
     LaunchedEffect(state.successMessage) {
         if (state.successMessageTriggersProfileSaved) slots.onProfileSaved()
     }
+    LaunchedEffect(state.emergencySettingsSaved) {
+        if (state.emergencySettingsSaved) {
+            showSos = false
+            viewModel.onEvent(ProfileUiEvent.ClearMessages)
+        }
+    }
+    SideEffect {
+        slots.backDispatcher?.setHandler {
+            if (showSos) {
+                showSos = false
+                viewModel.onEvent(ProfileUiEvent.ClearMessages)
+            } else if (page != ProfileAccountPage.Overview) {
+                page = ProfileAccountPage.Overview
+            } else {
+                slots.onBackFromOverview()
+            }
+        }
+    }
+    DisposableEffect(slots.backDispatcher) { onDispose { slots.backDispatcher?.clearHandler() } }
 
     Box(modifier.fillMaxSize()) {
         val profile = state.profile
@@ -134,7 +154,7 @@ fun ProfileScreenHost(
                 strings = strings.emergency,
                 onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
                 onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
-                onDismiss = { showSos = false },
+                onDismiss = { showSos = false; viewModel.onEvent(ProfileUiEvent.ClearMessages) },
                 onSave = { viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings) },
                 slots = EmergencyContactsDialogSlots(
                     contactRow = { contact, selected, toggle -> slots.emergencyContactRow(contact, selected, toggle) },
@@ -201,6 +221,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
             ProfileTextField(profile.displayName, strings.name) { onEvent(ProfileUiEvent.NameChanged(it)) }
             ProfileTextField(profile.neighborhood, strings.neighborhood) { onEvent(ProfileUiEvent.NeighborhoodChanged(it)) }
             ProfilePrefixAndPhone(state, profile.countryCode, profile.phone, strings, onEvent)
+            ProfileTextField(state.newPassword, strings.newPassword, password = true) { onEvent(ProfileUiEvent.NewPasswordChanged(it)) }
             ProfileSecretQuestion(state, profile.selectedSecretQuestion, strings) { onEvent(ProfileUiEvent.SecretQuestionChanged(it)) }
             ProfileTextField(state.newSecretAnswer, strings.newSecretAnswer) { onEvent(ProfileUiEvent.SecretAnswerChanged(it)) }
         },
@@ -242,7 +263,7 @@ private enum class ProfileDangerousAction { Deactivate, DeleteData }
 data class ProfileScreenStrings(
     val loading: String, val myData: String, val management: String, val managementDescription: String,
     val configureEmergency: String, val saveChanges: String, val saving: String, val logout: String,
-    val name: String, val neighborhood: String, val phone: String,
+    val name: String, val neighborhood: String, val phone: String, val newPassword: String,
     val secretQuestion: String, val newSecretAnswer: String, val back: String, val deactivate: String,
     val deleteData: String, val dangerConfirmation: String, val confirm: String, val cancel: String,
     val appearance: AppearanceSettingsStrings, val emergency: EmergencyContactsEditorStrings,
@@ -256,4 +277,14 @@ data class ProfileScreenSlots(
     val emergencyContactRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     val emergencyContactActions: @Composable (() -> Unit)? = null,
     val onProfileSaved: () -> Unit = {},
+    val onBackFromOverview: () -> Unit = {},
+    val backDispatcher: ProfileBackDispatcher? = null,
 )
+
+/** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */
+class ProfileBackDispatcher {
+    private var handler: (() -> Unit)? = null
+    fun setHandler(value: () -> Unit) { handler = value }
+    fun clearHandler() { handler = null }
+    fun dispatch() { handler?.invoke() }
+}

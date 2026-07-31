@@ -52,7 +52,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                         selected = selected,
                         addLabel = "Add",
                         removeLabel = "Remove",
-                        avatar = { QuataAvatarFallback(contact.displayName, contact.id) },
+                        avatar = { IosRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, Modifier.size(46.dp)) },
                         onToggle = toggle,
                     )
                 },
@@ -65,7 +65,7 @@ private val IosProfileScreenStrings = ProfileScreenStrings(
     loading = "Loading profile…", myData = "My data", management = "Account management",
     managementDescription = "Manage sensitive options for your account.",
     configureEmergency = "Configure emergency contacts", saveChanges = "Save changes", saving = "Saving…",
-    logout = "Log out", name = "Name", neighborhood = "Neighborhood", phone = "Phone",
+    logout = "Log out", name = "Name", neighborhood = "Neighborhood", phone = "Phone", newPassword = "New password",
     secretQuestion = "Secret question", newSecretAnswer = "New secret answer",
     back = "Back", deactivate = "Deactivate account", deleteData = "Request data deletion",
     dangerConfirmation = "This action needs a final confirmation and is not performed during QA.", confirm = "Continue", cancel = "Cancel",

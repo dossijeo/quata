@@ -44,6 +44,7 @@ class ProfileViewModel(
             is ProfileUiEvent.NeighborhoodChanged -> updateProfile { copy(neighborhood = event.value) }
             is ProfileUiEvent.CountryCodeChanged -> updateProfile { copy(countryCode = event.value) }
             is ProfileUiEvent.PhoneChanged -> updateProfile { copy(phone = event.value) }
+            is ProfileUiEvent.NewPasswordChanged -> _uiState.update { it.copy(newPassword = event.value) }
             is ProfileUiEvent.SecretQuestionChanged -> updateProfile { copy(selectedSecretQuestion = event.value) }
             is ProfileUiEvent.SecretAnswerChanged -> _uiState.update { it.copy(newSecretAnswer = event.value) }
             is ProfileUiEvent.EmergencyMessageChanged -> updateProfile {
@@ -111,7 +112,7 @@ class ProfileViewModel(
                     countryCode = profile.countryCode,
                     phone = profile.phone,
                     avatarUri = profile.avatarUri,
-                    newPassword = "",
+                    newPassword = state.newPassword,
                     secretQuestion = profile.selectedSecretQuestion,
                     secretAnswer = state.newSecretAnswer,
                     emergencyContactIds = profile.emergencyContactIds.distinct().take(5),
@@ -124,6 +125,7 @@ class ProfileViewModel(
                     _uiState.update {
                         it.copy(
                             isSaving = false,
+                            newPassword = "",
                             newSecretAnswer = "",
                             successMessage = repository.changesSavedMessage(),
                             successMessageTriggersProfileSaved = true,
