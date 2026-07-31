@@ -25,7 +25,7 @@ fun QuataCommentsPanelPortraitContent(
     replyTarget: (@Composable () -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier.padding(start = 20.dp, end = 20.dp, bottom = 48.dp),
+        modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 48.dp),
     ) {
         header()
         Spacer(Modifier.height(16.dp))

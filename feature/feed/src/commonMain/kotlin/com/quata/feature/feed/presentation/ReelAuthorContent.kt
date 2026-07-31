@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataOrange
+import com.quata.core.ui.components.QuataEmojiStaticText
 
 /** Portable author and description overlay; image loading and profile navigation are host slots. */
 @Composable
@@ -35,8 +36,8 @@ fun ReelAuthorContent(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (showDescription) {
-            Text(
-                text = displayText,
+            QuataEmojiStaticText(
+                value = displayText,
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp,
                 lineHeight = 19.sp,

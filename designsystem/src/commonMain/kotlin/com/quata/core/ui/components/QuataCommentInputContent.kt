@@ -1,18 +1,15 @@
 package com.quata.core.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredHeightIn
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
@@ -36,8 +33,8 @@ fun QuataCommentInputContent(
     onFocused: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        QuataEmojiCommentTextField(
             value = draft,
             onValueChange = onDraftChange,
             placeholder = { Text(strings.placeholder) },
@@ -56,9 +53,8 @@ fun QuataCommentInputContent(
                     } else onAuthRequired()
                 }) { CompactIcon(Icons.AutoMirrored.Filled.Send, strings.send) }
             },
-            modifier = Modifier.weight(1f).requiredHeightIn(min = 58.dp).onFocusChanged { if (it.isFocused) onFocused() },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+            onFocused = onFocused,
+            modifier = Modifier.weight(1f).requiredHeightIn(min = 58.dp)
         )
     }
 }

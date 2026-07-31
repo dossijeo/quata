@@ -124,7 +124,7 @@ internal fun communityEmojiAtlasCoordinates(sectionKey: String, index: Int): Pai
     return index % atlas.columns to index / atlas.columns
 }
 
-private fun communityEmojiAtlas(sectionKey: String): CommunityEmojiAtlas = when (sectionKey) {
+internal fun communityEmojiAtlas(sectionKey: String): CommunityEmojiAtlas = when (sectionKey) {
     "recent" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_recent, emojiCount = 24)
     "frequent" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_frequent, emojiCount = 45)
     "gestures" -> CommunityEmojiAtlas(Res.drawable.quata_community_emoji_atlas_gestures, emojiCount = 35)
