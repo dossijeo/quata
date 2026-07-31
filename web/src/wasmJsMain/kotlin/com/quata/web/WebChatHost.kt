@@ -12,6 +12,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -30,6 +34,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatScreenHost
+import com.quata.feature.chat.presentation.chat.ChatMediaKind
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
@@ -86,6 +91,28 @@ fun WebChatHost(
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
         onOpenAvatar = onOpenUserProfile,
+        profileAvatar = { presentation, avatarModifier, onClick ->
+            BrowserRemoteAvatar(
+                presentation.name,
+                presentation.profileId,
+                presentation.avatarUrl,
+                false,
+                null,
+                avatarModifier.clickable(onClick = onClick),
+            )
+        },
+        mediaAttachment = { presentation, mediaModifier, onClick ->
+            if (presentation.kind == ChatMediaKind.Image) {
+                BrowserCanvasImage(
+                    url = presentation.file.reference,
+                    contentDescription = presentation.file.displayName,
+                    contentScale = ContentScale.Crop,
+                    modifier = mediaModifier.height(180.dp).clickable(onClick = onClick),
+                )
+            } else {
+                Surface(mediaModifier.clickable(onClick = onClick)) { Text("Reproducir vídeo") }
+            }
+        },
         conversationListHost = { listModifier ->
             val conversations = remember(repository) { ConversationsViewModel(repository, readContacts = { pickedInviteContacts }) }
             DisposableEffect(conversations) { onDispose(conversations::close) }

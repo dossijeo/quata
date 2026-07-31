@@ -26,6 +26,13 @@ class ChatCommonCompositionStaticTest {
             "ChatPendingAttachmentOverlayContent(",
             "ChatSosLocationContent(",
             "ChatDocumentAttachmentContent(",
+            "ChatMediaPresentation(",
+            "ChatMediaKind.Image",
+            "mediaAttachment(",
+            "profileAvatar(",
+            "compact = compact",
+            "appHeaderActions?.invoke(this)",
+            "isLoading = openingProfileUserId ==",
             "FilePickerSource.Camera",
             "FilePickerSource.Gallery",
             "ChatTypingIndicatorContent(",
@@ -44,5 +51,6 @@ class ChatCommonCompositionStaticTest {
             "Ocultar conversación",
             "Eliminar conversación",
         ).forEach { required -> assertTrue("Missing shared Chat hierarchy token: $required", required in source) }
+        assertTrue(source.indexOf("mediaAttachment(") < source.indexOf("ChatDocumentAttachmentContent("))
     }
 }

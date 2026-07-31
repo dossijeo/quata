@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +53,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsListConten
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.core.ui.components.CommunityEmojiPanelContent
+import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.communityEmojiSections
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -70,6 +74,30 @@ data class ChatAudioRecordingConfiguration(
         const val WEB_MIME_TYPE = "audio/webm"
         const val IOS_MIME_TYPE = "audio/mp4"
     }
+}
+
+data class ChatAvatarPresentation(
+    val profileId: String,
+    val name: String,
+    val avatarUrl: String?,
+    val isLoading: Boolean,
+)
+
+enum class ChatMediaKind { Image, Video }
+
+data class ChatMediaPresentation(
+    val file: PlatformFile,
+    val kind: ChatMediaKind,
+)
+
+enum class ChatHostLifecycleEvent { EnterForeground, BecomeActive, ResignActive, EnterBackground, Dispose }
+
+fun chatHostIsForeground(event: ChatHostLifecycleEvent): Boolean = when (event) {
+    ChatHostLifecycleEvent.EnterForeground,
+    ChatHostLifecycleEvent.BecomeActive -> true
+    ChatHostLifecycleEvent.ResignActive,
+    ChatHostLifecycleEvent.EnterBackground,
+    ChatHostLifecycleEvent.Dispose -> false
 }
 
 /** Single host-neutral Chat root mounted unchanged by Android, Web and iOS adapters. */
@@ -97,6 +125,26 @@ fun ChatScreenHost(
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
     clipboardService: ClipboardService? = null,
+    compactHeader: Boolean = false,
+    appHeaderActions: (@Composable RowScope.() -> Unit)? = null,
+    openingProfileUserId: String? = null,
+    profileAvatar: @Composable (ChatAvatarPresentation, Modifier, () -> Unit) -> Unit = { presentation, avatarModifier, onClick ->
+        QuataAvatarFrameContent(
+            name = presentation.name,
+            stableId = presentation.profileId,
+            isOfficial = false,
+            isOnline = null,
+            modifier = avatarModifier.clickable(onClick = onClick),
+        )
+    },
+    mediaAttachment: @Composable (ChatMediaPresentation, Modifier, () -> Unit) -> Unit = { presentation, mediaModifier, onClick ->
+        Surface(mediaModifier.clickable(onClick = onClick)) {
+            Text(
+                if (presentation.kind == ChatMediaKind.Image) "Imagen" else "Vídeo",
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    },
 ) {
     if (conversationId == null) {
         conversationListHost(modifier)
@@ -121,6 +169,11 @@ fun ChatScreenHost(
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
             clipboardService = clipboardService,
+            compactHeader = compactHeader,
+            appHeaderActions = appHeaderActions,
+            openingProfileUserId = openingProfileUserId,
+            profileAvatar = profileAvatar,
+            mediaAttachment = mediaAttachment,
             modifier = modifier,
         )
     }
@@ -147,6 +200,11 @@ private fun ChatConversationScreenContent(
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     clipboardService: ClipboardService?,
+    compactHeader: Boolean,
+    appHeaderActions: (@Composable RowScope.() -> Unit)?,
+    openingProfileUserId: String?,
+    profileAvatar: @Composable (ChatAvatarPresentation, Modifier, () -> Unit) -> Unit,
+    mediaAttachment: @Composable (ChatMediaPresentation, Modifier, () -> Unit) -> Unit,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
@@ -245,6 +303,10 @@ private fun ChatConversationScreenContent(
             onOpenAvatar = onOpenAvatar,
             onCopyMessage = { text -> clipboardService?.let { service -> scope.launch { service.writeText(text) } } },
             onEvent = viewModel::onEvent,
+            compact = compactHeader,
+            appHeaderActions = appHeaderActions,
+            openingProfileUserId = openingProfileUserId,
+            profileAvatar = profileAvatar,
         )
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp)) }
         state.notice?.let { notice ->
@@ -305,7 +367,16 @@ private fun ChatConversationScreenContent(
             showSenderAvatar = { message -> !message.isMine },
             avatar = { message ->
                 if (!message.isMine && message.senderId.isNotBlank()) {
-                    Button(onClick = { onOpenAvatar(message.senderId) }) { Text(message.senderName.take(1).ifBlank { "?" }) }
+                    val participantIndex = state.conversation?.participantIds?.indexOf(message.senderId) ?: -1
+                    profileAvatar(
+                        ChatAvatarPresentation(
+                            profileId = message.senderId,
+                            name = message.senderName,
+                            avatarUrl = state.conversation?.participantAvatarUrls?.getOrNull(participantIndex),
+                            isLoading = openingProfileUserId == message.senderId,
+                        ),
+                        Modifier.size(36.dp),
+                    ) { onOpenAvatar(message.senderId) }
                 }
             },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
@@ -476,6 +547,7 @@ private fun ChatConversationScreenContent(
                             audioFailed = failed
                         },
                         onOpenAttachment = onOpenAttachment,
+                        mediaAttachment = mediaAttachment,
                         launch = audioLifecycle::launch,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -592,6 +664,10 @@ private fun ChatPortableConversationHeader(
     onOpenAvatar: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
     onEvent: (ChatUiEvent) -> Unit,
+    compact: Boolean,
+    appHeaderActions: (@Composable RowScope.() -> Unit)?,
+    openingProfileUserId: String?,
+    profileAvatar: @Composable (ChatAvatarPresentation, Modifier, () -> Unit) -> Unit,
 ) {
     var pendingConversationAction by remember { mutableStateOf<String?>(null) }
     if (state.conversation?.id == AppDestinations.FavoriteMessagesConversationId) {
@@ -601,7 +677,7 @@ private fun ChatPortableConversationHeader(
     val selected = state.messages.firstOrNull { it.id == state.selectedMessageId }
     if (selected != null) {
         ChatSelectedMessageActionBarContent(
-            compact = false,
+            compact = compact,
             navigationAction = { Button(onClick = { onEvent(ChatUiEvent.MessageSelected(null)) }) { Text("Cerrar") } },
             actions = {
                 Button(onClick = { onEvent(ChatUiEvent.StartReply) }) { Text("Responder") }
@@ -626,7 +702,7 @@ private fun ChatPortableConversationHeader(
         title = conversation?.title.orEmpty().ifBlank { "Conversación" },
         subtitle = if (conversation?.isGroup == true) "${conversation.participantIds.size} participantes" else navigationMessage,
         expandable = conversation != null,
-        compact = false,
+        compact = compact,
         onToggleExpanded = onToggleExpanded,
         navigationAction = { Button(onClick = onBack, modifier = Modifier.semantics { testTag = "chat.back" }) { Text("Volver") } },
         avatar = {
@@ -636,15 +712,35 @@ private fun ChatPortableConversationHeader(
                 isMuted = conversation?.isMuted == true,
                 emergencyLabel = "SOS",
                 privateAvatar = {
-                    Button(onClick = { conversation?.participantIds?.firstOrNull { it != currentUserId }?.let(onOpenAvatar) }) {
-                        Text(conversation?.title?.take(1).orEmpty().ifBlank { "?" })
-                    }
+                    val peerIndex = conversation?.participantIds?.indexOfFirst { it != currentUserId } ?: -1
+                    val peerId = conversation?.participantIds?.getOrNull(peerIndex).orEmpty()
+                    profileAvatar(
+                        ChatAvatarPresentation(
+                            profileId = peerId,
+                            name = conversation?.participantNames?.getOrNull(peerIndex).orEmpty().ifBlank { conversation?.title.orEmpty() },
+                            avatarUrl = conversation?.participantAvatarUrls?.getOrNull(peerIndex) ?: conversation?.avatarUrl,
+                            isLoading = openingProfileUserId == peerId,
+                        ),
+                        Modifier.size(44.dp),
+                    ) { if (peerId.isNotBlank()) onOpenAvatar(peerId) }
                 },
-                groupIcon = { Text("Grupo") },
+                groupIcon = {
+                    profileAvatar(
+                        ChatAvatarPresentation(
+                            profileId = conversation?.id.orEmpty(),
+                            name = conversation?.title.orEmpty().ifBlank { "Grupo" },
+                            avatarUrl = conversation?.avatarUrl,
+                            isLoading = false,
+                        ),
+                        Modifier.size(44.dp),
+                        {},
+                    )
+                },
                 mutedBadge = { ChatMutedConversationBadgeContent() },
             )
         },
         trailingActions = {
+            appHeaderActions?.invoke(this)
             Button(onClick = { onEvent(ChatUiEvent.ConversationMutedChanged(conversation?.isMuted != true)) }) {
                 Text(if (conversation?.isMuted == true) "Activar" else "Silenciar")
             }
@@ -665,9 +761,15 @@ private fun ChatPortableConversationHeader(
             conversation.participantIds.forEachIndexed { index, participantId ->
                 if (participantId != currentUserId) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = { onOpenAvatar(participantId) }) {
-                            Text(conversation.participantNames.getOrNull(index).orEmpty().ifBlank { "Participante" })
-                        }
+                        profileAvatar(
+                            ChatAvatarPresentation(
+                                profileId = participantId,
+                                name = conversation.participantNames.getOrNull(index).orEmpty().ifBlank { "Participante" },
+                                avatarUrl = conversation.participantAvatarUrls.getOrNull(index),
+                                isLoading = openingProfileUserId == participantId,
+                            ),
+                            Modifier.size(40.dp),
+                        ) { onOpenAvatar(participantId) }
                         Spacer(Modifier.weight(1f))
                         if (isModerator) {
                             Button(onClick = { onEvent(if (participantId in conversation.moderatorIds) ChatUiEvent.DemoteModerator(participantId) else ChatUiEvent.PromoteModerator(participantId)) }) {
@@ -727,6 +829,7 @@ private fun ChatAttachmentContent(
     failed: Boolean,
     onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    mediaAttachment: @Composable (ChatMediaPresentation, Modifier, () -> Unit) -> Unit,
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
@@ -734,12 +837,24 @@ private fun ChatAttachmentContent(
     if (reference.isBlank()) return
     val mimeType = message.attachmentMimeType.orEmpty()
     val displayName = message.attachmentName?.takeIf { it.isNotBlank() } ?: "Adjunto"
+    if (mimeType.startsWith("image/", ignoreCase = true) || mimeType.startsWith("video/", ignoreCase = true)) {
+        val file = PlatformFile(reference, displayName, mimeType)
+        mediaAttachment(
+            ChatMediaPresentation(
+                file = file,
+                kind = if (mimeType.startsWith("image/", ignoreCase = true)) ChatMediaKind.Image else ChatMediaKind.Video,
+            ),
+            modifier.fillMaxWidth(),
+            { onOpenAttachment(file) },
+        )
+        return
+    }
     if (!mimeType.startsWith("audio/", ignoreCase = true)) {
         ChatDocumentAttachmentContent(
             name = displayName,
             textColor = MaterialTheme.colorScheme.onSurface,
             onOpen = { onOpenAttachment(PlatformFile(reference, displayName, mimeType)) },
-            icon = { Text(if (mimeType.startsWith("image/")) "Imagen" else if (mimeType.startsWith("video/")) "Vídeo" else "Archivo") },
+            icon = { Text("Archivo") },
             modifier = modifier.fillMaxWidth(),
         )
         return

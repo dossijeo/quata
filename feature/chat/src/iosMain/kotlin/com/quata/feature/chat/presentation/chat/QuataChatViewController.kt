@@ -10,6 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataTheme
@@ -28,14 +32,22 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrings
 import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.feed.presentation.IosRemoteAvatar
+import com.quata.feature.feed.presentation.IosRemoteImage
 import com.quata.core.navigation.AppDestinations
 import platform.UIKit.UIViewController
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
+import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSNotificationCenter
+import platform.UIKit.UIApplicationDidBecomeActiveNotification
+import platform.UIKit.UIApplicationDidEnterBackgroundNotification
+import platform.UIKit.UIApplicationWillEnterForegroundNotification
+import platform.UIKit.UIApplicationWillResignActiveNotification
 import kotlinx.coroutines.launch
 
 /**
@@ -82,11 +94,22 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
     ComposeUIViewController {
         QuataTheme {
             DisposableEffect(dependencies.repository) {
-                dependencies.repository.setAppForeground(true)
-                dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, true) }
+                fun updateForeground(isForeground: Boolean) {
+                    dependencies.repository.setAppForeground(isForeground)
+                    dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, isForeground) }
+                }
+                updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.BecomeActive))
+                val center = NSNotificationCenter.defaultCenter
+                val backgroundObserver = center.addObserverForName(UIApplicationDidEnterBackgroundNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.EnterBackground)) }
+                val resignObserver = center.addObserverForName(UIApplicationWillResignActiveNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.ResignActive)) }
+                val foregroundObserver = center.addObserverForName(UIApplicationWillEnterForegroundNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.EnterForeground)) }
+                val activeObserver = center.addObserverForName(UIApplicationDidBecomeActiveNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.BecomeActive)) }
                 onDispose {
-                    dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, false) }
-                    dependencies.repository.setAppForeground(false)
+                    center.removeObserver(backgroundObserver)
+                    center.removeObserver(resignObserver)
+                    center.removeObserver(foregroundObserver)
+                    center.removeObserver(activeObserver)
+                    updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.Dispose))
                 }
             }
             ChatScreenHost(
@@ -101,6 +124,26 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
                 onOpenAvatar = dependencies.onOpenAvatar,
+                profileAvatar = { presentation, avatarModifier, onClick ->
+                    IosRemoteAvatar(
+                        presentation.name,
+                        presentation.profileId,
+                        presentation.avatarUrl,
+                        false,
+                        null,
+                        avatarModifier.clickable(onClick = onClick),
+                    )
+                },
+                mediaAttachment = { presentation, mediaModifier, onClick ->
+                    if (presentation.kind == ChatMediaKind.Image) {
+                        IosRemoteImage(
+                            url = presentation.file.reference,
+                            modifier = mediaModifier.height(180.dp).clickable(onClick = onClick),
+                        )
+                    } else {
+                        Surface(mediaModifier.clickable(onClick = onClick)) { Text("Reproducir vídeo") }
+                    }
+                },
                 onOpenMap = dependencies.onOpenMap,
                 onTranslateMessage = dependencies.onTranslateMessage,
                 clipboardService = IosClipboardService(),
@@ -116,7 +159,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         padding = PaddingValues(),
                         viewModel = conversations,
                         clipboardService = IosClipboardService(),
-                        strings = conversationsHostStringsForLanguage(null),
+                        strings = conversationsHostStringsForLanguage(iosConversationLanguage()),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
                         onOpenFavorites = { dependencies.onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
@@ -159,14 +202,18 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
 @Composable
 private fun IosInviteChannelSheet(contact: ChatInviteContact, clipboard: ClipboardService, shareService: ShareService, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val invitation = "Únete a Qüata: conecta, publica y conversa con tu comunidad."
+    val invitationStrings = conversationsLocaleCatalogForLanguage(iosConversationLanguage()).invitation
     InviteChannelSheetContent(
-        invitationMessage = invitation,
-        targets = listOf(InviteChannelTargetUi("ios-share", "Compartir")),
-        strings = InviteChannelSheetStrings("Invitar a ${contact.displayName}", "Copiar invitación", "Elige cómo enviar la invitación"),
+        invitationMessage = invitationStrings.message,
+        targets = listOf(InviteChannelTargetUi("ios-share", invitationStrings.shareTarget)),
+        strings = InviteChannelSheetStrings(invitationStrings.sheetTitle(contact.displayName), invitationStrings.copyMessage, invitationStrings.chooseAppFor(contact.displayName)),
         clipboardService = clipboard,
         onDismiss = onDismiss,
-        onTargetSelected = { scope.launch { shareService.share(SharePayload(text = invitation, title = "Qüata")) }; onDismiss() },
+        onTargetSelected = { scope.launch { shareService.share(SharePayload(text = invitationStrings.message, title = invitationStrings.shareTitle)) }; onDismiss() },
         panelHost = { content -> QuataFloatingPanelContent(onDismiss = onDismiss) { modifier, _ -> content(modifier) } },
     )
 }
+
+/** AppleLanguages is the locale selected by the user, not a launcher fallback. */
+private fun iosConversationLanguage(): String? =
+    (NSUserDefaults.standardUserDefaults.objectForKey("AppleLanguages") as? List<*>)?.firstOrNull() as? String

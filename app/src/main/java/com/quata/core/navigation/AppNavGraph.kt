@@ -872,7 +872,17 @@ fun AppNavGraph(
                                 navigateToChat(targetConversationId, focusedMessageId = messageId)
                             },
                             onBack = { navController.popBackStack() },
-                            compactHeader = isLandscapeLayout
+                            compactHeader = isLandscapeLayout,
+                            appHeaderActions = {
+                                QuataAppHeaderActions(
+                                    notificationCount = notificationCount,
+                                    isBouncing = isNotificationBounceActive,
+                                    onLogoClick = { isAboutDialogOpen = true },
+                                    onNotificationsClick = {
+                                        navController.navigate(AppDestinations.Notifications.route) { launchSingleTop = true }
+                                    },
+                                )
+                            },
                         )
                     }
                 }

@@ -23,8 +23,12 @@ class ChatRealtimePlatformStaticTest {
             assertTrue("setVisibleConversation" in gateway && "reconcile()" in gateway)
             assertTrue("presence_state" in gateway && "presence_diff" in gateway)
         }
-        assertTrue("repository.setAppForeground(true)" in iosHost)
-        assertTrue("repository.setAppForeground(false)" in iosHost)
+        assertTrue("UIApplicationDidEnterBackgroundNotification" in iosHost)
+        assertTrue("UIApplicationWillEnterForegroundNotification" in iosHost)
+        assertTrue("UIApplicationDidBecomeActiveNotification" in iosHost)
+        assertTrue("UIApplicationWillResignActiveNotification" in iosHost)
+        assertTrue("center.removeObserver" in iosHost)
+        assertTrue("chatHostIsForeground(ChatHostLifecycleEvent.Dispose)" in iosHost)
         assertTrue("onOpenAvatar = dependencies.onOpenAvatar" in iosHost)
         assertTrue("onOpenAvatar = onOpenUserProfile" in webHost)
     }

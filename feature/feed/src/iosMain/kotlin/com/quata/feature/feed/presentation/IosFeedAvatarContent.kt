@@ -106,6 +106,23 @@ fun IosRemoteAvatar(
     )
 }
 
+/** UIKit-backed remote image surface reused by feature-owned media slots. */
+@Composable
+fun IosRemoteImage(url: String, modifier: Modifier) {
+    var image by remember(url) { mutableStateOf<UIImage?>(null) }
+    LaunchedEffect(url) { image = url.takeIf(::isIosAvatarUrl)?.let { loadIosAvatarOrNull(it) } }
+    UIKitView(
+        factory = {
+            UIImageView().apply {
+                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                clipsToBounds = true
+            }
+        },
+        update = { it.image = image },
+        modifier = modifier,
+    )
+}
+
 private suspend fun loadIosAvatarOrNull(url: String): UIImage? =
     runCatching { iosAvatarData(NSURL(string = url) ?: return@runCatching null) }
         .getOrNull()
