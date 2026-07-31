@@ -14,4 +14,15 @@ class ProfileBackDispatcherTest {
         dispatcher.dispatch()
         assertEquals(1, calls)
     }
+
+    @Test
+    fun `overview does not consume platform back while nested pages do`() {
+        val dispatcher = ProfileBackDispatcher()
+        dispatcher.setHandler(null)
+        assertEquals(false, dispatcher.canConsume)
+        dispatcher.setHandler { }
+        assertEquals(true, dispatcher.canConsume)
+        dispatcher.clearHandler()
+        assertEquals(false, dispatcher.canConsume)
+    }
 }
