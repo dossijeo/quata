@@ -9,6 +9,7 @@
     "test:wasm-bundle-budget": "node --test scripts/wasm-bundle-report.test.mjs scripts/wasm-bundle-approval-policy.test.mjs scripts/wasm-production-sourcemap-contract.test.mjs",
     "test:wasm-production-sourcemaps": "node --test scripts/wasm-production-sourcemap-contract.test.mjs",
     "test:web-auth-browser-contract": "node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-login-product-flow-contract.test.mjs",
+    "test:web-auth-required-gate-contract": "node --test scripts/web-auth-required-gate-contract.test.mjs",
     "test:web-navigation-persistence-contract": "node --test scripts/web-navigation-persistence-contract.test.mjs",
     "test:web-wasm-navigation-stress": "node --test scripts/web-wasm-navigation-stress-contract.test.mjs",
     "test:web-chat-report": "node --test scripts/web-chat-browser-e2e-report.test.mjs scripts/web-chat-browser-e2e-policy.test.mjs scripts/web-chat-exact-purge-gate.test.mjs",

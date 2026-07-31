@@ -171,23 +171,19 @@ try {
   );
   report.steps.push("auth_router_bootstrap_ready_before_private_transition");
 
-  const authSurface = await resolveAuthSurface(page);
-  stage = "private_return_redirect";
-  await assertPrivateRedirectToCommonAuth(page);
-  report.steps.push("encoded_private_chat_redirects_to_common_auth_without_shell");
+  await resolveAuthSurface(page);
+  stage = "private_participation_gate";
+  await assertPrivateAuthenticationGate(page);
+  report.steps.push("encoded_private_chat_returns_to_public_feed_with_participation_gate");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
-  await assertPrivateRedirectToCommonAuth(page);
-  report.steps.push("anonymous_feed_official_shell_and_private_chat_login_redirect");
-  if (authSurface === "native_controls") {
-    stage = "native_auth_control_login";
-    await loginWithNativeControls(page, credentials);
-    report.steps.push("native_login_role_name_focus_keyboard_activation");
-  } else {
-    stage = "compose_auth_bridge_login";
-    await loginWithComposeAuthBridge(page, credentials);
-    report.steps.push("compose_auth_bridge_login_product_repository_activation");
-  }
+  await assertPrivateAuthenticationGate(page);
+  report.steps.push("anonymous_feed_official_shell_and_private_chat_participation_gate");
+  // The E2E bridge invokes the real shared AuthRepository while the visual gate itself remains
+  // Compose canvas.  Production users choose Login/Register in the common dialog first.
+  stage = "compose_auth_bridge_login";
+  await loginWithComposeAuthBridge(page, credentials);
+  report.steps.push("compose_auth_bridge_login_product_repository_activation");
   await assertAutomaticLoginReturn(page);
   cleanupSession = await readSession(page);
   assertCompleteSession(cleanupSession);
@@ -231,15 +227,9 @@ try {
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
 
-  if (authSurface === "native_controls") {
-    stage = "native_auth_control_logout";
-    await logoutWithNativeControls(page);
-    report.steps.push("native_logout_role_name_focus_keyboard_activation");
-  } else {
-    stage = "compose_auth_bridge_logout";
-    await logoutWithComposeAuthBridge(page);
-    report.steps.push("compose_auth_bridge_logout_product_coordinator_activation");
-  }
+  stage = "compose_auth_bridge_logout";
+  await logoutWithComposeAuthBridge(page);
+  report.steps.push("compose_auth_bridge_logout_product_coordinator_activation");
   await page.waitForFunction(() => localStorage.getItem("web.auth.session_ready") !== "true");
   if ((await page.evaluate(keys => keys.some(key => localStorage.getItem(key) !== null), STORAGE_KEYS))) {
     throw new Error("product_logout_storage_remains");
@@ -513,11 +503,11 @@ async function assertAnonymousPublicShell(page) {
   }
 }
 
-async function assertPrivateRedirectToCommonAuth(page) {
+async function assertPrivateAuthenticationGate(page) {
   await page.evaluate(fragment => { globalThis.location.hash = fragment; }, PRIVATE_RETURN_FRAGMENT);
   await page.waitForFunction(() =>
-    location.hash === "#auth" && localStorage.getItem("web.navigation.route") === "auth" &&
-    !document.documentElement.hasAttribute("data-quata-shell-route"),
+    location.hash === "" && localStorage.getItem("web.navigation.route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed",
   );
 }
 

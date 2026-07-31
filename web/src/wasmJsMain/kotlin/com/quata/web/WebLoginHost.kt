@@ -5,6 +5,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.quata.core.platform.PreferenceStore
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
+import com.quata.feature.auth.presentation.AuthProductDestination
 import com.quata.feature.auth.presentation.AuthProductHostContent
 import kotlinx.coroutines.launch
 
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 fun WebLoginHost(
     repository: WebAuthRepository,
     preferences: PreferenceStore,
+    initialDestination: AuthProductDestination = AuthProductDestination.Login,
     onLoginSuccess: () -> Unit,
 ) {
     val catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish)
@@ -24,6 +26,7 @@ fun WebLoginHost(
         repository = repository,
         catalog = catalog,
         prefixes = AuthCatalog.countryPrefixes(AuthCatalogLocale.Spanish),
+        initialDestination = initialDestination,
         onAuthenticated = {
             scope.launch {
                 preferences.putString(WebSessionReadyKey, "true")
