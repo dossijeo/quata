@@ -1021,7 +1021,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
-        installAuthenticationFactory { entry in
+        installAuthenticationEntryFactory { entry in
             switch entry {
             case .login: return IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
             case .registration: return IosAuthHostKt.QuataRegistrationViewController(dependencies: dependencies)
@@ -1050,14 +1050,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Installs the authenticated entry point without granting a session. Keeping this UIKit
     /// factory boundary explicit lets a private deep link show login while retaining its route
     /// until the real authenticated Feed/factory composition is available.
-    func installAuthenticationFactory(_ factory: @escaping (AuthenticationEntry) -> UIViewController) {
+    private func installAuthenticationEntryFactory(_ factory: @escaping (AuthenticationEntry) -> UIViewController) {
         authenticationFactory = factory
     }
 
     /// Compatibility seam for router-only XCTest fixtures. Production uses `installAuthentication`
     /// and therefore the real common prompt and distinct Login/Register entry points.
     func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
-        installAuthenticationFactory { _ in factory() }
+        installAuthenticationEntryFactory { _ in factory() }
     }
 
     /// XCTest seam only; the production path above always installs the common Compose dialog.
