@@ -1372,6 +1372,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioPlayer: chatAudioPlayer,
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
+                contactPicker: services.contacts,
+                shareService: services.share,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
                 onOpenConversation: { [weak self] conversationId in
@@ -1392,6 +1394,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                             self?.presentRemoteAttachmentDownloadFailureNotice()
                         }
                     }
+                },
+                onOpenAvatar: { [weak self] profileId in
+                    self?.presentAuthenticatedMemberProfile(profileId: profileId)
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)

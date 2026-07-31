@@ -555,6 +555,7 @@ private fun QuataWebApp(
                             filePicker = platformServices.filePicker,
                             documentOpener = platformServices.documentOpener,
                             clipboardService = platformServices.clipboard,
+                            shareService = platformServices.share,
                             contactPicker = platformServices.contacts,
                             conversationId = navigation.chatConversationId,
                             navigationMessage = navigation.message,

@@ -7,6 +7,8 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.ShareService
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.IosChatPostgrestTransport
@@ -52,12 +54,14 @@ class IosChatRuntimeBootstrap(
         audioPlayer: AudioPlayerService,
         audioRecorder: AudioRecorderService,
         filePicker: FilePickerService,
+        contactPicker: ContactPickerService,
+        shareService: ShareService,
         conversationId: String?,
         focusedMessageId: String?,
         onOpenConversation: (String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
-        onOpenAvatar: (String) -> Unit = {},
+        onOpenAvatar: (String) -> Unit,
         onOpenMap: (String) -> Unit = {},
         onTranslateMessage: (String) -> Unit = {},
     ): IosChatHostDependencies = IosChatHostDependencies(
@@ -65,6 +69,8 @@ class IosChatRuntimeBootstrap(
         audioPlayer = audioPlayer,
         audioRecorder = audioRecorder,
         filePicker = filePicker,
+        contactPicker = contactPicker,
+        shareService = shareService,
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
         onOpenConversation = onOpenConversation,
