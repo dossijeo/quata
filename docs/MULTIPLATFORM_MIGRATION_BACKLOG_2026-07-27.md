@@ -45,7 +45,7 @@ Apple ni cambio de políticas.
 | WEB-E2E-001 | P0 | Pendiente | Ejecutar login/logout y rutas autenticadas con datos efímeros autorizados y purga verificable. |
 | ANDROID-AUTH-001 | P0 | Pendiente | Repetir matriz autenticada con cuenta segura, preservando el AVD anónimo y Android publicado. |
 | WEB-DOCS-001 | P1 | Bloqueada externamente | Aprobar licencia, telemetría, CSP/CORS y Storage autenticado de DocMentis. |
-| SEC-RLS-001..005 | Postmigración | Documentado, no desplegar | No bloquear paridad Wasm/iOS: usar temporalmente el contrato backend vigente de Android. Conservar las ramas de corrección y aplicar el endurecimiento sólo tras publicar la nueva Web mediante una release compatible independiente. |
+| SEC-RLS-001..005 | P0 | Documentado; rollout postmigración, no desplegar | La severidad no se rebaja, pero tampoco bloquea la paridad Wasm/iOS: usar temporalmente el contrato backend vigente de Android. Conservar los planes y artefactos de corrección; aplicar el endurecimiento sólo tras publicar la nueva Web mediante una release compatible independiente. |
 
 ## Política de limpieza
 
