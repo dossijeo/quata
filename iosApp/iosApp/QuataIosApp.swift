@@ -595,6 +595,8 @@ private final class IosAppCompositionRoot {
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.
                 onHandleDeepLink: { _ in },
+                canMutate: true,
+                onAuthenticationRequired: { _ in },
             ),
         )
         installNotificationCountObserver(bootstrap)
