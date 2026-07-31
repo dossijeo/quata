@@ -24,18 +24,13 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.ContactPickerService
-import com.quata.core.platform.SharePayload
-import com.quata.core.platform.ShareService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
-import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
-import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrings
-import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
-import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.core.navigation.AppDestinations
 import kotlinx.coroutines.launch
@@ -50,7 +45,6 @@ fun WebChatHost(
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
     clipboardService: ClipboardService,
-    shareService: ShareService,
     contactPicker: ContactPickerService,
     conversationId: String?,
     navigationMessage: String,
@@ -85,7 +79,6 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
-        onOpenAvatar = onOpenUserProfile,
         conversationListHost = { listModifier ->
             val conversations = remember(repository) { ConversationsViewModel(repository, readContacts = { pickedInviteContacts }) }
             DisposableEffect(conversations) { onDispose(conversations::close) }
@@ -93,7 +86,7 @@ fun WebChatHost(
                 padding = androidx.compose.foundation.layout.PaddingValues(),
                 viewModel = conversations,
                 clipboardService = clipboardService,
-                strings = conversationsHostStringsForLanguage(webBrowserLanguage()),
+                strings = spanishConversationsHostStrings(),
                 onOpenConversation = onOpenConversation,
                 onOpenUserProfile = onOpenUserProfile,
                 onOpenFavorites = { onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
@@ -125,9 +118,6 @@ fun WebChatHost(
                 candidateAvatar = { candidate, avatarModifier -> BrowserRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, avatarModifier) },
                 inviteAvatar = { contact, avatarModifier -> BrowserRemoteAvatar(contact.displayName, contact.id, null, false, null, avatarModifier) },
                 panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },
-                inviteSheet = { contact, clipboard, dismiss ->
-                    WebInviteChannelSheet(contact, clipboard, shareService, dismiss)
-                },
                 nowMillisProvider = ::webNowMillis,
                 modifier = listModifier,
             )
@@ -138,35 +128,7 @@ fun WebChatHost(
     )
 }
 
-@Composable
-private fun WebInviteChannelSheet(
-    contact: ChatInviteContact,
-    clipboardService: ClipboardService,
-    shareService: ShareService,
-    onDismiss: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val invitation = "Únete a Qüata: conecta, publica y conversa con tu comunidad."
-    InviteChannelSheetContent(
-        invitationMessage = invitation,
-        targets = listOf(InviteChannelTargetUi(id = "browser-share", label = "Compartir")),
-        strings = InviteChannelSheetStrings(
-            shareTextTitle = "Invitar a ${contact.displayName}",
-            copyMessage = "Copiar invitación",
-            chooseAppFor = "Elige cómo enviar la invitación",
-        ),
-        clipboardService = clipboardService,
-        onDismiss = onDismiss,
-        onTargetSelected = {
-            scope.launch { shareService.share(SharePayload(text = invitation, title = "Qüata")) }
-            onDismiss()
-        },
-        panelHost = { content -> QuataFloatingPanelContent(onDismiss = onDismiss) { modifier, _ -> content(modifier) } },
-    )
-}
-
 private fun webNowMillis(): Long = js("Date.now()")
-private fun webBrowserLanguage(): String? = js("globalThis.navigator?.language || null")
 
 private fun browserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",

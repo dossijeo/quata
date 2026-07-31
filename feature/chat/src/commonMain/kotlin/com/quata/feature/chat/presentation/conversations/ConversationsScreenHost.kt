@@ -44,24 +44,15 @@ data class ConversationsHostStrings(
     val conversationTitle: (Conversation) -> String,
     val conversationPreview: (String) -> String,
     val relativeUpdatedAt: (Conversation, Long) -> String,
-    val pickerTitle: String,
-    val groupTitlePlaceholder: String,
-    val createGroupDescription: String,
+    val pickerTitle: String = "Nuevo chat",
+    val groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
+    val createGroupDescription: String = "Crear grupo",
 )
 
-/** Explicit launcher locale catalogue; the host never manufactures copy of its own. */
-fun conversationsHostStringsForLanguage(languageTag: String?): ConversationsHostStrings = conversationsSpanishStrings().let { spanish ->
-    when (languageTag?.substringBefore('-')?.substringBefore('_')?.lowercase()) {
-        "en" -> spanish.copy(title = "Conversations", searchPlaceholder = "Search conversations", favoritesDescription = "Favorite messages", newConversationDescription = "New chat", undoDelete = "Undo", pickerTitle = "New chat", groupTitlePlaceholder = "Group name (optional)", createGroupDescription = "Create group")
-        "fr" -> spanish.copy(title = "Conversations", searchPlaceholder = "Rechercher des conversations", favoritesDescription = "Messages favoris", newConversationDescription = "Nouvelle discussion", undoDelete = "Annuler", pickerTitle = "Nouvelle discussion", groupTitlePlaceholder = "Nom du groupe (facultatif)", createGroupDescription = "Créer le groupe")
-        else -> spanish
-    }
-}
-
-private fun conversationsSpanishStrings(): ConversationsHostStrings = ConversationsHostStrings(
+/** Shared Spanish catalogue used by the non-Android launchers until resource plumbing is common. */
+fun spanishConversationsHostStrings(): ConversationsHostStrings = ConversationsHostStrings(
     title = "Conversaciones", searchPlaceholder = "Buscar conversaciones", favoritesDescription = "Mensajes favoritos",
     newConversationDescription = "Nuevo chat", undoDelete = "Deshacer",
-    pickerTitle = "Nuevo chat", groupTitlePlaceholder = "Nombre del grupo (opcional)", createGroupDescription = "Crear grupo",
     candidates = ConversationCandidatePickerStrings(
         searchPlaceholder = "Buscar personas", noResults = "No hay resultados", cancel = "Cancelar", contacts = "Contactos",
         following = "Siguiendo", followers = "Seguidores", recent = "Conversaciones recientes", otherNeighborhoods = "Otros barrios",
@@ -71,9 +62,8 @@ private fun conversationsSpanishStrings(): ConversationsHostStrings = Conversati
     conversationTitle = { conversation -> when {
         conversation.isEmergency -> "🚨 SOS"
         !conversation.communityName.isNullOrBlank() -> conversation.communityName.orEmpty()
-        conversation.isGroup && conversation.participantNames.isNotEmpty() && conversation.title == "Chat ${conversation.id.substringAfterLast(':')}" -> conversation.participantNames.joinToString(", ")
-        conversation.title.isNotBlank() -> conversation.title
         conversation.isGroup && conversation.participantNames.isNotEmpty() -> conversation.participantNames.joinToString(", ")
+        conversation.title.isNotBlank() -> conversation.title
         else -> ""
     } },
     conversationPreview = { it },
