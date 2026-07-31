@@ -79,6 +79,9 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenAvatar: (String) -> Unit = {},
+    onOpenMap: (String) -> Unit = {},
+    onTranslateMessage: (String) -> Unit = {},
     conversationListHost: @Composable (Modifier) -> Unit,
     focusedMessageId: String? = null,
     modifier: Modifier = Modifier,
@@ -100,6 +103,9 @@ fun ChatBrowserHostContent(
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
+            onOpenAvatar = onOpenAvatar,
+            onOpenMap = onOpenMap,
+            onTranslateMessage = onTranslateMessage,
             focusedMessageId = focusedMessageId,
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
@@ -120,6 +126,9 @@ private fun ChatBrowserConversationDetail(
     navigationMessage: String,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenAvatar: (String) -> Unit,
+    onOpenMap: (String) -> Unit,
+    onTranslateMessage: (String) -> Unit,
     focusedMessageId: String?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
@@ -158,6 +167,7 @@ private fun ChatBrowserConversationDetail(
     var isRecordingAudio by remember { mutableStateOf(false) }
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
+    var attachmentError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     LaunchedEffect(deepLinkRequest) {
         val focused = deepLinkRequest as? ChatMessageDeepLinkRequest.Focused ?: return@LaunchedEffect
@@ -222,7 +232,11 @@ private fun ChatBrowserConversationDetail(
             onFocusedMessageHandled = { pendingFocusedMessageId = null },
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
-            avatar = {},
+            avatar = { message ->
+                if (!message.isMine && message.senderId.isNotBlank()) {
+                    Button(onClick = { onOpenAvatar(message.senderId) }) { Text(message.senderName.take(1).ifBlank { "?" }) }
+                }
+            },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onMessageClick = { message ->
                 deepLinkRequest = cancelChatMessageDeepLinkRequest(deepLinkRequest)
@@ -330,25 +344,19 @@ private fun ChatBrowserConversationDetail(
                                         ),
                                     )) {
                                         is PlatformResult.Success -> result.value.firstOrNull()?.let { file ->
-                                            pendingAudioRecording?.let { recording ->
-                                                audioRecordingReferences?.release(recording)
-                                            }
+                                            pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
                                             pendingAudioRecording = null
-                                            viewModel.onEvent(
-                                                ChatUiEvent.AttachmentSelected(
-                                                    uri = file.reference,
-                                                    name = file.displayName ?: "Adjunto",
-                                                    mimeType = file.mimeType,
-                                                ),
-                                            )
-                                        }
-                                        is PlatformResult.Failure -> Unit
-                                        PlatformResult.Cancelled,
-                                        PlatformResult.Unsupported -> Unit
+                                            attachmentError = null
+                                            viewModel.onEvent(ChatUiEvent.AttachmentSelected(uri = file.reference, name = file.displayName ?: "Adjunto", mimeType = file.mimeType))
+                                        } ?: run { attachmentError = "No se seleccionó ningún archivo." }
+                                        is PlatformResult.Failure -> attachmentError = result.reason?.takeIf { it.isNotBlank() } ?: "No se pudo adjuntar el archivo."
+                                        PlatformResult.Cancelled -> attachmentError = null
+                                        PlatformResult.Unsupported -> attachmentError = "Adjuntar archivos no está disponible en esta plataforma."
                                     }
                                 }
                             },
                         ) { Text("Adjuntar archivo") }
+                        attachmentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (state.attachmentUri != null) {
                             Button(onClick = {
                                 val recording = pendingAudioRecording
@@ -392,10 +400,21 @@ private fun ChatBrowserConversationDetail(
             },
             messageActions = { message, actionsModifier ->
                 if (message.id == state.selectedMessageId && !message.isLocalEcho) {
-                    Button(
-                        onClick = { viewModel.onEvent(ChatUiEvent.StartReply) },
-                        modifier = actionsModifier,
-                    ) { Text("Responder") }
+                    Column(actionsModifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(onClick = { viewModel.onEvent(ChatUiEvent.StartReply) }) { Text("Responder") }
+                        Button(onClick = { viewModel.onEvent(ChatUiEvent.OpenForwardDialog) }) { Text("Reenviar") }
+                        Button(onClick = { viewModel.onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { Text(if (message.isFavorite) "Quitar favorito" else "Favorito") }
+                        if (message.isMine && !message.isDeleted) {
+                            Button(onClick = { viewModel.onEvent(ChatUiEvent.StartEdit) }) { Text("Editar") }
+                            Button(onClick = { viewModel.onEvent(ChatUiEvent.DeleteSelectedMessage) }) { Text("Eliminar") }
+                        } else if (!message.isDeleted) {
+                            Button(onClick = { viewModel.onEvent(ChatUiEvent.ReportSelectedMessage) }) { Text("Reportar") }
+                        }
+                        if (message.text.isNotBlank()) Button(onClick = { onTranslateMessage(message.text) }) { Text("Traducir") }
+                        message.attachmentUri?.takeIf { it.startsWith("geo:") || it.contains("maps", ignoreCase = true) }?.let { map ->
+                            Button(onClick = { onOpenMap(map) }) { Text("Abrir mapa") }
+                        }
+                    }
                 }
             },
             modifier = Modifier.weight(1f),
