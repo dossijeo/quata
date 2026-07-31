@@ -942,6 +942,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
+    private var authModalTransitionsAnimated = true
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1103,8 +1104,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             IosAuthHostKt.QuataAuthRequiredDialogViewController(
                 languageCode: Locale.current.languageCode ?? "en",
                 onDismiss: { self?.dismissAuthRequiredPrompt() },
-                onCreateAccount: { self?.dismissAuthRequiredPrompt { self?.presentAuthentication(.registration) } },
-                onLogin: { self?.dismissAuthRequiredPrompt { self?.presentAuthentication(.login) } },
+                onCreateAccount: { self?.openRegistrationFromAuthRequiredPrompt() },
+                onLogin: { self?.openLoginFromAuthRequiredPrompt() },
             )
         }
     }
@@ -1137,6 +1138,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authRequiredPromptFactory = factory
     }
 
+    /// XCTest keeps the real UIWindow/presentation lifecycle but removes CoreAnimation timing.
+    /// Production never calls this and retains the normal animated modal transitions.
+    func disableAuthModalAnimationsForTesting() {
+        authModalTransitionsAnimated = false
+    }
+
     /// Android's capability gate: keep the public Feed visible and show common Compose copy.
     func presentAuthRequiredPrompt() {
         guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
@@ -1148,18 +1155,22 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // transparent; AlertDialog still draws its own scrim/card in common Compose.
         makeComposeOverlayTransparent(prompt.view)
         prompt.view.accessibilityIdentifier = "quata-ios-auth-required-dialog"
-        present(prompt, animated: true)
+        present(prompt, animated: authModalTransitionsAnimated)
     }
 
-    private func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
+    /// Common Compose invokes this from AlertDialog.onDismissRequest (scrim/back dismissal).
+    /// Internal visibility keeps that callback lifecycle directly testable on the UIKit host.
+    func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
         authRequiredPromptVisible = false
         guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
             completion?()
             return
         }
-        // Dismiss the presented prompt itself. Calling dismiss on the router can race with the
-        // next full-screen Auth presentation and leave the modal compositor grey/attached.
-        presentedViewController?.dismiss(animated: true) { [weak self] in
+        // UIKit requires the presenting controller to own this transition. Dismissing from the
+        // Compose wrapper itself can leave the over-full-screen presentation attached and its
+        // completion never advances to Login/Register. The completion (plus one run-loop turn)
+        // keeps the following full-screen presentation serialized.
+        dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             self?.authRequiredPromptVisible = false
             DispatchQueue.main.async { completion?() }
         }
@@ -1173,6 +1184,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func presentLoginIfAvailable() {
         presentAuthRequiredPrompt()
+    }
+
+    /// Capability-dialog choices intentionally leave the shared shell before displaying Auth.
+    /// Keeping these transitions explicit also makes the real modal lifecycle verifiable without
+    /// replacing the common Compose prompt with a UIKit imitation.
+    func openLoginFromAuthRequiredPrompt() {
+        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.login) }
+    }
+
+    func openRegistrationFromAuthRequiredPrompt() {
+        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.registration) }
     }
 
     private func presentAuthentication(_ entry: AuthenticationEntry) {
@@ -1198,13 +1220,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             close.widthAnchor.constraint(equalToConstant: 44),
             close.heightAnchor.constraint(equalToConstant: 44),
         ])
-        present(controller, animated: true)
+        present(controller, animated: authModalTransitionsAnimated)
     }
 
     /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
     @objc private func cancelAuthentication() {
         pendingRoute = nil
-        dismiss(animated: true) { [weak self] in
+        dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             guard let self, !self.hasAuthenticatedSession else { return }
             self.showFeed(postId: nil)
         }
@@ -1217,7 +1239,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             completion()
             return
         }
-        dismiss(animated: true, completion: completion)
+        dismiss(animated: authModalTransitionsAnimated, completion: completion)
     }
 
     /// XCTest-only controller factories for deterministic launcher and URL routing checks.
@@ -1607,7 +1629,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // Retain the target, but follow Android: anonymous browsing remains on Feed while
             // the common capability dialog is presented above the shared shell.
             pendingRoute = route
-            if let feedController = feedFactory?(nil) {
+            // The real public factory creates a fresh Compose controller on each invocation.
+            // Rebuilding Feed while it is already visible races the modal presentation and loses
+            // scroll/playback state. Only navigate back when the user gated from another route.
+            if displayedController?.view.accessibilityIdentifier != "quata-ios-feed-host",
+               let feedController = feedFactory?(nil) {
                 showRouteController(feedController, route: .feed(postId: nil))
             }
             presentAuthRequiredPrompt()
@@ -1719,6 +1745,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         accessibilityIdentifier: String?,
         accessibilityLabel: String,
     ) {
+        // A capability gate requested while the anonymous Feed is already visible must not try
+        // to re-parent that same controller. UIKit treats adding an existing child as an invalid
+        // containment transition, and the failed transition can make the Feed disappear beneath
+        // the modal prompt. Keep the mounted public route stable, exactly as Android does.
+        if displayedController === controller {
+            controller.view.accessibilityIdentifier = accessibilityIdentifier
+            controller.view.accessibilityLabel = accessibilityLabel
+            view.setNeedsLayout()
+            return
+        }
         let previous = displayedController
         addChild(controller)
         controller.view.frame = view.bounds

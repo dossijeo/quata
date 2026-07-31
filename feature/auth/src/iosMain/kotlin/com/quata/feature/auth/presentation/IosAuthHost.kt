@@ -1,5 +1,6 @@
 package com.quata.feature.auth.presentation
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
@@ -97,12 +98,18 @@ fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIVi
  * Thin iOS entry point for the Android-equivalent capability prompt.  This deliberately hosts
  * the common Material dialog rather than recreating its copy or buttons in UIKit.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 fun QuataAuthRequiredDialogViewController(
     languageCode: String,
     onDismiss: () -> Unit,
     onCreateAccount: () -> Unit,
     onLogin: () -> Unit,
-): UIViewController = ComposeUIViewController {
+): UIViewController = ComposeUIViewController(configure = {
+    // This host is presented over the public application shell. Compose's default opaque Skia
+    // surface would paint an entire grey/white viewport behind AlertDialog and hide Feed/header/
+    // navigation even when UIKit's wrapper is transparent.
+    opaque = false
+}) {
     val spanish = languageCode.lowercase().startsWith("es")
     QuataTheme {
         QuataAuthRequiredDialogContent(
