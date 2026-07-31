@@ -671,7 +671,10 @@ private final class IosAppCompositionRoot {
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
         guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
-        let onClose = { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
+        let onClose: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.authenticatedHost.dismiss(animated: true)
+        }
         let dependencies = runtimeBootstrap.hasRestoredSession() && profileSosRuntimeBootstrap != nil
             ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
             : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
