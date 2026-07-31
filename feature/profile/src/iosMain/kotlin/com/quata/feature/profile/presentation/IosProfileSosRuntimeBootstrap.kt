@@ -96,7 +96,9 @@ fun createIosPublicMemberProfileHostDependencies(
     profileId: String,
     onClose: () -> Unit,
 ): IosMemberProfileHostDependencies {
-    val anonymousSession = ProfileSessionProvider { null }
+    val anonymousSession = object : ProfileSessionProvider {
+        override fun currentSession(): ProfileSession? = null
+    }
     val remote = IosProfilePostgrestGateway(
         configuration = configuration,
         sessionProvider = anonymousSession,
