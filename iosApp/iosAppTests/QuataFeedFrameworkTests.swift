@@ -1185,6 +1185,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
+                    onAuthRequired: {},
                 ),
             )
         }
