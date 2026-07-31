@@ -19,6 +19,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
 import com.quata.feature.feed.presentation.IosRemoteAvatar
+import com.quata.core.navigation.AppDestinations
 import platform.UIKit.UIViewController
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 
@@ -82,6 +83,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         strings = spanishConversationsHostStrings(),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
+                        onOpenFavorites = { dependencies.onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
                         remoteConversationAvatar = { presentation, avatarModifier -> IosRemoteAvatar(presentation.name, presentation.stableId, presentation.avatarUrl, false, null, avatarModifier) },
                         candidateAvatar = { candidate, modifier -> IosRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, modifier) },
                         inviteAvatar = { contact, modifier -> IosRemoteAvatar(contact.displayName, contact.id, null, false, null, modifier) },

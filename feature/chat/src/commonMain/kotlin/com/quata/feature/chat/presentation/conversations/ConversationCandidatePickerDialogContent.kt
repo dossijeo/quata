@@ -98,6 +98,9 @@ fun ConversationCandidatePickerDialogContent(
     selectionSummary: String = "",
     confirmIcon: ImageVector = Icons.AutoMirrored.Filled.Send,
     confirmContentDescription: String,
+    groupTitle: String = "",
+    onGroupTitleChange: (String) -> Unit = {},
+    groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
 ) {
     val labels = CandidateDisplayLabels(strings.contacts, strings.following, strings.followers, strings.recent, strings.otherNeighborhoods, strings.unknownNeighborhood)
     val displayItems = remember(state.conversationCandidates, state.candidateActorNeighborhood, excludedProfileIds, labels) {
@@ -117,6 +120,7 @@ fun ConversationCandidatePickerDialogContent(
             confirmIcon, confirmContentDescription, onSearchChange, onOpenCandidate, onDismiss,
             candidateAvatar, inviteAvatar, inviteSheet != null, inviteContactsEnabled,
             onRequestInviteContactsPermission, { pendingInvite = it },
+            groupTitle, onGroupTitleChange, groupTitlePlaceholder,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
         )
     }
@@ -130,7 +134,8 @@ private fun CandidatePickerPanel(
     onConfirm: (() -> Unit)?, confirmEnabled: Boolean, summary: String, confirmIcon: ImageVector, confirmDescription: String,
     onSearch: (String) -> Unit, onOpen: (ChatConversationCandidate) -> Unit, onDismiss: () -> Unit,
     avatar: @Composable (ChatConversationCandidate, Modifier) -> Unit, inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
-    showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit, modifier: Modifier,
+    showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
+    groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, modifier: Modifier,
 ) {
     val template = quataTheme()
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
@@ -161,6 +166,17 @@ private fun CandidatePickerPanel(
         }
         onConfirm?.let { confirm ->
             Spacer(Modifier.padding(top = 12.dp))
+            if (onToggle != null && selectedIds.size >= 2) {
+                OutlinedTextField(
+                    value = groupTitle,
+                    onValueChange = onGroupTitleChange,
+                    placeholder = { Text(groupTitlePlaceholder) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                )
+                Spacer(Modifier.padding(top = 8.dp))
+            }
             Row(Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp)).background(template.colors.surface.copy(alpha = 0.76f), RoundedCornerShape(18.dp)).padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(summary.ifBlank { strings.noneSelected }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = template.colors.textPrimary.copy(alpha = if (selectedIds.isEmpty()) .54f else .94f), modifier = Modifier.weight(1f))
                 Button(onClick = confirm, enabled = confirmEnabled, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = Modifier.size(46.dp).compactButtonMinSize(), contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }

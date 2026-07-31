@@ -44,6 +44,9 @@ data class ConversationsHostStrings(
     val conversationTitle: (Conversation) -> String,
     val conversationPreview: (String) -> String,
     val relativeUpdatedAt: (Conversation, Long) -> String,
+    val pickerTitle: String = "Nuevo chat",
+    val groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
+    val createGroupDescription: String = "Crear grupo",
 )
 
 /** Shared Spanish catalogue used by the non-Android launchers until resource plumbing is common. */
@@ -65,10 +68,22 @@ fun spanishConversationsHostStrings(): ConversationsHostStrings = ConversationsH
     } },
     conversationPreview = { it },
     relativeUpdatedAt = { conversation, now -> conversation.updatedAtMillis?.let { timestamp ->
-        val minutes = ((now - timestamp).coerceAtLeast(0L) / 60_000L)
-        when { minutes < 1 -> "Ahora"; minutes < 60 -> "${minutes} min"; minutes < 1440 -> "${minutes / 60} h"; else -> "${minutes / 1440} d" }
+        spanishRelativeConversationTime((now - timestamp).coerceAtLeast(0L))
     } ?: conversation.updatedAt },
 )
+
+internal fun spanishRelativeConversationTime(ageMillis: Long): String {
+    val minutes = ageMillis / 60_000L
+    return when {
+        minutes < 1L -> "Ahora"
+        minutes < 60L -> "$minutes min"
+        minutes < 1_440L -> "${minutes / 60L} h"
+        minutes < 10_080L -> "${minutes / 1_440L} d"
+        minutes < 43_200L -> "${minutes / 10_080L} sem"
+        minutes < 525_600L -> "${minutes / 43_200L} mes"
+        else -> "${minutes / 525_600L} a"
+    }
+}
 
 /**
  * The single product composition for the conversation list.
@@ -189,10 +204,18 @@ fun ConversationsScreenHost(
             inviteSheet = inviteSheet,
             inviteContactsEnabled = contactsPermissionGranted,
             onRequestInviteContactsPermission = onRequestInviteContactsPermission,
-            title = strings.title,
+            title = strings.pickerTitle,
             actionIcon = Icons.Filled.ChatBubble,
             actionContentDescription = strings.newConversationDescription,
             confirmContentDescription = strings.newConversationDescription,
+            selectedCandidateIds = state.selectedNewConversationProfileIds,
+            onToggleCandidate = viewModel::toggleNewConversationCandidate,
+            onConfirmSelection = { viewModel.openSelectedGroupConversation(onOpenConversation) },
+            confirmEnabled = state.selectedNewConversationProfileIds.size >= 2 && !state.isOpeningGroupConversation,
+            selectionSummary = if (state.selectedNewConversationProfileIds.size < 2) strings.candidates.noneSelected else "${state.selectedNewConversationProfileIds.size} participantes",
+            groupTitle = state.newGroupTitle,
+            onGroupTitleChange = viewModel::onNewGroupTitleChanged,
+            groupTitlePlaceholder = strings.groupTitlePlaceholder,
         )
     }
 

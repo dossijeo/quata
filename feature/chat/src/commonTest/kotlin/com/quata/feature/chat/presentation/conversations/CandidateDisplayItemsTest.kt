@@ -77,6 +77,17 @@ class CandidateDisplayItemsTest {
         )
     }
 
+    @Test
+    fun relativeConversationLabelsCoverTheSameReadableRangesAsAndroid() {
+        assertEquals("Ahora", spanishRelativeConversationTime(0L))
+        assertEquals("2 min", spanishRelativeConversationTime(2 * 60_000L))
+        assertEquals("3 h", spanishRelativeConversationTime(3 * 60 * 60_000L))
+        assertEquals("4 d", spanishRelativeConversationTime(4 * 24 * 60 * 60_000L))
+        assertEquals("2 sem", spanishRelativeConversationTime(2 * 7 * 24 * 60 * 60_000L))
+        assertEquals("3 mes", spanishRelativeConversationTime(3 * 30 * 24 * 60 * 60_000L))
+        assertEquals("2 a", spanishRelativeConversationTime(2 * 365 * 24 * 60 * 60_000L))
+    }
+
     private fun candidate(
         profileId: String,
         sectionKey: String,

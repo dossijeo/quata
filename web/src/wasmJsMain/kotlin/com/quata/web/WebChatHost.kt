@@ -6,6 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -20,12 +23,16 @@ import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
+import com.quata.feature.chat.domain.ChatInviteContact
+import com.quata.core.navigation.AppDestinations
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -38,10 +45,12 @@ fun WebChatHost(
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
     clipboardService: ClipboardService,
+    contactPicker: ContactPickerService,
     conversationId: String?,
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
+    onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
@@ -49,6 +58,8 @@ fun WebChatHost(
         audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
     }
     val scope = rememberCoroutineScope()
+    var pickedInviteContacts by remember { mutableStateOf<List<ChatInviteContact>>(emptyList()) }
+    var contactsAvailable by remember { mutableStateOf(false) }
     DisposableEffect(repository) {
         repository.setAppForeground(browserDocumentIsVisible())
         val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
@@ -69,7 +80,7 @@ fun WebChatHost(
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
         conversationListHost = { listModifier ->
-            val conversations = remember(repository) { ConversationsViewModel(repository) }
+            val conversations = remember(repository) { ConversationsViewModel(repository, readContacts = { pickedInviteContacts }) }
             DisposableEffect(conversations) { onDispose(conversations::close) }
             ConversationsScreenHost(
                 padding = androidx.compose.foundation.layout.PaddingValues(),
@@ -77,6 +88,32 @@ fun WebChatHost(
                 clipboardService = clipboardService,
                 strings = spanishConversationsHostStrings(),
                 onOpenConversation = onOpenConversation,
+                onOpenUserProfile = onOpenUserProfile,
+                onOpenFavorites = { onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
+                contactsPermissionGranted = contactsAvailable,
+                onRequestInviteContactsPermission = {
+                    scope.launch {
+                        when (val result = contactPicker.pickContacts()) {
+                            is PlatformResult.Success -> {
+                                pickedInviteContacts = result.value.flatMapIndexed { index, contact ->
+                                    contact.phones.mapIndexed { phoneIndex, phone ->
+                                        val digits = phone.filter(Char::isDigit)
+                                        ChatInviteContact(
+                                            id = "web-contact-$index-$phoneIndex",
+                                            displayName = contact.displayName?.takeIf { it.isNotBlank() } ?: phone,
+                                            phone = phone,
+                                            phoneKeys = setOf(phone, digits).filter(String::isNotBlank).toSet(),
+                                        )
+                                    }
+                                }.distinctBy { it.phone }
+                                contactsAvailable = true
+                                conversations.loadInviteContacts()
+                            }
+                            is PlatformResult.Failure -> contactsAvailable = false
+                            PlatformResult.Cancelled, PlatformResult.Unsupported -> contactsAvailable = false
+                        }
+                    }
+                },
                 remoteConversationAvatar = { presentation, avatarModifier -> BrowserRemoteAvatar(presentation.name, presentation.stableId, presentation.avatarUrl, false, null, avatarModifier) },
                 candidateAvatar = { candidate, avatarModifier -> BrowserRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, avatarModifier) },
                 inviteAvatar = { contact, avatarModifier -> BrowserRemoteAvatar(contact.displayName, contact.id, null, false, null, avatarModifier) },

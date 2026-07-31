@@ -555,10 +555,12 @@ private fun QuataWebApp(
                             filePicker = platformServices.filePicker,
                             documentOpener = platformServices.documentOpener,
                             clipboardService = platformServices.clipboard,
+                            contactPicker = platformServices.contacts,
                             conversationId = navigation.chatConversationId,
                             navigationMessage = navigation.message,
                             onOpenConversation = navigation::navigateConversation,
                             onBackToList = { navigation.navigate("chat") },
+                            onOpenUserProfile = feedMemberProfileRoute::open,
                         )
                     }
                 } else {

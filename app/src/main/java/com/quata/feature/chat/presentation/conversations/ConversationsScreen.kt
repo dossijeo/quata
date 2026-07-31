@@ -121,6 +121,14 @@ fun ConversationsScreen(
         contactsPermissionGranted = granted
         if (granted) viewModel.loadInviteContacts()
     }
+    val conversationState by viewModel.delegate.uiState.collectAsState()
+    LaunchedEffect(conversationState.isNewConversationPickerOpen) {
+        if (conversationState.isNewConversationPickerOpen) {
+            // Permission can be revoked while the app remains alive; do not reuse the old
+            // composable-time value when the user opens the picker again.
+            contactsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        }
+    }
     ConversationsScreenHost(
         padding = padding,
         viewModel = viewModel.delegate,
@@ -150,7 +158,10 @@ fun ConversationsScreen(
         openingProfileUserId = openingProfileUserId,
         onOpenFavorites = onOpenFavorites,
         contactsPermissionGranted = contactsPermissionGranted,
-        onRequestInviteContactsPermission = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
+        onRequestInviteContactsPermission = {
+            contactsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+            if (!contactsPermissionGranted) contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) else viewModel.loadInviteContacts()
+        },
         remoteConversationAvatar = { presentation, modifier -> AvatarImage(name = presentation.name, avatarUrl = presentation.avatarUrl, profileId = presentation.profileId, modifier = modifier) },
         candidateAvatar = { candidate, modifier -> AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier) },
         inviteAvatar = { contact, modifier -> QuataAvatarFallback(name = contact.displayName, stableId = contact.id, modifier = modifier) },

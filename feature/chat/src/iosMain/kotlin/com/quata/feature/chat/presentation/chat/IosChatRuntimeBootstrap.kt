@@ -57,6 +57,9 @@ class IosChatRuntimeBootstrap(
         onOpenConversation: (String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
+        onOpenAvatar: (String) -> Unit = {},
+        onOpenMap: (String) -> Unit = {},
+        onTranslateMessage: (String) -> Unit = {},
     ): IosChatHostDependencies = IosChatHostDependencies(
         repository = repository(),
         audioPlayer = audioPlayer,
@@ -67,6 +70,9 @@ class IosChatRuntimeBootstrap(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = onOpenAttachment,
+        onOpenAvatar = onOpenAvatar,
+        onOpenMap = onOpenMap,
+        onTranslateMessage = onTranslateMessage,
     )
 }
 
