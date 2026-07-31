@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle, contacts and resources adapter for shared conversations logic. */
 class ConversationsAndroidViewModel(repository: ChatRepository, context: Context) : ViewModel() {
-    private val delegate = ConversationsViewModel(
+    /** The Android lifecycle owner delegates all product state to the common host model. */
+    val delegate = ConversationsViewModel(
         repository = repository,
         readContacts = AndroidContactsReader(context).let { reader -> reader::readContacts },
         text = context.applicationContext::conversationText

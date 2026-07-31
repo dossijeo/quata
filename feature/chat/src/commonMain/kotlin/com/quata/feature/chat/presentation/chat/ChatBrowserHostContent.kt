@@ -77,6 +77,7 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    conversationListHost: @Composable (Modifier) -> Unit,
     focusedMessageId: String? = null,
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
@@ -85,12 +86,7 @@ fun ChatBrowserHostContent(
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
-        ChatBrowserConversationList(
-            repository = repository,
-            navigationMessage = navigationMessage,
-            onOpenConversation = onOpenConversation,
-            modifier = modifier,
-        )
+        conversationListHost(modifier)
     } else {
         ChatBrowserConversationDetail(
             repository = repository,

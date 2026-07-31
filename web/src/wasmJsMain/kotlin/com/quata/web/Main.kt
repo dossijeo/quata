@@ -554,6 +554,7 @@ private fun QuataWebApp(
                             audioRecordingReferences = platformServices.audioRecordingReferences,
                             filePicker = platformServices.filePicker,
                             documentOpener = platformServices.documentOpener,
+                            clipboardService = platformServices.clipboard,
                             conversationId = navigation.chatConversationId,
                             navigationMessage = navigation.message,
                             onOpenConversation = navigation::navigateConversation,

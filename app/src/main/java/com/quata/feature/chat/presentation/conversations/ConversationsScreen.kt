@@ -101,8 +101,69 @@ import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** Android adapter: permissions, resources, images and lifecycle are the only local concerns. */
 @Composable
 fun ConversationsScreen(
+    padding: PaddingValues,
+    repository: ChatRepository,
+    clipboardService: ClipboardService,
+    onOpenConversation: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null,
+    onOpenFavorites: () -> Unit = {},
+    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current)),
+) {
+    val context = LocalContext.current
+    var contactsPermissionGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsPermissionGranted = granted
+        if (granted) viewModel.loadInviteContacts()
+    }
+    ConversationsScreenHost(
+        padding = padding,
+        viewModel = viewModel.delegate,
+        clipboardService = clipboardService,
+        strings = ConversationsHostStrings(
+            title = stringResource(R.string.conversations_title),
+            searchPlaceholder = stringResource(R.string.conversations_search_placeholder),
+            favoritesDescription = stringResource(R.string.conversation_favorites_title),
+            newConversationDescription = stringResource(R.string.conversations_new_chat),
+            undoDelete = stringResource(R.string.conversation_undo_delete),
+            candidates = ConversationCandidatePickerStrings(
+                searchPlaceholder = stringResource(R.string.conversations_new_chat_search_placeholder),
+                noResults = stringResource(R.string.conversations_new_chat_no_results),
+                cancel = stringResource(R.string.common_cancel), contacts = stringResource(R.string.conversations_new_chat_contacts),
+                following = stringResource(R.string.conversations_new_chat_following), followers = stringResource(R.string.conversations_new_chat_followers),
+                recent = stringResource(R.string.share_to_quata_recent_conversations), otherNeighborhoods = stringResource(R.string.conversations_new_chat_other_neighborhoods),
+                unknownNeighborhood = stringResource(R.string.conversations_new_chat_unknown_neighborhood), inviteTitle = stringResource(R.string.conversations_invite_to_quata),
+                invitePermission = stringResource(R.string.conversations_invite_contacts_permission), inviteAllow = stringResource(R.string.conversations_invite_allow),
+                inviteAction = stringResource(R.string.conversations_invite_action), noneSelected = stringResource(R.string.conversation_forward_none_selected),
+            ),
+            conversationTitle = { it.chatDisplayTitle() },
+            conversationPreview = context.applicationContext::localizedChatPreview,
+            relativeUpdatedAt = { conversation, now -> conversation.relativeUpdatedAt(context, now) },
+        ),
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = onOpenUserProfile,
+        openingProfileUserId = openingProfileUserId,
+        onOpenFavorites = onOpenFavorites,
+        contactsPermissionGranted = contactsPermissionGranted,
+        onRequestInviteContactsPermission = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
+        conversationAvatar = { conversation, state -> ConversationAvatar(conversation, state.currentUser, state.usersById, openingProfileUserId, onOpenUserProfile) },
+        candidateAvatar = { candidate, modifier -> AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier) },
+        inviteAvatar = { contact, modifier -> QuataAvatarFallback(name = contact.displayName, stableId = contact.id, modifier = modifier) },
+        panelHost = { content -> QuataStandardFloatingPanel(onDismiss = viewModel::closeNewConversationPicker, template = quataTheme()) { modifier, landscape -> content(modifier, landscape) } },
+        inviteSheet = { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) },
+        nowMillisProvider = System::currentTimeMillis,
+    )
+}
+
+/** Kept temporarily for Android-only group/share call sites while they are migrated separately. */
+@Suppress("unused")
+@Composable
+private fun LegacyConversationsScreen(
     padding: PaddingValues,
     repository: ChatRepository,
     clipboardService: ClipboardService,

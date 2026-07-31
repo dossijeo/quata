@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -18,8 +19,14 @@ import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.ClipboardService
+import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
+import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -31,6 +38,7 @@ fun WebChatHost(
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
+    clipboardService: ClipboardService,
     conversationId: String?,
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
@@ -61,11 +69,30 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        conversationListHost = { listModifier ->
+            val conversations = remember(repository) { ConversationsViewModel(repository) }
+            DisposableEffect(conversations) { onDispose(conversations::close) }
+            ConversationsScreenHost(
+                padding = androidx.compose.foundation.layout.PaddingValues(),
+                viewModel = conversations,
+                clipboardService = clipboardService,
+                strings = spanishConversationsHostStrings(),
+                onOpenConversation = onOpenConversation,
+                conversationAvatar = { conversation, _ -> QuataAvatarFallback(conversation.title.ifBlank { "Conversación" }, conversation.id, Modifier.size(46.dp)) },
+                candidateAvatar = { candidate, avatarModifier -> QuataAvatarFallback(candidate.displayName, candidate.profileId, avatarModifier) },
+                inviteAvatar = { contact, avatarModifier -> QuataAvatarFallback(contact.displayName, contact.id, avatarModifier) },
+                panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },
+                nowMillisProvider = ::webNowMillis,
+                modifier = listModifier,
+            )
+        },
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
         modifier = modifier,
     )
 }
+
+private fun webNowMillis(): Long = js("Date.now()")
 
 private fun browserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",
