@@ -86,6 +86,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenAvatar = onOpenUserProfile,
         conversationListHost = { listModifier ->
             val conversations = remember(repository) { ConversationsViewModel(repository, readContacts = { pickedInviteContacts }) }
             DisposableEffect(conversations) { onDispose(conversations::close) }
