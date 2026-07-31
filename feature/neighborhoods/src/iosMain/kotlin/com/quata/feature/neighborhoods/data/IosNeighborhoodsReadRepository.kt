@@ -87,7 +87,7 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
-        val session = authenticatedSession()
+        val session = authSession?.currentSession()
         loadProfiles(listOf(session.userId)).firstOrNull()?.isAdmin == true
     }.getOrDefault(false)
 
@@ -150,7 +150,7 @@ class IosNeighborhoodsReadRepository(
             ?: error("ios_communities_supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_publishable_key_missing")
-        val session = authenticatedSession()
+        val session = authSession?.currentSession()
         val url = NSURL(string = "$baseUrl/rest/v1/community_profiles${query.toIosNeighborhoodQueryString()}")
             ?: error("ios_communities_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
