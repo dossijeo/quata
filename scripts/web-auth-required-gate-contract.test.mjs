@@ -19,8 +19,12 @@ test("anonymous Web uses Android's common participation dialog instead of redire
 });
 
 test("the prompt opens the shared full-screen Auth root only after the user chooses account or login", () => {
-  assert.match(main, /onCreateAccount = \{ openAuth\(AuthProductDestination\.Register\) \}/);
-  assert.match(main, /onLogin = \{ openAuth\(AuthProductDestination\.Login\) \}/);
+  assert.match(main, /fun chooseLoginFromPrompt\(\) = openAuth\(AuthProductDestination\.Login\)/);
+  assert.match(main, /fun chooseRegisterFromPrompt\(\) = openAuth\(AuthProductDestination\.Register\)/);
+  assert.match(main, /chooseLogin = ::chooseLoginFromPrompt/);
+  assert.match(main, /chooseRegister = ::chooseRegisterFromPrompt/);
+  assert.match(main, /onCreateAccount = ::chooseRegisterFromPrompt/);
+  assert.match(main, /onLogin = ::chooseLoginFromPrompt/);
   assert.match(main, /navigationState\.isAuthenticationRoute -> \{[\s\S]*?WebLoginHost\(/);
   assert.match(main, /fun completeLogin\(\)[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(login, /initialDestination: AuthProductDestination = AuthProductDestination\.Login/);

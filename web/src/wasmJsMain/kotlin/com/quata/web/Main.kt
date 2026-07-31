@@ -339,6 +339,8 @@ private fun QuataWebApp(
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
     }
+    fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
+    fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
     fun selectPrimaryRoute(route: String) {
         val fragment = canonicalPrimaryRouteToWebFragment(route)
         if (!isSessionReady && fragment.toWebNavigationState().requiresAuthentication) {
@@ -350,8 +352,10 @@ private fun QuataWebApp(
     DisposableEffect(navigation) {
         val removeBridge = installWebAuthGateE2eBridge(
             dismiss = ::dismissAuthenticationPrompt,
-            chooseLogin = { openAuth(AuthProductDestination.Login) },
-            chooseRegister = { openAuth(AuthProductDestination.Register) },
+            // These are the exact callbacks passed to QuataAuthRequiredDialogContent below,
+            // so the canvas E2E bridge cannot exercise a surrogate navigation path.
+            chooseLogin = ::chooseLoginFromPrompt,
+            chooseRegister = ::chooseRegisterFromPrompt,
         )
         onDispose(removeBridge)
     }
@@ -599,8 +603,8 @@ private fun QuataWebApp(
             if (isAuthRequiredPromptOpen) {
                 WebAuthRequiredDialog(
                     onDismiss = ::dismissAuthenticationPrompt,
-                    onCreateAccount = { openAuth(AuthProductDestination.Register) },
-                    onLogin = { openAuth(AuthProductDestination.Login) },
+                    onCreateAccount = ::chooseRegisterFromPrompt,
+                    onLogin = ::chooseLoginFromPrompt,
                 )
             }
         }

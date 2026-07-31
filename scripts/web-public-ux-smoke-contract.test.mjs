@@ -28,7 +28,14 @@ test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the 
     assert.match(smoke, /const privateDeepLinks = \[/);
     assert.match(smoke, /fragment: 'chat-sb%3Ateam%2F42\?message=msg%209'/);
     assert.match(smoke, /waitForPrivateDeepLinkAuthBoundary\(cdp, fragment, returnRoute\)/);
-    assert.match(smoke, /hash === '#auth' && lastProbe\.route === 'auth' && !lastProbe\.shellRoute/);
+    assert.match(smoke, /lastProbe\?\.hash === ''/);
+    assert.match(smoke, /lastProbe\.route === 'feed'/);
+    assert.match(smoke, /lastProbe\.shellRoute === 'feed'/);
+    assert.match(smoke, /lastProbe\.prompt === 'visible'/);
+    assert.match(smoke, /lastProbe\.pendingRoute === fragment/);
+    assert.match(smoke, /bridge\.chooseLogin\(\)/);
+    assert.match(smoke, /value\?\.hash === '#auth'/);
+    assert.match(smoke, /value\.destination === 'login'/);
     assert.match(smoke, /waitForShellMarker\(cdp, contract\.route\)/);
     assert.match(smoke, /assertShellHidden\(cdp, contract\.fragment\)/);
     assert.match(smoke, /Page\.reload/);

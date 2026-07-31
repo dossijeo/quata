@@ -43,8 +43,8 @@ const defaultDistribution = 'web/build/dist/wasmJs/productionExecutable';
 const defaultChrome = process.platform === 'win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
     : 'google-chrome';
-// One exhaustive unauthenticated product-route contract. Keep private routes out of the generic
-// shell probe: they must resolve to the common Auth surface until a real session exists.
+// One exhaustive unauthenticated product-route contract. Private routes first resolve to the
+// public Feed plus Android's common participation gate; only the gate action opens Auth.
 const routeContracts = SMOKE_ROUTE_CONTRACTS;
 // These routes remain public and safe to inspect without manufacturing a session.
 const publicDeepLinks = [
@@ -52,8 +52,8 @@ const publicDeepLinks = [
     { fragment: 'official-bulletin-99', route: 'official/bulletin-99' },
     { fragment: 'unknown-route', route: 'feed' },
 ];
-// Chat owns private conversations: preserve its requested fragment in the common Auth return
-// flow, but never leave its shell visible before a successful session is available.
+// Chat owns private conversations: preserve its requested fragment while the common participation
+// gate remains over public Feed, then exercise the exact Login callback bound by Compose.
 const privateDeepLinks = [
     { fragment: 'chat-sb%3Ateam%2F42?message=msg%209', returnRoute: 'chat/sb:team/42' },
 ];
@@ -698,7 +698,9 @@ async function waitForPageTarget(port) {
 async function navigateAndAssertPublicShell(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    const navigation = await cdp.send('Page.navigate', {
+        url: `${origin}/?quata-auth-e2e=1#${contract.fragment}`,
+    });
     await waitForShell(cdp, contract.fragment);
     await waitForNavigationRoute(cdp, contract.route);
     await waitForShellMarker(cdp, contract.route);
@@ -824,7 +826,7 @@ async function assertPushConsentUsesTrustedSettingsClick(cdp, origin) {
 async function assertUnauthenticatedDeepLinkRecovery(cdp, origin, pageErrors) {
     for (const { fragment, route } of publicDeepLinks) {
         const initialErrorCount = pageErrors.length;
-        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+        await cdp.send('Page.navigate', { url: `${origin}/?quata-auth-e2e=1#${fragment}` });
         await waitForShell(cdp, fragment);
         await waitForNavigationRoute(cdp, route);
         if (pageErrors.length > initialErrorCount) {
@@ -859,12 +861,62 @@ async function waitForPrivateDeepLinkAuthBoundary(cdp, fragment, returnRoute) {
             hash: location.hash,
             route: localStorage.getItem('web.navigation.route'),
             shellRoute: document.documentElement.getAttribute('data-quata-shell-route'),
+            prompt: document.documentElement.getAttribute('data-quata-auth-required-prompt'),
+            pendingRoute: document.documentElement.getAttribute('data-quata-auth-pending-route'),
+            gateBridgeVersion: globalThis.__quataAuthGateE2eProduct?.version ?? null,
         }))()`);
         lastProbe = probe?.result?.value ?? null;
-        if (lastProbe?.hash === '#auth' && lastProbe.route === 'auth' && !lastProbe.shellRoute) return;
+        if (
+            lastProbe?.hash === '' &&
+            lastProbe.route === 'feed' &&
+            lastProbe.shellRoute === 'feed' &&
+            lastProbe.prompt === 'visible' &&
+            lastProbe.pendingRoute === fragment &&
+            lastProbe.gateBridgeVersion === 1
+        ) break;
         await delay(100);
     }
-    throw new Error(`Private deep link #${fragment} did not reach the shell-free common Auth boundary for return route ${returnRoute}: ${JSON.stringify(lastProbe)}.`);
+    if (
+        lastProbe?.hash !== '' ||
+        lastProbe.route !== 'feed' ||
+        lastProbe.shellRoute !== 'feed' ||
+        lastProbe.prompt !== 'visible' ||
+        lastProbe.pendingRoute !== fragment ||
+        lastProbe.gateBridgeVersion !== 1
+    ) {
+        throw new Error(`Private deep link #${fragment} did not reach public Feed with the common participation gate for return route ${returnRoute}: ${JSON.stringify(lastProbe)}.`);
+    }
+
+    const action = await cdp.evaluate(`(() => {
+      const bridge = globalThis.__quataAuthGateE2eProduct;
+      if (bridge?.version !== 1 || typeof bridge.chooseLogin !== 'function') return false;
+      bridge.chooseLogin();
+      return true;
+    })()`);
+    if (action?.result?.value !== true) {
+        throw new Error(`Private deep link #${fragment} could not invoke the real Compose Login callback.`);
+    }
+
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const auth = await cdp.evaluate(`(() => ({
+          hash: location.hash,
+          route: localStorage.getItem('web.navigation.route'),
+          shellRoute: document.documentElement.getAttribute('data-quata-shell-route'),
+          prompt: document.documentElement.getAttribute('data-quata-auth-required-prompt'),
+          destination: document.documentElement.getAttribute('data-quata-auth-destination'),
+        }))()`);
+        const value = auth?.result?.value ?? null;
+        if (
+            value?.hash === '#auth' &&
+            value.route === 'auth' &&
+            !value.shellRoute &&
+            !value.prompt &&
+            value.destination === 'login'
+        ) return;
+        lastProbe = value;
+        await delay(100);
+    }
+    throw new Error(`Private deep link #${fragment} did not open shell-free full-screen Login after its real gate callback: ${JSON.stringify(lastProbe)}.`);
 }
 
 async function waitForShellMarker(cdp, expectedRoute) {
