@@ -27,6 +27,7 @@ import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
+import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
+import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 
@@ -182,6 +184,10 @@ private fun QuataWebApp(
     // Preserve the exact hash that led to the common login screen so a successful web_login
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
+    // Auth is a full-screen product flow.  The participation gate is a separate common
+    // dialog over the public shell, mirroring Android's AppNavGraph contract.
+    var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
+    var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
@@ -314,9 +320,56 @@ private fun QuataWebApp(
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
-    fun requestAuthenticationForCurrentRoute() {
-        pendingAuthenticationFragment = navigation.fragment
+    fun requestAuthenticationFor(fragment: String = navigation.fragment) {
+        pendingAuthenticationFragment = fragment
+        isAuthRequiredPromptOpen = true
+        // A copied private deep link must never leave an anonymous blank viewport or jump
+        // straight to Login.  Return the browser to Android's anonymous Feed while showing
+        // the common participation gate.  Actions originating in Feed/Official keep their
+        // existing public route and shell beneath the dialog.
+        if (navigation.state.requiresAuthentication) navigation.navigate("")
+    }
+    fun requestAuthenticationForCurrentRoute() = requestAuthenticationFor()
+    fun openAuth(destination: AuthProductDestination) {
+        isAuthRequiredPromptOpen = false
+        authInitialDestination = destination
         navigation.navigate("auth")
+    }
+    fun dismissAuthenticationPrompt() {
+        isAuthRequiredPromptOpen = false
+        pendingAuthenticationFragment = null
+    }
+    fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
+    fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
+    fun selectPrimaryRoute(route: String) {
+        val fragment = canonicalPrimaryRouteToWebFragment(route)
+        if (!isSessionReady && fragment.toWebNavigationState().requiresAuthentication) {
+            requestAuthenticationFor(fragment)
+        } else {
+            navigation.navigate(fragment)
+        }
+    }
+    DisposableEffect(navigation) {
+        val removeBridge = installWebAuthGateE2eBridge(
+            dismiss = ::dismissAuthenticationPrompt,
+            // These are the exact callbacks passed to QuataAuthRequiredDialogContent below,
+            // so the canvas E2E bridge cannot exercise a surrogate navigation path.
+            chooseLogin = ::chooseLoginFromPrompt,
+            chooseRegister = ::chooseRegisterFromPrompt,
+        )
+        onDispose(removeBridge)
+    }
+    LaunchedEffect(isAuthRequiredPromptOpen, pendingAuthenticationFragment) {
+        setWebAuthPromptMarker(
+            visible = isAuthRequiredPromptOpen,
+            pendingRoute = pendingAuthenticationFragment,
+        )
+    }
+    LaunchedEffect(navigationState.isAuthenticationRoute, authInitialDestination) {
+        setWebAuthSurfaceMarker(
+            visible = navigationState.isAuthenticationRoute,
+            destination = authInitialDestination.name.lowercase(),
+        )
     }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
@@ -327,19 +380,20 @@ private fun QuataWebApp(
                         WebLoginHost(
                             repository = authRepository,
                             preferences = platformServices.preferences,
+                            initialDestination = authInitialDestination,
                             onLoginSuccess = ::completeLogin,
                         )
                     }
                 }
                 !isSessionResolved && navigationState.requiresAuthentication -> {
-                    // Keep the viewport empty until persisted Auth state is known. This prevents
-                    // a private deep link from being rewritten to #auth during restoration.
-                    LaunchedEffect(Unit) { clearWebNavigationShellMarker() }
+                    // Do not replace a copied private deep link with Login while credentials
+                    // restore.  Once restoration settles, the branch below returns to Feed and
+                    // displays the common participation dialog.
                 }
                 !isSessionReady && navigationState.requiresAuthentication -> {
-                    // Private destinations never mount anonymously; public Feed and Official do.
+                    // Private destinations never mount anonymously.  Unlike the old Web gate,
+                    // they return to public Feed and open Android's participation dialog.
                     LaunchedEffect(navigationState) {
-                        clearWebNavigationShellMarker()
                         requestAuthenticationForCurrentRoute()
                     }
                 }
@@ -356,14 +410,19 @@ private fun QuataWebApp(
                 isOnline = true,
                 strings = WebAuthenticatedChromeStrings,
                 onLogoClick = { navigation.navigate("about") },
+                // Android exposes the Notifications surface from the public header.  Its
+                // repository may render an empty/error state anonymously; opening a private
+                // conversation from it is still handled by the route-level participation gate.
                 onNotificationsClick = { navigation.navigate("notifications") },
-                onSosClick = { navigation.navigate("profile") },
+                onSosClick = {
+                    if (isSessionReady) navigation.navigate("profile") else requestAuthenticationFor("profile")
+                },
                 isSosSending = false,
                 bottomNavigation = {
                     QuataPrimaryBottomNavigation(
                         labels = webPrimaryNavigationLabels,
                         selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
-                        onRouteSelected = { route -> navigation.navigate(canonicalPrimaryRouteToWebFragment(route)) },
+                        onRouteSelected = ::selectPrimaryRoute,
                     )
                 },
             ) { chromePadding ->
@@ -447,6 +506,7 @@ private fun QuataWebApp(
                             slots = webNeighborhoodsSlots,
                             rankingItems = emptyList(),
                             onOpenConversation = navigation::navigateConversation,
+                            onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
                             onOpenRankingItem = { },
@@ -465,6 +525,7 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -513,6 +574,7 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -526,6 +588,9 @@ private fun QuataWebApp(
                                 shareService = platformServices.share,
                                 presence = feedPresence,
                                 sharedPostId = navigation.postId,
+                                currentUserId = currentUserId,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onCreatePost = { navigation.navigate("composer") },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                         }
@@ -534,6 +599,13 @@ private fun QuataWebApp(
             }
             }
                 }
+            }
+            if (isAuthRequiredPromptOpen) {
+                WebAuthRequiredDialog(
+                    onDismiss = ::dismissAuthenticationPrompt,
+                    onCreateAccount = ::chooseRegisterFromPrompt,
+                    onLogin = ::chooseLoginFromPrompt,
+                )
             }
         }
 }
@@ -582,15 +654,49 @@ internal data class WebNavigationState(
     val postId: String? = null,
 )
 
-/** Feed and Official (including shared-post deep links) remain available without a session. */
+/**
+ * Android's public surface consists of Feed, Qüata/Neighborhoods, Official and Notifications.
+ * Mutating or conversational actions inside those hosts call the common participation gate.
+ */
 internal val WebNavigationState.isPublicRoute: Boolean
-    get() = route == "feed" || route == "official" || postId != null || officialPostId != null
+    get() = route == "feed" ||
+        route == "communities" ||
+        route == "official" ||
+        route == "notifications" ||
+        postId != null ||
+        officialPostId != null
 
 internal val WebNavigationState.isAuthenticationRoute: Boolean
     get() = route == "auth"
 
 internal val WebNavigationState.requiresAuthentication: Boolean
     get() = !isPublicRoute && !isAuthenticationRoute
+
+/** Spanish Web copy intentionally matches Android's AuthRequiredDialog resources. */
+@Composable
+private fun WebAuthRequiredDialog(
+    onDismiss: () -> Unit,
+    onCreateAccount: () -> Unit,
+    onLogin: () -> Unit,
+) {
+    QuataAuthRequiredDialogContent(
+        title = "Únete a QÜATA para participar",
+        intro = "Puedes explorar publicaciones libremente, pero para:",
+        requirements = listOf(
+            "✓ Enviar mensajes",
+            "✓ Comentar publicaciones",
+            "✓ Crear contenido",
+            "✓ Seguir comunidades",
+            "✓ Configurar contactos SOS",
+        ),
+        outro = "necesitas una cuenta.",
+        createAccountLabel = "Crear cuenta",
+        loginLabel = "Ya tengo cuenta",
+        onDismiss = onDismiss,
+        onCreateAccount = onCreateAccount,
+        onLogin = onLogin,
+    )
+}
 
 internal class WebNavigationController(
     initialFragment: String,
@@ -713,6 +819,29 @@ private external fun setWebNavigationShellMarker(route: String, selectedPrimaryR
   root?.removeAttribute('data-quata-primary-selected-route');
 }""")
 private external fun clearWebNavigationShellMarker()
+
+/** Test semantics for the real Compose prompt; these attributes do not render a parallel UI. */
+@JsFun("""(visible, pendingRoute) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (visible) {
+    root.setAttribute('data-quata-auth-required-prompt', 'visible');
+    if (pendingRoute) root.setAttribute('data-quata-auth-pending-route', pendingRoute);
+  } else {
+    root.removeAttribute('data-quata-auth-required-prompt');
+    root.removeAttribute('data-quata-auth-pending-route');
+  }
+}""")
+private external fun setWebAuthPromptMarker(visible: Boolean, pendingRoute: String?)
+
+/** Identifies which common full-screen Auth destination is mounted for hermetic browser QA. */
+@JsFun("""(visible, destination) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (visible) root.setAttribute('data-quata-auth-destination', destination);
+  else root.removeAttribute('data-quata-auth-destination');
+}""")
+private external fun setWebAuthSurfaceMarker(visible: Boolean, destination: String)
 
 /**
  * Observes in-place browser hash navigation. The returned callback must be retained for the

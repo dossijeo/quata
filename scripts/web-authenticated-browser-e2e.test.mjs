@@ -27,12 +27,12 @@ const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.u
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
 
-test("hermetic Auth gate uses native controls when present or the localhost-only product bridge for a stable Compose canvas", () => {
+test("hermetic Auth gate keeps the Compose product surface and uses only the localhost product bridge", () => {
   assert.match(runner, /chromium\.launch\(/);
   assert.match(runner, /input\[aria-label="Teléfono"\]/);
   assert.doesNotMatch(runner, /__quataAuthE2eProduct\.restore\(\)/);
   assert.match(runner, /resolveAuthSurface\(page\)/);
-  assert.match(runner, /authSurface === "native_controls"/);
+  assert.match(runner, /await resolveAuthSurface\(page\);/);
   assert.match(runner, /loginWithComposeAuthBridge\(page, credentials\)/);
   assert.match(runner, /logoutWithComposeAuthBridge\(page\)/);
   assert.match(runner, /compose_auth_shell_missing/);
@@ -48,17 +48,27 @@ test("hermetic Auth gate uses native controls when present or the localhost-only
   assert.doesNotMatch(bridge, /innerHTML|createElement\(['"]input|addEventListener\(['"]click/);
 });
 
-test("the hermetic browser journey proves the permanent public shell and the common private-route login return", () => {
+test("the hermetic browser journey proves the permanent public shell, participation gate and common private-route login return", () => {
   assert.match(runner, /const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42\?message=msg%209"/);
-  assert.match(runner, /await assertPrivateRedirectToCommonAuth\(page\)/);
+  assert.match(runner, /await assertPrivateAuthenticationGate\(page\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
+  assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
+  assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
+  assert.match(runner, /data-quata-auth-required-prompt/);
+  assert.match(runner, /data-quata-auth-pending-route/);
+  assert.match(runner, /data-quata-auth-destination/);
   assert.match(runner, /auth_router_bootstrap_ready_before_private_transition/);
-  assert.match(runner, /localStorage\.getItem\("web\.navigation\.route"\) === "auth"/);
+  assert.match(runner, /localStorage\.getItem\("web\.navigation\.route"\) === "feed"/);
   assert.match(runner, /await assertAutomaticLoginReturn\(page\)/);
   assert.match(runner, /await assertAnonymousPublicShellAfterLogout\(page\)/);
-  assert.match(runner, /anonymous_feed_official_shell_and_private_chat_login_redirect/);
+  assert.match(runner, /anonymous_feed_neighborhoods_official_notifications_shell_and_private_chat_participation_gate/);
+  assert.match(runner, /\{ fragment: "communities", route: "communities" \}/);
+  assert.match(runner, /\{ fragment: "notifications", route: "notifications" \}/);
   assert.match(runner, /product_logout_returns_to_anonymous_feed_and_official_shell/);
   assert.match(runner, /data-quata-shell-route/);
-  assert.match(runner, /location\.hash === "#auth"/);
+  assert.match(runner, /location\.hash === ""/);
   assert.match(runner, /location\.hash === `#\$\{fragment\}`/);
   assert.doesNotMatch(runner, /page\.goto\([^\n]*#feed/);
   assert.match(main, /internal val WebNavigationState\.isPublicRoute/);

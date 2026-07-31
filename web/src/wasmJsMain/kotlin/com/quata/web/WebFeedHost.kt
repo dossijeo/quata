@@ -21,6 +21,9 @@ fun WebFeedHost(
     shareService: ShareService,
     presence: FeedUserPresence? = null,
     sharedPostId: String? = null,
+    currentUserId: String? = null,
+    onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -51,6 +54,9 @@ fun WebFeedHost(
             showComposeMessage = true,
         ),
         presence = presence,
+        currentUserId = currentUserId,
+        onAuthRequired = onAuthRequired,
+        onCreatePost = onCreatePost,
         modifier = modifier,
     )
 }

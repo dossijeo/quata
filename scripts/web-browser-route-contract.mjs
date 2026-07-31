@@ -7,10 +7,10 @@ export const SMOKE_ROUTE_CONTRACTS = Object.freeze([
     { fragment: 'settings', kind: 'private', returnRoute: 'settings' },
     { fragment: 'share-target', kind: 'private', returnRoute: 'share-target' },
     { fragment: 'share-target-error', kind: 'private', returnRoute: 'share-target-error' },
-    { fragment: 'notifications', kind: 'private', returnRoute: 'notifications' },
+    { fragment: 'notifications', kind: 'public', route: 'notifications' },
     { fragment: 'profile', kind: 'private', returnRoute: 'profile' },
     { fragment: 'composer', kind: 'private', returnRoute: 'composer' },
-    { fragment: 'communities', kind: 'private', returnRoute: 'communities' },
+    { fragment: 'communities', kind: 'public', route: 'communities' },
     { fragment: 'whats-new', kind: 'private', returnRoute: 'whats-new' },
     { fragment: 'about', kind: 'private', returnRoute: 'about' },
 ]);

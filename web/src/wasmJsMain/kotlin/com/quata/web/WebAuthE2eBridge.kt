@@ -37,3 +37,38 @@ private external fun installAuthBridgeWhenAllowed(
     restore: ((String) -> Unit, (String) -> Unit) -> Unit,
     logout: ((String) -> Unit, (String) -> Unit) -> Unit,
 ): () -> Unit
+
+/**
+ * Localhost-only control surface for the Compose participation gate.  It invokes the exact
+ * callbacks bound to [QuataAuthRequiredDialogContent]; it neither renders nor replaces the UI.
+ * Stable DOM markers in Main expose the visible Compose state to Playwright.
+ */
+internal fun installWebAuthGateE2eBridge(
+    dismiss: () -> Unit,
+    chooseLogin: () -> Unit,
+    chooseRegister: () -> Unit,
+): () -> Unit = installAuthGateBridgeWhenAllowed(dismiss, chooseLogin, chooseRegister)
+
+@JsFun(
+    """(dismiss, chooseLogin, chooseRegister) => {
+      const location = globalThis.location;
+      const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      if (!localHost || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        dismiss: () => dismiss(),
+        chooseLogin: () => chooseLogin(),
+        chooseRegister: () => chooseRegister(),
+      });
+      globalThis.__quataAuthGateE2eProduct = bridge;
+      return () => {
+        if (globalThis.__quataAuthGateE2eProduct === bridge) delete globalThis.__quataAuthGateE2eProduct;
+      };
+    }""",
+)
+private external fun installAuthGateBridgeWhenAllowed(
+    dismiss: () -> Unit,
+    chooseLogin: () -> Unit,
+    chooseRegister: () -> Unit,
+): () -> Unit

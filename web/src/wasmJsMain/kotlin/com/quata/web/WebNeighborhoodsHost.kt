@@ -67,6 +67,7 @@ fun WebNeighborhoodsHost(
     slots: WebNeighborhoodsSlots,
     rankingItems: List<QuataLiveRankingItem>,
     onOpenConversation: (String) -> Unit,
+    onAuthRequired: () -> Unit,
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
@@ -136,8 +137,12 @@ fun WebNeighborhoodsHost(
                         sendLabel = strings.sendComment,
                         onValueChange = { commentDraft = it },
                         onSend = {
-                            onSubmitComment(commentDraft)
-                            commentDraft = ""
+                            if (currentUserId == null) {
+                                onAuthRequired()
+                            } else {
+                                onSubmitComment(commentDraft)
+                                commentDraft = ""
+                            }
                         },
                     )
                 },
@@ -159,12 +164,17 @@ fun WebNeighborhoodsHost(
             strings = strings.members,
             avatar = slots.avatar,
             onBack = { selectedNeighborhood = null },
-            onFollowUser = { viewModel.toggleFollowUser(it.id) },
+            onFollowUser = {
+                if (currentUserId == null) onAuthRequired() else viewModel.toggleFollowUser(it.id)
+            },
             onOpenProfile = {
                 viewModel.openUserProfile(it.id)
                 onOpenUserRoute(it.id)
             },
-            onOpenPrivateChat = { user -> viewModel.openPrivateChat(user.id, onOpenConversation) },
+            onOpenPrivateChat = { user ->
+                if (currentUserId == null) onAuthRequired()
+                else viewModel.openPrivateChat(user.id, onOpenConversation)
+            },
         )
         return
     }
@@ -180,7 +190,10 @@ fun WebNeighborhoodsHost(
         strings = strings.list,
         onQueryChange = { query = it },
         onShowUsers = { selectedNeighborhood = it.name },
-        onOpenChat = { community -> viewModel.openChat(community.name, onOpenConversation) },
+        onOpenChat = { community ->
+            if (currentUserId == null) onAuthRequired()
+            else viewModel.openChat(community.name, onOpenConversation)
+        },
     )
 }
 
