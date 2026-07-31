@@ -641,6 +641,7 @@ private final class IosAppCompositionRoot {
                         controller.modalPresentationStyle = .fullScreen
                         self.authenticatedHost.present(controller, animated: true)
                     },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
                 ),
             )
         }

@@ -20,6 +20,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import platform.UIKit.UIViewController
+import platform.Foundation.NSLocale
 
 /**
  * The launcher's only cross-feature navigation obligation for Communities.  The selected ID is
@@ -48,7 +49,7 @@ class IosNeighborhoodsHostDependencies(
     val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     val onOpenConversation: (String) -> Unit,
     val profileNavigator: IosCommunityProfileNavigator,
-    val onOpenAttachment: (ProfileAttachment) -> Unit,
+    val onAuthRequired: () -> Unit,
 )
 
 /**
@@ -63,12 +64,13 @@ fun createIosNeighborhoodsHostDependencies(
     currentUserId: String?,
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onAuthRequired: () -> Unit,
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
-    listStrings = IosNeighborhoodListStrings,
-    usersStrings = IosNeighborhoodUsersStrings,
+    listStrings = defaultNeighborhoodsScreenStrings(NSLocale.currentLocale.languageCode).list,
+    usersStrings = defaultNeighborhoodsScreenStrings(NSLocale.currentLocale.languageCode).members,
     avatar = { user, _, _ ->
         // Remote image loading belongs to a separately verified platform media adapter. A
         // deterministic common fallback keeps this host usable without inventing a URL loader.
@@ -76,62 +78,25 @@ fun createIosNeighborhoodsHostDependencies(
     },
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
-    onOpenAttachment = {},
+    onAuthRequired = onAuthRequired,
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
 fun QuataNeighborhoodsViewController(
     dependencies: IosNeighborhoodsHostDependencies,
 ): UIViewController = ComposeUIViewController {
-    val state by dependencies.viewModel.uiState.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var membersOf by rememberSaveable { mutableStateOf<String?>(null) }
-
-    DisposableEffect(dependencies.viewModel) {
-        dependencies.viewModel.startObservingCommunities()
-        onDispose { dependencies.viewModel.stopObservingCommunities() }
-    }
-
     QuataTheme {
-        val selectedCommunity = state.communities.firstOrNull { it.name == membersOf }
-        if (selectedCommunity == null) {
-            NeighborhoodListContent(
-                padding = PaddingValues(),
-                communities = state.communities,
-                query = query,
-                isLoading = state.isLoading,
-                error = state.error,
-                currentUserId = dependencies.currentUserId,
-                openingNeighborhood = state.openingChatNeighborhood,
-                strings = dependencies.listStrings,
-                onQueryChange = { query = it },
-                onShowUsers = { membersOf = it.name },
-                onOpenChat = { community ->
-                    dependencies.viewModel.openChat(community.name, dependencies.onOpenConversation)
-                },
-            )
-        } else {
-            NeighborhoodUsersContent(
-                padding = PaddingValues(),
-                community = selectedCommunity,
-                currentUserId = dependencies.currentUserId,
-                isOpeningChat = state.openingPrivateChatUserId != null,
-                openingPrivateChatUserId = state.openingPrivateChatUserId,
-                openingProfileUserId = state.openingProfileUserId,
-                followingUserId = state.followingUserId,
-                strings = dependencies.usersStrings,
-                avatar = dependencies.avatar,
-                onBack = { membersOf = null },
-                onFollowUser = { dependencies.viewModel.toggleFollowUser(it.id) },
-                onOpenProfile = { user ->
-                    dependencies.viewModel.openUserProfile(user.id)
-                    dependencies.profileNavigator.openMemberProfile(user.id)
-                },
-                onOpenPrivateChat = { user ->
-                    dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)
-                },
-            )
-        }
+        NeighborhoodsScreenHost(
+            model = dependencies.viewModel,
+            currentUserId = dependencies.currentUserId,
+            strings = NeighborhoodsScreenStrings(dependencies.listStrings, dependencies.usersStrings),
+            avatar = dependencies.avatar,
+            onOpenConversation = dependencies.onOpenConversation,
+            onOpenUserProfile = dependencies.profileNavigator::openMemberProfile,
+            onAuthRequired = dependencies.onAuthRequired,
+            padding = PaddingValues(),
+            closeModelOnDispose = true,
+        )
     }
 }
 

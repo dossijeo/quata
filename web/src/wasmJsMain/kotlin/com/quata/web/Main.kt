@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
@@ -502,16 +503,11 @@ private fun QuataWebApp(
                         WebNeighborhoodsHost(
                             repository = neighborhoodsRepository,
                             currentUserId = currentUserId,
-                            strings = webNeighborhoodsStrings,
+                            strings = browserNeighborhoodsStrings(),
                             slots = webNeighborhoodsSlots,
-                            rankingItems = emptyList(),
                             onOpenConversation = navigation::navigateConversation,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
-                            onOpenUserRoute = { navigation.navigate("communities") },
-                            initialMemberProfileId = null,
-                            onOpenRankingItem = { },
-                            onSubmitComment = { },
-                            commentsEnabled = false,
+                            onOpenUserProfile = feedMemberProfileRoute::open,
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
@@ -521,17 +517,11 @@ private fun QuataWebApp(
                             WebNeighborhoodsHost(
                                 repository = neighborhoodsRepository,
                                 currentUserId = currentUserId,
-                                strings = webNeighborhoodsStrings,
+                                strings = browserNeighborhoodsStrings(),
                                 slots = webNeighborhoodsSlots,
-                                rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
-                                onOpenUserRoute = feedMemberProfileRoute::open,
-                                initialMemberProfileId = memberProfileId,
-                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
-                                onOpenRankingItem = { },
-                                onSubmitComment = { },
-                                commentsEnabled = false,
+                                onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                         } else {
                             WebOfficialHost(
@@ -570,17 +560,11 @@ private fun QuataWebApp(
                             WebNeighborhoodsHost(
                                 repository = neighborhoodsRepository,
                                 currentUserId = currentUserId,
-                                strings = webNeighborhoodsStrings,
+                                strings = browserNeighborhoodsStrings(),
                                 slots = webNeighborhoodsSlots,
-                                rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
-                                onOpenUserRoute = feedMemberProfileRoute::open,
-                                initialMemberProfileId = memberProfileId,
-                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
-                                onOpenRankingItem = { },
-                                onSubmitComment = { },
-                                commentsEnabled = false,
+                                onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                         } else {
                             WebFeedHost(
@@ -861,6 +845,7 @@ private const val WebThemeModeKey = "quata_web_theme_mode"
 private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
 
 private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
+    screen = NeighborhoodsScreenStrings(
     list = NeighborhoodListStrings(
         title = "Comunidades",
         searchPlaceholder = "Buscar barrio",
@@ -880,6 +865,8 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
         memberCount = { "$it miembros" },
         row = NeighborhoodUserRowStrings(follow = "Seguir", following = "Siguiendo", chat = "Chat"),
     ),
+    ),
+    /*
     commentsTitle = "Comentarios",
     commentsClose = "Cerrar comentarios",
     commentPlaceholder = "Escribe un comentario",
@@ -896,18 +883,19 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
         live = "EN DIRECTO",
         close = "Cerrar ranking",
         openPost = "Abrir publicación",
-    ),
+    ),*/
 )
 
 private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
     avatar = { user, _, onClick -> androidx.compose.material3.TextButton(onClick = onClick) {
         androidx.compose.material3.Text(user.displayName.take(1).uppercase())
     } },
+    /*
     profileMedia = { profile ->
         if (profile.posts.isEmpty()) androidx.compose.material3.Text("No hay publicaciones públicas.")
     },
     profileAttachments = { profile ->
         if (profile.attachments.isEmpty()) androidx.compose.material3.Text("No hay adjuntos compartidos.")
     },
-    rankingAvatar = { item -> androidx.compose.material3.Text(item.title.take(1).uppercase()) },
+    rankingAvatar = { item -> androidx.compose.material3.Text(item.title.take(1).uppercase()) },*/
 )

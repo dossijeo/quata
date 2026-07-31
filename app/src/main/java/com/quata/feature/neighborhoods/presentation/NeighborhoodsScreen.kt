@@ -132,54 +132,19 @@ fun NeighborhoodsScreen(
     onAuthRequired: () -> Unit = {},
     viewModel: NeighborhoodsAndroidViewModel = viewModel(factory = NeighborhoodsAndroidViewModel.factory(repository))
 ) {
-    val state by viewModel.uiState.collectAsState()
-    var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
-    var neighborhoodQuery by rememberSaveable { mutableStateOf("") }
-    val canParticipate = currentUserId != null
-    val communityForDialog = state.communities.firstOrNull { it.name == selectedCommunity }
-    DisposableEffect(viewModel) {
-        viewModel.startObservingCommunities()
-        onDispose { viewModel.stopObservingCommunities() }
-    }
-
-    if (communityForDialog != null) {
-        NeighborhoodUsersScreen(
-            padding = padding,
-            community = communityForDialog,
-            currentUserId = currentUserId,
-            isOpeningChat = state.isOpeningChat,
-            openingPrivateChatUserId = state.openingPrivateChatUserId,
-            openingProfileUserId = openingProfileUserId,
-            followingUserId = state.followingUserId,
-            onBack = { selectedCommunity = null },
-            onFollowUser = { user ->
-                if (canParticipate) viewModel.toggleFollowUser(user.id) else onAuthRequired()
-            },
-            onOpenProfile = { onOpenUserProfile(it.id) },
-            onOpenPrivateChat = { user ->
-                if (canParticipate) {
-                    viewModel.openPrivateChat(user.id) { conversationId ->
-                        selectedCommunity = null
-                        onOpenConversation(conversationId)
-                    }
-                } else {
-                    onAuthRequired()
-                }
-            }
-        )
-        return
-    }
-
     val context = LocalContext.current
-    NeighborhoodListContent(
-        padding = padding,
-        communities = state.communities,
-        query = neighborhoodQuery,
-        isLoading = state.isLoading,
-        error = state.error,
+    NeighborhoodsScreenHost(
+        model = viewModel,
         currentUserId = currentUserId,
-        openingNeighborhood = state.openingChatNeighborhood,
-        strings = NeighborhoodListStrings(
+        padding = padding,
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = onOpenUserProfile,
+        onAuthRequired = onAuthRequired,
+        avatar = { user, isLoading, onClick ->
+            ClickableProfileAvatar(user.displayName, user.avatarUrl, user.isOfficial, user.id, isLoading, onClick, Modifier.size(48.dp))
+        },
+        strings = NeighborhoodsScreenStrings(
+            list = NeighborhoodListStrings(
             title = stringResource(R.string.neighborhoods_open_community),
             searchPlaceholder = stringResource(R.string.neighborhoods_subtitle),
             loading = stringResource(R.string.neighborhoods_loading),
@@ -190,12 +155,15 @@ fun NeighborhoodsScreen(
             viewUsers = stringResource(R.string.neighborhoods_view_users),
             openChat = stringResource(R.string.neighborhoods_open_chat),
             timeLabel = { communityTimeLabel(context, it) }
+            ),
+            members = NeighborhoodUsersStrings(
+                title = { name -> context.getString(R.string.neighborhoods_users_title, name) },
+                subtitle = stringResource(R.string.neighborhoods_users_subtitle),
+                backContentDescription = stringResource(R.string.common_back),
+                memberCount = { count -> if (count == 1) context.getString(R.string.neighborhoods_one_user) else context.getString(R.string.neighborhoods_user_count, count) },
+                row = NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat)),
+            ),
         ),
-        onQueryChange = { neighborhoodQuery = it },
-        onShowUsers = { selectedCommunity = it.name },
-        onOpenChat = { community ->
-            if (canParticipate) viewModel.openChat(community.name, onOpenConversation) else onAuthRequired()
-        }
     )
 }
 
