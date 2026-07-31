@@ -8,6 +8,9 @@ const feed = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.k
 const neighborhoods = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt");
 const login = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt");
 const bridge = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt");
+const authDialog = await source(
+  "designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataAuthRequiredDialogContent.kt",
+);
 
 test("anonymous Web uses Android's common participation dialog instead of redirecting public Feed to Login", () => {
   assert.match(main, /QuataAuthRequiredDialogContent\(/);
@@ -16,6 +19,14 @@ test("anonymous Web uses Android's common participation dialog instead of redire
   assert.match(main, /!isSessionReady && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationForCurrentRoute\(\)/);
   assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?route == "feed"[\s\S]*?route == "communities"[\s\S]*?route == "official"[\s\S]*?route == "notifications"/);
   assert.doesNotMatch(main, /requestAuthenticationForCurrentRoute\(\) \{[\s\S]*?navigation\.navigate\("auth"\)/);
+});
+
+test("the common auth prompt renders check requirements with a portable vector instead of a font glyph", () => {
+  assert.match(authDialog, /if \(!requirement\.startsWith\(AUTH_REQUIREMENT_CHECK_PREFIX\)\) \{[\s\S]*?Text\(requirement\)[\s\S]*?return/);
+  assert.match(authDialog, /imageVector = Icons\.Filled\.Check/);
+  assert.match(authDialog, /requirement\.removePrefix\(AUTH_REQUIREMENT_CHECK_PREFIX\)\.trimStart\(\)/);
+  assert.equal(authDialog.match(/private const val AUTH_REQUIREMENT_CHECK_PREFIX = "✓"/g)?.length, 1);
+  assert.doesNotMatch(authDialog, /Text\(requirement\)\s*\n\s*\}/);
 });
 
 test("the prompt opens the shared full-screen Auth root only after the user chooses account or login", () => {
