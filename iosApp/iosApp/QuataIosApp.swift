@@ -869,7 +869,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var settingsFactory: (() -> UIViewController)?
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
-    private enum AuthenticationEntry { case login, registration }
+    enum AuthenticationEntry { case login, registration }
     private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
