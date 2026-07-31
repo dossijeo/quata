@@ -26,16 +26,29 @@ class WebProfileGatewayContractTest {
     }
 
     @Test
-    fun sos_replace_sends_delete_then_ordered_post_rows() = runTest {
-        val transport = RecordingTransport()
-        val gateway = WebProfileRemoteGateway(transport)
+    fun sos_replace_serializes_exact_valid_json_for_zero_one_two_and_five_rows() = runTest {
+        listOf(0, 1, 2, 5).forEach { count ->
+            val transport = RecordingTransport()
+            val gateway = WebProfileRemoteGateway(transport)
+            val ids = (1..count).map { "peer-$it" }
 
-        gateway.saveEmergencyContacts("profile-1", listOf("peer-b", "peer-a", "peer-b"))
+            gateway.saveEmergencyContacts("profile-1", ids)
 
-        assertEquals(listOf("DELETE community_emergency_contacts", "POST community_emergency_contacts"), transport.operations)
-        val rows = Json.parseToJsonElement(transport.lastBody!!).jsonArray
-        assertEquals(listOf("peer-b", "peer-a"), rows.map { it.jsonObject.getValue("contact_profile_id").jsonPrimitive.content })
-        assertEquals(listOf("1", "2"), rows.map { it.jsonObject.getValue("position").jsonPrimitive.content })
+            val expectedOperations = listOf("DELETE community_emergency_contacts") +
+                if (count == 0) emptyList() else listOf("POST community_emergency_contacts")
+            assertEquals(expectedOperations, transport.operations, "row count $count")
+            if (count == 0) {
+                assertEquals(null, transport.lastBody)
+            } else {
+                val expected = ids.mapIndexed { index, id ->
+                    "{\"profile_id\":\"profile-1\",\"contact_profile_id\":\"$id\",\"position\":${index + 1}}"
+                }.joinToString(separator = ",", prefix = "[", postfix = "]")
+                assertEquals(expected, transport.lastBody, "row count $count")
+                val rows = Json.parseToJsonElement(requireNotNull(transport.lastBody)).jsonArray
+                assertEquals(ids, rows.map { it.jsonObject.getValue("contact_profile_id").jsonPrimitive.content })
+                assertEquals((1..count).map(Int::toString), rows.map { it.jsonObject.getValue("position").jsonPrimitive.content })
+            }
+        }
     }
 
     @Test

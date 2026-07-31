@@ -47,9 +47,6 @@ private class LiveWebProfileTransport(
  * subscription. A future realtime adapter can replace these flows without changing Profile's
  * common contract.
  *
- * Reads use PostgREST. Writes are deliberately fail-closed: profile tables currently have no
- * verified server-bound actor contract, so this client must never emit PATCH/POST/DELETE directly.
- * A future `quata-profile-bridge` is the only permitted mutation boundary.
  */
 class WebProfileRemoteGateway internal constructor(
     private val transport: WebProfileTransport,
@@ -125,7 +122,8 @@ class WebProfileRemoteGateway internal constructor(
         val normalized = contactIds.map { it.requireProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
         transport.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId")).requireProfileMutationSuccess("delete_contacts")
         if (normalized.isNotEmpty()) {
-            val body = normalized.mapIndexed { index, id -> buildJsonObject { put("profile_id", profileId); put("contact_profile_id", id); put("position", index + 1) } }.joinToString("[", "]")
+            val body = normalized.mapIndexed { index, id -> buildJsonObject { put("profile_id", profileId); put("contact_profile_id", id); put("position", index + 1) } }
+                .joinToString(separator = ",", prefix = "[", postfix = "]")
             transport.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
         }
     }

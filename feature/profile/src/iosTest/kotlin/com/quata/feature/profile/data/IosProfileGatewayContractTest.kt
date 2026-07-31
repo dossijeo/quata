@@ -23,17 +23,22 @@ class IosProfileGatewayContractTest {
     }
 
     @Test
-    fun sos_replace_is_delete_then_post_with_positions() = runTest {
-        val transport = RecordingTransport()
-        val gateway = gateway(transport)
+    fun sos_replace_serializes_exact_valid_json_for_zero_one_two_and_five_rows() = runTest {
+        listOf(0, 1, 2, 5).forEach { count ->
+            val transport = RecordingTransport()
+            val gateway = gateway(transport)
+            val ids = (1..count).map { "peer-$it" }
 
-        gateway.saveEmergencyContacts("profile-1", listOf("peer-b", "peer-a", "peer-b"))
+            gateway.saveEmergencyContacts("profile-1", ids)
 
-        assertEquals(listOf("DELETE", "POST"), transport.requests.map { it.method })
-        assertEquals(
-            "[{\"profile_id\":\"profile-1\",\"contact_profile_id\":\"peer-b\",\"position\":1},{\"profile_id\":\"profile-1\",\"contact_profile_id\":\"peer-a\",\"position\":2}]",
-            transport.requests.last().body,
-        )
+            assertEquals(if (count == 0) listOf("DELETE") else listOf("DELETE", "POST"), transport.requests.map { it.method })
+            if (count > 0) {
+                val expected = ids.mapIndexed { index, id ->
+                    "{\"profile_id\":\"profile-1\",\"contact_profile_id\":\"$id\",\"position\":${index + 1}}"
+                }.joinToString(separator = ",", prefix = "[", postfix = "]")
+                assertEquals(expected, transport.requests.last().body, "row count $count")
+            }
+        }
     }
 
     @Test

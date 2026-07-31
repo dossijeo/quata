@@ -174,7 +174,8 @@ class IosProfilePostgrestGateway internal constructor(
         val normalized = contactIds.map { it.requireIosProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
         mutate(CommunityEmergencyContactsTable, "DELETE", mapOf("profile_id" to "eq.$profileId"), null)
         if (normalized.isNotEmpty()) {
-            val rows = normalized.mapIndexed { index, id -> "{\"profile_id\":${profileId.toIosProfileJsonString()},\"contact_profile_id\":${id.toIosProfileJsonString()},\"position\":${index + 1}}" }.joinToString("[", "]")
+            val rows = normalized.mapIndexed { index, id -> "{\"profile_id\":${profileId.toIosProfileJsonString()},\"contact_profile_id\":${id.toIosProfileJsonString()},\"position\":${index + 1}}" }
+                .joinToString(separator = ",", prefix = "[", postfix = "]")
             mutate(CommunityEmergencyContactsTable, "POST", emptyMap(), rows)
         }
     }
