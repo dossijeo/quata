@@ -68,7 +68,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,6 +82,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.User
 import com.quata.core.platform.ClipboardService
+import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.ClickableProfileAvatar
@@ -97,7 +97,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
-import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
+import com.quata.feature.chat.presentation.relativeUpdatedAt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -114,8 +114,6 @@ fun ConversationsScreen(
     viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current)),
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val conversationCatalog = conversationsLocaleCatalogForLanguage(configuration.locales[0].language)
     var contactsPermissionGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
@@ -152,12 +150,11 @@ fun ConversationsScreen(
                 inviteAction = stringResource(R.string.conversations_invite_action), noneSelected = stringResource(R.string.conversation_forward_none_selected),
             ),
             conversationTitle = { it.chatDisplayTitle() },
-            conversationPreview = conversationCatalog.host.conversationPreview,
-            relativeUpdatedAt = conversationCatalog.host.relativeUpdatedAt,
+            conversationPreview = context.applicationContext::localizedChatPreview,
+            relativeUpdatedAt = { conversation, now -> conversation.relativeUpdatedAt(context, now) },
             pickerTitle = stringResource(R.string.conversations_new_chat),
-            groupTitlePlaceholder = conversationCatalog.host.groupTitlePlaceholder,
-            createGroupDescription = conversationCatalog.host.createGroupDescription,
-            selectionSummary = conversationCatalog.host.selectionSummary,
+            groupTitlePlaceholder = stringResource(R.string.conversation_add_participants_title),
+            createGroupDescription = stringResource(R.string.conversations_new_chat),
         ),
         onOpenConversation = onOpenConversation,
         onOpenUserProfile = onOpenUserProfile,

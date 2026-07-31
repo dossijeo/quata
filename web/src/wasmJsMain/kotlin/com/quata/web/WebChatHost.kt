@@ -36,7 +36,6 @@ import com.quata.feature.chat.presentation.conversations.InviteChannelSheetConte
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrings
 import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
-import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.core.navigation.AppDestinations
 import kotlinx.coroutines.launch
@@ -147,30 +146,26 @@ private fun WebInviteChannelSheet(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val invitationStrings = conversationsLocaleCatalogForLanguage(webBrowserLanguage()).invitation
+    val invitation = "Únete a Qüata: conecta, publica y conversa con tu comunidad."
     InviteChannelSheetContent(
-        invitationMessage = invitationStrings.message,
-        targets = listOf(InviteChannelTargetUi(id = "browser-share", label = invitationStrings.shareTarget)),
+        invitationMessage = invitation,
+        targets = listOf(InviteChannelTargetUi(id = "browser-share", label = "Compartir")),
         strings = InviteChannelSheetStrings(
-            shareTextTitle = invitationStrings.sheetTitle(contact.displayName),
-            copyMessage = invitationStrings.copyMessage,
-            chooseAppFor = invitationStrings.chooseAppFor(contact.displayName),
+            shareTextTitle = "Invitar a ${contact.displayName}",
+            copyMessage = "Copiar invitación",
+            chooseAppFor = "Elige cómo enviar la invitación",
         ),
         clipboardService = clipboardService,
         onDismiss = onDismiss,
         onTargetSelected = {
-            scope.launch { shareService.share(SharePayload(text = invitationStrings.message, title = invitationStrings.shareTitle)) }
+            scope.launch { shareService.share(SharePayload(text = invitation, title = "Qüata")) }
             onDismiss()
         },
         panelHost = { content -> QuataFloatingPanelContent(onDismiss = onDismiss) { modifier, _ -> content(modifier) } },
     )
 }
 
-@JsFun("() => Date.now()")
-private external fun chatBrowserNowMillisAsDouble(): Double
-
-/** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
-private fun webNowMillis(): Long = chatBrowserNowMillisAsDouble().toLong()
+private fun webNowMillis(): Long = js("Date.now()")
 private fun webBrowserLanguage(): String? = js("globalThis.navigator?.language || null")
 
 private fun browserDocumentIsVisible(): Boolean = js(

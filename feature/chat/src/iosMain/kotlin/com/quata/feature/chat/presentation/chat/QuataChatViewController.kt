@@ -28,7 +28,6 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
-import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrings
 import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
@@ -37,7 +36,6 @@ import com.quata.feature.feed.presentation.IosRemoteAvatar
 import com.quata.core.navigation.AppDestinations
 import platform.UIKit.UIViewController
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
-import platform.Foundation.NSUserDefaults
 import kotlinx.coroutines.launch
 
 /**
@@ -109,7 +107,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         padding = PaddingValues(),
                         viewModel = conversations,
                         clipboardService = IosClipboardService(),
-                        strings = conversationsHostStringsForLanguage(iosConversationLanguage()),
+                        strings = conversationsHostStringsForLanguage(null),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
                         onOpenFavorites = { dependencies.onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
@@ -152,18 +150,14 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
 @Composable
 private fun IosInviteChannelSheet(contact: ChatInviteContact, clipboard: ClipboardService, shareService: ShareService, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val invitationStrings = conversationsLocaleCatalogForLanguage(iosConversationLanguage()).invitation
+    val invitation = "Únete a Qüata: conecta, publica y conversa con tu comunidad."
     InviteChannelSheetContent(
-        invitationMessage = invitationStrings.message,
-        targets = listOf(InviteChannelTargetUi("ios-share", invitationStrings.shareTarget)),
-        strings = InviteChannelSheetStrings(invitationStrings.sheetTitle(contact.displayName), invitationStrings.copyMessage, invitationStrings.chooseAppFor(contact.displayName)),
+        invitationMessage = invitation,
+        targets = listOf(InviteChannelTargetUi("ios-share", "Compartir")),
+        strings = InviteChannelSheetStrings("Invitar a ${contact.displayName}", "Copiar invitación", "Elige cómo enviar la invitación"),
         clipboardService = clipboard,
         onDismiss = onDismiss,
-        onTargetSelected = { scope.launch { shareService.share(SharePayload(text = invitationStrings.message, title = invitationStrings.shareTitle)) }; onDismiss() },
+        onTargetSelected = { scope.launch { shareService.share(SharePayload(text = invitation, title = "Qüata")) }; onDismiss() },
         panelHost = { content -> QuataFloatingPanelContent(onDismiss = onDismiss) { modifier, _ -> content(modifier) } },
     )
 }
-
-/** AppleLanguages is the locale selected by the user, not a launcher fallback. */
-private fun iosConversationLanguage(): String? =
-    (NSUserDefaults.standardUserDefaults.objectForKey("AppleLanguages") as? List<*>)?.firstOrNull() as? String

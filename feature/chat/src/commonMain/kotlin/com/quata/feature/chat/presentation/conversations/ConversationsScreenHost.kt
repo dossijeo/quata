@@ -47,10 +47,54 @@ data class ConversationsHostStrings(
     val pickerTitle: String,
     val groupTitlePlaceholder: String,
     val createGroupDescription: String,
-    val selectionSummary: (Int) -> String,
 )
 
 /** Explicit launcher locale catalogue; the host never manufactures copy of its own. */
+fun conversationsHostStringsForLanguage(languageTag: String?): ConversationsHostStrings = conversationsSpanishStrings().let { spanish ->
+    when (languageTag?.substringBefore('-')?.substringBefore('_')?.lowercase()) {
+        "en" -> spanish.copy(title = "Conversations", searchPlaceholder = "Search conversations", favoritesDescription = "Favorite messages", newConversationDescription = "New chat", undoDelete = "Undo", pickerTitle = "New chat", groupTitlePlaceholder = "Group name (optional)", createGroupDescription = "Create group")
+        "fr" -> spanish.copy(title = "Conversations", searchPlaceholder = "Rechercher des conversations", favoritesDescription = "Messages favoris", newConversationDescription = "Nouvelle discussion", undoDelete = "Annuler", pickerTitle = "Nouvelle discussion", groupTitlePlaceholder = "Nom du groupe (facultatif)", createGroupDescription = "Créer le groupe")
+        else -> spanish
+    }
+}
+
+private fun conversationsSpanishStrings(): ConversationsHostStrings = ConversationsHostStrings(
+    title = "Conversaciones", searchPlaceholder = "Buscar conversaciones", favoritesDescription = "Mensajes favoritos",
+    newConversationDescription = "Nuevo chat", undoDelete = "Deshacer",
+    pickerTitle = "Nuevo chat", groupTitlePlaceholder = "Nombre del grupo (opcional)", createGroupDescription = "Crear grupo",
+    candidates = ConversationCandidatePickerStrings(
+        searchPlaceholder = "Buscar personas", noResults = "No hay resultados", cancel = "Cancelar", contacts = "Contactos",
+        following = "Siguiendo", followers = "Seguidores", recent = "Conversaciones recientes", otherNeighborhoods = "Otros barrios",
+        unknownNeighborhood = "Barrio desconocido", inviteTitle = "Invitar a Qüata", invitePermission = "Permite contactos para invitar",
+        inviteAllow = "Permitir", inviteAction = "Invitar", noneSelected = "Nadie seleccionado",
+    ),
+    conversationTitle = { conversation -> when {
+        conversation.isEmergency -> "🚨 SOS"
+        !conversation.communityName.isNullOrBlank() -> conversation.communityName.orEmpty()
+        conversation.isGroup && conversation.participantNames.isNotEmpty() && conversation.title == "Chat ${conversation.id.substringAfterLast(':')}" -> conversation.participantNames.joinToString(", ")
+        conversation.title.isNotBlank() -> conversation.title
+        conversation.isGroup && conversation.participantNames.isNotEmpty() -> conversation.participantNames.joinToString(", ")
+        else -> ""
+    } },
+    conversationPreview = { it },
+    relativeUpdatedAt = { conversation, now -> conversation.updatedAtMillis?.let { timestamp ->
+        spanishRelativeConversationTime((now - timestamp).coerceAtLeast(0L))
+    } ?: conversation.updatedAt },
+)
+
+internal fun spanishRelativeConversationTime(ageMillis: Long): String {
+    val minutes = ageMillis / 60_000L
+    return when {
+        minutes < 1L -> "Ahora"
+        minutes < 60L -> "$minutes min"
+        minutes < 1_440L -> "${minutes / 60L} h"
+        minutes < 10_080L -> "${minutes / 1_440L} d"
+        minutes < 43_200L -> "${minutes / 10_080L} sem"
+        minutes < 525_600L -> "${minutes / 43_200L} mes"
+        else -> "${minutes / 525_600L} a"
+    }
+}
+
 /**
  * The single product composition for the conversation list.
  *
@@ -173,12 +217,12 @@ fun ConversationsScreenHost(
             title = strings.pickerTitle,
             actionIcon = Icons.Filled.ChatBubble,
             actionContentDescription = strings.newConversationDescription,
-            confirmContentDescription = strings.createGroupDescription,
+            confirmContentDescription = strings.newConversationDescription,
             selectedCandidateIds = state.selectedNewConversationProfileIds,
             onToggleCandidate = viewModel::toggleNewConversationCandidate,
             onConfirmSelection = { viewModel.openSelectedGroupConversation(onOpenConversation) },
             confirmEnabled = state.selectedNewConversationProfileIds.size >= 2 && !state.isOpeningGroupConversation,
-            selectionSummary = if (state.selectedNewConversationProfileIds.size < 2) strings.candidates.noneSelected else strings.selectionSummary(state.selectedNewConversationProfileIds.size),
+            selectionSummary = if (state.selectedNewConversationProfileIds.size < 2) strings.candidates.noneSelected else "${state.selectedNewConversationProfileIds.size} participantes",
             groupTitle = state.newGroupTitle,
             onGroupTitleChange = viewModel::onNewGroupTitleChanged,
             groupTitlePlaceholder = strings.groupTitlePlaceholder,
