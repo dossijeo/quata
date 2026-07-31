@@ -192,8 +192,18 @@ open class PostgrestChatRepository(
         _syncStatus.value = ChatSyncStatus.Online
         "sb:$threadId"
     }.onFailure { updateReadFailure() }
-    override suspend fun cachedPrivateConversationId(userId: String): String? = null
-    override suspend fun cachedCommunityConversationId(communityName: String): String? = null
+    override suspend fun cachedPrivateConversationId(userId: String): String? {
+        val current = currentUserId()
+        return conversations.value.firstOrNull { conversation ->
+            !conversation.isGroup && !conversation.isEmergency &&
+                conversation.participantIds.containsAll(listOf(current, userId)) && conversation.participantIds.size == 2
+        }?.id ?: openPrivateConversation(userId).getOrNull()
+    }
+    override suspend fun cachedCommunityConversationId(communityName: String): String? =
+        conversations.value.firstOrNull { conversation ->
+            conversation.communityName.equals(communityName, ignoreCase = true) ||
+                conversation.title.equals(communityName, ignoreCase = true)
+        }?.id
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = openThread("quata_chat_open_community_thread") { userId ->
         buildJsonObject {
             put("p_actor_profile_id", userId); put("p_community_id", communityId); put("p_title", title)
