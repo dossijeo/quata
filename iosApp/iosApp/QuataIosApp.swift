@@ -877,6 +877,47 @@ private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, Ios
     }
 }
 
+/// Keeps a Compose/Skia dialog transparent after its native render view is mounted.  A one-shot
+/// background change is too early because Compose inserts that view on a later layout pass.
+final class IosTransparentComposeOverlayController: UIViewController {
+    private let content: UIViewController
+
+    init(content: UIViewController) {
+        self.content = content
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        addChild(content)
+        content.view.frame = view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(content.view)
+        content.didMove(toParent: self)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        content.view.frame = view.bounds
+        clearNativeBackgrounds(in: view)
+        // Compose may mount its rendering view immediately after this pass.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.clearNativeBackgrounds(in: self.view)
+        }
+    }
+
+    private func clearNativeBackgrounds(in candidate: UIView) {
+        candidate.backgroundColor = .clear
+        candidate.isOpaque = false
+        candidate.subviews.forEach { clearNativeBackgrounds(in: $0) }
+    }
+}
+
 /// Authenticated UIKit router for shared Compose feature hosts.
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
@@ -1100,7 +1141,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func presentAuthRequiredPrompt() {
         guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
         authRequiredPromptVisible = true
-        let prompt = authRequiredPromptFactory()
+        let prompt = IosTransparentComposeOverlayController(content: authRequiredPromptFactory())
         prompt.modalPresentationStyle = .overFullScreen
         // ComposeUIViewController owns a Skia child view whose default opaque background would
         // otherwise hide the public route beneath this dialog. Make only the hosting tree
