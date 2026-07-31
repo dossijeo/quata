@@ -1,6 +1,8 @@
 package com.quata.feature.profile.data
 
 import com.quata.core.model.CountryPrefix
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
@@ -24,6 +27,17 @@ interface ProfilePresentationCatalog {
     fun defaultEmergencyMessage(displayName: String): String
     fun changesSavedMessage(): String
     fun emergencyContactsSavedMessage(): String
+}
+
+/** Exact shared Auth/Android recovery-question catalogue, including the profile keep-current row. */
+fun profileSecretQuestions(locale: AuthCatalogLocale): List<SecretQuestionOption> {
+    val copy = AuthCatalog.copy(locale)
+    return copy.secretQuestions.map { question ->
+        SecretQuestionOption(
+            value = question.value,
+            label = if (question.value.isBlank()) copy.profileKeepCurrentSecretQuestion else question.label,
+        )
+    }
 }
 
 /**
@@ -41,9 +55,10 @@ class KmpProfileRepository(
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> {
         val session = sessions.currentSession()
             ?: return flow { emit(Result.failure(IllegalStateException("No hay sesion activa"))) }
-        val storedMessage = emergencyMessages.get(session.profileId)
         val contactIds = observeEmergencyContactIds(session.profileId)
-        return combine(contactIds, remote.observeProfile(session.profileId), remote.observeEmergencyCandidates()) {
+        return flow {
+            val storedMessage = emergencyMessages.get(session.profileId)
+            emitAll(combine(contactIds, remote.observeProfile(session.profileId), remote.observeEmergencyCandidates()) {
                 selectedIds, profile, directory ->
             val userProfile = profile?.toUserProfile(
                 fallbackName = session.displayName,
@@ -56,7 +71,8 @@ class KmpProfileRepository(
                 profile = userProfile,
                 config = buildConfig(buildEmergencyCandidates(session.profileId, selectedIds, directory))
             )
-        }.map { Result.success(it) }
+            }.map { Result.success(it) })
+        }
             .catch { emit(Result.failure<ProfileEditModel>(it)) }
     }
 

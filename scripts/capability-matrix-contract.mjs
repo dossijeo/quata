@@ -33,8 +33,8 @@ const catalog = {
   'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'blocked', 'blocked']],
   'communities.private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'blocked', 'implemented']],
   'composer.publish': ['mutation', ['createPost'], ['implemented', 'contract-only', 'blocked']],
-  'profile.remote-mutate': ['mutation', ['saveProfile', 'saveEmergencySettings'], ['implemented', 'contract-only', 'blocked']],
-  'profile.avatar-upload': ['mutation', ['uploadIfNeeded'], ['implemented', 'blocked', 'blocked']],
+  'profile.remote-mutate': ['mutation', ['saveProfile', 'saveEmergencySettings'], ['implemented', 'implemented', 'implemented']],
+  'profile.avatar-upload': ['mutation', ['uploadIfNeeded'], ['implemented', 'blocked', 'implemented']],
   'push.delivery': ['flow', ['receiveExternalPush'], ['external', 'external', 'external']],
 };
 

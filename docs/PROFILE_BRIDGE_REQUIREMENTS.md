@@ -1,43 +1,46 @@
-# `quata-profile-bridge`: contrato de mutaciones de Cuenta
+# Cuenta: acceso vigente y contrato futuro de bridge
 
-Web e iOS no escriben directamente en `community_profiles` ni en
-`community_emergency_contacts`. Mientras este bridge no esté desplegado y validado, los clientes
-fallan de forma explícita con `*_profile_bridge_unavailable`, antes de emitir una mutación.
+## Estado temporal compatible con Android
 
-## Autenticación y autorización
+Android, Web e iOS usan actualmente acceso autenticado directo a PostgREST para guardar el perfil
+y sustituir `community_emergency_contacts`. Web e iOS no simulan un bridge inexistente ni fallan
+con `*_profile_bridge_unavailable`: replican el acceso que Android tiene en producción.
 
-- El endpoint recibe `Authorization: Bearer <access token>` y verifica el token con
-  `supabase.auth.getUser(token)` en el servidor.
-- Ignora cualquier `profile_id` enviado por el cliente. Deriva el perfil exclusivamente de
-  `auth_user_id` del usuario autenticado; si no hay una correspondencia única, responde 403.
-- Opera con credenciales de servidor sólo después de esa comprobación. Nunca acepta una
-  `service_role` desde el cliente.
-- Todas las respuestas de mutación representan el estado persistido o un error; no hay éxito
-  optimista ni persistencia local de contraseña/respuesta secreta.
+Los clientes portables aplican estas defensas antes de mutar:
 
-## Operaciones
+- obtienen el perfil actor de la sesión renovada y rechazan un `profileId` distinto;
+- envían el bearer de esa sesión en cada petición;
+- el PATCH de perfil usa una lista cerrada de columnas;
+- SOS elimina sólo las filas del actor y publica como máximo cinco filas ordenadas;
+- la caché local se actualiza únicamente después de que termine toda la operación remota.
 
-`update_profile`
+Esto es compatibilidad temporal, no una frontera de autorización suficiente. Las políticas RLS
+actuales siguen siendo deuda conocida (véase `docs/RLS_FINDINGS.md`) y no se modifican en esta
+migración para no romper Android ni la web publicada. Además, el DELETE seguido de POST de SOS no
+es transaccional: si POST falla, el servidor puede quedar sin los contactos anteriores, aunque el
+cliente conserve su caché. Esta deuda debe resolverse de forma coordinada.
 
-- Acepta únicamente display name, barrio, prefijo/teléfono y referencia de avatar ya subida.
-- Aplica allow-list de columnas y deriva el `id` como arriba.
+La contraseña no se edita desde Cuenta mientras no exista un contrato seguro y verificable. La UI
+lo explica sin impedir guardar los demás campos. La pregunta de recuperación usa el bridge de Auth
+ya existente; Web e iOS sólo consideran éxito una respuesta `2xx` cuyo cuerpo sea `{ "ok": true }`.
+La baja y eliminación de cuenta en iOS usan la acción autenticada existente
+`quata-account-lifecycle`. Los avatares siguen la convención Android:
+`community-posts/avatars/<profileId>/<uuid>.jpg`, con bearer y `x-upsert: true`.
 
-`replace_emergency_contacts`
+## Contrato objetivo `quata-profile-bridge`
 
-- Acepta de cero a cinco IDs de perfil, normalizados y distintos.
-- Rechaza IDs que no correspondan a perfiles existentes y el ID del propio actor.
-- Debe ejecutarse como una transacción de base de datos (borrado + inserción) o, si el entorno
-  no expone transacciones, como insert-first con compensación demostrable: conservar el conjunto
-  previo, insertar el nuevo, validar cardinalidad, y restaurar el previo si falla cualquier paso.
-  Nunca puede dejar al usuario sin sus contactos por un DELETE seguido de POST fallido.
+El reemplazo futuro del acceso directo debe:
 
-`update_password`
+- recibir `Authorization: Bearer <access token>` y verificarlo en servidor;
+- ignorar cualquier actor enviado por el cliente y derivarlo sólo del usuario autenticado;
+- usar credenciales privilegiadas únicamente después de resolver el actor;
+- aceptar en `update_profile` sólo nombre, barrio, prefijo/teléfono y avatar;
+- sustituir de cero a cinco contactos distintos, existentes y ajenos al propio actor en una
+  transacción, sin dejar vacío el conjunto si falla la inserción;
+- actualizar contraseñas exclusivamente mediante Auth, sin persistirlas en perfiles, logs o
+  preferencias;
+- devolver el estado persistido o un error explícito, sin éxito optimista.
 
-- No escribe password en tablas de perfil, logs ni preferencias. Usa la API administrativa de
-  Auth sólo después de autenticar el bearer y resolver su `auth_user_id`.
-
-## Gate de habilitación
-
-Antes de conectar los clientes al bridge: pruebas de token inválido, actor ajeno, ID de contacto
-ajeno/inexistente, rollback de contactos, actualización persistida y observabilidad sin secretos.
-No se cambia esquema ni RLS como parte de este trabajo.
+Antes de migrar los clientes al bridge se requieren pruebas de bearer inválido, actor ajeno,
+contactos inválidos, rollback, persistencia real y observabilidad sin secretos. Su despliegue debe
+coordinarse con el endurecimiento de RLS; este trabajo no cambia esquema, grants, datos ni políticas.

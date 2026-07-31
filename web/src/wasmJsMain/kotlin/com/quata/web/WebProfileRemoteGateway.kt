@@ -15,10 +15,34 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
+internal interface WebProfileTransport {
+    suspend fun get(table: String, query: Map<String, String>, limit: Int): WebPostgrestResult
+    suspend fun patch(table: String, query: Map<String, String>, body: String): WebPostgrestResult
+    suspend fun post(table: String, body: String): WebPostgrestResult
+    suspend fun delete(table: String, query: Map<String, String>): WebPostgrestResult
+    suspend fun updateRecoverySecret(question: String, answer: String): Result<Unit>
+    suspend fun sessionProfileId(): String?
+}
+
+private class LiveWebProfileTransport(
+    private val client: WebPostgrestClient,
+    private val authRepository: WebAuthRepository,
+) : WebProfileTransport {
+    override suspend fun get(table: String, query: Map<String, String>, limit: Int) = client.get(table, query, limit)
+    override suspend fun patch(table: String, query: Map<String, String>, body: String) = client.patch(table, query, body)
+    override suspend fun post(table: String, body: String) = client.post(table, body)
+    override suspend fun delete(table: String, query: Map<String, String>) = client.delete(table, query)
+    override suspend fun updateRecoverySecret(question: String, answer: String) =
+        authRepository.updateRecoverySecret(question, answer)
+    override suspend fun sessionProfileId(): String? = authRepository.sessionForAuthenticatedRequest()?.userId
+}
+
 /**
  * Authenticated browser transport for Profile's portable repository.
  *
- * [WebPostgrestClient] owns the injected Web session and sends its bearer token on every read.
+ * [WebPostgrestClient] owns the injected Web session and sends its bearer token on every request.
+ * Mutations intentionally match Android's current direct PostgREST contract while the coordinated
+ * bridge/RLS rollout remains pending; the gateway rejects any target other than the session actor.
  * It deliberately exposes one-shot flows rather than pretending the browser has a realtime
  * subscription. A future realtime adapter can replace these flows without changing Profile's
  * common contract.
@@ -27,10 +51,12 @@ import kotlinx.serialization.json.put
  * verified server-bound actor contract, so this client must never emit PATCH/POST/DELETE directly.
  * A future `quata-profile-bridge` is the only permitted mutation boundary.
  */
-class WebProfileRemoteGateway(
-    private val client: WebPostgrestClient,
-    private val authRepository: WebAuthRepository,
+class WebProfileRemoteGateway internal constructor(
+    private val transport: WebProfileTransport,
 ) : ProfileRemoteGateway {
+    constructor(client: WebPostgrestClient, authRepository: WebAuthRepository) : this(
+        LiveWebProfileTransport(client, authRepository),
+    )
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? {
         requireProfileId(profileId)
         return loadProfiles(ids = listOf(profileId), limit = 1).firstOrNull()
@@ -61,7 +87,7 @@ class WebProfileRemoteGateway(
         // same authenticated network read; the repository's injected local store remains the
         // offline-first cache.
         @Suppress("UNUSED_VARIABLE") val ignoredCachePolicy = cachePolicy
-        return client.rows(
+        return transport.rows(
             table = EmergencyContactsTable,
             query = mapOf(
                 "select" to "contact_profile_id",
@@ -75,10 +101,10 @@ class WebProfileRemoteGateway(
     }
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
-        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        requireWebProfileActor(profileId, transport.sessionProfileId())
         val allowed = patch.filterKeys { it in ProfileWritableColumns }
         require(allowed.isNotEmpty()) { "web_profile_patch_empty" }
-        client.patch(ProfilesTable, mapOf("id" to "eq.$profileId"), allowed.toPostgrestProfileJson()).requireProfileMutationSuccess("patch")
+        transport.patch(ProfilesTable, mapOf("id" to "eq.$profileId"), allowed.toPostgrestProfileJson()).requireProfileMutationSuccess("patch")
     }
 
     override suspend fun saveRecoverySecret(
@@ -86,8 +112,8 @@ class WebProfileRemoteGateway(
         @Suppress("UNUSED_PARAMETER") secretQuestion: String,
         @Suppress("UNUSED_PARAMETER") secretAnswer: String,
     ) {
-        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
-        authRepository.updateRecoverySecret(secretQuestion, secretAnswer).getOrElse { throw it }
+        requireWebProfileActor(profileId, transport.sessionProfileId())
+        transport.updateRecoverySecret(secretQuestion, secretAnswer).getOrElse { throw it }
     }
 
 
@@ -95,12 +121,12 @@ class WebProfileRemoteGateway(
         profileId: String,
         contactIds: List<String>,
     ) {
-        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        requireWebProfileActor(profileId, transport.sessionProfileId())
         val normalized = contactIds.map { it.requireProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
-        client.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId")).requireProfileMutationSuccess("delete_contacts")
+        transport.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId")).requireProfileMutationSuccess("delete_contacts")
         if (normalized.isNotEmpty()) {
             val body = normalized.mapIndexed { index, id -> buildJsonObject { put("profile_id", profileId); put("contact_profile_id", id); put("position", index + 1) } }.joinToString("[", "]")
-            client.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
+            transport.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
         }
     }
 
@@ -109,7 +135,7 @@ class WebProfileRemoteGateway(
         limit: Int,
     ): List<ProfileRemoteRecord> {
         ids?.forEach(::requireProfileId)
-        return client.rows(
+        return transport.rows(
             table = ProfilesTable,
             query = buildMap {
                 put("select", ProfileSelect)
@@ -119,7 +145,7 @@ class WebProfileRemoteGateway(
         ).map(JsonObject::toProfileRemoteRecord)
     }
 
-    private suspend fun WebPostgrestClient.rows(
+    private suspend fun WebProfileTransport.rows(
         table: String,
         query: Map<String, String>,
         limit: Int,

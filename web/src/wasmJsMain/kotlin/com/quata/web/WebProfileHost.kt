@@ -14,6 +14,8 @@ import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.data.KmpProfileRepository
 import com.quata.feature.profile.data.ProfileAvatarUploader
 import com.quata.feature.profile.data.ProfileEmergencyContactsStore
@@ -23,6 +25,7 @@ import com.quata.feature.profile.data.ProfileRemoteGateway
 import com.quata.feature.profile.data.ProfileSession
 import com.quata.feature.profile.data.ProfileSessionProvider
 import com.quata.feature.profile.data.StoredProfileEmergencyMessage
+import com.quata.feature.profile.data.profileSecretQuestions
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
@@ -71,7 +74,7 @@ fun WebProfileHost(
 
 /** Authenticated remote repository only. There is no browser-local Profile product fallback. */
 class WebProfileRepository(
-    @Suppress("UNUSED_PARAMETER") preferences: PreferenceStore,
+    preferences: PreferenceStore,
     @Suppress("UNUSED_PARAMETER") contactPicker: ContactPickerService,
     remoteGateway: ProfileRemoteGateway? = null,
     remoteSessionProvider: ProfileSessionProvider? = null,
@@ -79,7 +82,9 @@ class WebProfileRepository(
 ) : ProfileRepository {
     private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) KmpProfileRepository(
         remote = remoteGateway, sessions = remoteSessionProvider, avatarUploader = WebProfileAvatarUploader,
-        emergencyMessages = WebProfileMemoryEmergencyMessageStore(), emergencyContacts = WebProfileMemoryEmergencyContactsStore(), catalog = WebProfileCatalog,
+        emergencyMessages = WebProfilePreferenceEmergencyMessageStore(preferences),
+        emergencyContacts = WebProfilePreferenceEmergencyContactsStore(preferences),
+        catalog = WebProfileCatalog,
     ) else null
 
     fun persistenceMode(): WebProfilePersistenceMode = if (remote != null && remoteAvailable()) WebProfilePersistenceMode.Remote else WebProfilePersistenceMode.Unavailable
@@ -123,32 +128,61 @@ internal fun webProfileAvatarUploadReference(avatarUri: String?): String? {
     if (isBrowserAvatarUrl(normalized)) return normalized
     throw UnsupportedOperationException("web_profile_avatar_upload_not_available")
 }
-private class WebProfileMemoryEmergencyMessageStore : ProfileEmergencyMessageStore {
-    private val values = mutableMapOf<String, StoredProfileEmergencyMessage>()
-    override fun get(profileId: String) = values[profileId]
-    override fun save(profileId: String, message: String, isDefault: Boolean) { values[profileId] = StoredProfileEmergencyMessage(message, isDefault) }
+internal class WebProfilePreferenceEmergencyMessageStore(private val preferences: PreferenceStore) : ProfileEmergencyMessageStore {
+    override suspend fun get(profileId: String): StoredProfileEmergencyMessage? {
+        val message = preferences.getString(webProfileSosKey(profileId, "message")) ?: return null
+        val isDefault = preferences.getString(webProfileSosKey(profileId, "is_default"))?.toBooleanStrictOrNull() ?: true
+        return StoredProfileEmergencyMessage(message, isDefault)
+    }
+
+    override suspend fun save(profileId: String, message: String, isDefault: Boolean) {
+        preferences.putString(webProfileSosKey(profileId, "message"), message)
+        preferences.putString(webProfileSosKey(profileId, "is_default"), isDefault.toString())
+    }
 }
-private class WebProfileMemoryEmergencyContactsStore : ProfileEmergencyContactsStore {
-    private val values = mutableMapOf<String, List<String>>()
-    override fun get(profileId: String) = values[profileId].orEmpty()
-    override fun save(profileId: String, contactIds: List<String>) { values[profileId] = contactIds }
+
+internal class WebProfilePreferenceEmergencyContactsStore(private val preferences: PreferenceStore) : ProfileEmergencyContactsStore {
+    override suspend fun get(profileId: String): List<String> = preferences
+        .getString(webProfileSosKey(profileId, "contacts"))
+        ?.split(WebProfileContactSeparator)
+        ?.filter(String::isNotBlank)
+        ?.distinct()
+        ?.take(5)
+        .orEmpty()
+
+    override suspend fun save(profileId: String, contactIds: List<String>) {
+        preferences.putString(
+            webProfileSosKey(profileId, "contacts"),
+            contactIds.map(String::trim).filter(String::isNotBlank).distinct().take(5)
+                .joinToString(WebProfileContactSeparator),
+        )
+    }
 }
+
+private fun webProfileSosKey(profileId: String, field: String): String =
+    "web.profile.sos.${profileId.replace(Regex("[^A-Za-z0-9._-]"), "_")}.$field"
+
+private const val WebProfileContactSeparator = "\u001F"
 internal class WebProfileSessionProvider(private val authRepository: WebAuthRepository) : ProfileSessionProvider {
     private var displayName = "Usuario"
     override fun currentSession(): ProfileSession? = authRepository.activeProfileSessionOrNull()?.let { ProfileSession(it.userId, displayName) }
     override fun updateDisplayName(session: ProfileSession, displayName: String) { this.displayName = displayName }
 }
 private object WebProfileCatalog : ProfilePresentationCatalog {
-    override fun countryPrefixes() = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial"), CountryPrefix("34", "+34 - España"))
-    override fun secretQuestions(): List<SecretQuestionOption> = emptyList()
+    private fun locale() = AuthCatalogLocale.fromLanguage(webProfileLanguageTag())
+    override fun countryPrefixes() = AuthCatalog.countryPrefixes(locale())
+    override fun secretQuestions(): List<SecretQuestionOption> = profileSecretQuestions(locale())
     override fun fallbackUserName() = "Usuario"
     override fun defaultEmergencyMessage(displayName: String) = "Necesito ayuda. Por favor, contacta conmigo, $displayName."
     override fun changesSavedMessage() = "Cambios sincronizados con el servidor."
     override fun emergencyContactsSavedMessage() = "Contactos SOS sincronizados con el servidor."
 }
 
+internal fun webProfileLanguageTag(): String? = js("globalThis.navigator?.language || globalThis.document?.documentElement?.lang || 'es'")
+
 private val WebProfileScreenStrings = ProfileScreenStrings(
     "Cargando perfil…", "Mis datos", "Gestión de cuenta", "Gestiona las opciones sensibles de tu cuenta.", "Configurar contactos de emergencia", "Guardar cambios", "Guardando…", "Cerrar sesión", "Nombre", "Barrio", "Teléfono", "Nueva contraseña", "Pregunta secreta", "Nueva respuesta secreta", "Volver", "Desactivar cuenta", "Solicitar eliminación de datos", "Esta acción requiere una confirmación adicional.", "Continuar", "Cancelar",
     AppearanceSettingsStrings("Touch Flow", "Tema", "Sistema", "Oscuro", "Claro"),
     EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings("Volver", "SOS", "Contactos de emergencia", "Elige hasta cinco contactos y personaliza el mensaje de ayuda.", "Contactos", "Mensaje"), { "$it seleccionados" }, "Contactos disponibles", "Buscar contacto", "Mensaje SOS", "Escribe el mensaje que recibirán tus contactos.", "Guardar SOS", "Guardar"),
+    "El cambio de contraseña se realiza desde «Olvidé mi contraseña» hasta que exista un contrato autenticado de actualización.",
 )

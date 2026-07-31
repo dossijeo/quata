@@ -221,7 +221,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
             ProfileTextField(profile.displayName, strings.name) { onEvent(ProfileUiEvent.NameChanged(it)) }
             ProfileTextField(profile.neighborhood, strings.neighborhood) { onEvent(ProfileUiEvent.NeighborhoodChanged(it)) }
             ProfilePrefixAndPhone(state, profile.countryCode, profile.phone, strings, onEvent)
-            ProfileTextField(state.newPassword, strings.newPassword, password = true) { onEvent(ProfileUiEvent.NewPasswordChanged(it)) }
+            Text(strings.passwordUnavailable, color = quataTheme().colors.textSecondary)
             ProfileSecretQuestion(state, profile.selectedSecretQuestion, strings) { onEvent(ProfileUiEvent.SecretQuestionChanged(it)) }
             ProfileTextField(state.newSecretAnswer, strings.newSecretAnswer) { onEvent(ProfileUiEvent.SecretAnswerChanged(it)) }
         },
@@ -267,6 +267,7 @@ data class ProfileScreenStrings(
     val secretQuestion: String, val newSecretAnswer: String, val back: String, val deactivate: String,
     val deleteData: String, val dangerConfirmation: String, val confirm: String, val cancel: String,
     val appearance: AppearanceSettingsStrings, val emergency: EmergencyContactsEditorStrings,
+    val passwordUnavailable: String,
 )
 
 data class ProfileScreenSlots(

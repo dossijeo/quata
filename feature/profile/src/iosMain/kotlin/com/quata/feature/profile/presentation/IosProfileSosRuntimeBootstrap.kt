@@ -6,7 +6,10 @@ import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PlatformContact
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.data.IosProfilePostgrestGateway
+import com.quata.feature.profile.data.IosProfileAvatarUploader
 import com.quata.feature.profile.data.IosProfileRuntimeConfiguration
 import com.quata.feature.profile.data.KmpProfileRepository
 import com.quata.feature.profile.data.ProfileAvatarUploader
@@ -17,6 +20,7 @@ import com.quata.feature.profile.data.ProfileSession
 import com.quata.feature.profile.data.ProfileSessionProvider
 import com.quata.feature.profile.data.RemoteProfileViewerRepository
 import com.quata.feature.profile.data.StoredProfileEmergencyMessage
+import com.quata.feature.profile.data.profileSecretQuestions
 import com.quata.feature.profile.domain.SecretQuestionOption
 import platform.Foundation.NSUserDefaults
 
@@ -30,16 +34,17 @@ import platform.Foundation.NSUserDefaults
 class IosProfileSosRuntimeBootstrap(
     configuration: IosProfileRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
+    languageTag: String?,
 ) {
     private val sessionProvider = IosProfileSessionAdapter(authSession)
     private val remote = IosProfilePostgrestGateway(configuration, authSession)
     private val repository = KmpProfileRepository(
         remote = remote,
         sessions = sessionProvider,
-        avatarUploader = IosUnsupportedProfileAvatarUploader,
+        avatarUploader = IosProfileAvatarUploader(configuration, authSession),
         emergencyMessages = IosProfileEmergencyMessageDefaults(),
         emergencyContacts = IosProfileEmergencyContactsDefaults(),
-        catalog = IosProfilePresentationCatalog,
+        catalog = IosProfilePresentationCatalog(AuthCatalogLocale.fromLanguage(languageTag)),
     )
     private val memberProfileRepository = RemoteProfileViewerRepository(
         remote = remote,
@@ -74,11 +79,13 @@ class IosProfileSosRuntimeBootstrap(
         onLogout: () -> Unit,
         onDeactivateAccount: () -> Unit,
         onDeleteAccountData: () -> Unit,
+        filePicker: com.quata.core.platform.FilePickerService,
     ): IosProfileHostDependencies = IosProfileHostDependencies(
         repository = repository,
         onLogout = onLogout,
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
+        filePicker = filePicker,
     )
 
     /**
@@ -100,7 +107,8 @@ class IosProfileSosRuntimeBootstrap(
 fun createIosProfileSosRuntimeBootstrap(
     configuration: IosProfileRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
-): IosProfileSosRuntimeBootstrap = IosProfileSosRuntimeBootstrap(configuration, authSession)
+    languageTag: String?,
+): IosProfileSosRuntimeBootstrap = IosProfileSosRuntimeBootstrap(configuration, authSession, languageTag)
 
 private class IosProfileSessionAdapter(
     private val authSession: IosRenewableAuthSession,
@@ -115,11 +123,6 @@ private class IosProfileSessionAdapter(
     }
 }
 
-private object IosUnsupportedProfileAvatarUploader : ProfileAvatarUploader {
-    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? =
-        iosProfileAvatarUploadReference(avatarUri)
-}
-
 internal fun iosProfileAvatarUploadReference(avatarUri: String?): String? {
     val normalized = avatarUri?.trim()?.takeIf(String::isNotBlank) ?: return null
     // Preserve an existing server URL during unrelated edits. Only a new device-local URI
@@ -131,7 +134,7 @@ internal fun iosProfileAvatarUploadReference(avatarUri: String?): String? {
 private class IosProfileEmergencyMessageDefaults(
     private val defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
 ) : ProfileEmergencyMessageStore {
-    override fun get(profileId: String): StoredProfileEmergencyMessage? {
+    override suspend fun get(profileId: String): StoredProfileEmergencyMessage? {
         val message = defaults.stringForKey("quata.profile.sos.message.$profileId") ?: return null
         return StoredProfileEmergencyMessage(
             message = message,
@@ -139,7 +142,7 @@ private class IosProfileEmergencyMessageDefaults(
         )
     }
 
-    override fun save(profileId: String, message: String, isDefault: Boolean) {
+    override suspend fun save(profileId: String, message: String, isDefault: Boolean) {
         defaults.setObject(message, forKey = "quata.profile.sos.message.$profileId")
         defaults.setBool(isDefault, forKey = "quata.profile.sos.message.default.$profileId")
     }
@@ -148,19 +151,19 @@ private class IosProfileEmergencyMessageDefaults(
 private class IosProfileEmergencyContactsDefaults(
     private val defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
 ) : ProfileEmergencyContactsStore {
-    override fun get(profileId: String): List<String> =
+    override suspend fun get(profileId: String): List<String> =
         (defaults.arrayForKey("quata.profile.sos.contacts.$profileId") as? List<*>)
             ?.filterIsInstance<String>()
             .orEmpty()
 
-    override fun save(profileId: String, contactIds: List<String>) {
+    override suspend fun save(profileId: String, contactIds: List<String>) {
         defaults.setObject(contactIds, forKey = "quata.profile.sos.contacts.$profileId")
     }
 }
 
-private object IosProfilePresentationCatalog : ProfilePresentationCatalog {
-    override fun countryPrefixes(): List<CountryPrefix> = listOf(CountryPrefix(code = "240", label = "Equatorial Guinea (+240)"))
-    override fun secretQuestions(): List<SecretQuestionOption> = emptyList()
+private class IosProfilePresentationCatalog(private val locale: AuthCatalogLocale) : ProfilePresentationCatalog {
+    override fun countryPrefixes(): List<CountryPrefix> = AuthCatalog.countryPrefixes(locale)
+    override fun secretQuestions(): List<SecretQuestionOption> = profileSecretQuestions(locale)
     override fun fallbackUserName(): String = "Quata user"
     override fun defaultEmergencyMessage(displayName: String): String = "Emergency message from $displayName"
     override fun changesSavedMessage(): String = "Profile changes saved"

@@ -7,14 +7,20 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.runtime.rememberCoroutineScope
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /** Complete iOS Cuenta host. SOS is a dialog inside this common surface, never the route substitute. */
@@ -23,6 +29,7 @@ class IosProfileHostDependencies(
     val onLogout: () -> Unit,
     val onDeactivateAccount: () -> Unit,
     val onDeleteAccountData: () -> Unit,
+    val filePicker: FilePickerService,
     val touchFlowEnabled: Boolean = false,
     val onTouchFlowEnabledChange: (Boolean) -> Unit = {},
     val themeMode: QuataThemeMode = QuataThemeMode.System,
@@ -32,6 +39,7 @@ class IosProfileHostDependencies(
 fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
         val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
+        val scope = rememberCoroutineScope()
         ProfileScreenHost(
             repository = dependencies.repository,
             strings = IosProfileScreenStrings,
@@ -45,7 +53,21 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
                 avatar = { name, avatarUrl -> IosRemoteAvatar(name, name, avatarUrl, Modifier.size(56.dp)) },
-                avatarActions = { _ -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Change photo (upload pending)") } },
+                avatarActions = { onAvatarChanged ->
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                when (val result = dependencies.filePicker.pick(
+                                    FilePickerRequest(listOf("image/*"), allowMultiple = false, source = FilePickerSource.Gallery),
+                                )) {
+                                    is PlatformResult.Success -> result.value.firstOrNull()?.reference?.let(onAvatarChanged)
+                                    PlatformResult.Cancelled, PlatformResult.Unsupported, is PlatformResult.Failure -> Unit
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Change photo") }
+                },
                 emergencyContactRow = { contact: EmergencyContactCandidate, selected, toggle ->
                     EmergencyUserRowContent(
                         user = contact,
@@ -71,4 +93,5 @@ private val IosProfileScreenStrings = ProfileScreenStrings(
     dangerConfirmation = "This action needs a final confirmation and is not performed during QA.", confirm = "Continue", cancel = "Cancel",
     appearance = AppearanceSettingsStrings("Touch Flow", "Theme", "System", "Dark", "Light"),
     emergency = IosEmergencyContactsEditorStrings,
+    passwordUnavailable = "Change your password from Forgot my password until authenticated password updates are available.",
 )

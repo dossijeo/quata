@@ -22,8 +22,9 @@ import com.quata.core.capability.StaticFeatureCapabilityRegistry
 import com.quata.core.ui.components.QuataCard
 
 /**
- * Browser evidence manifest. Profile/SOS is remote only with a real authenticated session; an
- * unconfigured session is unavailable rather than a local product draft.
+ * Browser evidence manifest. Profile/SOS uses the same temporary direct authenticated PostgREST
+ * access as Android. Actor checks are client-side compatibility guards, not a substitute for the
+ * coordinated RLS/bridge rollout tracked in docs/PROFILE_BRIDGE_REQUIREMENTS.md.
  */
 fun webFeatureCapabilityRegistry(
     configuration: WebRuntimeConfiguration,
@@ -56,13 +57,12 @@ fun webFeatureCapabilityRegistry(
                 QuataFeature.Auth to capability(mutation = remoteOrigin),
                 QuataFeature.Feed to capability(),
                 QuataFeature.Chat to capability(mutation = remoteOrigin),
-                // Cuenta has no preference-backed fallback: signed-in sessions use remote
-                // PostgREST/bridge mutations and missing configuration remains unavailable.
+                // Cuenta has no local product fallback. A configured signed-in session uses the
+                // temporary direct Android-equivalent transport; missing configuration/session
+                // remains unavailable.
                 QuataFeature.Profile to capability(
                     source = profileOrigin,
-                    // The code path is actor-scoped, but it is not marked real until the
-                    // versioned edge action and reversible authenticated E2E are deployed.
-                    mutation = CapabilityStateOrigin.Unsupported,
+                    mutation = profileOrigin,
                     backend = remoteProfile,
                 ),
                 QuataFeature.Communities to capability(),

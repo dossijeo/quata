@@ -64,6 +64,33 @@ class IosAuthLogoutHandler(repository: AuthRepository) {
 fun createIosAuthLogoutHandler(repository: AuthRepository): IosAuthLogoutHandler =
     IosAuthLogoutHandler(repository)
 
+/** Swift-safe account lifecycle bridge backed by the same verified repository as Android. */
+class IosAuthAccountLifecycleHandler(private val repository: AuthRepository) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    fun perform(
+        action: String,
+        password: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit,
+    ) {
+        scope.launch {
+            val result = when (action) {
+                "deactivate" -> repository.deactivateAccount(password)
+                "delete" -> repository.deleteAccountData(password)
+                else -> Result.failure(IllegalArgumentException("ios_auth_lifecycle_action_invalid"))
+            }
+            result.fold(
+                onSuccess = { onSuccess() },
+                onFailure = { onFailure(it.message ?: "ios_auth_lifecycle_failed") },
+            )
+        }
+    }
+}
+
+fun createIosAuthAccountLifecycleHandler(repository: AuthRepository): IosAuthAccountLifecycleHandler =
+    IosAuthAccountLifecycleHandler(repository)
+
 /** Stable Swift-exported UIViewController factory backed by common Auth ViewModels and Compose. */
 fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {
     val catalog = AuthCatalog.copy(dependencies.locale)

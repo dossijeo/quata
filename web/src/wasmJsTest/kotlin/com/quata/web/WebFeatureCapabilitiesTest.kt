@@ -32,11 +32,11 @@ class WebFeatureCapabilitiesTest {
     }
 
     @Test
-    fun marksProfileAsLocalUntilAnAuthenticatedSessionCanUseTheRemoteGateway() {
+    fun keepsProfileUnavailableUntilAnAuthenticatedSessionCanUseTheRemoteGateway() {
         val registry = webFeatureCapabilityRegistry(configured)
 
         assertEquals(
-            CapabilityStateOrigin.Local,
+            CapabilityStateOrigin.Unsupported,
             registry.projection(QuataFeature.Profile, FeatureCapabilityAction.Mutate).origin,
         )
         assertFalse(registry.projection(QuataFeature.Feed, FeatureCapabilityAction.Mutate).enabled)
@@ -49,7 +49,7 @@ class WebFeatureCapabilitiesTest {
         val registry = webFeatureCapabilityRegistry(configured, hasAuthenticatedSession = true)
 
         assertEquals(
-            CapabilityStateOrigin.Local,
+            CapabilityStateOrigin.Real,
             registry.projection(QuataFeature.Composer, FeatureCapabilityAction.View).origin,
         )
         assertFalse(registry.capability(QuataFeature.Composer).backendReal)

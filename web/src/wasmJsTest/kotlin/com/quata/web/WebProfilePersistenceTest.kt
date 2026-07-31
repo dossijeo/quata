@@ -9,6 +9,7 @@ import com.quata.feature.profile.data.ProfileRemoteGateway
 import com.quata.feature.profile.data.ProfileRemoteRecord
 import com.quata.feature.profile.data.ProfileSession
 import com.quata.feature.profile.data.ProfileSessionProvider
+import com.quata.feature.profile.data.StoredProfileEmergencyMessage
 import com.quata.feature.profile.domain.ProfileUpdate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -110,7 +111,7 @@ class WebProfilePersistenceTest {
         assertEquals(listOf("sos-1"), model.profile.emergencyContactIds)
         assertEquals(listOf("profile-1"), gateway.getRequests)
         assertEquals(1, gateway.emergencyCandidatesRequests)
-        assertTrue(preferences.writes.isEmpty())
+        assertEquals(listOf("web.profile.sos.profile-1.contacts"), preferences.writes)
         assertEquals(WebProfilePersistenceMode.Remote, repository.persistenceMode())
     }
 
@@ -165,10 +166,47 @@ class WebProfilePersistenceTest {
         assertTrue(profileResult.isSuccess)
         assertTrue(sosResult.isSuccess)
         assertTrue(gateway.mutationAttempted)
+        assertTrue(preferences.writes.any { it.endsWith(".message") })
+        assertTrue(preferences.writes.any { it.endsWith(".is_default") })
+        assertTrue(preferences.writes.any { it.endsWith(".contacts") })
+    }
+
+    @Test
+    fun sos_preferences_survive_repository_reload() = runTest {
+        val preferences = RecordingPreferences()
+        val messages = WebProfilePreferenceEmergencyMessageStore(preferences)
+        val contacts = WebProfilePreferenceEmergencyContactsStore(preferences)
+        messages.save("profile-1", "Ayuda real", false)
+        contacts.save("profile-1", listOf(" a ", "a", "b", "c", "d", "e", "f"))
+
+        val reloadedMessages = WebProfilePreferenceEmergencyMessageStore(preferences)
+        val reloadedContacts = WebProfilePreferenceEmergencyContactsStore(preferences)
+        assertEquals(StoredProfileEmergencyMessage("Ayuda real", false), reloadedMessages.get("profile-1"))
+        assertEquals(listOf("a", "b", "c", "d", "e"), reloadedContacts.get("profile-1"))
+        assertEquals(null, reloadedMessages.get("profile-2"))
+    }
+
+    @Test
+    fun failed_remote_sos_save_never_writes_the_local_cache() = runTest {
+        val preferences = RecordingPreferences()
+        val repository = WebProfileRepository(
+            preferences = preferences,
+            contactPicker = UnsupportedContactPicker,
+            remoteGateway = RecordingGateway(failEmergencyMutation = true),
+            remoteSessionProvider = FixedSessionProvider,
+            remoteAvailable = { true },
+        )
+
+        val result = repository.saveEmergencySettings(listOf("sos-1"), "Ayuda", false)
+
+        assertTrue(result.isFailure)
         assertTrue(preferences.writes.isEmpty())
     }
 
-    private class RecordingGateway(private val failReads: Boolean = false) : ProfileRemoteGateway {
+    private class RecordingGateway(
+        private val failReads: Boolean = false,
+        private val failEmergencyMutation: Boolean = false,
+    ) : ProfileRemoteGateway {
         val getRequests = mutableListOf<String>()
         var emergencyCandidatesRequests = 0
         var mutationAttempted = false
@@ -193,7 +231,10 @@ class WebProfilePersistenceTest {
             return listOf("sos-1")
         }
         override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) { mutationAttempted = true }
-        override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) { mutationAttempted = true }
+        override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
+            mutationAttempted = true
+            if (failEmergencyMutation) error("remote_sos_failed")
+        }
         private fun getProfileForFlow(profileId: String): ProfileRemoteRecord? =
             if (failReads) null else ProfileRemoteRecord(id = profileId, displayName = "Remoto")
     }

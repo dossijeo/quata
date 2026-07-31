@@ -238,6 +238,7 @@ private final class IosAppCompositionRoot {
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            languageTag: Locale.preferredLanguages.first,
         )
     }()
     /// Communities reuses the authenticated Chat repository for actual conversation creation and
@@ -588,14 +589,26 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedProfileSosIfAvailable() {
-        guard let profileSosRuntimeBootstrap else { return }
+        guard
+            let profileSosRuntimeBootstrap,
+            let runtimeConfiguration,
+            let runtimeBootstrap,
+            let authRepository = createAuthRepository(configuration: runtimeConfiguration, bootstrap: runtimeBootstrap)
+        else { return }
+        let lifecycleHandler = IosAuthHostKt.createIosAuthAccountLifecycleHandler(repository: authRepository)
+        let filePicker = platformServices.services.filePicker
         authenticatedHost.installProfileSosFactory { [weak self] in
             // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
             // it is not a substitute route for Profile on iOS.
             let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
                 onLogout: { [weak self] in self?.authenticatedHost.performLogout() },
-                onDeactivateAccount: { [weak self] in self?.presentAccountMutationUnavailableNotice() },
-                onDeleteAccountData: { [weak self] in self?.presentAccountMutationUnavailableNotice() },
+                onDeactivateAccount: { [weak self] in
+                    self?.presentAccountLifecyclePrompt(action: "deactivate", handler: lifecycleHandler)
+                },
+                onDeleteAccountData: { [weak self] in
+                    self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
+                },
+                filePicker: filePicker,
             )
             return IosProfileHostKt.QuataProfileViewController(dependencies: dependencies)
         }
@@ -712,17 +725,63 @@ private final class IosAppCompositionRoot {
         authenticatedHost.present(alert, animated: true)
     }
 
-    private func presentAccountMutationUnavailableNotice() {
+    private func presentAccountLifecyclePrompt(
+        action: String,
+        handler: IosAuthAccountLifecycleHandler
+    ) {
+        let deleting = action == "delete"
         let alert = UIAlertController(
-            title: NSLocalizedString("ios_profile_account_mutation_title", value: "Account management", comment: ""),
+            title: deleting
+                ? NSLocalizedString("ios_profile_delete_title", value: "Delete account data", comment: "")
+                : NSLocalizedString("ios_profile_deactivate_title", value: "Deactivate account", comment: ""),
             message: NSLocalizedString(
-                "ios_profile_account_mutation_message",
-                value: "This account operation is not available until its server contract is verified. No account data has been changed.",
+                "ios_profile_account_password_message",
+                value: "Enter your password to confirm this account operation.",
                 comment: "",
             ),
             preferredStyle: .alert,
         )
-        alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))
+        alert.addTextField { field in
+            field.isSecureTextEntry = true
+            field.placeholder = NSLocalizedString("auth_password", value: "Password", comment: "")
+        }
+        let deleteWord: String
+        switch Locale.current.languageCode {
+        case "es": deleteWord = "ELIMINAR"
+        case "fr": deleteWord = "SUPPRIMER"
+        default: deleteWord = "DELETE"
+        }
+        if deleting {
+            alert.addTextField { field in
+                field.placeholder = String(format: NSLocalizedString("ios_profile_delete_type", value: "Type %@ to confirm", comment: ""), deleteWord)
+                field.autocapitalizationType = .allCharacters
+            }
+        }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_cancel", value: "Cancel", comment: ""), style: .cancel))
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_continue", value: "Continue", comment: ""),
+            style: deleting ? .destructive : .default,
+        ) { [weak self, weak alert] _ in
+            let password = alert?.textFields?.first?.text ?? ""
+            if deleting, alert?.textFields?.dropFirst().first?.text != deleteWord {
+                self?.presentProfileSosCapabilityNotice(
+                    NSLocalizedString("ios_profile_delete_confirmation_invalid", value: "The deletion confirmation does not match.", comment: "")
+                )
+                return
+            }
+            handler.perform(
+                action: action,
+                password: password,
+                onSuccess: { [weak self] in
+                    DispatchQueue.main.async { self?.authenticatedHost.performLogout() }
+                },
+                onFailure: { [weak self] reason in
+                    DispatchQueue.main.async {
+                        self?.presentProfileSosCapabilityNotice(reason)
+                    }
+                },
+            )
+        })
         authenticatedHost.present(alert, animated: true)
     }
 

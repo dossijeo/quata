@@ -143,6 +143,11 @@ la UI.
 - **Status:** no policy, schema, grant, or production data was changed. This is
   a documentation-only finding; do not harden it until the published clients
   are coordinated.
+- **Temporary compatibility:** Web and iOS now mirror Android's actor-scoped
+  authenticated DELETE-to-POST sequence. This is a compatibility path, not
+  proof of server-side authorization. A failed POST after a successful DELETE
+  can leave the remote set empty; local caches are written only after both
+  requests succeed.
 
 ## RLS-004 — Credenciales y recuperación visibles por SELECT público
 

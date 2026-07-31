@@ -45,6 +45,29 @@ fun interface IosProfileSessionProvider {
     suspend fun currentSession(): IosProfileSession?
 }
 
+internal data class IosProfileHttpRequest(
+    val method: String,
+    val url: String,
+    val headers: Map<String, String>,
+    val body: String? = null,
+)
+
+internal fun interface IosProfileHttpTransport {
+    suspend fun execute(request: IosProfileHttpRequest): NSData
+}
+
+private object IosUrlSessionProfileHttpTransport : IosProfileHttpTransport {
+    override suspend fun execute(request: IosProfileHttpRequest): NSData {
+        val url = NSURL(string = request.url) ?: error("ios_profile_url_invalid")
+        val native = NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod(request.method)
+            request.headers.forEach { (name, value) -> setValue(value, name) }
+            request.body?.let { setHTTPBody(it.encodeToByteArray().toFoundationData()) }
+        }
+        return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(native)
+    }
+}
+
 /** Adapts the established Keychain-backed session owner to Profile's narrow read contract. */
 class IosProfileKeychainSessionProvider(
     private val authSession: IosRenewableAuthSession,
@@ -60,17 +83,24 @@ class IosProfileKeychainSessionProvider(
  * The request session is obtained from the existing renewable Keychain-backed owner for every
  * snapshot. The `observe*` methods intentionally emit one network snapshot and finish: Profile
  * has no verified Realtime contract yet, so this adapter must not pretend that polling or a local
- * cache is a live subscription. Mutations fail closed until a server-bound profile bridge exists.
+ * cache is a live subscription. Mutations mirror Android's current direct authenticated access;
+ * actor matching remains a client compatibility guard while the bridge/RLS rollout is pending.
  */
 @OptIn(ExperimentalForeignApi::class)
-class IosProfilePostgrestGateway(
+class IosProfilePostgrestGateway internal constructor(
     private val configuration: IosProfileRuntimeConfiguration,
     private val sessionProvider: IosProfileSessionProvider,
+    private val transport: IosProfileHttpTransport,
 ) : ProfileRemoteGateway {
     constructor(
         configuration: IosProfileRuntimeConfiguration,
+        sessionProvider: IosProfileSessionProvider,
+    ) : this(configuration, sessionProvider, IosUrlSessionProfileHttpTransport)
+
+    constructor(
+        configuration: IosProfileRuntimeConfiguration,
         authSession: IosRenewableAuthSession,
-    ) : this(configuration, IosProfileKeychainSessionProvider(authSession))
+    ) : this(configuration, IosProfileKeychainSessionProvider(authSession), IosUrlSessionProfileHttpTransport)
 
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
         getProfiles(listOf(profileId)).firstOrNull()
@@ -157,36 +187,50 @@ class IosProfilePostgrestGateway(
             ?: error("ios_profile_supabase_publishable_key_missing")
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() }
             ?: error("ios_profile_session_missing")
-        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}")
-            ?: error("ios_profile_url_invalid")
-        val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-            HTTPAdditionalHeaders = mapOf(
+        val request = IosProfileHttpRequest(
+            method = "GET",
+            url = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}",
+            headers = mapOf(
                 "apikey" to publishableKey,
                 "Authorization" to "Bearer ${session.accessToken}",
                 "Accept" to "application/json",
-            )
-        }
-        return requestConfiguration.iosProfileData(url).toIosProfileRows()
+            ),
+        )
+        return transport.execute(request).toIosProfileRows()
     }
 
     private suspend fun authenticatedFunction(function: String, body: String) {
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_url_missing")
         val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_profile_supabase_publishable_key_missing")
-        val url = NSURL(string = "$baseUrl/functions/v1/$function") ?: error("ios_profile_function_url_invalid")
-        val request = NSMutableURLRequest.requestWithURL(url).apply {
-            setHTTPMethod("POST"); setValue(key, "apikey"); setValue("Bearer ${session.accessToken}", "Authorization"); setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData())
+        val request = IosProfileHttpRequest(
+            method = "POST",
+            url = "$baseUrl/functions/v1/$function",
+            headers = mapOf("apikey" to key, "Authorization" to "Bearer ${session.accessToken}", "Content-Type" to "application/json"),
+            body = body,
+        )
+        val response = transport.execute(request)
+        check(iosProfileFunctionResponseIsOk(response.toIosProfileBytes().decodeToString())) {
+            "ios_profile_function_response_invalid"
         }
-        NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
     }
 
     private suspend fun mutate(table: String, method: String, query: Map<String, String>, body: String?) {
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() } ?: error("ios_profile_session_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/')
         val key = configuration.supabasePublishableKey.trim()
-        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}") ?: error("ios_profile_url_invalid")
-        val request = NSMutableURLRequest.requestWithURL(url).apply { setHTTPMethod(method); setValue(key, "apikey"); setValue("Bearer ${session.accessToken}", "Authorization"); setValue("application/json", "Accept"); if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) } }
-        NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(request)
+        val request = IosProfileHttpRequest(
+            method = method,
+            url = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}",
+            headers = buildMap {
+                put("apikey", key)
+                put("Authorization", "Bearer ${session.accessToken}")
+                put("Accept", "application/json")
+                if (body != null) put("Content-Type", "application/json")
+            },
+            body = body,
+        )
+        transport.execute(request)
     }
 
 }
@@ -205,7 +249,7 @@ private suspend fun NSURLSessionConfiguration.iosProfileData(url: NSURL): NSData
     }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSessionConfiguration.iosProfileData(request: NSMutableURLRequest): NSData =
+internal suspend fun NSURLSessionConfiguration.iosProfileData(request: NSMutableURLRequest): NSData =
     suspendCancellableCoroutine { continuation ->
         val delegate = IosProfileDataTaskDelegate(continuation)
         val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
@@ -321,6 +365,16 @@ private fun String.toIosProfileJsonString(): String = buildString {
 
 internal fun iosProfileRecoverySecretBody(secretQuestion: String, secretAnswer: String): String =
     "{\"version\":1,\"action\":\"update_recovery_secret\",\"secret_question\":${secretQuestion.trim().toIosProfileJsonString()},\"secret_answer\":${secretAnswer.toIosProfileJsonString()}}"
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun iosProfileFunctionResponseIsOk(body: String): Boolean = runCatching {
+    val value = NSJSONSerialization.JSONObjectWithData(
+        body.encodeToByteArray().toFoundationData(),
+        options = 0u,
+        error = null,
+    ) as? Map<*, *>
+    value?.get("ok") as? Boolean == true
+}.getOrDefault(false)
 
 private const val CommunityProfilesTable = "community_profiles"
 private const val CommunityEmergencyContactsTable = "community_emergency_contacts"
