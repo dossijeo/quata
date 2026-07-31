@@ -82,7 +82,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         strings = spanishConversationsHostStrings(),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
-                        conversationAvatar = { conversation, _ -> IosRemoteAvatar(conversation.title.ifBlank { "Conversación" }, conversation.id, conversation.avatarUrl, false, null, Modifier.size(46.dp)) },
+                        remoteConversationAvatar = { presentation, avatarModifier -> IosRemoteAvatar(presentation.name, presentation.stableId, presentation.avatarUrl, false, null, avatarModifier) },
                         candidateAvatar = { candidate, modifier -> IosRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, modifier) },
                         inviteAvatar = { contact, modifier -> IosRemoteAvatar(contact.displayName, contact.id, null, false, null, modifier) },
                         panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },

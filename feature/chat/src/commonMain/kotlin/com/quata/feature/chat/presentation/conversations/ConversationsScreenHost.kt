@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,7 +89,7 @@ fun ConversationsScreenHost(
     onOpenFavorites: () -> Unit = {},
     contactsPermissionGranted: Boolean = false,
     onRequestInviteContactsPermission: (() -> Unit)? = null,
-    conversationAvatar: @Composable (Conversation, ConversationsUiState) -> Unit,
+    remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     candidateAvatar: @Composable (ChatConversationCandidate, Modifier) -> Unit,
     inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
     panelHost: @Composable (@Composable (Modifier, Boolean) -> Unit) -> Unit,
@@ -148,7 +147,13 @@ fun ConversationsScreenHost(
                 ConversationsListContent(
                     rows = visibleRows,
                     isLoading = state.isLoading && state.conversations.isEmpty(),
-                    avatar = { row -> conversationAvatar(row.conversation, state) },
+                    avatar = { row ->
+                        ConversationAvatarContent(
+                            presentation = resolveConversationAvatarPresentation(row.conversation, state.currentUser, state.usersById, strings.conversationTitle(row.conversation), openingProfileUserId),
+                            onOpenUserProfile = onOpenUserProfile,
+                            remoteAvatar = remoteConversationAvatar,
+                        )
+                    },
                     onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
                     modifier = Modifier.weight(1f),
                 )
@@ -206,7 +211,6 @@ fun ConversationsScreenHost(
         }
     }
     LaunchedEffect(Unit) { while (true) { delay(1_000L); nowMillis = nowMillisProvider() } }
-    DisposableEffect(viewModel) { onDispose { } }
 }
 
 @Composable

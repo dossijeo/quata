@@ -77,7 +77,7 @@ fun WebChatHost(
                 clipboardService = clipboardService,
                 strings = spanishConversationsHostStrings(),
                 onOpenConversation = onOpenConversation,
-                conversationAvatar = { conversation, _ -> BrowserRemoteAvatar(conversation.title.ifBlank { "Conversación" }, conversation.id, conversation.avatarUrl, false, null, Modifier.size(46.dp)) },
+                remoteConversationAvatar = { presentation, avatarModifier -> BrowserRemoteAvatar(presentation.name, presentation.stableId, presentation.avatarUrl, false, null, avatarModifier) },
                 candidateAvatar = { candidate, avatarModifier -> BrowserRemoteAvatar(candidate.displayName, candidate.profileId, candidate.avatarUrl, false, null, avatarModifier) },
                 inviteAvatar = { contact, avatarModifier -> BrowserRemoteAvatar(contact.displayName, contact.id, null, false, null, avatarModifier) },
                 panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },

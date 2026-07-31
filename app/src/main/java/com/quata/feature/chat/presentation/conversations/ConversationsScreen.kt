@@ -151,7 +151,7 @@ fun ConversationsScreen(
         onOpenFavorites = onOpenFavorites,
         contactsPermissionGranted = contactsPermissionGranted,
         onRequestInviteContactsPermission = { contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
-        conversationAvatar = { conversation, state -> ConversationAvatar(conversation, state.currentUser, state.usersById, openingProfileUserId, onOpenUserProfile) },
+        remoteConversationAvatar = { presentation, modifier -> AvatarImage(name = presentation.name, avatarUrl = presentation.avatarUrl, profileId = presentation.profileId, modifier = modifier) },
         candidateAvatar = { candidate, modifier -> AvatarImage(name = candidate.displayName, avatarUrl = candidate.avatarUrl, profileId = candidate.profileId, modifier = modifier) },
         inviteAvatar = { contact, modifier -> QuataAvatarFallback(name = contact.displayName, stableId = contact.id, modifier = modifier) },
         panelHost = { content -> QuataStandardFloatingPanel(onDismiss = viewModel::closeNewConversationPicker, template = quataTheme()) { modifier, landscape -> content(modifier, landscape) } },
@@ -587,65 +587,4 @@ private fun CandidateUserCard(
             )
         }
     )
-}
-
-@Composable
-private fun ConversationAvatar(
-    item: Conversation,
-    currentUser: User?,
-    usersById: Map<String, User>,
-    openingProfileUserId: String?,
-    onOpenUserProfile: (String) -> Unit
-) {
-    val template = quataTheme()
-    val privateUser = item.participantIds
-        .firstOrNull { it != currentUser?.id }
-        ?.let { usersById[it] }
-    Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-        if (item.isEmergency) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.sosSurface)
-                    .border(1.dp, template.colors.accent.copy(alpha = 0.45f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.common_sos), color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = template.textSizes.caption)
-            }
-        } else if (item.isGroup) {
-            AvatarImage(
-                name = item.chatDisplayTitle(),
-                avatarUrl = item.avatarUrl,
-                profileId = item.id,
-                modifier = Modifier.size(46.dp)
-            )
-        } else {
-            if (privateUser != null) {
-                ClickableProfileAvatar(
-                    name = privateUser.displayName,
-                    avatarUrl = privateUser.avatarUrl,
-                    profileId = privateUser.id,
-                    isLoading = openingProfileUserId == privateUser.id,
-                    onClick = { onOpenUserProfile(privateUser.id) },
-                    modifier = Modifier.size(46.dp)
-                )
-            } else {
-                QuataAvatarFallback(item.chatDisplayTitle(), modifier = Modifier.size(46.dp))
-            }
-        }
-        if (item.isMuted) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(template.colors.surfaceRaised)
-                    .border(1.dp, template.colors.divider, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("\uD83D\uDD15", fontSize = 13.sp)
-            }
-        }
-    }
 }
