@@ -10,6 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataTheme
@@ -34,10 +38,16 @@ import com.quata.feature.chat.presentation.conversations.InviteChannelSheetStrin
 import com.quata.feature.chat.presentation.conversations.InviteChannelTargetUi
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.feed.presentation.IosRemoteAvatar
+import com.quata.feature.feed.presentation.IosRemoteImage
 import com.quata.core.navigation.AppDestinations
 import platform.UIKit.UIViewController
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSNotificationCenter
+import platform.UIKit.UIApplicationDidBecomeActiveNotification
+import platform.UIKit.UIApplicationDidEnterBackgroundNotification
+import platform.UIKit.UIApplicationWillEnterForegroundNotification
+import platform.UIKit.UIApplicationWillResignActiveNotification
 import kotlinx.coroutines.launch
 
 /**
@@ -83,7 +93,26 @@ class IosChatHostDependencies(
 fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
-            ChatBrowserHostContent(
+            DisposableEffect(dependencies.repository) {
+                fun updateForeground(isForeground: Boolean) {
+                    dependencies.repository.setAppForeground(isForeground)
+                    dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, isForeground) }
+                }
+                updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.BecomeActive))
+                val center = NSNotificationCenter.defaultCenter
+                val backgroundObserver = center.addObserverForName(UIApplicationDidEnterBackgroundNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.EnterBackground)) }
+                val resignObserver = center.addObserverForName(UIApplicationWillResignActiveNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.ResignActive)) }
+                val foregroundObserver = center.addObserverForName(UIApplicationWillEnterForegroundNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.EnterForeground)) }
+                val activeObserver = center.addObserverForName(UIApplicationDidBecomeActiveNotification, null, null) { updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.BecomeActive)) }
+                onDispose {
+                    center.removeObserver(backgroundObserver)
+                    center.removeObserver(resignObserver)
+                    center.removeObserver(foregroundObserver)
+                    center.removeObserver(activeObserver)
+                    updateForeground(chatHostIsForeground(ChatHostLifecycleEvent.Dispose))
+                }
+            }
+            ChatScreenHost(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,
@@ -94,6 +123,30 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
+                onOpenAvatar = dependencies.onOpenAvatar,
+                profileAvatar = { presentation, avatarModifier, onClick ->
+                    IosRemoteAvatar(
+                        presentation.name,
+                        presentation.profileId,
+                        presentation.avatarUrl,
+                        false,
+                        null,
+                        avatarModifier.clickable(onClick = onClick),
+                    )
+                },
+                mediaAttachment = { presentation, mediaModifier, onClick ->
+                    if (presentation.kind == ChatMediaKind.Image) {
+                        IosRemoteImage(
+                            url = presentation.file.reference,
+                            modifier = mediaModifier.height(180.dp).clickable(onClick = onClick),
+                        )
+                    } else {
+                        Surface(mediaModifier.clickable(onClick = onClick)) { Text("Reproducir vídeo") }
+                    }
+                },
+                onOpenMap = dependencies.onOpenMap,
+                onTranslateMessage = dependencies.onTranslateMessage,
+                clipboardService = IosClipboardService(),
                 conversationListHost = { listModifier ->
                     val scope = rememberCoroutineScope()
                     var inviteContacts by remember { mutableStateOf<List<ChatInviteContact>>(emptyList()) }
