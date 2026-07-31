@@ -254,6 +254,18 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository(),
         )
     }()
+    /// Public Communities read path deliberately has no Keychain session.  It uses the same
+    /// real PostgREST directory adapter with the publishable key only.
+    private lazy var publicCommunitiesRuntimeBootstrap: IosNeighborhoodsRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let chatRuntimeBootstrap else { return nil }
+        return IosNeighborhoodsReadRepositoryKt.createIosPublicNeighborhoodsRuntimeBootstrap(
+            configuration: IosNeighborhoodsRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            chatRepository: chatRuntimeBootstrap.repository(),
+        )
+    }()
     /// The extension writes only to the App Group. This authenticated app runtime reuses the
     /// existing Keychain session and real Chat repository when the user opens the handoff URL.
     private lazy var externalShareRuntimeBootstrap: IosExternalShareRuntimeBootstrap? = {
@@ -630,12 +642,14 @@ private final class IosAppCompositionRoot {
     /// Communities mirrors Android's anonymous browser.  The KMP host receives a nullable
     /// current user; its chat/follow/profile actions ask the shared Auth gate when it is nil.
     private func installCommunitiesIfAvailable() {
-        guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
+        guard let runtimeBootstrap, let profileSosRuntimeBootstrap else { return }
+        let authenticated = runtimeBootstrap.hasRestoredSession()
+        guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
-                    repository: communitiesRuntimeBootstrap.repository,
-                    currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
+                    repository: communitiesBootstrap.repository,
+                    currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { [weak self] conversationId in
                         guard let self else { return }
                         if self.runtimeBootstrap?.hasRestoredSession() == true {
