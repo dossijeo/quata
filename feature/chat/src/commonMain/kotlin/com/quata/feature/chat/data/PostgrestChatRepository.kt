@@ -296,7 +296,7 @@ open class PostgrestChatRepository(
 
     private suspend fun refreshInbox(): Result<List<Conversation>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
+        val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); updateCurrentUserFrom(envelope, userId); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
         conversations.value = mapped; mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; mapped
     }.onFailure { updateReadFailure() }
     private suspend fun openThread(functionName: String, body: (String) -> String): Result<String> = runCatching {
@@ -380,7 +380,13 @@ open class PostgrestChatRepository(
         val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
         // Identity is the authenticated profile id.  Profile display information comes from the
         // server payload; never invent a user/persona when the session only grants an id.
-        currentUserSnapshot = User(id = id, email = "", displayName = ""); return id
+        if (currentUserSnapshot?.id != id) currentUserSnapshot = User(id = id, email = "", displayName = "")
+        return id
+    }
+    private fun updateCurrentUserFrom(envelope: ChatRpcPayloadEnvelope, userId: String) {
+        envelope.profileRecords().firstOrNull { it.id == userId }?.let { profile ->
+            currentUserSnapshot = User(userId, "", profile.resolvedDisplayName(), profile.neighborhood.orEmpty(), profile.avatarUrl)
+        }
     }
     private suspend fun rpc(functionName: String, body: String): ChatRpcPayloadEnvelope = Json.parseToJsonElement(transport.post(functionName, body).successOrThrow()).let(::parseChatRpcPayloadEnvelope)
     private fun mergeMessages(incoming: List<Message>) { incoming.groupBy(Message::conversationId).forEach { (id, messages) -> val old = messagesState(id).value.associateBy(Message::id); messagesState(id).value = (old + messages.associateBy(Message::id)).values.sortedBy { it.sentAtMillis ?: Long.MIN_VALUE } } }
