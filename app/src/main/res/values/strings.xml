@@ -135,6 +135,10 @@
     <string name="auth_required_login">I have an account</string>
     <string name="notifications_title">Alerts</string>
     <string name="notifications_subtitle">Push notifications and activity</string>
+    <string name="notifications_loading">Loading alerts…</string>
+    <string name="notifications_empty_title">No alerts yet</string>
+    <string name="notifications_empty_message">New activity will appear here.</string>
+    <string name="notifications_error_title">Alerts are unavailable</string>
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Recent conversations</string>
     <string name="conversations_search_placeholder">Search conversation...</string>

@@ -480,6 +480,12 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
+                        canMutate = isSessionReady,
+                        onAuthenticationRequired = { conversationId ->
+                            // Keep the public alerts route and its shell visible behind Android's
+                            // shared participation dialog. No anonymous inbox mutation is sent.
+                            requestAuthenticationFor(quataChatUrl(conversationId).substringAfter('#'))
+                        },
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {

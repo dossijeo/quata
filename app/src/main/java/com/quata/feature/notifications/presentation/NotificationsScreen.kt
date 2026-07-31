@@ -29,8 +29,17 @@ fun NotificationsScreen(
         title = stringResource(R.string.notifications_title),
         subtitle = stringResource(R.string.notifications_subtitle),
         backContentDescription = stringResource(R.string.common_back),
+        loadingLabel = stringResource(R.string.notifications_loading),
+        emptyTitle = stringResource(R.string.notifications_empty_title),
+        emptyMessage = stringResource(R.string.notifications_empty_message),
+        errorTitle = stringResource(R.string.notifications_error_title),
         relativeTime = { createdAt, now -> relativeTimeLabel(context, createdAt, now) },
-        localizedBody = context::localizedChatPreview
+        localizedBody = context::localizedChatPreview,
+        photoPreview = stringResource(R.string.conversation_preview_photo),
+        videoPreview = stringResource(R.string.conversation_preview_video),
+        documentPreview = stringResource(R.string.conversation_preview_document),
+        voiceNotePreview = stringResource(R.string.conversation_preview_voice_note),
+        filePreview = stringResource(R.string.conversation_preview_file),
     )
 
     NotificationsHostContent(

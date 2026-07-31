@@ -130,6 +130,10 @@
     <string name="auth_required_login">J\'ai un compte</string>
     <string name="notifications_title">Alertes</string>
     <string name="notifications_subtitle">Notifications push et activite</string>
+    <string name="notifications_loading">Chargement des alertes…</string>
+    <string name="notifications_empty_title">Aucune alerte pour le moment</string>
+    <string name="notifications_empty_message">La nouvelle activite apparaitra ici.</string>
+    <string name="notifications_error_title">Les alertes sont indisponibles</string>
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Conversations recentes</string>
     <string name="conversations_search_placeholder">Chercher une conversation...</string>

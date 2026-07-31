@@ -26,6 +26,8 @@ fun NotificationsHostContent(
     deliveryNotice: NotificationDeliveryNotice? = null,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
+    canMutate: Boolean = true,
+    onAuthenticationRequired: (NotificationItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { NotificationsViewModel(repository) }
@@ -42,6 +44,8 @@ fun NotificationsHostContent(
             onOpenConversation = onOpenConversation,
             onMarkRead = viewModel::markRead,
             onDismiss = viewModel::dismiss,
+            canMutate = canMutate,
+            onAuthenticationRequired = onAuthenticationRequired,
         )
     }
 }

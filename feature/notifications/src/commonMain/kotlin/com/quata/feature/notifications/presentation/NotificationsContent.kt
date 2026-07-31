@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -35,9 +36,35 @@ data class NotificationsStrings(
     val title: String,
     val subtitle: String,
     val backContentDescription: String,
+    val loadingLabel: String,
+    val emptyTitle: String,
+    val emptyMessage: String,
+    val errorTitle: String,
     val relativeTime: (createdAt: String, nowMillis: Long) -> String,
-    val localizedBody: (String) -> String
+    val localizedBody: (String) -> String,
+    val photoPreview: String,
+    val videoPreview: String,
+    val documentPreview: String,
+    val voiceNotePreview: String,
+    val filePreview: String,
 )
+
+/**
+ * Shared counterpart of Android's `localizedChatPreview` marker handling.
+ *
+ * The platform callback still owns platform-only preview conventions (such as SOS), while the
+ * portable attachment markers are decoded here so Web and iOS do not expose storage tokens.
+ */
+fun NotificationsStrings.localizedNotificationBody(raw: String): String = when (raw.trim()) {
+    "[QUATA_ATTACHMENT:photo]" -> photoPreview
+    "[QUATA_ATTACHMENT:video]" -> videoPreview
+    "[QUATA_ATTACHMENT:document]" -> documentPreview
+    "[QUATA_ATTACHMENT:voice_note]",
+    "[QUATA_NOTIFICATION:chat_voice_note]" -> voiceNotePreview
+    "[QUATA_ATTACHMENT:file]",
+    "[QUATA_NOTIFICATION:chat_attachment]" -> filePreview
+    else -> localizedBody(raw)
+}
 
 @Composable
 fun NotificationsContent(
@@ -50,6 +77,8 @@ fun NotificationsContent(
     onOpenConversation: (String) -> Unit,
     onMarkRead: (NotificationItem) -> Unit,
     onDismiss: (NotificationItem) -> Unit,
+    canMutate: Boolean = true,
+    onAuthenticationRequired: (NotificationItem) -> Unit = {},
 ) {
     QuataScreen(padding) {
         Column(Modifier.padding(18.dp)) {
@@ -69,19 +98,58 @@ fun NotificationsContent(
             deliveryNotice?.let { notice -> NotificationDeliveryNoticeContent(notice) }
             Spacer(Modifier.padding(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(state.items, key = { it.id }) { item ->
-                    DismissibleNotificationCard(
-                        item = item,
-                        timestampNowMillis = timestampNowMillis,
-                        strings = strings,
-                        onClick = {
-                            onMarkRead(item)
-                            onOpenConversation(item.conversationId)
-                        },
-                        onDismiss = { onDismiss(item) }
-                    )
+                when {
+                    state.isLoading -> item("notifications-loading") {
+                        NotificationStatusCard(strings.loadingLabel) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                    state.error != null -> item("notifications-error") {
+                        NotificationStatusCard(strings.errorTitle) {
+                            Text(state.error, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    state.items.isEmpty() -> item("notifications-empty") {
+                        NotificationStatusCard(strings.emptyTitle) {
+                            Text(strings.emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    else -> items(state.items, key = { it.id }) { item ->
+                        DismissibleNotificationCard(
+                            item = item,
+                            timestampNowMillis = timestampNowMillis,
+                            strings = strings,
+                            onClick = {
+                                if (canMutate) {
+                                    onMarkRead(item)
+                                    onOpenConversation(item.conversationId)
+                                } else {
+                                    onAuthenticationRequired(item)
+                                }
+                            },
+                            onDismiss = {
+                                if (canMutate) onDismiss(item) else onAuthenticationRequired(item)
+                            }
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NotificationStatusCard(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    QuataCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            content()
         }
     }
 }
@@ -129,7 +197,7 @@ private fun DismissibleNotificationCard(
                     val createdAt = strings.relativeTime(item.createdAt, timestampNowMillis)
                     Text(item.title, fontWeight = FontWeight.Bold)
                     Text(
-                        text = strings.localizedBody(item.body),
+                        text = strings.localizedNotificationBody(item.body),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(

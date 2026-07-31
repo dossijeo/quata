@@ -9,36 +9,78 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.quata.feature.notifications.presentation.NotificationRelativeTimeStrings
 import com.quata.feature.notifications.presentation.NotificationsHostContent
 import com.quata.feature.notifications.presentation.NotificationsStrings
-import com.quata.feature.notifications.presentation.NotificationDeliveryState
-import com.quata.feature.notifications.presentation.notificationDeliveryNotice
+import com.quata.feature.notifications.presentation.notificationRelativeTimeLabel
 import kotlinx.coroutines.delay
 
+/** Browser adapter only: the product screen remains [NotificationsHostContent]. */
 @Composable
 fun WebNotificationsHost(
     repository: WebNotificationsRepository,
     runtimeConfiguration: WebRuntimeConfiguration,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
+    canMutate: Boolean,
+    onAuthenticationRequired: (String) -> Unit,
 ) {
+    // Keep the input while this public API remains consumed by Main. The configured state is
+    // deliberately not rendered as a permanent banner: Web Push belongs to web_login/logout.
+    @Suppress("UNUSED_VARIABLE") val backendConfigured = runtimeConfiguration.isBackendConfigured
     var nowMillis by remember { mutableLongStateOf(notificationsBrowserNowMillis()) }
-    LaunchedEffect(Unit) { while (true) { delay(60_000L); nowMillis = notificationsBrowserNowMillis() } }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            nowMillis = notificationsBrowserNowMillis()
+        }
+    }
     NotificationsHostContent(
-        padding = PaddingValues(), repository = repository, timestampNowMillis = nowMillis,
-        strings = NotificationsStrings("Notificaciones", webNotificationsUnreadSubtitle, "Volver", { createdAt, _ -> createdAt.ifBlank { "Ahora" } }, { it }),
-        deliveryNotice = notificationDeliveryNotice(
-            if (runtimeConfiguration.isBackendConfigured) {
-                NotificationDeliveryState.DeliveryUnverified
-            } else {
-                NotificationDeliveryState.NotConfigured
+        padding = PaddingValues(),
+        repository = repository,
+        timestampNowMillis = nowMillis,
+        strings = NotificationsStrings(
+            title = "Avisos",
+            subtitle = "Notificaciones push y actividad",
+            backContentDescription = "Volver",
+            loadingLabel = "Cargando avisos…",
+            emptyTitle = "Aún no hay avisos",
+            emptyMessage = "La actividad nueva aparecerá aquí.",
+            errorTitle = "Los avisos no están disponibles",
+            relativeTime = { createdAt, now ->
+                notificationRelativeTimeLabel(createdAt, now, SpanishNotificationRelativeTimeStrings)
             },
+            localizedBody = { it },
+            photoPreview = "🖼️ Foto",
+            videoPreview = "🎥 Vídeo",
+            documentPreview = "📄 Documento",
+            voiceNotePreview = "🎤 Nota de voz",
+            filePreview = "📎 Archivo",
         ),
-        onBack = onBack, onOpenConversation = onOpenConversation,
+        // The normal Android hierarchy has no delivery-status header. Registration is handled
+        // by the established web_login/web_logout path, and only an actionable state may add one.
+        deliveryNotice = null,
+        onBack = onBack,
+        onOpenConversation = onOpenConversation,
+        canMutate = canMutate,
+        onAuthenticationRequired = { item -> onAuthenticationRequired(item.conversationId) },
     )
 }
 
-internal const val webNotificationsUnreadSubtitle = "Mensajes no leídos"
+private val SpanishNotificationRelativeTimeStrings = NotificationRelativeTimeStrings(
+    now = "Ahora",
+    secondsAgo = { "hace $it s" },
+    oneMinuteAgo = "hace 1 min",
+    minutesAgo = { "hace $it min" },
+    hoursAgo = { "hace $it h" },
+    daysAgo = { "hace $it d" },
+    oneWeekAgo = "hace 1 semana",
+    weeksAgo = { "hace $it semanas" },
+    oneMonthAgo = "hace 1 mes",
+    monthsAgo = { "hace $it meses" },
+    oneYearAgo = "hace 1 año",
+    yearsAgo = { "hace $it años" },
+)
 
 @JsFun("() => Date.now()")
 private external fun notificationsBrowserNowMillisAsDouble(): Double
