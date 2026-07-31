@@ -13,7 +13,7 @@ class ChatCommonCompositionStaticTest {
     fun commonConversationOwnsTheCompleteInteractiveHierarchy() {
         val source = File(
             root,
-            "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt",
+            "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt",
         ).readText()
         listOf(
             "FavoriteMessagesHeaderContent(",
@@ -39,6 +39,10 @@ class ChatCommonCompositionStaticTest {
             "newMessagesLabel =",
             "historyHeader =",
             "service.writeText",
+            "ChatUiEvent.HideConversation",
+            "ChatUiEvent.DeleteConversation",
+            "Ocultar conversación",
+            "Eliminar conversación",
         ).forEach { required -> assertTrue("Missing shared Chat hierarchy token: $required", required in source) }
     }
 }

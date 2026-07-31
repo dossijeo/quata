@@ -81,7 +81,15 @@ class IosChatHostDependencies(
 fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
-            ChatBrowserHostContent(
+            DisposableEffect(dependencies.repository) {
+                dependencies.repository.setAppForeground(true)
+                dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, true) }
+                onDispose {
+                    dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, false) }
+                    dependencies.repository.setAppForeground(false)
+                }
+            }
+            ChatScreenHost(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,
@@ -92,6 +100,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
+                onOpenAvatar = dependencies.onOpenAvatar,
+                onOpenMap = dependencies.onOpenMap,
+                onTranslateMessage = dependencies.onTranslateMessage,
                 clipboardService = IosClipboardService(),
                 conversationListHost = { listModifier ->
                     val scope = rememberCoroutineScope()

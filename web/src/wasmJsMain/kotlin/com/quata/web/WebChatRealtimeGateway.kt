@@ -4,6 +4,7 @@ package com.quata.web
 
 import com.quata.feature.chat.data.ChatRealtimeChange
 import com.quata.feature.chat.data.ChatRealtimeGateway
+import com.quata.feature.chat.data.ChatTypingPresenceSnapshot
 import com.quata.feature.chat.data.chatRealtimeReconnectDelayMillis
 import com.quata.feature.chat.data.shouldConnectChatRealtime
 import kotlin.js.JsAny
@@ -38,6 +39,8 @@ class WebChatRealtimeGateway(
     private var foreground = true
     private var network = true
     private var visibleConversation: String? = null
+    private var presenceSnapshot = ChatTypingPresenceSnapshot()
+    private var activeTopic = topicFor(null)
     private var socket: JsAny? = null
     private var joinRef: String? = null
     private var heartbeat: JsAny? = null
@@ -48,7 +51,14 @@ class WebChatRealtimeGateway(
 
     override fun setForeground(isForeground: Boolean) { foreground = isForeground; reconcile() }
     override fun setNetworkAvailable(isAvailable: Boolean) { network = isAvailable; reconcile() }
-    override fun setVisibleConversation(conversationId: String?) { visibleConversation = conversationId; reconcile() }
+    override fun setVisibleConversation(conversationId: String?) {
+        if (visibleConversation == conversationId) return
+        visibleConversation = conversationId
+        presenceSnapshot = ChatTypingPresenceSnapshot()
+        _typing.value = emptySet()
+        if (socket != null) disconnect("chat-conversation-changed")
+        reconcile()
+    }
     override fun setTyping(conversationId: String, isTyping: Boolean) {
         if (conversationId != visibleConversation || !_online.value) return
         send(nextRef(), "presence", buildJsonObject {
@@ -64,6 +74,7 @@ class WebChatRealtimeGateway(
     }
     private fun connect() {
         val session = authRepository.activeProfileSessionOrNull() ?: return
+        activeTopic = topicFor(visibleConversation)
         val base = configuration.supabaseUrl?.trim()?.trimEnd('/') ?: return
         val key = configuration.supabasePublishableKey ?: return
         lateinit var ws: JsAny
@@ -91,11 +102,11 @@ class WebChatRealtimeGateway(
             val table = data["table"]?.jsonPrimitive?.content ?: return
             val record = data["record"]?.jsonObject ?: data["old_record"]?.jsonObject
             _changes.tryEmit(ChatRealtimeChange(table, record?.get("thread_id")?.jsonPrimitive?.longOrNull))
-        } else if ((event == "presence_state" || event == "presence_diff") && topic == ChatTopic) {
-            _typing.value = typingIds(payload, selfId)
+        } else if ((event == "presence_state" || event == "presence_diff") && topic == activeTopic) {
+            presenceSnapshot = presenceSnapshot.reduce(event, payload)
+            _typing.value = presenceSnapshot.typingProfileIds(visibleConversation, selfId)
         }
     }
-    private fun typingIds(payload: JsonObject, selfId: String): Set<String> = payload.keys.filter { it != selfId }.toSet()
     private fun joinPayload(token: String, profileId: String) = buildJsonObject {
         put("access_token", token)
         put("config", buildJsonObject {
@@ -106,7 +117,7 @@ class WebChatRealtimeGateway(
             })
         })
     }
-    private fun send(ref: String, event: String, payload: JsonObject, topic: String = ChatTopic) {
+    private fun send(ref: String, event: String, payload: JsonObject, topic: String = activeTopic) {
         val frame = buildJsonArray { add(joinRef?.let(::JsonPrimitive) ?: JsonNull); add(JsonPrimitive(ref)); add(JsonPrimitive(topic)); add(JsonPrimitive(event)); add(payload) }
         socket?.let { sendWebChatFrame(it, Json.encodeToString(JsonArray.serializer(), frame).toJsString()) }
     }
@@ -114,9 +125,12 @@ class WebChatRealtimeGateway(
         if (!shouldConnectChatRealtime(foreground, network, authRepository.activeProfileSessionOrNull() != null, closed) || reconnect != null) return
         reconnect = webChatSetTimeout(chatRealtimeReconnectDelayMillis(attempt).toInt()) { reconnect = null; attempt = (attempt + 1).coerceAtMost(6); reconcile() }
     }
-    private fun disconnect(reason: String) { reconnect?.let(::webChatClearTimeout); reconnect = null; heartbeat?.let(::webChatClearInterval); heartbeat = null; socket?.let { closeWebChatSocket(it, reason.toJsString()) }; socket = null; joinRef = null; _online.value = false; _typing.value = emptySet() }
+    private fun disconnect(reason: String) { reconnect?.let(::webChatClearTimeout); reconnect = null; heartbeat?.let(::webChatClearInterval); heartbeat = null; socket?.let { closeWebChatSocket(it, reason.toJsString()) }; socket = null; joinRef = null; _online.value = false; _typing.value = emptySet(); presenceSnapshot = ChatTypingPresenceSnapshot() }
     private fun nextRef() = (++ref).toString()
-    private companion object { const val ChatTopic = "realtime:public:chat"; val RealtimeTables = listOf("chat_threads", "chat_participants", "chat_messages", "chat_attachments", "chat_message_favorites", "chat_message_reads", "chat_message_states") }
+    private companion object {
+        fun topicFor(conversationId: String?) = "realtime:chat:${conversationId ?: "inbox"}"
+        val RealtimeTables = listOf("chat_threads", "chat_participants", "chat_messages", "chat_attachments", "chat_message_favorites", "chat_message_reads", "chat_message_states")
+    }
 }
 
 @JsFun("""(base, key, open, message, closed) => { const url = base.replace(/^https:/,'wss:').replace(/^http:/,'ws:') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(key) + '&vsn=2.0.0'; const ws = new WebSocket(url); ws.onopen=()=>open(); ws.onmessage=e=>message(String(e.data ?? '')); ws.onclose=()=>closed(); ws.onerror=()=>closed(); return ws; }""") private external fun createWebChatSocket(base: JsString, key: JsString, open: () -> Unit, message: (JsString) -> Unit, closed: () -> Unit): JsAny

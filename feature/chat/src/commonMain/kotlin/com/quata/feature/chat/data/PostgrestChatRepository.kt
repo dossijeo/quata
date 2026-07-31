@@ -285,8 +285,19 @@ open class PostgrestChatRepository(
         }.toString()); _syncStatus.value = ChatSyncStatus.Online
     }.onFailure { updateReadFailure() }
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = removeThreadFromInbox("quata_chat_leave_thread", conversationId, retainUndo = false)
-    override suspend fun hideConversation(conversationId: String): Result<Unit> = removeThreadFromInbox("quata_chat_delete_thread", conversationId, retainUndo = true)
-    override suspend fun deleteConversation(conversationId: String): Result<Unit> = removeThreadFromInbox("quata_chat_delete_thread", conversationId, retainUndo = true)
+    /**
+     * Current backend compatibility: `quata_chat_delete_thread` is a reversible per-member inbox
+     * removal. Hide intentionally maps to it and retains undo; it is not presented as hard delete.
+     */
+    override suspend fun hideConversation(conversationId: String): Result<Unit> =
+        removeThreadFromInbox("quata_chat_delete_thread", conversationId, retainUndo = true)
+
+    /**
+     * The deployment has no separate hard-delete RPC. A user-confirmed delete therefore requests
+     * the same reversible legacy removal, while remaining a distinct domain/UI intent.
+     */
+    override suspend fun deleteConversation(conversationId: String): Result<Unit> =
+        removeThreadFromInbox("quata_chat_delete_thread", conversationId, retainUndo = true)
     override suspend fun restorePendingDeletedConversation(): Result<Unit> = runCatching {
         val conversation = _pendingDeletedConversation.value ?: return@runCatching
         val userId = currentUserId(); rpc("quata_chat_restore_thread", threadActionRequest(userId, conversation.id.requirePostgrestThreadId()))

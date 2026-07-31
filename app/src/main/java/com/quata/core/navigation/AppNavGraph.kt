@@ -857,6 +857,7 @@ fun AppNavGraph(
                             repository = container.chatRepository,
                             clipboardService = container.clipboardService,
                             filePickerService = container.filePickerService,
+                            audioPlayerService = container.audioPlayerService,
                             audioRecorderService = container.audioRecorderService,
                             openingProfileUserId = globalProfileState.openingProfileUserId,
                             onOpenUserProfile = { userId ->

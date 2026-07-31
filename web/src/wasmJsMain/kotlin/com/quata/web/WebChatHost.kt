@@ -29,7 +29,7 @@ import com.quata.core.platform.ShareService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
-import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.chat.ChatScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
@@ -74,7 +74,7 @@ fun WebChatHost(
             repository.setAppForeground(false)
         }
     }
-    ChatBrowserHostContent(
+    ChatScreenHost(
         repository = repository,
         audioPlayer = audioPlayer,
         audioRecorder = resolvedAudioRecorder,
@@ -85,6 +85,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenAvatar = onOpenUserProfile,
         conversationListHost = { listModifier ->
             val conversations = remember(repository) { ConversationsViewModel(repository, readContacts = { pickedInviteContacts }) }
             DisposableEffect(conversations) { onDispose(conversations::close) }

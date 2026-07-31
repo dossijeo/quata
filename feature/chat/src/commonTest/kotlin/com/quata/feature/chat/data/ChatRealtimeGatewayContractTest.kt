@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
 
 class ChatRealtimeGatewayContractTest {
     @Test
@@ -59,6 +60,29 @@ class ChatRealtimeGatewayContractTest {
         assertFalse(shouldCleanupEmptyPrivateConversation(conversation(isGroup = true, isEmergency = false), emptyList()))
         assertFalse(shouldCleanupEmptyPrivateConversation(conversation(isGroup = false, isEmergency = true), emptyList()))
         assertFalse(shouldCleanupEmptyPrivateConversation(private, listOf(message())))
+    }
+
+    @Test
+    fun phoenixPresenceDiffTracksExactJoinsLeavesAndConversation() {
+        val state = ChatTypingPresenceSnapshot().reduce(
+            "presence_state",
+            Json.parseToJsonElement("""{"self":{"metas":[{"phx_ref":"s1","conversation_id":"sb:7","typing":true}]},"peer":{"metas":[{"phx_ref":"p1","conversation_id":"sb:7","typing":true},{"phx_ref":"p2","conversation_id":"sb:8","typing":true}]}}"""),
+        )
+        assertEquals(setOf("peer"), state.typingProfileIds("sb:7", "self"))
+        assertEquals(setOf("peer"), state.typingProfileIds("sb:8", "self"))
+
+        val afterFirstLeave = state.reduce(
+            "presence_diff",
+            Json.parseToJsonElement("""{"joins":{"next":{"metas":[{"phx_ref":"n1","conversation_id":"sb:7","typing":true}]}},"leaves":{"peer":{"metas":[{"phx_ref":"p1","conversation_id":"sb:7","typing":true}]}}}"""),
+        )
+        assertEquals(setOf("next"), afterFirstLeave.typingProfileIds("sb:7", "self"))
+        assertEquals(setOf("peer"), afterFirstLeave.typingProfileIds("sb:8", "self"))
+
+        val afterFinalLeave = afterFirstLeave.reduce(
+            "presence_diff",
+            Json.parseToJsonElement("""{"joins":{},"leaves":{"peer":{"metas":[{"phx_ref":"p2","conversation_id":"sb:8","typing":true}]}}}"""),
+        )
+        assertEquals(emptySet(), afterFinalLeave.typingProfileIds("sb:8", "self"))
     }
 }
 

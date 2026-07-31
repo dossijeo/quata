@@ -72,9 +72,9 @@ data class ChatAudioRecordingConfiguration(
     }
 }
 
-/** Host-neutral browser-style Chat viewport. Navigation and external opening are injected. */
+/** Single host-neutral Chat root mounted unchanged by Android, Web and iOS adapters. */
 @Composable
-fun ChatBrowserHostContent(
+fun ChatScreenHost(
     repository: ChatRepository,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService,
@@ -87,8 +87,10 @@ fun ChatBrowserHostContent(
     onOpenAvatar: (String) -> Unit = {},
     onOpenMap: (String) -> Unit = {},
     onTranslateMessage: (String) -> Unit = {},
+    onOpenMessageConversation: (String, String) -> Unit = { _, _ -> },
     conversationListHost: @Composable (Modifier) -> Unit,
     focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
@@ -99,7 +101,7 @@ fun ChatBrowserHostContent(
     if (conversationId == null) {
         conversationListHost(modifier)
     } else {
-        ChatBrowserConversationDetail(
+        ChatConversationScreenContent(
             repository = repository,
             audioPlayer = audioPlayer,
             audioRecorder = audioRecorder,
@@ -112,7 +114,9 @@ fun ChatBrowserHostContent(
             onOpenAvatar = onOpenAvatar,
             onOpenMap = onOpenMap,
             onTranslateMessage = onTranslateMessage,
+            onOpenMessageConversation = onOpenMessageConversation,
             focusedMessageId = focusedMessageId,
+            onFocusedMessageHandled = onFocusedMessageHandled,
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
@@ -123,7 +127,7 @@ fun ChatBrowserHostContent(
 }
 
 @Composable
-private fun ChatBrowserConversationDetail(
+private fun ChatConversationScreenContent(
     repository: ChatRepository,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService,
@@ -136,7 +140,9 @@ private fun ChatBrowserConversationDetail(
     onOpenAvatar: (String) -> Unit,
     onOpenMap: (String) -> Unit,
     onTranslateMessage: (String) -> Unit,
+    onOpenMessageConversation: (String, String) -> Unit,
     focusedMessageId: String?,
+    onFocusedMessageHandled: () -> Unit,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
@@ -294,7 +300,7 @@ private fun ChatBrowserConversationDetail(
             messages = state.messages,
             selectedMessageId = state.selectedMessageId,
             focusedMessageId = pendingFocusedMessageId,
-            onFocusedMessageHandled = { pendingFocusedMessageId = null },
+            onFocusedMessageHandled = { pendingFocusedMessageId = null; onFocusedMessageHandled() },
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
             avatar = { message ->
@@ -306,11 +312,11 @@ private fun ChatBrowserConversationDetail(
             onMessageClick = { message ->
                 deepLinkRequest = cancelChatMessageDeepLinkRequest(deepLinkRequest)
                 pendingFocusedMessageId = null
-                viewModel.onEvent(
-                    ChatUiEvent.MessageSelected(
-                        message.id.takeUnless { it == state.selectedMessageId },
-                    ),
-                )
+                if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                    onOpenMessageConversation(message.conversationId, message.id)
+                } else {
+                    viewModel.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
+                }
             },
             composer = { composerModifier ->
                 if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
@@ -405,7 +411,7 @@ private fun ChatBrowserConversationDetail(
                                         }
                                         PlatformResult.Unsupported -> {
                                             isRecordingAudio = false
-                                            recordingError = "La grabacion de audio no esta disponible en este navegador."
+                                            recordingError = "La grabación de audio no está disponible en esta plataforma."
                                         }
                                     }
                                 }
@@ -429,7 +435,7 @@ private fun ChatBrowserConversationDetail(
                                         }
                                         is PlatformResult.Failure -> recordingError = "No se pudo iniciar la grabacion: ${result.reason.orEmpty()}"
                                         PlatformResult.Cancelled -> recordingError = null
-                                        PlatformResult.Unsupported -> recordingError = "La grabacion de audio no esta disponible en este navegador."
+                                        PlatformResult.Unsupported -> recordingError = "La grabación de audio no está disponible en esta plataforma."
                                     }
                                 }
                             }) { Text("Grabar audio") }
@@ -458,7 +464,7 @@ private fun ChatBrowserConversationDetail(
             },
             attachment = { message, attachmentModifier ->
                 Column(attachmentModifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ChatBrowserAttachmentContent(
+                    ChatAttachmentContent(
                         message = message,
                         audioPlayer = audioPlayer,
                         activeAudioReference = activeAudioReference,
@@ -587,6 +593,7 @@ private fun ChatPortableConversationHeader(
     onCopyMessage: (String) -> Unit,
     onEvent: (ChatUiEvent) -> Unit,
 ) {
+    var pendingConversationAction by remember { mutableStateOf<String?>(null) }
     if (state.conversation?.id == AppDestinations.FavoriteMessagesConversationId) {
         FavoriteMessagesHeaderContent("Mensajes favoritos", "Volver", onBack)
         return
@@ -672,8 +679,30 @@ private fun ChatPortableConversationHeader(
                     }
                 }
             }
-            if (conversation.isGroup) Button(onClick = { onEvent(ChatUiEvent.LeaveConversation) }) { Text("Salir del grupo") }
-            Button(onClick = { onEvent(ChatUiEvent.DeleteConversation) }) { Text("Eliminar conversación") }
+            if (conversation.isGroup) Button(onClick = { pendingConversationAction = "leave" }) { Text("Salir del grupo") }
+            Button(onClick = { pendingConversationAction = "hide" }) { Text("Ocultar conversación") }
+            Button(onClick = { pendingConversationAction = "delete" }) { Text("Eliminar conversación") }
+            pendingConversationAction?.let { action ->
+                Text(
+                    when (action) {
+                        "leave" -> "¿Quieres salir de este grupo?"
+                        "hide" -> "¿Quieres ocultar esta conversación de tu bandeja?"
+                        else -> "¿Quieres eliminar esta conversación?"
+                    },
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { pendingConversationAction = null }) { Text("Cancelar") }
+                    Button(onClick = {
+                        when (action) {
+                            "leave" -> onEvent(ChatUiEvent.LeaveConversation)
+                            "hide" -> onEvent(ChatUiEvent.HideConversation)
+                            else -> onEvent(ChatUiEvent.DeleteConversation)
+                        }
+                        pendingConversationAction = null
+                    }) { Text("Confirmar") }
+                }
+            }
         }
     }
 }
@@ -690,7 +719,7 @@ private fun String.chatSosMapUrl(): String? {
 }
 
 @Composable
-private fun ChatBrowserAttachmentContent(
+private fun ChatAttachmentContent(
     message: Message,
     audioPlayer: AudioPlayerService,
     activeAudioReference: String?,
