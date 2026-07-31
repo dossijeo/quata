@@ -497,6 +497,8 @@ private fun QuataWebApp(
                             platformServices = platformServices,
                             runtimeConfiguration = runtimeConfiguration,
                             authRepository = authRepository,
+                            onBack = { navigation.navigate("") },
+                            onAuthRequired = ::requestAuthenticationForCurrentRoute,
                         )
                     }
                 } else if (navigation.route == "communities") {

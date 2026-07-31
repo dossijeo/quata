@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 /** Android lifecycle adapter for the shared post-composer presentation logic. */
 class CreatePostAndroidViewModel(repository: PostComposerRepository) : ViewModel() {
     private val delegate = CreatePostViewModel(repository)
+    internal val commonViewModel: CreatePostViewModel get() = delegate
     val uiState: StateFlow<CreatePostUiState> = delegate.uiState
     fun onEvent(event: CreatePostUiEvent) = delegate.onEvent(event)
     fun submit(type: PostComposerType) = delegate.submit(type)
