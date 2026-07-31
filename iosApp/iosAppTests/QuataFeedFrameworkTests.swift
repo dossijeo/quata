@@ -404,10 +404,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let publicFeed = UIViewController()
         router.installPublicFeed { _ in publicFeed }
         router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
 
         router.showComposer()
         XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
-        waitForPresentedModalToSettle(router)
+        wait(for: [promptPresented], timeout: 2)
 
         // This is the exact callback used by common AlertDialog.onDismissRequest when its scrim
         // is tapped. The dialog disappears; the public app route and shell remain mounted.
@@ -429,10 +431,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installPublicFeed { _ in UIViewController() }
         router.installAuthRequiredPromptFactory { UIViewController() }
         router.installAuthenticationFactory { registration }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
 
         router.showComposer()
         XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
-        waitForPresentedModalToSettle(router)
+        wait(for: [promptPresented], timeout: 2)
         router.openRegistrationFromAuthRequiredPrompt()
         waitUntil { router.presentedViewController === registration }
 
@@ -1140,12 +1144,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installAuthRequiredPromptFactory { prompt }
         router.installAuthenticationFactory { login }
         router.installOfficialEditorFactory { editor }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
 
         router.showOfficialEditor()
         XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
         XCTAssertTrue(router.presentedViewController?.children.first === prompt)
         XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
-        waitForPresentedModalToSettle(router)
+        wait(for: [promptPresented], timeout: 2)
 
         router.openLoginFromAuthRequiredPrompt()
         waitUntil { router.presentedViewController === login }
@@ -1599,14 +1605,6 @@ private func waitUntil(
         RunLoop.main.run(until: Date().addingTimeInterval(0.01))
     }
     XCTAssertTrue(condition(), "Timed out waiting for the UIKit modal transition")
-}
-
-private func waitForPresentedModalToSettle(_ router: IosFeedHostContainerViewController) {
-    waitUntil(timeout: 2) {
-        guard let modal = router.presentedViewController else { return false }
-        return modal.viewIfLoaded?.window != nil &&
-            !modal.isBeingPresented
-    }
 }
 
 private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {

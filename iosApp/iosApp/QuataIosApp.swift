@@ -959,6 +959,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
     private var authModalTransitionsAnimated = true
+    private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1160,6 +1161,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authModalTransitionsAnimated = false
     }
 
+    /// XCTest synchronization seam. Waiting for UIKit's actual `present` completion is stable
+    /// across simulator architectures; polling transition flags is not on Xcode 26.3.
+    func onNextAuthPromptPresentedForTesting(_ completion: @escaping () -> Void) {
+        nextAuthPromptPresentationCompletionForTesting = completion
+    }
+
     /// Android's capability gate: keep the public Feed visible and show common Compose copy.
     func presentAuthRequiredPrompt() {
         guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
@@ -1171,7 +1178,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // transparent; AlertDialog still draws its own scrim/card in common Compose.
         makeComposeOverlayTransparent(prompt.view)
         prompt.view.accessibilityIdentifier = "quata-ios-auth-required-dialog"
-        present(prompt, animated: authModalTransitionsAnimated)
+        present(prompt, animated: authModalTransitionsAnimated) { [weak self] in
+            let completion = self?.nextAuthPromptPresentationCompletionForTesting
+            self?.nextAuthPromptPresentationCompletionForTesting = nil
+            completion?()
+        }
     }
 
     /// Common Compose invokes this from AlertDialog.onDismissRequest (scrim/back dismissal).
