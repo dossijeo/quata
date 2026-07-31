@@ -8,6 +8,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.profile.data.IosProfilePostgrestGateway
 import com.quata.feature.profile.data.IosProfileRuntimeConfiguration
+import com.quata.feature.profile.data.IosProfileSessionProvider
 import com.quata.feature.profile.data.KmpProfileRepository
 import com.quata.feature.profile.data.ProfileAvatarUploader
 import com.quata.feature.profile.data.ProfileEmergencyContactsStore
@@ -98,10 +99,14 @@ fun createIosPublicMemberProfileHostDependencies(
 ): IosMemberProfileHostDependencies {
     val anonymousSession = object : ProfileSessionProvider {
         override fun currentSession(): ProfileSession? = null
+        override fun updateDisplayName(session: ProfileSession, displayName: String) = Unit
+    }
+    val anonymousTransportSession = object : IosProfileSessionProvider {
+        override suspend fun currentSession() = null
     }
     val remote = IosProfilePostgrestGateway(
         configuration = configuration,
-        sessionProvider = anonymousSession,
+        sessionProvider = anonymousTransportSession,
         allowAnonymousCommunityProfileReads = true,
     )
     return IosMemberProfileHostDependencies(
