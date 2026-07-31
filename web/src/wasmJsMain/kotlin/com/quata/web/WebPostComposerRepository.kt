@@ -46,7 +46,7 @@ class WebPostComposerTransport(
     override suspend fun resolveWallId(actorProfileId: String): Result<String> = runCatching {
         val membership = postgrest.get("community_members", mapOf("select" to "wall_id", "profile_id" to "eq.$actorProfileId", "limit" to "1"))
             .webComposerBody().let { Json.parseToJsonElement(it).jsonArray.firstOrNull()?.jsonObject?.get("wall_id")?.jsonPrimitive?.contentOrNull }
-        membership ?: postgrest.get("community_wall_stats", mapOf("select" to "id", "is_active" to "eq.true", "order" to "sort_order.asc", "limit" to "1"))
+        membership ?: postgrest.get(WEB_COMPOSER_WALL_STATS_TABLE, webComposerWallFallbackQuery())
             .webComposerBody().let { Json.parseToJsonElement(it).jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull }
             ?: error("composer_wall_unavailable")
     }
@@ -60,8 +60,8 @@ class WebPostComposerTransport(
         val key = configuration.supabasePublishableKey?.takeIf(String::isNotBlank) ?: error("supabase_publishable_key_missing")
         val ext = media.name.substringAfterLast('.', "jpg").lowercase().filter(Char::isLetterOrDigit).ifBlank { "jpg" }
         val path = "$actorProfileId/img-${webComposerTimestamp()}-${webComposerRandomToken()}.$ext"
-        webComposerUploadBlob(media.reference, "$base/storage/v1/object/community-posts/${webEncodePath(path)}", key, credentials.accessToken, media.mimeType)
-        ComposerUploadedMedia("$base/storage/v1/object/public/community-posts/${webEncodePath(path)}", "storage:$path")
+        webComposerUploadBlob(media.reference, webComposerStorageObjectUrl(base, path), key, credentials.accessToken, media.mimeType)
+        ComposerUploadedMedia(webComposerStoragePublicUrl(base, path), "storage:$path")
     }
 
     override suspend fun uploadVideo(actorProfileId: String, media: ComposerPreparedMedia): Result<ComposerUploadedMedia> = runCatching {
@@ -73,8 +73,8 @@ class WebPostComposerTransport(
     }
 
     override suspend fun insertPost(request: ComposerPostInsert): Result<String?> = runCatching {
-        val body = buildJsonObject { put("wall_id", request.wallId); put("profile_id", request.actorProfileId); put("body", request.body); request.imageUrl?.let { put("image_url", it) }; request.videoUrl?.let { put("video_url", it) } }.toString()
-        val response = postgrest.post("community_posts", body).webComposerBody()
+        val body = webComposerPostBody(request)
+        val response = postgrest.post(WEB_COMPOSER_POSTS_TABLE, body).webComposerBody()
         Json.parseToJsonElement(response).jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
     }
 
@@ -84,12 +84,12 @@ class WebPostComposerTransport(
             val base = configuration.supabaseUrl?.trimEnd('/') ?: error("supabase_url_missing")
             val key = configuration.supabasePublishableKey?.takeIf(String::isNotBlank) ?: error("supabase_publishable_key_missing")
             webComposerDeleteStorageBlob(
-                "$base/storage/v1/object/community-posts/${webEncodePath(media.rollbackToken.removePrefix("storage:"))}",
+                webComposerStorageObjectUrl(base, media.rollbackToken.removePrefix("storage:")),
                 key,
                 credentials.accessToken,
             )
         } else {
-            webComposerWordpressForm(webComposerWordpressUrl(configuration, "wp-admin/admin-ajax.php"), mapOf("action" to "quqos_delete_post_video", "url" to media.rollbackToken))
+            webComposerWordpressForm(webComposerWordpressUrl(configuration, "wp-admin/admin-ajax.php"), webComposerVideoDeleteFields(media.rollbackToken))
         }
     }
     override suspend fun releasePreparedMedia(media: ComposerPreparedMedia): Result<Unit> = Result.success(Unit)
@@ -98,19 +98,49 @@ class WebPostComposerTransport(
 private fun WebPostgrestResult.webComposerBody(): String = when (this) { is WebPostgrestResult.Success -> body; is WebPostgrestResult.Failure -> error(reason) }
 private fun webPrepared(reference: String, fallbackMime: String, fallbackName: String) = ComposerPreparedMedia(reference, reference.substringAfterLast('/').substringBefore('?').takeIf(String::isNotBlank) ?: fallbackName, mediaMime(reference).takeIf(String::isNotBlank) ?: fallbackMime)
 private fun mediaMime(reference: String?): String = when (reference?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; "mov" -> "video/quicktime"; "mp4" -> "video/mp4"; else -> "" }
+internal const val WEB_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
+internal const val WEB_COMPOSER_POSTS_TABLE = "community_posts"
+internal fun webComposerWallFallbackQuery(): Map<String, String> = mapOf("select" to "id", "is_active" to "eq.true", "order" to "sort_order.asc", "limit" to "1")
+internal fun webComposerStorageObjectUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/community-posts/${webEncodePath(path)}"
+internal fun webComposerStoragePublicUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/public/community-posts/${webEncodePath(path)}"
+internal fun webComposerVideoDeleteFields(url: String) = mapOf("action" to "quqos_delete_post_video", "url" to url)
+internal fun webComposerPostBody(request: ComposerPostInsert) = buildJsonObject {
+    put("wall_id", request.wallId)
+    put("profile_id", request.actorProfileId)
+    put("body", request.body)
+    request.imageUrl?.let { put("image_url", it) }
+    request.videoUrl?.let { put("video_url", it) }
+}.toString()
 internal fun webComposerWordpressUrl(configuration: WebRuntimeConfiguration, path: String): String =
-    if (webComposerIsLocalhost()) "/wordpress-proxy/$path" else "${configuration.wordpressBaseUrl.trimEnd('/')}/$path"
+    webComposerWordpressUrl(configuration, path, webComposerIsLocalhost())
+internal fun webComposerWordpressUrl(configuration: WebRuntimeConfiguration, path: String, isLocalhost: Boolean): String =
+    if (isLocalhost) "/wordpress-proxy/$path" else "${configuration.wordpressBaseUrl.trimEnd('/')}/$path"
 private fun webComposerIsLocalhost(): Boolean = js("globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1'")
 private fun webEncodePath(path: String): String = js("path.split('/').map(encodeURIComponent).join('/')")
 private fun webComposerTimestamp(): String = js("String(Date.now())")
 private fun webComposerRandomToken(): String = js("Math.random().toString(36).slice(2,9)")
 
+internal data class WebComposerHttpContract(val method: String, val url: String, val headers: Map<String, String>)
+internal fun webComposerStorageUploadContract(url: String, key: String, token: String, mime: String) = WebComposerHttpContract(
+    method = "POST", url = url,
+    headers = mapOf("apikey" to key, "Authorization" to "Bearer $token", "Content-Type" to mime, "x-upsert" to "true"),
+)
+internal fun webComposerStorageDeleteContract(url: String, key: String, token: String) = WebComposerHttpContract(
+    method = "DELETE", url = url, headers = mapOf("apikey" to key, "Authorization" to "Bearer $token"),
+)
+
 private suspend fun webComposerWordpressForm(url: String, fields: Map<String, String>): String = webComposerRequest("form", url, fields, null, null, null)
 private suspend fun webComposerMultipartVideo(url: String, reference: String, name: String, mime: String): String = webComposerRequest("video", url, emptyMap(), reference, name, mime)
-private suspend fun webComposerUploadBlob(reference: String, url: String, key: String, token: String, mime: String) { webComposerRequest("storage", url, mapOf("apikey" to key, "authorization" to token), reference, null, mime) }
-private suspend fun webComposerDeleteStorageBlob(url: String, key: String, token: String) { webComposerRequest("storage-delete", url, mapOf("apikey" to key, "authorization" to token), null, null, null) }
+private suspend fun webComposerUploadBlob(reference: String, url: String, key: String, token: String, mime: String) {
+    val contract = webComposerStorageUploadContract(url, key, token, mime)
+    webComposerRequest("storage", contract.url, contract.headers, reference, null, mime)
+}
+private suspend fun webComposerDeleteStorageBlob(url: String, key: String, token: String) {
+    val contract = webComposerStorageDeleteContract(url, key, token)
+    webComposerRequest("storage-delete", contract.url, contract.headers, null, null, null)
+}
 private suspend fun webComposerRequest(kind: String, url: String, fields: Map<String, String>, reference: String?, name: String?, mime: String?): String = suspendCoroutine { c ->
     val encoded = buildJsonObject { fields.forEach { (key, value) -> put(key, value) } }.toString()
     webComposerFetch(kind, url, encoded, reference, name, mime, { c.resume(it) }, { c.resumeWith(Result.failure(IllegalStateException(it))) })
 }
-private fun webComposerFetch(kind: String, url: String, fields: String, reference: String?, name: String?, mime: String?, ok: (String) -> Unit, fail: (String) -> Unit): Unit = js("""(() => { const f=JSON.parse(fields); const source=reference ? fetch(reference).then(r=>{if(!r.ok)throw Error('composer_media_source_'+r.status);return r.blob()}) : Promise.resolve(null); source.then(blob=>{let o={method:'POST',headers:{Accept:'application/json'}}; if(kind==='form'){o.body=new URLSearchParams(f);o.headers['X-Requested-With']='XMLHttpRequest'} else if(kind==='video'){let d=new FormData();d.append('video',blob,name||'video.mp4');o.body=d} else if(kind==='storage-delete'){o.method='DELETE';o.headers={apikey:f.apikey,Authorization:'Bearer '+f.authorization}} else {o.headers={apikey:f.apikey,Authorization:'Bearer '+f.authorization,'Content-Type':blob.type||mime||'application/octet-stream','x-upsert':'true'};o.body=blob} return fetch(url,o)}).then(async r=>{let t=await r.text();if(!r.ok)throw Error('composer_http_'+r.status+':'+t);ok(t)}).catch(e=>fail(e?.message||'composer_request_failed')) })()""")
+private fun webComposerFetch(kind: String, url: String, fields: String, reference: String?, name: String?, mime: String?, ok: (String) -> Unit, fail: (String) -> Unit): Unit = js("""(() => { const f=JSON.parse(fields); const source=reference ? fetch(reference).then(r=>{if(!r.ok)throw Error('composer_media_source_'+r.status);return r.blob()}) : Promise.resolve(null); source.then(blob=>{let o={method:'POST',headers:{Accept:'application/json'}}; if(kind==='form'){o.body=new URLSearchParams(f);o.headers['X-Requested-With']='XMLHttpRequest'} else if(kind==='video'){let d=new FormData();d.append('video',blob,name||'video.mp4');o.body=d} else if(kind==='storage-delete'){o.method='DELETE';o.headers=f} else {o.headers=f;o.body=blob} return fetch(url,o)}).then(async r=>{let t=await r.text();if(!r.ok)throw Error('composer_http_'+r.status+':'+t);ok(t)}).catch(e=>fail(e?.message||'composer_request_failed')) })()""")

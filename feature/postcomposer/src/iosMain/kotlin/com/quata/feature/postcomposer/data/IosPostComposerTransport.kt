@@ -66,7 +66,7 @@ class IosPostComposerTransport(
     override suspend fun resolveWallId(actorProfileId: String): Result<String> = runCatching {
         val membership = getRest("community_members?select=wall_id&profile_id=eq.${actorProfileId.iosComposerQuery()}&limit=1")
             .jsonArray.firstOrNull()?.jsonObject?.get("wall_id")?.jsonPrimitive?.contentOrNull
-        membership ?: getRest("community_wall_stats?select=id&is_active=eq.true&order=sort_order.asc&limit=1")
+        membership ?: getRest(iosComposerWallFallbackPath())
             .jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull ?: error("composer_wall_unavailable")
     }
 
@@ -83,14 +83,14 @@ class IosPostComposerTransport(
         val data = media.localData()
         val ext = media.name.substringAfterLast('.', "jpg").lowercase().filter(Char::isLetterOrDigit).ifBlank { "jpg" }
         val path = "$actorProfileId/img-${iosComposerEpochMillis()}-${NSUUID.UUID().UUIDString.lowercase().replace("-", "").take(7)}.$ext"
-        request("${configuration.storageBase()}/object/community-posts/${path.iosComposerPath()}", "POST", data, media.mimeType, upsert = true)
-        ComposerUploadedMedia("${configuration.storageBase()}/object/public/community-posts/${path.iosComposerPath()}", "storage:$path")
+        request(configuration.iosComposerStorageObjectUrl(path), "POST", data, media.mimeType, upsert = true)
+        ComposerUploadedMedia(configuration.iosComposerStoragePublicUrl(path), "storage:$path")
     }
 
     override suspend fun uploadVideo(actorProfileId: String, media: ComposerPreparedMedia): Result<ComposerUploadedMedia> = runCatching {
         val boundary = "QuataComposer${NSUUID.UUID().UUIDString}"
         val payload = media.localData().multipartVideo(boundary, media.name, media.mimeType)
-        val raw = request("${configuration.wordpressBase()}/wp-json/quqos/v1/upload-video", "POST", payload, "multipart/form-data; boundary=$boundary", authenticated = false)
+        val raw = request(configuration.iosComposerWordpressVideoUploadUrl(), "POST", payload, "multipart/form-data; boundary=$boundary", authenticated = false)
         val root = Json.parseToJsonElement(raw).jsonObject
         val data = root["data"]?.jsonObject
         val url = root["url"]?.jsonPrimitive?.contentOrNull ?: data?.get("url")?.jsonPrimitive?.contentOrNull ?: error("wordpress_video_url_missing")
@@ -99,26 +99,25 @@ class IosPostComposerTransport(
 
     override suspend fun insertPost(request: ComposerPostInsert): Result<String?> = runCatching {
         val body = buildJsonObject { put("wall_id", request.wallId); put("profile_id", request.actorProfileId); put("body", request.body); request.imageUrl?.let { put("image_url", it) }; request.videoUrl?.let { put("video_url", it) } }.toString()
-        val result = request("${configuration.restBase()}/community_posts", "POST", body.encodeToByteArray().toFoundationData(), "application/json", prefer = "return=representation")
+        val result = request(configuration.iosComposerPostsUrl(), "POST", body.encodeToByteArray().toFoundationData(), "application/json", prefer = "return=representation")
         Json.parseToJsonElement(result).jsonArray.singleOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
             ?.takeIf(String::isNotBlank) ?: error("composer_post_id_missing")
     }
 
     override suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia): Result<Unit> = runCatching {
         if (media.rollbackToken.startsWith("storage:")) {
-            request("${configuration.storageBase()}/object/community-posts/${media.rollbackToken.removePrefix("storage:").iosComposerPath()}", "DELETE", null, null)
+            request(configuration.iosComposerStorageObjectUrl(media.rollbackToken.removePrefix("storage:")), "DELETE", null, null)
         } else wordpressForm(mapOf("action" to "quqos_delete_post_video", "url" to media.rollbackToken))
         Unit
     }
     override suspend fun releasePreparedMedia(media: ComposerPreparedMedia): Result<Unit> = Result.success(Unit)
 
     private suspend fun getRest(path: String) = Json.parseToJsonElement(request("${configuration.restBase()}/$path", "GET", null, null))
-    private suspend fun wordpressForm(fields: Map<String, String>): String = request("${configuration.wordpressBase()}/wp-admin/admin-ajax.php", "POST", fields.entries.joinToString("&") { "${it.key.iosComposerQuery()}=${it.value.iosComposerQuery()}" }.encodeToByteArray().toFoundationData(), "application/x-www-form-urlencoded", authenticated = false)
+    private suspend fun wordpressForm(fields: Map<String, String>): String = request(configuration.iosComposerWordpressAdminAjaxUrl(), "POST", fields.entries.joinToString("&") { "${it.key.iosComposerQuery()}=${it.value.iosComposerQuery()}" }.encodeToByteArray().toFoundationData(), "application/x-www-form-urlencoded", authenticated = false)
     private suspend fun request(url: String, method: String, body: NSData?, contentType: String?, upsert: Boolean = false, authenticated: Boolean = true, prefer: String? = null): String {
-        val mutable = NSMutableURLRequest.requestWithURL(NSURL(string = url) ?: error("ios_composer_url_invalid")).apply { setHTTPMethod(method); body?.let(::setHTTPBody); contentType?.let { setValue(it, "Content-Type") }; setValue("application/json", "Accept") }
-        if (authenticated) { val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_composer_session_missing"); mutable.setValue(configuration.key(), "apikey"); mutable.setValue("Bearer ${session.bearerToken}", "Authorization") }
-        if (upsert) mutable.setValue("true", "x-upsert")
-        prefer?.let { mutable.setValue(it, "Prefer") }
+        val session = if (authenticated) authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_composer_session_missing") else null
+        val contract = iosComposerHttpContract(url, method, contentType, session?.let { configuration.key() }, session?.bearerToken, upsert, prefer)
+        val mutable = NSMutableURLRequest.requestWithURL(NSURL(string = contract.url) ?: error("ios_composer_url_invalid")).apply { setHTTPMethod(contract.method); body?.let(::setHTTPBody); contract.headers.forEach { (name, value) -> setValue(value, name) } }
         return mutable.executeComposer().toIosBytes().decodeToString()
     }
 }
@@ -129,6 +128,26 @@ private fun IosPostComposerRuntimeConfiguration.restBase() = "${supabaseUrl.trim
 private fun IosPostComposerRuntimeConfiguration.storageBase() = "${supabaseUrl.trimEnd('/')}/storage/v1"
 private fun IosPostComposerRuntimeConfiguration.wordpressBase() = wordpressBaseUrl.trimEnd('/')
 private fun IosPostComposerRuntimeConfiguration.key() = supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_composer_publishable_key_missing")
+internal const val IOS_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
+internal const val IOS_COMPOSER_POSTS_TABLE = "community_posts"
+internal fun iosComposerWallFallbackPath() = "$IOS_COMPOSER_WALL_STATS_TABLE?select=id&is_active=eq.true&order=sort_order.asc&limit=1"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerPostsUrl() = "${restBase()}/$IOS_COMPOSER_POSTS_TABLE"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageObjectUrl(path: String) = "${storageBase()}/object/community-posts/${path.iosComposerPath()}"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerStoragePublicUrl(path: String) = "${storageBase()}/object/public/community-posts/${path.iosComposerPath()}"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressAdminAjaxUrl() = "${wordpressBase()}/wp-admin/admin-ajax.php"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressVideoUploadUrl() = "${wordpressBase()}/wp-json/quqos/v1/upload-video"
+internal data class IosComposerHttpContract(val url: String, val method: String, val headers: Map<String, String>)
+internal fun iosComposerHttpContract(url: String, method: String, contentType: String?, apiKey: String?, token: String?, upsert: Boolean, prefer: String?): IosComposerHttpContract {
+    val headers = buildMap {
+        put("Accept", "application/json")
+        contentType?.let { put("Content-Type", it) }
+        apiKey?.let { put("apikey", it) }
+        token?.let { put("Authorization", "Bearer $it") }
+        if (upsert) put("x-upsert", "true")
+        prefer?.let { put("Prefer", it) }
+    }
+    return IosComposerHttpContract(url, method, headers)
+}
 private fun String.iosComposerQuery() = encodeToByteArray().joinToString("") { b -> val n=b.toInt() and 255; if(n in 48..57 || n in 65..90 || n in 97..122 || n in intArrayOf(45,46,95,126)) n.toChar().toString() else "%${n.toString(16).padStart(2,'0').uppercase()}" }
 private fun String.iosComposerPath() = split('/').joinToString("/") { it.iosComposerQuery() }
 private fun iosComposerMime(value: String?) = when(value?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"; "mp4" -> "video/mp4"; "mov" -> "video/quicktime"; else -> "" }
