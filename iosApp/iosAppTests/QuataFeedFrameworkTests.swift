@@ -326,6 +326,20 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation" })
     }
 
+    func testAnonymousRouterAllowsNotificationsButLeavesConversationGated() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let notifications = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installNotificationsFactory { notifications }
+
+        router.showNotifications()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+        XCTAssertEqual(notifications.view.accessibilityIdentifier, "quata-ios-notifications-host")
+    }
+
     func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()

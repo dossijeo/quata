@@ -290,6 +290,7 @@ private final class IosAppCompositionRoot {
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
         installCommunitiesIfAvailable()
+        installNotificationsIfAvailable()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -445,7 +446,7 @@ private final class IosAppCompositionRoot {
             )
         }
         installAuthenticatedChatIfAvailable()
-        installAuthenticatedNotificationsIfAvailable()
+        installNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
         installCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
@@ -536,7 +537,9 @@ private final class IosAppCompositionRoot {
         }
     }
 
-    private func installAuthenticatedNotificationsIfAvailable() {
+    /// Android exposes the inbox from the shared header without a session.  Its detail action
+    /// delegates to `showChat`, which remains the single private-route gate.
+    private func installNotificationsIfAvailable() {
         guard let bootstrap = notificationsRuntimeBootstrap else { return }
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
@@ -643,10 +646,6 @@ private final class IosAppCompositionRoot {
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
-                        guard self.runtimeBootstrap?.hasRestoredSession() == true else {
-                            self.authenticatedHost.presentAuthRequiredPrompt()
-                            return
-                        }
                         let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
                             profileId: profileId,
                             onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
@@ -951,12 +950,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             switch self {
             case .feed, .official, .whatsNew, .releaseHistory:
                 return false
-            // Android opens Communities anonymously and lets individual mutations request Auth.
-            // Notifications remain private because the only iOS inbox factory is composed from
-            // the authenticated Chat repository; there is no anonymous inbox substitute.
-            case .chat, .officialEditor, .notifications, .profileSos, .composer, .settings:
+            // Android opens Communities and Notifications anonymously; individual detail
+            // actions retain their own route/mutation gates.
+            case .chat, .officialEditor, .profileSos, .composer, .settings:
                 return true
-            case .communities: return false
+            case .communities, .notifications: return false
         }
     }
 

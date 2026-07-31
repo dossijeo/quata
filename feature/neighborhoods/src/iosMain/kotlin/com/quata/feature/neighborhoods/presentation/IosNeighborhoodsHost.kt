@@ -132,11 +132,10 @@ fun QuataNeighborhoodsViewController(
                     else dependencies.viewModel.toggleFollowUser(user.id)
                 },
                 onOpenProfile = { user ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else {
-                        dependencies.viewModel.openUserProfile(user.id)
-                        dependencies.profileNavigator.openMemberProfile(user.id)
-                    }
+                    // Android treats member-profile inspection as public read access.  Follow
+                    // and chat remain separately gated below.
+                    dependencies.viewModel.openUserProfile(user.id)
+                    dependencies.profileNavigator.openMemberProfile(user.id)
                 },
                 onOpenPrivateChat = { user ->
                     if (dependencies.currentUserId == null) dependencies.onAuthRequired()
