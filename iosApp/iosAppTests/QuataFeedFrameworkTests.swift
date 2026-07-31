@@ -271,9 +271,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
         for (protectedIdentifier, openRoute) in protectedRoutes {
             let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
             router.loadViewIfNeeded()
-            router.installPublicFeed { _ in UIViewController() }
-            let login = UIViewController()
-            router.installAuthenticationFactory { login }
+            let publicFeed = UIViewController()
+            router.installPublicFeed { _ in publicFeed }
+            let prompt = UIViewController()
+            router.installAuthRequiredPromptFactory { prompt }
             router.installChatFactory { _, _ in UIViewController() }
             router.installNotificationsFactory { UIViewController() }
             router.installProfileSosFactory { UIViewController() }
@@ -283,8 +284,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
             openRoute(router)
 
-            XCTAssertTrue(authenticatedRouteController(in: router) === login, "Anonymous route rendered instead of login: \(protectedIdentifier)")
-            XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+            XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed, "Anonymous route replaced public Feed: \(protectedIdentifier)")
+            XCTAssertTrue(router.presentedViewController === prompt, "Protected route did not open the capability prompt: \(protectedIdentifier)")
+            XCTAssertEqual(prompt.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
             XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == protectedIdentifier })
             XCTAssertEqual(router.children.count, 3)
         }
@@ -312,14 +314,15 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
-        router.installPublicFeed { _ in UIViewController() }
-        let login = UIViewController()
-        router.installAuthenticationFactory { login }
+        let publicFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        let prompt = UIViewController()
+        router.installAuthRequiredPromptFactory { prompt }
 
         router.showChat(conversationId: "private-chat", messageId: "message-4")
 
-        XCTAssertTrue(router.children.contains { $0 === login })
-        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertTrue(router.presentedViewController === prompt)
         XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-chat-host" })
         XCTAssertNotNil(router.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
@@ -335,7 +338,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             return chat
         }
 
-        XCTAssertTrue(router.children.contains { $0 === login })
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
         XCTAssertFalse(router.children.contains { $0 === chat })
 
         router.installFeedFactory { _ in UIViewController() }
@@ -363,9 +366,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
 
-        let login = UIViewController()
-        router.installAuthenticationFactory { login }
-        XCTAssertTrue(authenticatedRouteController(in: router) === login)
+        let prompt = UIViewController()
+        router.installAuthRequiredPromptFactory { prompt }
+        router.showChat(conversationId: "deferred-private-chat", messageId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertTrue(router.presentedViewController === prompt)
 
         let chat = UIViewController()
         router.installChatFactory { conversationId, messageId in

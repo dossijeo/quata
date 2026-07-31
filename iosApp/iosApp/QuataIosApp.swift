@@ -410,6 +410,8 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     initialPostId: postId,
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                 ),
             )
         }
@@ -436,6 +438,8 @@ private final class IosAppCompositionRoot {
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
                 ),
             )
         }
@@ -506,7 +510,7 @@ private final class IosAppCompositionRoot {
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
                         currentUserId: nil,
-                        onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                        onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -522,7 +526,7 @@ private final class IosAppCompositionRoot {
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
                     currentUserId: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
-                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -767,7 +771,9 @@ private final class IosAppCompositionRoot {
             languageCode: Locale.current.languageCode ?? "en",
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
-                    _ = self?.installRestoredFeedSessionIfAvailable()
+                    self?.authenticatedHost.finishAuthentication {
+                        _ = self?.installRestoredFeedSessionIfAvailable()
+                    }
                 }
             },
         )
@@ -863,7 +869,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var settingsFactory: (() -> UIViewController)?
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
-    private var authenticationFactory: (() -> UIViewController)?
+    private enum AuthenticationEntry { case login, registration }
+    private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
+    private var authRequiredPromptFactory: (() -> UIViewController)?
+    private var authRequiredPromptVisible = false
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1012,8 +1021,19 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
-        installAuthenticationFactory {
-            IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+        installAuthenticationFactory { entry in
+            switch entry {
+            case .login: return IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+            case .registration: return IosAuthHostKt.QuataRegistrationViewController(dependencies: dependencies)
+            }
+        }
+        authRequiredPromptFactory = { [weak self] in
+            IosAuthHostKt.QuataAuthRequiredDialogViewController(
+                languageCode: Locale.current.languageCode ?? "en",
+                onDismiss: { self?.dismissAuthRequiredPrompt() },
+                onCreateAccount: { self?.dismissAuthRequiredPrompt { self?.presentAuthentication(.registration) } },
+                onLogin: { self?.dismissAuthRequiredPrompt { self?.presentAuthentication(.login) } },
+            )
         }
     }
 
@@ -1030,24 +1050,63 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Installs the authenticated entry point without granting a session. Keeping this UIKit
     /// factory boundary explicit lets a private deep link show login while retaining its route
     /// until the real authenticated Feed/factory composition is available.
-    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+    func installAuthenticationFactory(_ factory: @escaping (AuthenticationEntry) -> UIViewController) {
         authenticationFactory = factory
-        // On an unconfigured deployment this remains the honest initial state. With a valid
-        // public Feed it is deferred until an anonymous user explicitly asks to log in.
-        if !hasPublicFeed || pendingRoute?.isAuthenticationRequired == true {
-            presentLoginIfAvailable()
+    }
+
+    /// Compatibility seam for router-only XCTest fixtures. Production uses `installAuthentication`
+    /// and therefore the real common prompt and distinct Login/Register entry points.
+    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+        installAuthenticationFactory { _ in factory() }
+    }
+
+    /// XCTest seam only; the production path above always installs the common Compose dialog.
+    func installAuthRequiredPromptFactory(_ factory: @escaping () -> UIViewController) {
+        authRequiredPromptFactory = factory
+    }
+
+    /// Android's capability gate: keep the public Feed visible and show common Compose copy.
+    func presentAuthRequiredPrompt() {
+        guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
+        authRequiredPromptVisible = true
+        let prompt = authRequiredPromptFactory()
+        prompt.modalPresentationStyle = .overFullScreen
+        prompt.view.backgroundColor = .clear
+        prompt.view.accessibilityIdentifier = "quata-ios-auth-required-dialog"
+        present(prompt, animated: true)
+    }
+
+    private func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
+        authRequiredPromptVisible = false
+        guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
+            completion?()
+            return
         }
+        dismiss(animated: true, completion: completion)
     }
 
     func presentLoginIfAvailable() {
+        presentAuthRequiredPrompt()
+    }
+
+    private func presentAuthentication(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
-        guard displayedController?.view.accessibilityIdentifier != "quata-ios-auth-host" else { return }
-        routeMenuButton.isHidden = true
-        show(
-            authenticationFactory(),
-            accessibilityIdentifier: "quata-ios-auth-host",
-            accessibilityLabel: "Quata iOS authentication",
-        )
+        let controller = authenticationFactory(entry)
+        controller.modalPresentationStyle = .fullScreen
+        controller.view.accessibilityIdentifier = "quata-ios-auth-host"
+        controller.view.accessibilityLabel = "Quata iOS authentication"
+        controller.view.isAccessibilityElement = false
+        present(controller, animated: true)
+    }
+
+    /// The shared Auth host has completed a successful login.  Remove the full-screen Auth
+    /// product first, then restore the pending private route in the rebuilt app shell.
+    func finishAuthentication(_ completion: @escaping () -> Void) {
+        guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-host" else {
+            completion()
+            return
+        }
+        dismiss(animated: true, completion: completion)
     }
 
     /// XCTest-only controller factories for deterministic launcher and URL routing checks.
@@ -1434,10 +1493,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func route(_ route: PendingRoute) {
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
-            // Retain a private deep link for the authenticated composition, but never render its
-            // controller before the launcher has restored a real session.
+            // Retain the target, but follow Android: anonymous browsing remains on Feed while
+            // the common capability dialog is presented above the shared shell.
             pendingRoute = route
-            presentLoginIfAvailable()
+            if let feedController = feedFactory?(nil) {
+                showRouteController(feedController, route: .feed(postId: nil))
+            }
+            presentAuthRequiredPrompt()
             return
         }
         guard let controller = controller(for: route) else {

@@ -35,6 +35,9 @@ class IosFeedHostDependencies(
     val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
     val presence: FeedUserPresence? = null,
+    /** Capability gate owned by the UIKit app router; the Feed remains publicly readable. */
+    val onAuthRequired: () -> Unit = {},
+    val onCreatePost: () -> Unit = {},
 )
 
 /**
@@ -47,12 +50,16 @@ fun iosReadOnlyFeedHostDependencies(
     shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
+    onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
     mediaFactory = mediaFactory,
     shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
+    onAuthRequired = onAuthRequired,
+    onCreatePost = onCreatePost,
 )
 
 /**
@@ -66,12 +73,16 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     shareService: ShareService,
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
+    onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
     mediaFactory = mediaFactory,
     shareService = shareService,
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
+    onAuthRequired = onAuthRequired,
+    onCreatePost = onCreatePost,
 )
 
 /** Authenticated launch path: it shares the Keychain session owner and enables reviewed writes. */
@@ -82,6 +93,8 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     shareService: ShareService,
     initialPostId: String? = null,
     onOpenUserProfile: (String) -> Unit = {},
+    onAuthRequired: () -> Unit = {},
+    onCreatePost: () -> Unit = {},
 ): IosFeedHostDependencies {
     val transport = IosFeedReadTransport(configuration, authSession)
     val read = RemoteFeedReadRepository(transport)
@@ -92,6 +105,8 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         onOpenUserProfile = onOpenUserProfile,
         initialPostId = initialPostId,
         presence = IosFeedPresence(configuration, authSession),
+        onAuthRequired = onAuthRequired,
+        onCreatePost = onCreatePost,
     )
 }
 
@@ -128,6 +143,8 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 showComposeMessage = true,
             ),
             onOpenUserProfile = dependencies.onOpenUserProfile,
+            onAuthRequired = dependencies.onAuthRequired,
+            onCreatePost = dependencies.onCreatePost,
         )
     }
 }
