@@ -75,9 +75,10 @@ class WebProfileRemoteGateway(
     }
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
-        profileId.requireProfileIdentifier()
-        require(patch.isNotEmpty()) { "web_profile_patch_empty" }
-        throw UnsupportedOperationException("web_profile_bridge_unavailable")
+        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        val allowed = patch.filterKeys { it in ProfileWritableColumns }
+        require(allowed.isNotEmpty()) { "web_profile_patch_empty" }
+        client.patch(ProfilesTable, mapOf("id" to "eq.$profileId"), allowed.toPostgrestProfileJson()).requireProfileMutationSuccess("patch")
     }
 
     override suspend fun saveRecoverySecret(
@@ -94,9 +95,13 @@ class WebProfileRemoteGateway(
         profileId: String,
         contactIds: List<String>,
     ) {
-        profileId.requireProfileIdentifier()
-        contactIds.forEach { it.requireProfileIdentifier() }
-        throw UnsupportedOperationException("web_profile_bridge_unavailable")
+        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        val normalized = contactIds.map { it.requireProfileIdentifier() }.distinct().take(MaxEmergencyContacts)
+        client.delete(EmergencyContactsTable, mapOf("profile_id" to "eq.$profileId")).requireProfileMutationSuccess("delete_contacts")
+        if (normalized.isNotEmpty()) {
+            val body = normalized.mapIndexed { index, id -> buildJsonObject { put("profile_id", profileId); put("contact_profile_id", id); put("position", index + 1) } }.joinToString("[", "]")
+            client.post(EmergencyContactsTable, body).requireProfileMutationSuccess("post_contacts")
+        }
     }
 
     private suspend fun loadProfiles(
