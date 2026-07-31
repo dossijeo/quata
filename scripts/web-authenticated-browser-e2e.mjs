@@ -38,6 +38,15 @@ const FIXTURE = Object.freeze({
   refreshToken: "fixture-refresh-token",
   webSessionToken: "fixture-web-session-token",
 });
+const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
+  { name: "primary_forward", fragments: ["communities", "chat", "official", "", "profile", "communities"] },
+  { name: "primary_reverse", fragments: ["", "official", "chat", "communities", "profile", ""] },
+  { name: "feed_official_toggle", fragments: ["", "official"] },
+  { name: "communities_chat_toggle", fragments: ["communities", "chat"] },
+  { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
+  { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
+]);
+const NAVIGATION_STRESS_CYCLES = 50;
 
 const options = parseArguments(process.argv.slice(2));
 const report = {
@@ -64,6 +73,7 @@ let cleanupSession;
 let backend;
 let stage = "initializing";
 const browserDiagnostics = [];
+let navigationStressFailure;
 
 try {
   const sourceRevision = await verifyDistributionProvenance(options.distribution);
@@ -193,6 +203,12 @@ try {
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("read_only_route_pageerror");
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
+
+  stage = "authenticated_navigation_stress";
+  report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
+  report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
+  report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
+
   if (authSurface === "native_controls") {
     stage = "native_auth_control_logout";
     await logoutWithNativeControls(page);
@@ -234,6 +250,8 @@ try {
   report.status = "passed";
 } catch (error) {
   report.error = safeError(error);
+  report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
+  if (navigationStressFailure) report.navigationStressFailure = navigationStressFailure;
   report.failureStage = stage;
   if (page) {
     report.browserState = await page.evaluate(() => ({
@@ -248,6 +266,8 @@ try {
           return { tag: element.tagName, name: element.getAttribute("aria-label"), type: element.getAttribute("type"), disabled: element.disabled, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
         }),
       hash: location.hash,
+      shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
+      primarySelectedRoute: document.documentElement.getAttribute("data-quata-primary-selected-route"),
     })).catch(() => ({ unavailable: true }));
     report.browserState.diagnostics = browserDiagnostics.slice(-20);
   }
@@ -452,6 +472,90 @@ async function navigateReadOnlyRoute(page, route) {
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   }, route.route);
   await page.waitForTimeout(150);
+}
+
+
+async function runAuthenticatedNavigationStress(page, diagnostics) {
+  const results = [];
+  for (const sequence of PRIMARY_NAVIGATION_STRESS_SEQUENCES) {
+    const diagnosticsAtStart = diagnostics.length;
+    for (let cycle = 1; cycle <= NAVIGATION_STRESS_CYCLES; cycle += 1) {
+      if (sequence.name === "browser_back_forward") {
+        for (const fragment of sequence.fragments) await navigateStressFragment(page, fragment);
+        for (let index = 1; index < sequence.fragments.length; index += 1) {
+          const expected = expectedRouteForFragment(sequence.fragments.at(-1 - index));
+          await navigateHistory(page, "back", index, expected);
+        }
+        for (let index = 1; index < sequence.fragments.length; index += 1) {
+          const expected = expectedRouteForFragment(sequence.fragments[index]);
+          await navigateHistory(page, "forward", index, expected);
+        }
+      } else if (sequence.name === "direct_fragments") {
+        for (const fragment of sequence.fragments) {
+          await navigateStressFragment(page, fragment);
+        }
+      } else {
+        for (const fragment of sequence.fragments) await navigateStressFragment(page, fragment);
+      }
+      assertHealthyAuthenticatedShell(diagnostics, diagnosticsAtStart);
+    }
+    results.push({ name: sequence.name, cycles: NAVIGATION_STRESS_CYCLES, status: "passed" });
+  }
+  const pageErrors = diagnostics.filter(entry => entry.startsWith("pageerror:"));
+  const knownFixtureConsoleErrors = diagnostics.filter(entry => entry.includes("/realtime/v1/websocket") && entry.includes("Unexpected response code: 404"));
+  const unexpectedConsoleErrors = diagnostics.filter(entry => entry.startsWith("console:error:") && !knownFixtureConsoleErrors.includes(entry));
+  if (pageErrors.length || unexpectedConsoleErrors.length) throw new Error("navigation_stress_console_exception");
+  return { status: "passed", sequences: results, knownFixtureConsoleErrors: knownFixtureConsoleErrors.length, unexpectedConsoleErrors: unexpectedConsoleErrors.length, uncaughtExceptions: pageErrors.length };
+}
+
+async function navigateHistory(page, direction, index, expected) {
+  const before = await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route") }));
+  await (direction === "back" ? page.goBack() : page.goForward());
+  try { await waitForShellRoute(page, expected); }
+  catch (error) {
+    navigationStressFailure = { direction, index, expected, before, after: await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route"), shellRoute: document.documentElement.getAttribute("data-quata-shell-route"), selected: document.documentElement.getAttribute("data-quata-primary-selected-route") })), error: error.message };
+    throw error;
+  }
+}
+
+async function navigateStressFragment(page, fragment) {
+  const trace = { requested: fragment, expected: expectedRouteForFragment(fragment), before: await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route") })) };
+  await page.evaluate(value => { globalThis.location.hash = value; }, fragment);
+  try {
+    await waitForShellRoute(page, expectedRouteForFragment(fragment));
+  } catch (error) {
+    navigationStressFailure = { ...trace, after: await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route"), shellRoute: document.documentElement.getAttribute("data-quata-shell-route"), selected: document.documentElement.getAttribute("data-quata-primary-selected-route") })), error: error.message };
+    throw error;
+  }
+}
+
+function expectedRouteForFragment(fragment) {
+  return fragment === "" ? "feed" : fragment === "communities" ? "communities" : fragment;
+}
+
+async function waitForShellRoute(page, expectedRoute) {
+  await page.waitForFunction(route => {
+    const root = document.querySelector("#quata-root");
+    const expectedPrimary = route === "communities" ? "neighborhoods" : route === "chat" ? "conversations" : route;
+    const shellChildren = root?.shadowRoot?.childElementCount ?? root?.childElementCount ?? 0;
+    return localStorage.getItem("web.navigation.route") === route &&
+      document.documentElement.getAttribute("data-quata-shell-route") === route &&
+      document.documentElement.getAttribute("data-quata-primary-selected-route") === expectedPrimary &&
+      root && shellChildren > 0;
+  }, expectedRoute);
+}
+
+function assertHealthyAuthenticatedShell(diagnostics, diagnosticsAtStart) {
+  const newDiagnostics = diagnostics.slice(diagnosticsAtStart);
+  if (newDiagnostics.some(entry => entry.startsWith("pageerror:") || entry.includes("IndexOutOfBoundsException"))) {
+    throw new Error("navigation_stress_console_exception");
+  }
+}
+
+async function captureShellScreenshot(page, reportOutput) {
+  const output = reportOutput.replace(/\.json$/i, ".png");
+  await page.screenshot({ path: output, fullPage: true });
+  return output;
 }
 
 function observeProductRead(request, url, _backend, session, evidence, stage) {
