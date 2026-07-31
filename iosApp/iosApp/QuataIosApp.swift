@@ -1398,6 +1398,21 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onOpenAvatar: { [weak self] profileId in
                     self?.presentAuthenticatedMemberProfile(profileId: profileId)
                 },
+                onOpenMap: { value in
+                    guard let url = URL(string: value) else { return }
+                    UIApplication.shared.open(url)
+                },
+                onTranslateMessage: { text in
+                    var components = URLComponents(string: "https://translate.google.com/")
+                    components?.queryItems = [
+                        URLQueryItem(name: "sl", value: "auto"),
+                        URLQueryItem(name: "tl", value: "es"),
+                        URLQueryItem(name: "text", value: text),
+                        URLQueryItem(name: "op", value: "translate"),
+                    ]
+                    guard let url = components?.url else { return }
+                    UIApplication.shared.open(url)
+                },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
         }

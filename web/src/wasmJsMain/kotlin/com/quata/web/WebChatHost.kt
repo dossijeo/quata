@@ -131,6 +131,8 @@ fun WebChatHost(
                 modifier = listModifier,
             )
         },
+        onOpenMap = { value -> value.safeWebMapUrl()?.let(::openWebExternalLink) },
+        onTranslateMessage = { text -> openWebExternalLink(webTranslationUrl(text)) },
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
         clipboardService = clipboardService,
@@ -196,8 +198,19 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
 
 private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
 
+private fun webTranslationUrl(text: String): String =
+    "https://translate.google.com/?sl=auto&tl=es&text=${encodeWebChatComponent(text)}&op=translate"
+
+private fun encodeWebChatComponent(value: String): String = js("encodeURIComponent(value)")
+
 private fun String.safeWebAttachmentUrl(): String? = takeIf {
     startsWith("https://", ignoreCase = true) ||
         startsWith("http://", ignoreCase = true) ||
         startsWith("blob:", ignoreCase = true)
+}
+
+private fun String.safeWebMapUrl(): String? = takeIf {
+    startsWith("https://", ignoreCase = true) ||
+        startsWith("http://", ignoreCase = true) ||
+        startsWith("geo:", ignoreCase = true)
 }
