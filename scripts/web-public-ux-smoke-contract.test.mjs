@@ -8,6 +8,15 @@ const index = await readFile(new URL('../web/src/wasmJsMain/resources/index.html
 const privateBoundary = smoke.match(
     /async function navigateAndAssertPrivateAuthBoundary[\s\S]*?\n}\n\nasync function assertUnconfiguredAuthBoundary/,
 )?.[0] ?? '';
+const publicBoundary = smoke.match(
+    /async function navigateAndAssertPublicShell[\s\S]*?\n}\n\nasync function navigateAndAssertAuthBoundary/,
+)?.[0] ?? '';
+const authBoundary = smoke.match(
+    /async function navigateAndAssertAuthBoundary[\s\S]*?\n}\n\nasync function navigateAndAssertPrivateAuthBoundary/,
+)?.[0] ?? '';
+const publicRecovery = smoke.match(
+    /for \(const \{ fragment, route \} of publicDeepLinks\)[\s\S]*?\n    }\n\n    const \{ fragment, route \}/,
+)?.[0] ?? '';
 const privateRecovery = smoke.match(
     /for \(const \{ fragment, returnRoute \} of privateDeepLinks\)[\s\S]*?\n    }\n}/,
 )?.[0] ?? '';
@@ -34,7 +43,11 @@ test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the 
     assert.match(smoke, /const privateDeepLinks = \[/);
     assert.match(smoke, /fragment: 'chat-sb%3Ateam%2F42\?message=msg%209'/);
     assert.match(smoke, /waitForPrivateDeepLinkAuthBoundary\(cdp, fragment, returnRoute\)/);
+    assert.match(publicBoundary, /\?quata-auth-e2e=1#\$\{contract\.fragment\}/);
+    assert.match(authBoundary, /\?quata-auth-e2e=1#\$\{contract\.fragment\}/);
     assert.match(privateBoundary, /\?quata-auth-e2e=1#\$\{contract\.fragment\}/);
+    assert.doesNotMatch(publicRecovery, /quata-auth-e2e/);
+    assert.match(publicRecovery, /`\$\{origin\}\/#\$\{fragment\}`/);
     assert.match(privateRecovery, /\?quata-auth-e2e=1#\$\{fragment\}/);
     assert.match(smoke, /lastProbe\?\.hash === ''/);
     assert.match(smoke, /lastProbe\.route === 'feed'/);

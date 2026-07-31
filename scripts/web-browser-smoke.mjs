@@ -698,7 +698,11 @@ async function waitForPageTarget(port) {
 async function navigateAndAssertPublicShell(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    // Keep the opt-in query stable for the complete route matrix so every transition is a
+    // same-document hash navigation. Separate public deep-link recovery below remains query-free.
+    const navigation = await cdp.send('Page.navigate', {
+        url: `${origin}/?quata-auth-e2e=1#${contract.fragment}`,
+    });
     await waitForShell(cdp, contract.fragment);
     await waitForNavigationRoute(cdp, contract.route);
     await waitForShellMarker(cdp, contract.route);
