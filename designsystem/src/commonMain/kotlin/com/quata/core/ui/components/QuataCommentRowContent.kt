@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.PostComment
 
@@ -48,9 +49,11 @@ fun QuataCommentRowContent(
                 }
                 comment.replyToAuthorName?.let { author ->
                     Spacer(Modifier.height(8.dp)); Text(strings.replyTo(author), color = template.colors.accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                    comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted -> Spacer(Modifier.height(4.dp)); Text(quoted, color = template.colors.textSecondary, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                    comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
+                        Spacer(Modifier.height(4.dp)); QuataEmojiStaticText(quoted, template.colors.textSecondary, 13.sp, TextUnit.Unspecified, 2, TextOverflow.Ellipsis)
+                    }
                 }
-                Spacer(Modifier.height(12.dp)); Text(comment.message, color = template.colors.textPrimary, fontSize = 16.sp, lineHeight = 21.sp, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp)); QuataEmojiStaticText(comment.message, template.colors.textPrimary, 16.sp, 21.sp, Int.MAX_VALUE, TextOverflow.Clip, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.align(Alignment.End)) { TextButton(onClick = onReport) { Text(strings.report, color = template.colors.textSecondary) }; TextButton(onClick = onReply) { Text(strings.reply, color = template.colors.accent, fontWeight = FontWeight.ExtraBold) } }
             }
         }
