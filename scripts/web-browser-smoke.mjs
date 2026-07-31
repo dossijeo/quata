@@ -698,9 +698,7 @@ async function waitForPageTarget(port) {
 async function navigateAndAssertPublicShell(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', {
-        url: `${origin}/?quata-auth-e2e=1#${contract.fragment}`,
-    });
+    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
     await waitForShell(cdp, contract.fragment);
     await waitForNavigationRoute(cdp, contract.route);
     await waitForShellMarker(cdp, contract.route);
@@ -713,7 +711,9 @@ async function navigateAndAssertPublicShell(cdp, origin, contract, pageErrors) {
 async function navigateAndAssertAuthBoundary(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    const navigation = await cdp.send('Page.navigate', {
+        url: `${origin}/?quata-auth-e2e=1#${contract.fragment}`,
+    });
     await waitForShell(cdp, contract.fragment);
     await waitForNavigationRoute(cdp, contract.route);
     await assertShellHidden(cdp, contract.fragment);
@@ -725,7 +725,9 @@ async function navigateAndAssertAuthBoundary(cdp, origin, contract, pageErrors) 
 async function navigateAndAssertPrivateAuthBoundary(cdp, origin, contract, pageErrors) {
     const initialErrorCount = pageErrors.length;
     const startedAt = performance.now();
-    const navigation = await cdp.send('Page.navigate', { url: `${origin}/#${contract.fragment}` });
+    const navigation = await cdp.send('Page.navigate', {
+        url: `${origin}/?quata-auth-e2e=1#${contract.fragment}`,
+    });
     await waitForPrivateDeepLinkAuthBoundary(cdp, contract.fragment, contract.returnRoute);
     if (pageErrors.length > initialErrorCount) throw new Error(`Private route #${contract.fragment} produced an uncaught browser exception.`);
     return collectNavigationMetrics(cdp, contract.fragment, performance.now() - startedAt, Boolean(navigation.loaderId));
@@ -826,7 +828,7 @@ async function assertPushConsentUsesTrustedSettingsClick(cdp, origin) {
 async function assertUnauthenticatedDeepLinkRecovery(cdp, origin, pageErrors) {
     for (const { fragment, route } of publicDeepLinks) {
         const initialErrorCount = pageErrors.length;
-        await cdp.send('Page.navigate', { url: `${origin}/?quata-auth-e2e=1#${fragment}` });
+        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
         await waitForShell(cdp, fragment);
         await waitForNavigationRoute(cdp, route);
         if (pageErrors.length > initialErrorCount) {
@@ -846,7 +848,7 @@ async function assertUnauthenticatedDeepLinkRecovery(cdp, origin, pageErrors) {
 
     for (const { fragment, returnRoute } of privateDeepLinks) {
         const initialErrorCount = pageErrors.length;
-        await cdp.send('Page.navigate', { url: `${origin}/#${fragment}` });
+        await cdp.send('Page.navigate', { url: `${origin}/?quata-auth-e2e=1#${fragment}` });
         await waitForPrivateDeepLinkAuthBoundary(cdp, fragment, returnRoute);
         if (pageErrors.length > initialErrorCount) {
             throw new Error(`Private deep link #${fragment} produced an uncaught browser exception.`);
