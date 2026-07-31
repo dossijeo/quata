@@ -495,6 +495,8 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Composer) {
                         WebPostComposerRoute(
                             platformServices = platformServices,
+                            runtimeConfiguration = runtimeConfiguration,
+                            authRepository = authRepository,
                         )
                     }
                 } else if (navigation.route == "communities") {

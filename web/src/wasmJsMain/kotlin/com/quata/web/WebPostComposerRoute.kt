@@ -18,6 +18,7 @@ import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLImageElement
@@ -27,10 +28,14 @@ import org.w3c.dom.HTMLVideoElement
 @Composable
 fun WebPostComposerRoute(
     platformServices: WebPlatformServices,
+    runtimeConfiguration: WebRuntimeConfiguration,
+    authRepository: WebAuthRepository,
 ) {
     val scope = rememberCoroutineScope()
     WebPostComposerHost(
-        repository = WebPostComposerPublicationUnavailableRepository,
+        repository = remember(runtimeConfiguration, authRepository) {
+            ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
+        },
         mediaSlots = WebComposerMediaSlots(
             imageGallery = { modifier, onSelected ->
                 BrowserPickerButton("Elegir imagen", modifier) {
