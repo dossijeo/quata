@@ -13,6 +13,24 @@ data class ComposerPreparedMedia(val reference: String, val name: String, val mi
 data class ComposerUploadedMedia(val publicUrl: String, val rollbackToken: String)
 data class ComposerPostInsert(val actorProfileId: String, val wallId: String, val body: String, val imageUrl: String? = null, val videoUrl: String? = null)
 
+fun composerModerationFields(
+    actor: ComposerActorSession,
+    draft: PostComposerDraft,
+    mediaName: String,
+    mediaType: String,
+    sourceUrl: String,
+): Map<String, String> = mapOf(
+    "action" to "quqos_moderate_content",
+    "context" to "post",
+    "text" to draft.toRemoteText(),
+    "image_name" to mediaName,
+    "image_type" to mediaType,
+    "image_score" to "0",
+    "display_name" to actor.displayName,
+    "profile_id" to actor.profileId,
+    "url" to sourceUrl,
+)
+
 /** Platform boundary: actor and wall are derived from the current real session, never from UI. */
 interface ActorBoundComposerTransport {
     suspend fun renewableSession(): ComposerActorSession?
@@ -43,7 +61,7 @@ class ActorBoundPostComposerRepository(private val transport: ActorBoundComposer
                 PostComposerType.Video -> transport.prepareVideo(requireNotNull(draft.videoUri)).getOrThrow().also { prepared = it }.let { transport.uploadVideo(actor.profileId, it).getOrThrow() }
             }
             val postId = transport.insertPost(
-                ComposerPostInsert(actor.profileId, wallId, draft.toPostBody(), uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Image }, uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Video }),
+                ComposerPostInsert(actor.profileId, wallId, draft.toRemoteText(), uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Image }, uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Video }),
             ).getOrThrow()?.takeIf(String::isNotBlank) ?: error("composer_post_id_missing")
             Result.success(postId)
         } catch (failure: Throwable) {
@@ -55,7 +73,8 @@ class ActorBoundPostComposerRepository(private val transport: ActorBoundComposer
     } catch (cancelled: CancellationException) { throw cancelled } catch (failure: Throwable) { Result.failure(failure) }
 }
 
-private fun PostComposerDraft.toPostBody(): String = when (type) {
+/** Canonical remote representation shared by moderation and insertion, matching Android. */
+fun PostComposerDraft.toRemoteText(): String = when (type) {
     PostComposerType.Text -> buildPostBodyWithMeta(cleanBody = text, textPattern = textPatternId, channel = "feed")
     PostComposerType.Image -> buildPostBodyWithMeta(imageLocation = locationLabel, channel = "feed")
     PostComposerType.Video -> buildPostBodyWithMeta(mediaTitle = text, channel = "feed")

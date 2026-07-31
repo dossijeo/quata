@@ -7,6 +7,7 @@ import com.quata.feature.postcomposer.data.ComposerActorSession
 import com.quata.feature.postcomposer.data.ComposerPostInsert
 import com.quata.feature.postcomposer.data.ComposerPreparedMedia
 import com.quata.feature.postcomposer.data.ComposerUploadedMedia
+import com.quata.feature.postcomposer.data.composerModerationFields
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -32,9 +33,7 @@ class WebPostComposerTransport(
         val media = when { draft.imageUri != null -> draft.imageUri; draft.videoUri != null -> draft.videoUri; else -> null }
         val json = webComposerWordpressForm(
             url = webComposerWordpressUrl(configuration, "wp-admin/admin-ajax.php"),
-            fields = mapOf("action" to "quqos_moderate_content", "context" to "post", "text" to draft.text,
-                "image_name" to (media?.substringAfterLast('/') ?: ""), "image_type" to mediaMime(media), "image_score" to "0",
-                "display_name" to actor.displayName, "profile_id" to actor.profileId, "url" to "web://post"),
+            fields = composerModerationFields(actor, draft, media?.substringAfterLast('/') ?: "", mediaMime(media), "web://post"),
         )
         val root = Json.parseToJsonElement(json).jsonObject
         val data = root["data"]?.jsonObject

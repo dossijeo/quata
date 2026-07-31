@@ -1,5 +1,6 @@
 package com.quata.feature.postcomposer.data
 
+import com.quata.core.model.AuthSession
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -9,6 +10,15 @@ class IosPostComposerTransportContractTest {
         supabasePublishableKey = "publishable-key",
         wordpressBaseUrl = "https://egquata.com/",
     )
+
+    @Test
+    fun renewableActorMappingRetainsRealSessionDisplayName() {
+        val actor = AuthSession(
+            token = "token", userId = " profile-7 ", email = "ada@example.com", displayName = "Ada Lovelace",
+        ).toComposerActorSession()
+
+        assertEquals(ComposerActorSession("profile-7", "Ada Lovelace"), actor)
+    }
 
     @Test
     fun wallFallbackAndPostInsertUseCanonicalResources() {

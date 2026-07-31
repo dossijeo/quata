@@ -2,6 +2,7 @@ package com.quata.feature.postcomposer.data
 
 import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.model.AuthSession
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
@@ -47,15 +48,13 @@ class IosPostComposerTransport(
     private val authSession: IosRenewableAuthSession,
 ) : ActorBoundComposerTransport {
     override suspend fun renewableSession(): ComposerActorSession? = authSession.currentSession()?.let { session ->
-        session.userId.trim().takeIf(String::isNotEmpty)?.let { ComposerActorSession(it, "") }
+        session.toComposerActorSession()
     }
 
     override suspend fun moderate(actor: ComposerActorSession, draft: PostComposerDraft): Result<Unit> = runCatching {
         val media = draft.imageUri ?: draft.videoUri
-        val response = wordpressForm(mapOf(
-            "action" to "quqos_moderate_content", "context" to "post", "text" to draft.text,
-            "image_name" to (media?.substringAfterLast('/') ?: ""), "image_type" to iosComposerMime(media), "image_score" to "0",
-            "display_name" to actor.displayName, "profile_id" to actor.profileId, "url" to "ios://post",
+        val response = wordpressForm(composerModerationFields(
+            actor, draft, media?.substringAfterLast('/') ?: "", iosComposerMime(media), "ios://post",
         ))
         val data = Json.parseToJsonElement(response).jsonObject["data"]?.jsonObject
         require(data?.get("action")?.jsonPrimitive?.contentOrNull != "block") {
@@ -136,6 +135,8 @@ internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageObjectUrl(pat
 internal fun IosPostComposerRuntimeConfiguration.iosComposerStoragePublicUrl(path: String) = "${storageBase()}/object/public/community-posts/${path.iosComposerPath()}"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressAdminAjaxUrl() = "${wordpressBase()}/wp-admin/admin-ajax.php"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressVideoUploadUrl() = "${wordpressBase()}/wp-json/quqos/v1/upload-video"
+internal fun AuthSession.toComposerActorSession(): ComposerActorSession? =
+    userId.trim().takeIf(String::isNotEmpty)?.let { ComposerActorSession(it, displayName) }
 internal data class IosComposerHttpContract(val url: String, val method: String, val headers: Map<String, String>)
 internal fun iosComposerHttpContract(url: String, method: String, contentType: String?, apiKey: String?, token: String?, upsert: Boolean, prefer: String?): IosComposerHttpContract {
     val headers = buildMap {
