@@ -11,5 +11,20 @@ data class QuataWindowLayoutInfo(
     val viewportKey: String,
 )
 
+internal fun measuredQuataWindowLayoutInfo(
+    platform: String,
+    widthPx: Int,
+    heightPx: Int,
+): QuataWindowLayoutInfo {
+    val width = widthPx.coerceAtLeast(0)
+    val height = heightPx.coerceAtLeast(0)
+    return QuataWindowLayoutInfo(
+        widthPx = width,
+        heightPx = height,
+        isLandscape = width > height,
+        viewportKey = "$platform:${width}x${height}",
+    )
+}
+
 @Composable
 expect fun rememberQuataWindowLayoutInfo(): QuataWindowLayoutInfo

@@ -24,15 +24,14 @@ import com.quata.core.ui.components.QuataLiveRankingItem
  * same common fallback rather than leaving an empty native element in the reel.
  */
 @Composable
-fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null) {
+fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null, modifier: Modifier = Modifier.size(56.dp)) {
     BrowserFeedAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
         isOfficial = post.author.isOfficial,
         isOnline = isOnline,
-        modifier = Modifier
-            .size(56.dp)
+        modifier = modifier
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
             .clickable { onOpenUserProfile(post.author.id) },
     )

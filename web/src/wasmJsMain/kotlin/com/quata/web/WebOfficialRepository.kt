@@ -15,6 +15,14 @@ import com.quata.feature.official.data.OfficialRemoteWireFields
 import com.quata.feature.official.data.OfficialRemoteWireSchema
 import com.quata.feature.official.data.officialRemoteProfileIds
 import com.quata.feature.official.data.toOfficialDomainUser
+import com.quata.feature.official.data.selectOfficialTranslations
+import com.quata.feature.official.data.officialTranslationReadPlan
+import com.quata.feature.official.data.officialCommentReportPayload
+import com.quata.feature.official.data.officialLikeLookupPlan
+import com.quata.feature.official.data.officialLikeInsertPlan
+import com.quata.feature.official.data.officialLikeDeletePlan
+import com.quata.feature.official.data.officialCommentPlan
+import com.quata.feature.official.data.officialSoftDeletePlan
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
@@ -37,12 +45,12 @@ internal fun webOfficialReadAuthMode(operation: WebOfficialReadOperation): WebPo
 }
 
 /**
- * Browser implementation of the read-only Official feed contract.
+ * Browser implementation of the public-read and authenticated-interaction Official contract.
  *
  * Its public feed reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
  * deliberately omit Authorization. Private/admin reads remain [WebPostgrestAuthMode.SessionRequired]
- * and fail closed without a session; browser write flows need a separately reviewed API and fail
- * explicitly.
+ * and fail closed without a session. Reviewed delete/like/comment/report interactions use that
+ * renewable session; publishing remains explicitly unsupported until the editor is shipped.
  */
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
@@ -83,27 +91,63 @@ class WebOfficialRepository(
 
     override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
 
-    override suspend fun deletePost(postId: String): Result<Unit> = unsupportedMutation()
+    override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId()
+        val post = getOfficialPost(postId).getOrThrow() ?: error("web_official_post_missing")
+        val currentUser = refreshCurrentUser().getOrThrow()
+        check(post.author.id == userId || currentUser?.isAdmin == true) { "web_official_delete_forbidden" }
+        val plan = officialSoftDeletePlan(postId.requireOfficialPostgrestIdentifier(), post.translationGroupId?.requireOfficialPostgrestIdentifier(), currentOfficialTimestamp())
+        client.patch(plan.table, plan.filter, plan.body!!).requireWebOfficialSuccess()
+    }
 
-    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        when (val existing = client.get(officialLikeLookupPlan(safePostId, safeUserId).table, officialLikeLookupPlan(safePostId, safeUserId).filter)) {
+            is WebPostgrestResult.Success -> if (existing.body.trim() == "[]") {
+                officialLikeInsertPlan(safePostId, safeUserId).let { client.post(it.table, it.body!!).requireWebOfficialSuccess() }
+            } else {
+                officialLikeDeletePlan(safePostId, safeUserId).let { client.delete(it.table, it.filter).requireWebOfficialSuccess() }
+            }
+            is WebPostgrestResult.Failure -> error("web_official_postgrest_${existing.reason}")
+        }
+        getOfficialPost(postId).getOrThrow()
+    }
 
-    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        officialCommentPlan(safePostId, safeUserId, comment).let { client.post(it.table, it.body!!).requireWebOfficialSuccess() }
+        getOfficialPost(postId).getOrThrow()
+    }
+
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val targetId = commentId.requireOfficialPostgrestIdentifier()
+        client.rpc("quata_ugc_report", officialCommentReportPayload(userId, targetId)).requireWebOfficialSuccess()
+    }
 
     private suspend fun loadFeed(
         limit: Int,
         publishedBefore: String? = null,
         postId: String? = null,
     ): Result<List<OfficialPostItem>> = runCatching {
+        val translation = officialTranslationReadPlan(currentWebOfficialLanguage(), limit, postId)
         val posts = client.rows(
             table = "official_posts",
             query = buildMap {
                 put("select", PostSelect)
-                put("order", "published_at.desc")
+                put("is_published", "eq.true")
+                put("deleted_at", "is.null")
+                put("order", "published_at.desc,created_at.desc")
+                putAll(translation.filters)
                 publishedBefore?.let { put("published_at", "lt.$it") }
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
-            limit = limit,
-        ).map(JsonObject::toOfficialRemotePost)
+            limit = translation.fetchLimit,
+        ).map(JsonObject::toOfficialRemotePost).selectOfficialTranslations(currentWebOfficialLanguage())
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -112,6 +156,7 @@ class WebOfficialRepository(
             query = mapOf(
                 "select" to CommentSelect,
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
+                "deleted_at" to "is.null",
                 "order" to "created_at.asc",
             ),
         ).map(JsonObject::toOfficialRemoteComment)
@@ -167,6 +212,10 @@ class WebOfficialRepository(
         return this
     }
 
+    private suspend fun authenticatedUserId(): String = authRepository.restoreLocalSession()?.userId
+        ?.takeIf(String::isNotBlank)
+        ?: error("web_official_session_missing")
+
     private fun <T> unsupportedMutation(): Result<T> =
         Result.failure(UnsupportedOperationException("web_official_mutation_not_implemented"))
 
@@ -183,6 +232,18 @@ class WebOfficialRepository(
         val PostgrestIdentifier = Regex("[A-Za-z0-9_-]+")
     }
 }
+
+private fun WebPostgrestResult.requireWebOfficialSuccess() {
+    if (this is WebPostgrestResult.Failure) error("web_official_postgrest_${reason}")
+}
+
+private fun String.webJsonString(): String = buildString {
+    append('"')
+    for (char in this@webJsonString) append(if (char == '"' || char == '\\') "\\$char" else char)
+    append('"')
+}
+
+private fun currentOfficialTimestamp(): String = js("new Date().toISOString()")
 
 private fun JsonObject.toOfficialRemotePost(): OfficialRemotePost = officialRemotePostFromWire(
     id = requiredOfficialString("id"),
@@ -212,3 +273,5 @@ private fun JsonObject.requiredOfficialString(name: String): String =
     officialStringOrNull(name) ?: error("web_official_response_missing_$name")
 
 private fun JsonObject.officialStringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
+
+private fun currentWebOfficialLanguage(): String? = js("globalThis.navigator?.language || 'es'")

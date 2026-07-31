@@ -7,6 +7,13 @@ import com.quata.core.data.toFoundationData
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.official.data.selectOfficialTranslations
+import com.quata.feature.official.data.officialTranslationReadPlan
+import com.quata.feature.official.data.officialLikeLookupPlan
+import com.quata.feature.official.data.officialLikeInsertPlan
+import com.quata.feature.official.data.officialLikeDeletePlan
+import com.quata.feature.official.data.officialCommentPlan
+import com.quata.feature.official.data.officialSoftDeletePlan
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -24,7 +31,10 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.NSLocale
 import platform.Foundation.setValue
+import platform.Foundation.setHTTPBody
+import platform.Foundation.setHTTPMethod
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -59,18 +69,21 @@ enum class IosOfficialReadFailureKind {
 }
 
 /**
- * Public, read-only PostgREST adapter for Official content.
+ * Public-read and authenticated-interaction PostgREST adapter for Official content.
  *
- * It deliberately has no mutation methods.  Public Official reads use only the Supabase
+ * Public Official reads use only the Supabase
  * publishable key, just like the iOS Feed reader: a missing, expired or restored user session
  * must neither prevent an anonymous visitor from reading Official nor become a bearer header on
  * that visitor's requests.  An optional session is used exclusively by [refreshCurrentUser] to
  * enrich the local UI identity when an authenticated host explicitly chooses to provide one.
+ * That authenticated host may delete, like, comment and report through reviewed RLS paths;
+ * createPost/createPosts remain explicit unsupported operations until publishing is shipped.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosOfficialReadRepository(
     private val configuration: IosOfficialRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession? = null,
+    private val preferredLanguageTag: String? = null,
 ) : OfficialRepository {
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flow {
         // This transport has no verified Realtime contract. Emit a network snapshot and let the
@@ -107,27 +120,64 @@ class IosOfficialReadRepository(
 
     override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
 
-    override suspend fun deletePost(postId: String): Result<Unit> = unsupportedMutation()
+    override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId()
+        val post = getOfficialPost(postId).getOrThrow() ?: error("ios_official_post_missing")
+        val currentUser = refreshCurrentUser().getOrThrow()
+        check(post.author.id == userId || currentUser?.isAdmin == true) { "ios_official_delete_forbidden" }
+        officialSoftDeletePlan(postId.requireOfficialPostgrestIdentifier(), post.translationGroupId, currentOfficialTimestamp()).let { mutate(it.table, it.method, it.filter, it.body) }
+    }
 
-    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun toggleLike(postId: String): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        val lookup = officialLikeLookupPlan(safePostId, safeUserId)
+        val existing = authenticatedRows(lookup.table, lookup.filter)
+        if (existing.isEmpty()) officialLikeInsertPlan(safePostId, safeUserId).let { mutate(it.table, it.method, it.filter, it.body) }
+        else officialLikeDeletePlan(safePostId, safeUserId).let { mutate(it.table, it.method, it.filter, it.body) }
+        getOfficialPost(postId).getOrThrow()
+    }
 
-    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId()
+        val safePostId = postId.requireOfficialPostgrestIdentifier()
+        val safeUserId = userId.requireOfficialPostgrestIdentifier()
+        officialCommentPlan(safePostId, safeUserId, comment).let { mutate(it.table, it.method, it.filter, it.body) }
+        getOfficialPost(postId).getOrThrow()
+    }
+
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val userId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val targetId = commentId.requireOfficialPostgrestIdentifier()
+        authenticatedRequest(
+            table = "rpc/quata_ugc_report",
+            method = "POST",
+            query = emptyMap(),
+            body = officialCommentReportPayload(userId, targetId),
+        )
+        Unit
+    }
 
     private suspend fun loadFeed(
         limit: Int,
         publishedBefore: String? = null,
         postId: String? = null,
     ): Result<List<OfficialPostItem>> = runCatching {
+        val translation = officialTranslationReadPlan(preferredLanguageTag, limit, postId)
         val posts = rows(
             table = "official_posts",
             query = buildMap {
                 put("select", PostSelect)
-                put("order", "published_at.desc")
+                put("is_published", "eq.true")
+                put("deleted_at", "is.null")
+                put("order", "published_at.desc,created_at.desc")
+                putAll(translation.filters)
                 publishedBefore?.let { put("published_at", "lt.$it") }
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
-            limit = limit,
-        ).map(Map<*, *>::toOfficialRemotePost)
+            limit = translation.fetchLimit,
+        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(preferredLanguageTag)
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -136,6 +186,7 @@ class IosOfficialReadRepository(
             query = mapOf(
                 "select" to CommentSelect,
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
+                "deleted_at" to "is.null",
                 "order" to "created_at.asc",
             ),
         ).map(Map<*, *>::toOfficialRemoteComment)
@@ -152,9 +203,9 @@ class IosOfficialReadRepository(
             comments = comments,
             likes = likes,
             profiles = profiles,
-            // Anonymous Official reads never inspect a user session.  Interactive likes remain
-            // unavailable on iOS, so no current-user marker is needed by this read-only host.
-            currentUserId = null,
+            // This is identity-only metadata for the already-public response. It never changes
+            // the bearer-free GET transport used above.
+            currentUserId = authSession?.currentSession()?.userId,
             defaultTitle = DefaultTitle,
             defaultCommentAuthor = DefaultCommentAuthor,
         )
@@ -205,12 +256,46 @@ class IosOfficialReadRepository(
         }.executeOfficialRead()
     }
 
+    private suspend fun authenticatedRows(table: String, query: Map<String, String>): List<Map<*, *>> {
+        val result = authenticatedRequest(table, "GET", query, null)
+        val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*> ?: error("ios_official_response_not_array")
+        return root.map { it as? Map<*, *> ?: error("ios_official_response_not_object") }
+    }
+
+    private suspend fun mutate(table: String, method: String, query: Map<String, String>, body: String?) {
+        authenticatedRequest(table, method, query, body)
+    }
+
+    private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
+        require(table.matches(IosPostgrestTableName) || table.matches(IosPostgrestRpcPath)) { "ios_official_table_invalid" }
+        val session = authSession?.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_official_session_missing")
+        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_official_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_official_publishable_key_missing")
+        val encodedQuery = query.entries.joinToString("&") { (name, value) -> "${name.iosQueryComponent()}=${value.iosQueryComponent()}" }
+        val url = NSURL(string = "$baseUrl/rest/v1/$table${if (encodedQuery.isEmpty()) "" else "?$encodedQuery"}") ?: error("ios_official_postgrest_url_invalid")
+        return NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod(method)
+            setValue(key, "apikey")
+            setValue("Bearer ${session.bearerToken}", "Authorization")
+            setValue("application/json", "Accept")
+            setValue("return=representation", "Prefer")
+            if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) }
+        }.executeOfficialRead()
+    }
+
     private fun Collection<String>.toOfficialPostgrestInFilter(): String =
         "in.(${distinct().joinToString(",") { it.requireOfficialPostgrestIdentifier() }})"
 
     private fun String.requireOfficialPostgrestIdentifier(): String {
         require(matches(IosOfficialIdentifier)) { "ios_official_invalid_postgrest_identifier" }
         return this
+    }
+
+    private suspend fun authenticatedUserId(): String {
+        val sessionProvider = authSession
+            ?: throw UnsupportedOperationException("ios_official_mutation_not_implemented")
+        return sessionProvider.currentSession()?.userId
+            ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
     }
 
     private fun <T> unsupportedMutation(): Result<T> =
@@ -227,12 +312,17 @@ class IosOfficialReadRepository(
     }
 }
 
+private fun iosJsonString(value: String): String = buildString { append('"'); value.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+@OptIn(kotlin.time.ExperimentalTime::class)
+private fun currentOfficialTimestamp(): String = kotlin.time.Clock.System.now().toString()
+
 /** Small iOS composition factory; host/UI ownership remains with the launcher. */
 class IosOfficialRuntimeBootstrap(
     configuration: IosOfficialRuntimeConfiguration,
     authSession: IosRenewableAuthSession? = null,
+    preferredLanguageTag: String? = null,
 ) {
-    val repository: OfficialRepository = IosOfficialReadRepository(configuration, authSession)
+    val repository: OfficialRepository = IosOfficialReadRepository(configuration, authSession, preferredLanguageTag)
 }
 
 /**
@@ -373,4 +463,5 @@ private fun String.iosQueryComponent(): String = encodeToByteArray().joinToStrin
 }
 
 private val IosPostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
+private val IosPostgrestRpcPath = Regex("rpc/[A-Za-z_][A-Za-z0-9_]*")
 private val IosOfficialIdentifier = Regex("[A-Za-z0-9_-]+")

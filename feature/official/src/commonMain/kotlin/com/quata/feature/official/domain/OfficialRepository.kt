@@ -17,4 +17,5 @@ interface OfficialRepository {
     suspend fun deletePost(postId: String): Result<Unit>
     suspend fun toggleLike(postId: String): Result<OfficialPostItem?>
     suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?>
+    suspend fun reportComment(commentId: String): Result<Unit>
 }

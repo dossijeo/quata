@@ -9,6 +9,7 @@ sealed class OfficialFeedUiEvent {
     data object ClearMessage : OfficialFeedUiEvent()
     data class ToggleLike(val postId: String) : OfficialFeedUiEvent()
     data class AddComment(val postId: String, val comment: PostComment) : OfficialFeedUiEvent()
+    data class ReportComment(val commentId: String) : OfficialFeedUiEvent()
     data class DeletePost(val postId: String) : OfficialFeedUiEvent()
     data class CreatePost(val draft: OfficialPostDraft) : OfficialFeedUiEvent()
     data class CreatePosts(val drafts: List<OfficialPostDraft>) : OfficialFeedUiEvent()

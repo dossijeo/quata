@@ -9,6 +9,32 @@ import kotlin.test.assertTrue
 
 class OfficialRemoteProtocolTest {
     @Test
+    fun translationReadPlanMatchesAndroidLocalePolicyAndPreservesVariants() {
+        assertEquals(mapOf("language" to "eq.es"), officialTranslationReadPlan("es-ES", 20).filters)
+        assertEquals(20, officialTranslationReadPlan("es", 20).fetchLimit)
+        assertEquals(mapOf("or" to "(language.eq.fr,language.eq.es)"), officialTranslationReadPlan("fr-FR", 20).filters)
+        assertEquals(40, officialTranslationReadPlan("fr", 20).fetchLimit)
+        assertEquals(mapOf("language" to "eq.es"), officialTranslationReadPlan("x);drop", 20).filters)
+        assertEquals(emptyMap(), officialTranslationReadPlan("fr", 20, postId = "exact").filters)
+        assertEquals(1, officialTranslationReadPlan("fr", 20, postId = "exact").fetchLimit)
+    }
+
+    @Test
+    fun selectsRequestedTranslationThenSpanishFallbackPerGroup() {
+        val selected = listOf(
+            OfficialRemotePost(id = "es", translationGroupId = "group", language = "es", publishedAt = "2026-01-01"),
+            OfficialRemotePost(id = "fr", translationGroupId = "group", language = "fr", publishedAt = "2026-01-02"),
+            OfficialRemotePost(id = "standalone", language = "en", publishedAt = "2026-01-03"),
+        ).selectOfficialTranslations("fr-FR")
+
+        assertEquals(listOf("standalone", "fr"), selected.map(OfficialRemotePost::id))
+        assertEquals("es", listOf(
+            OfficialRemotePost(id = "es", translationGroupId = "group", language = "es"),
+            OfficialRemotePost(id = "en", translationGroupId = "group", language = "en"),
+        ).selectOfficialTranslations("de").single().id)
+    }
+
+    @Test
     fun mapsSharedWireScalarsWithoutTakingOverPlatformDecodingOrErrors() {
         val fields = OfficialRemoteWireFields.from(
             OfficialRemoteWireSchema.postScalarKeys + OfficialRemoteWireSchema.commentScalarKeys + OfficialRemoteWireSchema.profileScalarKeys,

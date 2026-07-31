@@ -15,11 +15,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,20 +65,66 @@ fun QuataFeedActionRail(
 }
 
 @Composable
-fun QuataFeedOverflowActionButton(postRank: Int, rankLabel: String, liveLabel: String, reportLabel: String?, showReport: Boolean, onOpenLive: () -> Unit, onReport: () -> Unit, modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
-    Box(modifier) {
-        FeedIconAction(Icons.Filled.MoreVert, liveLabel, onClick = { open = true })
-        DropdownMenu(open, { open = false }) {
-            DropdownMenuItem({ Text("$rankLabel #$postRank") }, leadingIcon = { FeedEmojiText(QuataFeedEmoji.Rank, fontWeight = FontWeight.Black) }, onClick = { open = false; onOpenLive() })
-            DropdownMenuItem({ Text(liveLabel) }, leadingIcon = { Icon(Icons.Filled.PlayArrow, null) }, onClick = { open = false; onOpenLive() })
-            if (showReport && reportLabel != null) DropdownMenuItem({ Text(reportLabel) }, leadingIcon = { Icon(Icons.Filled.Flag, null) }, onClick = { open = false; onReport() })
-        }
-    }
+fun QuataFeedOverflowActionButton(
+    postRank: Int,
+    rankLabel: String,
+    liveLabel: String,
+    reportLabel: String?,
+    showReport: Boolean,
+    onOpenLive: () -> Unit,
+    onReport: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    QuataFeedOverflowActionButton(
+        postRank = postRank,
+        rankLabel = rankLabel,
+        liveLabel = liveLabel,
+        reportLabel = reportLabel,
+        showReport = showReport,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        onOpenLive = {
+            expanded = false
+            onOpenLive()
+        },
+        onReport = {
+            expanded = false
+            onReport()
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
-private fun FeedIconAction(icon: ImageVector, description: String, count: String? = null, tint: Color = Color.White, background: Color = Color.Black.copy(alpha = .42f), onClick: () -> Unit) {
+fun QuataFeedOverflowActionButton(
+    postRank: Int,
+    rankLabel: String,
+    liveLabel: String,
+    reportLabel: String?,
+    showReport: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onOpenLive: () -> Unit,
+    onReport: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    QuataFeedOverflowActionAnchor(
+        postRank = postRank,
+        rankLabel = rankLabel,
+        liveLabel = liveLabel,
+        reportLabel = reportLabel,
+        showReport = showReport,
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+        onOpenLive = onOpenLive,
+        onReport = onReport,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun FeedIconAction(icon: ImageVector, description: String, count: String? = null, tint: Color = Color.White, background: Color = Color.Black.copy(alpha = .42f), onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(48.dp).clip(CircleShape).background(background).semantics { contentDescription = description }.clickable(onClick = onClick), Alignment.Center) {
             if (count == null) Icon(icon, null, modifier = Modifier.size(24.dp), tint = tint) else Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -107,6 +149,10 @@ private fun FeedTextAction(text: String, description: String, count: String? = n
 
 @Composable
 private fun FeedEmojiText(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified, fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified, fontWeight: FontWeight? = null, maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, textAlign: TextAlign? = null, lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified) {
+    if (text in QuataFeedEmoji.glyphs) {
+        QuataFeedEmojiIcon(text, modifier = modifier, size = if (text.length <= 2) 19.dp else 14.dp)
+        return
+    }
     val inlineText = rememberQuataFeedEmojiInlineText(text)
     Text(inlineText.text, modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, textAlign = textAlign, lineHeight = lineHeight, inlineContent = inlineText.inlineContent)
 }

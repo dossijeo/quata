@@ -19,11 +19,9 @@ class IosOfficialPublicFactoryTest {
                 supabasePublishableKey = "public-client-key",
             ),
             officialPostId = "official-public-7",
-            navigationMessage = "Explora Quata",
         )
 
         assertEquals("official-public-7", dependencies.officialPostId)
-        assertEquals("Explora Quata", dependencies.navigationMessage)
         assertNull(dependencies.repository.refreshCurrentUser().getOrThrow())
         assertTrue(
             dependencies.repository.createPost(

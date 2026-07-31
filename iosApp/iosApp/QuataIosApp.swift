@@ -223,7 +223,8 @@ private final class IosAppCompositionRoot {
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: nil
+            authSession: nil,
+            preferredLanguageTag: Locale.preferredLanguages.first
         )
     }()
     /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
@@ -486,11 +487,45 @@ private final class IosAppCompositionRoot {
     private func installPublicOfficialIfConfigured() {
         guard let officialRuntimeBootstrap else { return }
         authenticatedHost.installOfficialFactory { postId in
-            QuataOfficialViewControllerKt.QuataOfficialViewController(
+            let shareService = self.platformServices.services.share
+            // The common Official surface exposes creation only once iOS has a real editor
+            // route. This callback also fails closed after logout removes that factory.
+            let onCreateOfficialPost = { [weak self] in
+                guard let self, self.authenticatedHost.hasOfficialEditorFactory else { return }
+                self.authenticatedHost.showOfficialEditor()
+            }
+            if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, runtimeBootstrap.hasRestoredSession() {
+                return QuataOfficialViewControllerKt.QuataOfficialViewController(
+                    dependencies: QuataOfficialViewControllerKt.iosAuthenticatedPostgrestOfficialHostDependencies(
+                        configuration: IosOfficialRuntimeConfiguration(
+                            supabaseUrl: configuration.supabaseUrl,
+                            supabasePublishableKey: configuration.supabasePublishableKey
+                        ),
+                        authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+                        officialPostId: postId,
+                        shareService: shareService,
+                        mediaViewerFactory: IosOfficialMediaBridge.shared,
+                        currentUserId: nil,
+                        onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                        onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+                        onCreateOfficialPost: onCreateOfficialPost,
+                        canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
+                        preferredLanguageTag: Locale.preferredLanguages.first,
+                    )
+                )
+            }
+            return QuataOfficialViewControllerKt.QuataOfficialViewController(
                 dependencies: QuataOfficialViewControllerKt.createIosOfficialHostDependencies(
                     repository: officialRuntimeBootstrap.repository,
                     officialPostId: postId,
-                    navigationMessage: "Quata para iOS",
+                    shareService: shareService,
+                    mediaViewerFactory: IosOfficialMediaBridge.shared,
+                    currentUserId: nil,
+                    preferredLanguageTag: Locale.preferredLanguages.first,
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                    onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+                    onCreateOfficialPost: onCreateOfficialPost,
+                    canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                 ),
             )
         }
@@ -818,6 +853,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var feedFactory: ((String?) -> UIViewController)?
     private var chatFactory: ((String?, String?) -> UIViewController)?
     private var officialFactory: ((String?) -> UIViewController)?
+    // Installed only once iOS supplies the complete product editor dependencies. There is no
+    // Composer or empty-controller fallback for Official publication.
+    private var officialEditorFactory: (() -> UIViewController)?
     private var notificationsFactory: (() -> UIViewController)?
     private var profileSosFactory: (() -> UIViewController)?
     private var communitiesFactory: (() -> UIViewController)?
@@ -878,6 +916,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case feed(postId: String?)
         case chat(conversationId: String?, messageId: String?)
         case official(postId: String?)
+        case officialEditor
         case notifications
         case profileSos
         case communities
@@ -890,7 +929,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             switch self {
             case .feed, .official, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .notifications, .profileSos, .communities, .composer, .settings:
+            case .chat, .officialEditor, .notifications, .profileSos, .communities, .composer, .settings:
                 return true
             }
         }
@@ -1002,6 +1041,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func presentLoginIfAvailable() {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
+        guard displayedController?.view.accessibilityIdentifier != "quata-ios-auth-host" else { return }
         routeMenuButton.isHidden = true
         show(
             authenticationFactory(),
@@ -1173,6 +1213,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    /// Registers the real common Official editor host only after its dependencies exist.
+    func installOfficialEditorFactory(_ factory: @escaping () -> UIViewController) {
+        officialEditorFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
+    var hasOfficialEditorFactory: Bool {
+        officialEditorFactory != nil
+    }
+
     func installNotificationsFactory(_ factory: @escaping () -> UIViewController) {
         notificationsFactory = factory
         renderPendingRouteIfPossible()
@@ -1215,6 +1265,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func showOfficial(postId: String?) { route(.official(postId: postId)) }
+
+    func showOfficialEditor() { route(.officialEditor) }
 
     func showNotifications() { route(.notifications) }
 
@@ -1278,6 +1330,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         }
         if composerFactory != nil {
             sheet.addAction(UIAlertAction(title: "Crear publicación", style: .default) { [weak self] _ in self?.showComposer() })
+        }
+        if officialEditorFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Crear comunicado", style: .default) { [weak self] _ in self?.showOfficialEditor() })
         }
         if settingsFactory != nil {
             sheet.addAction(UIAlertAction(title: "Ajustes", style: .default) { [weak self] _ in self?.showSettings() })
@@ -1346,6 +1401,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         feedFactory = nil
         chatFactory = nil
         officialFactory = nil
+        officialEditorFactory = nil
         notificationsFactory = nil
         profileSosFactory = nil
         communitiesFactory = nil
@@ -1408,6 +1464,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return chatFactory?(conversationId, messageId)
         case let .official(postId):
             return officialFactory?(postId)
+        case .officialEditor:
+            return officialEditorFactory?()
         case .notifications:
             return notificationsFactory?()
         case .profileSos:
@@ -1446,6 +1504,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-chat-host", "Quata iOS Chat")
         case .official:
             presentation = ("quata-ios-official-host", "Quata iOS Official")
+        case .officialEditor:
+            presentation = ("quata-ios-official-editor-host", "Quata iOS Official Editor")
         case .notifications:
             presentation = ("quata-ios-notifications-host", "Quata iOS Notifications")
         case .profileSos:
@@ -1472,7 +1532,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         switch route {
         case .feed, .chat, .official, .profileSos, .communities:
             return false
-        case .notifications, .composer, .settings, .whatsNew, .releaseHistory:
+        case .officialEditor, .notifications, .composer, .settings, .whatsNew, .releaseHistory:
             return true
         }
     }
@@ -1550,7 +1610,13 @@ struct IosAuthenticatedShellLayout {
         let topHeight = safeAreaInsets.top + 68
         let bottomHeight = 92 + safeAreaInsets.bottom
         let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
-        let content = CGRect(x: bounds.minX, y: bounds.minY + topHeight, width: bounds.width, height: contentHeight)
+        let contentWidth = max(0, bounds.width - safeAreaInsets.left - safeAreaInsets.right)
+        let content = CGRect(
+            x: bounds.minX + safeAreaInsets.left,
+            y: bounds.minY + topHeight,
+            width: contentWidth,
+            height: contentHeight
+        )
         return IosAuthenticatedShellLayout(
             topChrome: CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: topHeight),
             content: content,

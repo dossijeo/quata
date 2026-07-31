@@ -680,18 +680,35 @@ private fun OfficialPostPreview(
     }
     OfficialEditorPostPreviewContent(
         post = previewPost,
-        typeLabel = postType.label(),
+        typeLabel = postType.remoteValue.uppercase(),
         readMoreLabel = localizedOfficialReadMoreLabel(readMoreLabel),
         closeLabel = stringResource(R.string.common_close),
-        author = { authorModifier -> OfficialAuthorHeader(previewPost, onOpenAuthor = {}, modifier = authorModifier) },
+        author = { authorModifier ->
+            OfficialAuthorHeaderContent(
+                displayName = previewPost.author.displayName,
+                neighborhood = previewPost.author.neighborhood,
+                fallbackNeighborhood = stringResource(R.string.official_account_fallback),
+                avatar = {},
+                modifier = authorModifier,
+            )
+        },
         media = previewMedia,
         actionRail = { isLandscape, railModifier ->
-            OfficialPostActionRail(
+            OfficialPostActionRailContent(
                 post = previewPost,
                 rank = 1,
                 isLandscape = isLandscape,
                 canPublish = false,
                 canModerate = false,
+                strings = OfficialPostActionRailStrings(
+                    like = stringResource(R.string.feed_like),
+                    comments = stringResource(R.string.feed_comments),
+                    share = stringResource(R.string.feed_share),
+                    rank = stringResource(R.string.feed_rank),
+                    live = stringResource(R.string.common_live),
+                    publish = stringResource(R.string.official_create),
+                    delete = stringResource(R.string.feed_delete_post),
+                ),
                 onCreate = {},
                 onOpenLive = {},
                 onLike = {},

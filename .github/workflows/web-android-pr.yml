@@ -471,7 +471,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain \
+          bash ./gradlew :app:verifyDebugComposeResources --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/android-ci/assemble-debug.log
 
       - name: Summarize Android lint debt
