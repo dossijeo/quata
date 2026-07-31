@@ -335,6 +335,10 @@ private fun QuataWebApp(
         authInitialDestination = destination
         navigation.navigate("auth")
     }
+    fun dismissAuthenticationPrompt() {
+        isAuthRequiredPromptOpen = false
+        pendingAuthenticationFragment = null
+    }
     fun selectPrimaryRoute(route: String) {
         val fragment = canonicalPrimaryRouteToWebFragment(route)
         if (!isSessionReady && fragment.toWebNavigationState().requiresAuthentication) {
@@ -342,6 +346,26 @@ private fun QuataWebApp(
         } else {
             navigation.navigate(fragment)
         }
+    }
+    DisposableEffect(navigation) {
+        val removeBridge = installWebAuthGateE2eBridge(
+            dismiss = ::dismissAuthenticationPrompt,
+            chooseLogin = { openAuth(AuthProductDestination.Login) },
+            chooseRegister = { openAuth(AuthProductDestination.Register) },
+        )
+        onDispose(removeBridge)
+    }
+    LaunchedEffect(isAuthRequiredPromptOpen, pendingAuthenticationFragment) {
+        setWebAuthPromptMarker(
+            visible = isAuthRequiredPromptOpen,
+            pendingRoute = pendingAuthenticationFragment,
+        )
+    }
+    LaunchedEffect(navigationState.isAuthenticationRoute, authInitialDestination) {
+        setWebAuthSurfaceMarker(
+            visible = navigationState.isAuthenticationRoute,
+            destination = authInitialDestination.name.lowercase(),
+        )
     }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
@@ -382,9 +406,10 @@ private fun QuataWebApp(
                 isOnline = true,
                 strings = WebAuthenticatedChromeStrings,
                 onLogoClick = { navigation.navigate("about") },
-                onNotificationsClick = {
-                    if (isSessionReady) navigation.navigate("notifications") else requestAuthenticationFor("notifications")
-                },
+                // Android exposes the Notifications surface from the public header.  Its
+                // repository may render an empty/error state anonymously; opening a private
+                // conversation from it is still handled by the route-level participation gate.
+                onNotificationsClick = { navigation.navigate("notifications") },
                 onSosClick = {
                     if (isSessionReady) navigation.navigate("profile") else requestAuthenticationFor("profile")
                 },
@@ -477,6 +502,7 @@ private fun QuataWebApp(
                             slots = webNeighborhoodsSlots,
                             rankingItems = emptyList(),
                             onOpenConversation = navigation::navigateConversation,
+                            onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
                             onOpenRankingItem = { },
@@ -495,6 +521,7 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -543,6 +570,7 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -570,7 +598,7 @@ private fun QuataWebApp(
             }
             if (isAuthRequiredPromptOpen) {
                 WebAuthRequiredDialog(
-                    onDismiss = { isAuthRequiredPromptOpen = false },
+                    onDismiss = ::dismissAuthenticationPrompt,
                     onCreateAccount = { openAuth(AuthProductDestination.Register) },
                     onLogin = { openAuth(AuthProductDestination.Login) },
                 )
@@ -622,9 +650,17 @@ internal data class WebNavigationState(
     val postId: String? = null,
 )
 
-/** Feed and Official (including shared-post deep links) remain available without a session. */
+/**
+ * Android's public surface consists of Feed, Qüata/Neighborhoods, Official and Notifications.
+ * Mutating or conversational actions inside those hosts call the common participation gate.
+ */
 internal val WebNavigationState.isPublicRoute: Boolean
-    get() = route == "feed" || route == "official" || postId != null || officialPostId != null
+    get() = route == "feed" ||
+        route == "communities" ||
+        route == "official" ||
+        route == "notifications" ||
+        postId != null ||
+        officialPostId != null
 
 internal val WebNavigationState.isAuthenticationRoute: Boolean
     get() = route == "auth"
@@ -779,6 +815,29 @@ private external fun setWebNavigationShellMarker(route: String, selectedPrimaryR
   root?.removeAttribute('data-quata-primary-selected-route');
 }""")
 private external fun clearWebNavigationShellMarker()
+
+/** Test semantics for the real Compose prompt; these attributes do not render a parallel UI. */
+@JsFun("""(visible, pendingRoute) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (visible) {
+    root.setAttribute('data-quata-auth-required-prompt', 'visible');
+    if (pendingRoute) root.setAttribute('data-quata-auth-pending-route', pendingRoute);
+  } else {
+    root.removeAttribute('data-quata-auth-required-prompt');
+    root.removeAttribute('data-quata-auth-pending-route');
+  }
+}""")
+private external fun setWebAuthPromptMarker(visible: Boolean, pendingRoute: String?)
+
+/** Identifies which common full-screen Auth destination is mounted for hermetic browser QA. */
+@JsFun("""(visible, destination) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (visible) root.setAttribute('data-quata-auth-destination', destination);
+  else root.removeAttribute('data-quata-auth-destination');
+}""")
+private external fun setWebAuthSurfaceMarker(visible: Boolean, destination: String)
 
 /**
  * Observes in-place browser hash navigation. The returned callback must be retained for the

@@ -51,11 +51,21 @@ test("hermetic Auth gate keeps the Compose product surface and uses only the loc
 test("the hermetic browser journey proves the permanent public shell, participation gate and common private-route login return", () => {
   assert.match(runner, /const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42\?message=msg%209"/);
   assert.match(runner, /await assertPrivateAuthenticationGate\(page\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
+  assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
+  assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
+  assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
+  assert.match(runner, /data-quata-auth-required-prompt/);
+  assert.match(runner, /data-quata-auth-pending-route/);
+  assert.match(runner, /data-quata-auth-destination/);
   assert.match(runner, /auth_router_bootstrap_ready_before_private_transition/);
   assert.match(runner, /localStorage\.getItem\("web\.navigation\.route"\) === "feed"/);
   assert.match(runner, /await assertAutomaticLoginReturn\(page\)/);
   assert.match(runner, /await assertAnonymousPublicShellAfterLogout\(page\)/);
-  assert.match(runner, /anonymous_feed_official_shell_and_private_chat_participation_gate/);
+  assert.match(runner, /anonymous_feed_neighborhoods_official_notifications_shell_and_private_chat_participation_gate/);
+  assert.match(runner, /\{ fragment: "communities", route: "communities" \}/);
+  assert.match(runner, /\{ fragment: "notifications", route: "notifications" \}/);
   assert.match(runner, /product_logout_returns_to_anonymous_feed_and_official_shell/);
   assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /location\.hash === ""/);

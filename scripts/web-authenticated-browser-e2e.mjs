@@ -174,13 +174,23 @@ try {
   await resolveAuthSurface(page);
   stage = "private_participation_gate";
   await assertPrivateAuthenticationGate(page);
-  report.steps.push("encoded_private_chat_returns_to_public_feed_with_participation_gate");
+  report.steps.push("encoded_private_chat_returns_to_public_feed_with_visible_participation_gate");
+  await invokeAuthGateAction(page, "dismiss");
+  await assertDismissedAuthenticationGate(page);
+  report.steps.push("participation_gate_dismiss_keeps_public_feed");
+  await assertPrivateAuthenticationGate(page);
+  await invokeAuthGateAction(page, "chooseRegister");
+  await assertFullScreenAuthDestination(page, "register");
+  report.steps.push("participation_gate_create_account_opens_fullscreen_register");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
-  report.steps.push("anonymous_feed_official_shell_and_private_chat_participation_gate");
-  // The E2E bridge invokes the real shared AuthRepository while the visual gate itself remains
-  // Compose canvas.  Production users choose Login/Register in the common dialog first.
+  await invokeAuthGateAction(page, "chooseLogin");
+  await assertFullScreenAuthDestination(page, "login");
+  report.steps.push("anonymous_feed_neighborhoods_official_notifications_shell_and_private_chat_participation_gate");
+  report.steps.push("participation_gate_existing_account_opens_fullscreen_login");
+  // The repository bridge submits through the real AuthRepository after the E2E has exercised
+  // both actual callbacks bound to the common Compose participation dialog.
   stage = "compose_auth_bridge_login";
   await loginWithComposeAuthBridge(page, credentials);
   report.steps.push("compose_auth_bridge_login_product_repository_activation");
@@ -493,7 +503,9 @@ async function navigateReadOnlyRoute(page, route) {
 async function assertAnonymousPublicShell(page) {
   for (const route of [
     { fragment: "", route: "feed" },
+    { fragment: "communities", route: "communities" },
     { fragment: "official", route: "official" },
+    { fragment: "notifications", route: "notifications" },
   ]) {
     await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route.fragment);
     await page.waitForFunction(expected =>
@@ -507,8 +519,42 @@ async function assertPrivateAuthenticationGate(page) {
   await page.evaluate(fragment => { globalThis.location.hash = fragment; }, PRIVATE_RETURN_FRAGMENT);
   await page.waitForFunction(() =>
     location.hash === "" && localStorage.getItem("web.navigation.route") === "feed" &&
-    document.documentElement.getAttribute("data-quata-shell-route") === "feed",
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-auth-required-prompt") === "visible" &&
+    document.documentElement.getAttribute("data-quata-auth-pending-route") ===
+      "chat-sb%3Ateam%2F42?message=msg%209" &&
+    globalThis.__quataAuthGateE2eProduct?.version === 1,
   );
+}
+
+async function invokeAuthGateAction(page, action) {
+  await page.evaluate(name => {
+    const bridge = globalThis.__quataAuthGateE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge[name] !== "function") {
+      throw new Error(`compose_auth_gate_action_missing_${name}`);
+    }
+    bridge[name]();
+  }, action);
+}
+
+async function assertDismissedAuthenticationGate(page) {
+  await page.waitForFunction(() =>
+    location.hash === "" &&
+    localStorage.getItem("web.navigation.route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
+    !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
+    !document.documentElement.hasAttribute("data-quata-auth-pending-route"),
+  );
+}
+
+async function assertFullScreenAuthDestination(page, destination) {
+  await page.waitForFunction(expected =>
+    location.hash === "#auth" &&
+    localStorage.getItem("web.navigation.route") === "auth" &&
+    !document.documentElement.hasAttribute("data-quata-shell-route") &&
+    !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
+    document.documentElement.getAttribute("data-quata-auth-destination") === expected,
+  destination);
 }
 
 async function assertAutomaticLoginReturn(page) {
