@@ -24,3 +24,14 @@ data class ChatRealtimeChange(
     val threadId: Long? = null,
 )
 
+/** Shared lifecycle rule used by both Phoenix clients and covered without platform sockets. */
+fun shouldConnectChatRealtime(
+    foreground: Boolean,
+    networkAvailable: Boolean,
+    hasAuthenticatedSession: Boolean,
+    closed: Boolean = false,
+): Boolean = !closed && foreground && networkAvailable && hasAuthenticatedSession
+
+/** Deterministic capped backoff. Hosts may add jitter at the platform boundary. */
+fun chatRealtimeReconnectDelayMillis(attempt: Int): Long =
+    (1_000L shl attempt.coerceIn(0, 5)).coerceAtMost(30_000L)

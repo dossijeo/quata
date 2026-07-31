@@ -4,6 +4,8 @@ package com.quata.web
 
 import com.quata.feature.chat.data.ChatRealtimeChange
 import com.quata.feature.chat.data.ChatRealtimeGateway
+import com.quata.feature.chat.data.chatRealtimeReconnectDelayMillis
+import com.quata.feature.chat.data.shouldConnectChatRealtime
 import kotlin.js.JsAny
 import kotlin.js.JsString
 import kotlin.js.toJsString
@@ -57,7 +59,7 @@ class WebChatRealtimeGateway(
     override fun close() { closed = true; disconnect("chat-closed") }
 
     private fun reconcile() {
-        if (closed || !foreground || !network || authRepository.activeProfileSessionOrNull() == null) disconnect("chat-paused")
+        if (!shouldConnectChatRealtime(foreground, network, authRepository.activeProfileSessionOrNull() != null, closed)) disconnect("chat-paused")
         else if (socket == null) connect()
     }
     private fun connect() {
@@ -109,8 +111,8 @@ class WebChatRealtimeGateway(
         socket?.let { sendWebChatFrame(it, Json.encodeToString(JsonArray.serializer(), frame).toJsString()) }
     }
     private fun scheduleReconnect() {
-        if (closed || !foreground || !network || reconnect != null) return
-        reconnect = webChatSetTimeout((1_000 shl attempt.coerceAtMost(5)).coerceAtMost(30_000)) { reconnect = null; attempt = (attempt + 1).coerceAtMost(6); reconcile() }
+        if (!shouldConnectChatRealtime(foreground, network, authRepository.activeProfileSessionOrNull() != null, closed) || reconnect != null) return
+        reconnect = webChatSetTimeout(chatRealtimeReconnectDelayMillis(attempt).toInt()) { reconnect = null; attempt = (attempt + 1).coerceAtMost(6); reconcile() }
     }
     private fun disconnect(reason: String) { reconnect?.let(::webChatClearTimeout); reconnect = null; heartbeat?.let(::webChatClearInterval); heartbeat = null; socket?.let { closeWebChatSocket(it, reason.toJsString()) }; socket = null; joinRef = null; _online.value = false; _typing.value = emptySet() }
     private fun nextRef() = (++ref).toString()

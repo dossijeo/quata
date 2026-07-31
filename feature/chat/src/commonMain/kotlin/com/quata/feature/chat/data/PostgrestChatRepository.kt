@@ -112,8 +112,11 @@ open class PostgrestChatRepository(
 
     init {
         realtimeGateway?.let { gateway ->
+            // Read the stream eagerly: construction is the subscription boundary and tests can
+            // detect accidental removal even before the collector is scheduled.
+            val changeStream = gateway.changes
             scope.launch {
-                gateway.changes.collect { change -> refreshForRealtimeChange(change) }
+                changeStream.collect { change -> refreshForRealtimeChange(change) }
             }
         }
     }
