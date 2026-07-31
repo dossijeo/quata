@@ -437,9 +437,12 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.showComposer()
         XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
         wait(for: [promptPresented], timeout: 2)
+        let registrationPresented = expectation(description: "Registration presentation completed")
+        router.onNextAuthenticationPresentedForTesting { registrationPresented.fulfill() }
         router.openRegistrationFromAuthRequiredPrompt()
-        waitUntil { router.presentedViewController === registration }
+        wait(for: [registrationPresented], timeout: 2)
 
+        XCTAssertTrue(router.presentedViewController === registration)
         XCTAssertEqual(registration.modalPresentationStyle, .fullScreen)
         XCTAssertEqual(registration.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNil(registration.view.subviews.first {
@@ -1153,8 +1156,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
         wait(for: [promptPresented], timeout: 2)
 
+        let loginPresented = expectation(description: "Login presentation completed")
+        router.onNextAuthenticationPresentedForTesting { loginPresented.fulfill() }
         router.openLoginFromAuthRequiredPrompt()
-        waitUntil { router.presentedViewController === login }
+        wait(for: [loginPresented], timeout: 2)
+        XCTAssertTrue(router.presentedViewController === login)
         XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .fullScreen)
         XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNil(login.view.subviews.first {

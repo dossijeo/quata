@@ -960,6 +960,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptVisible = false
     private var authModalTransitionsAnimated = true
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
+    private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1167,6 +1168,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         nextAuthPromptPresentationCompletionForTesting = completion
     }
 
+    /// XCTest synchronization seam for the second half of the prompt -> Auth transition.
+    /// UIKit invokes this only after the full-screen Login/Register controller is presented.
+    func onNextAuthenticationPresentedForTesting(_ completion: @escaping () -> Void) {
+        nextAuthenticationPresentationCompletionForTesting = completion
+    }
+
     /// Android's capability gate: keep the public Feed visible and show common Compose copy.
     func presentAuthRequiredPrompt() {
         guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
@@ -1181,7 +1188,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         present(prompt, animated: authModalTransitionsAnimated) { [weak self] in
             let completion = self?.nextAuthPromptPresentationCompletionForTesting
             self?.nextAuthPromptPresentationCompletionForTesting = nil
-            completion?()
+            // Resume XCTest after UIKit has unwound the presentation completion stack. A real
+            // user cannot select Login/Register re-entrantly from inside this callback either.
+            DispatchQueue.main.async { completion?() }
         }
     }
 
@@ -1247,7 +1256,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             close.widthAnchor.constraint(equalToConstant: 44),
             close.heightAnchor.constraint(equalToConstant: 44),
         ])
-        present(controller, animated: authModalTransitionsAnimated)
+        present(controller, animated: authModalTransitionsAnimated) { [weak self] in
+            let completion = self?.nextAuthenticationPresentationCompletionForTesting
+            self?.nextAuthenticationPresentationCompletionForTesting = nil
+            DispatchQueue.main.async { completion?() }
+        }
     }
 
     /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
