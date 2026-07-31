@@ -11,7 +11,7 @@ import kotlin.coroutines.suspendCoroutine
  * names or domain mapping.
  */
 class WebPostgrestRpcClient(
-    private val configuration: WebRuntimeConfiguration,
+    val configuration: WebRuntimeConfiguration,
     private val authRepository: WebAuthRepository,
 ) {
     suspend fun post(functionName: String, body: String): WebPostgrestResult {

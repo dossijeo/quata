@@ -10,7 +10,11 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -83,13 +88,15 @@ open class PostgrestChatRepository(
     private val authenticatedUser: ChatAuthenticatedUserProvider,
     private val attachmentUploader: ChatAttachmentUploader,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
+    private val realtimeGateway: ChatRealtimeGateway? = null,
 ) : ChatRepository {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private val messagesByConversation = mutableMapOf<String, MutableStateFlow<List<Message>>>()
     private val _activeConversationId = MutableStateFlow<String?>(null)
     private val _isAppForeground = MutableStateFlow(true)
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
-    private val _isRealtimeOnline = MutableStateFlow(false)
+    private val realtimeOnlineState = MutableStateFlow(false)
     private val _typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     private val _syncStatus = MutableStateFlow(ChatSyncStatus.Offline)
     private var networkAvailable = true
@@ -99,21 +106,30 @@ open class PostgrestChatRepository(
     override val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
     override val isAppForeground: StateFlow<Boolean> = _isAppForeground.asStateFlow()
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation.asStateFlow()
-    override val isRealtimeOnline: StateFlow<Boolean> = _isRealtimeOnline.asStateFlow()
-    override val typingProfileIds: StateFlow<Set<String>> = _typingProfileIds.asStateFlow()
+    override val isRealtimeOnline: StateFlow<Boolean> = realtimeGateway?.isOnline ?: realtimeOnlineState.asStateFlow()
+    override val typingProfileIds: StateFlow<Set<String>> = realtimeGateway?.typingProfileIds ?: _typingProfileIds.asStateFlow()
     override val syncStatus: StateFlow<ChatSyncStatus> = _syncStatus.asStateFlow()
 
+    init {
+        realtimeGateway?.let { gateway ->
+            scope.launch {
+                gateway.changes.collect { change -> refreshForRealtimeChange(change) }
+            }
+        }
+    }
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
         networkAvailable = isAvailable
+        realtimeGateway?.setNetworkAvailable(isAvailable)
         _syncStatus.value = if (isAvailable) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
     }
     override fun currentUser(): User? = currentUserSnapshot
-    override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId }
+    override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
     override fun setConversationVisible(conversationId: String, visible: Boolean) {
         if (visible) _activeConversationId.value = conversationId
+        realtimeGateway?.setVisibleConversation(conversationId.takeIf { visible })
     }
-    override fun setAppForeground(isForeground: Boolean) { _isAppForeground.value = isForeground }
-    override fun setTyping(conversationId: String, isTyping: Boolean) = Unit
+    override fun setAppForeground(isForeground: Boolean) { _isAppForeground.value = isForeground; realtimeGateway?.setForeground(isForeground) }
+    override fun setTyping(conversationId: String, isTyping: Boolean) { realtimeGateway?.setTyping(conversationId, isTyping) }
     override fun cleanupEmptyConversation(conversationId: String) {
         // This is best-effort lifecycle cleanup in Android too.  Keep the public contract
         // synchronous while executing the same server operation from the next refresh.
@@ -299,6 +315,29 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); updateCurrentUserFrom(envelope, userId); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
         conversations.value = mapped; mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; mapped
     }.onFailure { updateReadFailure() }
+
+    /** Realtime is authoritative for wakeups; polling remains only a bounded fallback. */
+    private suspend fun refreshForRealtimeChange(change: ChatRealtimeChange) {
+        if (!_isAppForeground.value || !networkAvailable) return
+        val userId = runCatching { currentUserId() }.getOrNull() ?: return
+        val conversationId = change.threadId?.let { "sb:$it" }
+        when (change.table) {
+            "chat_message_favorites" -> refreshFavorites()
+            "chat_messages", "chat_attachments", "chat_message_reads", "chat_message_states" -> {
+                conversationId?.let { refreshThread(it, ThreadPageSize) }
+                _activeConversationId.value
+                    ?.takeIf { it != AppDestinations.FavoriteMessagesConversationId && it != conversationId }
+                    ?.let { refreshThread(it, ThreadPageSize) }
+                refreshInbox()
+            }
+            "chat_threads", "chat_participants" -> {
+                conversationId?.let { refreshThread(it, ThreadPageSize) }
+                refreshInbox()
+            }
+            else -> refreshInbox()
+        }
+        _syncStatus.value = if (isRealtimeOnline.value) ChatSyncStatus.Online else ChatSyncStatus.Refreshing
+    }
     private suspend fun openThread(functionName: String, body: (String) -> String): Result<String> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val envelope = rpc(functionName, body(userId)); val mapped = envelope.toChatRpcConversations(userId)

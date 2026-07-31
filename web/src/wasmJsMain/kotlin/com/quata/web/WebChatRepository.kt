@@ -27,6 +27,7 @@ class WebChatRepository(
         attachmentUploader.upload(profileId, file).toCommonAttachment()
     },
     pollIntervalMillis = pollIntervalMillis,
+    realtimeGateway = WebChatRealtimeGateway(rpcClient.configuration, authRepository),
 ) {
     private companion object {
         const val DefaultPollIntervalMillis = 30_000L
