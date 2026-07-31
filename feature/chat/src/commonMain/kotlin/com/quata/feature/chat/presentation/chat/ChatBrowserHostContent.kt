@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Message
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -128,6 +130,7 @@ private fun ChatBrowserConversationDetail(
         ChatViewModel(
             conversationId = conversationId,
             repository = repository,
+            isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId,
             text = { "No se pudieron cargar los mensajes." },
         )
     }
@@ -231,7 +234,9 @@ private fun ChatBrowserConversationDetail(
                 )
             },
             composer = { composerModifier ->
-                Surface(composerModifier) {
+                if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                    Spacer(composerModifier)
+                } else Surface(composerModifier) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         messageInputOverride?.invoke(state.messageText, { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) }, Modifier.fillMaxWidth().semantics { testTag = "chat.message" }) ?: OutlinedTextField(
                             value = state.messageText,

@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
@@ -112,15 +113,23 @@ open class PostgrestChatRepository(
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
         val state = messagesState(conversationId)
         while (currentCoroutineContext().isActive) {
-            awaitForeground(); awaitActiveConversation(conversationId)
-            refreshThread(conversationId, ThreadPageSize); emit(state.value)
+            awaitForeground()
+            if (conversationId == AppDestinations.FavoriteMessagesConversationId) refreshFavorites()
+            else { awaitActiveConversation(conversationId); refreshThread(conversationId, ThreadPageSize) }
+            emit(state.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }
     }
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = runCatching {
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching false
         refreshThread(conversationId, limit.coerceAtLeast(1)).getOrThrow().size >= limit
     }
-    override fun observeParticipantCandidates(): Flow<List<User>> = flow { emit(emptyList()) }
+    override fun observeParticipantCandidates(): Flow<List<User>> = flow {
+        val page = searchConversationCandidates(query = "", limit = CandidatePageSize, offset = 0).getOrThrow()
+        emit(page.candidates.map {
+            User(it.profileId, "", it.displayName, it.neighborhood, it.avatarUrl)
+        })
+    }
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> = runCatching {
         val userId = currentUserId()
         val body = buildJsonObject {
@@ -210,6 +219,14 @@ open class PostgrestChatRepository(
         val knownIds = messagesState(conversationId).value.mapNotNull { it.id.toLongOrNull() }
         val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds)); mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; messagesState(conversationId).value
     }.onFailure { updateReadFailure() }
+    private suspend fun refreshFavorites(): Result<List<Message>> = runCatching {
+        val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
+        val envelope = rpc("quata_chat_get_favorites", buildJsonObject { put("p_actor_profile_id", userId); put("p_limit", FavoritesPageSize) }.toString())
+        val favorites = envelope.toChatRpcMessages(userId).filter { it.isFavorite && !it.isDeleted }
+            .sortedByDescending { it.sentAtMillis ?: Long.MIN_VALUE }
+        messagesState(AppDestinations.FavoriteMessagesConversationId).value = favorites
+        _syncStatus.value = ChatSyncStatus.Online; favorites
+    }.onFailure { updateReadFailure() }
     private suspend fun currentUserId(): String {
         if (!networkAvailable) throw IllegalStateException("web_chat_offline")
         val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
@@ -228,8 +245,7 @@ open class PostgrestChatRepository(
     private fun sendMessageRequest(userId: String, threadId: Long, message: String, fileIds: List<Long>, replyTo: Long?, clientId: String?) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message", message); put("p_file_ids", JsonArray(fileIds.map(::JsonPrimitive))); put("p_reply_to_message_id", replyTo?.let(::JsonPrimitive) ?: JsonNull); put("p_client_message_id", clientId?.let(::JsonPrimitive) ?: JsonNull) }.toString()
     private fun threadActionRequest(userId: String, threadId: Long) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId) }.toString()
     private fun mutedRequest(userId: String, threadId: Long, muted: Boolean) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_muted", muted) }.toString()
-    private fun <T> unsupportedMutation(): Result<T> = Result.failure(UnsupportedOperationException("web_chat_mutation_not_implemented"))
-    private companion object { const val ConversationPrefix = "sb:"; const val InboxPageSize = 100; const val ThreadPageSize = 250; const val DefaultPollIntervalMillis = 30_000L; const val MinimumPollIntervalMillis = 5_000L; const val ChatAttachmentsBucket = "chat-attachments" }
+    private companion object { const val ConversationPrefix = "sb:"; const val InboxPageSize = 100; const val ThreadPageSize = 250; const val FavoritesPageSize = 250; const val CandidatePageSize = 100; const val DefaultPollIntervalMillis = 30_000L; const val MinimumPollIntervalMillis = 5_000L; const val ChatAttachmentsBucket = "chat-attachments" }
 }
 
 private fun ChatPostgrestResponse.successOrThrow(): String = when (this) {
