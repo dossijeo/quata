@@ -99,8 +99,9 @@ class IosPostComposerTransport(
 
     override suspend fun insertPost(request: ComposerPostInsert): Result<String?> = runCatching {
         val body = buildJsonObject { put("wall_id", request.wallId); put("profile_id", request.actorProfileId); put("body", request.body); request.imageUrl?.let { put("image_url", it) }; request.videoUrl?.let { put("video_url", it) } }.toString()
-        val result = request("${configuration.restBase()}/community_posts", "POST", body.encodeToByteArray().toFoundationData(), "application/json")
-        Json.parseToJsonElement(result).jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+        val result = request("${configuration.restBase()}/community_posts", "POST", body.encodeToByteArray().toFoundationData(), "application/json", prefer = "return=representation")
+        Json.parseToJsonElement(result).jsonArray.singleOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+            ?.takeIf(String::isNotBlank) ?: error("composer_post_id_missing")
     }
 
     override suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia): Result<Unit> = runCatching {
@@ -113,10 +114,11 @@ class IosPostComposerTransport(
 
     private suspend fun getRest(path: String) = Json.parseToJsonElement(request("${configuration.restBase()}/$path", "GET", null, null))
     private suspend fun wordpressForm(fields: Map<String, String>): String = request("${configuration.wordpressBase()}/wp-admin/admin-ajax.php", "POST", fields.entries.joinToString("&") { "${it.key.iosComposerQuery()}=${it.value.iosComposerQuery()}" }.encodeToByteArray().toFoundationData(), "application/x-www-form-urlencoded", authenticated = false)
-    private suspend fun request(url: String, method: String, body: NSData?, contentType: String?, upsert: Boolean = false, authenticated: Boolean = true): String {
+    private suspend fun request(url: String, method: String, body: NSData?, contentType: String?, upsert: Boolean = false, authenticated: Boolean = true, prefer: String? = null): String {
         val mutable = NSMutableURLRequest.requestWithURL(NSURL(string = url) ?: error("ios_composer_url_invalid")).apply { setHTTPMethod(method); body?.let(::setHTTPBody); contentType?.let { setValue(it, "Content-Type") }; setValue("application/json", "Accept") }
         if (authenticated) { val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_composer_session_missing"); mutable.setValue(configuration.key(), "apikey"); mutable.setValue("Bearer ${session.bearerToken}", "Authorization") }
         if (upsert) mutable.setValue("true", "x-upsert")
+        prefer?.let { mutable.setValue(it, "Prefer") }
         return mutable.executeComposer().toIosBytes().decodeToString()
     }
 }

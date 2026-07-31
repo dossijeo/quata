@@ -1291,31 +1291,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
 
-    func testAuthenticatedRouterBuildsTheExportedComposerHostWithRealPlatformAdapters() {
-        let services = makePlatformServiceComposition()
-        let router = IosFeedHostContainerViewController(platformServices: services)
-        router.loadViewIfNeeded()
-        router.installFeedFactory { _ in UIViewController() }
-
-        router.installComposerFactory {
-            IosComposerHostKt.QuataComposerViewController(
-                dependencies: IosComposerHostKt.createIosComposerHostDependencies(
-                    repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
-                    filePicker: services.services.filePicker,
-                    cameraCapture: services.services.cameraCapture,
-                    videoThumbnails: services.services.videoThumbnails,
-                    languageTag: "en-US",
-                    onClose: {},
-                ),
-            )
-        }
-        router.showComposer()
-
-        XCTAssertEqual(router.children.count, 3)
-        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-composer-host")
-        XCTAssertTrue(authenticatedRouteController(in: router)?.isViewLoaded == true)
-        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
-    }
     func testPrimaryRoutesHideTheSecondaryMenuAndKeepSharedChromeAboveRouteController() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()

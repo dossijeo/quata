@@ -26,7 +26,6 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.VideoThumbnailService
-import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.launch
@@ -58,19 +57,6 @@ fun createIosComposerHostDependencies(
     languageTag: String?,
     onClose: () -> Unit,
 ): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, languageTag, onClose)
-
-/**
- * Explicit iOS publication boundary until the authenticated PostgREST/storage write flow has
- * RLS and end-to-end evidence. Keeping it as a repository means the shared ViewModel returns a
- * visible error instead of UIKit inventing a post ID or treating a local draft as published.
- */
-fun iosComposerPublicationUnavailableRepository(): PostComposerRepository = IosComposerPublicationUnavailableRepository
-
-private object IosComposerPublicationUnavailableRepository : PostComposerRepository {
-    override suspend fun createPost(draft: PostComposerDraft): Result<String?> = Result.failure(
-        IllegalStateException("ios_composer_publication_not_implemented"),
-    )
-}
 
 /** Stable Swift-exported UIViewController factory for shared Composer forms/previews. */
 fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIViewController = ComposeUIViewController {

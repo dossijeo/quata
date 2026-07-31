@@ -42,7 +42,10 @@ class ActorBoundPostComposerRepository(private val transport: ActorBoundComposer
                 PostComposerType.Image -> transport.prepareImage(requireNotNull(draft.imageUri)).getOrThrow().also { prepared = it }.let { transport.uploadImage(actor.profileId, it).getOrThrow() }
                 PostComposerType.Video -> transport.prepareVideo(requireNotNull(draft.videoUri)).getOrThrow().also { prepared = it }.let { transport.uploadVideo(actor.profileId, it).getOrThrow() }
             }
-            Result.success(transport.insertPost(ComposerPostInsert(actor.profileId, wallId, draft.toPostBody(), uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Image }, uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Video })).getOrThrow())
+            val postId = transport.insertPost(
+                ComposerPostInsert(actor.profileId, wallId, draft.toPostBody(), uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Image }, uploaded?.publicUrl?.takeIf { draft.type == PostComposerType.Video }),
+            ).getOrThrow()?.takeIf(String::isNotBlank) ?: error("composer_post_id_missing")
+            Result.success(postId)
         } catch (failure: Throwable) {
             uploaded?.let { orphan -> withContext(NonCancellable) { transport.rollbackUploadedMedia(orphan).exceptionOrNull()?.let(failure::addSuppressed) } }
             throw failure

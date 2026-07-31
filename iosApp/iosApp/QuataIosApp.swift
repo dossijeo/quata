@@ -708,16 +708,24 @@ private final class IosAppCompositionRoot {
         authenticatedHost.present(controller, animated: true)
     }
 
-    /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still
-    /// camera adapters already owned by `IosPlatformServiceComposition`; publication remains an
-    /// explicit capability error until the iOS write/storage path has RLS and E2E evidence.
+    /// Composer is an authenticated in-app route. It receives real UIKit media services and the
+    /// same renewable Keychain session used by the other authenticated iOS adapters.
     private func installAuthenticatedComposerIfAvailable() {
-        guard runtimeBootstrap != nil else { return }
+        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
+        let repository = ActorBoundPostComposerRepository(
+            transport: IosPostComposerTransport(
+                configuration: IosPostComposerRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey
+                ),
+                authSession: runtimeBootstrap.authSessionForInteractiveLogin()
+            )
+        )
         authenticatedHost.installComposerFactory { [weak self] in
             IosComposerHostKt.QuataComposerViewController(
                 dependencies: IosComposerHostKt.createIosComposerHostDependencies(
-                    repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
+                    repository: repository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,
