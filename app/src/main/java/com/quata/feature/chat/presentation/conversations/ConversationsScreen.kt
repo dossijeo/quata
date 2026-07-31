@@ -82,7 +82,6 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.User
 import com.quata.core.platform.ClipboardService
-import com.quata.core.text.localizedChatPreview
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.ClickableProfileAvatar
@@ -97,7 +96,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chatDisplayTitle
-import com.quata.feature.chat.presentation.relativeUpdatedAt
+import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -114,6 +113,7 @@ fun ConversationsScreen(
     viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current)),
 ) {
     val context = LocalContext.current
+    val conversationCatalog = conversationsLocaleCatalogForLanguage(context.resources.configuration.locales[0].language)
     var contactsPermissionGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
@@ -150,11 +150,12 @@ fun ConversationsScreen(
                 inviteAction = stringResource(R.string.conversations_invite_action), noneSelected = stringResource(R.string.conversation_forward_none_selected),
             ),
             conversationTitle = { it.chatDisplayTitle() },
-            conversationPreview = context.applicationContext::localizedChatPreview,
-            relativeUpdatedAt = { conversation, now -> conversation.relativeUpdatedAt(context, now) },
+            conversationPreview = conversationCatalog.host.conversationPreview,
+            relativeUpdatedAt = conversationCatalog.host.relativeUpdatedAt,
             pickerTitle = stringResource(R.string.conversations_new_chat),
             groupTitlePlaceholder = stringResource(R.string.conversation_add_participants_title),
             createGroupDescription = stringResource(R.string.conversations_new_chat),
+            selectionSummary = conversationCatalog.host.selectionSummary,
         ),
         onOpenConversation = onOpenConversation,
         onOpenUserProfile = onOpenUserProfile,
