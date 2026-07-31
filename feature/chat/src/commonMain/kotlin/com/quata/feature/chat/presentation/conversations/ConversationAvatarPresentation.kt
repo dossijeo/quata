@@ -37,18 +37,20 @@ fun resolveConversationAvatarPresentation(
     displayTitle: String,
     openingProfileUserId: String?,
 ): ConversationAvatarPresentation {
-    val privateUser = if (!conversation.isGroup && !conversation.isEmergency) {
-        conversation.participantIds.firstOrNull { it != currentUser?.id }?.let(usersById::get)
+    val peerId = if (!conversation.isGroup && !conversation.isEmergency) {
+        conversation.participantIds.firstOrNull { it != currentUser?.id }
     } else null
+    val privateUser = peerId?.let(usersById::get)
+    val peerIndex = peerId?.let(conversation.participantIds::indexOf) ?: -1
     val kind = when { conversation.isEmergency -> ConversationAvatarKind.Sos; conversation.isGroup -> ConversationAvatarKind.Group; else -> ConversationAvatarKind.Private }
     return ConversationAvatarPresentation(
         kind = kind,
         name = when (kind) { ConversationAvatarKind.Sos -> "SOS"; ConversationAvatarKind.Group -> displayTitle; ConversationAvatarKind.Private -> privateUser?.displayName ?: displayTitle },
-        stableId = when (kind) { ConversationAvatarKind.Private -> privateUser?.id ?: conversation.id; else -> conversation.id },
-        avatarUrl = when (kind) { ConversationAvatarKind.Sos -> null; ConversationAvatarKind.Group -> conversation.avatarUrl; ConversationAvatarKind.Private -> privateUser?.avatarUrl ?: conversation.avatarUrl },
-        profileId = privateUser?.id,
+        stableId = when (kind) { ConversationAvatarKind.Private -> peerId ?: conversation.id; else -> conversation.id },
+        avatarUrl = when (kind) { ConversationAvatarKind.Sos -> null; ConversationAvatarKind.Group -> conversation.avatarUrl; ConversationAvatarKind.Private -> privateUser?.avatarUrl ?: conversation.participantAvatarUrls.getOrNull(peerIndex) ?: conversation.avatarUrl },
+        profileId = peerId,
         isMuted = conversation.isMuted,
-        isLoading = privateUser?.id?.let { it == openingProfileUserId } == true,
+        isLoading = peerId?.let { it == openingProfileUserId } == true,
     )
 }
 
