@@ -1100,7 +1100,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authRequiredPromptVisible = true
         let prompt = authRequiredPromptFactory()
         prompt.modalPresentationStyle = .overFullScreen
-        prompt.view.backgroundColor = .clear
+        // ComposeUIViewController owns a Skia child view whose default opaque background would
+        // otherwise hide the public route beneath this dialog. Make only the hosting tree
+        // transparent; AlertDialog still draws its own scrim/card in common Compose.
+        makeComposeOverlayTransparent(prompt.view)
         prompt.view.accessibilityIdentifier = "quata-ios-auth-required-dialog"
         present(prompt, animated: true)
     }
@@ -1111,7 +1114,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             completion?()
             return
         }
-        dismiss(animated: true, completion: completion)
+        // Dismiss the presented prompt itself. Calling dismiss on the router can race with the
+        // next full-screen Auth presentation and leave the modal compositor grey/attached.
+        presentedViewController?.dismiss(animated: true) { [weak self] in
+            self?.authRequiredPromptVisible = false
+            DispatchQueue.main.async { completion?() }
+        }
+    }
+
+    private func makeComposeOverlayTransparent(_ view: UIView) {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.subviews.forEach(makeComposeOverlayTransparent)
     }
 
     func presentLoginIfAvailable() {
