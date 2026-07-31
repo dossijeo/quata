@@ -47,6 +47,8 @@ class IosNeighborhoodsHostDependencies(
     val usersStrings: NeighborhoodUsersStrings,
     val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     val onOpenConversation: (String) -> Unit,
+    /** Public Communities may browse anonymously; writes/navigation acquire Auth at the shell. */
+    val onAuthRequired: () -> Unit = {},
     val profileNavigator: IosCommunityProfileNavigator,
     val onOpenAttachment: (ProfileAttachment) -> Unit,
 )
@@ -63,6 +65,7 @@ fun createIosNeighborhoodsHostDependencies(
     currentUserId: String?,
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onAuthRequired: () -> Unit = {},
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
@@ -75,6 +78,7 @@ fun createIosNeighborhoodsHostDependencies(
         QuataAvatarFallback(name = user.displayName, stableId = user.id)
     },
     onOpenConversation = onOpenConversation,
+    onAuthRequired = onAuthRequired,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
     onOpenAttachment = {},
 )
@@ -107,7 +111,8 @@ fun QuataNeighborhoodsViewController(
                 onQueryChange = { query = it },
                 onShowUsers = { membersOf = it.name },
                 onOpenChat = { community ->
-                    dependencies.viewModel.openChat(community.name, dependencies.onOpenConversation)
+                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
+                    else dependencies.viewModel.openChat(community.name, dependencies.onOpenConversation)
                 },
             )
         } else {
@@ -122,13 +127,20 @@ fun QuataNeighborhoodsViewController(
                 strings = dependencies.usersStrings,
                 avatar = dependencies.avatar,
                 onBack = { membersOf = null },
-                onFollowUser = { dependencies.viewModel.toggleFollowUser(it.id) },
+                onFollowUser = { user ->
+                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
+                    else dependencies.viewModel.toggleFollowUser(user.id)
+                },
                 onOpenProfile = { user ->
-                    dependencies.viewModel.openUserProfile(user.id)
-                    dependencies.profileNavigator.openMemberProfile(user.id)
+                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
+                    else {
+                        dependencies.viewModel.openUserProfile(user.id)
+                        dependencies.profileNavigator.openMemberProfile(user.id)
+                    }
                 },
                 onOpenPrivateChat = { user ->
-                    dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)
+                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
+                    else dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)
                 },
             )
         }

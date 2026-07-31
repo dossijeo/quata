@@ -263,7 +263,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
             ("quata-ios-chat-host", { $0.showChat(conversationId: "conversation-1", messageId: "message-1") }),
             ("quata-ios-notifications-host", { $0.showNotifications() }),
             ("quata-ios-profile-sos-host", { $0.showProfileSos() }),
-            ("quata-ios-communities-host", { $0.showCommunities() }),
             ("quata-ios-composer-host", { $0.showComposer() }),
             ("quata-ios-settings-host", { $0.showSettings() }),
         ]
@@ -309,6 +308,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(receivedPostId, "public-post-9")
         let publicFeed = try XCTUnwrap(latestPublicFeed)
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
+    }
+
+    func testAnonymousRouterAllowsCommunitiesInsideSharedShell() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let communities = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installCommunitiesFactory { communities }
+
+        router.showCommunities()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === communities)
+        XCTAssertEqual(communities.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertNil(router.presentedViewController)
+        XCTAssertNotNil(router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation" })
     }
 
     func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {

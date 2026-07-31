@@ -289,6 +289,7 @@ private final class IosAppCompositionRoot {
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
+        installCommunitiesIfAvailable()
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
@@ -446,7 +447,7 @@ private final class IosAppCompositionRoot {
         installAuthenticatedChatIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
-        installAuthenticatedCommunitiesIfAvailable()
+        installCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
@@ -623,7 +624,9 @@ private final class IosAppCompositionRoot {
         }
     }
 
-    private func installAuthenticatedCommunitiesIfAvailable() {
+    /// Communities mirrors Android's anonymous browser.  The KMP host receives a nullable
+    /// current user; its chat/follow/profile actions ask the shared Auth gate when it is nil.
+    private func installCommunitiesIfAvailable() {
         guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
@@ -631,10 +634,19 @@ private final class IosAppCompositionRoot {
                     repository: communitiesRuntimeBootstrap.repository,
                     currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { [weak self] conversationId in
-                        self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                        guard let self else { return }
+                        if self.runtimeBootstrap?.hasRestoredSession() == true {
+                            self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                        } else {
+                            self.authenticatedHost.presentAuthRequiredPrompt()
+                        }
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
+                        guard self.runtimeBootstrap?.hasRestoredSession() == true else {
+                            self.authenticatedHost.presentAuthRequiredPrompt()
+                            return
+                        }
                         let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
                             profileId: profileId,
                             onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
@@ -645,6 +657,7 @@ private final class IosAppCompositionRoot {
                         controller.modalPresentationStyle = .fullScreen
                         self.authenticatedHost.present(controller, animated: true)
                     },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                 ),
             )
         }
@@ -938,9 +951,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             switch self {
             case .feed, .official, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .officialEditor, .notifications, .profileSos, .communities, .composer, .settings:
+            // Android opens Communities anonymously and lets individual mutations request Auth.
+            // Notifications remain private because the only iOS inbox factory is composed from
+            // the authenticated Chat repository; there is no anonymous inbox substitute.
+            case .chat, .officialEditor, .notifications, .profileSos, .composer, .settings:
                 return true
-            }
+            case .communities: return false
         }
     }
 
