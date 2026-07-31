@@ -595,8 +595,10 @@ private final class IosAppCompositionRoot {
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.
                 onHandleDeepLink: { _ in },
-                canMutate: true,
-                onAuthenticationRequired: { _ in },
+                canMutate: authenticatedHost.canMutateNotifications,
+                onAuthenticationRequired: { [weak self] _ in
+                    self?.authenticatedHost.presentAuthRequiredPrompt()
+                },
             ),
         )
         installNotificationCountObserver(bootstrap)
@@ -809,6 +811,7 @@ private final class IosAppCompositionRoot {
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
+                self?.installNotificationsIfAvailable()
                 self?.installAuthenticationIfConfigured()
             },
         )
@@ -969,6 +972,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var pendingRoute: PendingRoute?
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
+    /// Notifications remain publicly readable, while read/dismiss actions follow the same
+    /// authenticated participation gate as Android.
+    var canMutateNotifications: Bool { hasAuthenticatedSession }
     private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
         initialSelectedRoute: "feed",
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },

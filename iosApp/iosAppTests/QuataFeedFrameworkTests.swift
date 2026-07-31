@@ -353,10 +353,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installPublicFeed { _ in feed }
         router.installNotificationsFactory { notifications }
 
+        XCTAssertFalse(router.canMutateNotifications)
         router.showNotifications()
 
         XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
         XCTAssertEqual(notifications.view.accessibilityIdentifier, "quata-ios-notifications-host")
+
+        router.installFeedFactory { _ in feed }
+        XCTAssertTrue(router.canMutateNotifications)
     }
 
     func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {

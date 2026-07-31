@@ -41,7 +41,7 @@ fun WebNotificationsHost(
         timestampNowMillis = nowMillis,
         strings = NotificationsStrings(
             title = "Avisos",
-            subtitle = "Notificaciones push y actividad",
+            subtitle = webNotificationsActivitySubtitle,
             backContentDescription = "Volver",
             loadingLabel = "Cargando avisos…",
             emptyTitle = "Aún no hay avisos",
@@ -81,6 +81,8 @@ private val SpanishNotificationRelativeTimeStrings = NotificationRelativeTimeStr
     oneYearAgo = "hace 1 año",
     yearsAgo = { "hace $it años" },
 )
+
+internal const val webNotificationsActivitySubtitle = "Notificaciones push y actividad"
 
 @JsFun("() => Date.now()")
 private external fun notificationsBrowserNowMillisAsDouble(): Double
