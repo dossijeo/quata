@@ -90,6 +90,25 @@ fun createIosProfileSosRuntimeBootstrap(
     authSession: IosRenewableAuthSession,
 ): IosProfileSosRuntimeBootstrap = IosProfileSosRuntimeBootstrap(configuration, authSession)
 
+/** Public member-profile composition: only `community_profiles` is readable without Keychain. */
+fun createIosPublicMemberProfileHostDependencies(
+    configuration: IosProfileRuntimeConfiguration,
+    profileId: String,
+    onClose: () -> Unit,
+): IosMemberProfileHostDependencies {
+    val anonymousSession = ProfileSessionProvider { null }
+    val remote = IosProfilePostgrestGateway(
+        configuration = configuration,
+        sessionProvider = anonymousSession,
+        allowAnonymousCommunityProfileReads = true,
+    )
+    return IosMemberProfileHostDependencies(
+        profileId = profileId,
+        repository = RemoteProfileViewerRepository(remote, anonymousSession),
+        onClose = onClose,
+    )
+}
+
 private class IosProfileSessionAdapter(
     private val authSession: IosRenewableAuthSession,
 ) : ProfileSessionProvider {

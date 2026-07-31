@@ -660,15 +660,7 @@ private final class IosAppCompositionRoot {
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
-                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-                            profileId: profileId,
-                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-                        )
-                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-                            dependencies: dependencies,
-                        )
-                        controller.modalPresentationStyle = .fullScreen
-                        self.authenticatedHost.present(controller, animated: true)
+                        self.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                 ),
@@ -678,11 +670,18 @@ private final class IosAppCompositionRoot {
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let profileSosRuntimeBootstrap else { return }
-        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-            profileId: profileId,
-            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-        )
+        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
+        let onClose = { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
+        let dependencies = runtimeBootstrap.hasRestoredSession() && profileSosRuntimeBootstrap != nil
+            ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
+            : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
+                configuration: IosProfileRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                ),
+                profileId: profileId,
+                onClose: onClose,
+            )
         let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
             dependencies: dependencies,
         )
