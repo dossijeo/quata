@@ -8,6 +8,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.profile.data.IosProfilePostgrestGateway
 import com.quata.feature.profile.data.IosProfileRuntimeConfiguration
+import com.quata.feature.profile.data.IosProfileSessionProvider
 import com.quata.feature.profile.data.KmpProfileRepository
 import com.quata.feature.profile.data.ProfileAvatarUploader
 import com.quata.feature.profile.data.ProfileEmergencyContactsStore
@@ -89,6 +90,31 @@ fun createIosProfileSosRuntimeBootstrap(
     configuration: IosProfileRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
 ): IosProfileSosRuntimeBootstrap = IosProfileSosRuntimeBootstrap(configuration, authSession)
+
+/** Public member-profile composition: only `community_profiles` is readable without Keychain. */
+fun createIosPublicMemberProfileHostDependencies(
+    configuration: IosProfileRuntimeConfiguration,
+    profileId: String,
+    onClose: () -> Unit,
+): IosMemberProfileHostDependencies {
+    val anonymousSession = object : ProfileSessionProvider {
+        override fun currentSession(): ProfileSession? = null
+        override fun updateDisplayName(session: ProfileSession, displayName: String) = Unit
+    }
+    val anonymousTransportSession = object : IosProfileSessionProvider {
+        override suspend fun currentSession() = null
+    }
+    val remote = IosProfilePostgrestGateway(
+        configuration = configuration,
+        sessionProvider = anonymousTransportSession,
+        allowAnonymousCommunityProfileReads = true,
+    )
+    return IosMemberProfileHostDependencies(
+        profileId = profileId,
+        repository = RemoteProfileViewerRepository(remote, anonymousSession),
+        onClose = onClose,
+    )
+}
 
 private class IosProfileSessionAdapter(
     private val authSession: IosRenewableAuthSession,

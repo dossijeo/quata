@@ -39,7 +39,9 @@ data class IosNeighborhoodsRuntimeConfiguration(
 )
 
 /**
- * Authenticated iOS read adapter for the common Communities directory.
+ * iOS read adapter for the common Communities directory.  An anonymous instance sends the
+ * publishable key as its bearer and exposes only directory/profile reads; every write still
+ * fails closed unless a restored session is present.
  *
  * It uses URLSession and the same renewable Keychain session as Auth/Feed/Chat. Directory and
  * profile reads are real PostgREST snapshots; there is deliberately no fabricated local data or
@@ -50,7 +52,7 @@ data class IosNeighborhoodsRuntimeConfiguration(
 @OptIn(ExperimentalForeignApi::class)
 class IosNeighborhoodsReadRepository(
     private val configuration: IosNeighborhoodsRuntimeConfiguration,
-    private val authSession: IosRenewableAuthSession,
+    private val authSession: IosRenewableAuthSession?,
     private val chatRepository: ChatRepository,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
@@ -79,6 +81,7 @@ class IosNeighborhoodsReadRepository(
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
+        authenticatedSession()
         chatRepository.cachedPrivateConversationId(userId)
             ?: chatRepository.openPrivateConversation(userId).getOrThrow()
     }
@@ -147,13 +150,13 @@ class IosNeighborhoodsReadRepository(
             ?: error("ios_communities_supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_publishable_key_missing")
-        val session = authenticatedSession()
+        val session = authSession?.currentSession()
         val url = NSURL(string = "$baseUrl/rest/v1/community_profiles${query.toIosNeighborhoodQueryString()}")
             ?: error("ios_communities_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
             HTTPAdditionalHeaders = mapOf(
                 "apikey" to publishableKey,
-                "Authorization" to "Bearer ${session.bearerToken}",
+                "Authorization" to "Bearer ${session?.bearerToken?.takeIf(String::isNotBlank) ?: publishableKey}",
                 "Accept" to "application/json",
             )
         }
@@ -165,7 +168,7 @@ class IosNeighborhoodsReadRepository(
         }
     }
 
-    private suspend fun authenticatedSession() = authSession.currentSession()
+    private suspend fun authenticatedSession() = authSession?.currentSession()
         ?.takeIf { it.bearerToken.isNotBlank() && it.userId.isNotBlank() }
         ?: error("ios_communities_session_missing")
 
@@ -178,13 +181,23 @@ class IosNeighborhoodsReadRepository(
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(
     configuration: IosNeighborhoodsRuntimeConfiguration,
-    private val authSession: IosRenewableAuthSession,
+    private val authSession: IosRenewableAuthSession?,
     chatRepository: ChatRepository,
 ) {
     val repository: NeighborhoodRepository = IosNeighborhoodsReadRepository(configuration, authSession, chatRepository)
 
-    fun restoredCurrentUserId(): String? = authSession.restoredSession()?.userId?.takeIf(String::isNotBlank)
+    fun restoredCurrentUserId(): String? = authSession?.restoredSession()?.userId?.takeIf(String::isNotBlank)
 }
+
+/** Public composition has the same real PostgREST directory but no Keychain session. */
+fun createIosPublicNeighborhoodsRuntimeBootstrap(
+    configuration: IosNeighborhoodsRuntimeConfiguration,
+    chatRepository: ChatRepository,
+): IosNeighborhoodsRuntimeBootstrap = IosNeighborhoodsRuntimeBootstrap(
+    configuration = configuration,
+    authSession = null,
+    chatRepository = chatRepository,
+)
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSURLSessionConfiguration.iosNeighborhoodData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->

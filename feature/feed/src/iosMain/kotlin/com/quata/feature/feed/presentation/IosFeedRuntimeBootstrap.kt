@@ -34,12 +34,16 @@ class IosFeedRuntimeBootstrap(
         shareService: ShareService,
         onOpenUserProfile: (String) -> Unit = {},
         initialPostId: String? = null,
+        onAuthRequired: () -> Unit = {},
+        onCreatePost: () -> Unit = {},
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
             mediaFactory = mediaFactory,
             shareService = shareService,
             onOpenUserProfile = onOpenUserProfile,
             initialPostId = initialPostId,
+            onAuthRequired = onAuthRequired,
+            onCreatePost = onCreatePost,
         )
 
     fun authenticatedDependencies(
@@ -47,8 +51,11 @@ class IosFeedRuntimeBootstrap(
         shareService: ShareService,
         initialPostId: String? = null,
         onOpenUserProfile: (String) -> Unit = {},
+        onAuthRequired: () -> Unit = {},
+        onCreatePost: () -> Unit = {},
     ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
         configuration, authSession, mediaFactory, shareService, initialPostId, onOpenUserProfile,
+        onAuthRequired, onCreatePost,
     )
 
     /** Session restoration remains the gate for interactive iOS feature factories. */

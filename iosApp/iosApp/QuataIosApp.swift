@@ -126,6 +126,21 @@ enum IosPublicRuntimeConfiguration {
     }
 }
 
+/// Installs the Auth entry points and logout operation after the launch-time session probe.
+///
+/// A restored session changes which Feed factory is mounted, but it must not skip these
+/// lifecycle bindings: authenticated users still need to sign out and anonymous private-route
+/// attempts still need the common Auth gate.
+enum IosAuthLifecycleBootstrap {
+    static func installBindings(
+        afterRestoredSessionAttempt restoredSessionInstalled: Bool,
+        install: () -> Void,
+    ) {
+        _ = restoredSessionInstalled
+        install()
+    }
+}
+
 /// UIKit launcher and composition boundary for the iOS application.
 ///
 /// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
@@ -254,6 +269,18 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository(),
         )
     }()
+    /// Public Communities read path deliberately has no Keychain session.  It uses the same
+    /// real PostgREST directory adapter with the publishable key only.
+    private lazy var publicCommunitiesRuntimeBootstrap: IosNeighborhoodsRuntimeBootstrap? = {
+        guard let configuration = runtimeConfiguration, let chatRuntimeBootstrap else { return nil }
+        return IosNeighborhoodsReadRepositoryKt.createIosPublicNeighborhoodsRuntimeBootstrap(
+            configuration: IosNeighborhoodsRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            ),
+            chatRepository: chatRuntimeBootstrap.repository(),
+        )
+    }()
     /// The extension writes only to the App Group. This authenticated app runtime reuses the
     /// existing Keychain session and real Chat repository when the user opens the handoff URL.
     private lazy var externalShareRuntimeBootstrap: IosExternalShareRuntimeBootstrap? = {
@@ -289,9 +316,12 @@ private final class IosAppCompositionRoot {
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
-        if !installRestoredFeedSessionIfAvailable() {
-            installAuthenticationIfConfigured()
-        }
+        installCommunitiesIfAvailable()
+        installNotificationsIfAvailable()
+        IosAuthLifecycleBootstrap.installBindings(
+            afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable(),
+            install: installAuthenticationIfConfigured,
+        )
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
@@ -410,6 +440,8 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     initialPostId: postId,
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                 ),
             )
         }
@@ -436,13 +468,15 @@ private final class IosAppCompositionRoot {
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
                 ),
             )
         }
         installAuthenticatedChatIfAvailable()
-        installAuthenticatedNotificationsIfAvailable()
+        installNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
-        installAuthenticatedCommunitiesIfAvailable()
+        installCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
@@ -506,7 +540,7 @@ private final class IosAppCompositionRoot {
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
                         currentUserId: nil,
-                        onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                        onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -522,7 +556,7 @@ private final class IosAppCompositionRoot {
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
                     currentUserId: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
-                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -531,7 +565,9 @@ private final class IosAppCompositionRoot {
         }
     }
 
-    private func installAuthenticatedNotificationsIfAvailable() {
+    /// Android exposes the inbox from the shared header without a session.  Its detail action
+    /// delegates to `showChat`, which remains the single private-route gate.
+    private func installNotificationsIfAvailable() {
         guard let bootstrap = notificationsRuntimeBootstrap else { return }
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
@@ -619,28 +655,30 @@ private final class IosAppCompositionRoot {
         }
     }
 
-    private func installAuthenticatedCommunitiesIfAvailable() {
-        guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
+    /// Communities mirrors Android's anonymous browser.  The KMP host receives a nullable
+    /// current user; its chat/follow/profile actions ask the shared Auth gate when it is nil.
+    private func installCommunitiesIfAvailable() {
+        guard let runtimeBootstrap, let profileSosRuntimeBootstrap else { return }
+        let authenticated = runtimeBootstrap.hasRestoredSession()
+        guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
-                    repository: communitiesRuntimeBootstrap.repository,
-                    currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
+                    repository: communitiesBootstrap.repository,
+                    currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { [weak self] conversationId in
-                        self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                        guard let self else { return }
+                        if self.runtimeBootstrap?.hasRestoredSession() == true {
+                            self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                        } else {
+                            self.authenticatedHost.presentAuthRequiredPrompt()
+                        }
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
-                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-                            profileId: profileId,
-                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-                        )
-                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-                            dependencies: dependencies,
-                        )
-                        controller.modalPresentationStyle = .fullScreen
-                        self.authenticatedHost.present(controller, animated: true)
+                        self.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                 ),
             )
         }
@@ -648,11 +686,21 @@ private final class IosAppCompositionRoot {
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let profileSosRuntimeBootstrap else { return }
-        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-            profileId: profileId,
-            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-        )
+        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
+        let onClose: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.authenticatedHost.dismiss(animated: true)
+        }
+        let dependencies = runtimeBootstrap.hasRestoredSession() && profileSosRuntimeBootstrap != nil
+            ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
+            : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
+                configuration: IosProfileRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                ),
+                profileId: profileId,
+                onClose: onClose,
+            )
         let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
             dependencies: dependencies,
         )
@@ -767,7 +815,9 @@ private final class IosAppCompositionRoot {
             languageCode: Locale.current.languageCode ?? "en",
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
-                    _ = self?.installRestoredFeedSessionIfAvailable()
+                    self?.authenticatedHost.finishAuthentication {
+                        _ = self?.installRestoredFeedSessionIfAvailable()
+                    }
                 }
             },
         )
@@ -843,6 +893,47 @@ private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, Ios
     }
 }
 
+/// Keeps a Compose/Skia dialog transparent after its native render view is mounted.  A one-shot
+/// background change is too early because Compose inserts that view on a later layout pass.
+final class IosTransparentComposeOverlayController: UIViewController {
+    private let content: UIViewController
+
+    init(content: UIViewController) {
+        self.content = content
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        addChild(content)
+        content.view.frame = view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(content.view)
+        content.didMove(toParent: self)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        content.view.frame = view.bounds
+        clearNativeBackgrounds(in: view)
+        // Compose may mount its rendering view immediately after this pass.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.clearNativeBackgrounds(in: self.view)
+        }
+    }
+
+    private func clearNativeBackgrounds(in candidate: UIView) {
+        candidate.backgroundColor = .clear
+        candidate.isOpaque = false
+        candidate.subviews.forEach { clearNativeBackgrounds(in: $0) }
+    }
+}
+
 /// Authenticated UIKit router for shared Compose feature hosts.
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
@@ -863,7 +954,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var settingsFactory: (() -> UIViewController)?
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
-    private var authenticationFactory: (() -> UIViewController)?
+    enum AuthenticationEntry { case login, registration }
+    private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
+    private var authRequiredPromptFactory: (() -> UIViewController)?
+    private var authRequiredPromptVisible = false
+    private var authModalTransitionsAnimated = true
+    private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
+    private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -929,10 +1026,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             switch self {
             case .feed, .official, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .officialEditor, .notifications, .profileSos, .communities, .composer, .settings:
+            // Android opens Communities and Notifications anonymously; individual detail
+            // actions retain their own route/mutation gates.
+            case .chat, .officialEditor, .profileSos, .composer, .settings:
                 return true
-            }
+            case .communities, .notifications: return false
         }
+    }
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -1012,8 +1112,19 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
-        installAuthenticationFactory {
-            IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+        installAuthenticationEntryFactory { entry in
+            switch entry {
+            case .login: return IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+            case .registration: return IosAuthHostKt.QuataRegistrationViewController(dependencies: dependencies)
+            }
+        }
+        authRequiredPromptFactory = { [weak self] in
+            IosAuthHostKt.QuataAuthRequiredDialogViewController(
+                languageCode: Locale.current.languageCode ?? "en",
+                onDismiss: { self?.dismissAuthRequiredPrompt() },
+                onCreateAccount: { self?.openRegistrationFromAuthRequiredPrompt() },
+                onLogin: { self?.openLoginFromAuthRequiredPrompt() },
+            )
         }
     }
 
@@ -1030,24 +1141,145 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Installs the authenticated entry point without granting a session. Keeping this UIKit
     /// factory boundary explicit lets a private deep link show login while retaining its route
     /// until the real authenticated Feed/factory composition is available.
-    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+    private func installAuthenticationEntryFactory(_ factory: @escaping (AuthenticationEntry) -> UIViewController) {
         authenticationFactory = factory
-        // On an unconfigured deployment this remains the honest initial state. With a valid
-        // public Feed it is deferred until an anonymous user explicitly asks to log in.
-        if !hasPublicFeed || pendingRoute?.isAuthenticationRequired == true {
-            presentLoginIfAvailable()
+    }
+
+    /// Compatibility seam for router-only XCTest fixtures. Production uses `installAuthentication`
+    /// and therefore the real common prompt and distinct Login/Register entry points.
+    func installAuthenticationFactory(_ factory: @escaping () -> UIViewController) {
+        installAuthenticationEntryFactory { _ in factory() }
+    }
+
+    /// XCTest seam only; the production path above always installs the common Compose dialog.
+    func installAuthRequiredPromptFactory(_ factory: @escaping () -> UIViewController) {
+        authRequiredPromptFactory = factory
+    }
+
+    /// XCTest keeps the real UIWindow/presentation lifecycle but removes CoreAnimation timing.
+    /// Production never calls this and retains the normal animated modal transitions.
+    func disableAuthModalAnimationsForTesting() {
+        authModalTransitionsAnimated = false
+    }
+
+    /// XCTest synchronization seam. Waiting for UIKit's actual `present` completion is stable
+    /// across simulator architectures; polling transition flags is not on Xcode 26.3.
+    func onNextAuthPromptPresentedForTesting(_ completion: @escaping () -> Void) {
+        nextAuthPromptPresentationCompletionForTesting = completion
+    }
+
+    /// XCTest synchronization seam for the second half of the prompt -> Auth transition.
+    /// UIKit invokes this only after the full-screen Login/Register controller is presented.
+    func onNextAuthenticationPresentedForTesting(_ completion: @escaping () -> Void) {
+        nextAuthenticationPresentationCompletionForTesting = completion
+    }
+
+    /// Android's capability gate: keep the public Feed visible and show common Compose copy.
+    func presentAuthRequiredPrompt() {
+        guard !hasAuthenticatedSession, !authRequiredPromptVisible, let authRequiredPromptFactory else { return }
+        authRequiredPromptVisible = true
+        let prompt = IosTransparentComposeOverlayController(content: authRequiredPromptFactory())
+        prompt.modalPresentationStyle = .overFullScreen
+        // ComposeUIViewController owns a Skia child view whose default opaque background would
+        // otherwise hide the public route beneath this dialog. Make only the hosting tree
+        // transparent; AlertDialog still draws its own scrim/card in common Compose.
+        makeComposeOverlayTransparent(prompt.view)
+        prompt.view.accessibilityIdentifier = "quata-ios-auth-required-dialog"
+        present(prompt, animated: authModalTransitionsAnimated) { [weak self] in
+            let completion = self?.nextAuthPromptPresentationCompletionForTesting
+            self?.nextAuthPromptPresentationCompletionForTesting = nil
+            // Resume XCTest after UIKit has unwound the presentation completion stack. A real
+            // user cannot select Login/Register re-entrantly from inside this callback either.
+            DispatchQueue.main.async { completion?() }
         }
     }
 
+    /// Common Compose invokes this from AlertDialog.onDismissRequest (scrim/back dismissal).
+    /// Internal visibility keeps that callback lifecycle directly testable on the UIKit host.
+    func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
+        authRequiredPromptVisible = false
+        guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
+            completion?()
+            return
+        }
+        // UIKit requires the presenting controller to own this transition. Dismissing from the
+        // Compose wrapper itself can leave the over-full-screen presentation attached and its
+        // completion never advances to Login/Register. The completion (plus one run-loop turn)
+        // keeps the following full-screen presentation serialized.
+        dismiss(animated: authModalTransitionsAnimated) { [weak self] in
+            self?.authRequiredPromptVisible = false
+            DispatchQueue.main.async { completion?() }
+        }
+    }
+
+    private func makeComposeOverlayTransparent(_ view: UIView) {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.subviews.forEach(makeComposeOverlayTransparent)
+    }
+
     func presentLoginIfAvailable() {
+        presentAuthRequiredPrompt()
+    }
+
+    /// Capability-dialog choices intentionally leave the shared shell before displaying Auth.
+    /// Keeping these transitions explicit also makes the real modal lifecycle verifiable without
+    /// replacing the common Compose prompt with a UIKit imitation.
+    func openLoginFromAuthRequiredPrompt() {
+        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.login) }
+    }
+
+    func openRegistrationFromAuthRequiredPrompt() {
+        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.registration) }
+    }
+
+    private func presentAuthentication(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
-        guard displayedController?.view.accessibilityIdentifier != "quata-ios-auth-host" else { return }
-        routeMenuButton.isHidden = true
-        show(
-            authenticationFactory(),
-            accessibilityIdentifier: "quata-ios-auth-host",
-            accessibilityLabel: "Quata iOS authentication",
-        )
+        let controller = authenticationFactory(entry)
+        controller.modalPresentationStyle = .fullScreen
+        controller.view.accessibilityIdentifier = "quata-ios-auth-host"
+        controller.view.accessibilityLabel = "Quata iOS authentication"
+        controller.view.isAccessibilityElement = false
+        // Full-screen Auth deliberately has no app chrome/rail.  It still needs an explicit
+        // iOS back affordance because a full-screen modal cannot be reliably swipe-dismissed.
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark"), for: .normal)
+        close.tintColor = .secondaryLabel
+        close.accessibilityIdentifier = "quata-ios-auth-close"
+        close.accessibilityLabel = NSLocalizedString("common_close", value: "Cerrar", comment: "")
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.addTarget(self, action: #selector(cancelAuthentication), for: .touchUpInside)
+        controller.view.addSubview(close)
+        NSLayoutConstraint.activate([
+            close.leadingAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            close.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            close.widthAnchor.constraint(equalToConstant: 44),
+            close.heightAnchor.constraint(equalToConstant: 44),
+        ])
+        present(controller, animated: authModalTransitionsAnimated) { [weak self] in
+            let completion = self?.nextAuthenticationPresentationCompletionForTesting
+            self?.nextAuthenticationPresentationCompletionForTesting = nil
+            DispatchQueue.main.async { completion?() }
+        }
+    }
+
+    /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
+    @objc private func cancelAuthentication() {
+        pendingRoute = nil
+        dismiss(animated: authModalTransitionsAnimated) { [weak self] in
+            guard let self, !self.hasAuthenticatedSession else { return }
+            self.showFeed(postId: nil)
+        }
+    }
+
+    /// The shared Auth host has completed a successful login.  Remove the full-screen Auth
+    /// product first, then restore the pending private route in the rebuilt app shell.
+    func finishAuthentication(_ completion: @escaping () -> Void) {
+        guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-host" else {
+            completion()
+            return
+        }
+        dismiss(animated: authModalTransitionsAnimated, completion: completion)
     }
 
     /// XCTest-only controller factories for deterministic launcher and URL routing checks.
@@ -1434,10 +1666,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func route(_ route: PendingRoute) {
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
-            // Retain a private deep link for the authenticated composition, but never render its
-            // controller before the launcher has restored a real session.
+            // Retain the target, but follow Android: anonymous browsing remains on Feed while
+            // the common capability dialog is presented above the shared shell.
             pendingRoute = route
-            presentLoginIfAvailable()
+            // The real public factory creates a fresh Compose controller on each invocation.
+            // Rebuilding Feed while it is already visible races the modal presentation and loses
+            // scroll/playback state. Only navigate back when the user gated from another route.
+            if displayedController?.view.accessibilityIdentifier != "quata-ios-feed-host",
+               let feedController = feedFactory?(nil) {
+                showRouteController(feedController, route: .feed(postId: nil))
+            }
+            presentAuthRequiredPrompt()
             return
         }
         guard let controller = controller(for: route) else {
@@ -1546,6 +1785,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         accessibilityIdentifier: String?,
         accessibilityLabel: String,
     ) {
+        // A capability gate requested while the anonymous Feed is already visible must not try
+        // to re-parent that same controller. UIKit treats adding an existing child as an invalid
+        // containment transition, and the failed transition can make the Feed disappear beneath
+        // the modal prompt. Keep the mounted public route stable, exactly as Android does.
+        if displayedController === controller {
+            controller.view.accessibilityIdentifier = accessibilityIdentifier
+            controller.view.accessibilityLabel = accessibilityLabel
+            view.setNeedsLayout()
+            return
+        }
         let previous = displayedController
         addChild(controller)
         controller.view.frame = view.bounds

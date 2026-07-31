@@ -63,6 +63,7 @@ class IosProfileKeychainSessionProvider(
 class IosProfilePostgrestGateway(
     private val configuration: IosProfileRuntimeConfiguration,
     private val sessionProvider: IosProfileSessionProvider,
+    private val allowAnonymousCommunityProfileReads: Boolean = false,
 ) : ProfileRemoteGateway {
     constructor(
         configuration: IosProfileRuntimeConfiguration,
@@ -136,13 +137,14 @@ class IosProfilePostgrestGateway(
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_profile_supabase_publishable_key_missing")
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() }
-            ?: error("ios_profile_session_missing")
+        val permitsAnonymousRead = allowAnonymousCommunityProfileReads && table == CommunityProfilesTable
+        require(session != null || permitsAnonymousRead) { "ios_profile_session_missing" }
         val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}")
             ?: error("ios_profile_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
             HTTPAdditionalHeaders = mapOf(
                 "apikey" to publishableKey,
-                "Authorization" to "Bearer ${session.accessToken}",
+                "Authorization" to "Bearer ${session?.accessToken ?: publishableKey}",
                 "Accept" to "application/json",
             )
         }
