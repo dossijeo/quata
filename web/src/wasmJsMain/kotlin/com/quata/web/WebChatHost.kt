@@ -133,6 +133,7 @@ fun WebChatHost(
         },
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
+        clipboardService = clipboardService,
         modifier = modifier,
     )
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -36,6 +37,7 @@ import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecording
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.AudioRecordingOptions
+import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -89,6 +91,7 @@ fun ChatBrowserHostContent(
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
+    clipboardService: ClipboardService? = null,
 ) {
     if (conversationId == null) {
         conversationListHost(modifier)
@@ -110,6 +113,7 @@ fun ChatBrowserHostContent(
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
+            clipboardService = clipboardService,
             modifier = modifier,
         )
     }
@@ -133,6 +137,7 @@ private fun ChatBrowserConversationDetail(
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
+    clipboardService: ClipboardService?,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
@@ -169,6 +174,7 @@ private fun ChatBrowserConversationDetail(
     var recordingError by remember { mutableStateOf<String?>(null) }
     var attachmentError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
+    var headerExpanded by remember(conversationId) { mutableStateOf(false) }
     LaunchedEffect(deepLinkRequest) {
         val focused = deepLinkRequest as? ChatMessageDeepLinkRequest.Focused ?: return@LaunchedEffect
         viewModel.onEvent(ChatUiEvent.MessageSelected(focused.messageId))
@@ -205,25 +211,74 @@ private fun ChatBrowserConversationDetail(
         }
     }
 
+    suspend fun pickAttachment(source: FilePickerSource) {
+        when (val result = filePicker.pick(FilePickerRequest(allowMultiple = false, source = source))) {
+            is PlatformResult.Success -> result.value.firstOrNull()?.let { file ->
+                pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
+                pendingAudioRecording = null
+                attachmentError = null
+                viewModel.onEvent(ChatUiEvent.AttachmentSelected(file.reference, file.displayName ?: "Adjunto", file.mimeType))
+            } ?: run { attachmentError = "No se seleccionó ningún archivo." }
+            is PlatformResult.Failure -> attachmentError = result.reason?.takeIf(String::isNotBlank) ?: "No se pudo adjuntar el archivo."
+            PlatformResult.Cancelled -> attachmentError = null
+            PlatformResult.Unsupported -> attachmentError = "Esta fuente de archivos no está disponible en la plataforma."
+        }
+    }
+
     Column(modifier.fillMaxSize()) {
-        Surface(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(
-                    onClick = onBackToList,
-                    modifier = Modifier.semantics { testTag = "chat.back" },
-                ) { Text("Volver a conversaciones") }
-                Text(state.conversation?.title ?: "Conversación", style = MaterialTheme.typography.titleLarge)
-                Text(navigationMessage, style = MaterialTheme.typography.bodySmall)
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (deepLinkRequest is ChatMessageDeepLinkRequest.LoadFailed) {
-                    Button(onClick = {
-                        historyPageRequested = false
-                        pendingFocusedMessageId = null
-                        deepLinkRequest = retryChatMessageDeepLinkRequest(deepLinkRequest)
-                        viewModel.retryMessageLoading()
-                    }) { Text("Reintentar mensaje enlazado") }
-                }
+        ChatPortableConversationHeader(
+            state = state,
+            navigationMessage = navigationMessage,
+            expanded = headerExpanded,
+            onToggleExpanded = { headerExpanded = !headerExpanded },
+            onBack = onBackToList,
+            onOpenAvatar = onOpenAvatar,
+            onCopyMessage = { text -> clipboardService?.let { service -> scope.launch { service.writeText(text) } } },
+            onEvent = viewModel::onEvent,
+        )
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp)) }
+        state.notice?.let { notice ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(notice, modifier = Modifier.weight(1f))
+                Button(onClick = { viewModel.onEvent(ChatUiEvent.ClearNotice) }) { Text("Cerrar") }
             }
+        }
+        if (state.isConversationActionInProgress) ChatConversationActionProgressContent()
+        if (deepLinkRequest is ChatMessageDeepLinkRequest.LoadFailed) {
+            Button(onClick = {
+                historyPageRequested = false
+                pendingFocusedMessageId = null
+                deepLinkRequest = retryChatMessageDeepLinkRequest(deepLinkRequest)
+                viewModel.retryMessageLoading()
+            }) { Text("Reintentar mensaje enlazado") }
+        }
+        if (state.isAddParticipantsOpen) {
+            ChatPortableCandidatePanel(
+                title = "Añadir participantes",
+                query = state.participantCandidateQuery,
+                candidates = state.participantConversationCandidates.map { it.profileId to it.displayName },
+                selectedIds = emptySet(),
+                error = state.participantCandidateError,
+                onQueryChanged = viewModel::onParticipantCandidateQueryChanged,
+                onCandidate = viewModel::addConversationCandidateParticipant,
+                onLoadMore = viewModel::loadMoreParticipantCandidates,
+                onConfirm = null,
+                onDismiss = { viewModel.onEvent(ChatUiEvent.CloseAddParticipants) },
+            )
+        }
+        if (state.isForwardDialogOpen) {
+            ChatPortableCandidatePanel(
+                title = "Reenviar mensaje",
+                query = state.forwardCandidateQuery,
+                candidates = state.forwardConversationCandidates.map { it.profileId to it.displayName },
+                selectedIds = state.selectedForwardProfileIds.toSet(),
+                error = state.forwardCandidateError,
+                onQueryChanged = viewModel::onForwardCandidateQueryChanged,
+                onCandidate = { viewModel.onEvent(ChatUiEvent.ForwardProfileToggled(it)) },
+                onLoadMore = viewModel::loadMoreForwardConversationCandidates,
+                onConfirm = { viewModel.onEvent(ChatUiEvent.SendForward) },
+                onDismiss = { viewModel.onEvent(ChatUiEvent.CloseForwardDialog) },
+            )
         }
         ChatConversationDetailContent(
             messages = state.messages,
@@ -259,13 +314,16 @@ private fun ChatBrowserConversationDetail(
                             modifier = Modifier.fillMaxWidth().semantics { testTag = "chat.message" },
                         )
                         state.replyToMessage?.let { message ->
-                            Text(
-                                "Respondiendo a ${message.senderName}: ${message.text}",
-                                style = MaterialTheme.typography.bodySmall,
+                            ChatComposerModeBannerContent(
+                                text = "Respondiendo a ${message.senderName}: ${message.text}",
+                                onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) },
                             )
-                            Button(onClick = { viewModel.onEvent(ChatUiEvent.ClearReply) }) {
-                                Text("Cancelar respuesta")
-                            }
+                        }
+                        state.editingMessage?.let { message ->
+                            ChatComposerModeBannerContent(
+                                text = "Editando: ${message.text}",
+                                onClear = { viewModel.onEvent(ChatUiEvent.CancelEdit) },
+                            )
                         }
                         state.attachmentName?.let { name ->
                             Text("Adjunto: $name", style = MaterialTheme.typography.bodySmall)
@@ -334,28 +392,12 @@ private fun ChatBrowserConversationDetail(
                             }) { Text("Grabar audio") }
                         }
                         recordingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    when (val result = filePicker.pick(
-                                        FilePickerRequest(
-                                            allowMultiple = false,
-                                            source = FilePickerSource.Documents,
-                                        ),
-                                    )) {
-                                        is PlatformResult.Success -> result.value.firstOrNull()?.let { file ->
-                                            pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
-                                            pendingAudioRecording = null
-                                            attachmentError = null
-                                            viewModel.onEvent(ChatUiEvent.AttachmentSelected(uri = file.reference, name = file.displayName ?: "Adjunto", mimeType = file.mimeType))
-                                        } ?: run { attachmentError = "No se seleccionó ningún archivo." }
-                                        is PlatformResult.Failure -> attachmentError = result.reason?.takeIf { it.isNotBlank() } ?: "No se pudo adjuntar el archivo."
-                                        PlatformResult.Cancelled -> attachmentError = null
-                                        PlatformResult.Unsupported -> attachmentError = "Adjuntar archivos no está disponible en esta plataforma."
-                                    }
-                                }
-                            },
-                        ) { Text("Adjuntar archivo") }
+                        ChatAttachmentQuickPanelContent(
+                            strings = ChatAttachmentQuickPanelStrings("Archivo", "Galería"),
+                            onPickFile = { scope.launch { pickAttachment(FilePickerSource.Documents) } },
+                            onPickGallery = { scope.launch { pickAttachment(FilePickerSource.Gallery) } },
+                        )
+                        Button(onClick = { scope.launch { pickAttachment(FilePickerSource.Camera) } }) { Text("Cámara") }
                         attachmentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (state.attachmentUri != null) {
                             Button(onClick = {
@@ -398,9 +440,25 @@ private fun ChatBrowserConversationDetail(
                     modifier = attachmentModifier,
                 )
             },
+            deliveryIndicator = { message ->
+                if (message.isMine) {
+                    ChatMessageDeliveryIndicatorContent(
+                        state = message.deliveryState,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        readTint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+            favoriteMarker = { Text("★", color = MaterialTheme.colorScheme.primary) },
+            typingIndicator = state.typingProfileIds.takeIf { it.isNotEmpty() }?.let { ids ->
+                { ChatTypingIndicatorContent(ids.toList()) }
+            },
             messageActions = { message, actionsModifier ->
                 if (message.id == state.selectedMessageId && !message.isLocalEcho) {
                     Column(actionsModifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        message.clientMessageId?.takeIf { message.deliveryState == com.quata.core.model.MessageDeliveryState.Failed }?.let { clientId ->
+                            Button(onClick = { viewModel.retryPendingMessage(clientId) }) { Text("Reintentar envío") }
+                        }
                         Button(onClick = { viewModel.onEvent(ChatUiEvent.StartReply) }) { Text("Responder") }
                         Button(onClick = { viewModel.onEvent(ChatUiEvent.OpenForwardDialog) }) { Text("Reenviar") }
                         Button(onClick = { viewModel.onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { Text(if (message.isFavorite) "Quitar favorito" else "Favorito") }
@@ -419,6 +477,144 @@ private fun ChatBrowserConversationDetail(
             },
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun ChatPortableCandidatePanel(
+    title: String,
+    query: String,
+    candidates: List<Pair<String, String>>,
+    selectedIds: Set<String>,
+    error: String?,
+    onQueryChanged: (String) -> Unit,
+    onCandidate: (String) -> Unit,
+    onLoadMore: () -> Unit,
+    onConfirm: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    Surface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Button(onClick = onDismiss) { Text("Cerrar") }
+            }
+            OutlinedTextField(query, onQueryChanged, label = { Text("Buscar") }, modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            candidates.take(12).forEach { (id, name) ->
+                Button(onClick = { onCandidate(id) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (id in selectedIds) "✓ ${name.ifBlank { "Usuario" }}" else name.ifBlank { "Usuario" })
+                }
+            }
+            Button(onClick = onLoadMore) { Text("Cargar más") }
+            onConfirm?.let { confirm -> Button(onClick = confirm, enabled = selectedIds.isNotEmpty()) { Text("Confirmar") } }
+        }
+    }
+}
+
+/**
+ * Shared Android-equivalent header hierarchy. Permissions are derived from the authenticated
+ * profile id and the server-provided moderator/member-invite fields; hosts only navigate.
+ */
+@Composable
+private fun ChatPortableConversationHeader(
+    state: ChatUiState,
+    navigationMessage: String,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onBack: () -> Unit,
+    onOpenAvatar: (String) -> Unit,
+    onCopyMessage: (String) -> Unit,
+    onEvent: (ChatUiEvent) -> Unit,
+) {
+    if (state.conversation?.id == AppDestinations.FavoriteMessagesConversationId) {
+        FavoriteMessagesHeaderContent("Mensajes favoritos", "Volver", onBack)
+        return
+    }
+    val selected = state.messages.firstOrNull { it.id == state.selectedMessageId }
+    if (selected != null) {
+        ChatSelectedMessageActionBarContent(
+            compact = false,
+            navigationAction = { Button(onClick = { onEvent(ChatUiEvent.MessageSelected(null)) }) { Text("Cerrar") } },
+            actions = {
+                Button(onClick = { onEvent(ChatUiEvent.StartReply) }) { Text("Responder") }
+                if (selected.text.isNotBlank()) Button(onClick = { onCopyMessage(selected.text) }) { Text("Copiar") }
+                Button(onClick = { onEvent(ChatUiEvent.OpenForwardDialog) }) { Text("Reenviar") }
+                Button(onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { Text(if (selected.isFavorite) "Quitar favorito" else "Favorito") }
+                if (selected.isMine && !selected.isDeleted) {
+                    Button(onClick = { onEvent(ChatUiEvent.StartEdit) }) { Text("Editar") }
+                    Button(onClick = { onEvent(ChatUiEvent.DeleteSelectedMessage) }) { Text("Eliminar") }
+                } else if (!selected.isDeleted) {
+                    Button(onClick = { onEvent(ChatUiEvent.ReportSelectedMessage) }) { Text("Reportar") }
+                }
+            },
+        )
+        return
+    }
+    val conversation = state.conversation
+    val currentUserId = state.currentUser?.id
+    val isModerator = currentUserId != null && currentUserId in conversation?.moderatorIds.orEmpty()
+    val canInvite = isModerator || conversation?.canMembersInvite == true
+    ChatConversationTitleBarContent(
+        title = conversation?.title.orEmpty().ifBlank { "Conversación" },
+        subtitle = if (conversation?.isGroup == true) "${conversation.participantIds.size} participantes" else navigationMessage,
+        expandable = conversation != null,
+        compact = false,
+        onToggleExpanded = onToggleExpanded,
+        navigationAction = { Button(onClick = onBack, modifier = Modifier.semantics { testTag = "chat.back" }) { Text("Volver") } },
+        avatar = {
+            ChatConversationAvatarContent(
+                isGroup = conversation?.isGroup == true,
+                isEmergency = conversation?.isEmergency == true,
+                isMuted = conversation?.isMuted == true,
+                emergencyLabel = "SOS",
+                privateAvatar = {
+                    Button(onClick = { conversation?.participantIds?.firstOrNull { it != currentUserId }?.let(onOpenAvatar) }) {
+                        Text(conversation?.title?.take(1).orEmpty().ifBlank { "?" })
+                    }
+                },
+                groupIcon = { Text("Grupo") },
+                mutedBadge = { ChatMutedConversationBadgeContent() },
+            )
+        },
+        trailingActions = {
+            Button(onClick = { onEvent(ChatUiEvent.ConversationMutedChanged(conversation?.isMuted != true)) }) {
+                Text(if (conversation?.isMuted == true) "Activar" else "Silenciar")
+            }
+        },
+    )
+    if (!expanded || conversation == null) return
+    Surface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (conversation.isGroup && isModerator) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(conversation.canMembersInvite, { onEvent(ChatUiEvent.MemberInvitesChanged(it)) })
+                    Text("Permitir invitaciones de miembros")
+                }
+            }
+            if (conversation.isGroup && canInvite) {
+                Button(onClick = { onEvent(ChatUiEvent.OpenAddParticipants) }) { Text("Añadir participantes") }
+            }
+            conversation.participantIds.forEachIndexed { index, participantId ->
+                if (participantId != currentUserId) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = { onOpenAvatar(participantId) }) {
+                            Text(conversation.participantNames.getOrNull(index).orEmpty().ifBlank { "Participante" })
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (isModerator) {
+                            Button(onClick = { onEvent(if (participantId in conversation.moderatorIds) ChatUiEvent.DemoteModerator(participantId) else ChatUiEvent.PromoteModerator(participantId)) }) {
+                                Text(if (participantId in conversation.moderatorIds) "Quitar moderador" else "Hacer moderador")
+                            }
+                            Button(onClick = { onEvent(ChatUiEvent.RemoveParticipant(participantId)) }) { Text("Expulsar") }
+                            Button(onClick = { onEvent(ChatUiEvent.BlockParticipant(participantId)) }) { Text("Bloquear") }
+                        }
+                    }
+                }
+            }
+            if (conversation.isGroup) Button(onClick = { onEvent(ChatUiEvent.LeaveConversation) }) { Text("Salir del grupo") }
+            Button(onClick = { onEvent(ChatUiEvent.DeleteConversation) }) { Text("Eliminar conversación") }
+        }
     }
 }
 

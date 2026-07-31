@@ -92,6 +92,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
+                clipboardService = IosClipboardService(),
                 conversationListHost = { listModifier ->
                     val scope = rememberCoroutineScope()
                     var inviteContacts by remember { mutableStateOf<List<ChatInviteContact>>(emptyList()) }
