@@ -20,7 +20,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.spanishConversationsHostStrings
 import platform.UIKit.UIViewController
-import platform.Foundation.NSDate
+import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 
 /**
  * iOS composition input for the shared chat list, bubble stream and composer.
@@ -86,7 +86,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         candidateAvatar = { candidate, modifier -> QuataAvatarFallback(candidate.displayName, candidate.profileId, modifier) },
                         inviteAvatar = { contact, modifier -> QuataAvatarFallback(contact.displayName, contact.id, modifier) },
                         panelHost = { content -> QuataFloatingPanelContent(onDismiss = conversations::closeNewConversationPicker, modifier = listModifier) { panelModifier, landscape -> content(panelModifier, landscape) } },
-                        nowMillisProvider = { (NSDate().timeIntervalSince1970 * 1000.0).toLong() },
+                        nowMillisProvider = { ((CFAbsoluteTimeGetCurrent() + 978_307_200.0) * 1000.0).toLong() },
                         modifier = listModifier,
                     )
                 },
