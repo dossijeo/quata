@@ -957,6 +957,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             case .communities, .notifications: return false
         }
     }
+    }
 
     init(platformServices: IosPlatformServiceComposition) {
         self.platformServices = platformServices
