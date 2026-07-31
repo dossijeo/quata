@@ -82,7 +82,7 @@ fun ProfileScreen(
     var preview by remember { mutableStateOf<AttachmentPreview?>(null) }
     var avatarChanged by remember { mutableStateOf<((String?) -> Unit)?>(null) }
     val backDispatcher = remember { ProfileBackDispatcher() }
-    BackHandler { backDispatcher.dispatch() }
+    BackHandler(enabled = backDispatcher.canConsume) { backDispatcher.dispatch() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { editorUri = it }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (context.hasCameraPermission()) cameraOpen = true

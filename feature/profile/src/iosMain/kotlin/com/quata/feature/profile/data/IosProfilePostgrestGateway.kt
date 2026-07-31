@@ -127,13 +127,13 @@ class IosProfilePostgrestGateway(
     }
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
-        requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
+        profileId.requireIosProfileIdentifier()
         require(patch.isNotEmpty()) { "ios_profile_patch_empty" }
         throw UnsupportedOperationException("ios_profile_bridge_unavailable")
     }
 
     override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
-        requireIosProfileActor(profileId, sessionProvider.currentSession()?.profileId)
+        profileId.requireIosProfileIdentifier()
         require(secretQuestion.isNotBlank() && secretAnswer.isNotBlank()) { "ios_profile_recovery_secret_required" }
         authenticatedFunction("quata-auth-bridge", iosProfileRecoverySecretBody(secretQuestion, secretAnswer))
     }

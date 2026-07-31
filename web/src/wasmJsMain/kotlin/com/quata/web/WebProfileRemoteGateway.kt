@@ -75,7 +75,7 @@ class WebProfileRemoteGateway(
     }
 
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
-        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        profileId.requireProfileIdentifier()
         require(patch.isNotEmpty()) { "web_profile_patch_empty" }
         throw UnsupportedOperationException("web_profile_bridge_unavailable")
     }
@@ -94,7 +94,7 @@ class WebProfileRemoteGateway(
         profileId: String,
         contactIds: List<String>,
     ) {
-        requireWebProfileActor(profileId, authRepository.sessionForAuthenticatedRequest()?.userId)
+        profileId.requireProfileIdentifier()
         contactIds.forEach { it.requireProfileIdentifier() }
         throw UnsupportedOperationException("web_profile_bridge_unavailable")
     }

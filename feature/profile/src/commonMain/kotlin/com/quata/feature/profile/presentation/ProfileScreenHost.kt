@@ -83,16 +83,16 @@ fun ProfileScreenHost(
         }
     }
     SideEffect {
-        slots.backDispatcher?.setHandler {
+        slots.backDispatcher?.setHandler(if (showSos || page != ProfileAccountPage.Overview) {
+            {
             if (showSos) {
                 showSos = false
                 viewModel.onEvent(ProfileUiEvent.ClearMessages)
             } else if (page != ProfileAccountPage.Overview) {
                 page = ProfileAccountPage.Overview
-            } else {
-                slots.onBackFromOverview()
             }
-        }
+            }
+        } else null)
     }
     DisposableEffect(slots.backDispatcher) { onDispose { slots.backDispatcher?.clearHandler() } }
 
@@ -284,7 +284,9 @@ data class ProfileScreenSlots(
 /** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */
 class ProfileBackDispatcher {
     private var handler: (() -> Unit)? = null
-    fun setHandler(value: () -> Unit) { handler = value }
-    fun clearHandler() { handler = null }
+    var canConsume: Boolean = false
+        private set
+    fun setHandler(value: (() -> Unit)?) { handler = value; canConsume = value != null }
+    fun clearHandler() { handler = null; canConsume = false }
     fun dispatch() { handler?.invoke() }
 }
