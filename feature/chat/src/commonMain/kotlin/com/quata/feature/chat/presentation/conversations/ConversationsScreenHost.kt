@@ -217,7 +217,7 @@ fun ConversationsScreenHost(
             title = strings.pickerTitle,
             actionIcon = Icons.Filled.ChatBubble,
             actionContentDescription = strings.newConversationDescription,
-            confirmContentDescription = strings.newConversationDescription,
+            confirmContentDescription = strings.createGroupDescription,
             selectedCandidateIds = state.selectedNewConversationProfileIds,
             onToggleCandidate = viewModel::toggleNewConversationCandidate,
             onConfirmSelection = { viewModel.openSelectedGroupConversation(onOpenConversation) },

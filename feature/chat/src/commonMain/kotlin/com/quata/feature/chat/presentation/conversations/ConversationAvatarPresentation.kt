@@ -46,11 +46,11 @@ fun resolveConversationAvatarPresentation(
     return ConversationAvatarPresentation(
         kind = kind,
         name = when (kind) { ConversationAvatarKind.Sos -> "SOS"; ConversationAvatarKind.Group -> displayTitle; ConversationAvatarKind.Private -> privateUser?.displayName ?: displayTitle },
-        stableId = when (kind) { ConversationAvatarKind.Private -> privateUser?.id ?: conversation.id; else -> conversation.id },
+        stableId = when (kind) { ConversationAvatarKind.Private -> peerId ?: conversation.id; else -> conversation.id },
         avatarUrl = when (kind) { ConversationAvatarKind.Sos -> null; ConversationAvatarKind.Group -> conversation.avatarUrl; ConversationAvatarKind.Private -> privateUser?.avatarUrl ?: conversation.participantAvatarUrls.getOrNull(peerIndex) ?: conversation.avatarUrl },
-        profileId = privateUser?.id,
+        profileId = peerId,
         isMuted = conversation.isMuted,
-        isLoading = privateUser?.id?.let { it == openingProfileUserId } == true,
+        isLoading = peerId?.let { it == openingProfileUserId } == true,
     )
 }
 
