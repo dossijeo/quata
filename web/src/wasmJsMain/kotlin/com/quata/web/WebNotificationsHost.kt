@@ -24,10 +24,17 @@ fun WebNotificationsHost(
     onOpenConversation: (String) -> Unit,
     canMutate: Boolean,
     onAuthenticationRequired: (String) -> Unit,
+    onDismissAuthenticationRequired: () -> Unit,
 ) {
     // Keep the input while this public API remains consumed by Main. The configured state is
     // deliberately not rendered as a permanent banner: Web Push belongs to web_login/logout.
     @Suppress("UNUSED_VARIABLE") val backendConfigured = runtimeConfiguration.isBackendConfigured
+    val authenticationPolicy = remember(onAuthenticationRequired, onDismissAuthenticationRequired) {
+        WebNotificationAuthenticationPolicy(
+            onConversationAuthenticationRequired = onAuthenticationRequired,
+            onDismissAuthenticationRequired = onDismissAuthenticationRequired,
+        )
+    }
     var nowMillis by remember { mutableLongStateOf(notificationsBrowserNowMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -63,11 +70,24 @@ fun WebNotificationsHost(
         onBack = onBack,
         onOpenConversation = onOpenConversation,
         canMutate = canMutate,
-        onAuthenticationRequired = { item -> onAuthenticationRequired(item.conversationId) },
-        // Preserve the current browser contract: both anonymous interactions retain the
-        // conversation target while the common auth prompt is shown.
-        onDismissAuthenticationRequired = { item -> onAuthenticationRequired(item.conversationId) },
+        onAuthenticationRequired = { item -> authenticationPolicy.requestForClick(item.conversationId) },
+        // Swiping is a blocked mutation, not a request to navigate into the conversation.
+        // Keep Notifications visible behind the participation prompt without queuing chat.
+        onDismissAuthenticationRequired = { authenticationPolicy.requestForDismiss() },
     )
+}
+
+internal class WebNotificationAuthenticationPolicy(
+    private val onConversationAuthenticationRequired: (String) -> Unit,
+    private val onDismissAuthenticationRequired: () -> Unit,
+) {
+    fun requestForClick(conversationId: String) {
+        onConversationAuthenticationRequired(conversationId)
+    }
+
+    fun requestForDismiss() {
+        onDismissAuthenticationRequired()
+    }
 }
 
 private val SpanishNotificationRelativeTimeStrings = NotificationRelativeTimeStrings(

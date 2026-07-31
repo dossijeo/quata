@@ -486,6 +486,11 @@ private fun QuataWebApp(
                             // shared participation dialog. No anonymous inbox mutation is sent.
                             requestAuthenticationFor(quataChatUrl(conversationId).substringAfter('#'))
                         },
+                        onDismissAuthenticationRequired = {
+                            // A blocked anonymous swipe only asks the user to participate. It is
+                            // not a navigation intent, so keep Notifications as the pending route.
+                            requestAuthenticationForCurrentRoute()
+                        },
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
