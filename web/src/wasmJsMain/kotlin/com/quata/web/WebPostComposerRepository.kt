@@ -25,9 +25,17 @@ class WebPostComposerTransport(
     private val auth: WebAuthRepository,
     private val postgrest: WebPostgrestClient = WebPostgrestClient(configuration, auth),
 ) : ActorBoundComposerTransport {
-    override suspend fun renewableSession(): ComposerActorSession? = auth.sessionForAuthenticatedRequest()?.let {
-        ComposerActorSession(it.userId, "")
+    override suspend fun renewableSession(): ComposerActorSession? = auth.sessionForAuthenticatedRequest()?.let { session ->
+        val displayName = session.displayName?.trim()?.takeIf(String::isNotBlank)
+            ?: resolveComposerDisplayName(session.userId)
+        ComposerActorSession(session.userId, displayName)
     }
+
+    private suspend fun resolveComposerDisplayName(profileId: String): String =
+        postgrest.get(WEB_COMPOSER_PROFILES_TABLE, webComposerProfileDisplayNameQuery(profileId))
+            .webComposerBody()
+            .let { Json.parseToJsonElement(it).jsonArray.singleOrNull()?.jsonObject?.get("display_name")?.jsonPrimitive?.contentOrNull }
+            ?.trim()?.takeIf(String::isNotBlank) ?: error("composer_actor_display_name_missing")
 
     override suspend fun moderate(actor: ComposerActorSession, draft: PostComposerDraft): Result<Unit> = runCatching {
         val media = when { draft.imageUri != null -> draft.imageUri; draft.videoUri != null -> draft.videoUri; else -> null }
@@ -99,7 +107,9 @@ private fun webPrepared(reference: String, fallbackMime: String, fallbackName: S
 private fun mediaMime(reference: String?): String = when (reference?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; "mov" -> "video/quicktime"; "mp4" -> "video/mp4"; else -> "" }
 internal const val WEB_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val WEB_COMPOSER_POSTS_TABLE = "community_posts"
+internal const val WEB_COMPOSER_PROFILES_TABLE = "community_profiles"
 internal fun webComposerWallFallbackQuery(): Map<String, String> = mapOf("select" to "id", "is_active" to "eq.true", "order" to "sort_order.asc", "limit" to "1")
+internal fun webComposerProfileDisplayNameQuery(profileId: String) = mapOf("select" to "display_name", "id" to "eq.$profileId", "limit" to "1")
 internal fun webComposerStorageObjectUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/community-posts/${webEncodePath(path)}"
 internal fun webComposerStoragePublicUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/public/community-posts/${webEncodePath(path)}"
 internal fun webComposerVideoDeleteFields(url: String) = mapOf("action" to "quqos_delete_post_video", "url" to url)
