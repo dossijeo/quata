@@ -75,6 +75,7 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.components.insertAtSelection
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.designsystem.translation.quataTranslatableText
 import androidx.compose.material.icons.filled.InsertEmoticon
@@ -171,7 +172,10 @@ fun FeedScreenHost(
     focusedPostId: String? = null,
     feedResetToken: Int = 0,
     networkReconnectToken: Long = 0L,
-    isLandscape: Boolean = false,
+    // The Feed must measure its own Compose container.  iOS creates this common host directly,
+    // so a static default here silently locked it to the portrait variant after rotation.
+    // Platform callers can still override the value when their navigation shell owns it.
+    isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
     strings: FeedScreenStrings = FeedScreenStrings(),
     onFocusedPostHandled: () -> Unit = {},
     onAuthRequired: () -> Unit = {},
