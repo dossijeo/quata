@@ -1,5 +1,20 @@
 # Hallazgos RLS pendientes
 
+## Política temporal de compatibilidad durante la migración — 2026-07-31
+
+La ausencia de RLS o la existencia de políticas permisivas **no bloquea la paridad
+funcional de los nuevos clientes Wasm e iOS**. Mientras Android publicado y la Web
+antigua sigan dependiendo del backend actual, los clientes migrados pueden usar los
+mismos endpoints, tablas y mutaciones que Android para completar los flujos reales.
+
+Esta política sustituye las instrucciones históricas de contención cliente
+`fail-closed` que aparecen más abajo; esas se conservan únicamente como evidencia
+del estado auditado. La autorización es estrictamente de compatibilidad: no autoriza a modificar,
+endurecer o eliminar políticas RLS, ni a romper clientes publicados. Cada exposición
+permanece documentada en este fichero y su corrección se aplaza hasta después de la
+publicación de la nueva Web. Las ramas de endurecimiento pueden mantenerse preparadas,
+pero no son prerrequisito para implementar o validar una pantalla.
+
 ## Nota de corte 2026-07-29
 
 Los PRs 93, 94, 96 y 97, las capturas de baseline Wasm y las validaciones Web/Android/iOS del corte `c87e82af` no modificaron Supabase: no hubo cambios de RLS, DDL, funciones, grants ni datos. Esta nota no cierra, rebaja ni autoriza el rollout de ninguno de los hallazgos siguientes. La Web publicada, Android publicado y el Feed anónimo continúan siendo restricciones de compatibilidad para cualquier corrección futura.
