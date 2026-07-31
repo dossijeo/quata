@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -48,6 +49,8 @@ import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.core.ui.components.CommunityEmojiPanelContent
+import com.quata.core.ui.components.communityEmojiSections
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -175,6 +178,7 @@ private fun ChatBrowserConversationDetail(
     var attachmentError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     var headerExpanded by remember(conversationId) { mutableStateOf(false) }
+    var emojiPanelVisible by remember(conversationId) { mutableStateOf(false) }
     LaunchedEffect(deepLinkRequest) {
         val focused = deepLinkRequest as? ChatMessageDeepLinkRequest.Focused ?: return@LaunchedEffect
         viewModel.onEvent(ChatUiEvent.MessageSelected(focused.messageId))
@@ -280,6 +284,12 @@ private fun ChatBrowserConversationDetail(
                 onDismiss = { viewModel.onEvent(ChatUiEvent.CloseForwardDialog) },
             )
         }
+        if (state.isLoading && state.messages.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ChatMessageSkeletonContent(isMine = false, pulseDelayMillis = 0)
+                ChatMessageSkeletonContent(isMine = true, pulseDelayMillis = 120)
+            }
+        }
         ChatConversationDetailContent(
             messages = state.messages,
             selectedMessageId = state.selectedMessageId,
@@ -307,11 +317,27 @@ private fun ChatBrowserConversationDetail(
                     Spacer(composerModifier)
                 } else Surface(composerModifier) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        messageInputOverride?.invoke(state.messageText, { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) }, Modifier.fillMaxWidth().semantics { testTag = "chat.message" }) ?: OutlinedTextField(
-                            value = state.messageText,
-                            onValueChange = { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) },
-                            label = { Text("Mensaje") },
-                            modifier = Modifier.fillMaxWidth().semantics { testTag = "chat.message" },
+                        val canSend = state.messageText.isNotBlank() || state.attachmentUri != null
+                        ChatComposerInputRowContent(
+                            textInput = { inputModifier ->
+                                messageInputOverride?.invoke(state.messageText, { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) }, inputModifier.semantics { testTag = "chat.message" }) ?: OutlinedTextField(
+                                    value = state.messageText,
+                                    onValueChange = { value -> viewModel.onEvent(ChatUiEvent.MessageChanged(value)) },
+                                    label = { Text("Mensaje") },
+                                    modifier = inputModifier.semantics { testTag = "chat.message" },
+                                )
+                            },
+                            cameraAction = { cameraModifier ->
+                                Button(onClick = { scope.launch { pickAttachment(FilePickerSource.Camera) } }, modifier = cameraModifier) { Text("Cámara") }
+                            },
+                            primaryAction = {
+                                sendButtonOverride?.invoke(canSend, { viewModel.onEvent(ChatUiEvent.Send) }, Modifier.semantics { testTag = "chat.send" })
+                                    ?: ChatComposerPrimaryActionContent(
+                                        onClick = { if (canSend) viewModel.onEvent(ChatUiEvent.Send) },
+                                        icon = { Text("Enviar") },
+                                        modifier = Modifier.semantics { testTag = "chat.send" },
+                                    )
+                            },
                         )
                         state.replyToMessage?.let { message ->
                             ChatComposerModeBannerContent(
@@ -325,8 +351,25 @@ private fun ChatBrowserConversationDetail(
                                 onClear = { viewModel.onEvent(ChatUiEvent.CancelEdit) },
                             )
                         }
+                        Button(onClick = { emojiPanelVisible = !emojiPanelVisible }) {
+                            Text(if (emojiPanelVisible) "Cerrar emojis" else "Emojis")
+                        }
+                        if (emojiPanelVisible) {
+                            CommunityEmojiPanelContent(
+                                sections = communityEmojiSections(),
+                                onEmojiClick = { emoji -> viewModel.onEvent(ChatUiEvent.MessageChanged(state.messageText + emoji)) },
+                            )
+                        }
                         state.attachmentName?.let { name ->
-                            Text("Adjunto: $name", style = MaterialTheme.typography.bodySmall)
+                            ChatPendingAttachmentOverlayContent(
+                                name = name,
+                                surfaceColor = MaterialTheme.colorScheme.surfaceVariant,
+                                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                onOpen = { state.attachmentUri?.let { onOpenAttachment(PlatformFile(it, name, state.attachmentMimeType)) } },
+                                preview = { Text(state.attachmentMimeType.orEmpty().ifBlank { "Adjunto" }) },
+                                clearAction = { clearModifier -> Button(onClick = { viewModel.onEvent(ChatUiEvent.ClearAttachment) }, modifier = clearModifier) { Text("Quitar") } },
+                                modifier = Modifier.fillMaxWidth().height(180.dp),
+                            )
                         }
                         if (isRecordingAudio) {
                             Text(
@@ -397,7 +440,6 @@ private fun ChatBrowserConversationDetail(
                             onPickFile = { scope.launch { pickAttachment(FilePickerSource.Documents) } },
                             onPickGallery = { scope.launch { pickAttachment(FilePickerSource.Gallery) } },
                         )
-                        Button(onClick = { scope.launch { pickAttachment(FilePickerSource.Camera) } }) { Text("Cámara") }
                         attachmentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (state.attachmentUri != null) {
                             Button(onClick = {
@@ -411,34 +453,46 @@ private fun ChatBrowserConversationDetail(
                                 Text("Quitar adjunto")
                             }
                         }
-                        sendButtonOverride?.invoke(
-                            state.messageText.isNotBlank() || state.attachmentUri != null,
-                            { viewModel.onEvent(ChatUiEvent.Send) },
-                            Modifier.semantics { testTag = "chat.send" },
-                        ) ?: Button(
-                            onClick = { viewModel.onEvent(ChatUiEvent.Send) },
-                            enabled = state.messageText.isNotBlank() || state.attachmentUri != null,
-                            modifier = Modifier.semantics { testTag = "chat.send" },
-                        ) { Text("Enviar") }
                     }
                 }
             },
             attachment = { message, attachmentModifier ->
-                ChatBrowserAttachmentContent(
-                    message = message,
-                    audioPlayer = audioPlayer,
-                    activeAudioReference = activeAudioReference,
-                    playback = audioPlayback,
-                    failed = audioFailed,
-                    onPlaybackChanged = { reference, updatedPlayback, failed ->
-                        activeAudioReference = reference
-                        audioPlayback = updatedPlayback
-                        audioFailed = failed
-                    },
-                    onOpenAttachment = onOpenAttachment,
-                    launch = audioLifecycle::launch,
-                    modifier = attachmentModifier,
-                )
+                Column(attachmentModifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ChatBrowserAttachmentContent(
+                        message = message,
+                        audioPlayer = audioPlayer,
+                        activeAudioReference = activeAudioReference,
+                        playback = audioPlayback,
+                        failed = audioFailed,
+                        onPlaybackChanged = { reference, updatedPlayback, failed ->
+                            activeAudioReference = reference
+                            audioPlayback = updatedPlayback
+                            audioFailed = failed
+                        },
+                        onOpenAttachment = onOpenAttachment,
+                        launch = audioLifecycle::launch,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    message.text.chatSosMapUrl()?.let { mapsUrl ->
+                        ChatSosLocationContent(
+                            title = "Ubicación SOS",
+                            body = null,
+                            locationLabel = "Ubicación compartida",
+                            mapsUrl = mapsUrl,
+                            age = null,
+                            accuracy = null,
+                            speed = null,
+                            isUpdate = true,
+                            isUnavailable = false,
+                            unavailableLabel = "Ubicación no disponible",
+                            openMapsLabel = "Abrir mapa",
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            accentColor = MaterialTheme.colorScheme.primary,
+                            onOpenMaps = onOpenMap,
+                            mapPreviewIcon = { Text("SOS") },
+                        )
+                    }
+                }
             },
             deliveryIndicator = { message ->
                 if (message.isMine) {
@@ -453,6 +507,12 @@ private fun ChatBrowserConversationDetail(
             typingIndicator = state.typingProfileIds.takeIf { it.isNotEmpty() }?.let { ids ->
                 { ChatTypingIndicatorContent(ids.toList()) }
             },
+            historyHeader = if (state.hasMoreHistory) {{
+                Button(onClick = { scope.launch { viewModel.loadOlderMessages() } }, enabled = !state.isLoadingOlderMessages) {
+                    Text(if (state.isLoadingOlderMessages) "Cargando historial…" else "Cargar mensajes anteriores")
+                }
+            }} else null,
+            newMessagesLabel = "Mensajes nuevos",
             messageActions = { message, actionsModifier ->
                 if (message.id == state.selectedMessageId && !message.isLocalEcho) {
                     Column(actionsModifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -624,6 +684,11 @@ private fun Long.toDurationLabel(): String {
     return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
+private fun String.chatSosMapUrl(): String? {
+    if (!contains("SOS", ignoreCase = true)) return null
+    return Regex("(?:https?://|geo:)[^\\s]+", RegexOption.IGNORE_CASE).find(this)?.value
+}
+
 @Composable
 private fun ChatBrowserAttachmentContent(
     message: Message,
@@ -641,12 +706,13 @@ private fun ChatBrowserAttachmentContent(
     val mimeType = message.attachmentMimeType.orEmpty()
     val displayName = message.attachmentName?.takeIf { it.isNotBlank() } ?: "Adjunto"
     if (!mimeType.startsWith("audio/", ignoreCase = true)) {
-        Surface(modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(displayName)
-                Button(onClick = { onOpenAttachment(PlatformFile(reference, displayName, mimeType)) }) { Text("Abrir adjunto") }
-            }
-        }
+        ChatDocumentAttachmentContent(
+            name = displayName,
+            textColor = MaterialTheme.colorScheme.onSurface,
+            onOpen = { onOpenAttachment(PlatformFile(reference, displayName, mimeType)) },
+            icon = { Text(if (mimeType.startsWith("image/")) "Imagen" else if (mimeType.startsWith("video/")) "Vídeo" else "Archivo") },
+            modifier = modifier.fillMaxWidth(),
+        )
         return
     }
     val isActive = activeAudioReference == reference

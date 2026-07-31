@@ -21,6 +21,11 @@ class ChatCommonCompositionStaticTest {
             "ChatSelectedMessageActionBarContent(",
             "ChatConversationAvatarContent(",
             "ChatAttachmentQuickPanelContent(",
+            "ChatComposerInputRowContent(",
+            "CommunityEmojiPanelContent(",
+            "ChatPendingAttachmentOverlayContent(",
+            "ChatSosLocationContent(",
+            "ChatDocumentAttachmentContent(",
             "FilePickerSource.Camera",
             "FilePickerSource.Gallery",
             "ChatTypingIndicatorContent(",
@@ -31,6 +36,8 @@ class ChatCommonCompositionStaticTest {
             "RemoveParticipant(",
             "BlockParticipant(",
             "ChatPortableCandidatePanel(",
+            "newMessagesLabel =",
+            "historyHeader =",
             "service.writeText",
         ).forEach { required -> assertTrue("Missing shared Chat hierarchy token: $required", required in source) }
     }

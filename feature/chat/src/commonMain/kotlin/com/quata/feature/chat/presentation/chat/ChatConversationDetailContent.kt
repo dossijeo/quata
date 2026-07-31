@@ -11,13 +11,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
+import kotlinx.coroutines.launch
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -47,12 +51,15 @@ fun ChatConversationDetailContent(
     favoriteMarker: (@Composable (Message) -> Unit)? = null,
     messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     typingIndicator: (@Composable () -> Unit)? = null,
+    historyHeader: (@Composable () -> Unit)? = null,
+    newMessagesLabel: String? = null,
     /** A host-provided message target. It is ignored safely until it is present in [messages]. */
     focusedMessageId: String? = null,
     onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
@@ -69,6 +76,7 @@ fun ChatConversationDetailContent(
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            historyHeader?.let { header -> item(key = "chat-history-header") { header() } }
             items(messages, key = Message::id) { message ->
                 ChatConversationMessageContent(
                     message = message,
@@ -87,6 +95,12 @@ fun ChatConversationDetailContent(
             typingIndicator?.let { indicator ->
                 item(key = "chat-typing-indicator") { indicator() }
             }
+        }
+        if (newMessagesLabel != null && listState.canScrollForward && messages.isNotEmpty()) {
+            Button(
+                onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } },
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+            ) { Text(newMessagesLabel) }
         }
         composer(Modifier.fillMaxWidth())
     }
