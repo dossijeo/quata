@@ -1,11 +1,11 @@
 package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
@@ -14,6 +14,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.readBytes
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
+import com.quata.core.data.toFoundationData
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
 import com.quata.core.ui.components.QuataAvatarFrameContent
@@ -25,9 +30,21 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import platform.UIKit.UIViewController
-import platform.Foundation.NSLocale
+import platform.Foundation.NSData
+import platform.Foundation.NSError
+import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLSession
+import platform.Foundation.NSURLSessionConfiguration
+import platform.Foundation.NSURLSessionDataDelegateProtocol
+import platform.Foundation.NSURLSessionDataTask
+import platform.Foundation.NSURLSessionTask
 import platform.UIKit.UIImage
+import platform.UIKit.UIImageView
+import platform.UIKit.UIViewContentMode
+import platform.darwin.NSObject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * The launcher's only cross-feature navigation obligation for Communities.  The selected ID is
@@ -108,19 +125,44 @@ fun QuataNeighborhoodsViewController(
 private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
     val url = user.avatarUrl?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
     var image by remember(url) { mutableStateOf<UIImage?>(null) }
-    LaunchedEffect(url) {
-        // The surrounding UIKit launcher can replace this slot. Keeping the URL as state ensures
-        // a real remote loader is used by the platform adapter rather than a fabricated avatar.
-        image = null
-    }
+    LaunchedEffect(url) { image = url?.let(::loadIosNeighborhoodAvatarOrNull) }
     QuataAvatarFrameContent(
         name = user.displayName,
         stableId = user.id,
         isOfficial = user.isOfficial,
-        modifier = Modifier,
-        avatar = null,
+        modifier = Modifier.clickable(onClick = onClick),
+        avatar = image?.let { decoded -> { UIKitView(factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true; image = decoded } }, update = { it.image = decoded }, modifier = Modifier.fillMaxSize()) } },
     )
 }
+
+private suspend fun loadIosNeighborhoodAvatarOrNull(url: String): UIImage? = runCatching {
+    iosNeighborhoodAvatarData(NSURL(string = url) ?: return@runCatching null)
+}.getOrNull()?.let { UIImage(data = it) }
+
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun iosNeighborhoodAvatarData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+    val delegate = IosNeighborhoodAvatarDelegate(continuation)
+    val session = NSURLSession.sessionWithConfiguration(NSURLSessionConfiguration.ephemeralSessionConfiguration(), delegate, null)
+    val task = session.dataTaskWithURL(url)
+    continuation.invokeOnCancellation { task.cancel(); session.invalidateAndCancel() }
+    task.resume()
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosNeighborhoodAvatarDelegate(private val continuation: CancellableContinuation<NSData>) : NSObject(), NSURLSessionDataDelegateProtocol {
+    private val chunks = mutableListOf<ByteArray>()
+    override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) { if (continuation.isActive) chunks += didReceiveData.toNeighborhoodAvatarBytes() }
+    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
+        session.finishTasksAndInvalidate()
+        if (!continuation.isActive) return
+        val data = chunks.toFoundationData().takeIf { it.length > 0uL }
+        val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
+        if (didCompleteWithError != null || status !in 200..299 || data == null) continuation.resumeWithException(IllegalStateException("ios_neighborhood_avatar_unavailable")) else continuation.resume(data)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.toNeighborhoodAvatarBytes(): ByteArray = if (length == 0uL) ByteArray(0) else bytes?.readBytes(length.toInt()) ?: ByteArray(0)
 
 /**
  * Shared profile arrangement available to the iOS launcher once it presents a selected profile.
