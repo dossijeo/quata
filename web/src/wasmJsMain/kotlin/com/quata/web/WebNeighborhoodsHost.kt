@@ -7,6 +7,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
@@ -109,19 +112,26 @@ private fun WebCommunityProfileRoute(
         roleUpdatingUserId = state.roleUpdatingUserId,
         currentUserIsAdmin = state.currentUserIsAdmin,
         error = state.error,
-        showModeration = false,
-        showAdminControls = false,
+        showModeration = true,
+        showAdminControls = true,
         onDismiss = { model.closeUserProfile(); onDismiss() },
         onAuthRequired = onAuthRequired,
         onFollowUser = model::toggleFollowUser,
         onOpenPrivateChat = { model.openPrivateChat(it, onOpenConversation) },
         onOpenUserProfile = model::openUserProfile,
-        onReportProfile = {}, onBlockProfile = {}, onSetRoles = { _, _, _ -> },
+        onReportProfile = model::reportProfile, onBlockProfile = model::blockProfile, onSetRoles = model::setUserRoles,
         avatar = { user, loading, click -> slots.avatar(user, loading) { click?.invoke() } },
         attachmentItem = { attachment -> TextButton(onClick = { webOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
         postPreview = { post, count, openComments ->
             CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
-                { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, media = { _, _ -> })
+                { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, media = { loaded, load ->
+                    if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
+                    else {
+                        var position by remember(post.id) { mutableLongStateOf(0L) }
+                        var muted by remember(post.id) { mutableStateOf(false) }
+                        BrowserFeedMediaContent(post, true, muted, position, { position = it }, { muted = it })
+                    }
+                })
         },
         commentsDialog = { post, local, add, dismiss ->
             CommunityProfileCommentsDialogContent(post, local, currentUserId != null,

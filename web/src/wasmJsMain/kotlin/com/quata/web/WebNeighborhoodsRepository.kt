@@ -4,6 +4,7 @@ package com.quata.web
 
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.chat.domain.ChatRepository
@@ -88,8 +89,21 @@ class WebNeighborhoodsRepository(
         FollowUserResult(userId, following, current)
     }
 
-    override suspend fun reportPost(postId: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("web_communities_report_reserved_for_profile"))
+    override suspend fun reportPost(postId: String): Result<Unit> = reportUgc("community_post", postId)
+
+    override suspend fun reportProfile(profileId: String): Result<Unit> = reportUgc("profile", profileId)
+
+    override suspend fun blockProfile(profileId: String): Result<Unit> = runCatching {
+        require(profileId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
+        val actor = authenticatedUserId()
+        client.requireSuccess("quata_profile_block", client.rpc("quata_profile_block", webNeighborhoodBlockPayload(actor, profileId)))
+    }
+
+    private suspend fun reportUgc(targetType: String, targetId: String): Result<Unit> = runCatching {
+        require(targetId.matches(PostgrestIdentifier)) { "web_community_invalid_target_id" }
+        val actor = authenticatedUserId()
+        client.requireSuccess("quata_ugc_report", client.rpc("quata_ugc_report", webNeighborhoodReportPayload(actor, targetType, targetId)))
+    }
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
@@ -103,8 +117,11 @@ class WebNeighborhoodsRepository(
         loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin)).firstOrNull()?.isAdmin == true
     }.getOrDefault(false)
 
-    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
-        Result.failure(UnsupportedOperationException("web_communities_roles_reserved_for_profile"))
+    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> = runCatching {
+        require(isCurrentUserAdmin()) { "web_community_admin_required" }
+        client.requireSuccess("community_profiles", client.patch("community_profiles", mapOf("id" to "eq.$userId"), "{\"is_admin\":$isAdmin,\"is_official\":$isOfficial}"))
+        loadProfiles(listOf(userId), WebPostgrestAuthMode.SessionRequired).firstOrNull() ?: error("web_community_profile_not_found")
+    }
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
         profileCache[userId]?.takeIf { cached -> maxAgeMillis == null || browserNowMillis() - cached.second <= maxAgeMillis.toDouble() }?.first
@@ -124,18 +141,33 @@ class WebNeighborhoodsRepository(
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
         val profile = loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile)).firstOrNull()
             ?: error("web_community_profile_not_found")
-        val posts = client.rows(
+        val basePosts = client.rows(
             table = "community_posts",
             query = mapOf("select" to PostSelect, "profile_id" to "eq.$userId", "order" to "created_at.desc"),
             limit = ProfilePostsLimit,
             authMode = WebPostgrestAuthMode.Public,
         ).map { it.toCommunityProfilePost(profile) }
+        val postIds = basePosts.map { it.id }
+        val commentRows = if (postIds.isEmpty()) emptyList() else client.rows("community_comments", mapOf("select" to "id,post_id,profile_id,body,created_at", "post_id" to postIds.toPostgrestInFilter()), 500, WebPostgrestAuthMode.Public)
+        val likeRows = if (postIds.isEmpty()) emptyList() else client.rows("community_post_likes", mapOf("select" to "id,post_id,profile_id", "post_id" to postIds.toPostgrestInFilter()), 1000, WebPostgrestAuthMode.Public)
+        val interactionIds = (commentRows + likeRows).mapNotNull { it.webCommunityString("profile_id") }.distinct()
+        val interactionProfiles = if (interactionIds.isEmpty()) emptyMap() else loadProfiles(interactionIds, WebPostgrestAuthMode.Public).associateBy { it.id }
+        val signedInId = authRepository.sessionForAuthenticatedRequest()?.userId
+        val posts = basePosts.map { post ->
+            val comments = commentRows.filter { it.webCommunityString("post_id") == post.id }.map { row ->
+                val authorId = row.webCommunityString("profile_id")
+                PostComment(row.webCommunityString("id") ?: "comment:${post.id}", interactionProfiles[authorId]?.displayName ?: "Usuario", row.webCommunityString("body").orEmpty(), row.webCommunityString("created_at").orEmpty(), authorId = authorId)
+            }
+            val likes = likeRows.filter { it.webCommunityString("post_id") == post.id }
+            post.copy(comments = comments, likesCount = likes.size, isLikedByCurrentUser = signedInId != null && likes.any { it.webCommunityString("profile_id") == signedInId })
+        }
         val followers = profileRelations("followed_profile_id", userId)
         val following = profileRelations("follower_profile_id", userId)
         val relatedIds = (followers.mapNotNull { it.webCommunityString("follower_profile_id") } +
             following.mapNotNull { it.webCommunityString("followed_profile_id") }).distinct()
         val related = if (relatedIds.isEmpty()) emptyMap() else loadProfiles(relatedIds, WebPostgrestAuthMode.Public).associateBy { it.id }
-        val currentId = authRepository.sessionForAuthenticatedRequest()?.userId
+        val currentId = signedInId
+        val sharedAttachments = currentId?.let { loadSharedAttachments(it, userId, profile.displayName) }.orEmpty()
         val currentFollowing = currentId?.let { profileRelations("follower_profile_id", it).mapNotNull { row -> row.webCommunityString("followed_profile_id") }.toSet() }.orEmpty()
         val followerUsers = followers.mapNotNull { related[it.webCommunityString("follower_profile_id")] }
             .map { it.copy(isFollowing = it.id in currentFollowing) }
@@ -150,12 +182,28 @@ class WebNeighborhoodsRepository(
         CommunityUserProfile(
             user = enriched,
             posts = posts,
-            // Post media are real profile-visible attachments. Private chat attachments remain
-            // intentionally absent for anonymous visitors rather than being fabricated.
-            attachments = posts.flatMap(Post::toProfileAttachments),
+            attachments = sharedAttachments,
             followers = followerUsers,
             following = followingUsers,
         ).also { profileCache[userId] = it to browserNowMillis() }
+    }
+
+    private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
+        val body = "{\"p_profile_id\":\"$actorId\",\"p_peer_profile_id\":\"$peerId\",\"p_limit\":120,\"p_offset\":0}"
+        val result = client.rpc("quata_chat_list_shared_attachments", body)
+        val root = (result as? WebPostgrestResult.Success)?.body?.let { Json.parseToJsonElement(it).jsonObject } ?: return emptyList()
+        return root["files"]?.jsonArray.orEmpty().mapNotNull { element ->
+            val row = element.jsonObject
+            val uri = row.webCommunityString("url") ?: row.webCommunityString("file_url") ?: return@mapNotNull null
+            ProfileAttachment(
+                id = "web:${row.webCommunityString("id") ?: uri}",
+                name = row.webCommunityString("name") ?: row.webCommunityString("file_name") ?: "attachment",
+                uri = uri,
+                mimeType = row.webCommunityString("mime_type"),
+                sentAtMillis = row.webCommunityString("created_at")?.toWebCommunityEpochMillis(),
+                senderName = row.webCommunityString("sender_name") ?: senderName,
+            )
+        }
     }
 
     private suspend fun profileRelations(column: String, profileId: String): List<JsonObject> = client.rows(
@@ -293,3 +341,9 @@ private fun String.toWebCommunityEpochMillis(): Long? = browserDateParse(this)
 
 private fun browserDateParse(value: String): Double? = js("Date.parse(value)")
 private fun browserNowMillis(): Double = js("Date.now()")
+
+internal fun webNeighborhoodReportPayload(actor: String, type: String, target: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_target_type\":\"$type\",\"p_target_id\":\"$target\",\"p_reason\":\"other\"}"
+
+internal fun webNeighborhoodBlockPayload(actor: String, profile: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_profile_id\":\"$profile\"}"

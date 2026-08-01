@@ -199,6 +199,22 @@ class NeighborhoodsViewModel(
         }
     }
 
+    fun reportProfile(profileId: String) {
+        scope.launch {
+            repository.reportProfile(profileId).onFailure { failure ->
+                _uiState.value = _uiState.value.copy(error = failure.message ?: "No se pudo reportar el perfil")
+            }
+        }
+    }
+
+    fun blockProfile(profileId: String) {
+        scope.launch {
+            repository.blockProfile(profileId)
+                .onSuccess { closeUserProfile() }
+                .onFailure { failure -> _uiState.value = _uiState.value.copy(error = failure.message ?: "No se pudo bloquear el perfil") }
+        }
+    }
+
     fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) {
         if (_uiState.value.roleUpdatingUserId != null) return
         scope.launch {

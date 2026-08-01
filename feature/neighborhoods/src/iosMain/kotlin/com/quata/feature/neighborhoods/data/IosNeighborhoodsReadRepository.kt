@@ -5,6 +5,7 @@ package com.quata.feature.neighborhoods.data
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
@@ -101,8 +102,23 @@ class IosNeighborhoodsReadRepository(
         FollowUserResult(userId, following, current)
     }
 
-    override suspend fun reportPost(postId: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("ios_communities_report_reserved_for_profile"))
+    override suspend fun reportPost(postId: String): Result<Unit> = reportUgc("community_post", postId)
+
+    override suspend fun reportProfile(profileId: String): Result<Unit> = reportUgc("profile", profileId)
+
+    override suspend fun blockProfile(profileId: String): Result<Unit> = runCatching {
+        require(profileId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
+        val actor = authenticatedSession().userId
+        mutate("POST", "rpc/quata_profile_block", iosNeighborhoodBlockPayload(actor, profileId))
+        Unit
+    }
+
+    private suspend fun reportUgc(targetType: String, targetId: String): Result<Unit> = runCatching {
+        require(targetId.matches(IosNeighborhoodIdentifier)) { "ios_communities_target_id_invalid" }
+        val actor = authenticatedSession().userId
+        mutate("POST", "rpc/quata_ugc_report", iosNeighborhoodReportPayload(actor, targetType, targetId))
+        Unit
+    }
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
@@ -119,7 +135,11 @@ class IosNeighborhoodsReadRepository(
         userId: String,
         isAdmin: Boolean,
         isOfficial: Boolean,
-    ): Result<NeighborhoodUser> = Result.failure(UnsupportedOperationException("ios_communities_roles_reserved_for_profile"))
+    ): Result<NeighborhoodUser> = runCatching {
+        require(isCurrentUserAdmin()) { "ios_communities_admin_required" }
+        mutate("PATCH", "community_profiles?id=eq.$userId", "{\"is_admin\":$isAdmin,\"is_official\":$isOfficial}")
+        loadProfiles(listOf(userId), requireSession = true).firstOrNull() ?: error("ios_communities_profile_not_found")
+    }
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
         profileCache[userId]?.takeIf { cached -> maxAgeMillis == null || kotlin.time.Clock.System.now().toEpochMilliseconds() - cached.second <= maxAgeMillis }?.first
@@ -135,10 +155,24 @@ class IosNeighborhoodsReadRepository(
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
         val user = loadProfiles(listOf(userId)).firstOrNull() ?: error("ios_communities_profile_not_found")
-        val posts = rows(
+        val basePosts = rows(
             table = "community_posts",
             query = mapOf("select" to PostSelect, "profile_id" to "eq.$userId", "order" to "created_at.desc", "limit" to ProfilePostsLimit.toString()),
         ).map { row -> row.toIosCommunityProfilePost(user) }
+        val postIds = basePosts.map { it.id }
+        val comments = if (postIds.isEmpty()) emptyList() else rows("community_comments", mapOf("select" to "id,post_id,profile_id,body,created_at", "post_id" to postIds.toIosNeighborhoodInFilter(), "limit" to "500"))
+        val likes = if (postIds.isEmpty()) emptyList() else rows("community_post_likes", mapOf("select" to "id,post_id,profile_id", "post_id" to postIds.toIosNeighborhoodInFilter(), "limit" to "1000"))
+        val interactionIds = (comments + likes).mapNotNull { it.iosNeighborhoodString("profile_id") }.distinct()
+        val interactionProfiles = if (interactionIds.isEmpty()) emptyMap() else loadProfiles(interactionIds).associateBy { it.id }
+        val signedInId = authSession.currentSession()?.userId
+        val posts = basePosts.map { post ->
+            val postComments = comments.filter { it.iosNeighborhoodString("post_id") == post.id }.map { row ->
+                val authorId = row.iosNeighborhoodString("profile_id")
+                PostComment(row.iosNeighborhoodString("id") ?: "comment:${post.id}", interactionProfiles[authorId]?.displayName ?: "Usuario", row.iosNeighborhoodString("body").orEmpty(), row.iosNeighborhoodString("created_at").orEmpty(), authorId = authorId)
+            }
+            val postLikes = likes.filter { it.iosNeighborhoodString("post_id") == post.id }
+            post.copy(comments = postComments, likesCount = postLikes.size, isLikedByCurrentUser = signedInId != null && postLikes.any { it.iosNeighborhoodString("profile_id") == signedInId })
+        }
         val followers = profileRelations("followed_profile_id", userId)
         val following = profileRelations("follower_profile_id", userId)
         val relatedIds = (followers.mapNotNull { it.iosNeighborhoodString("follower_profile_id") } +
@@ -149,6 +183,7 @@ class IosNeighborhoodsReadRepository(
         val currentFollowing = authSession.currentSession()?.userId?.let { currentId ->
             profileRelations("follower_profile_id", currentId).mapNotNull { it.iosNeighborhoodString("followed_profile_id") }.toSet()
         }.orEmpty()
+        val sharedAttachments = authSession.currentSession()?.userId?.let { loadSharedAttachments(it, userId, user.displayName) }.orEmpty()
         val profile = CommunityUserProfile(
             user = user.copy(
                 isFollowing = userId in currentFollowing,
@@ -157,11 +192,28 @@ class IosNeighborhoodsReadRepository(
                 postsCount = posts.size,
             ),
             posts = posts,
-            attachments = posts.flatMap(Post::toIosProfileAttachments),
+            attachments = sharedAttachments,
             followers = followers.mapNotNull { related[it.iosNeighborhoodString("follower_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
             following = following.mapNotNull { related[it.iosNeighborhoodString("followed_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
         )
         profile.also { profileCache[userId] = it to kotlin.time.Clock.System.now().toEpochMilliseconds() }
+    }
+
+    private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
+        val data = mutate("POST", "rpc/quata_chat_list_shared_attachments", "{\"p_profile_id\":\"$actorId\",\"p_peer_profile_id\":\"$peerId\",\"p_limit\":120,\"p_offset\":0}")
+        val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *> ?: return emptyList()
+        return (root["files"] as? List<*>).orEmpty().mapNotNull { raw ->
+            val row = raw as? Map<*, *> ?: return@mapNotNull null
+            val uri = row.iosNeighborhoodString("url") ?: row.iosNeighborhoodString("file_url") ?: return@mapNotNull null
+            ProfileAttachment(
+                id = "ios:${row.iosNeighborhoodString("id") ?: uri}",
+                name = row.iosNeighborhoodString("name") ?: row.iosNeighborhoodString("file_name") ?: "attachment",
+                uri = uri,
+                mimeType = row.iosNeighborhoodString("mime_type"),
+                sentAtMillis = row.iosNeighborhoodString("created_at")?.toIosNeighborhoodEpochMillis(),
+                senderName = row.iosNeighborhoodString("sender_name") ?: senderName,
+            )
+        }
     }
 
     private suspend fun profileRelations(column: String, profileId: String): List<Map<*, *>> = rows(
@@ -214,7 +266,7 @@ class IosNeighborhoodsReadRepository(
         }
     }
 
-    private suspend fun mutate(method: String, path: String, body: String?) {
+    private suspend fun mutate(method: String, path: String, body: String?): NSData {
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_communities_supabase_url_missing")
         val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_communities_supabase_publishable_key_missing")
         val session = authenticatedSession()
@@ -226,7 +278,7 @@ class IosNeighborhoodsReadRepository(
             setValue("return=minimal", "Prefer")
             body?.let { setHTTPBody(it.encodeToByteArray().toFoundationData()) }
         }
-        NSURLSessionConfiguration.ephemeralSessionConfiguration().iosNeighborhoodData(request)
+        return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosNeighborhoodData(request)
     }
 
     private suspend fun authenticatedSession() = authSession.currentSession()
@@ -378,3 +430,9 @@ private fun String.toIosNeighborhoodQueryComponent(): String = encodeToByteArray
 private fun String.normalizedCommunityKey(): String = trim().lowercase().replace(Regex("\\s+"), " ")
 
 private val IosNeighborhoodIdentifier = Regex("[A-Za-z0-9_-]+")
+
+internal fun iosNeighborhoodReportPayload(actor: String, type: String, target: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_target_type\":\"$type\",\"p_target_id\":\"$target\",\"p_reason\":\"other\"}"
+
+internal fun iosNeighborhoodBlockPayload(actor: String, profile: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_profile_id\":\"$profile\"}"

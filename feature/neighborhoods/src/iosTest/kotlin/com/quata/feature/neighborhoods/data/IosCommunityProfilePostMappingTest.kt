@@ -18,4 +18,12 @@ class IosCommunityProfilePostMappingTest {
         assertEquals(2, post.toIosProfileAttachments().size)
         assertEquals("image/*", post.toIosProfileAttachments().first().mimeType)
     }
+
+    @Test fun `moderation payloads match Android RPC arguments`() {
+        assertEquals(
+            "{\"p_actor_profile_id\":\"me\",\"p_target_type\":\"profile\",\"p_target_id\":\"peer\",\"p_reason\":\"other\"}",
+            iosNeighborhoodReportPayload("me", "profile", "peer"),
+        )
+        assertEquals("{\"p_actor_profile_id\":\"me\",\"p_profile_id\":\"peer\"}", iosNeighborhoodBlockPayload("me", "peer"))
+    }
 }

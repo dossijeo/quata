@@ -168,6 +168,18 @@ class NeighborhoodRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
+    override suspend fun reportProfile(profileId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        supabaseApi.reportUgc(session.userId, "profile", profileId, "other")
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun blockProfile(profileId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        supabaseApi.blockProfile(session.userId, profileId)
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {

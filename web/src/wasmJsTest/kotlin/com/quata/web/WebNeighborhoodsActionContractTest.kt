@@ -11,6 +11,14 @@ class WebNeighborhoodsActionContractTest {
         )
     }
 
+    @Test fun `moderation payloads use current Android RPC argument names`() {
+        assertEquals(
+            "{\"p_actor_profile_id\":\"me\",\"p_target_type\":\"profile\",\"p_target_id\":\"peer\",\"p_reason\":\"other\"}",
+            webNeighborhoodReportPayload("me", "profile", "peer"),
+        )
+        assertEquals("{\"p_actor_profile_id\":\"me\",\"p_profile_id\":\"peer\"}", webNeighborhoodBlockPayload("me", "peer"))
+    }
+
     @Test fun `directory reads remain anonymous while actions require session`() {
         assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
         assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin))
