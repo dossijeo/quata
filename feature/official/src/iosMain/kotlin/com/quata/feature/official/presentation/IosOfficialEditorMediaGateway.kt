@@ -34,9 +34,11 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSTemporaryDirectory
+import kotlin.coroutines.resume
 import kotlin.random.Random
 
 interface IosOfficialEditorMediaTransport {
@@ -46,6 +48,21 @@ interface IosOfficialEditorMediaTransport {
     suspend fun uploadVideo(actorProfileId: String, media: ComposerPreparedMedia): Result<ComposerUploadedMedia>
     suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia): Result<Unit>
     suspend fun releasePreparedMedia(media: ComposerPreparedMedia): Result<Unit>
+}
+
+/**
+ * Swift owns the two Apple codec boundaries: Core Image writes a new image and AVFoundation
+ * exports a new movie.  Kotlin keeps the selection/upload transaction and never receives bytes.
+ */
+interface IosOfficialNativeMediaEditOperation { fun cancel() }
+
+interface IosOfficialNativeMediaEditor {
+    fun editAndExport(
+        sourceReference: String,
+        isVideo: Boolean,
+        onSuccess: (reference: String, displayName: String, mimeType: String) -> Unit,
+        onFailure: (reason: String) -> Unit,
+    ): IosOfficialNativeMediaEditOperation
 }
 
 sealed interface IosOfficialMediaPickResult {
@@ -69,6 +86,7 @@ fun createIosOfficialEditorMediaGateway(
     presenterProvider: IosViewControllerProvider,
     configuration: IosOfficialRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
+    nativeEditor: IosOfficialNativeMediaEditor,
     videoThumbnails: VideoThumbnailService = IosVideoThumbnailService(),
 ): IosOfficialEditorMediaGateway {
     val picker = IosFilePickerService().apply {
@@ -80,6 +98,7 @@ fun createIosOfficialEditorMediaGateway(
     )
     return IosOfficialEditorMediaGateway(
         picker, CreatePostOfficialMediaTransport(IosPostComposerTransport(composerConfiguration, authSession)), videoThumbnails,
+        nativeEditor = nativeEditor,
     )
 }
 
@@ -91,6 +110,7 @@ class IosOfficialEditorMediaGateway(
     private val handleFactory: () -> String = { "ios-official-media-${Random.nextLong().toString(16)}" },
     private val cleanup: (PlatformFile) -> Unit = ::deleteOnlyOwnedTemporaryFile,
     private val previewCleanup: (PlatformFile) -> Unit = { releaseIosComposerVideoThumbnail(it); Unit },
+    private val nativeEditor: IosOfficialNativeMediaEditor? = null,
 ) {
     private val selections = mutableMapOf<String, PlatformFile>()
     private val previews = mutableMapOf<String, PlatformFile>()
@@ -144,6 +164,34 @@ class IosOfficialEditorMediaGateway(
     fun previewFile(media: OfficialEditorMedia): PlatformFile? {
         val handle = media.preparedHandle ?: return null
         return previews[handle] ?: selections[handle]?.takeIf { media.type == OfficialMediaType.Image }
+    }
+
+    /** Exports a fresh app-owned file and atomically swaps the opaque selection handle. */
+    suspend fun editAndExport(media: OfficialEditorMedia): Result<OfficialEditorMedia> = runCatching {
+        val oldHandle = media.preparedHandle ?: error("ios_official_media_handle_missing")
+        val source = selections[oldHandle] ?: error("ios_official_media_selection_missing")
+        val editor = nativeEditor ?: error("ios_official_native_editor_missing")
+        val exported = suspendCancellableCoroutine<PlatformFile> { continuation ->
+            val operation = editor.editAndExport(
+                sourceReference = source.reference,
+                isVideo = media.type == OfficialMediaType.Video,
+                onSuccess = { reference, displayName, mimeType ->
+                    if (continuation.isActive) continuation.resume(PlatformFile(reference, displayName, mimeType))
+                },
+                onFailure = { reason ->
+                    if (continuation.isActive) continuation.resumeWith(Result.failure(IllegalStateException(reason)))
+                },
+            )
+            continuation.invokeOnCancellation { operation.cancel() }
+        }
+        // Do not leave a stale thumbnail or source copy after a successful native export.
+        discard(media)
+        val replacement = register(exported, media.type)
+        if (media.type == OfficialMediaType.Video) {
+            (videoThumbnails?.createThumbnail(exported) as? PlatformResult.Success)?.value
+                ?.let { previews[replacement.preparedHandle!!] = it }
+        }
+        replacement
     }
 
     suspend fun submit(repository: OfficialRepository, drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {

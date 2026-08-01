@@ -509,6 +509,7 @@ private final class IosAppCompositionRoot {
                 presenterProvider: mediaPresenter,
                 configuration: mediaConfiguration,
                 authSession: mediaAuthSession,
+                nativeEditor: IosOfficialMediaEditorBridge.shared,
                 videoThumbnails: mediaPresenter.services.videoThumbnails
             )
             return QuataOfficialViewControllerKt.QuataOfficialEditorRootViewController(
