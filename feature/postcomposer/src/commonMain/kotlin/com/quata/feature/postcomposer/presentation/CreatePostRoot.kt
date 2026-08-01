@@ -211,7 +211,7 @@ fun CreatePostRoot(
             emojiOpen = false
             locationOpen = false
             onPostCreated(state.createdPostId)
-            viewModel.onEvent(CreatePostUiEvent.ClearMessage)
+            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
         }
     }
     fun select(next: CreatePostStep) {
