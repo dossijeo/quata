@@ -149,7 +149,9 @@ test("WhatsNew RPC POST remains explicitly outside the strict GET-only route mat
     /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
   );
   assert.match(documentation, /Novedades usa un RPC de lectura transportado como\s+`POST`/);
-  assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
+  assert.match(documentation, /`POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
+  assert.match(documentation, /`POST \/rest\/v1\/rpc\/quata_chat_search_conversation_candidates`/);
+  assert.match(documentation, /`p_actor_profile_id`, `p_query`, `p_limit` y `p_offset`/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
 
@@ -208,7 +210,7 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
-test("browser policy allows only reads, the exact notification inbox RPC, and declared Auth lifecycle effects", () => {
+test("browser policy allows only declared reads and Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({
     backend,
@@ -239,6 +241,33 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   });
   assert.equal(notificationInbox.allowed, true);
   assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  const candidateBody = JSON.stringify({
+    p_actor_profile_id: "11111111-1111-4111-8111-111111111111",
+    p_query: "",
+    p_limit: 30,
+    p_offset: 0,
+  });
+  const candidateRead = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    body: candidateBody,
+  });
+  assert.equal(candidateRead.allowed, true);
+  assert.equal(candidateRead.reason, "declared_chat_candidate_read");
+  for (const body of [
+    JSON.stringify({ p_actor_profile_id: "actor", p_query: "", p_limit: 51, p_offset: 0 }),
+    JSON.stringify({ p_actor_profile_id: "actor", p_query: "", p_limit: 30, p_offset: -1 }),
+    JSON.stringify({ p_actor_profile_id: "actor", p_query: "", p_limit: 30, p_offset: 0, p_mutate: true }),
+    "not-json",
+  ]) {
+    const blocked = decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+      method: "POST",
+      body,
+    });
+    assert.equal(blocked.allowed, false);
+    assert.equal(blocked.reason, "backend_mutation_blocked_post");
+  }
   for (const path of [
     "/rest/v1/rpc/quata_chat_get_thread",
     "/rest/v1/rpc/quata_chat_send_message",
@@ -268,6 +297,14 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   });
   assert.equal(undeclaredInboxStage.allowed, false);
   assert.equal(undeclaredInboxStage.reason, "backend_mutation_blocked_post");
+  const undeclaredCandidateStage = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: candidateBody,
+  });
+  assert.equal(undeclaredCandidateStage.allowed, false);
+  assert.equal(undeclaredCandidateStage.reason, "backend_mutation_blocked_post");
   assert.equal(decision({
     url: `${backend}/rest/v1/rpc/quata_chat_get_inbox`,
     method: "POST",
@@ -311,12 +348,22 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   }).allowed, true);
 });
 
-test("navigation stress permits only the exact read-only inbox RPC", () => {
+test("navigation stress permits only the two exact read-only chat RPCs", () => {
   const backend = "https://project-ref.supabase.co";
-  const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_navigation_stress", body: "{}" });
+  const decide = (path, method = "POST", body = "{}") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_navigation_stress", body });
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
+  assert.equal(decide(
+    "/rest/v1/rpc/quata_chat_search_conversation_candidates",
+    "POST",
+    JSON.stringify({ p_actor_profile_id: "actor", p_query: "", p_limit: 30, p_offset: 0 }),
+  ).allowed, true);
   for (const path of ["/rest/v1/rpc/quata_chat_get_inbox_extra", "/rest/v1/rpc/quata_chat_send_message"]) assert.equal(decide(path).allowed, false);
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
+  assert.equal(decide(
+    "/rest/v1/rpc/quata_chat_search_conversation_candidates",
+    "PATCH",
+    JSON.stringify({ p_actor_profile_id: "actor", p_query: "", p_limit: 30, p_offset: 0 }),
+  ).allowed, false);
 });
 
 test("distribution gate binds a clean tracked tree to one exact commit", () => {

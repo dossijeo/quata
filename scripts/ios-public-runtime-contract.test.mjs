@@ -21,6 +21,15 @@ function parseAndExpandXcconfig(...contents) {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, expand(value, new Set([key]))]));
 }
 
+test('iOS Chat exports real profile, map and translation host callbacks', async () => {
+  const app = await source('iosApp/iosApp/QuataIosApp.swift');
+  assert.match(app, /IosAuthenticatedHostRouter\([\s\S]*?onOpenMemberProfile: \{ \[weak self\] profileId in[\s\S]*?presentAuthenticatedMemberProfile\(profileId: profileId\)/);
+  assert.match(app, /onOpenAvatar: \{ \[weak self\] profileId in\s*self\?\.routeToMemberProfile\(profileId: profileId\)/);
+  assert.match(app, /onOpenMap: \{ value in[\s\S]*?URL\(string: value\)[\s\S]*?UIApplication\.shared\.open\(url\)/);
+  assert.match(app, /onTranslateMessage: \{ text in[\s\S]*?URLComponents\(string: "https:\/\/translate\.google\.com\/"\)[\s\S]*?URLQueryItem\(name: "text", value: text\)[\s\S]*?UIApplication\.shared\.open\(url\)/);
+  assert.doesNotMatch(app, /onOpenMemberProfile: @escaping \(String\) -> Void\s*=\s*\{/);
+});
+
 test('iOS public runtime has empty versioned defaults and an optional ignored local override', async () => {
   const [project, defaults, example, gitignore] = await Promise.all([
     source('iosApp/project.yml'),

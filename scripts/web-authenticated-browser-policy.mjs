@@ -36,6 +36,11 @@ const AUTH_LOGIN_STAGES = Object.freeze([
   "compose_auth_bridge_login",
 ]);
 
+const CHAT_CANDIDATE_READ_STAGES = Object.freeze([
+  ...NOTIFICATION_INBOX_READ_STAGES,
+  ...AUTH_LOGIN_STAGES,
+]);
+
 const AUTH_LOGOUT_STAGES = Object.freeze([
   "native_auth_control_logout",
   "compose_auth_bridge_logout",
@@ -122,6 +127,15 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_read" });
   }
 
+  if (
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates" &&
+    CHAT_CANDIDATE_READ_STAGES.includes(stage) &&
+    isExactChatCandidateReadBody(safeJson(body))
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_chat_candidate_read" });
+  }
+
   const action = safeJson(body)?.action;
   if (
     normalizedMethod === "POST" &&
@@ -166,4 +180,15 @@ function safeJson(value) {
   } catch {
     return {};
   }
+}
+
+function isExactChatCandidateReadBody(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const keys = Object.keys(value).sort();
+  const expected = ["p_actor_profile_id", "p_limit", "p_offset", "p_query"];
+  return keys.length === expected.length && keys.every((key, index) => key === expected[index]) &&
+    typeof value.p_actor_profile_id === "string" && value.p_actor_profile_id.trim().length > 0 &&
+    typeof value.p_query === "string" &&
+    Number.isInteger(value.p_limit) && value.p_limit >= 1 && value.p_limit <= 50 &&
+    Number.isInteger(value.p_offset) && value.p_offset >= 0;
 }

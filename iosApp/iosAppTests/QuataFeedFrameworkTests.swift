@@ -11,6 +11,17 @@ import Metal
 import Security
 import UniformTypeIdentifiers
 
+private extension IosAuthenticatedHostRouter {
+    convenience init(platformServices: IosPlatformServiceComposition) {
+        self.init(
+            platformServices: platformServices,
+            onOpenMemberProfile: { profileId in
+                XCTFail("Unexpected member-profile navigation in unrelated router test: \(profileId)")
+            },
+        )
+    }
+}
+
 final class QuataFeedFrameworkTests: XCTestCase {
     private var mountedWindows: [UIWindow] = []
 

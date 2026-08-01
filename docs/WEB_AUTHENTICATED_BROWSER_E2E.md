@@ -6,10 +6,12 @@ externa y ejecuta login, recarga/restauración, el GET de Profile a través del 
 de rutas de solo lectura y logout mediante `WebAuthRepository` y `WebPushSessionCoordinator`.
 Chat y Novedades no forman parte de este carril: Novedades usa un RPC de lectura transportado como
 `POST`, y la mensajería remota conserva su propio E2E, datos y limpieza. La insignia global de
-Notifications reutiliza exclusivamente `POST /rest/v1/rpc/quata_chat_get_inbox`; el runner lo
-admite sólo durante los stages declarados de login, restauración, la matriz autenticada y el logout
-mientras la sesión aún existe, lo responde con un sobre vacío en el fixture y lo registra como
-evidencia de lectura. Ningún otro RPC o POST queda permitido.
+Notifications reutiliza `POST /rest/v1/rpc/quata_chat_get_inbox`, y Conversations carga candidatos
+con `POST /rest/v1/rpc/quata_chat_search_conversation_candidates`. Ambos son RPC de lectura que
+PostgREST transporta como POST; el runner sólo los admite en los stages autenticados declarados y,
+para candidatos, exige exactamente `p_actor_profile_id`, `p_query`, `p_limit` y `p_offset`. El
+fixture valida además el bearer de la sesión, responde con sobres vacíos y registra status/body como
+evidencia. Ningún otro RPC o POST queda permitido.
 
 ```powershell
 .\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon
@@ -32,7 +34,8 @@ links publicados por el propio producto. El gate observa los GET autenticados em
 `WebProfileHost`/`WebProfileRemoteGateway`; no fabrica un `fetch` paralelo. En el navegador se
 permiten GET/HEAD/OPTIONS, dos efectos POST declarados: `web_login` durante login y
 `quata-web-push/logout` durante la limpieza, y la lectura exacta de inbox que exige la insignia de
-Notifications. Cualquier otro POST/PUT/PATCH/DELETE, incluido cualquier otro RPC PostgREST, se
+Notifications y la búsqueda de candidatos de Conversations. Cualquier otro
+POST/PUT/PATCH/DELETE, incluido cualquier RPC PostgREST no declarado o con payload divergente, se
 aborta en origen y hace fallar el resultado.
 
 ## Modo backend real, opt-in

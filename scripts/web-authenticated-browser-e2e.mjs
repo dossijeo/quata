@@ -3,7 +3,8 @@
  * Real-browser Auth/Profile read-only journey. Fixture mode is the default and is fully hermetic.
  * Remote mode explicitly accepts the deployed bridge's identity/session mutations, requires a
  * dedicated preprovisioned account, and cannot pass until global revocation has been verified.
- * Chat and every product mutation remain outside this runner.
+ * Authenticated product reads may use GET or an explicitly validated read-only PostgREST RPC;
+ * every product mutation remains outside this runner.
  */
 import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
@@ -63,10 +64,17 @@ const report = {
     productDml: "forbidden",
   },
 };
-const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, webLogout: 0, globalLogout: 0 };
+const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, chatCandidateReads: 0, webLogout: 0, globalLogout: 0 };
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
-const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0, notificationInboxReads: 0, notificationInboxReadStages: [] };
+const productReadEvidence = {
+  profileSelfReads: 0,
+  authenticatedGets: 0,
+  notificationInboxReads: 0,
+  notificationInboxReadStages: [],
+  chatCandidateReads: 0,
+  chatCandidateReadStages: [],
+};
 let server;
 let browser;
 let context;
@@ -256,6 +264,7 @@ try {
 
   if (!options.real) {
     if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.notificationInboxReads < 1 ||
+        fixtureState.chatCandidateReads < 1 ||
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
@@ -270,6 +279,9 @@ try {
     profileSelfReads: productReadEvidence.profileSelfReads,
     notificationInboxReads: productReadEvidence.notificationInboxReads,
     notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
+    chatCandidateReads: productReadEvidence.chatCandidateReads,
+    chatCandidateReadStages: productReadEvidence.chatCandidateReadStages,
+    chatCandidateResponse: options.real ? "backend_2xx" : { status: 200, body: { items: [], has_more: false, next_offset: 0, actor_neighborhood: "Fixture District" } },
     blockedMutations: blockedBackendMutations.length,
   };
   report.status = "passed";
@@ -315,6 +327,7 @@ try {
   report.networkPolicy = {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
+    chatCandidateReads: productReadEvidence.chatCandidateReads,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
   await writeSafeReport(options.output, report);
@@ -421,6 +434,19 @@ async function startServer(distribution, state, configuration) {
         }
         state.notificationInboxReads += 1;
         return json(response, 200, { threads: [], messages: [], profiles: [] });
+      }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
+        const body = await jsonBody(request);
+        const exactKeys = Object.keys(body).sort().join(",") === "p_actor_profile_id,p_limit,p_offset,p_query";
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            !exactKeys || body.p_actor_profile_id !== FIXTURE.profileId || body.p_query !== "" ||
+            body.p_limit !== 30 || body.p_offset !== 0) {
+          return json(response, 405, { error: "fixture_chat_candidate_read_forbidden" });
+        }
+        state.chatCandidateReads += 1;
+        return json(response, 200, {
+          items: [], has_more: false, next_offset: 0, actor_neighborhood: "Fixture District",
+        });
       }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
@@ -791,6 +817,11 @@ function observeProductRead(request, url, _backend, session, evidence, stage) {
   if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
     evidence.notificationInboxReads += 1;
     evidence.notificationInboxReadStages.push(stage);
+    return;
+  }
+  if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
+    evidence.chatCandidateReads += 1;
+    evidence.chatCandidateReadStages.push(stage);
     return;
   }
   if (method !== "GET") return;
