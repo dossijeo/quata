@@ -36,6 +36,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.accessibility.CriticalControlsAccessibilityCopy
+import com.quata.core.ui.components.CommunityEmojiPanelContent
+import com.quata.core.ui.components.communityEmojiSections
+import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
+import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
+import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
+import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.feature.postcomposer.domain.PostComposerType
 
 enum class CreatePostStep { TypePicker, Text, Image, Video }
@@ -93,7 +99,7 @@ data class CreatePostRootCopy(
 val SpanishCreatePostRootCopy = CreatePostRootCopy(
     title = "Crear publicación", textTitle = "Publicación de texto", imageTitle = "Publicación de imagen",
     videoTitle = "Publicación de vídeo", textType = "Texto", imageType = "Imagen", videoType = "Vídeo",
-    content = "Tu publicación", textPlaceholder = "Escribe algo…", characters = { "$it caracteres" },
+    content = "Tu publicación", textPlaceholder = "Escribe algo…", characters = { "$it/500" },
     emoji = "Emojis", textBackground = "Fondo y patrón", preview = "Vista previa",
     previewEmpty = "Tu texto aparecerá aquí", readMore = "Leer más", close = "Cerrar", image = "Imagen",
     pickImage = "Elegir imagen", takePhoto = "Tomar foto", editImage = "Editar imagen",
@@ -106,17 +112,53 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
     publishing = "Publicando…", back = "Volver al feed",
 )
 
+val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
+    title = "Create post", textTitle = "Text post", imageTitle = "Image post", videoTitle = "Video post",
+    textType = "Text", imageType = "Image", videoType = "Video", content = "Your post",
+    textPlaceholder = "Write something…", characters = { "$it/500" }, emoji = "Emoji",
+    textBackground = "Background and pattern", preview = "Preview", previewEmpty = "Your text will appear here",
+    readMore = "Read more", close = "Close", pickImage = "Choose image", takePhoto = "Take photo",
+    editImage = "Edit image", selectedImage = "Selected image", imagePreviewEmpty = "Choose or take an image to preview it.",
+    location = "Location", noLocation = "No location", locationHelper = "Add or correct the image location.",
+    locationPlaceholder = "Neighborhood, city or place", edit = "Edit", pickVideo = "Choose video", recordVideo = "Record video",
+    editVideo = "Edit video", noFile = "No file selected", description = "Description",
+    descriptionPlaceholder = "Add a title or description…", videoPreviewEmpty = "Choose or record a video to preview it.",
+    publish = "Publish", publishing = "Publishing…", back = "Back to feed", feed = "Feed",
+)
+
+val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
+    title = "Créer une publication", textTitle = "Publication texte", imageTitle = "Publication image", videoTitle = "Publication vidéo",
+    textType = "Texte", imageType = "Image", videoType = "Vidéo", content = "Votre publication",
+    textPlaceholder = "Écrivez quelque chose…", characters = { "$it/500" }, textBackground = "Fond et motif",
+    preview = "Aperçu", previewEmpty = "Votre texte apparaîtra ici", readMore = "Lire la suite", close = "Fermer",
+    pickImage = "Choisir une image", takePhoto = "Prendre une photo", editImage = "Modifier l'image",
+    selectedImage = "Image sélectionnée", imagePreviewEmpty = "Choisissez une image pour l'aperçu.",
+    location = "Lieu", noLocation = "Sans lieu", locationHelper = "Ajoutez ou corrigez le lieu de l'image.",
+    locationPlaceholder = "Quartier, ville ou lieu", edit = "Modifier", pickVideo = "Choisir une vidéo",
+    recordVideo = "Enregistrer une vidéo", editVideo = "Modifier la vidéo", noFile = "Aucun fichier sélectionné",
+    description = "Description", descriptionPlaceholder = "Ajoutez un titre ou une description…",
+    videoPreviewEmpty = "Choisissez ou enregistrez une vidéo pour l'aperçu.", publish = "Publier",
+    publishing = "Publication…", back = "Retour au fil", feed = "Fil",
+)
+
+fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy = when {
+    languageTag?.lowercase()?.startsWith("fr") == true -> FrenchCreatePostRootCopy
+    languageTag?.lowercase()?.startsWith("en") == true -> EnglishCreatePostRootCopy
+    else -> SpanishCreatePostRootCopy
+}
+
 data class CreatePostPlatformSlots(
     val pickImage: () -> Unit,
     val captureImage: () -> Unit,
-    val editImage: (() -> Unit)? = null,
+    val editImage: () -> Unit,
     val pickVideo: () -> Unit,
-    val captureVideo: () -> Unit,
-    val editVideo: (() -> Unit)? = null,
+    val captureVideo: (() -> Unit)?,
+    val editVideo: () -> Unit,
     val imagePreview: @Composable (String, Modifier) -> Unit,
     val videoPreview: @Composable (String, Modifier) -> Unit,
     val mediaExport: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
     val requestLocation: (((String, Double?, Double?) -> Unit) -> Unit)? = null,
+    val clearOwnedMedia: (() -> Unit)? = null,
 )
 
 @Composable
@@ -129,6 +171,8 @@ fun CreatePostRoot(
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
     onBack: () -> Unit,
+    resetToken: Int = 0,
+    cancelUploadToken: Int = 0,
     copy: CreatePostRootCopy = SpanishCreatePostRootCopy,
     modifier: Modifier = Modifier,
 ) {
@@ -137,15 +181,41 @@ fun CreatePostRoot(
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(state.text)) }
     var emojiOpen by rememberSaveable { mutableStateOf(false) }
     var locationOpen by rememberSaveable { mutableStateOf(false) }
+    var lastResetToken by rememberSaveable { mutableStateOf(0) }
+    var lastCancelUploadToken by rememberSaveable { mutableStateOf(0) }
+    val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    LaunchedEffect(resetToken) {
+        if (resetToken > 0 && resetToken != lastResetToken) {
+            slots.clearOwnedMedia?.invoke()
+            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+            step = CreatePostStep.TypePicker
+            textValue = TextFieldValue("")
+            emojiOpen = false
+            locationOpen = false
+            lastResetToken = resetToken
+        }
+    }
+    LaunchedEffect(cancelUploadToken) {
+        if (cancelUploadToken > 0 && cancelUploadToken != lastCancelUploadToken) {
+            viewModel.cancelSubmit()
+            lastCancelUploadToken = cancelUploadToken
+        }
+    }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
+            slots.clearOwnedMedia?.invoke()
+            step = CreatePostStep.TypePicker
+            textValue = TextFieldValue("")
+            emojiOpen = false
+            locationOpen = false
             onPostCreated(state.createdPostId)
             viewModel.onEvent(CreatePostUiEvent.ClearMessage)
         }
     }
     fun select(next: CreatePostStep) {
+        slots.clearOwnedMedia?.invoke()
         viewModel.onEvent(CreatePostUiEvent.ClearDraft)
         textValue = TextFieldValue("")
         emojiOpen = false
@@ -182,25 +252,31 @@ fun CreatePostRoot(
                     wordCountText = copy.characters(state.text.length),
                     minLines = if (isLandscapeLayout) 4 else 5,
                     onTextChange = {
-                        textValue = it
-                        viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text))
+                        val limited = it.text.take(CreatePostTextLimit)
+                        textValue = TextFieldValue(limited, TextRange(it.selection.end.coerceAtMost(limited.length)))
+                        viewModel.onEvent(CreatePostUiEvent.TextChanged(limited))
                     },
                     trailingInputAction = {
-                        ComposerActionButtonContent(copy.emoji, { Icon(Icons.Filled.InsertEmoticon, null) }, { emojiOpen = !emojiOpen })
+                        ComposerActionButtonContent(
+                            copy.emoji,
+                            { Icon(Icons.Filled.InsertEmoticon, null) },
+                            { emojiOpen = !emojiOpen },
+                            Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState),
+                        )
                     },
                     emojiPanel = {
                         if (emojiOpen) {
-                            listOf("😀", "😂", "😍", "🥳", "❤️", "👍").chunked(3).forEach { emojis ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                    emojis.forEach { emoji ->
-                                        Button(onClick = {
-                                            textValue = textValue.insertComposerText(emoji)
-                                            viewModel.onEvent(CreatePostUiEvent.TextChanged(textValue.text))
-                                        }, modifier = Modifier.weight(1f)) { Text(emoji) }
-                                        Spacer(Modifier.width(4.dp))
+                            CommunityEmojiPanelContent(
+                                sections = communityEmojiSections(),
+                                onEmojiClick = { emoji ->
+                                    textValue = textValue.insertComposerText(emoji).let { inserted ->
+                                        val limited = inserted.text.take(CreatePostTextLimit)
+                                        TextFieldValue(limited, TextRange(inserted.selection.end.coerceAtMost(limited.length)))
                                     }
-                                }
-                            }
+                                    viewModel.onEvent(CreatePostUiEvent.TextChanged(textValue.text))
+                                },
+                                modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState),
+                            )
                         }
                     },
                     preview = {
@@ -218,6 +294,7 @@ fun CreatePostRoot(
                         })
                     },
                     publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, { publish(PostComposerType.Text) }, accessibility = accessibility) },
+                    modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(emojiOpen, emojiDismissState),
                 )
                 CreatePostStep.Image -> CommonImageComposerForm(state, slots, copy, accessibility, isLandscapeLayout, locationOpen, { locationOpen = it }, {
                     viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
@@ -239,6 +316,8 @@ fun CreatePostRoot(
     )
 }
 
+const val CreatePostTextLimit = 500
+
 @Composable
 private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, publish: () -> Unit) {
     ComposerMediaPostFormContent(
@@ -248,7 +327,7 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                 title = copy.image, isLandscapeLayout = landscape,
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickImage, { Icon(Icons.Filled.PhotoLibrary, null) }, slots.pickImage, m) },
                 secondarySourceAction = { m -> ComposerActionButtonContent(copy.takePhoto, { Icon(Icons.Filled.PhotoCamera, null) }, slots.captureImage, m) },
-                editAction = state.imageUri?.let { slots.editImage }?.let { edit -> { m -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
+                editAction = state.imageUri?.let { { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, slots.editImage, m) } },
                 afterEdit = { state.imageUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Image) } },
             )
         },
@@ -287,9 +366,9 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
             ComposerMediaSourceFormContent(
                 title = copy.video, isLandscapeLayout = landscape,
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickVideo, { Icon(Icons.Filled.VideoLibrary, null) }, slots.pickVideo, m) },
-                secondarySourceAction = { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, slots.captureVideo, m) },
+                secondarySourceAction = slots.captureVideo?.let { capture -> { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, capture, m) } },
                 beforeEdit = { Text(state.videoUri?.substringAfterLast('/') ?: copy.noFile, maxLines = 1) },
-                editAction = state.videoUri?.let { slots.editVideo }?.let { edit -> { m -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
+                editAction = state.videoUri?.let { { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, slots.editVideo, m) } },
                 afterEdit = { state.videoUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Video) } },
             )
         },

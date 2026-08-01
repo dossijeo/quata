@@ -19,6 +19,8 @@ data class WebComposerMediaSlots(
     val captureImage: suspend () -> String?,
     val pickVideo: suspend () -> String?,
     val captureVideo: suspend () -> String?,
+    val editImage: (suspend (String) -> String?)? = null,
+    val editVideo: (suspend (String) -> String?)? = null,
     val imagePreview: @Composable (String, Modifier) -> Unit,
     val videoPreview: @Composable (String, Modifier) -> Unit,
     val export: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
@@ -33,6 +35,7 @@ fun WebPostComposerHost(
     onBack: () -> Unit,
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
+    canPublish: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember(repository) { CreatePostViewModel(repository) }
@@ -44,11 +47,15 @@ fun WebPostComposerHost(
         onBack = onBack,
         onAuthRequired = onAuthRequired,
         onPostCreated = onPostCreated,
+        canPublish = canPublish,
+        copy = com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag(browserCapabilityLanguageTag()),
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             captureImage = { scope.launch { mediaSlots.captureImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
+            editImage = { scope.launch { stateUri(viewModel, true)?.let { current -> (mediaSlots.editImage?.invoke(current) ?: mediaSlots.pickImage())?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } } },
             pickVideo = { scope.launch { mediaSlots.pickVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
             captureVideo = { scope.launch { mediaSlots.captureVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
+            editVideo = { scope.launch { stateUri(viewModel, false)?.let { current -> (mediaSlots.editVideo?.invoke(current) ?: mediaSlots.pickVideo())?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } } },
             imagePreview = mediaSlots.imagePreview,
             videoPreview = mediaSlots.videoPreview,
             mediaExport = mediaSlots.export,
@@ -56,3 +63,6 @@ fun WebPostComposerHost(
         modifier = modifier,
     )
 }
+
+private fun stateUri(viewModel: CreatePostViewModel, image: Boolean): String? =
+    if (image) viewModel.uiState.value.imageUri else viewModel.uiState.value.videoUri

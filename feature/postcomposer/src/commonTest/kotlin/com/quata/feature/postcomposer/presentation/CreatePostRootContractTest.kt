@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CreatePostRootContractTest {
@@ -17,6 +18,30 @@ class CreatePostRootContractTest {
         assertEquals(CreatePostStep.Text, createPostStepFor(PostComposerType.Text))
         assertEquals(CreatePostStep.Image, createPostStepFor(PostComposerType.Image))
         assertEquals(CreatePostStep.Video, createPostStepFor(PostComposerType.Video))
+    }
+
+    @Test
+    fun localeCatalogAndCounterRetainProductContract() {
+        assertEquals("Create post", createPostRootCopyForLanguageTag("en-US").title)
+        assertEquals("Crear publicación", createPostRootCopyForLanguageTag("es-ES").title)
+        assertEquals("Créer une publication", createPostRootCopyForLanguageTag("fr-FR").title)
+        assertEquals("42/500", createPostRootCopyForLanguageTag("en").characters(42))
+    }
+
+    @Test
+    fun clearDraftResetsMediaLocationAndText() {
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>(null)
+        })
+        viewModel.onEvent(CreatePostUiEvent.TextChanged("x".repeat(600)))
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected("file:///image.jpg"))
+        viewModel.onEvent(CreatePostUiEvent.LocationResolved("Madrid", 40.4, -3.7))
+        assertEquals(500, viewModel.uiState.value.text.length)
+        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+        assertEquals("", viewModel.uiState.value.text)
+        assertNull(viewModel.uiState.value.imageUri)
+        assertNull(viewModel.uiState.value.locationLabel)
+        viewModel.close()
     }
 
     @Test

@@ -26,7 +26,7 @@ class CreatePostViewModel(
     fun onEvent(event: CreatePostUiEvent) {
         when (event) {
             is CreatePostUiEvent.TextChanged -> _uiState.value = _uiState.value.copy(
-                text = event.value,
+                text = event.value.take(CreatePostTextLimit),
                 error = null,
                 successMessage = null
             )

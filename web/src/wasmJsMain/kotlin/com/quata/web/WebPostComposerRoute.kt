@@ -66,8 +66,11 @@ fun WebPostComposerRoute(
         onBack = onBack,
         onAuthRequired = onAuthRequired,
         onPostCreated = { onBack() },
+        canPublish = webComposerCanPublish(authRepository.activeProfileSessionOrNull()),
     )
 }
+
+internal fun webComposerCanPublish(session: WebLocalSession?): Boolean = session != null
 
 private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
     is PlatformResult.Success -> value.firstOrNull()?.reference

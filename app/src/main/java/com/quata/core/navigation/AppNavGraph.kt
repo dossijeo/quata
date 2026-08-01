@@ -811,6 +811,12 @@ fun AppNavGraph(
                             }
                         },
                         onVideoEditorVisibilityChange = { isVideoEditorOpen = it },
+                        onBack = {
+                            navController.navigate(AppDestinations.Feed.route) {
+                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        },
                         onUploadStateChange = { isCreatePostUploadInProgress = it }
                     )
                 }

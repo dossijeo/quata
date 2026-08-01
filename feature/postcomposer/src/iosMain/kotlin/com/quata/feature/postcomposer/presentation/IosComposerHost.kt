@@ -82,6 +82,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         onAuthRequired = dependencies.onClose,
         onBack = dependencies.onClose,
         onPostCreated = { dependencies.onClose() },
+        copy = createPostRootCopyForLanguageTag(dependencies.languageTag),
         slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
@@ -101,8 +102,18 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         }
                 }
             },
+            editImage = {
+                scope.launch {
+                    dependencies.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))
+                        .composerSelectedFileOrNull()?.let { file ->
+                            imageFile = file
+                            viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
+                        }
+                }
+            },
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
-            captureVideo = { selectVideo(FilePickerSource.Camera) },
+            captureVideo = null,
+            editVideo = { selectVideo(FilePickerSource.Gallery) },
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
             videoPreview = { _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
         ),
