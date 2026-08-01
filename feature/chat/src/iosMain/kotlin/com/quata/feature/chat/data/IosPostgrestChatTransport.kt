@@ -7,6 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -139,16 +140,23 @@ class IosChatAttachmentUploader(
 private data class IosChatHttpResponse(val body: NSData)
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSMutableURLRequest.execute(): IosChatHttpResponse = suspendCancellableCoroutine { continuation ->
-    val delegate = IosChatDataTaskDelegate(continuation)
-    val session = NSURLSession.sessionWithConfiguration(NSURLSessionConfiguration.ephemeralSessionConfiguration(), delegate, null)
-    val task = session.dataTaskWithRequest(this)
-    continuation.invokeOnCancellation {
-        task.cancel()
-        session.invalidateAndCancel()
+private suspend fun NSMutableURLRequest.execute(): IosChatHttpResponse =
+    withTimeout(IosChatRequestTimeoutMillis) {
+        suspendCancellableCoroutine { continuation ->
+            val configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+                timeoutIntervalForRequest = IosChatRequestTimeoutSeconds
+                timeoutIntervalForResource = IosChatRequestTimeoutSeconds
+            }
+            val delegate = IosChatDataTaskDelegate(continuation)
+            val session = NSURLSession.sessionWithConfiguration(configuration, delegate, null)
+            val task = session.dataTaskWithRequest(this@execute)
+            continuation.invokeOnCancellation {
+                task.cancel()
+                session.invalidateAndCancel()
+            }
+            task.resume()
+        }
     }
-    task.resume()
-}
 
 @OptIn(ExperimentalForeignApi::class)
 private class IosChatDataTaskDelegate(
@@ -239,6 +247,8 @@ private fun String.iosPathComponent(): String = split('/').joinToString("/") { s
 }
 
 private const val ChatAttachmentsBucket = "chat-attachments"
+private const val IosChatRequestTimeoutMillis = 15_000L
+private const val IosChatRequestTimeoutSeconds = 15.0
 private val IosRpcName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosStorageSegment = Regex("[A-Za-z0-9_-]+")
 private val IosUnsafeFilename = Regex("[^A-Za-z0-9._-]")
