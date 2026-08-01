@@ -22,7 +22,7 @@ fun ComposerMediaSourceFormContent(
     title: String,
     isLandscapeLayout: Boolean,
     primarySourceAction: @Composable (Modifier) -> Unit,
-    secondarySourceAction: @Composable (Modifier) -> Unit,
+    secondarySourceAction: (@Composable (Modifier) -> Unit)?,
     modifier: Modifier = Modifier,
     beforeEdit: (@Composable ColumnScope.() -> Unit)? = null,
     editAction: (@Composable (Modifier) -> Unit)? = null,
@@ -35,7 +35,7 @@ fun ComposerMediaSourceFormContent(
         if (isLandscapeLayout) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 primarySourceAction(Modifier.fillMaxWidth())
-                secondarySourceAction(Modifier.fillMaxWidth())
+                secondarySourceAction?.invoke(Modifier.fillMaxWidth())
             }
         } else {
             Row(
@@ -44,7 +44,7 @@ fun ComposerMediaSourceFormContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 primarySourceAction(Modifier.weight(1f))
-                secondarySourceAction(Modifier.weight(1f))
+                secondarySourceAction?.invoke(Modifier.weight(1f))
             }
         }
         beforeEdit?.let {

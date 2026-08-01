@@ -43,6 +43,8 @@ enum IosDeepLinkUrlContract {
 }
 
 enum IosPublicRuntimeConfiguration {
+    static let wordpressBaseUrl = "https://egquata.com/"
+
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
     private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
@@ -708,16 +710,25 @@ private final class IosAppCompositionRoot {
         authenticatedHost.present(controller, animated: true)
     }
 
-    /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still
-    /// camera adapters already owned by `IosPlatformServiceComposition`; publication remains an
-    /// explicit capability error until the iOS write/storage path has RLS and E2E evidence.
+    /// Composer is an authenticated in-app route. It receives real UIKit media services and the
+    /// same renewable Keychain session used by the other authenticated iOS adapters.
     private func installAuthenticatedComposerIfAvailable() {
-        guard runtimeBootstrap != nil else { return }
+        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
+        let repository = ActorBoundPostComposerRepository(
+            transport: IosPostComposerTransport(
+                configuration: IosPostComposerRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
+                ),
+                authSession: runtimeBootstrap.authSessionForInteractiveLogin()
+            )
+        )
         authenticatedHost.installComposerFactory { [weak self] in
             IosComposerHostKt.QuataComposerViewController(
                 dependencies: IosComposerHostKt.createIosComposerHostDependencies(
-                    repository: IosComposerHostKt.iosComposerPublicationUnavailableRepository(),
+                    repository: repository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,
@@ -1009,7 +1020,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         return button
     }()
 
-    private enum PendingRoute {
+    enum PendingRoute {
         case feed(postId: String?)
         case chat(conversationId: String?, messageId: String?)
         case official(postId: String?)
@@ -1236,7 +1247,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func presentAuthentication(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
         let controller = authenticationFactory(entry)
-        controller.modalPresentationStyle = .fullScreen
+        switch entry {
+        case .login:
+            controller.modalPresentationStyle = .fullScreen
+        case .registration:
+            // Keep the Compose shell attached while Registration covers it. Removing the shell
+            // during a full-screen transition can synchronously tear down its Metal surface.
+            controller.modalPresentationStyle = .overFullScreen
+            controller.view.backgroundColor = .systemBackground
+            controller.view.isOpaque = true
+        }
         controller.view.accessibilityIdentifier = "quata-ios-auth-host"
         controller.view.accessibilityLabel = "Quata iOS authentication"
         controller.view.isAccessibilityElement = false
@@ -1525,6 +1545,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case "official": showOfficial(postId: nil)
         case "feed": showFeed(postId: nil)
         case "profile": showProfileSos()
+        case "composer": showComposer()
         default: break
         }
     }
@@ -1727,12 +1748,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // installed. They still belong to the application viewport and therefore get the same
         // shared shell as Feed rather than becoming a full-screen UIKit exception.
         installSharedShellIfNeeded()
+        let isComposerRoute: Bool
+        if case .composer = route {
+            isComposerRoute = true
+        } else {
+            isComposerRoute = false
+        }
+        primaryNavigationHost.updateComposerMode(isComposer: isComposerRoute)
         switch route {
         case .communities: primaryNavigationHost.updateSelectedRoute(route: "neighborhoods")
         case .chat: primaryNavigationHost.updateSelectedRoute(route: "conversations")
         case .official: primaryNavigationHost.updateSelectedRoute(route: "official")
         case .feed: primaryNavigationHost.updateSelectedRoute(route: "feed")
         case .profileSos: primaryNavigationHost.updateSelectedRoute(route: "profile")
+        case .composer: primaryNavigationHost.updateSelectedRoute(route: "composer")
         default: break
         }
         let presentation: (identifier: String, label: String)
@@ -1767,12 +1796,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// The five primary routes are already represented by the common bottom navigation. UIKit's
     /// secondary menu is deliberately unavailable there so it neither duplicates nor overlays
     /// the shared SOS/header chrome.
-    private func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
+    func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
         switch route {
         case .feed, .chat, .official, .profileSos, .communities:
             return false
-        case .officialEditor, .notifications, .composer, .settings, .whatsNew, .releaseHistory:
+        case .officialEditor, .notifications, .settings, .whatsNew, .releaseHistory:
             return true
+        case .composer:
+            return false
         }
     }
 

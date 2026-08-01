@@ -23,12 +23,13 @@ class WebNavigationTest {
     @Test
     fun mapsTheCanonicalPrimaryNavigationToExistingWebHashes() {
         assertEquals(
-            listOf("communities", "chat", "official", "", "profile"),
-            listOf("neighborhoods", "conversations", "official", "feed", "profile").map(::canonicalPrimaryRouteToWebFragment),
+            listOf("communities", "chat", "official", "", "profile", "composer"),
+            listOf("neighborhoods", "conversations", "official", "feed", "profile", "composer").map(::canonicalPrimaryRouteToWebFragment),
         )
         assertEquals("neighborhoods", webFragmentToCanonicalPrimaryRoute("communities"))
         assertEquals("conversations", webFragmentToCanonicalPrimaryRoute("chat/thread-1"))
         assertEquals("feed", webFragmentToCanonicalPrimaryRoute(""))
+        assertEquals("composer", webFragmentToCanonicalPrimaryRoute("composer"))
     }
 
     @Test
