@@ -7,8 +7,12 @@ import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle adapter for the shared post-composer presentation logic. */
-class CreatePostAndroidViewModel(repository: PostComposerRepository) : ViewModel() {
-    private val delegate = CreatePostViewModel(repository)
+class CreatePostAndroidViewModel(
+    repository: PostComposerRepository,
+    copy: CreatePostRootCopy,
+) : ViewModel() {
+    private val delegate = CreatePostViewModel(repository, messages = copy.viewModelMessages())
+    internal val commonViewModel: CreatePostViewModel get() = delegate
     val uiState: StateFlow<CreatePostUiState> = delegate.uiState
     fun onEvent(event: CreatePostUiEvent) = delegate.onEvent(event)
     fun submit(type: PostComposerType) = delegate.submit(type)
@@ -17,9 +21,9 @@ class CreatePostAndroidViewModel(repository: PostComposerRepository) : ViewModel
     override fun onCleared() = delegate.close()
 
     companion object {
-        fun factory(repository: PostComposerRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(repository: PostComposerRepository, copy: CreatePostRootCopy): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = CreatePostAndroidViewModel(repository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = CreatePostAndroidViewModel(repository, copy) as T
         }
     }
 }

@@ -45,14 +45,27 @@ class WebFeatureCapabilitiesTest {
     }
 
     @Test
-    fun keepsComposerVisibleAsLocalButFailsClosedForPublication() {
+    fun exposesComposerRemotePublicationWhenBackendIsConfigured() {
         val registry = webFeatureCapabilityRegistry(configured, hasAuthenticatedSession = true)
 
         assertEquals(
-            CapabilityStateOrigin.Local,
+            CapabilityStateOrigin.Real,
             registry.projection(QuataFeature.Composer, FeatureCapabilityAction.View).origin,
         )
+        assertTrue(registry.capability(QuataFeature.Composer).backendReal)
+        assertEquals(
+            CapabilityStateOrigin.Real,
+            registry.projection(QuataFeature.Composer, FeatureCapabilityAction.Mutate).origin,
+        )
+        assertTrue(registry.projection(QuataFeature.Composer, FeatureCapabilityAction.Mutate).enabled)
+    }
+
+    @Test
+    fun configuredComposerDoesNotAdvertiseEffectiveMutationWithoutSession() {
+        val registry = webFeatureCapabilityRegistry(configured, hasAuthenticatedSession = false)
+
         assertFalse(registry.capability(QuataFeature.Composer).backendReal)
+        assertEquals(CapabilityStateOrigin.Local, registry.projection(QuataFeature.Composer, FeatureCapabilityAction.View).origin)
         assertEquals(
             CapabilityStateOrigin.Unsupported,
             registry.projection(QuataFeature.Composer, FeatureCapabilityAction.Mutate).origin,

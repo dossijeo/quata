@@ -25,6 +25,7 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
+import com.quata.core.ui.components.QuataPrimaryNavigationMode
 import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
@@ -409,7 +410,7 @@ private fun QuataWebApp(
             LaunchedEffect(navigationState.route) {
                 setWebNavigationShellMarker(
                     route = navigationState.route,
-                    selectedPrimaryRoute = webFragmentToCanonicalPrimaryRoute(navigationState.route),
+                    selectedPrimaryRoute = if (navigationState.route == "composer") "composer" else webFragmentToCanonicalPrimaryRoute(navigationState.route),
                 )
             }
             QuataAuthenticatedShellChrome(
@@ -429,8 +430,13 @@ private fun QuataWebApp(
                 bottomNavigation = {
                     QuataPrimaryBottomNavigation(
                         labels = webPrimaryNavigationLabels,
-                        selectedRoute = webFragmentToCanonicalPrimaryRoute(navigation.route),
+                        selectedRoute = if (navigation.route == "composer") "composer" else webFragmentToCanonicalPrimaryRoute(navigation.route),
                         onRouteSelected = ::selectPrimaryRoute,
+                        mode = if (navigation.route == "composer") {
+                            QuataPrimaryNavigationMode.Composer(route = "composer", label = "Publicar")
+                        } else {
+                            QuataPrimaryNavigationMode.Default
+                        },
                     )
                 },
             ) { chromePadding ->
@@ -505,6 +511,10 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Composer) {
                         WebPostComposerRoute(
                             platformServices = platformServices,
+                            runtimeConfiguration = runtimeConfiguration,
+                            authRepository = authRepository,
+                            onBack = { navigation.navigate("") },
+                            onAuthRequired = ::requestAuthenticationForCurrentRoute,
                         )
                     }
                 } else if (navigation.route == "communities") {
@@ -636,6 +646,7 @@ internal fun canonicalPrimaryRouteToWebFragment(route: String): String = when (r
     "official" -> "official"
     "feed" -> ""
     "profile" -> "profile"
+    "composer" -> "composer"
     else -> ""
 }
 
@@ -645,6 +656,7 @@ internal fun webFragmentToCanonicalPrimaryRoute(route: String): String? = when (
     "official" -> "official"
     "feed", "", "post" -> "feed"
     "profile" -> "profile"
+    "composer" -> "composer"
     else -> null
 }
 

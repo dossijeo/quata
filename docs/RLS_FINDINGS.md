@@ -207,3 +207,35 @@ la UI.
   de actor y reconciliación reversible están en `supabase/templates/`, pendientes
   de timestamps por el ledger bloqueado. Véase
   `docs/RLS_005_COMMUNITY_PROFILE_FOLLOWS_FIX.md`.
+
+## RLS-006 — Publicación legacy y buckets de posts no vinculados uniformemente al actor
+
+- **Detectado:** 2026-07-31 mediante una inspección remota del catálogo en una
+  transacción de solo lectura; no se modificó Supabase. Esta evidencia describe
+  ese snapshot y debe volver a verificarse antes de cualquier rollout.
+- **Severidad:** alta.
+- **Estado:** abierto; documentado y contenido en los adaptadores de cliente,
+  pero no corregido en la frontera de datos.
+- **Evidencia del snapshot:** `community_posts` conservaba, además de la policy
+  autenticada que exige `author_id = auth.uid()`, la policy legacy
+  `public insert community posts`. Esta aceptaba INSERT cuando existía
+  `profile_id` y `author_id` era nulo o coincidía con ese perfil. `anon` y
+  `authenticated` conservaban grants DML amplios y ningún trigger derivaba el
+  actor; el único trigger de INSERT notificaba a seguidores.
+- **Membership:** la elección de `wall_id` dependía de `community_members` o,
+  como fallback legacy, del primer wall activo. Mientras el servidor no imponga
+  esa pertenencia, cada cliente debe resolverla desde el actor de sesión y nunca
+  aceptar `wall_id`, `profile_id` o `author_id` desde el launcher o el draft.
+- **Storage:** coexistían los buckets públicos `community_posts` (48 MiB) y
+  `community-posts` (1 GiB), con policies distintas sobre `storage.objects`.
+  No deben intercambiarse por similitud de nombre: cada adaptador debe usar el
+  bucket exacto de su contrato verificado y conservar rollback de uploads si
+  falla el INSERT final.
+- **Contención actual:** los adaptadores comunes de Composer vinculan el actor a
+  la sesión renovable, resuelven el wall mediante membership, moderan antes del
+  upload y ejecutan rollback/release no cancelable. Esto reduce suplantaciones
+  accidentales y objetos huérfanos, pero no convierte al cliente en una frontera
+  de seguridad ni demuestra que las policies remotas hayan cambiado.
+- **Límite:** esta migración no cambia policies, grants, triggers, buckets ni
+  datos. El endurecimiento requiere staging, compatibilidad con los clientes
+  publicados, pruebas PostgREST por actor y rollback coordinado.

@@ -229,8 +229,9 @@ class WebAuthRepository(
         val webSessionToken = preferences.getString(WebAuthStorage.WebSessionToken)?.takeIf(String::isNotBlank)
         val userId = preferences.getString(WebAuthStorage.UserId)?.takeIf(String::isNotBlank)
         val expiresAt = preferences.getString(WebAuthStorage.ExpiresAt)?.toLongOrNull()
+        val displayName = preferences.getString(WebAuthStorage.DisplayName)?.trim()?.takeIf(String::isNotBlank)
         return if (accessToken != null && refreshToken != null && webSessionToken != null && userId != null && expiresAt != null) {
-            WebLocalSession(accessToken, refreshToken, webSessionToken, userId, expiresAt)
+            WebLocalSession(accessToken, refreshToken, webSessionToken, userId, expiresAt, displayName)
         } else {
             null
         }
@@ -252,13 +253,15 @@ class WebAuthRepository(
     private suspend fun acceptAuthenticationPayload(payload: String): AuthSession {
         val session = payload.toWebAuthSession()
         val webSessionToken = payload.webSessionToken()
-        session.persist(preferences, webSessionToken)
+        val displayName = payload.webProfileDisplayName()
+        session.persist(preferences, webSessionToken, displayName)
         activeSession = WebLocalSession(
             accessToken = session.accessToken ?: session.token,
             refreshToken = session.refreshToken.orEmpty(),
             webSessionToken = webSessionToken,
             userId = session.userId,
             expiresAt = session.expiresAt ?: currentEpochSeconds(),
+            displayName = displayName,
         )
         return session
     }
@@ -297,27 +300,32 @@ data class WebLocalSession(
     val webSessionToken: String,
     val userId: String,
     val expiresAt: Long,
+    /** Optional so sessions persisted before this field was introduced remain restorable. */
+    val displayName: String? = null,
 )
 
-private object WebAuthStorage {
+internal object WebAuthStorage {
     const val AccessToken = "quata_web_access_token"
     const val RefreshToken = "quata_web_refresh_token"
     const val WebSessionToken = "quata_web_session_token"
     const val UserId = "quata_web_user_id"
     const val ExpiresAt = "quata_web_expires_at"
+    const val DisplayName = "quata_web_display_name"
 
     suspend fun clear(preferences: PreferenceStore) {
-        for (key in listOf(AccessToken, RefreshToken, WebSessionToken, UserId, ExpiresAt, WebSessionReadyKey)) {
+        for (key in listOf(AccessToken, RefreshToken, WebSessionToken, UserId, ExpiresAt, DisplayName, WebSessionReadyKey)) {
             preferences.remove(key)
         }
     }
 }
 
-private suspend fun AuthSession.persist(preferences: PreferenceStore, webSessionToken: String) {
+private suspend fun AuthSession.persist(preferences: PreferenceStore, webSessionToken: String, displayName: String?) {
     preferences.putString(WebAuthStorage.AccessToken, bearerToken)
     preferences.putString(WebAuthStorage.RefreshToken, refreshToken.orEmpty())
     preferences.putString(WebAuthStorage.WebSessionToken, webSessionToken)
     preferences.putString(WebAuthStorage.UserId, userId)
+    if (displayName != null) preferences.putString(WebAuthStorage.DisplayName, displayName)
+    else preferences.remove(WebAuthStorage.DisplayName)
     expiresAt?.let { preferences.putString(WebAuthStorage.ExpiresAt, it.toString()) }
 }
 
@@ -327,6 +335,8 @@ private suspend fun WebLocalSession.persist(preferences: PreferenceStore) {
     preferences.putString(WebAuthStorage.WebSessionToken, webSessionToken)
     preferences.putString(WebAuthStorage.UserId, userId)
     preferences.putString(WebAuthStorage.ExpiresAt, expiresAt.toString())
+    if (displayName != null) preferences.putString(WebAuthStorage.DisplayName, displayName)
+    else preferences.remove(WebAuthStorage.DisplayName)
 }
 
 private fun WebLocalSession.requiresRefresh(): Boolean =
@@ -377,6 +387,12 @@ private fun String.toWebAuthSession(): AuthSession {
 private fun String.webSessionToken(): String = Json.parseToJsonElement(this).jsonObject
     .requiredObject("web_session")
     .requiredString("token")
+
+private fun String.webProfileDisplayName(): String? = Json.parseToJsonElement(this).jsonObject
+    .requiredObject("profile")
+    .stringOrNull("display_name")
+    ?.trim()
+    ?.takeIf(String::isNotBlank)
 
 private fun String.toWebRefreshedSession(current: WebLocalSession): WebLocalSession {
     val root = Json.parseToJsonElement(this).jsonObject

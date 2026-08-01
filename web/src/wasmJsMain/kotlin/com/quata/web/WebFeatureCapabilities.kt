@@ -33,6 +33,9 @@ fun webFeatureCapabilityRegistry(
     val remoteRead = configuration.isBackendConfigured
     val remoteOrigin = if (remoteRead) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     val remoteProfile = remoteRead && hasAuthenticatedSession
+    val remoteComposer = remoteRead && hasAuthenticatedSession
+    // Profile/SOS has a real, authenticated Android-equivalent temporary transport. Do not
+    // downgrade it to a local draft merely because the coordinated RLS rollout is pending.
     val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     fun capability(
         source: CapabilityStateOrigin = remoteOrigin,
@@ -67,13 +70,10 @@ fun webFeatureCapabilityRegistry(
                 ),
                 QuataFeature.Communities to capability(),
                 QuataFeature.Official to capability(),
-                // The composer shell is local, but no Web publication contract currently proves
-                // server-derived actor, membership wall and owner-only Storage authorization.
-                // Keep it visible without advertising or enabling a remote mutation.
                 QuataFeature.Composer to capability(
-                    source = CapabilityStateOrigin.Local,
-                    mutation = CapabilityStateOrigin.Unsupported,
-                    backend = false,
+                    source = if (remoteComposer) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local,
+                    mutation = if (remoteComposer) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported,
+                    backend = remoteComposer,
                 ),
             ),
         ),

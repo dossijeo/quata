@@ -3,12 +3,10 @@
 package com.quata.feature.postcomposer.presentation
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.media.MediaCodec
@@ -18,101 +16,45 @@ import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.net.Uri
 import android.os.Build
-import android.provider.OpenableColumns
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.InsertEmoticon
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.VideoLibrary
-import com.quata.core.ui.components.CompactButtonContentPadding
-import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
-import androidx.exifinterface.media.ExifInterface
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -121,60 +63,38 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.quata.R
-import com.quata.core.config.AppConfig
-import com.quata.core.designsystem.theme.quataTheme
-import com.quata.core.media.copyImageToFileNormalizingOrientation
+import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
-import com.quata.core.media.withQuataMediaMetadataRetriever
-import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
 import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
-import com.quata.core.ui.components.compactButtonMinSize
-import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.findQuataTextureView
+import com.quata.core.media.copyImageToFileNormalizingOrientation
+import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.normalizedQuataVideoRotation
-import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
-import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
-import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.domain.PostComposerRepository
-import com.quata.feature.postcomposer.domain.PostComposerType
-import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.nio.ByteBuffer
-import java.security.MessageDigest
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
-private enum class ComposerStep {
-    TypePicker,
-    Text,
-    Image,
-    Video
-}
+private enum class CaptureTarget { Photo, Video }
 
-private enum class CaptureTarget {
-    Photo,
-    Video
-}
-
+/** Android now owns only platform acquisition/edit/render slots around the common root. */
 @Composable
 fun CreatePostScreen(
     padding: PaddingValues,
@@ -186,1109 +106,334 @@ fun CreatePostScreen(
     canPublish: Boolean,
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
+    onBack: () -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
     onUploadStateChange: (Boolean) -> Unit = {},
-    viewModel: CreatePostAndroidViewModel = viewModel(factory = CreatePostAndroidViewModel.factory(repository))
+    viewModel: CreatePostAndroidViewModel = viewModel(
+        factory = CreatePostAndroidViewModel.factory(
+            repository,
+            createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()),
+        ),
+    ),
 ) {
+    val context = LocalContext.current
+    val rootCopy = remember { createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()) }
     val state by viewModel.uiState.collectAsState()
-    val template = quataTheme()
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val composerScrollState = rememberScrollState()
-    var step by rememberSaveable { mutableStateOf(ComposerStep.TypePicker) }
-    var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
-    var isEmojiPanelOpen by rememberSaveable { mutableStateOf(false) }
-    var isLocationEditorOpen by rememberSaveable { mutableStateOf(false) }
-    var highlightLocationEditor by rememberSaveable { mutableStateOf(false) }
-    var imageLocationOffsetPx by remember { mutableStateOf(0) }
-    var lastHandledResetToken by rememberSaveable { mutableStateOf(resetToken) }
-    var lastHandledCancelUploadToken by rememberSaveable { mutableStateOf(cancelUploadToken) }
-    var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var preparedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var editedImageTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var editedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var preparedVideoTempUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pendingCaptureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
-    var cameraDialogMode by remember { mutableStateOf<QuataCameraMode?>(null) }
-    var cameraDialogAudioEnabled by remember { mutableStateOf(false) }
-    var isCancelUploadDialogOpen by remember { mutableStateOf(false) }
-    val latestIsLoading by rememberUpdatedState(state.isLoading)
+    var imageEditorUri by remember { mutableStateOf<Uri?>(null) }
+    var videoEditorUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraMode by remember { mutableStateOf<QuataCameraMode?>(null) }
+    var pendingCapture by remember { mutableStateOf<CaptureTarget?>(null) }
+    var cancelDialog by remember { mutableStateOf(false) }
+    var preparedImageTempUri by remember { mutableStateOf<Uri?>(null) }
+    var editedImageTempUri by remember { mutableStateOf<Uri?>(null) }
+    var preparedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
+    var editedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
 
-    fun deleteEditedVideoTemp(uri: Uri?) {
-        uri ?: return
-        context.deleteQuataEditedVideoTemp(uri)
-    }
-
-    fun deletePreparedVideoTemp(uri: Uri?) {
-        uri ?: return
-        context.deleteQuataPreparedVideoTemp(uri)
-    }
-
-    fun deleteEditedImageTemp(uri: Uri?) {
-        uri ?: return
-        context.deleteQuataEditedImageTemp(uri)
-    }
-
-    fun deletePreparedImageTemp(uri: Uri?) {
-        uri ?: return
-        context.deleteQuataPreparedImageTemp(uri)
-    }
-
-    fun clearPreparedImageTemp() {
-        val uri = preparedImageTempUri
+    fun clearOwnedMedia() {
+        listOfNotNull(preparedImageTempUri, editedImageTempUri).distinct().forEach(context::deleteComposerOwnedImage)
+        listOfNotNull(preparedVideoTempUri, editedVideoTempUri).distinct().forEach(context::deleteComposerOwnedVideo)
         preparedImageTempUri = null
-        deletePreparedImageTemp(uri)
-    }
-
-    fun clearPreparedVideoTemp() {
-        val uri = preparedVideoTempUri
+        editedImageTempUri = null
         preparedVideoTempUri = null
-        deletePreparedVideoTemp(uri)
-    }
-
-    fun clearEditedVideoTemp() {
-        val uri = editedVideoTempUri
-        editedVideoTempUri = null
-        deleteEditedVideoTemp(uri)
-    }
-
-    fun clearEditedImageTemp() {
-        val uri = editedImageTempUri
-        editedImageTempUri = null
-        deleteEditedImageTemp(uri)
-    }
-
-    fun keepEditedTempsForMockPost() {
-        preparedImageTempUri = null
-        editedImageTempUri = null
         editedVideoTempUri = null
     }
 
-    fun submitIfAuthenticated(type: PostComposerType) {
-        if (canPublish) {
-            viewModel.submit(type)
-        } else {
-            onAuthRequired()
-        }
-    }
-
-    fun requestLeaveComposer() {
-        if (state.isLoading) {
-            isCancelUploadDialogOpen = true
-        }
-    }
-
-    fun resolveLocation(location: Location) {
+    fun resolveLocation() {
         scope.launch {
-            val label = context.resolvePlaceName(location)
-                ?: context.getString(R.string.composer_detected_location)
-            viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, location.latitude, location.longitude))
+            if (permissionService.status(PlatformPermission.Location) != PermissionStatus.Granted &&
+                permissionService.request(PlatformPermission.Location) != PermissionStatus.Granted
+            ) return@launch
+            val location = (locationService.currentLocation() as? PlatformResult.Success)?.value ?: return@launch
+            val label = withContext(Dispatchers.IO) {
+                runCatching {
+                    Geocoder(context, Locale.getDefault()).getFromLocation(location.latitude, location.longitude, 1)
+                        ?.firstOrNull()?.let { address ->
+                            listOfNotNull(address.subLocality, address.locality, address.adminArea).distinct().joinToString(", ")
+                        }?.takeIf(String::isNotBlank)
+                }.getOrNull()
+            } ?: "${location.latitude}, ${location.longitude}"
+            viewModel.onEvent(CreatePostUiEvent.LocationResolved(
+                label, location.latitude, location.longitude,
+            ))
         }
     }
-
-    fun resolveLocation(latitude: Double, longitude: Double) {
-        resolveLocation(Location("platform").apply {
-            this.latitude = latitude
-            this.longitude = longitude
-        })
-    }
-
-    fun requestCurrentLocation() {
-        scope.launch {
-            when (val result = locationService.currentLocation()) {
-                is PlatformResult.Success -> resolveLocation(result.value.latitude, result.value.longitude)
-                else -> Unit
-            }
-        }
-    }
-
-    fun selectImageForComposer(uri: Uri?) {
+    fun selectImage(uri: Uri?) {
         uri ?: return
         scope.launch {
-            val preparedUri = withContext(Dispatchers.IO) {
-                context.prepareComposerImageSource(uri)
-            }
-            if (preparedUri == null) {
-                Toast.makeText(context, context.getString(R.string.composer_image_pick_error), Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-
-            val previousPreparedUri = preparedImageTempUri
-            val previousEditedUri = editedImageTempUri
-            preparedImageTempUri = preparedUri
+            val prepared = withContext(Dispatchers.IO) { context.prepareComposerImageSource(uri) } ?: return@launch
+            preparedImageTempUri?.let(context::deleteComposerOwnedImage)
+            editedImageTempUri?.let(context::deleteComposerOwnedImage)
+            preparedImageTempUri = prepared
             editedImageTempUri = null
-            viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(""))
-            viewModel.onEvent(CreatePostUiEvent.ImageSelected(preparedUri.toString()))
-            isLocationEditorOpen = false
-            highlightLocationEditor = false
-            if (previousPreparedUri != preparedUri) {
-                deletePreparedImageTemp(previousPreparedUri)
-            }
-            if (previousEditedUri != preparedUri) {
-                deleteEditedImageTemp(previousEditedUri)
-            }
-            val exifLocation = context.exifLocationFromUri(preparedUri)
-            if (exifLocation != null) {
-                resolveLocation(exifLocation)
-            } else if (permissionService.status(PlatformPermission.Location) == PermissionStatus.Granted) {
-                requestCurrentLocation()
-            } else {
-                if (permissionService.request(PlatformPermission.Location) == PermissionStatus.Granted) {
-                    requestCurrentLocation()
-                }
-            }
-            imageEditorUri = preparedUri
+            viewModel.onEvent(CreatePostUiEvent.ImageSelected(prepared.toString()))
+            val exif = withContext(Dispatchers.IO) { context.exifLocationFromUri(prepared) }
+            if (exif != null) {
+                val label = withContext(Dispatchers.IO) { context.locationLabel(exif) }
+                viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, exif.latitude, exif.longitude))
+            } else resolveLocation()
+            imageEditorUri = prepared
         }
     }
-
-    fun openVideoEditorWithPreparedSource(uri: Uri?) {
+    fun selectVideo(uri: Uri?) {
         uri ?: return
         scope.launch {
-            val preparedUri = withContext(Dispatchers.IO) {
-                context.prepareComposerVideoSource(uri)
-            }
-            if (preparedUri == null) {
-                Toast.makeText(context, context.getString(R.string.composer_video_capture_error), Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-            val previousPreparedUri = preparedVideoTempUri
-            preparedVideoTempUri = preparedUri
-            deletePreparedVideoTemp(previousPreparedUri)
-            videoEditorUri = preparedUri
+            val prepared = withContext(Dispatchers.IO) { context.prepareComposerVideoSource(uri) } ?: return@launch
+            preparedVideoTempUri?.let(context::deleteComposerOwnedVideo)
+            editedVideoTempUri?.let(context::deleteComposerOwnedVideo)
+            preparedVideoTempUri = prepared.takeIf { it.scheme == "file" }
+            editedVideoTempUri = null
+            viewModel.onEvent(CreatePostUiEvent.VideoSelected(prepared.toString()))
+            videoEditorUri = prepared
         }
     }
 
-    val galleryImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        selectImageForComposer(uri)
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectImage)
+    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectVideo)
+    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        if (result.values.all { it }) cameraMode = if (pendingCapture == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
     }
-    val galleryVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        openVideoEditorWithPreparedSource(uri)
-    }
-    fun launchPhotoCapture() {
-        cameraDialogMode = QuataCameraMode.Photo
-    }
-
-    fun launchVideoCapture() {
-        cameraDialogAudioEnabled = context.hasAudioRecordPermission()
-        cameraDialogMode = QuataCameraMode.Video
-    }
-
-    val capturePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (context.hasCapturePermissions(pendingCaptureTarget)) {
-            when (pendingCaptureTarget) {
-                CaptureTarget.Photo -> launchPhotoCapture()
-                CaptureTarget.Video -> launchVideoCapture()
-                null -> Unit
-            }
-        } else {
-            Toast.makeText(context, context.getString(R.string.composer_camera_permission), Toast.LENGTH_SHORT).show()
+    fun capture(target: CaptureTarget) {
+        pendingCapture = target
+        val required = buildList {
+            add(Manifest.permission.CAMERA)
+            if (target == CaptureTarget.Video) add(Manifest.permission.RECORD_AUDIO)
         }
+        if (required.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
+            cameraMode = if (target == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
+        } else permissions.launch(required.toTypedArray())
     }
 
-    LaunchedEffect(resetToken) {
-        if (resetToken != lastHandledResetToken) {
-            clearEditedImageTemp()
-            clearPreparedImageTemp()
-            clearEditedVideoTemp()
-            clearPreparedVideoTemp()
-            step = ComposerStep.TypePicker
-            textValue = TextFieldValue("")
-            isLocationEditorOpen = false
-            highlightLocationEditor = false
-            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-            lastHandledResetToken = resetToken
-        }
-    }
+    LaunchedEffect(state.isLoading) { onUploadStateChange(state.isLoading) }
+    LaunchedEffect(imageEditorUri, videoEditorUri) { onVideoEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null) }
+    DisposableEffect(Unit) { onDispose { onUploadStateChange(false); onVideoEditorVisibilityChange(false); clearOwnedMedia() } }
+    BackHandler(state.isLoading) { cancelDialog = true }
 
-    LaunchedEffect(cancelUploadToken) {
-        if (cancelUploadToken != lastHandledCancelUploadToken) {
-            viewModel.cancelSubmit()
-            isCancelUploadDialogOpen = false
-            lastHandledCancelUploadToken = cancelUploadToken
-        }
-    }
-
-    LaunchedEffect(state.successMessage) {
-        state.successMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            if (AppConfig.USE_MOCK_BACKEND) {
-                keepEditedTempsForMockPost()
-            } else {
-                clearEditedImageTemp()
-                clearPreparedImageTemp()
-                clearEditedVideoTemp()
-                clearPreparedVideoTemp()
-            }
-            isLocationEditorOpen = false
-            highlightLocationEditor = false
-            onPostCreated(state.createdPostId)
-            viewModel.onEvent(CreatePostUiEvent.ClearMessage)
-        }
-    }
-
-    LaunchedEffect(imageEditorUri, videoEditorUri) {
-        onVideoEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null)
-    }
-
-    LaunchedEffect(state.isLoading) {
-        onUploadStateChange(state.isLoading)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            if (latestIsLoading) {
-                viewModel.cancelSubmit()
-            }
-            onVideoEditorVisibilityChange(false)
-            onUploadStateChange(false)
-        }
-    }
-
-    BackHandler(enabled = state.isLoading) {
-        requestLeaveComposer()
-    }
-
-    Box(Modifier.fillMaxSize()) {
-        QuataScreen(padding) {
-            val isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape
-            val composerContentPadding = if (isLandscapeLayout) {
-                PaddingValues(start = 8.dp, top = 14.dp, end = 18.dp, bottom = 18.dp)
-            } else {
-                PaddingValues(18.dp)
-            }
-            val screenTitle = when (step) {
-                ComposerStep.TypePicker -> stringResource(R.string.composer_title)
-                ComposerStep.Text -> stringResource(R.string.composer_text_post_title)
-                ComposerStep.Image -> stringResource(R.string.composer_image_post_title)
-                ComposerStep.Video -> stringResource(R.string.composer_video_post_title)
-            }
-            ComposerScreenLayoutContent(
-                title = screenTitle,
-                scrollState = composerScrollState,
-                modifier = Modifier.padding(composerContentPadding),
-                form = {
-                when (step) {
-                    ComposerStep.TypePicker -> ComposerTypePickerContent(
-                        isLandscapeLayout = isLandscapeLayout,
-                        strings = ComposerTypePickerStrings(
-                            text = stringResource(R.string.composer_text_type),
-                            image = stringResource(R.string.composer_image_type),
-                            video = stringResource(R.string.composer_video_type)
-                        ),
-                        onText = {
-                            clearEditedImageTemp()
-                            clearPreparedImageTemp()
-                            clearEditedVideoTemp()
-                            clearPreparedVideoTemp()
-                            textValue = TextFieldValue("")
-                            isLocationEditorOpen = false
-                            highlightLocationEditor = false
-                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                            step = ComposerStep.Text
-                        },
-                        onImage = {
-                            clearEditedImageTemp()
-                            clearPreparedImageTemp()
-                            clearEditedVideoTemp()
-                            clearPreparedVideoTemp()
-                            textValue = TextFieldValue("")
-                            isLocationEditorOpen = false
-                            highlightLocationEditor = false
-                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                            step = ComposerStep.Image
-                        },
-                        onVideo = {
-                            clearEditedImageTemp()
-                            clearPreparedImageTemp()
-                            clearEditedVideoTemp()
-                            clearPreparedVideoTemp()
-                            textValue = TextFieldValue("")
-                            isLocationEditorOpen = false
-                            highlightLocationEditor = false
-                            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-                            step = ComposerStep.Video
-                        }
-                    )
-                    ComposerStep.Text -> TextPostForm(
-                        isLandscapeLayout = isLandscapeLayout,
-                        state = state,
-                        textValue = textValue,
-                        isEmojiPanelOpen = isEmojiPanelOpen,
-                        onTextChange = {
-                            textValue = it
-                            viewModel.onEvent(CreatePostUiEvent.TextChanged(it.text))
-                        },
-                        onToggleEmojiPanel = { isEmojiPanelOpen = !isEmojiPanelOpen },
-                        onDismissEmojiPanel = { isEmojiPanelOpen = false },
-                        onTextPatternSelected = { patternId ->
-                            viewModel.onEvent(CreatePostUiEvent.TextPatternSelected(patternId))
-                        },
-                        onEmoji = { emoji ->
-                            val updated = textValue.insertAtSelection(emoji)
-                            textValue = updated
-                            viewModel.onEvent(CreatePostUiEvent.TextChanged(updated.text))
-                        },
-                        onSubmit = { submitIfAuthenticated(PostComposerType.Text) }
-                    )
-                    ComposerStep.Image -> ImagePostForm(
-                        isLandscapeLayout = isLandscapeLayout,
-                        state = state,
-                        isLocationEditorOpen = isLocationEditorOpen,
-                        highlightLocationEditor = highlightLocationEditor,
-                        onPickImage = { galleryImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        onTakePhoto = {
-                            pendingCaptureTarget = CaptureTarget.Photo
-                            if (context.hasCapturePermissions(CaptureTarget.Photo)) {
-                                launchPhotoCapture()
-                            } else {
-                                capturePermissionLauncher.launch(context.capturePermissions(CaptureTarget.Photo))
-                            }
-                        },
-                        onEditImage = {
-                            state.imageUri
-                                ?.let(Uri::parse)
-                                ?.let { imageEditorUri = it }
-                        },
-                        onLocationEditorOpenChange = { isOpen ->
-                            isLocationEditorOpen = isOpen
-                            if (isOpen) {
-                                highlightLocationEditor = false
-                            }
-                        },
-                        onLocationChange = {
-                            highlightLocationEditor = false
-                            viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
-                        },
-                        onLocationPositioned = { offsetPx -> imageLocationOffsetPx = offsetPx },
-                        onSubmit = { submitIfAuthenticated(PostComposerType.Image) }
-                    )
-                    ComposerStep.Video -> VideoPostForm(
-                        isLandscapeLayout = isLandscapeLayout,
-                        state = state,
-                        onDescriptionChange = { viewModel.onEvent(CreatePostUiEvent.TextChanged(it)) },
-                        onPickVideo = { galleryVideoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                        onRecordVideo = {
-                            pendingCaptureTarget = CaptureTarget.Video
-                            if (context.hasCapturePermissions(CaptureTarget.Video)) {
-                                launchVideoCapture()
-                            } else {
-                                capturePermissionLauncher.launch(context.capturePermissions(CaptureTarget.Video))
-                            }
-                        },
-                        onEditVideo = {
-                            state.videoUri
-                                ?.let(Uri::parse)
-                                ?.let { videoEditorUri = it }
-                        },
-                        onSubmit = { submitIfAuthenticated(PostComposerType.Video) }
-                    )
-                }
-
-                },
-                feedback = {
-                    ComposerSubmissionFeedbackContent(
-                        errorMessage = state.error,
-                        successMessage = state.successMessage,
-                    )
-                },
-            )
-        }
-
-        imageEditorUri?.let { sourceUri ->
-            QuataImageEditorDialog(
-                imageUri = sourceUri,
-                onDismiss = { imageEditorUri = null },
-                onEdited = { editedUri ->
-                    val previousEditedUri = editedImageTempUri
-                    val previousPreparedUri = preparedImageTempUri
-                    editedImageTempUri = editedUri
-                    preparedImageTempUri = null
-                    viewModel.onEvent(CreatePostUiEvent.ImageSelected(editedUri.toString()))
-                    imageEditorUri = null
-                    if (previousEditedUri != editedUri) {
-                        deleteEditedImageTemp(previousEditedUri)
-                    }
-                    if (previousPreparedUri != editedUri) {
-                        deletePreparedImageTemp(previousPreparedUri)
-                    }
-                }
-            )
-        }
-
-        videoEditorUri?.let { sourceUri ->
-            QuataVideoEditorDialog(
-                videoUri = sourceUri,
-                onDismiss = {
-                    videoEditorUri = null
-                    clearPreparedVideoTemp()
-                },
-                onExported = { editedUri ->
-                    val previousEditedUri = editedVideoTempUri
-                    val previousPreparedUri = preparedVideoTempUri
-                    val isPreparedOutput = editedUri == previousPreparedUri
-                    editedVideoTempUri = editedUri.takeUnless { isPreparedOutput }
-                    preparedVideoTempUri = editedUri.takeIf { isPreparedOutput }
-                    viewModel.onEvent(CreatePostUiEvent.VideoSelected(editedUri.toString()))
-                    videoEditorUri = null
-                    if (previousEditedUri != editedUri) {
-                        deleteEditedVideoTemp(previousEditedUri)
-                    }
-                    if (previousPreparedUri != editedUri) {
-                        deletePreparedVideoTemp(previousPreparedUri)
-                    }
-                }
-            )
-        }
-
-        cameraDialogMode?.let { activeCameraMode ->
-            QuataCameraDialog(
-                mode = activeCameraMode,
-                audioEnabled = cameraDialogAudioEnabled,
-                onDismiss = {
-                    cameraDialogMode = null
-                    pendingCaptureTarget = null
-                },
-                onPhotoCaptured = { uri, _, _ ->
-                    cameraDialogMode = null
-                    pendingCaptureTarget = null
-                    selectImageForComposer(uri)
-                },
-                onVideoCaptured = { uri, _, _ ->
-                    cameraDialogMode = null
-                    pendingCaptureTarget = null
-                    openVideoEditorWithPreparedSource(uri)
-                }
-            )
-        }
-
-        if (isCancelUploadDialogOpen) {
-            QuataConfirmationDialogContent(
-                title = stringResource(R.string.composer_cancel_upload_title),
-                message = stringResource(R.string.composer_cancel_upload_body),
-                confirmLabel = stringResource(R.string.composer_cancel_upload_confirm),
-                dismissLabel = stringResource(R.string.composer_cancel_upload_keep),
-                onConfirm = {
-                    viewModel.cancelSubmit()
-                    isCancelUploadDialogOpen = false
-                },
-                onDismiss = { isCancelUploadDialogOpen = false },
-            )
-        }
-    }
-}
-
-@Composable
-private fun TextPostForm(
-    isLandscapeLayout: Boolean,
-    state: CreatePostUiState,
-    textValue: TextFieldValue,
-    isEmojiPanelOpen: Boolean,
-    onTextChange: (TextFieldValue) -> Unit,
-    onToggleEmojiPanel: () -> Unit,
-    onDismissEmojiPanel: () -> Unit,
-    onTextPatternSelected: (String) -> Unit,
-    onEmoji: (String) -> Unit,
-    onSubmit: () -> Unit
-) {
-    val emojiDismissState = rememberCommunityEmojiPanelDismissState(onDismissEmojiPanel)
-    ComposerTextPostFormContent(
-        isLandscapeLayout = isLandscapeLayout,
-        textValue = textValue,
-        contentTitle = stringResource(R.string.composer_content),
-        placeholder = stringResource(R.string.composer_text_placeholder),
-        wordCountText = stringResource(R.string.composer_word_count, state.text.length),
-        minLines = if (isLandscapeLayout) 4 else 5,
-        onTextChange = onTextChange,
-        trailingInputAction = {
-            CompactIconButton(
-                onClick = onToggleEmojiPanel,
-                modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState)
-            ) {
-                CompactIcon(
-                    Icons.Filled.InsertEmoticon,
-                    contentDescription = stringResource(R.string.comments_show_emojis),
-                    tint = Color(0xFFFFC55C)
-                )
-            }
-        },
-        emojiPanel = {
-            if (isEmojiPanelOpen) {
-                Spacer(Modifier.height(10.dp))
-                CommunityEmojiPanel(
-                    onEmojiClick = onEmoji,
-                    modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)
-                )
-                Spacer(Modifier.height(18.dp))
-            }
-        },
-        preview = {
-            TextPatternSelectorContent(
-                selectedPatternId = state.textPatternId,
-                title = stringResource(R.string.composer_text_background),
-                onPatternSelected = onTextPatternSelected
-            )
-            Spacer(Modifier.height(10.dp))
-            PreviewPanel(stringResource(R.string.composer_preview)) {
-                ComposerTextPostPreviewContent(
-                    text = state.text,
-                    patternId = state.textPatternId,
-                    compact = isLandscapeLayout,
-                    strings = ComposerTextPostPreviewStrings(
-                        emptyText = stringResource(R.string.composer_text_preview_empty),
-                        readMoreText = stringResource(R.string.feed_read_more),
-                        authorName = "Q\u00fcata",
-                        authorSubtitle = "Feed",
-                    ),
-                    actionLabels = composerPreviewActionLabels(),
-                    readerDismissButton = { modifier, onDismiss ->
-                        CompactIconButton(onClick = onDismiss, modifier = modifier) {
-                            CompactIcon(Icons.Filled.Close, stringResource(R.string.common_close), tint = Color.White)
-                        }
-                    },
-                )
-            }
-        },
-        publish = { PublishButton(state.isLoading, onSubmit) },
-        modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(
-            isVisible = isEmojiPanelOpen,
-            state = emojiDismissState
+    QuataScreen(padding) {
+        CreatePostRoot(
+            viewModel = viewModel.commonViewModel,
+            accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(Locale.getDefault().toLanguageTag()),
+            isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape,
+            canPublish = canPublish,
+            onAuthRequired = onAuthRequired,
+            onPostCreated = onPostCreated,
+            onBack = onBack,
+            resetToken = resetToken,
+            cancelUploadToken = cancelUploadToken,
+            copy = rootCopy,
+            slots = CreatePostPlatformSlots(
+                pickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                captureImage = { capture(CaptureTarget.Photo) },
+                editImage = { state.imageUri?.let(Uri::parse)?.let { imageEditorUri = it } },
+                pickVideo = { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
+                captureVideo = { capture(CaptureTarget.Video) },
+                editVideo = { state.videoUri?.let(Uri::parse)?.let { videoEditorUri = it } },
+                imagePreview = { uri, modifier -> AsyncImage(uri, context.getString(R.string.composer_selected_image), modifier.fillMaxSize(), contentScale = ContentScale.Crop) },
+                videoPreview = { uri, contain, modifier -> AndroidComposerVideoPreview(uri, contain, modifier) },
+                clearOwnedMedia = ::clearOwnedMedia,
+            ),
         )
+    }
+
+    imageEditorUri?.let { uri ->
+        QuataImageEditorDialog(
+            imageUri = uri,
+            onDismiss = { imageEditorUri = null },
+            onEdited = { edited ->
+                editedImageTempUri?.let(context::deleteComposerOwnedImage)
+                if (preparedImageTempUri != edited) preparedImageTempUri?.let(context::deleteComposerOwnedImage)
+                preparedImageTempUri = null
+                editedImageTempUri = edited
+                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.toString()))
+                imageEditorUri = null
+            },
+        )
+    }
+    videoEditorUri?.let { uri ->
+        QuataVideoEditorDialog(
+            videoUri = uri,
+            onDismiss = { videoEditorUri = null },
+            onExported = { edited ->
+                editedVideoTempUri?.let(context::deleteComposerOwnedVideo)
+                if (preparedVideoTempUri != edited) preparedVideoTempUri?.let(context::deleteComposerOwnedVideo)
+                preparedVideoTempUri = null
+                editedVideoTempUri = edited
+                viewModel.onEvent(CreatePostUiEvent.VideoSelected(edited.toString()))
+                videoEditorUri = null
+            },
+        )
+    }
+    cameraMode?.let { mode ->
+        QuataCameraDialog(
+            mode = mode,
+            audioEnabled = mode == QuataCameraMode.Video,
+            onDismiss = { cameraMode = null; pendingCapture = null },
+            onPhotoCaptured = { uri, _, _ -> cameraMode = null; pendingCapture = null; selectImage(uri) },
+            onVideoCaptured = { uri, _, _ -> cameraMode = null; pendingCapture = null; selectVideo(uri) },
+        )
+    }
+    if (cancelDialog) QuataConfirmationDialogContent(
+        title = stringResource(R.string.composer_cancel_upload_title),
+        message = stringResource(R.string.composer_cancel_upload_body),
+        confirmLabel = stringResource(R.string.composer_cancel_upload_confirm),
+        dismissLabel = stringResource(R.string.composer_cancel_upload_keep),
+        onConfirm = { viewModel.cancelSubmit(); cancelDialog = false },
+        onDismiss = { cancelDialog = false },
     )
 }
 
 @Composable
-private fun ImagePostForm(
-    isLandscapeLayout: Boolean,
-    state: CreatePostUiState,
-    isLocationEditorOpen: Boolean,
-    highlightLocationEditor: Boolean,
-    onPickImage: () -> Unit,
-    onTakePhoto: () -> Unit,
-    onEditImage: () -> Unit,
-    onLocationEditorOpenChange: (Boolean) -> Unit,
-    onLocationChange: (String) -> Unit,
-    onLocationPositioned: (Int) -> Unit,
-    onSubmit: () -> Unit
-) {
-    val context = LocalContext.current
-    val template = quataTheme()
-
-    @Composable
-    fun ImageMediaSourcePanel() {
-        val imageEditAction: (@Composable (Modifier) -> Unit)? = if (state.imageUri != null) {
-            { actionModifier ->
-                ComposerActionButton(stringResource(R.string.composer_edit_image), Icons.Filled.Edit, onEditImage, actionModifier)
-            }
-        } else {
-            null
-        }
-        ComposerMediaSourceFormContent(
-            title = stringResource(R.string.composer_image),
-            isLandscapeLayout = isLandscapeLayout,
-            primarySourceAction = { actionModifier ->
-                ComposerActionButton(stringResource(R.string.composer_pick_image), Icons.Filled.PhotoLibrary, onPickImage, actionModifier)
-            },
-            secondarySourceAction = { actionModifier ->
-                ComposerActionButton(stringResource(R.string.composer_take_photo), Icons.Filled.PhotoCamera, onTakePhoto, actionModifier)
-            },
-            editAction = imageEditAction,
-        )
-    }
-
-    @Composable
-    fun ImageLocationControl() {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { coordinates ->
-                    onLocationPositioned(coordinates.positionInRoot().y.roundToInt())
-                }
-        ) {
-            val shouldEmphasizeLocation = highlightLocationEditor && state.locationLabel.isNullOrBlank()
-            ComposerLocationSectionContent(
-                title = stringResource(R.string.composer_location),
-                locationText = state.locationLabel ?: stringResource(R.string.composer_no_location),
-                helperText = stringResource(
-                    if (shouldEmphasizeLocation) R.string.composer_location_required else R.string.composer_location_helper
-                ),
-                isHighlighted = shouldEmphasizeLocation,
-                leadingIcon = {
-                    CompactIcon(Icons.Filled.LocationOn, contentDescription = null, tint = template.colors.accent)
-                },
-                editAction = { actionModifier ->
-                    LocationEditButton(
-                        isEditing = isLocationEditorOpen,
-                        highlighted = highlightLocationEditor,
-                        onClick = { onLocationEditorOpenChange(!isLocationEditorOpen) },
-                        modifier = actionModifier
-                    )
-                },
-                editor = if (isLocationEditorOpen) {
-                    {
-                        ComposerLocationTextEditorContent(
-                            value = state.locationLabel.orEmpty(),
-                            placeholder = stringResource(R.string.composer_location_placeholder),
-                            onValueChange = onLocationChange,
-                        )
-                    }
-                } else null
-            )
-        }
-    }
-
-    @Composable
-    fun ImagePreviewPanel() {
-        PreviewPanel(stringResource(R.string.composer_preview)) {
-            if (state.imageUri != null) {
-                val imageBackgroundSeed by produceState(state.imageUri.orEmpty(), state.imageUri) {
-                    value = withContext(Dispatchers.IO) {
-                        state.imageUri?.let { context.mediaHashSeed(Uri.parse(it)) }
-                    } ?: state.imageUri.orEmpty()
-                }
-                ComposerMediaPostPreviewContent(
-                    isVideo = false,
-                    description = "",
-                    subtitle = state.locationLabel?.takeIf { it.isNotBlank() } ?: "Feed",
-                    topChips = state.locationLabel
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { listOf(stringResource(R.string.feed_location_chip, it)) }
-                        .orEmpty(),
-                    actionLabels = composerPreviewActionLabels(),
-                    authorName = "Q\u00fcata",
-                    compact = isLandscapeLayout,
-                    backgroundSeed = imageBackgroundSeed,
-                    media = {
-                        AsyncImage(
-                            model = state.imageUri,
-                            contentDescription = stringResource(R.string.composer_selected_image),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    },
-                )
-            } else {
-                EmptyPreview(
-                    stringResource(R.string.composer_image_preview_title),
-                    stringResource(R.string.composer_image_preview_tag),
-                    stringResource(R.string.composer_image_preview_body),
-                    compact = isLandscapeLayout
-                )
-            }
-        }
-    }
-
-    ComposerMediaPostFormContent(
-        isLandscapeLayout = isLandscapeLayout,
-        mediaSource = { ImageMediaSourcePanel() },
-        controls = {
-            Spacer(Modifier.height(12.dp))
-            ImageLocationControl()
-        },
-        preview = { ImagePreviewPanel() },
-        publish = { PublishButton(state.isLoading, onSubmit) }
-    )
-}
-
-@Composable
-private fun VideoPostForm(
-    isLandscapeLayout: Boolean,
-    state: CreatePostUiState,
-    onDescriptionChange: (String) -> Unit,
-    onPickVideo: () -> Unit,
-    onRecordVideo: () -> Unit,
-    onEditVideo: () -> Unit,
-    onSubmit: () -> Unit
-) {
-    val context = LocalContext.current
-    val template = quataTheme()
-
-    @Composable
-    fun VideoMediaSourcePanel() {
-        val videoEditAction: (@Composable (Modifier) -> Unit)? = if (state.videoUri != null) {
-            { actionModifier ->
-                ComposerActionButton(stringResource(R.string.video_editor_edit_video), Icons.Filled.Edit, onEditVideo, actionModifier)
-            }
-        } else {
-            null
-        }
-        ComposerMediaSourceFormContent(
-            title = stringResource(R.string.composer_video),
-            isLandscapeLayout = isLandscapeLayout,
-            primarySourceAction = { actionModifier ->
-                ComposerActionButton(stringResource(R.string.composer_pick_video), Icons.Filled.VideoLibrary, onPickVideo, actionModifier)
-            },
-            secondarySourceAction = { actionModifier ->
-                ComposerActionButton(stringResource(R.string.composer_record_video), Icons.Filled.Videocam, onRecordVideo, actionModifier)
-            },
-            beforeEdit = {
-                Text(
-                    state.videoUri?.let { context.displayNameFromUriString(it) } ?: stringResource(R.string.composer_no_file),
-                    color = template.colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            editAction = videoEditAction,
-        )
-
-    }
-
-    @Composable
-    fun VideoDescriptionControl() {
-        ComposerDescriptionFormContent(
-            value = state.text,
-            title = stringResource(R.string.composer_description),
-            placeholder = stringResource(R.string.composer_description_placeholder),
-            minLines = if (isLandscapeLayout) 2 else 3,
-            onValueChange = onDescriptionChange,
-        )
-    }
-
-    @Composable
-    fun VideoPreviewPanel() {
-        PreviewPanel(stringResource(R.string.composer_preview)) {
-            val videoUri = state.videoUri
-            if (videoUri != null) {
-                ComposerMediaPostPreviewContent(
-                    isVideo = true,
-                    description = state.text,
-                    subtitle = "Feed",
-                    topChips = emptyList(),
-                    actionLabels = composerPreviewActionLabels(),
-                    authorName = "Q\u00fcata",
-                    compact = isLandscapeLayout,
-                    backgroundSeed = videoUri,
-                    media = {
-                        ComposerPreviewVideoPlayer(
-                            videoUri = videoUri,
-                            useContainLayout = isLandscapeLayout
-                        )
-                    },
-                )
-            } else {
-                EmptyPreview(
-                    title = stringResource(R.string.composer_video_preview_empty),
-                    tag = stringResource(R.string.composer_video_preview_tag),
-                    body = state.text.ifBlank { stringResource(R.string.composer_video_preview_body) },
-                    compact = isLandscapeLayout
-                )
-            }
-        }
-    }
-
-    ComposerMediaPostFormContent(
-        isLandscapeLayout = isLandscapeLayout,
-        mediaSource = { VideoMediaSourcePanel() },
-        controls = { VideoDescriptionControl() },
-        preview = { VideoPreviewPanel() },
-        publish = { PublishButton(state.isLoading, onSubmit) }
-    )
-}
-
-@Composable
-private fun ComposerPreviewVideoPlayer(
-    videoUri: String,
-    useContainLayout: Boolean
-) {
+private fun AndroidComposerVideoPreview(uri: String, useContainLayout: Boolean, modifier: Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var isPlaying by rememberSaveable(videoUri) { mutableStateOf(false) }
-    var positionMs by remember(videoUri) { mutableLongStateOf(0L) }
-    var durationMs by remember(videoUri) { mutableLongStateOf(0L) }
-    var hasRenderedFirstFrame by remember(videoUri) { mutableStateOf(false) }
-    var isPlayerRequested by rememberSaveable(videoUri) { mutableStateOf(false) }
-    var shouldAutoPlay by rememberSaveable(videoUri) { mutableStateOf(false) }
-    val posterFrame by produceState<Bitmap?>(initialValue = null, videoUri) {
-        value = withContext(Dispatchers.IO) {
-            context.loadComposerVideoPosterFrame(Uri.parse(videoUri))
-        }
+    var isPlaying by rememberSaveable(uri) { mutableStateOf(false) }
+    var positionMs by remember(uri) { mutableLongStateOf(0L) }
+    var durationMs by remember(uri) { mutableLongStateOf(0L) }
+    var hasRenderedFirstFrame by remember(uri) { mutableStateOf(false) }
+    var isPlayerRequested by rememberSaveable(uri) { mutableStateOf(false) }
+    var shouldAutoPlay by rememberSaveable(uri) { mutableStateOf(false) }
+    val posterFrame by produceState<Bitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) { context.loadComposerVideoPosterFrame(Uri.parse(uri)) }
     }
-    val playbackRotation by produceState(initialValue = 0, videoUri) {
-        value = withContext(Dispatchers.IO) {
-            context.readComposerVideoRotation(Uri.parse(videoUri)) ?: 0
-        }
+    val playbackRotation by produceState(0, uri) {
+        value = withContext(Dispatchers.IO) { context.readComposerVideoRotation(Uri.parse(uri)) ?: 0 }
     }
-    val player = remember(videoUri, isPlayerRequested) {
+    val player = remember(uri, isPlayerRequested) {
         if (!isPlayerRequested) return@remember null
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUri))
-            repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = shouldAutoPlay
-            volume = 1f
-            prepare()
-            seekTo(0L)
+            setMediaItem(MediaItem.fromUri(uri)); repeatMode = Player.REPEAT_MODE_OFF
+            playWhenReady = shouldAutoPlay; volume = 1f; prepare(); seekTo(0L)
         }
     }
-
     LaunchedEffect(player) {
-        val activePlayer = player ?: return@LaunchedEffect
+        val active = player ?: return@LaunchedEffect
         while (true) {
-            positionMs = activePlayer.currentPosition.coerceAtLeast(0L)
-            durationMs = activePlayer.duration.takeIf { it > 0 } ?: durationMs
-            isPlaying = activePlayer.isPlaying
+            positionMs = active.currentPosition.coerceAtLeast(0L)
+            durationMs = active.duration.takeIf { it > 0L } ?: durationMs
+            isPlaying = active.isPlaying
             delay(250L)
         }
     }
-
     LaunchedEffect(player, shouldAutoPlay) {
-        val activePlayer = player ?: return@LaunchedEffect
-        if (shouldAutoPlay) {
-            activePlayer.play()
-            isPlaying = true
-        } else {
-            activePlayer.pause()
-            isPlaying = false
-        }
+        val active = player ?: return@LaunchedEffect
+        if (shouldAutoPlay) active.play() else active.pause()
+        isPlaying = shouldAutoPlay
     }
-
     DisposableEffect(player) {
-        if (player == null) {
-            onDispose { }
-        } else {
-        val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() {
-                hasRenderedFirstFrame = true
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    durationMs = player.duration.takeIf { it > 0 } ?: durationMs
-                    if (player.currentPosition <= 0L && !hasRenderedFirstFrame) {
-                        runCatching { player.seekTo(0L) }
+        if (player == null) onDispose { } else {
+            val listener = object : Player.Listener {
+                override fun onRenderedFirstFrame() { hasRenderedFirstFrame = true }
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        durationMs = player.duration.takeIf { it > 0L } ?: durationMs
+                        if (player.currentPosition <= 0L && !hasRenderedFirstFrame) runCatching { player.seekTo(0L) }
                     }
                 }
             }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
+            player.addListener(listener)
+            onDispose { player.removeListener(listener); player.release() }
         }
     }
-
     DisposableEffect(player, lifecycleOwner) {
-        val activePlayer = player ?: return@DisposableEffect onDispose {}
+        val active = player ?: return@DisposableEffect onDispose { }
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
-                shouldAutoPlay = false
-                activePlayer.pause()
-                isPlaying = false
+                shouldAutoPlay = false; active.pause(); isPlaying = false
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
     fun togglePlayback() {
-        val activePlayer = player
-        if (activePlayer == null) {
-            shouldAutoPlay = true
-            isPlayerRequested = true
-            isPlaying = true
-            return
-        }
-        if (activePlayer.isPlaying) {
-            shouldAutoPlay = false
-            activePlayer.pause()
-            isPlaying = false
-        } else {
-            if (activePlayer.playbackState == Player.STATE_ENDED) {
-                activePlayer.seekTo(0L)
-            }
-            shouldAutoPlay = true
-            activePlayer.play()
-            isPlaying = true
-        }
+        val active = player
+        if (active == null) { shouldAutoPlay = true; isPlayerRequested = true; isPlaying = true; return }
+        if (active.isPlaying) { shouldAutoPlay = false; active.pause(); isPlaying = false }
+        else { if (active.playbackState == Player.STATE_ENDED) active.seekTo(0L); shouldAutoPlay = true; active.play(); isPlaying = true }
     }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-    ) {
-        val videoResizeMode = if (useContainLayout) {
-            AspectRatioFrameLayout.RESIZE_MODE_FIT
-        } else {
-            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-        }
-        val posterContentScale = if (useContainLayout) {
-            ContentScale.Fit
-        } else {
-            ContentScale.Crop
-        }
-        player?.let { activePlayer ->
+    Box(modifier.fillMaxSize().background(Color.Transparent)) {
+        val previewLayout = composerVideoPreviewLayout(useContainLayout)
+        val resizeMode = if (previewLayout == ComposerVideoPreviewLayout.Contain) AspectRatioFrameLayout.RESIZE_MODE_FIT else AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        val posterScale = if (previewLayout == ComposerVideoPreviewLayout.Contain) ContentScale.Fit else ContentScale.Crop
+        player?.let { active ->
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { viewContext ->
-                    (LayoutInflater.from(viewContext)
-                        .inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
-                        this.player = activePlayer
-                        useController = false
-                        resizeMode = videoResizeMode
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
+                    (LayoutInflater.from(viewContext).inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
+                        this.player = active; useController = false; this.resizeMode = resizeMode
+                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     }
                 },
-                update = { playerView ->
-                    playerView.useController = false
-                    playerView.resizeMode = videoResizeMode
-                    if (playerView.player !== activePlayer) {
-                        playerView.player = activePlayer
-                    }
-                    playerView.findQuataTextureView()
-                        ?.applyQuataVideoPlaybackTransform(playbackRotation)
+                update = { view ->
+                    view.useController = false; view.resizeMode = resizeMode
+                    if (view.player !== active) view.player = active
+                    view.findQuataTextureView()?.applyQuataVideoPlaybackTransform(playbackRotation)
                 },
-                onRelease = { playerView ->
-                    playerView.player = null
-                }
+                onRelease = { it.player = null },
             )
         }
         posterFrame?.takeUnless { hasRenderedFirstFrame }?.let { frame ->
-            Image(
-                bitmap = frame.asImageBitmap(),
-                contentDescription = null,
-                contentScale = posterContentScale,
-                modifier = Modifier.fillMaxSize()
-            )
+            Image(frame.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = posterScale)
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable { togglePlayback() }
-        )
+        Box(Modifier.fillMaxSize().clickable { togglePlayback() })
         ComposerVideoPreviewControlsContent(
-            isPlaying = isPlaying,
-            positionMs = positionMs,
-            durationMs = durationMs,
-            playContentDescription = stringResource(R.string.feed_play),
-            pauseContentDescription = stringResource(R.string.feed_pause),
-            replayContentDescription = stringResource(R.string.video_editor_previous),
-            onPlayPause = { togglePlayback() },
+            isPlaying = isPlaying, positionMs = positionMs, durationMs = durationMs,
+            playContentDescription = stringResource(R.string.feed_play), pauseContentDescription = stringResource(R.string.feed_pause),
+            replayContentDescription = stringResource(R.string.video_editor_previous), onPlayPause = ::togglePlayback,
             onReplay = {
-                positionMs = 0L
-                shouldAutoPlay = true
-                if (player == null) {
-                    isPlayerRequested = true
-                } else {
-                    player.seekTo(0L)
-                    player.play()
-                }
+                positionMs = 0L; shouldAutoPlay = true
+                if (player == null) isPlayerRequested = true else { player.seekTo(0L); player.play() }
                 isPlaying = true
             },
-            onSeek = { targetMs ->
-                player?.seekTo(targetMs)
-                positionMs = targetMs
-            },
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 10.dp, end = 78.dp, bottom = 8.dp)
+            onSeek = { target -> player?.seekTo(target); positionMs = target },
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, end = 78.dp, bottom = 8.dp),
         )
     }
 }
 
-@Composable
-private fun ComposerPreviewChip(
-    text: String,
-    highlighted: Boolean = false
-) {
-    val template = quataTheme()
-    val borderColor = if (highlighted) template.colors.live else Color.White.copy(alpha = 0.22f)
-    val textColor = if (highlighted) template.colors.live else Color.White
-    Surface(
-        color = if (highlighted) template.colors.surface.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
-        contentColor = textColor,
-        shape = RoundedCornerShape(28.dp),
-        modifier = Modifier.border(1.dp, borderColor, RoundedCornerShape(28.dp))
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-        )
+private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? = runCatching {
+    withComposerMetadataRetriever { retriever ->
+        retriever.setComposerVideoSource(this, uri)
+        val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
+        if (uri.lastPathSegment?.startsWith("quata-edited-video-") == true && (rotation == 90 || rotation == 270)) return@withComposerMetadataRetriever null
+        retriever.getScaledComposerVideoFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, ComposerPreviewPosterMaxDimension)
     }
-}
+}.getOrNull()
 
-@Composable
-private fun composerPreviewActionLabels() = ComposerPreviewActionLabels(
-    like = stringResource(R.string.feed_like),
-    comments = stringResource(R.string.feed_comments),
-    share = stringResource(R.string.feed_share),
-    report = stringResource(R.string.feed_report),
-    rank = stringResource(R.string.feed_rank),
-    live = stringResource(R.string.common_live)
-)
+private fun android.content.Context.locationLabel(location: Location): String = runCatching {
+    Geocoder(this, Locale.getDefault()).getFromLocation(location.latitude, location.longitude, 1)
+        ?.firstOrNull()?.let { listOfNotNull(it.subLocality, it.locality, it.adminArea).distinct().joinToString(", ") }
+        ?.takeIf(String::isNotBlank)
+}.getOrNull() ?: "${location.latitude}, ${location.longitude}"
 
-private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? =
-    runCatching {
-        withComposerMetadataRetriever { retriever ->
-            retriever.setComposerVideoSource(this, uri)
-            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-                ?.toIntOrNull()
-                ?.normalizedComposerVideoRotation()
-                ?: 0
-            if (uri.lastPathSegment?.startsWith("quata-edited-video-") == true &&
-                (rotation == 90 || rotation == 270)
-            ) {
-                return@withComposerMetadataRetriever null
-            }
-            retriever.getScaledComposerVideoFrameAtTime(
-                timeUs = 0L,
-                option = MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                maxDimension = ComposerPreviewPosterMaxDimension
-            )
-        }
-    }.getOrNull()
+private fun android.content.Context.exifLocationFromUri(uri: Uri): Location? = runCatching {
+    contentResolver.openInputStream(uri)?.use { input ->
+        val coordinates = ExifInterface(input).latLong ?: return null
+        Location("exif").apply { latitude = coordinates[0]; longitude = coordinates[1] }
+    }
+}.getOrNull()
 
-private fun Context.prepareComposerImageSource(sourceUri: Uri): Uri? {
-    val outputFile = createComposerPreparedImageFile()
-    return runCatching {
-        val preparedUri = copyImageToFileNormalizingOrientation(sourceUri, outputFile)
-
-        val bounds = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-            inSampleSize = 1
-        }
-        BitmapFactory.decodeFile(outputFile.absolutePath, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            error("Prepared image is not decodable")
-        }
-        preparedUri
-    }.onFailure {
-        Log.w(ComposerImageLogTag, "Could not prepare image source source=$sourceUri", it)
-        outputFile.delete()
-    }.getOrNull()
+private fun android.content.Context.prepareComposerImageSource(source: Uri): Uri? {
+    val output = File(cacheDir, "quata-prepared-image-${System.currentTimeMillis()}.jpg")
+    return runCatching { copyImageToFileNormalizingOrientation(source, output) }
+        .onFailure { Log.w("QuataComposerImage", "Could not prepare $source", it); output.delete() }.getOrNull()
 }
 
 private fun Context.prepareComposerVideoSource(sourceUri: Uri): Uri? {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canUseComposerVideoSourceDirectly(sourceUri)) {
-        return sourceUri
-    }
-
-    val outputFile = createComposerPreparedVideoFile()
-    return runCatching {
-        remuxComposerVideoForEditor(sourceUri, outputFile)
-        Uri.fromFile(outputFile)
-    }.onFailure {
-        Log.w(ComposerVideoLogTag, "Could not prepare video source source=$sourceUri", it)
-        outputFile.delete()
-    }.getOrNull()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canUseComposerVideoSourceDirectly(sourceUri)) return sourceUri
+    val outputFile = File(cacheDir, "quata-prepared-video-${System.currentTimeMillis()}.mp4")
+    return runCatching { remuxComposerVideoForEditor(sourceUri, outputFile); Uri.fromFile(outputFile) }
+        .onFailure { Log.w("QuataComposerVideo", "Could not prepare video source source=$sourceUri", it); outputFile.delete() }.getOrNull()
 }
 
-private fun Context.canUseComposerVideoSourceDirectly(uri: Uri): Boolean =
-    runCatching {
-        withComposerMetadataRetriever { retriever ->
-            retriever.setComposerVideoSource(this, uri)
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
-            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: return@withComposerMetadataRetriever false
-            width > 0 && height > 0 && durationMs > 0L
-        }
-    }.getOrDefault(false)
+private fun Context.canUseComposerVideoSourceDirectly(uri: Uri): Boolean = runCatching {
+    withComposerMetadataRetriever { retriever ->
+        retriever.setComposerVideoSource(this, uri)
+        val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+        val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: return@withComposerMetadataRetriever false
+        isValidComposerVideoMetadata(width, height, durationMs)
+    }
+}.getOrDefault(false)
 
 private fun Context.remuxComposerVideoForEditor(sourceUri: Uri, outputFile: File) {
     val extractor = MediaExtractor()
@@ -1299,7 +444,6 @@ private fun Context.remuxComposerVideoForEditor(sourceUri: Uri, outputFile: File
         extractor.setDataSource(this, sourceUri, null)
         muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         var rotationHint = readComposerVideoRotation(sourceUri)
-
         val muxedTracks = linkedMapOf<Int, ComposerVideoRemuxTrack>()
         var hasVideoTrack = false
         var maxInputSize = ComposerVideoRemuxDefaultBufferSize
@@ -1309,254 +453,142 @@ private fun Context.remuxComposerVideoForEditor(sourceUri: Uri, outputFile: File
             val isVideo = mimeType.startsWith("video/")
             val isAudio = mimeType.startsWith("audio/")
             if (!isVideo && !isAudio) continue
-            if (isVideo && rotationHint == null) {
-                rotationHint = format.composerRotationOrNull()
-            }
+            if (isVideo) rotationHint = composerVideoRotationHint(rotationHint, format.composerRotationOrNull())
             val muxerFormat = composerMuxerTrackFormat(format, mimeType, isVideo) ?: continue
-            val muxedTrackIndex = muxer.addTrack(muxerFormat)
             muxedTracks[trackIndex] = ComposerVideoRemuxTrack(
-                muxedTrackIndex = muxedTrackIndex,
-                isVideo = isVideo,
+                muxedTrackIndex = muxer.addTrack(muxerFormat), isVideo = isVideo,
                 fallbackSampleDurationUs = format.composerFallbackSampleDurationUs(mimeType, isVideo),
-                forceSyntheticVideoTimestamps = format.composerVideoTimestampsNeedRepair(isVideo)
+                forceSyntheticVideoTimestamps = format.composerVideoTimestampsNeedRepair(isVideo),
             )
             hasVideoTrack = hasVideoTrack || isVideo
             maxInputSize = maxOf(maxInputSize, format.composerMaxInputSizeOrNull() ?: ComposerVideoRemuxDefaultBufferSize)
         }
         check(hasVideoTrack) { "No video track available" }
         check(muxedTracks.isNotEmpty()) { "No audio or video tracks available" }
-
-        rotationHint
-            ?.normalizedComposerVideoRotation()
-            ?.takeIf { it == 90 || it == 180 || it == 270 }
-            ?.let(muxer::setOrientationHint)
+        rotationHint?.normalizedComposerVideoRotation()?.takeIf { it == 90 || it == 180 || it == 270 }?.let(muxer::setOrientationHint)
         muxedTracks.keys.forEach(extractor::selectTrack)
-        muxer.start()
-        muxerStarted = true
-
+        muxer.start(); muxerStarted = true
         val buffer = ByteBuffer.allocateDirect(maxInputSize.coerceAtLeast(ComposerVideoRemuxDefaultBufferSize))
         val bufferInfo = MediaCodec.BufferInfo()
-
         while (true) {
             val trackIndex = extractor.sampleTrackIndex
             if (trackIndex < 0) break
             val muxedTrack = muxedTracks[trackIndex]
-            if (muxedTrack == null) {
-                extractor.advance()
-                continue
-            }
+            if (muxedTrack == null) { extractor.advance(); continue }
             val sampleTimeUs = extractor.sampleTime
             if (sampleTimeUs < 0L) break
             buffer.clear()
             val sampleSize = extractor.readSampleData(buffer, 0)
             if (sampleSize < 0) break
-            val presentationTimeUs = muxedTrack.presentationTimeUs(sampleTimeUs)
-            buffer.position(0)
-            buffer.limit(sampleSize)
-            bufferInfo.set(
-                0,
-                sampleSize,
-                presentationTimeUs,
-                extractor.sampleFlags.toMediaCodecBufferFlags()
-            )
+            buffer.position(0); buffer.limit(sampleSize)
+            bufferInfo.set(0, sampleSize, muxedTrack.presentationTimeUs(sampleTimeUs), extractor.sampleFlags.toMediaCodecBufferFlags())
             muxer.writeSampleData(muxedTrack.muxedTrackIndex, buffer, bufferInfo)
             extractor.advance()
         }
-
-        muxer.stop()
-        completed = true
+        muxer.stop(); completed = true
     } finally {
         extractor.release()
-        runCatching {
-            if (!completed && muxerStarted) {
-                muxer?.stop()
-            }
-        }
+        runCatching { if (!completed && muxerStarted) muxer?.stop() }
         runCatching { muxer?.release() }
-        if (!completed) {
-            runCatching { outputFile.delete() }
-        }
+        if (!completed) runCatching { outputFile.delete() }
     }
 }
 
-private fun Int.toMediaCodecBufferFlags(): Int {
-    var codecFlags = 0
-    if (this and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
-        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
-    }
-    if (this and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) {
-        codecFlags = codecFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
-    }
-    return codecFlags
-}
-
-private fun Context.readComposerVideoRotation(uri: Uri): Int? =
-    runCatching {
-        withComposerMetadataRetriever { retriever ->
-            retriever.setComposerVideoSource(this, uri)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-                ?.toIntOrNull()
-                ?.normalizedComposerVideoRotation()
-        }
-    }.getOrNull()
-
-private inline fun <T> withComposerMetadataRetriever(block: (MediaMetadataRetriever) -> T): T {
-    return withQuataMediaMetadataRetriever(block)
-}
-
-private class ComposerVideoRemuxTrack(
+internal class ComposerVideoRemuxTrack(
     val muxedTrackIndex: Int,
     private val isVideo: Boolean,
     private val fallbackSampleDurationUs: Long,
-    private val forceSyntheticVideoTimestamps: Boolean
+    private val forceSyntheticVideoTimestamps: Boolean,
 ) {
     private var lastSourceTimeUs: Long? = null
     private var lastPresentationTimeUs = 0L
     private var nextVideoPresentationTimeUs = 0L
-
     fun presentationTimeUs(sourceTimeUs: Long): Long {
-        if (isVideo && forceSyntheticVideoTimestamps) {
-            val presentationTimeUs = nextVideoPresentationTimeUs
-            nextVideoPresentationTimeUs += fallbackSampleDurationUs
-            return presentationTimeUs
-        }
-
-        val previousSourceTimeUs = lastSourceTimeUs
-        val presentationTimeUs = if (previousSourceTimeUs == null) {
-            0L
-        } else {
-            val sourceDeltaUs = sourceTimeUs - previousSourceTimeUs
-            val sampleDurationUs = sourceDeltaUs.takeIf {
-                it in 1L..ComposerVideoRemuxMaxTrustedSampleDeltaUs
-            } ?: fallbackSampleDurationUs
-            lastPresentationTimeUs + sampleDurationUs
-        }
-        lastSourceTimeUs = sourceTimeUs
-        lastPresentationTimeUs = presentationTimeUs
-        return presentationTimeUs
+        if (isVideo && forceSyntheticVideoTimestamps) return nextVideoPresentationTimeUs.also { nextVideoPresentationTimeUs += fallbackSampleDurationUs }
+        val previous = lastSourceTimeUs
+        val presentation = if (previous == null) 0L else lastPresentationTimeUs + ((sourceTimeUs - previous).takeIf { it in 1L..ComposerVideoRemuxMaxTrustedSampleDeltaUs } ?: fallbackSampleDurationUs)
+        lastSourceTimeUs = sourceTimeUs; lastPresentationTimeUs = presentation
+        return presentation
     }
+}
+
+private fun Int.toMediaCodecBufferFlags(): Int {
+    var result = 0
+    if (this and MediaExtractor.SAMPLE_FLAG_SYNC != 0) result = result or MediaCodec.BUFFER_FLAG_KEY_FRAME
+    if (this and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) result = result or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+    return result
 }
 
 private fun MediaFormat.composerFallbackSampleDurationUs(mimeType: String, isVideo: Boolean): Long {
     if (isVideo) {
-        val frameRate = composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)
-            ?.takeIf { it in 12..120 }
-            ?: ComposerVideoRemuxFallbackFrameRate
+        val frameRate = composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 12..120 } ?: ComposerVideoRemuxFallbackFrameRate
         return (1_000_000L / frameRate).coerceAtLeast(1L)
     }
-
-    if (mimeType.contains("amr", ignoreCase = true) || mimeType == "audio/3gpp") {
-        return 20_000L
-    }
+    if (mimeType.contains("amr", true) || mimeType == "audio/3gpp") return 20_000L
     val sampleRate = composerIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE)?.takeIf { it > 0 }
     return sampleRate?.let { (1024L * 1_000_000L / it).coerceAtLeast(1L) } ?: 23_000L
 }
 
-private fun MediaFormat.composerVideoTimestampsNeedRepair(isVideo: Boolean): Boolean {
-    if (!isVideo) return false
-    val frameRate = composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 1..240 }
-    if (frameRate != null) {
-        return true
-    }
-    val durationUs = composerLongOrNull(MediaFormat.KEY_DURATION)?.takeIf { it > 0L } ?: return true
-    val expectedMinDurationUs = frameRate?.let { 1_000_000L / it } ?: 1L
-    return durationUs < expectedMinDurationUs
+internal fun composerVideoTimestampsNeedRepair(frameRate: Int?, durationUs: Long?): Boolean {
+    if (frameRate != null && frameRate in 1..240) return true
+    val duration = durationUs?.takeIf { it > 0L } ?: return true
+    val expectedMin = frameRate?.let { 1_000_000L / it } ?: 1L
+    return duration < expectedMin
 }
 
-private fun composerMuxerTrackFormat(format: MediaFormat, mimeType: String, isVideo: Boolean): MediaFormat? =
-    runCatching {
-        val target = if (isVideo) {
-            val width = format.composerIntegerOrNull(MediaFormat.KEY_WIDTH) ?: return@runCatching null
-            val height = format.composerIntegerOrNull(MediaFormat.KEY_HEIGHT) ?: return@runCatching null
-            MediaFormat.createVideoFormat(mimeType, width, height)
-        } else {
-            val sampleRate = format.composerIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: return@runCatching null
-            val channelCount = format.composerIntegerOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: return@runCatching null
-            MediaFormat.createAudioFormat(mimeType, sampleRate, channelCount)
-        }
+internal enum class ComposerVideoPreviewLayout { Contain, Crop }
+internal fun composerVideoPreviewLayout(useContainLayout: Boolean) = if (useContainLayout) ComposerVideoPreviewLayout.Contain else ComposerVideoPreviewLayout.Crop
+internal fun isValidComposerVideoMetadata(width: Int, height: Int, durationMs: Long) = width > 0 && height > 0 && durationMs > 0L
+internal fun composerVideoRotationHint(metadataRotation: Int?, formatRotation: Int?): Int? = metadataRotation ?: formatRotation
 
-        format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_MAX_INPUT_SIZE)
-        format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_BIT_RATE)
-        format.composerCopyLongKeyTo(target, MediaFormat.KEY_DURATION)
-        if (isVideo) {
-            format.composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)
-                ?.takeIf { it in 1..240 }
-                ?.let { target.setInteger(MediaFormat.KEY_FRAME_RATE, it) }
-        } else {
-            format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_AAC_PROFILE)
-            format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_CHANNEL_MASK)
-            format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_PCM_ENCODING)
-        }
-        format.composerCopyStringKeyTo(target, MediaFormat.KEY_LANGUAGE)
-        for (index in 0..3) {
-            format.composerCopyByteBufferKeyTo(target, "csd-$index")
-        }
-        target
-    }.getOrNull()
+private fun MediaFormat.composerVideoTimestampsNeedRepair(isVideo: Boolean): Boolean = isVideo && composerVideoTimestampsNeedRepair(
+    composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE), composerLongOrNull(MediaFormat.KEY_DURATION),
+)
 
-private fun MediaFormat.composerMimeType(): String? =
-    if (containsKey(MediaFormat.KEY_MIME)) getString(MediaFormat.KEY_MIME) else null
-
-private fun MediaFormat.composerMaxInputSizeOrNull(): Int? =
-    if (containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
-        runCatching { getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) }.getOrNull()
+private fun composerMuxerTrackFormat(format: MediaFormat, mimeType: String, isVideo: Boolean): MediaFormat? = runCatching {
+    val target = if (isVideo) {
+        MediaFormat.createVideoFormat(mimeType, format.composerIntegerOrNull(MediaFormat.KEY_WIDTH) ?: return@runCatching null, format.composerIntegerOrNull(MediaFormat.KEY_HEIGHT) ?: return@runCatching null)
     } else {
-        null
+        MediaFormat.createAudioFormat(mimeType, format.composerIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: return@runCatching null, format.composerIntegerOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: return@runCatching null)
     }
-
-private fun MediaFormat.composerIntegerOrNull(key: String): Int? =
-    if (containsKey(key)) {
-        runCatching { getInteger(key) }.getOrNull()
-    } else {
-        null
+    format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_MAX_INPUT_SIZE)
+    format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_BIT_RATE)
+    format.composerCopyLongKeyTo(target, MediaFormat.KEY_DURATION)
+    if (isVideo) format.composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 1..240 }?.let { target.setInteger(MediaFormat.KEY_FRAME_RATE, it) }
+    else {
+        format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_AAC_PROFILE); format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_CHANNEL_MASK); format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_PCM_ENCODING)
     }
+    format.composerCopyStringKeyTo(target, MediaFormat.KEY_LANGUAGE)
+    for (index in 0..3) format.composerCopyByteBufferKeyTo(target, "csd-$index")
+    target
+}.getOrNull()
 
-private fun MediaFormat.composerLongOrNull(key: String): Long? =
-    if (containsKey(key)) {
-        runCatching { getLong(key) }.getOrNull()
-    } else {
-        null
-    }
-
-private fun MediaFormat.composerRotationOrNull(): Int? =
-    composerIntegerOrNull(MediaFormat.KEY_ROTATION)
-        ?.normalizedComposerVideoRotation()
-        ?.takeIf { it == 90 || it == 180 || it == 270 }
-
-private fun MediaFormat.composerCopyIntegerKeyTo(target: MediaFormat, key: String) {
-    composerIntegerOrNull(key)?.let { target.setInteger(key, it) }
-}
-
-private fun MediaFormat.composerCopyLongKeyTo(target: MediaFormat, key: String) {
-    composerLongOrNull(key)?.let { target.setLong(key, it) }
-}
-
-private fun MediaFormat.composerCopyStringKeyTo(target: MediaFormat, key: String) {
-    if (!containsKey(key)) return
-    runCatching { getString(key) }
-        .getOrNull()
-        ?.let { target.setString(key, it) }
-}
-
+private fun MediaFormat.composerMimeType(): String? = if (containsKey(MediaFormat.KEY_MIME)) getString(MediaFormat.KEY_MIME) else null
+private fun MediaFormat.composerMaxInputSizeOrNull(): Int? = if (containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) runCatching { getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) }.getOrNull() else null
+private fun MediaFormat.composerIntegerOrNull(key: String): Int? = if (containsKey(key)) runCatching { getInteger(key) }.getOrNull() else null
+private fun MediaFormat.composerLongOrNull(key: String): Long? = if (containsKey(key)) runCatching { getLong(key) }.getOrNull() else null
+private fun MediaFormat.composerRotationOrNull(): Int? = composerIntegerOrNull(MediaFormat.KEY_ROTATION)?.normalizedComposerVideoRotation()?.takeIf { it == 90 || it == 180 || it == 270 }
+private fun MediaFormat.composerCopyIntegerKeyTo(target: MediaFormat, key: String) { composerIntegerOrNull(key)?.let { target.setInteger(key, it) } }
+private fun MediaFormat.composerCopyLongKeyTo(target: MediaFormat, key: String) { composerLongOrNull(key)?.let { target.setLong(key, it) } }
+private fun MediaFormat.composerCopyStringKeyTo(target: MediaFormat, key: String) { if (containsKey(key)) runCatching { getString(key) }.getOrNull()?.let { target.setString(key, it) } }
 private fun MediaFormat.composerCopyByteBufferKeyTo(target: MediaFormat, key: String) {
     if (!containsKey(key)) return
-    val sourceBuffer = runCatching { getByteBuffer(key) }.getOrNull() ?: return
-    val duplicate = sourceBuffer.duplicate()
-    val copy = ByteBuffer.allocate(duplicate.remaining())
-    copy.put(duplicate)
-    copy.flip()
-    target.setByteBuffer(key, copy)
+    val source = runCatching { getByteBuffer(key) }.getOrNull() ?: return
+    val duplicate = source.duplicate(); val copy = ByteBuffer.allocate(duplicate.remaining()); copy.put(duplicate); copy.flip(); target.setByteBuffer(key, copy)
 }
+
+private fun Context.readComposerVideoRotation(uri: Uri): Int? = runCatching {
+    withComposerMetadataRetriever { retriever -> retriever.setComposerVideoSource(this, uri); retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() }
+}.getOrNull()
+
+private inline fun <T> withComposerMetadataRetriever(block: (MediaMetadataRetriever) -> T): T =
+    withQuataMediaMetadataRetriever(block)
 
 private fun MediaMetadataRetriever.setComposerVideoSource(context: Context, uri: Uri) {
     when (uri.scheme) {
         "content" -> {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
-                if (descriptor.length >= 0L) {
-                    setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
-                } else {
-                    setDataSource(descriptor.fileDescriptor)
-                }
+                if (descriptor.length >= 0L) setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length) else setDataSource(descriptor.fileDescriptor)
                 return
             }
             setDataSource(context, uri)
@@ -1566,43 +598,24 @@ private fun MediaMetadataRetriever.setComposerVideoSource(context: Context, uri:
     }
 }
 
-private fun MediaMetadataRetriever.getScaledComposerVideoFrameAtTime(
-    timeUs: Long,
-    option: Int,
-    maxDimension: Int
-): Bitmap? {
+private fun MediaMetadataRetriever.getScaledComposerVideoFrameAtTime(timeUs: Long, option: Int, maxDimension: Int): Bitmap? {
     val targetSize = scaledComposerVideoFrameSize(maxDimension)
     val rawWidth = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
     val rawHeight = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-        ?.toIntOrNull()
-        ?.normalizedComposerVideoRotation()
-        ?: 0
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && targetSize != null) {
-        runCatching {
-            getScaledFrameAtTime(timeUs, option, targetSize.first, targetSize.second)
-        }.getOrNull()
-            ?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
-            ?.let { return it }
+        runCatching { getScaledFrameAtTime(timeUs, option, targetSize.first, targetSize.second) }.getOrNull()
+            ?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)?.let { return it }
     }
-    return getFrameAtTime(timeUs, option)
-        ?.scaleComposerVideoPoster(maxDimension)
-        ?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
+    return getFrameAtTime(timeUs, option)?.scaleComposerVideoPoster(maxDimension)?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
 }
 
-private fun Bitmap.orientComposerVideoFrameIfNeeded(
-    rawWidth: Int,
-    rawHeight: Int,
-    rotationDegrees: Int
-): Bitmap {
+private fun Bitmap.orientComposerVideoFrameIfNeeded(rawWidth: Int, rawHeight: Int, rotationDegrees: Int): Bitmap {
     val rotation = rotationDegrees.normalizedComposerVideoRotation()
-    if (rotation != 90 && rotation != 270) return this
-    if (rawWidth <= 0 || rawHeight <= 0 || width <= 0 || height <= 0) return this
+    if (rotation != 90 && rotation != 270 || rawWidth <= 0 || rawHeight <= 0 || width <= 0 || height <= 0) return this
     val expectedPortrait = rawHeight < rawWidth
-    val bitmapPortrait = height > width
-    if (expectedPortrait == bitmapPortrait) return this
-    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    if (expectedPortrait == (height > width)) return this
+    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, Matrix().apply { postRotate(rotation.toFloat()) }, true)
     if (rotated !== this) recycle()
     return rotated
 }
@@ -1611,338 +624,37 @@ private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: In
     val width = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return null
     val height = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return null
     if (width <= 0 || height <= 0) return null
-    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-        ?.toIntOrNull()
-        ?.normalizedComposerVideoRotation()
-        ?: 0
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
     val displayWidth = if (rotation == 90 || rotation == 270) height else width
     val displayHeight = if (rotation == 90 || rotation == 270) width else height
-    val largestDimension = maxOf(displayWidth, displayHeight)
-    if (largestDimension <= 0) return null
-    val scale = maxDimension.toFloat() / largestDimension.toFloat()
-    val targetDisplayWidth = (displayWidth * scale).roundToInt().coerceAtLeast(1)
-    val targetDisplayHeight = (displayHeight * scale).roundToInt().coerceAtLeast(1)
-    return if (rotation == 90 || rotation == 270) {
-        targetDisplayHeight to targetDisplayWidth
-    } else {
-        targetDisplayWidth to targetDisplayHeight
-    }
+    val scale = maxDimension.toFloat() / maxOf(displayWidth, displayHeight).toFloat()
+    val targetWidth = (displayWidth * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (displayHeight * scale).roundToInt().coerceAtLeast(1)
+    return if (rotation == 90 || rotation == 270) targetHeight to targetWidth else targetWidth to targetHeight
 }
 
 private fun Int.normalizedComposerVideoRotation(): Int = normalizedQuataVideoRotation()
 
-private fun Context.mediaHashSeed(uri: Uri): String? =
-    runCatching {
-        val digest = MessageDigest.getInstance("SHA-256")
-        contentResolver.openInputStream(uri)?.use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                digest.update(buffer, 0, read)
-            }
-        } ?: return@runCatching null
-        digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
-    }.getOrNull()
-
 private fun Bitmap.scaleComposerVideoPoster(maxDimension: Int): Bitmap {
-    val largestDimension = maxOf(width, height)
-    if (largestDimension <= maxDimension) return this
-    val scale = maxDimension.toFloat() / largestDimension.toFloat()
-    val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
-    val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
-    val scaled = Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+    val largest = maxOf(width, height)
+    if (largest <= maxDimension) return this
+    val scale = maxDimension.toFloat() / largest.toFloat()
+    val scaled = Bitmap.createScaledBitmap(this, (width * scale).roundToInt().coerceAtLeast(1), (height * scale).roundToInt().coerceAtLeast(1), true)
     if (scaled !== this) recycle()
     return scaled
 }
 
-@Composable
-private fun ComposerPanel(
-    title: String,
-    highlighted: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    ComposerSectionPanelContent(
-        title = title,
-        highlighted = highlighted,
-        content = content,
-    )
-}
-
-@Composable
-private fun PreviewPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
-    ComposerPanel(title = title, content = content)
-}
-
-@Composable
-private fun ComposerActionButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    ComposerActionButtonContent(
-        label = text,
-        icon = { CompactIcon(icon, contentDescription = null) },
-        onClick = onClick,
-        modifier = modifier
-    )
-}
-
-@Composable
-private fun LocationEditButton(
-    isEditing: Boolean,
-    highlighted: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    ComposerLocationEditButtonContent(
-        highlighted = highlighted,
-        label = stringResource(if (isEditing) R.string.composer_save_location else R.string.composer_edit_location),
-        icon = {
-            CompactIcon(
-                if (isEditing) Icons.Filled.Check else Icons.Filled.Edit,
-                contentDescription = null,
-                tint = if (highlighted) template.colors.accent else template.colors.textPrimary
-            )
-        },
-        onClick = onClick,
-        modifier = modifier
-    )
-}
-
-@Composable
-private fun EmptyPreview(title: String, tag: String, body: String, compact: Boolean = false) {
-    ComposerEmptyPreviewContent(title = title, tag = tag, body = body, compact = compact)
-}
-
-@Composable
-private fun PublishButton(isLoading: Boolean, onSubmit: () -> Unit) {
-    ComposerPublishButtonContent(
-        isLoading = isLoading,
-        publishLabel = stringResource(R.string.nav_publish),
-        publishingLabel = stringResource(R.string.composer_publishing),
-        onSubmit = onSubmit
-    )
-}
-
-private fun TextFieldValue.insertAtSelection(value: String): TextFieldValue {
-    val start = selection.start.coerceIn(0, text.length)
-    val end = selection.end.coerceIn(0, text.length)
-    val replaceStart = minOf(start, end)
-    val replaceEnd = maxOf(start, end)
-    val updatedText = text.replaceRange(replaceStart, replaceEnd, value)
-    val cursor = replaceStart + value.length
-    return TextFieldValue(updatedText, TextRange(cursor))
-}
-
-private fun Context.displayNameFromUriString(uriString: String): String {
-    val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return uriString
-    val displayName = runCatching {
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
-        }
-    }.getOrNull()
-    return displayName?.takeIf { it.isNotBlank() }
-        ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-        ?: uriString.substringAfterLast('/')
-}
-
-private fun Context.exifLocationFromUri(uri: Uri): Location? {
-    return runCatching {
-        contentResolver.openInputStream(uri)?.use { input ->
-            val latLong = ExifInterface(input).latLong ?: return null
-            Location("exif").apply {
-                latitude = latLong[0]
-                longitude = latLong[1]
-            }
-        }
-    }.getOrNull()
-}
-
-private fun Context.hasCapturePermissions(target: CaptureTarget?): Boolean =
-    hasCameraPermission() &&
-        (target != CaptureTarget.Video || hasAudioRecordPermission())
-
-private fun Context.hasCameraPermission(): Boolean =
-    ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-
-private fun Context.hasAudioRecordPermission(): Boolean =
-    ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-
-private fun Context.capturePermissions(target: CaptureTarget?): Array<String> =
-    when {
-        target == CaptureTarget.Video ->
-            arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        else ->
-            arrayOf(Manifest.permission.CAMERA)
-    }
-
-private suspend fun Context.resolvePlaceName(location: Location): String? =
-    runCatching {
-        val geocoder = Geocoder(this@resolvePlaceName, Locale.getDefault())
-        val address = geocoder.firstAddress(location) ?: return@runCatching null
-        address.readableLocationLabel()
-    }.getOrNull()
-
-private suspend fun Geocoder.firstAddress(location: Location): Address? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        suspendCancellableCoroutine { continuation ->
-            getFromLocation(
-                location.latitude,
-                location.longitude,
-                1,
-                object : Geocoder.GeocodeListener {
-                    override fun onGeocode(addresses: MutableList<Address>) {
-                        if (continuation.isActive) {
-                            continuation.resume(addresses.firstOrNull())
-                        }
-                    }
-
-                    override fun onError(errorMessage: String?) {
-                        if (continuation.isActive) {
-                            continuation.resume(null)
-                        }
-                    }
-                }
-            )
-        }
-    } else {
-        withContext(Dispatchers.IO) {
-            firstAddressBlocking(location)
-        }
-    }
-
-// Android 12L and older only expose the blocking geocoder call.
-@Suppress("DEPRECATION")
-private fun Geocoder.firstAddressBlocking(location: Location): Address? =
-    getFromLocation(location.latitude, location.longitude, 1)
-        .orEmpty()
-        .firstOrNull()
-
-private fun android.location.Address.readableLocationLabel(): String? {
-    val representativePlace = listOf(premises, featureName)
-        .mapNotNull { it.toReadableLocationText() }
-        .firstOrNull { !it.looksLikeStreetAddress() }
-    val neighborhood = subLocality.toReadableLocationText()
-    val city = locality.toReadableLocationText()
-    val area = subAdminArea.toReadableLocationText()
-    val region = adminArea.toReadableLocationText()
-
-    val areaParts = when {
-        representativePlace != null -> listOf(representativePlace, city ?: area ?: region)
-        neighborhood != null -> listOf(neighborhood, city ?: area ?: region)
-        city != null -> listOf(city, region ?: area)
-        area != null -> listOf(area, region)
-        else -> listOf(region)
-    }
-        .filterNotNull()
-        .distinctBy { it.lowercase(Locale.ROOT) }
-
-    return areaParts
-        .joinToString(", ")
-        .takeIf { it.isNotBlank() }
-        ?: countryName.toReadableLocationText()
-}
-
-private fun String?.toReadableLocationText(): String? {
-    val value = this?.trim().orEmpty()
-    return value.takeIf { it.isNotBlank() && !it.matches(Regex("""[-+\d.,\s]+""")) }
-}
-
-private fun String.looksLikeStreetAddress(): Boolean {
-    val normalized = lowercase(Locale.ROOT)
-    if (normalized.firstOrNull()?.isDigit() == true) return true
-    return listOf(
-        "street",
-        "st.",
-        "avenue",
-        "ave",
-        "road",
-        "rd.",
-        "boulevard",
-        "blvd",
-        "drive",
-        "dr.",
-        "parkway",
-        "pkwy",
-        "calle",
-        "avenida",
-        "av.",
-        "carretera",
-        "camino",
-        "rue",
-        "route",
-        "chemin"
-    ).any { marker -> normalized.contains(marker) }
-}
-
-private fun Context.createComposerPreparedVideoFile(): File {
-    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
-    return File(cacheDir, "$QuataPreparedVideoFilePrefix$timestamp.mp4")
-}
-
-private fun Context.createComposerPreparedImageFile(): File {
-    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
-    return File(cacheDir, "$QuataPreparedImageFilePrefix$timestamp")
-}
-
-private fun Context.deleteQuataPreparedImageTemp(uri: Uri) {
-    if (uri.scheme != "file") return
-    val path = uri.path ?: return
-    runCatching {
-        val cache = cacheDir.canonicalFile
-        val file = File(path).canonicalFile
-        if (file.parentFile == cache && file.name.startsWith(QuataPreparedImageFilePrefix)) {
-            file.delete()
-        }
-    }
-}
-
-private fun Context.deleteQuataPreparedVideoTemp(uri: Uri) {
-    if (uri.scheme != "file") return
-    val path = uri.path ?: return
-    runCatching {
-        val cache = cacheDir.canonicalFile
-        val file = File(path).canonicalFile
-        if (file.parentFile == cache && file.name.startsWith(QuataPreparedVideoFilePrefix)) {
-            file.delete()
-        }
-    }
-}
-
-private fun Context.deleteQuataEditedVideoTemp(uri: Uri) {
-    if (uri.scheme != "file") return
-    val path = uri.path ?: return
-    runCatching {
-        val cache = cacheDir.canonicalFile
-        val file = File(path).canonicalFile
-        if (file.parentFile == cache && file.name.startsWith(QuataEditedVideoFilePrefix)) {
-            file.delete()
-        }
-    }
-}
-
-private fun Context.deleteQuataEditedImageTemp(uri: Uri) {
-    if (uri.scheme != "file") return
-    val path = uri.path ?: return
-    runCatching {
-        val cache = cacheDir.canonicalFile
-        val file = File(path).canonicalFile
-        if (file.parentFile == cache && file.name.startsWith(QuataEditedImageFilePrefix)) {
-            file.delete()
-        }
-    }
-}
-
-private const val QuataPreparedImageFilePrefix = "quata-prepared-image-"
-private const val QuataPreparedVideoFilePrefix = "quata-prepared-video-"
-private const val QuataEditedVideoFilePrefix = "quata-edited-video-"
-private const val ComposerImageLogTag = "QuataComposerImage"
-private const val ComposerVideoLogTag = "QuataComposerVideo"
 private const val ComposerPreviewPosterMaxDimension = 720
 private const val ComposerVideoRemuxDefaultBufferSize = 1024 * 1024
 private const val ComposerVideoRemuxFallbackFrameRate = 30
 private const val ComposerVideoRemuxMaxTrustedSampleDeltaUs = 1_000_000L
+
+private fun android.content.Context.deleteComposerOwnedImage(uri: Uri) = deleteComposerOwned(uri, "quata-prepared-image-", "quata-edited-image-")
+private fun android.content.Context.deleteComposerOwnedVideo(uri: Uri) = deleteComposerOwned(uri, "quata-prepared-video-", "quata-edited-video-")
+private fun android.content.Context.deleteComposerOwned(uri: Uri, vararg prefixes: String) {
+    if (uri.scheme != "file") return
+    runCatching {
+        val file = File(uri.path.orEmpty()).canonicalFile
+        if (file.parentFile == cacheDir.canonicalFile && prefixes.any(file.name::startsWith)) file.delete()
+    }
+}

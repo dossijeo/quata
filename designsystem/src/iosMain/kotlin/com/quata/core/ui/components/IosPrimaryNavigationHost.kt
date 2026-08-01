@@ -13,9 +13,14 @@ class IosPrimaryNavigationHost(
     private val onRouteSelected: (String) -> Unit,
 ) {
     private var selectedRoute by mutableStateOf(initialSelectedRoute)
+    private var isComposerMode by mutableStateOf(false)
 
     fun updateSelectedRoute(route: String) {
         selectedRoute = route
+    }
+
+    fun updateComposerMode(isComposer: Boolean) {
+        isComposerMode = isComposer
     }
 
     fun viewController(): UIViewController = ComposeUIViewController {
@@ -24,6 +29,11 @@ class IosPrimaryNavigationHost(
                 labels = IosPrimaryNavigationLabels,
                 selectedRoute = selectedRoute,
                 onRouteSelected = onRouteSelected,
+                mode = if (isComposerMode) {
+                    QuataPrimaryNavigationMode.Composer(route = "composer", label = "Publicar")
+                } else {
+                    QuataPrimaryNavigationMode.Default
+                },
             )
         }
     }

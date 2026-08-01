@@ -13,6 +13,8 @@ data class WebRuntimeConfiguration(
     val webRegistrationEnabled: Boolean = false,
     val turnstileSiteKey: String? = null,
     val webRegistrationApiKey: String? = null,
+    /** Android-compatible public WordPress endpoint; localhost uses the development proxy. */
+    val wordpressBaseUrl: String = "https://egquata.com/",
 ) {
     val isBackendConfigured: Boolean
         get() = !supabaseUrl.isNullOrBlank() && !supabasePublishableKey.isNullOrBlank()

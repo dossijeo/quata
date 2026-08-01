@@ -1,5 +1,9 @@
 # Tablero operativo de migración multiplataforma
 
+> Fuente de verdad del método de trabajo: [`MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md`](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md).
+> Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
+> presupuesto de ejecución establecidos allí.
+
 ## Foto de control — 2026-07-29
 
 **HEAD acreditado:** `main` `d8652326f61d93f33bb860d64565ad74e3e80ed5`.

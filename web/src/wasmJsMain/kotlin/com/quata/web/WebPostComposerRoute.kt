@@ -18,6 +18,9 @@ import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PlatformPermission
+import com.quata.core.platform.PermissionStatus
+import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLImageElement
@@ -27,51 +30,66 @@ import org.w3c.dom.HTMLVideoElement
 @Composable
 fun WebPostComposerRoute(
     platformServices: WebPlatformServices,
+    runtimeConfiguration: WebRuntimeConfiguration,
+    authRepository: WebAuthRepository,
+    onBack: () -> Unit,
+    onAuthRequired: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     WebPostComposerHost(
-        repository = WebPostComposerPublicationUnavailableRepository,
+        repository = remember(runtimeConfiguration, authRepository) {
+            ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
+        },
         mediaSlots = WebComposerMediaSlots(
-            imageGallery = { modifier, onSelected ->
-                BrowserPickerButton("Elegir imagen", modifier) {
-                    platformServices.filePicker.pick(
+            pickImage = {
+                platformServices.filePicker.pick(
                         FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
-                    ).firstReferenceOrNull()?.let(onSelected)
+                    ).firstReferenceOrNull()
+            },
+            captureImage = {
+                when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
+                    is PlatformResult.Success -> result.value.reference
+                    else -> null
                 }
             },
-            imageCamera = { modifier, onSelected ->
-                BrowserPickerButton("Tomar foto", modifier) {
-                    when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
-                        is PlatformResult.Success -> onSelected(result.value.reference)
-                        else -> Unit
-                    }
-                }
-            },
-            videoGallery = { modifier, onSelected ->
-                BrowserPickerButton("Elegir v\u00eddeo", modifier) {
-                    platformServices.filePicker.pick(
+            pickVideo = {
+                platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
-                    ).firstReferenceOrNull()?.let(onSelected)
-                }
+                    ).firstReferenceOrNull()
             },
-            videoCamera = { modifier, onSelected ->
-                BrowserPickerButton("Grabar v\u00eddeo", modifier) {
-                    platformServices.filePicker.pick(
+            captureVideo = {
+                platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
-                    ).firstReferenceOrNull()?.let(onSelected)
+                    ).firstReferenceOrNull()
+            },
+            imagePreview = { uri, modifier -> BrowserComposerMediaPreview(uri, false, modifier) },
+            videoPreview = { uri, modifier -> BrowserComposerMediaPreview(uri, true, modifier) },
+            requestLocation = { resolved ->
+                scope.launch {
+                    if (platformServices.permissions.status(PlatformPermission.Location) != PermissionStatus.Granted &&
+                        platformServices.permissions.request(PlatformPermission.Location) != PermissionStatus.Granted
+                    ) return@launch
+                    val location = (platformServices.location.currentLocation() as? PlatformResult.Success)?.value
+                        ?: return@launch
+                    resolved(
+                        webComposerCoordinateLabel(location.latitude, location.longitude),
+                        location.latitude,
+                        location.longitude,
+                    )
                 }
             },
-            preview = { uri, isVideo, modifier -> BrowserComposerMediaPreview(uri, isVideo, modifier) },
         ),
         isLandscapeLayout = browserComposerIsLandscape(),
+        onBack = onBack,
+        onAuthRequired = onAuthRequired,
+        onPostCreated = { onBack() },
+        canPublish = webComposerCanPublish(authRepository.activeProfileSessionOrNull()),
     )
 }
 
-@Composable
-private fun BrowserPickerButton(label: String, modifier: Modifier, select: suspend () -> Unit) {
-    val scope = rememberCoroutineScope()
-    Button(onClick = { scope.launch { select() } }, modifier = modifier) { Text(label) }
-}
+internal fun webComposerCanPublish(session: WebLocalSession?): Boolean = session != null
+
+internal fun webComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"
 
 private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
     is PlatformResult.Success -> value.firstOrNull()?.reference
