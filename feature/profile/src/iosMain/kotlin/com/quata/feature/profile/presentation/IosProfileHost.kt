@@ -94,4 +94,6 @@ private val IosProfileScreenStrings = ProfileScreenStrings(
     appearance = AppearanceSettingsStrings("Touch Flow", "Theme", "System", "Dark", "Light"),
     emergency = IosEmergencyContactsEditorStrings,
     passwordUnavailable = "Change your password from Forgot my password until authenticated password updates are available.",
+    loadingError = "Could not load your profile.",
+    retry = "Retry",
 )

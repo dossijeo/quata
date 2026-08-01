@@ -636,4 +636,6 @@
     <string name="release_history_empty">Aún no hay notas de versión disponibles.</string>
     <string name="release_history_error">El historial de versiones no está disponible ahora mismo.</string>
     <string name="profile_password_update_unavailable">Cambia tu contraseña desde «Olvidé mi contraseña» hasta que esté disponible la actualización autenticada.</string>
+    <string name="profile_retry">Reintentar</string>
+    <string name="profile_loading_error">No se pudo cargar el perfil.</string>
 </resources>

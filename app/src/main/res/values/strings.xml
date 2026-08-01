@@ -641,4 +641,6 @@
     <string name="release_history_empty">No release notes are available yet.</string>
     <string name="release_history_error">Version history is unavailable right now.</string>
     <string name="profile_password_update_unavailable">Change your password from Forgot my password until authenticated password updates are available.</string>
+    <string name="profile_retry">Retry</string>
+    <string name="profile_loading_error">Could not load your profile.</string>
 </resources>

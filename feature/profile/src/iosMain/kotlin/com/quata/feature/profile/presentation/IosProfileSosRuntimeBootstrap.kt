@@ -9,6 +9,7 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.data.IosProfilePostgrestGateway
+import com.quata.feature.profile.data.IosProfileKeychainSessionProvider
 import com.quata.feature.profile.data.IosProfileAvatarUploader
 import com.quata.feature.profile.data.IosProfileRuntimeConfiguration
 import com.quata.feature.profile.data.KmpProfileRepository
@@ -36,8 +37,9 @@ class IosProfileSosRuntimeBootstrap(
     private val authSession: IosRenewableAuthSession,
     languageTag: String?,
 ) {
-    private val sessionProvider = IosProfileSessionAdapter(authSession)
-    private val remote = IosProfilePostgrestGateway(configuration, authSession)
+    private val authenticatedSession = IosProfileKeychainSessionProvider(authSession)
+    private val sessionProvider = IosProfileSessionAdapter(authSession, authenticatedSession)
+    private val remote = IosProfilePostgrestGateway(configuration, authenticatedSession)
     private val repository = KmpProfileRepository(
         remote = remote,
         sessions = sessionProvider,
@@ -45,11 +47,14 @@ class IosProfileSosRuntimeBootstrap(
         emergencyMessages = IosProfileEmergencyMessageDefaults(),
         emergencyContacts = IosProfileEmergencyContactsDefaults(),
         catalog = IosProfilePresentationCatalog(AuthCatalogLocale.fromLanguage(languageTag)),
+        sessionReadiness = sessionProvider::requireFreshSession,
     )
     private val memberProfileRepository = RemoteProfileViewerRepository(
         remote = remote,
         sessions = sessionProvider,
     )
+
+    internal fun usesRenewableSession(candidate: IosRenewableAuthSession): Boolean = authSession === candidate
 
     fun hostDependencies(
         contacts: ContactPickerService,
@@ -112,6 +117,7 @@ fun createIosProfileSosRuntimeBootstrap(
 
 private class IosProfileSessionAdapter(
     private val authSession: IosRenewableAuthSession,
+    private val authenticatedSession: IosProfileKeychainSessionProvider,
 ) : ProfileSessionProvider {
     override fun currentSession(): ProfileSession? = authSession.restoredSession()
         ?.takeIf { it.userId.isNotBlank() }
@@ -120,6 +126,12 @@ private class IosProfileSessionAdapter(
     override fun updateDisplayName(session: ProfileSession, displayName: String) {
         // The authoritative display name is read from the remote profile. Do not rewrite the
         // Keychain identity projection optimistically after an unrelated local failure.
+    }
+
+    suspend fun requireFreshSession() {
+        val resolved = authenticatedSession.currentSession() ?: error("ios_profile_session_missing")
+        val restored = currentSession() ?: error("ios_profile_session_missing")
+        check(resolved.profileId == restored.profileId) { "ios_profile_session_actor_mismatch" }
     }
 }
 

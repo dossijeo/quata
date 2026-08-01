@@ -2,6 +2,7 @@ package com.quata.feature.profile.data
 
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
+import com.quata.core.model.AuthSession
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -10,6 +11,7 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -69,13 +71,27 @@ private object IosUrlSessionProfileHttpTransport : IosProfileHttpTransport {
 }
 
 /** Adapts the established Keychain-backed session owner to Profile's narrow read contract. */
-class IosProfileKeychainSessionProvider(
-    private val authSession: IosRenewableAuthSession,
+class IosProfileKeychainSessionProvider internal constructor(
+    private val resolver: suspend () -> AuthSession?,
+    private val timeoutMillis: Long,
 ) : IosProfileSessionProvider {
-    override suspend fun currentSession(): IosProfileSession? = authSession.currentSession()
-        ?.takeIf { it.bearerToken.isNotBlank() && it.userId.isNotBlank() }
-        ?.let { IosProfileSession(accessToken = it.bearerToken, profileId = it.userId) }
+    constructor(authSession: IosRenewableAuthSession) : this(
+        resolver = { authSession.currentSession() },
+        timeoutMillis = IosProfileSessionResolutionTimeoutMillis,
+    )
+
+    override suspend fun currentSession(): IosProfileSession? {
+        val resolution = withTimeoutOrNull(timeoutMillis) { IosProfileSessionResolution(resolver()) }
+            ?: error("ios_profile_session_timeout")
+        val session = resolution.session ?: return null
+        check(!session.shouldRefresh()) { "ios_profile_session_refresh_failed" }
+        return session
+            .takeIf { it.bearerToken.isNotBlank() && it.userId.isNotBlank() }
+            ?.let { IosProfileSession(accessToken = it.bearerToken, profileId = it.userId) }
+    }
 }
+
+private data class IosProfileSessionResolution(val session: AuthSession?)
 
 /**
  * Authenticated PostgREST adapter for the shared Profile repository.
@@ -383,6 +399,7 @@ private const val ProfileSelect = "id,display_name,phone,country_code,phone_loca
 private const val EmergencyContactSelect = "contact_profile_id,position"
 private const val MaxProfilesPerSnapshot = 5_000
 private const val MaxEmergencyContacts = 5
+internal const val IosProfileSessionResolutionTimeoutMillis = 5_000L
 private val IosProfilePostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosProfileIdentifier = Regex("[A-Za-z0-9_-]+")
 private val IosProfileWritableColumns = setOf("display_name", "nombre", "neighborhood", "barrio", "country_code", "code", "phone_local", "phone", "telefono", "avatar_url")

@@ -50,13 +50,14 @@ class KmpProfileRepository(
     private val avatarUploader: ProfileAvatarUploader,
     private val emergencyMessages: ProfileEmergencyMessageStore,
     private val emergencyContacts: ProfileEmergencyContactsStore,
-    private val catalog: ProfilePresentationCatalog
+    private val catalog: ProfilePresentationCatalog,
+    private val sessionReadiness: suspend () -> Unit = {},
 ) : ProfileRepository {
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> {
-        val session = sessions.currentSession()
-            ?: return flow { emit(Result.failure(IllegalStateException("No hay sesion activa"))) }
-        val contactIds = observeEmergencyContactIds(session.profileId)
         return flow {
+            sessionReadiness()
+            val session = sessions.currentSession() ?: error("No hay sesion activa")
+            val contactIds = observeEmergencyContactIds(session.profileId)
             val storedMessage = emergencyMessages.get(session.profileId)
             emitAll(combine(contactIds, remote.observeProfile(session.profileId), remote.observeEmergencyCandidates()) {
                 selectedIds, profile, directory ->
@@ -77,6 +78,7 @@ class KmpProfileRepository(
     }
 
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
+        sessionReadiness()
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val selectedIds = getEmergencyContactIdsOfflineFirst(session.profileId)
         val storedMessage = emergencyMessages.get(session.profileId)

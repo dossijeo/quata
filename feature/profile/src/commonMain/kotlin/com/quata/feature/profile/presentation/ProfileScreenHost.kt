@@ -98,9 +98,21 @@ fun ProfileScreenHost(
 
     Box(modifier.fillMaxSize()) {
         val profile = state.profile
-        if (state.isLoading || profile == null) {
+        if (state.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(state.errorMessage ?: strings.loading)
+                Text(strings.loading)
+            }
+        } else if (profile == null) {
+            Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(strings.loadingError)
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = { viewModel.onEvent(ProfileUiEvent.Refresh) }) {
+                    Text(strings.retry)
+                }
             }
         } else {
             ProfilePageLayoutContent(
@@ -268,6 +280,8 @@ data class ProfileScreenStrings(
     val deleteData: String, val dangerConfirmation: String, val confirm: String, val cancel: String,
     val appearance: AppearanceSettingsStrings, val emergency: EmergencyContactsEditorStrings,
     val passwordUnavailable: String,
+    val loadingError: String,
+    val retry: String,
 )
 
 data class ProfileScreenSlots(

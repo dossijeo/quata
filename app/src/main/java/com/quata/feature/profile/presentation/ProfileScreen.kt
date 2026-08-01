@@ -182,4 +182,6 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     AppearanceSettingsStrings(context.getString(R.string.profile_touch_flow_setting), context.getString(R.string.profile_theme_setting), context.getString(R.string.theme_mode_system), context.getString(R.string.theme_mode_dark), context.getString(R.string.theme_mode_light)),
     EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings(context.getString(R.string.common_back), context.getString(R.string.common_sos), context.getString(R.string.emergency_contacts_title), context.getString(R.string.emergency_contacts_description), context.getString(R.string.emergency_contacts_tab), context.getString(R.string.emergency_message_tab)), { context.getString(R.string.emergency_selected_count, it) }, context.getString(R.string.emergency_network_users), context.getString(R.string.emergency_search_placeholder), context.getString(R.string.emergency_message_title), context.getString(R.string.emergency_message_hint), context.getString(R.string.emergency_save_contacts), context.getString(R.string.emergency_save_contacts_short)),
     context.getString(R.string.profile_password_update_unavailable),
+    context.getString(R.string.profile_loading_error),
+    context.getString(R.string.profile_retry),
 )

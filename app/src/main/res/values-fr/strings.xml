@@ -636,4 +636,6 @@
     <string name="release_history_empty">Aucune note de version n\'est encore disponible.</string>
     <string name="release_history_error">L\'historique des versions est indisponible pour le moment.</string>
     <string name="profile_password_update_unavailable">Modifiez votre mot de passe depuis « Mot de passe oublié » jusqu’à ce que la mise à jour authentifiée soit disponible.</string>
+    <string name="profile_retry">Réessayer</string>
+    <string name="profile_loading_error">Impossible de charger votre profil.</string>
 </resources>

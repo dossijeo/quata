@@ -192,16 +192,20 @@ private final class IosAppCompositionRoot {
         guard let configuration = runtimeConfiguration else { return nil }
         return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
     }()
+    /// One object identity is shared by Feed, Auth, Chat and Cuenta. Keeping this reference at
+    /// the launcher boundary prevents Cuenta from opening a second Keychain/refresh pipeline.
+    private lazy var renewableAuthSession: IosRenewableAuthSession? =
+        runtimeBootstrap?.authSessionForInteractiveLogin()
     // Chat receives precisely the Keychain-backed session retained by Feed/Auth. It is created
     // only after a restored or newly logged-in session has installed the authenticated Feed host.
     private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
-        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
             configuration: IosChatRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            authSession: renewableAuthSession,
         )
     }()
     // The inbox and the shared top chrome deliberately retain one notification repository. This
@@ -228,16 +232,16 @@ private final class IosAppCompositionRoot {
         )
     }()
     /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
-    /// verticals. Its adapter deliberately exposes read-only remote state until mutations have
-    /// iOS RLS/E2E evidence.
+    /// verticals. Cuenta receives this exact renewable object and resolves it before starting its
+    /// parallel PostgREST reads; it never creates an independent Keychain or refresh owner.
     private lazy var profileSosRuntimeBootstrap: IosProfileSosRuntimeBootstrap? = {
-        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosProfileSosRuntimeBootstrapKt.createIosProfileSosRuntimeBootstrap(
             configuration: IosProfileRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            authSession: renewableAuthSession,
             languageTag: Locale.preferredLanguages.first,
         )
     }()
@@ -831,11 +835,12 @@ private final class IosAppCompositionRoot {
 
     private func createAuthRepository(
         configuration: IosFeedRuntimeConfiguration,
-        bootstrap: IosFeedRuntimeBootstrap,
+        bootstrap _: IosFeedRuntimeBootstrap,
     ) -> AuthRepository? {
-        IosAuthRepositoryKt.createIosAuthRepository(
+        guard let renewableAuthSession else { return nil }
+        return IosAuthRepositoryKt.createIosAuthRepository(
             configuration: authRuntimeConfiguration(from: configuration),
-            session: bootstrap.authSessionForInteractiveLogin(),
+            session: renewableAuthSession,
         )
     }
 

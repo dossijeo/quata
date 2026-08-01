@@ -622,4 +622,6 @@
     <string name="moderation_report_message_confirm">Send this message to the Q&#252;ata moderation team for review?</string>
     <string name="chat_error_report_message">The message could not be reported</string>
     <string name="profile_password_update_unavailable">Change your password from Forgot my password until authenticated password updates are available.</string>
+    <string name="profile_retry">Retry</string>
+    <string name="profile_loading_error">Could not load your profile.</string>
 </resources>

@@ -185,4 +185,6 @@ private val WebProfileScreenStrings = ProfileScreenStrings(
     AppearanceSettingsStrings("Touch Flow", "Tema", "Sistema", "Oscuro", "Claro"),
     EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings("Volver", "SOS", "Contactos de emergencia", "Elige hasta cinco contactos y personaliza el mensaje de ayuda.", "Contactos", "Mensaje"), { "$it seleccionados" }, "Contactos disponibles", "Buscar contacto", "Mensaje SOS", "Escribe el mensaje que recibirán tus contactos.", "Guardar SOS", "Guardar"),
     "El cambio de contraseña se realiza desde «Olvidé mi contraseña» hasta que exista un contrato autenticado de actualización.",
+    "No se pudo cargar el perfil.",
+    "Reintentar",
 )
