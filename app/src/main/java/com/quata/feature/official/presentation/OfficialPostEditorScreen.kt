@@ -1,6 +1,5 @@
 package com.quata.feature.official.presentation
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -43,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quata.R
@@ -117,6 +117,10 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
     var pendingPickedMedia by remember { mutableStateOf<AndroidPickedMedia?>(null) }
     var imagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     var videoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
+    val editBodyLabel = stringResource(R.string.official_form_edit_body)
+    val bodyLabel = stringResource(R.string.official_form_body)
+    val pickImageLabel = stringResource(R.string.composer_pick_image)
+    val pickVideoLabel = stringResource(R.string.composer_pick_video)
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { selected -> imagePicked?.let { callback -> pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(selected.toString(), OfficialMediaType.Image, displayName = selected.lastPathSegment), callback) } }
     }
@@ -136,19 +140,19 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
             else -> pendingPickedMedia = null
         }
     }
-    val slots = remember(currentUser) {
+    val slots = remember(currentUser, editBodyLabel, bodyLabel, pickImageLabel, pickVideoLabel) {
         OfficialEditorPlatformSlots(
             richTextEditor = OfficialRichBodyEditor(
                 content = { html, onHtmlChanged, onFullscreenChanged ->
                     OutlinedButton(onClick = { onFullscreenChanged(true); longEditor = AndroidLongEditor(html, onHtmlChanged, onFullscreenChanged) }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.official_form_edit_body), fontWeight = FontWeight.ExtraBold)
+                        Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(editBodyLabel, fontWeight = FontWeight.ExtraBold)
                     }
-                    longEditor?.let { editor -> OfficialLongContentEditor(editor.html, context.getString(R.string.official_form_body), { editor.html = it }, { editor.onFullscreenChanged(false); longEditor = null }, { editor.onHtmlChanged(editor.html); editor.onFullscreenChanged(false); longEditor = null }) }
+                    longEditor?.let { editor -> OfficialLongContentEditor(editor.html, bodyLabel, { editor.html = it }, { editor.onFullscreenChanged(false); longEditor = null }, { editor.onHtmlChanged(editor.html); editor.onFullscreenChanged(false); longEditor = null }) }
                 },
                 cancel = { longEditor?.onFullscreenChanged(false); longEditor = null; Result.success(Unit) },
             ),
-            imagePicker = { onPicked, modifier -> OutlinedButton(onClick = { imagePicked = onPicked; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = modifier) { Icon(Icons.Filled.PhotoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_image)) } },
-            videoPicker = { onPicked, modifier -> OutlinedButton(onClick = { videoPicked = onPicked; videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }, modifier = modifier) { Icon(Icons.Filled.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_video)) } },
+            imagePicker = { onPicked, modifier -> OutlinedButton(onClick = { imagePicked = onPicked; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = modifier) { Icon(Icons.Filled.PhotoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(pickImageLabel) } },
+            videoPicker = { onPicked, modifier -> OutlinedButton(onClick = { videoPicked = onPicked; videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }, modifier = modifier) { Icon(Icons.Filled.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(pickVideoLabel) } },
             mediaPreview = { media, onRemove, onEdit, modifier ->
                 OfficialEditorMediaPreview(media.type, media.url, onEdit, onRemove)
             },
@@ -160,14 +164,14 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
     }
     mediaEdit?.let { edit ->
         when (edit.media.type) {
-            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(edit.media.url), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
-            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(edit.media.url), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
+            OfficialMediaType.Image -> QuataImageEditorDialog(edit.media.url.toUri(), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
+            OfficialMediaType.Video -> QuataVideoEditorDialog(edit.media.url.toUri(), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
         }
     }
     pendingPickedMedia?.let { picked ->
         when (picked.media.type) {
-            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
-            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+            OfficialMediaType.Image -> QuataImageEditorDialog(picked.media.url.toUri(), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+            OfficialMediaType.Video -> QuataVideoEditorDialog(picked.media.url.toUri(), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
         }
     }
     return slots
