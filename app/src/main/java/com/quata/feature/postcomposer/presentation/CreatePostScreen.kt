@@ -267,10 +267,10 @@ fun CreatePostScreen(
         )
     }
     if (cancelDialog) QuataConfirmationDialogContent(
-        title = context.getString(R.string.composer_cancel_upload_title),
-        message = context.getString(R.string.composer_cancel_upload_body),
-        confirmLabel = context.getString(R.string.composer_cancel_upload_confirm),
-        dismissLabel = context.getString(R.string.composer_cancel_upload_keep),
+        title = stringResource(R.string.composer_cancel_upload_title),
+        message = stringResource(R.string.composer_cancel_upload_body),
+        confirmLabel = stringResource(R.string.composer_cancel_upload_confirm),
+        dismissLabel = stringResource(R.string.composer_cancel_upload_keep),
         onConfirm = { viewModel.cancelSubmit(); cancelDialog = false },
         onDismiss = { cancelDialog = false },
     )
