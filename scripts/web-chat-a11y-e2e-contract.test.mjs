@@ -80,6 +80,9 @@ test("WEB-CHAT-A11Y-E2E-001 fixture is localhost/query gated, has no network cod
   assert.doesNotMatch(fixture, /fetch\(|WebChatRepository|http:\/\//i);
   assert.doesNotMatch(fixture, /accessToken|refreshToken|password|credential/i);
   assert.match(host, /repository: ChatRepository/);
-  assert.match(host, /WebNativeInput\(value, onChange, "Mensaje"/);
-  assert.match(host, /WebNativeButton\("Enviar", enabled, onClick, modifier\.width\(96\.dp\)\.height\(48\.dp\)\)/);
+  assert.match(host, /val detailStrings = chatDetailStringsForLanguage\(webBrowserLanguage\(\)\)/);
+  assert.match(host, /WebNativeInput\(value, onChange, detailStrings\.message, modifier\.height\(56\.dp\), inputType = "text"\)/);
+  assert.match(host, /WebNativeButton\(detailStrings\.send, enabled, onClick, modifier\.width\(96\.dp\)\.height\(48\.dp\)\)/);
+  assert.doesNotMatch(host, /WebNativeInput\(value, onChange,\s*"/);
+  assert.doesNotMatch(host, /WebNativeButton\(\s*"/);
 });
