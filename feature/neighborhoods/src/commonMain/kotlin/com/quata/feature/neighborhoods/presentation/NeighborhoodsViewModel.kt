@@ -126,7 +126,7 @@ class NeighborhoodsViewModel(
 
     override fun openUserProfile(userId: String) {
         profileJob?.cancel()
-        scope.launch {
+        profileJob = scope.launch {
             val currentUserIsAdmin = repository.isCurrentUserAdmin()
             val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
             val cachedProfile = freshCachedProfile ?: repository.getCachedUserProfile(userId)
@@ -146,8 +146,7 @@ class NeighborhoodsViewModel(
                     error = null
                 )
             }
-            profileJob = scope.launch {
-                repository.observeUserProfile(userId)
+            repository.observeUserProfile(userId)
                     .collect { result ->
                         result
                             .onSuccess { profile ->
@@ -172,7 +171,6 @@ class NeighborhoodsViewModel(
                                 )
                             }
                     }
-                }
         }
     }
 
@@ -207,10 +205,10 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun blockProfile(profileId: String) {
+    fun blockProfile(profileId: String, onBlocked: () -> Unit = {}) {
         scope.launch {
             repository.blockProfile(profileId)
-                .onSuccess { closeUserProfile() }
+                .onSuccess { closeUserProfile(); onBlocked() }
                 .onFailure { failure -> _uiState.value = _uiState.value.copy(error = failure.message ?: "No se pudo bloquear el perfil") }
         }
     }

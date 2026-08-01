@@ -200,7 +200,7 @@ class IosNeighborhoodsReadRepository(
     }
 
     private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
-        val data = mutate("POST", "rpc/quata_chat_list_shared_attachments", "{\"p_profile_id\":\"$actorId\",\"p_peer_profile_id\":\"$peerId\",\"p_limit\":120,\"p_offset\":0}")
+        val data = mutate("POST", "rpc/quata_chat_list_shared_attachments", iosNeighborhoodSharedAttachmentsPayload(actorId, peerId))
         val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *> ?: return emptyList()
         return (root["files"] as? List<*>).orEmpty().mapNotNull { raw ->
             val row = raw as? Map<*, *> ?: return@mapNotNull null
@@ -436,3 +436,6 @@ internal fun iosNeighborhoodReportPayload(actor: String, type: String, target: S
 
 internal fun iosNeighborhoodBlockPayload(actor: String, profile: String): String =
     "{\"p_actor_profile_id\":\"$actor\",\"p_profile_id\":\"$profile\"}"
+
+internal fun iosNeighborhoodSharedAttachmentsPayload(actor: String, peer: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_peer_profile_id\":\"$peer\",\"p_limit\":120,\"p_offset\":0}"

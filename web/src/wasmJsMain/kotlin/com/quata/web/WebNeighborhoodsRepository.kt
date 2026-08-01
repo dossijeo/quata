@@ -189,7 +189,7 @@ class WebNeighborhoodsRepository(
     }
 
     private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
-        val body = "{\"p_profile_id\":\"$actorId\",\"p_peer_profile_id\":\"$peerId\",\"p_limit\":120,\"p_offset\":0}"
+        val body = webNeighborhoodSharedAttachmentsPayload(actorId, peerId)
         val result = client.rpc("quata_chat_list_shared_attachments", body)
         val root = (result as? WebPostgrestResult.Success)?.body?.let { Json.parseToJsonElement(it).jsonObject } ?: return emptyList()
         return root["files"]?.jsonArray.orEmpty().mapNotNull { element ->
@@ -347,3 +347,6 @@ internal fun webNeighborhoodReportPayload(actor: String, type: String, target: S
 
 internal fun webNeighborhoodBlockPayload(actor: String, profile: String): String =
     "{\"p_actor_profile_id\":\"$actor\",\"p_profile_id\":\"$profile\"}"
+
+internal fun webNeighborhoodSharedAttachmentsPayload(actor: String, peer: String): String =
+    "{\"p_actor_profile_id\":\"$actor\",\"p_peer_profile_id\":\"$peer\",\"p_limit\":120,\"p_offset\":0}"

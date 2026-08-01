@@ -903,7 +903,7 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
         avatarUrl = user.avatarUrl,
         isOfficial = user.isOfficial,
         isOnline = null,
-        modifier = androidx.compose.ui.Modifier.size(48.dp).clickable(onClick = onClick),
+        modifier = androidx.compose.ui.Modifier.size(48.dp).let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
     ) },
     /*
     profileMedia = { profile ->

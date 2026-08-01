@@ -172,9 +172,9 @@ fun QuataCommunityProfileViewController(
                 onOpenPrivateChat = { dependencies.viewModel.openPrivateChat(it, dependencies.onOpenConversation) },
                 onOpenUserProfile = dependencies.profileNavigator::openMemberProfile,
                 onReportProfile = dependencies.viewModel::reportProfile,
-                onBlockProfile = dependencies.viewModel::blockProfile,
+                onBlockProfile = { dependencies.viewModel.blockProfile(it, onDismiss) },
                 onSetRoles = dependencies.viewModel::setUserRoles,
-                avatar = { user, _, click -> IosNeighborhoodAvatar(user) { click?.invoke() } },
+                avatar = { user, _, click -> IosNeighborhoodAvatar(user, click) },
                 attachmentItem = { attachment -> TextButton(onClick = { iosOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
                 postPreview = { post, count, openComments ->
                     CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired,
@@ -216,7 +216,7 @@ private fun iosOpenProfileResource(value: String) {
 
 /** Real remote avatar slot with the common frame retaining its deterministic fallback. */
 @Composable
-private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
+private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: (() -> Unit)?) {
     val url = iosNeighborhoodAvatarRequestKey(user.avatarUrl)
     var image by remember(url) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(url) { image = if (url == null) null else loadIosNeighborhoodAvatarOrNull(url) }
@@ -224,7 +224,7 @@ private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
         name = user.displayName,
         stableId = user.id,
         isOfficial = user.isOfficial,
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
         avatar = image?.let { decoded -> { UIKitView(factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true; image = decoded } }, update = { it.image = decoded }, modifier = Modifier.fillMaxSize()) } },
     )
 }

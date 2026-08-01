@@ -25,5 +25,6 @@ class IosCommunityProfilePostMappingTest {
             iosNeighborhoodReportPayload("me", "profile", "peer"),
         )
         assertEquals("{\"p_actor_profile_id\":\"me\",\"p_profile_id\":\"peer\"}", iosNeighborhoodBlockPayload("me", "peer"))
+        assertEquals("{\"p_actor_profile_id\":\"me\",\"p_peer_profile_id\":\"peer\",\"p_limit\":120,\"p_offset\":0}", iosNeighborhoodSharedAttachmentsPayload("me", "peer"))
     }
 }

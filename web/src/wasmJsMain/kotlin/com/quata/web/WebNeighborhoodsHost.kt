@@ -44,7 +44,7 @@ fun browserNeighborhoodsStrings(): WebNeighborhoodsStrings =
 data class WebNeighborhoodsStrings(val screen: NeighborhoodsScreenStrings)
 
 class WebNeighborhoodsSlots(
-    val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
+    val avatar: @Composable (NeighborhoodUser, Boolean, (() -> Unit)?) -> Unit,
 )
 
 /** Thin browser wrapper: state, gates and directory/member navigation are common. */
@@ -67,7 +67,7 @@ fun WebNeighborhoodsHost(
     repository = repository,
     currentUserId = currentUserId,
     strings = strings.screen,
-    avatar = slots.avatar,
+        avatar = { user, loading, click -> slots.avatar(user, loading, click) },
     onOpenConversation = onOpenConversation,
     onOpenUserProfile = onOpenUserProfile,
     onAuthRequired = onAuthRequired,
@@ -119,8 +119,8 @@ private fun WebCommunityProfileRoute(
         onFollowUser = model::toggleFollowUser,
         onOpenPrivateChat = { model.openPrivateChat(it, onOpenConversation) },
         onOpenUserProfile = model::openUserProfile,
-        onReportProfile = model::reportProfile, onBlockProfile = model::blockProfile, onSetRoles = model::setUserRoles,
-        avatar = { user, loading, click -> slots.avatar(user, loading) { click?.invoke() } },
+        onReportProfile = model::reportProfile, onBlockProfile = { model.blockProfile(it, onDismiss) }, onSetRoles = model::setUserRoles,
+        avatar = { user, loading, click -> slots.avatar(user, loading, click) },
         attachmentItem = { attachment -> TextButton(onClick = { webOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
         postPreview = { post, count, openComments ->
             CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
