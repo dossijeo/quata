@@ -247,6 +247,8 @@ fun CommunityProfileScreen(
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     val context = LocalContext.current
     val template = quataTheme()
+    val followersOfFormat = stringResource(R.string.neighborhoods_followers_of)
+    val followingOfFormat = stringResource(R.string.neighborhoods_following_of)
     CommunityProfileRoot(
         profile = profile,
         currentUserId = currentUserId,
@@ -257,8 +259,8 @@ fun CommunityProfileScreen(
             posts = stringResource(R.string.neighborhoods_posts),
             followers = stringResource(R.string.neighborhoods_followers),
             following = stringResource(R.string.neighborhoods_following),
-            followersOf = { context.getString(R.string.neighborhoods_followers_of, it) },
-            followingOf = { context.getString(R.string.neighborhoods_following_of, it) },
+            followersOf = { followersOfFormat.format(it) },
+            followingOf = { followingOfFormat.format(it) },
             gallery = stringResource(R.string.neighborhoods_photos_videos),
             noPosts = stringResource(R.string.neighborhoods_no_visible_posts),
             attachments = ProfileAttachmentsStrings(stringResource(R.string.neighborhoods_attachments), stringResource(R.string.neighborhoods_no_attachments)),
@@ -439,6 +441,7 @@ private fun ProfilePostsPager(
     onAddPostComment: (String, String) -> Unit,
 ) {
     val context = LocalContext.current
+    val reportSuccess = stringResource(R.string.feed_report_success)
     ProfilePostsPagerContent(
         posts = posts,
         pagerState = pagerState,
@@ -454,7 +457,7 @@ private fun ProfilePostsPager(
                     if (!post.isReportedByCurrentUser) {
                         if (currentUserId != null) {
                             onReportPost(post.id)
-                            Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, reportSuccess, Toast.LENGTH_SHORT).show()
                         } else {
                             onAuthRequired()
                         }
