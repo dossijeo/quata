@@ -343,7 +343,6 @@ fun AppNavGraph(
     val useNavigationRail = showAppChrome && isLandscapeLayout
     var lastPrimaryNavigationRoute by rememberSaveable { mutableStateOf(AppDestinations.Feed.route) }
     val navigationChromeRoute = when {
-        currentRoute == AppDestinations.CreatePost.route -> AppDestinations.Feed.route
         currentRoute == AppDestinations.OfficialPostEditor.route -> AppDestinations.Official.route
         currentRoute != null && currentRoute in bottomRoutes -> currentRoute
         else -> lastPrimaryNavigationRoute
@@ -595,7 +594,13 @@ fun AppNavGraph(
             sosPulseScale = globalSosPulseScale,
             showTopChrome = showAppChrome && !isLandscapeLayout,
             bottomNavigation = {
-                if (showBottomNavigation) QuataBottomBar(currentRoute = navigationChromeRoute, onDestinationClick = ::handleBottomRoute)
+                if (showBottomNavigation) {
+                    QuataBottomBar(
+                        currentRoute = navigationChromeRoute,
+                        onDestinationClick = ::handleBottomRoute,
+                        composerRoute = AppDestinations.CreatePost.route.takeIf { currentRoute == AppDestinations.CreatePost.route },
+                    )
+                }
             },
         ) { scaffoldPadding ->
             val scaffoldStartPadding = scaffoldPadding.calculateStartPadding(layoutDirection)
@@ -954,6 +959,7 @@ fun AppNavGraph(
                                 restoreState = true
                             }
                         },
+                        composerRoute = AppDestinations.CreatePost.route.takeIf { currentRoute == AppDestinations.CreatePost.route },
                         modifier = Modifier
                             .align(Alignment.TopStart)
                     )

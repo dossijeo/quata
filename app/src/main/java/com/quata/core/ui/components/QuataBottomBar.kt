@@ -14,8 +14,15 @@ val QuataNavigationRailWidth = 68.dp
 fun QuataBottomBar(
     currentRoute: String?,
     onDestinationClick: (String) -> Unit,
+    composerRoute: String? = null,
 ) {
-    QuataPrimaryBottomNavigation(androidPrimaryNavigationLabels(), currentRoute, onDestinationClick)
+    QuataPrimaryBottomNavigation(
+        labels = androidPrimaryNavigationLabels(),
+        selectedRoute = currentRoute,
+        onRouteSelected = onDestinationClick,
+        mode = composerRoute?.let { QuataPrimaryNavigationMode.Composer(it, "Publicar") }
+            ?: QuataPrimaryNavigationMode.Default,
+    )
 }
 
 @Composable
@@ -25,6 +32,7 @@ fun QuataNavigationRail(
     notificationCount: Int,
     isNotificationBouncing: Boolean,
     onNotificationsClick: () -> Unit,
+    composerRoute: String? = null,
     modifier: Modifier = Modifier,
 ) {
     QuataPrimaryNavigationRail(
@@ -38,6 +46,8 @@ fun QuataNavigationRail(
         ),
         onRouteSelected = onDestinationClick,
         onNotificationClick = onNotificationsClick,
+        mode = composerRoute?.let { QuataPrimaryNavigationMode.Composer(it, "Publicar") }
+            ?: QuataPrimaryNavigationMode.Default,
         modifier = modifier,
         railWidth = QuataNavigationRailWidth,
     )

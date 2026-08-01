@@ -2,6 +2,7 @@ package com.quata.core.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MapsHomeWork
@@ -21,7 +22,19 @@ data class QuataPrimaryNavigationLabels(
     val profile: String,
 )
 
-fun QuataPrimaryNavigationLabels.items(): List<QuataNavigationItem> = primaryNavigationDestinations.map { destination ->
+/** The composer replaces the central Official destination while retaining the five-item shell. */
+sealed interface QuataPrimaryNavigationMode {
+    data object Default : QuataPrimaryNavigationMode
+
+    data class Composer(val route: String, val label: String) : QuataPrimaryNavigationMode
+}
+
+fun QuataPrimaryNavigationLabels.items(
+    mode: QuataPrimaryNavigationMode = QuataPrimaryNavigationMode.Default,
+): List<QuataNavigationItem> = primaryNavigationDestinations.map { destination ->
+    if (destination.route == AppDestinations.Official.route && mode is QuataPrimaryNavigationMode.Composer) {
+        return@map QuataNavigationItem(mode.route, mode.label, Icons.Filled.AddCircle)
+    }
     when (destination.route) {
         AppDestinations.Neighborhoods.route -> QuataNavigationItem(destination.route, neighborhoods, Icons.Filled.MapsHomeWork)
         AppDestinations.Conversations.route -> QuataNavigationItem(destination.route, conversations, Icons.Filled.Forum)
@@ -37,9 +50,10 @@ fun QuataPrimaryBottomNavigation(
     labels: QuataPrimaryNavigationLabels,
     selectedRoute: String?,
     onRouteSelected: (String) -> Unit,
+    mode: QuataPrimaryNavigationMode = QuataPrimaryNavigationMode.Default,
     modifier: Modifier = Modifier,
 ) {
-    QuataBottomNavigation(labels.items(), selectedRoute, onRouteSelected, modifier)
+    QuataBottomNavigation(labels.items(mode), selectedRoute, onRouteSelected, modifier)
 }
 
 @Composable
@@ -49,8 +63,9 @@ fun QuataPrimaryNavigationRail(
     notification: QuataNavigationRailNotification,
     onRouteSelected: (String) -> Unit,
     onNotificationClick: () -> Unit,
+    mode: QuataPrimaryNavigationMode = QuataPrimaryNavigationMode.Default,
     modifier: Modifier = Modifier,
     railWidth: androidx.compose.ui.unit.Dp = 68.dp,
 ) {
-    QuataNavigationRailContent(labels.items(), selectedRoute, notification, onRouteSelected, onNotificationClick, modifier, railWidth)
+    QuataNavigationRailContent(labels.items(mode), selectedRoute, notification, onRouteSelected, onNotificationClick, modifier, railWidth)
 }

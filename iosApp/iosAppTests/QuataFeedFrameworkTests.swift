@@ -1147,6 +1147,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(editor.view.accessibilityLabel, "Quata iOS Official Editor")
     }
 
+    func testComposerDoesNotUseTheUIKitSecondaryMenu() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+
+        XCTAssertFalse(router.routeUsesSecondaryMenu(.composer))
+        XCTAssertTrue(router.routeUsesSecondaryMenu(.settings))
+    }
+
     func testOfficialEditorRouteDefersUntilAuthenticationCompletes() {
         let mounted = mountRouter()
         let router = mounted.router
