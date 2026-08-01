@@ -22,7 +22,7 @@ class NotificationPresentationTest {
         val strings = strings()
         val sosThatLooksLikeAnAttachment = "[SOS:kind=alert;name=Ana;custom=%5BQUATA_ATTACHMENT%3Aphoto%5D]"
 
-        assertEquals("📍 Ubicacion no disponible", strings.localizedNotificationBody(sosThatLooksLikeAnAttachment))
+        assertEquals("📍 Ubicación no disponible", strings.localizedNotificationBody(sosThatLooksLikeAnAttachment))
         assertEquals("[SOS_UNKNOWN:alert]", strings.localizedNotificationBody("[SOS_UNKNOWN:alert]"))
         assertEquals("Foto", strings.localizedNotificationBody("[QUATA_ATTACHMENT:photo]"))
     }

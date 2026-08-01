@@ -6,6 +6,11 @@ import kotlin.test.assertNull
 
 class SosPreviewLocalizationTest {
     @Test
+    fun spanishCatalogKeepsTheExactAndroidLocationUnavailableLiteral() {
+        assertEquals("📍 Ubicación no disponible", SosPreviewCatalog.Spanish.locationUnavailable)
+    }
+
+    @Test
     fun localizesKnownAlertInEverySupportedLanguage() {
         val shortcode = buildSosShortcode(
             kind = SosShortcodeKind.Alert,

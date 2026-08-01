@@ -12,7 +12,7 @@ data class SosPreviewCatalog(
     companion object {
         val Spanish = SosPreviewCatalog(
             locationUpdate = "Actualizacion de ubicacion SOS",
-            locationUnavailable = "📍 Ubicacion no disponible",
+            locationUnavailable = "📍 Ubicación no disponible",
             approximateLocation = { "Ubicacion aproximada: $it" },
         )
         val English = SosPreviewCatalog(
