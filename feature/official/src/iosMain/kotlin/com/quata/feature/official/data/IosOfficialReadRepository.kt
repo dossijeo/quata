@@ -44,6 +44,8 @@ import kotlin.coroutines.resumeWithException
 data class IosOfficialRuntimeConfiguration(
     val supabaseUrl: String,
     val supabasePublishableKey: String,
+    /** Public Android/Web-compatible endpoint used for the WordPress video transport. */
+    val wordpressBaseUrl: String = "https://egquata.com/",
 )
 
 /**
