@@ -1,7 +1,10 @@
 package com.quata.feature.profile.data
 
 import com.quata.core.data.toFoundationData
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.model.AuthSession
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.PlatformFile
 import com.quata.core.model.currentEpochSeconds
 import com.quata.core.preferences.SessionStorage
 import com.quata.core.session.IosAuthSessionRefresher
@@ -57,6 +60,39 @@ class IosProfileGatewayContractTest {
         )
 
         assertTrue(bootstrap.usesRenewableSession(renewable))
+    }
+
+    @Test
+    fun profile_bootstrap_restores_and_forwards_required_appearance_state() {
+        val renewable = IosRenewableAuthSession(
+            IosAuthSessionRefresher { null },
+            MemorySessionStorage(expiredSession()),
+        )
+        val bootstrap = IosProfileSosRuntimeBootstrap(
+            configuration = IosProfileRuntimeConfiguration("https://project.supabase.co", "public-key"),
+            authSession = renewable,
+            languageTag = "en",
+        )
+        var persistedTouchFlow: Boolean? = null
+        var persistedTheme: String? = null
+
+        val dependencies = bootstrap.profileHostDependencies(
+            onLogout = {},
+            onDeactivateAccount = {},
+            onDeleteAccountData = {},
+            filePicker = UnsupportedFilePicker,
+            touchFlowEnabled = true,
+            themeModeStorageValue = "dark-mode",
+            onTouchFlowEnabledChange = { persistedTouchFlow = it },
+            onThemeModeStorageValueChange = { persistedTheme = it },
+        )
+
+        assertTrue(dependencies.touchFlowEnabled)
+        assertEquals(QuataThemeMode.Dark, dependencies.themeMode)
+        dependencies.onTouchFlowEnabledChange(false)
+        dependencies.onThemeModeChange(QuataThemeMode.Light)
+        assertEquals(false, persistedTouchFlow)
+        assertEquals("light-mode", persistedTheme)
     }
 
     @Test
@@ -216,6 +252,13 @@ class IosProfileGatewayContractTest {
         override fun saveSession(session: AuthSession) { value = session }
         override fun getSession(): AuthSession? = value
         override fun clear() { value = null }
+    }
+
+    private object UnsupportedFilePicker : FilePickerService {
+        override suspend fun pickFiles(
+            acceptedMimeTypes: List<String>,
+            allowMultiple: Boolean,
+        ): PlatformResult<List<PlatformFile>> = PlatformResult.Unsupported
     }
 
     private fun expiredSession() = AuthSession(

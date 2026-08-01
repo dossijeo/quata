@@ -492,7 +492,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0fddc01e75eaec5916c087457be074e92e4d884a26b155c8157da42a2e88fb0c",
+              "sha256": "2d0de2887e800a1fbc4f2a21a837776025e9547d20d27c60d24f6894580b2b00",
               "role": "composition"
             },
             {
@@ -560,7 +560,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0fddc01e75eaec5916c087457be074e92e4d884a26b155c8157da42a2e88fb0c",
+              "sha256": "2d0de2887e800a1fbc4f2a21a837776025e9547d20d27c60d24f6894580b2b00",
               "role": "composition"
             },
             {
@@ -628,7 +628,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0fddc01e75eaec5916c087457be074e92e4d884a26b155c8157da42a2e88fb0c",
+              "sha256": "2d0de2887e800a1fbc4f2a21a837776025e9547d20d27c60d24f6894580b2b00",
               "role": "composition"
             },
             {
@@ -687,7 +687,7 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "51bfd12e0230c15ca4beeafb93c3562f653ecbd296924cfb74f5ca818a4fc54f",
+              "sha256": "4cd939bbaaae6024cac34e40003c184eabf7f9fd29ea5333374a3d62ba6acfb8",
               "role": "composition"
             },
             {
@@ -745,7 +745,7 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "51bfd12e0230c15ca4beeafb93c3562f653ecbd296924cfb74f5ca818a4fc54f",
+              "sha256": "4cd939bbaaae6024cac34e40003c184eabf7f9fd29ea5333374a3d62ba6acfb8",
               "role": "composition"
             },
             {
@@ -800,7 +800,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0fddc01e75eaec5916c087457be074e92e4d884a26b155c8157da42a2e88fb0c",
+              "sha256": "2d0de2887e800a1fbc4f2a21a837776025e9547d20d27c60d24f6894580b2b00",
               "role": "composition"
             },
             {

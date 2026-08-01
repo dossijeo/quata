@@ -179,13 +179,50 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-/// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
-/// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
-private final class IosAppCompositionRoot {
-    private enum SettingsPreferenceKey {
+/// Device-local appearance state shared by Settings and Cuenta. Android persists the same two
+/// controls at its application boundary; iOS keeps them at the UIKit boundary and injects them
+/// into Compose hosts instead of allowing feature-level no-op defaults.
+final class IosAppearancePreferences {
+    private enum Key {
         static let themeMode = "quata_ios_theme_mode"
         static let touchFlowEnabled = "quata_ios_touch_flow_enabled"
     }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var touchFlowEnabled: Bool {
+        defaults.object(forKey: Key.touchFlowEnabled) as? Bool ?? false
+    }
+
+    var themeModeStorageValue: String? {
+        defaults.string(forKey: Key.themeMode)
+    }
+
+    func setTouchFlowEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Key.touchFlowEnabled)
+    }
+
+    func setThemeModeStorageValue(_ value: String) {
+        defaults.set(value, forKey: Key.themeMode)
+    }
+
+    func applyTheme(to window: UIWindow) {
+        switch themeModeStorageValue {
+        case "dark-mode": window.overrideUserInterfaceStyle = .dark
+        case "light-mode": window.overrideUserInterfaceStyle = .light
+        default: window.overrideUserInterfaceStyle = .unspecified
+        }
+    }
+}
+
+/// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
+/// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
+private final class IosAppCompositionRoot {
+    private let appearancePreferences = IosAppearancePreferences()
 
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -306,6 +343,7 @@ private final class IosAppCompositionRoot {
             return
         }
         window.rootViewController = authenticatedHost
+        appearancePreferences.applyTheme(to: window)
         window.makeKeyAndVisible()
         self.window = window
         externalShareForegroundObserver = NotificationCenter.default.addObserver(
@@ -637,6 +675,7 @@ private final class IosAppCompositionRoot {
         else { return }
         let lifecycleHandler = IosAuthHostKt.createIosAuthAccountLifecycleHandler(repository: authRepository)
         let filePicker = platformServices.services.filePicker
+        let appearancePreferences = self.appearancePreferences
         authenticatedHost.installProfileSosFactory { [weak self] in
             // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
             // it is not a substitute route for Profile on iOS.
@@ -649,6 +688,17 @@ private final class IosAppCompositionRoot {
                     self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
                 },
                 filePicker: filePicker,
+                touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                themeModeStorageValue: appearancePreferences.themeModeStorageValue,
+                onTouchFlowEnabledChange: { enabled in
+                    appearancePreferences.setTouchFlowEnabled(enabled)
+                },
+                onThemeModeStorageValueChange: { [weak self] value in
+                    appearancePreferences.setThemeModeStorageValue(value)
+                    if let window = self?.window {
+                        appearancePreferences.applyTheme(to: window)
+                    }
+                },
             )
             return IosProfileHostKt.QuataProfileViewController(dependencies: dependencies)
         }
@@ -727,20 +777,20 @@ private final class IosAppCompositionRoot {
     /// Settings owns only device-local appearance preferences. It does not create remote data or
     /// pretend that a server profile setting was saved.
     private func installSettings() {
-        authenticatedHost.installSettingsFactory {
+        let appearancePreferences = self.appearancePreferences
+        authenticatedHost.installSettingsFactory { [weak self] in
             IosSettingsHostKt.QuataSettingsViewController(
                 dependencies: IosSettingsHostKt.createIosSettingsHostDependencies(
-                    touchFlowEnabled: UserDefaults.standard.object(
-                        forKey: SettingsPreferenceKey.touchFlowEnabled
-                    ) as? Bool ?? true,
-                    themeModeStorageValue: UserDefaults.standard.string(
-                        forKey: SettingsPreferenceKey.themeMode
-                    ),
+                    touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                    themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                     onTouchFlowEnabledChange: { enabled in
-                        UserDefaults.standard.set(enabled, forKey: SettingsPreferenceKey.touchFlowEnabled)
+                        appearancePreferences.setTouchFlowEnabled(enabled)
                     },
-                    onThemeModeStorageValueChange: { value in
-                        UserDefaults.standard.set(value, forKey: SettingsPreferenceKey.themeMode)
+                    onThemeModeStorageValueChange: { [weak self] value in
+                        appearancePreferences.setThemeModeStorageValue(value)
+                        if let window = self?.window {
+                            appearancePreferences.applyTheme(to: window)
+                        }
                     },
                 ),
             )

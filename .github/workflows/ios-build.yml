@@ -459,6 +459,22 @@ jobs:
             --console=plain \
             2>&1 | tee build/reports/ios/official-public-read-ios-test.log
 
+      - name: Run iOS Profile runtime contract
+        # The macos-15 runner is Apple Silicon, so execute the shared iosTest suite through its
+        # valid simulatorArm64 target. This includes the focal gateway and appearance wiring
+        # assertions that also back iosX64Test on Intel; it is execution, not test compilation.
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          xcrun simctl bootstatus "$simulator_udid" -b
+          bash ./gradlew \
+            :feature:profile:iosSimulatorArm64Test \
+            --stacktrace \
+            --warning-mode all \
+            --console=plain \
+            2>&1 | tee build/reports/ios/profile-runtime-ios-test.log
+
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
         timeout-minutes: 22

@@ -20,6 +20,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         super.tearDown()
     }
 
+    func testAppearancePreferencesRestorePersistAndApplyThemeAtUIKitBoundary() throws {
+        let suiteName = "quata-ios-appearance-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = IosAppearancePreferences(defaults: defaults)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+
+        XCTAssertFalse(preferences.touchFlowEnabled)
+        XCTAssertNil(preferences.themeModeStorageValue)
+        preferences.applyTheme(to: window)
+        XCTAssertEqual(window.overrideUserInterfaceStyle, .unspecified)
+
+        preferences.setTouchFlowEnabled(true)
+        preferences.setThemeModeStorageValue("dark-mode")
+        XCTAssertTrue(IosAppearancePreferences(defaults: defaults).touchFlowEnabled)
+        XCTAssertEqual(IosAppearancePreferences(defaults: defaults).themeModeStorageValue, "dark-mode")
+        preferences.applyTheme(to: window)
+        XCTAssertEqual(window.overrideUserInterfaceStyle, .dark)
+
+        preferences.setThemeModeStorageValue("light-mode")
+        preferences.applyTheme(to: window)
+        XCTAssertEqual(window.overrideUserInterfaceStyle, .light)
+    }
+
     private func mountRouter() -> MountedRouter {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         let window = UIWindow(frame: UIScreen.main.bounds)

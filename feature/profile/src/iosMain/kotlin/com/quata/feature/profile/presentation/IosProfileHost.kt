@@ -7,7 +7,11 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.ui.components.IosRemoteAvatar
@@ -30,23 +34,31 @@ class IosProfileHostDependencies(
     val onDeactivateAccount: () -> Unit,
     val onDeleteAccountData: () -> Unit,
     val filePicker: FilePickerService,
-    val touchFlowEnabled: Boolean = false,
-    val onTouchFlowEnabledChange: (Boolean) -> Unit = {},
-    val themeMode: QuataThemeMode = QuataThemeMode.System,
-    val onThemeModeChange: (QuataThemeMode) -> Unit = {},
+    val touchFlowEnabled: Boolean,
+    val onTouchFlowEnabledChange: (Boolean) -> Unit,
+    val themeMode: QuataThemeMode,
+    val onThemeModeChange: (QuataThemeMode) -> Unit,
 )
 
 fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = ComposeUIViewController {
-    QuataTheme {
+    var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
+    var themeMode by remember { mutableStateOf(dependencies.themeMode) }
+    QuataTheme(mode = themeMode) {
         val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
         val scope = rememberCoroutineScope()
         ProfileScreenHost(
             repository = dependencies.repository,
             strings = IosProfileScreenStrings,
-            touchFlowEnabled = dependencies.touchFlowEnabled,
-            onTouchFlowEnabledChange = dependencies.onTouchFlowEnabledChange,
-            themeMode = dependencies.themeMode,
-            onThemeModeChange = dependencies.onThemeModeChange,
+            touchFlowEnabled = touchFlowEnabled,
+            onTouchFlowEnabledChange = { enabled ->
+                touchFlowEnabled = enabled
+                dependencies.onTouchFlowEnabledChange(enabled)
+            },
+            themeMode = themeMode,
+            onThemeModeChange = { mode ->
+                themeMode = mode
+                dependencies.onThemeModeChange(mode)
+            },
             onLogout = dependencies.onLogout,
             onDeactivateAccount = dependencies.onDeactivateAccount,
             onDeleteAccountData = dependencies.onDeleteAccountData,

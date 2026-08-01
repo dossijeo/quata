@@ -1,6 +1,7 @@
 package com.quata.feature.profile.presentation
 
 import com.quata.core.model.CountryPrefix
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PlatformContact
@@ -85,12 +86,20 @@ class IosProfileSosRuntimeBootstrap(
         onDeactivateAccount: () -> Unit,
         onDeleteAccountData: () -> Unit,
         filePicker: com.quata.core.platform.FilePickerService,
+        touchFlowEnabled: Boolean,
+        themeModeStorageValue: String?,
+        onTouchFlowEnabledChange: (Boolean) -> Unit,
+        onThemeModeStorageValueChange: (String) -> Unit,
     ): IosProfileHostDependencies = IosProfileHostDependencies(
         repository = repository,
         onLogout = onLogout,
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
         filePicker = filePicker,
+        touchFlowEnabled = touchFlowEnabled,
+        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+        themeMode = QuataThemeMode.fromStorageValue(themeModeStorageValue),
+        onThemeModeChange = { mode -> onThemeModeStorageValueChange(mode.storageValue) },
     )
 
     /**
