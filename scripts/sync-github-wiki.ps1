@@ -43,6 +43,33 @@ try {
         Copy-Item -LiteralPath (Join-Path $source $page) -Destination (Join-Path $temporaryRoot $page) -Force
     }
 
+    # GitHub resuelve los enlaces Markdown relativos de una Wiki desde la ruta
+    # del repositorio (`/owner/repo/wiki/...`). Al publicar los mismos fuentes
+    # que se navegan dentro de `docs/wiki`, esos enlaces acabarían duplicando el
+    # segmento `wiki`. Convertimos únicamente los destinos de páginas declaradas
+    # a URLs canónicas de la Wiki; los fuentes versionados permanecen relativos.
+    $wikiBaseUrl = 'https://github.com/dossijeo/quata/wiki'
+    $wikiTargets = @{}
+    foreach ($page in $pages) {
+        $pageName = [System.IO.Path]::GetFileNameWithoutExtension($page)
+        $wikiTargets[$page] = "$wikiBaseUrl/$pageName"
+        $wikiTargets[$pageName] = "$wikiBaseUrl/$pageName"
+    }
+
+    foreach ($page in $pages) {
+        $publishedPath = Join-Path $temporaryRoot $page
+        $content = [System.IO.File]::ReadAllText($publishedPath, [System.Text.Encoding]::UTF8)
+        foreach ($target in $wikiTargets.GetEnumerator()) {
+            $escapedTarget = [regex]::Escape($target.Key)
+            $content = [regex]::Replace(
+                $content,
+                "\]\($escapedTarget(?<anchor>#[^)]+)?\)",
+                { param($match) "]($($target.Value)$($match.Groups['anchor'].Value))" }
+            )
+        }
+        [System.IO.File]::WriteAllText($publishedPath, $content, [System.Text.UTF8Encoding]::new($false))
+    }
+
     & git -C $temporaryRoot diff --check
     if ($LASTEXITCODE -ne 0) { throw 'La Wiki contiene errores de whitespace.' }
 
