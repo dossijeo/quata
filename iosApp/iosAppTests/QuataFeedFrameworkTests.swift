@@ -12,6 +12,26 @@ import Security
 import UniformTypeIdentifiers
 
 final class QuataFeedFrameworkTests: XCTestCase {
+    private var mountedWindows: [UIWindow] = []
+
+    override func tearDown() {
+        mountedWindows.forEach { $0.isHidden = true }
+        mountedWindows.removeAll()
+        super.tearDown()
+    }
+
+    private func mountRouter() -> MountedRouter {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = router
+        window.makeKeyAndVisible()
+        router.disableAuthModalAnimationsForTesting()
+        router.loadViewIfNeeded()
+        router.view.layoutIfNeeded()
+        mountedWindows.append(window)
+        return MountedRouter(window: window, router: router)
+    }
+
     func testAppRegistersTheStableQuataCustomUrlScheme() {
         let appBundle = Bundle(for: AppDelegate.self)
 
@@ -201,11 +221,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
     }
 
     func testAnonymousRouterShowsPublicFeedInsideSharedShellAndKeepsPrivateRoutesGated() {
-        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
-        router.loadViewIfNeeded()
+        let mounted = mountRouter()
+        let router = mounted.router
         let publicFeed = UIViewController()
 
         router.installPublicFeed { _ in publicFeed }
+        let prompt = UIViewController()
+        router.installAuthRequiredPromptFactory { prompt }
 
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
         XCTAssertEqual(publicFeed.view.accessibilityIdentifier, "quata-ios-feed-host")
@@ -218,11 +240,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.view.subviews.compactMap { $0 as? UIButton }.allSatisfy(\.isHidden))
 
         router.showChat(conversationId: "private-chat", messageId: nil)
-        router.showNotifications()
-        router.showProfileSos()
-        router.showComposer()
 
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
         XCTAssertEqual(router.children.count, 3)
     }
 
@@ -261,19 +281,18 @@ final class QuataFeedFrameworkTests: XCTestCase {
         // exists; it does not claim any backend read or mutation succeeds.
         let protectedRoutes: [(String, (IosFeedHostContainerViewController) -> Void)] = [
             ("quata-ios-chat-host", { $0.showChat(conversationId: "conversation-1", messageId: "message-1") }),
-            ("quata-ios-notifications-host", { $0.showNotifications() }),
             ("quata-ios-profile-sos-host", { $0.showProfileSos() }),
-            ("quata-ios-communities-host", { $0.showCommunities() }),
             ("quata-ios-composer-host", { $0.showComposer() }),
             ("quata-ios-settings-host", { $0.showSettings() }),
         ]
 
         for (protectedIdentifier, openRoute) in protectedRoutes {
-            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
-            router.loadViewIfNeeded()
-            router.installPublicFeed { _ in UIViewController() }
-            let login = UIViewController()
-            router.installAuthenticationFactory { login }
+            let mounted = mountRouter()
+            let router = mounted.router
+            let publicFeed = UIViewController()
+            router.installPublicFeed { _ in publicFeed }
+            let prompt = UIViewController()
+            router.installAuthRequiredPromptFactory { prompt }
             router.installChatFactory { _, _ in UIViewController() }
             router.installNotificationsFactory { UIViewController() }
             router.installProfileSosFactory { UIViewController() }
@@ -283,8 +302,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
             openRoute(router)
 
-            XCTAssertTrue(authenticatedRouteController(in: router) === login, "Anonymous route rendered instead of login: \(protectedIdentifier)")
-            XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+            XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed, "Anonymous route replaced public Feed: \(protectedIdentifier)")
+            XCTAssertTrue(router.presentedViewController?.children.first === prompt, "Protected route did not open the capability prompt: \(protectedIdentifier)")
+            XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
             XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == protectedIdentifier })
             XCTAssertEqual(router.children.count, 3)
         }
@@ -309,17 +329,48 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === publicFeed })
     }
 
-    func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
+    func testAnonymousRouterAllowsCommunitiesInsideSharedShell() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
-        router.installPublicFeed { _ in UIViewController() }
-        let login = UIViewController()
-        router.installAuthenticationFactory { login }
+        let feed = UIViewController()
+        let communities = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installCommunitiesFactory { communities }
+
+        router.showCommunities()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === communities)
+        XCTAssertEqual(communities.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertNil(router.presentedViewController)
+        XCTAssertNotNil(router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation" })
+    }
+
+    func testAnonymousRouterAllowsNotificationsButLeavesConversationGated() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let notifications = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installNotificationsFactory { notifications }
+
+        router.showNotifications()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+        XCTAssertEqual(notifications.view.accessibilityIdentifier, "quata-ios-notifications-host")
+    }
+
+    func testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        let prompt = UIViewController()
+        router.installAuthRequiredPromptFactory { prompt }
 
         router.showChat(conversationId: "private-chat", messageId: "message-4")
 
-        XCTAssertTrue(router.children.contains { $0 === login })
-        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
+        XCTAssertTrue(router.presentedViewController?.children.first === prompt)
         XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-chat-host" })
         XCTAssertNotNil(router.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
@@ -335,7 +386,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             return chat
         }
 
-        XCTAssertTrue(router.children.contains { $0 === login })
+        XCTAssertTrue(router.children.contains { $0 === publicFeed })
         XCTAssertFalse(router.children.contains { $0 === chat })
 
         router.installFeedFactory { _ in UIViewController() }
@@ -347,9 +398,61 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(authenticatedRouteController(in: router) === chat)
     }
 
+    func testAuthRequiredPromptDismissKeepsAnonymousFeedAndSharedShell() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.showComposer()
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+        wait(for: [promptPresented], timeout: 2)
+
+        // This is the exact callback used by common AlertDialog.onDismissRequest when its scrim
+        // is tapped. The dialog disappears; the public app route and shell remain mounted.
+        router.dismissAuthRequiredPrompt()
+        waitUntil { router.presentedViewController == nil }
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertNotNil(router.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
+        })
+        XCTAssertNotNil(router.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
+        })
+    }
+
+    func testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let registration = UIViewController()
+        router.installPublicFeed { _ in UIViewController() }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        router.installAuthenticationFactory { registration }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.showComposer()
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+        wait(for: [promptPresented], timeout: 2)
+        let registrationPresented = expectation(description: "Registration presentation completed")
+        router.onNextAuthenticationPresentedForTesting { registrationPresented.fulfill() }
+        router.openRegistrationFromAuthRequiredPrompt()
+        wait(for: [registrationPresented], timeout: 2)
+
+        XCTAssertTrue(router.presentedViewController === registration)
+        XCTAssertEqual(registration.modalPresentationStyle, .fullScreen)
+        XCTAssertEqual(registration.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertNil(registration.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
+        })
+    }
+
     func testPrivateRouteQueuedBeforePublicFactoriesShowsShellThenLoginAndStillResolvesAfterAuthentication() {
-        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
-        router.loadViewIfNeeded()
+        let mounted = mountRouter()
+        let router = mounted.router
 
         router.showChat(conversationId: "deferred-private-chat", messageId: nil)
         let publicFeed = UIViewController()
@@ -363,9 +466,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
 
-        let login = UIViewController()
-        router.installAuthenticationFactory { login }
-        XCTAssertTrue(authenticatedRouteController(in: router) === login)
+        let prompt = UIViewController()
+        router.installAuthRequiredPromptFactory { prompt }
+        router.showChat(conversationId: "deferred-private-chat", messageId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertTrue(router.presentedViewController?.children.first === prompt)
 
         let chat = UIViewController()
         router.installChatFactory { conversationId, messageId in
@@ -1032,18 +1137,42 @@ final class QuataFeedFrameworkTests: XCTestCase {
     }
 
     func testOfficialEditorRouteDefersUntilAuthenticationCompletes() {
-        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
-        router.loadViewIfNeeded()
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let prompt = UIViewController()
         let login = UIViewController()
         let editor = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installAuthRequiredPromptFactory { prompt }
         router.installAuthenticationFactory { login }
         router.installOfficialEditorFactory { editor }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
 
         router.showOfficialEditor()
-        XCTAssertTrue(authenticatedRouteController(in: router) === login)
-        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertTrue(router.presentedViewController?.children.first === prompt)
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+        wait(for: [promptPresented], timeout: 2)
 
-        router.installFeedFactory { _ in UIViewController() }
+        let loginPresented = expectation(description: "Login presentation completed")
+        router.onNextAuthenticationPresentedForTesting { loginPresented.fulfill() }
+        router.openLoginFromAuthRequiredPrompt()
+        wait(for: [loginPresented], timeout: 2)
+        XCTAssertTrue(router.presentedViewController === login)
+        XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .fullScreen)
+        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertNil(login.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
+        })
+
+        let authenticationFinished = expectation(description: "authentication modal dismissed")
+        router.finishAuthentication {
+            router.installFeedFactory { _ in UIViewController() }
+            authenticationFinished.fulfill()
+        }
+        wait(for: [authenticationFinished], timeout: 1)
         XCTAssertTrue(authenticatedRouteController(in: router) === editor)
         XCTAssertEqual(editor.view.accessibilityIdentifier, "quata-ios-official-editor-host")
     }
@@ -1151,6 +1280,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
+                    onAuthRequired: {},
                 ),
             )
         }
@@ -1298,7 +1428,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(completeSharedLogout)
 
         completeSharedLogout?()
-        wait(for: [returnedToPublicFeed], timeout: 1)
+        wait(for: [returnedToPublicFeed], timeout: 3)
 
         XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
         XCTAssertEqual(router.children.count, 3)
@@ -1319,6 +1449,52 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let afterLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         router.populateAuthenticatedRouteMenu(afterLogout)
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
+    }
+
+    func testColdStartRestoredSessionInstallsLogoutAndReturnsPrivateRoutesToThePublicGate() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let authenticatedFeed = UIViewController()
+        let publicFeed = UIViewController()
+        let prompt = UIViewController()
+        var bindingsInstallCount = 0
+        var logoutInvocationCount = 0
+        let returnedToPublicFeed = expectation(description: "restored session logs out to public Feed")
+
+        router.installPublicFeed { _ in publicFeed }
+        router.installFeedFactory { _ in authenticatedFeed }
+        IosAuthLifecycleBootstrap.installBindings(afterRestoredSessionAttempt: true) {
+            bindingsInstallCount += 1
+            router.installAuthRequiredPromptFactory { prompt }
+            router.installAuthenticationFactory { UIViewController() }
+            router.installLogoutAction(
+                { completed in
+                    logoutInvocationCount += 1
+                    completed()
+                },
+                onLoggedOut: {
+                    router.installPublicFeed { _ in publicFeed }
+                    returnedToPublicFeed.fulfill()
+                },
+            )
+        }
+
+        XCTAssertEqual(bindingsInstallCount, 1)
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+        let restoredSessionMenu = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(restoredSessionMenu)
+        XCTAssertTrue(restoredSessionMenu.actions.contains {
+            $0.title == "Cerrar sesión" && $0.style == .destructive
+        })
+
+        router.performLogout()
+        wait(for: [returnedToPublicFeed], timeout: 3)
+        XCTAssertEqual(logoutInvocationCount, 1)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+
+        router.showChat(conversationId: "private-after-restored-session-logout", messageId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
     }
 
     func testOfficialEditorFactoryIsRemovedWithAuthenticatedLogoutState() {
@@ -1416,6 +1592,25 @@ private func authenticatedRouteController(in router: IosFeedHostContainerViewCon
             identifier != "quata-ios-authenticated-top-chrome" &&
             identifier != "quata-ios-authenticated-primary-navigation"
     }
+}
+
+/// Retains a real visible presentation context for router tests. UIKit intentionally ignores
+/// `present` from a detached controller, so testing modal Auth without a UIWindow would only
+/// exercise an impossible lifecycle and produce false negatives on CI.
+private struct MountedRouter {
+    let window: UIWindow
+    let router: IosFeedHostContainerViewController
+}
+
+private func waitUntil(
+    timeout: TimeInterval = 1,
+    condition: () -> Bool,
+) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), Date() < deadline {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+    }
+    XCTAssertTrue(condition(), "Timed out waiting for the UIKit modal transition")
 }
 
 private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {

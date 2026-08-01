@@ -1,7 +1,9 @@
 package com.quata.feature.auth.presentation
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -101,6 +103,58 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
             initialDestination = dependencies.initialDestination,
             onAuthenticated = dependencies.onLoginSuccess,
+        )
+    }
+}
+
+/** The registration choice is still the shared Auth product host; UIKit only selects its entry. */
+fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {
+    val catalog = AuthCatalog.copy(dependencies.locale)
+    QuataTheme {
+        AuthProductHostContent(
+            repository = dependencies.repository,
+            catalog = catalog,
+            prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
+            initialDestination = AuthProductDestination.Register,
+            onAuthenticated = dependencies.onLoginSuccess,
+        )
+    }
+}
+
+/**
+ * Thin iOS entry point for the Android-equivalent capability prompt.  This deliberately hosts
+ * the common Material dialog rather than recreating its copy or buttons in UIKit.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+fun QuataAuthRequiredDialogViewController(
+    languageCode: String,
+    onDismiss: () -> Unit,
+    onCreateAccount: () -> Unit,
+    onLogin: () -> Unit,
+): UIViewController = ComposeUIViewController(configure = {
+    // This host is presented over the public application shell. Compose's default opaque Skia
+    // surface would paint an entire grey/white viewport behind AlertDialog and hide Feed/header/
+    // navigation even when UIKit's wrapper is transparent.
+    opaque = false
+}) {
+    val spanish = languageCode.lowercase().startsWith("es")
+    QuataTheme {
+        QuataAuthRequiredDialogContent(
+            title = if (spanish) "Únete a QÜATA para participar" else "Join QÜATA to participate",
+            intro = if (spanish) "Puedes explorar publicaciones libremente, pero para:" else "You can explore posts freely, but to:",
+            requirements = if (spanish) listOf(
+                "✓ Enviar mensajes", "✓ Comentar publicaciones", "✓ Crear contenido",
+                "✓ Seguir comunidades", "✓ Configurar contactos SOS",
+            ) else listOf(
+                "✓ Send messages", "✓ Comment on posts", "✓ Create content",
+                "✓ Follow communities", "✓ Configure SOS contacts",
+            ),
+            outro = if (spanish) "necesitas una cuenta." else "you need an account.",
+            createAccountLabel = if (spanish) "Crear cuenta" else "Create account",
+            loginLabel = if (spanish) "Ya tengo cuenta" else "I have an account",
+            onDismiss = onDismiss,
+            onCreateAccount = onCreateAccount,
+            onLogin = onLogin,
         )
     }
 }
