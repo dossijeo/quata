@@ -22,7 +22,7 @@ fun OfficialEditorMediaPreviewContent(
     removeLabel: String,
     onRemove: () -> Unit,
     mediaContent: @Composable (Modifier) -> Unit,
-    editAction: @Composable (Modifier) -> Unit,
+    editAction: (@Composable (Modifier) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
@@ -37,7 +37,7 @@ fun OfficialEditorMediaPreviewContent(
         ) {
             mediaContent(Modifier.fillMaxWidth().height(140.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                editAction(Modifier.weight(1f))
+                editAction?.invoke(Modifier.weight(1f))
                 TextButton(onClick = onRemove) { Text(removeLabel) }
             }
         }

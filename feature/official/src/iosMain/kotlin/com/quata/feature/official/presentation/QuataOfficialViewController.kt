@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -22,6 +24,11 @@ import com.quata.core.platform.ShareService
 import platform.UIKit.UIViewController
 import platform.Foundation.NSUUID
 import com.quata.feature.official.domain.OfficialPostLanguage
+import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.feature.postcomposer.presentation.IosComposerLocalImagePreview
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -181,6 +188,8 @@ fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencie
 class IosOfficialEditorRootDependencies(
     val repository: OfficialRepository,
     val languageTag: String? = null,
+    /** Installed by the authenticated launcher with real PhotosUI/Files hosts and transport. */
+    val mediaGateway: IosOfficialEditorMediaGateway,
     val onBack: () -> Unit = {},
     val onPublished: () -> Unit = {},
 )
@@ -188,6 +197,14 @@ class IosOfficialEditorRootDependencies(
 fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
+            val lifecycleScope = rememberCoroutineScope()
+            DisposableEffect(dependencies.mediaGateway) {
+                onDispose {
+                    lifecycleScope.launch(NonCancellable, start = CoroutineStart.UNDISPATCHED) {
+                        dependencies.mediaGateway.discardAll()
+                    }
+                }
+            }
             var allowed by remember { mutableStateOf<Boolean?>(null) }
             LaunchedEffect(dependencies.repository) {
                 val profile = dependencies.repository.refreshCurrentUser().getOrNull()
@@ -198,17 +215,40 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 return@QuataTheme
             }
             val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
+            val editorStrings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag)
             OfficialPostEditorRoot(
                 padding = PaddingValues(), language = language,
-                strings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag),
-                slots = OfficialEditorPlatformSlots(
-                    // A Compose text input is functional on UIKit and stores literal HTML. Rich
-                    // toolbar support is not claimed on this target until its native adapter lands.
-                    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-                ),
-                onSubmit = { drafts -> dependencies.repository.createPosts(drafts).map { dependencies.onPublished() } },
+                strings = editorStrings,
+                slots = iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway),
+                onSubmit = { drafts ->
+                    dependencies.mediaGateway.submit(dependencies.repository, drafts).map { dependencies.onPublished() }
+                },
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
             )
         }
     }
+
+internal fun iosOfficialEditorPlatformSlots(
+    strings: OfficialPostEditorStrings,
+    gateway: IosOfficialEditorMediaGateway,
+) = OfficialEditorPlatformSlots(
+    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+    imagePicker = { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, gateway, picked, modifier)
+    },
+    videoPicker = { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, gateway, picked, modifier)
+    },
+    mediaPreview = { media, onRemove, modifier ->
+        OfficialEditorMediaPreviewContent(
+            removeLabel = "Remove", onRemove = onRemove,
+            mediaContent = { previewModifier ->
+                gateway.previewFile(media)?.let { IosComposerLocalImagePreview(it, previewModifier) }
+                    ?: Text(if (media.type == OfficialMediaType.Video) "Video thumbnail unavailable" else "Image preview unavailable")
+            },
+            modifier = modifier,
+        )
+    },
+    discardMedia = { media -> gateway.discard(media) },
+)

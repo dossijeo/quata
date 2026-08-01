@@ -17,6 +17,8 @@ import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialReadMoreOption
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
 
 /**
  * A real capability supplied by a target.  A missing capability is represented by null, never
@@ -27,11 +29,20 @@ class OfficialEditorPlatformSlots(
     val imagePicker: (@Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit)? = null,
     val videoPicker: (@Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit)? = null,
     val mediaPreview: (@Composable (OfficialEditorMedia, onRemove: () -> Unit, Modifier) -> Unit)? = null,
+    /** Releases a platform-owned prepared selection. It is deliberately absent on browser slots. */
+    val discardMedia: (suspend (OfficialEditorMedia) -> Unit)? = null,
     val postPreview: (@Composable (OfficialPostDraft, Modifier) -> Unit)? = null,
 )
 
 /** A local media selection. [url] must be uploadable by the platform submitter. */
-data class OfficialEditorMedia(val url: String, val type: OfficialMediaType)
+data class OfficialEditorMedia(
+    val url: String,
+    val type: OfficialMediaType,
+    /** Platform-private token; common UI never dereferences it or carries media bytes. */
+    val preparedHandle: String? = null,
+    val displayName: String? = null,
+    val mimeType: String? = null,
+)
 
 fun interface OfficialDraftTranslator {
     suspend fun translate(draft: OfficialPostDraft, target: OfficialPostLanguage): Result<OfficialPostDraft>
@@ -111,11 +122,12 @@ fun OfficialPostEditorRoot(
         title = title.trim(), summary = summary.trim(), contentHtml = html,
         readMoreLabel = if (advanced) readMore.shortcode else "",
         language = target, translationGroupId = groupId, type = type,
-        mediaUrl = media?.url, mediaType = media?.type, linkUrl = if (advanced) link.trim().ifBlank { null } else null,
+        mediaUrl = media?.preparedHandle ?: media?.url, mediaType = media?.type, linkUrl = if (advanced) link.trim().ifBlank { null } else null,
     )
     fun valid() = isOfficialEditorDraftValid(title, html)
     fun reset() {
         advanced = false; type = OfficialPostType.Announcement; title = ""; summary = ""; html = ""; link = ""
+        media?.let { selected -> slots.discardMedia?.let { discard -> scope.launch { discard(selected) } } }
         readMore = OfficialReadMoreOption.ReadMore; media = null; feedback = strings.success
     }
     fun publish(drafts: List<OfficialPostDraft>) = scope.launch {
@@ -140,9 +152,9 @@ fun OfficialPostEditorRoot(
             mediaSection = {
                 if (slots.imagePicker != null || slots.videoPicker != null) OfficialEditorMediaSectionContent(
                     title = strings.media,
-                    imagePicker = slots.imagePicker?.let { picker -> { modifier -> picker({ media = it }, modifier) } },
-                    videoPicker = slots.videoPicker?.let { picker -> { modifier -> picker({ media = it }, modifier) } },
-                    preview = media?.let { selected -> slots.mediaPreview?.let { preview -> { preview(selected, { media = null }, Modifier.fillMaxWidth()) } } },
+                    imagePicker = slots.imagePicker?.let { picker -> { modifier -> picker({ picked -> media?.takeIf { it != picked }?.let { old -> slots.discardMedia?.let { discard -> scope.launch { discard(old) } } }; media = picked }, modifier) } },
+                    videoPicker = slots.videoPicker?.let { picker -> { modifier -> picker({ picked -> media?.takeIf { it != picked }?.let { old -> slots.discardMedia?.let { discard -> scope.launch { discard(old) } } }; media = picked }, modifier) } },
+                    preview = media?.let { selected -> slots.mediaPreview?.let { preview -> { preview(selected, { slots.discardMedia?.let { discard -> scope.launch { discard(selected) } }; media = null }, Modifier.fillMaxWidth()) } } },
                 )
             },
             bodySection = {
@@ -172,7 +184,15 @@ fun OfficialPostEditorRoot(
                 })
             },
         )
-        androidx.compose.material3.TextButton(onClick = onBack) { Text(strings.back) }
+        androidx.compose.material3.TextButton(onClick = {
+            media?.let { selected ->
+                slots.discardMedia?.let { discard ->
+                    scope.launch(NonCancellable, start = CoroutineStart.UNDISPATCHED) { discard(selected) }
+                }
+            }
+            media = null
+            onBack()
+        }) { Text(strings.back) }
     }
     if (translationPrompt) OfficialTranslationPromptContent(
         title = strings.translateTitle, message = strings.translateMessage, progressLabel = strings.translating,

@@ -496,11 +496,26 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
             preferredLanguageTag: Locale.preferredLanguages.first
         )
+        let mediaPresenter = platformServices
+        let mediaConfiguration = IosOfficialRuntimeConfiguration(
+            supabaseUrl: configuration.supabaseUrl,
+            supabasePublishableKey: configuration.supabasePublishableKey
+        )
+        let mediaAuthSession = runtimeBootstrap.authSessionForInteractiveLogin()
         authenticatedHost.installOfficialEditorFactory { [weak self] in
-            QuataOfficialViewControllerKt.QuataOfficialEditorRootViewController(
+            // Every route instance owns its gateway; global navigation/logout disposes the
+            // controller and its Compose lifecycle releases every selected temporary file.
+            let mediaGateway = IosOfficialEditorMediaGatewayKt.createIosOfficialEditorMediaGateway(
+                presenterProvider: mediaPresenter,
+                configuration: mediaConfiguration,
+                authSession: mediaAuthSession,
+                videoThumbnails: mediaPresenter.services.videoThumbnails
+            )
+            return QuataOfficialViewControllerKt.QuataOfficialEditorRootViewController(
                 dependencies: IosOfficialEditorRootDependencies(
                     repository: repository,
                     languageTag: Locale.preferredLanguages.first,
+                    mediaGateway: mediaGateway,
                     onBack: { self?.authenticatedHost.showOfficial(postId: nil) },
                     onPublished: { self?.authenticatedHost.showOfficial(postId: nil) }
                 )
