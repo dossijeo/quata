@@ -188,6 +188,28 @@ Reglas de aplicación:
 - En el Mac Hyper-V se usa la lane de arquitectura/renderer compatible documentada por el proyecto;
   que una lane ARM no funcione en esa VM no autoriza a omitir la compilación ARM de CI.
 
+### Mac Hyper-V sin Metal: renderer raster CPU
+
+- Todo gate iOS ejecutado en ese Mac copia
+  `~/.gradle/init.d/hyperv-compose-raster.init.gradle` dentro de
+  `$GRADLE_USER_HOME/init.d/` cuando usa un `GRADLE_USER_HOME` aislado. El home aislado no puede
+  omitir silenciosamente el init script que selecciona el renderer CPU.
+- Antes de Gradle se exporta
+  `HYPERV_RASTER_REPOSITORY=$HOME/.local/share/macos-hyperv-builder/raster-m2/repository`.
+  El repositorio raster se añade a los repositorios públicos necesarios; no sustituye ni elimina
+  Google, Maven Central o los repositorios públicos de JetBrains requeridos por el build.
+- El preflight de resolución debe acreditar exactamente
+  `org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT`. Si falta ese componente o
+  Gradle resuelve el `skiko-iosx64` stock, el gate aborta antes de compilar o arrancar el simulador.
+- El simulador candidato recomendado es `Quata-Raster-iOS-18-Clean`, con UDID registrado cuyo
+  prefijo conocido es `3EDE`. Antes de actuar se resuelve y registra siempre el UDID completo.
+  El simulador estable cuyo UDID empieza por `69D` se preserva.
+- Está prohibido usar `hyperv-simulator.sh shutdown` durante un gate: detiene servicios globales y
+  puede derribar el runtime estable. Arranque, apagado, borrado o limpieza se realizan solo con
+  `xcrun simctl` dirigido al UDID completo del candidato; nunca con acciones globales.
+- La automatización del canvas Compose usa XCTest/XCUI, coordenadas y labels accesibles dentro de
+  la sesión del simulador. No se inyectan eventos remotos mediante CGEvent.
+
 ## 9. Criterios que nunca justifican un atajo
 
 - Backend temporalmente inseguro: se implementa el contrato actual y se documenta la deuda.
