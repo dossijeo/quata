@@ -75,6 +75,12 @@ fun ProfileScreen(
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
     val context = LocalContext.current
+    val cameraPermissionMessage = stringResource(R.string.profile_camera_permission_photo)
+    val changePhotoLabel = stringResource(R.string.profile_change_photo)
+    val pickGalleryLabel = stringResource(R.string.profile_pick_gallery)
+    val takePhotoLabel = stringResource(R.string.profile_take_photo)
+    val addContactLabel = stringResource(R.string.common_add)
+    val removeContactLabel = stringResource(R.string.common_remove)
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     var photoMenuOpen by rememberSaveable { mutableStateOf(false) }
     var cameraOpen by rememberSaveable { mutableStateOf(false) }
@@ -86,7 +92,7 @@ fun ProfileScreen(
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { editorUri = it }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (context.hasCameraPermission()) cameraOpen = true
-        else Toast.makeText(context, context.getString(R.string.profile_camera_permission_photo), Toast.LENGTH_SHORT).show()
+        else Toast.makeText(context, cameraPermissionMessage, Toast.LENGTH_SHORT).show()
     }
     LaunchedEffect(editorUri) { onFullscreenEditorVisibilityChange(editorUri != null) }
     DisposableEffect(Unit) { onDispose { onFullscreenEditorVisibilityChange(false) } }
@@ -115,20 +121,20 @@ fun ProfileScreen(
                 avatarActions = { change ->
                     avatarChanged = change
                     OutlinedButton(onClick = { photoMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                        CompactIcon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(4.dp)); Text(context.getString(R.string.profile_change_photo))
+                        CompactIcon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(4.dp)); Text(changePhotoLabel)
                     }
                     DropdownMenu(photoMenuOpen, { photoMenuOpen = false }) {
-                        DropdownMenuItem(text = { Text(context.getString(R.string.profile_pick_gallery)) }, onClick = {
+                        DropdownMenuItem(text = { Text(pickGalleryLabel) }, onClick = {
                             photoMenuOpen = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         })
-                        DropdownMenuItem(text = { Text(context.getString(R.string.profile_take_photo)) }, onClick = {
+                        DropdownMenuItem(text = { Text(takePhotoLabel) }, onClick = {
                             photoMenuOpen = false
                             if (context.hasCameraPermission()) cameraOpen = true else permission.launch(arrayOf(Manifest.permission.CAMERA))
                         })
                     }
                 },
                 emergencyContactRow = { user, selected, toggle -> EmergencyUserRowContent(
-                    user, selected, context.getString(R.string.common_add), context.getString(R.string.common_remove),
+                    user, selected, addContactLabel, removeContactLabel,
                     avatar = { AvatarImage(user.displayName, user.avatarUrl, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
                 ) },
                 onProfileSaved = onProfileSaved,
@@ -156,6 +162,8 @@ fun EmergencyContactsDialog(
     onSave: () -> Unit,
 ) {
     val context = LocalContext.current
+    val addContactLabel = stringResource(R.string.common_add)
+    val removeContactLabel = stringResource(R.string.common_remove)
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     BackHandler(true, onDismiss)
@@ -165,7 +173,7 @@ fun EmergencyContactsDialog(
         onMessageChange, onToggleContact, onDismiss, onSave,
         EmergencyContactsDialogSlots(
             contactRow = { user, selected, toggle -> EmergencyUserRowContent(
-                user, selected, stringResource(R.string.common_add), stringResource(R.string.common_remove),
+                user, selected, addContactLabel, removeContactLabel,
                 avatar = { AvatarImage(user.displayName, null, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
             ) },
             messageInput = { modifier, value, change, minLines, maxLines -> OutlinedTextField(
