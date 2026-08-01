@@ -34,6 +34,7 @@ fun webFeatureCapabilityRegistry(
     val remoteRead = configuration.isBackendConfigured
     val remoteOrigin = if (remoteRead) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     val remoteProfile = remoteRead && hasAuthenticatedSession
+    val remoteComposer = remoteRead && hasAuthenticatedSession
     val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local
     fun capability(
         source: CapabilityStateOrigin = remoteOrigin,
@@ -71,9 +72,9 @@ fun webFeatureCapabilityRegistry(
                 QuataFeature.Communities to capability(),
                 QuataFeature.Official to capability(),
                 QuataFeature.Composer to capability(
-                    source = remoteOrigin,
-                    mutation = remoteOrigin,
-                    backend = remoteRead,
+                    source = if (remoteComposer) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local,
+                    mutation = if (remoteComposer) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported,
+                    backend = remoteComposer,
                 ),
             ),
         ),

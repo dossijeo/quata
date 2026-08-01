@@ -4,6 +4,9 @@ package com.quata.feature.postcomposer.presentation
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.location.Geocoder
 import android.location.Location
 import android.media.MediaCodec
@@ -12,25 +15,41 @@ import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -57,17 +76,21 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.findQuataTextureView
 import com.quata.core.media.copyImageToFileNormalizingOrientation
+import com.quata.core.media.withQuataMediaMetadataRetriever
+import com.quata.core.ui.components.normalizedQuataVideoRotation
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private enum class CaptureTarget { Photo, Video }
 
@@ -200,7 +223,7 @@ fun CreatePostScreen(
                 captureVideo = { capture(CaptureTarget.Video) },
                 editVideo = { state.videoUri?.let(Uri::parse)?.let { videoEditorUri = it } },
                 imagePreview = { uri, modifier -> AsyncImage(uri, context.getString(R.string.composer_selected_image), modifier.fillMaxSize(), contentScale = ContentScale.Crop) },
-                videoPreview = { uri, modifier -> AndroidComposerVideoPreview(uri, modifier) },
+                videoPreview = { uri, contain, modifier -> AndroidComposerVideoPreview(uri, contain, modifier) },
                 clearOwnedMedia = ::clearOwnedMedia,
             ),
         )
@@ -254,32 +277,121 @@ fun CreatePostScreen(
 }
 
 @Composable
-private fun AndroidComposerVideoPreview(uri: String, modifier: Modifier) {
+private fun AndroidComposerVideoPreview(uri: String, useContainLayout: Boolean, modifier: Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val player = remember(uri) { ExoPlayer.Builder(context).build().apply { setMediaItem(MediaItem.fromUri(uri)); prepare(); repeatMode = Player.REPEAT_MODE_ONE } }
-    var rotation by remember(uri) { mutableStateOf(0) }
-    LaunchedEffect(uri) { rotation = withContext(Dispatchers.IO) { context.readComposerVideoRotation(Uri.parse(uri)) } }
+    var isPlaying by rememberSaveable(uri) { mutableStateOf(false) }
+    var positionMs by remember(uri) { mutableLongStateOf(0L) }
+    var durationMs by remember(uri) { mutableLongStateOf(0L) }
+    var hasRenderedFirstFrame by remember(uri) { mutableStateOf(false) }
+    var isPlayerRequested by rememberSaveable(uri) { mutableStateOf(false) }
+    var shouldAutoPlay by rememberSaveable(uri) { mutableStateOf(false) }
+    val posterFrame by produceState<Bitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) { context.loadComposerVideoPosterFrame(Uri.parse(uri)) }
+    }
+    val playbackRotation by produceState(0, uri) {
+        value = withContext(Dispatchers.IO) { context.readComposerVideoRotation(Uri.parse(uri)) ?: 0 }
+    }
+    val player = remember(uri, isPlayerRequested) {
+        if (!isPlayerRequested) return@remember null
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(uri)); repeatMode = Player.REPEAT_MODE_OFF
+            playWhenReady = shouldAutoPlay; volume = 1f; prepare(); seekTo(0L)
+        }
+    }
+    LaunchedEffect(player) {
+        val active = player ?: return@LaunchedEffect
+        while (true) {
+            positionMs = active.currentPosition.coerceAtLeast(0L)
+            durationMs = active.duration.takeIf { it > 0L } ?: durationMs
+            isPlaying = active.isPlaying
+            delay(250L)
+        }
+    }
+    LaunchedEffect(player, shouldAutoPlay) {
+        val active = player ?: return@LaunchedEffect
+        if (shouldAutoPlay) active.play() else active.pause()
+        isPlaying = shouldAutoPlay
+    }
+    DisposableEffect(player) {
+        if (player == null) onDispose { } else {
+            val listener = object : Player.Listener {
+                override fun onRenderedFirstFrame() { hasRenderedFirstFrame = true }
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        durationMs = player.duration.takeIf { it > 0L } ?: durationMs
+                        if (player.currentPosition <= 0L && !hasRenderedFirstFrame) runCatching { player.seekTo(0L) }
+                    }
+                }
+            }
+            player.addListener(listener)
+            onDispose { player.removeListener(listener); player.release() }
+        }
+    }
     DisposableEffect(player, lifecycleOwner) {
+        val active = player ?: return@DisposableEffect onDispose { }
         val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> player.playWhenReady = true
-                Lifecycle.Event.ON_PAUSE -> player.pause()
-                else -> Unit
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                shouldAutoPlay = false; active.pause(); isPlaying = false
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); player.release() }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    AndroidView(
-        factory = { PlayerView(it).apply { useController = true; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM; this.player = player } },
-        update = { view ->
-            view.player = player
-            view.post { view.findQuataTextureView()?.applyQuataVideoPlaybackTransform(rotation) }
-        },
-        modifier = modifier.fillMaxSize(),
-    )
+    fun togglePlayback() {
+        val active = player
+        if (active == null) { shouldAutoPlay = true; isPlayerRequested = true; isPlaying = true; return }
+        if (active.isPlaying) { shouldAutoPlay = false; active.pause(); isPlaying = false }
+        else { if (active.playbackState == Player.STATE_ENDED) active.seekTo(0L); shouldAutoPlay = true; active.play(); isPlaying = true }
+    }
+    Box(modifier.fillMaxSize().background(Color.Transparent)) {
+        val previewLayout = composerVideoPreviewLayout(useContainLayout)
+        val resizeMode = if (previewLayout == ComposerVideoPreviewLayout.Contain) AspectRatioFrameLayout.RESIZE_MODE_FIT else AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        val posterScale = if (previewLayout == ComposerVideoPreviewLayout.Contain) ContentScale.Fit else ContentScale.Crop
+        player?.let { active ->
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { viewContext ->
+                    (LayoutInflater.from(viewContext).inflate(R.layout.quata_feed_player_texture, null, false) as PlayerView).apply {
+                        this.player = active; useController = false; this.resizeMode = resizeMode
+                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    }
+                },
+                update = { view ->
+                    view.useController = false; view.resizeMode = resizeMode
+                    if (view.player !== active) view.player = active
+                    view.findQuataTextureView()?.applyQuataVideoPlaybackTransform(playbackRotation)
+                },
+                onRelease = { it.player = null },
+            )
+        }
+        posterFrame?.takeUnless { hasRenderedFirstFrame }?.let { frame ->
+            Image(frame.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = posterScale)
+        }
+        Box(Modifier.fillMaxSize().clickable { togglePlayback() })
+        ComposerVideoPreviewControlsContent(
+            isPlaying = isPlaying, positionMs = positionMs, durationMs = durationMs,
+            playContentDescription = stringResource(R.string.feed_play), pauseContentDescription = stringResource(R.string.feed_pause),
+            replayContentDescription = stringResource(R.string.video_editor_previous), onPlayPause = ::togglePlayback,
+            onReplay = {
+                positionMs = 0L; shouldAutoPlay = true
+                if (player == null) isPlayerRequested = true else { player.seekTo(0L); player.play() }
+                isPlaying = true
+            },
+            onSeek = { target -> player?.seekTo(target); positionMs = target },
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, end = 78.dp, bottom = 8.dp),
+        )
+    }
 }
+
+private fun Context.loadComposerVideoPosterFrame(uri: Uri): Bitmap? = runCatching {
+    withComposerMetadataRetriever { retriever ->
+        retriever.setComposerVideoSource(this, uri)
+        val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
+        if (uri.lastPathSegment?.startsWith("quata-edited-video-") == true && (rotation == 90 || rotation == 270)) return@withComposerMetadataRetriever null
+        retriever.getScaledComposerVideoFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, ComposerPreviewPosterMaxDimension)
+    }
+}.getOrNull()
 
 private fun android.content.Context.locationLabel(location: Location): String = runCatching {
     Geocoder(this, Locale.getDefault()).getFromLocation(location.latitude, location.longitude, 1)
@@ -300,53 +412,236 @@ private fun android.content.Context.prepareComposerImageSource(source: Uri): Uri
         .onFailure { Log.w("QuataComposerImage", "Could not prepare $source", it); output.delete() }.getOrNull()
 }
 
-private fun android.content.Context.prepareComposerVideoSource(source: Uri): Uri? {
-    val output = File(cacheDir, "quata-prepared-video-${System.currentTimeMillis()}.mp4")
-    return runCatching {
-        val extractor = MediaExtractor()
-        var muxer: MediaMuxer? = null
-        try {
-            extractor.setDataSource(this, source, null)
-            muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            readComposerVideoRotation(source).takeIf { it != 0 }?.let(muxer::setOrientationHint)
-            val tracks = mutableMapOf<Int, Int>()
-            var bufferSize = 1024 * 1024
-            for (index in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(index)
-                val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
-                if (mime.startsWith("video/") || mime.startsWith("audio/")) {
-                    tracks[index] = muxer.addTrack(format)
-                    extractor.selectTrack(index)
-                    if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) bufferSize = maxOf(bufferSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
-                }
-            }
-            check(tracks.keys.any { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true })
-            muxer.start()
-            val buffer = ByteBuffer.allocateDirect(bufferSize)
-            val info = MediaCodec.BufferInfo()
-            while (extractor.sampleTrackIndex >= 0) {
-                val sourceTrack = extractor.sampleTrackIndex
-                val targetTrack = tracks[sourceTrack]
-                if (targetTrack == null) { extractor.advance(); continue }
-                buffer.clear()
-                val size = extractor.readSampleData(buffer, 0)
-                if (size < 0) break
-                info.set(0, size, extractor.sampleTime.coerceAtLeast(0), extractor.sampleFlags)
-                muxer.writeSampleData(targetTrack, buffer, info)
-                extractor.advance()
-            }
-            muxer.stop()
-        } finally { extractor.release(); runCatching { muxer?.release() } }
-        Uri.fromFile(output)
-    }.onFailure { Log.w("QuataComposerVideo", "Could not prepare $source", it); output.delete() }.getOrNull()
+private fun Context.prepareComposerVideoSource(sourceUri: Uri): Uri? {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canUseComposerVideoSourceDirectly(sourceUri)) return sourceUri
+    val outputFile = File(cacheDir, "quata-prepared-video-${System.currentTimeMillis()}.mp4")
+    return runCatching { remuxComposerVideoForEditor(sourceUri, outputFile); Uri.fromFile(outputFile) }
+        .onFailure { Log.w("QuataComposerVideo", "Could not prepare video source source=$sourceUri", it); outputFile.delete() }.getOrNull()
 }
 
-private fun android.content.Context.readComposerVideoRotation(uri: Uri): Int = runCatching {
-    MediaMetadataRetriever().use { retriever ->
-        retriever.setDataSource(this, uri)
-        ((retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0) % 360 + 360) % 360
+private fun Context.canUseComposerVideoSourceDirectly(uri: Uri): Boolean = runCatching {
+    withComposerMetadataRetriever { retriever ->
+        retriever.setComposerVideoSource(this, uri)
+        val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+        val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return@withComposerMetadataRetriever false
+        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: return@withComposerMetadataRetriever false
+        isValidComposerVideoMetadata(width, height, durationMs)
     }
-}.getOrDefault(0)
+}.getOrDefault(false)
+
+private fun Context.remuxComposerVideoForEditor(sourceUri: Uri, outputFile: File) {
+    val extractor = MediaExtractor()
+    var muxer: MediaMuxer? = null
+    var muxerStarted = false
+    var completed = false
+    try {
+        extractor.setDataSource(this, sourceUri, null)
+        muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        var rotationHint = readComposerVideoRotation(sourceUri)
+        val muxedTracks = linkedMapOf<Int, ComposerVideoRemuxTrack>()
+        var hasVideoTrack = false
+        var maxInputSize = ComposerVideoRemuxDefaultBufferSize
+        for (trackIndex in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(trackIndex)
+            val mimeType = format.composerMimeType() ?: continue
+            val isVideo = mimeType.startsWith("video/")
+            val isAudio = mimeType.startsWith("audio/")
+            if (!isVideo && !isAudio) continue
+            if (isVideo) rotationHint = composerVideoRotationHint(rotationHint, format.composerRotationOrNull())
+            val muxerFormat = composerMuxerTrackFormat(format, mimeType, isVideo) ?: continue
+            muxedTracks[trackIndex] = ComposerVideoRemuxTrack(
+                muxedTrackIndex = muxer.addTrack(muxerFormat), isVideo = isVideo,
+                fallbackSampleDurationUs = format.composerFallbackSampleDurationUs(mimeType, isVideo),
+                forceSyntheticVideoTimestamps = format.composerVideoTimestampsNeedRepair(isVideo),
+            )
+            hasVideoTrack = hasVideoTrack || isVideo
+            maxInputSize = maxOf(maxInputSize, format.composerMaxInputSizeOrNull() ?: ComposerVideoRemuxDefaultBufferSize)
+        }
+        check(hasVideoTrack) { "No video track available" }
+        check(muxedTracks.isNotEmpty()) { "No audio or video tracks available" }
+        rotationHint?.normalizedComposerVideoRotation()?.takeIf { it == 90 || it == 180 || it == 270 }?.let(muxer::setOrientationHint)
+        muxedTracks.keys.forEach(extractor::selectTrack)
+        muxer.start(); muxerStarted = true
+        val buffer = ByteBuffer.allocateDirect(maxInputSize.coerceAtLeast(ComposerVideoRemuxDefaultBufferSize))
+        val bufferInfo = MediaCodec.BufferInfo()
+        while (true) {
+            val trackIndex = extractor.sampleTrackIndex
+            if (trackIndex < 0) break
+            val muxedTrack = muxedTracks[trackIndex]
+            if (muxedTrack == null) { extractor.advance(); continue }
+            val sampleTimeUs = extractor.sampleTime
+            if (sampleTimeUs < 0L) break
+            buffer.clear()
+            val sampleSize = extractor.readSampleData(buffer, 0)
+            if (sampleSize < 0) break
+            buffer.position(0); buffer.limit(sampleSize)
+            bufferInfo.set(0, sampleSize, muxedTrack.presentationTimeUs(sampleTimeUs), extractor.sampleFlags.toMediaCodecBufferFlags())
+            muxer.writeSampleData(muxedTrack.muxedTrackIndex, buffer, bufferInfo)
+            extractor.advance()
+        }
+        muxer.stop(); completed = true
+    } finally {
+        extractor.release()
+        runCatching { if (!completed && muxerStarted) muxer?.stop() }
+        runCatching { muxer?.release() }
+        if (!completed) runCatching { outputFile.delete() }
+    }
+}
+
+internal class ComposerVideoRemuxTrack(
+    val muxedTrackIndex: Int,
+    private val isVideo: Boolean,
+    private val fallbackSampleDurationUs: Long,
+    private val forceSyntheticVideoTimestamps: Boolean,
+) {
+    private var lastSourceTimeUs: Long? = null
+    private var lastPresentationTimeUs = 0L
+    private var nextVideoPresentationTimeUs = 0L
+    fun presentationTimeUs(sourceTimeUs: Long): Long {
+        if (isVideo && forceSyntheticVideoTimestamps) return nextVideoPresentationTimeUs.also { nextVideoPresentationTimeUs += fallbackSampleDurationUs }
+        val previous = lastSourceTimeUs
+        val presentation = if (previous == null) 0L else lastPresentationTimeUs + ((sourceTimeUs - previous).takeIf { it in 1L..ComposerVideoRemuxMaxTrustedSampleDeltaUs } ?: fallbackSampleDurationUs)
+        lastSourceTimeUs = sourceTimeUs; lastPresentationTimeUs = presentation
+        return presentation
+    }
+}
+
+private fun Int.toMediaCodecBufferFlags(): Int {
+    var result = 0
+    if (this and MediaExtractor.SAMPLE_FLAG_SYNC != 0) result = result or MediaCodec.BUFFER_FLAG_KEY_FRAME
+    if (this and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) result = result or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+    return result
+}
+
+private fun MediaFormat.composerFallbackSampleDurationUs(mimeType: String, isVideo: Boolean): Long {
+    if (isVideo) {
+        val frameRate = composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 12..120 } ?: ComposerVideoRemuxFallbackFrameRate
+        return (1_000_000L / frameRate).coerceAtLeast(1L)
+    }
+    if (mimeType.contains("amr", true) || mimeType == "audio/3gpp") return 20_000L
+    val sampleRate = composerIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE)?.takeIf { it > 0 }
+    return sampleRate?.let { (1024L * 1_000_000L / it).coerceAtLeast(1L) } ?: 23_000L
+}
+
+internal fun composerVideoTimestampsNeedRepair(frameRate: Int?, durationUs: Long?): Boolean {
+    if (frameRate != null && frameRate in 1..240) return true
+    val duration = durationUs?.takeIf { it > 0L } ?: return true
+    val expectedMin = frameRate?.let { 1_000_000L / it } ?: 1L
+    return duration < expectedMin
+}
+
+internal enum class ComposerVideoPreviewLayout { Contain, Crop }
+internal fun composerVideoPreviewLayout(useContainLayout: Boolean) = if (useContainLayout) ComposerVideoPreviewLayout.Contain else ComposerVideoPreviewLayout.Crop
+internal fun isValidComposerVideoMetadata(width: Int, height: Int, durationMs: Long) = width > 0 && height > 0 && durationMs > 0L
+internal fun composerVideoRotationHint(metadataRotation: Int?, formatRotation: Int?): Int? = metadataRotation ?: formatRotation
+
+private fun MediaFormat.composerVideoTimestampsNeedRepair(isVideo: Boolean): Boolean = isVideo && composerVideoTimestampsNeedRepair(
+    composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE), composerLongOrNull(MediaFormat.KEY_DURATION),
+)
+
+private fun composerMuxerTrackFormat(format: MediaFormat, mimeType: String, isVideo: Boolean): MediaFormat? = runCatching {
+    val target = if (isVideo) {
+        MediaFormat.createVideoFormat(mimeType, format.composerIntegerOrNull(MediaFormat.KEY_WIDTH) ?: return@runCatching null, format.composerIntegerOrNull(MediaFormat.KEY_HEIGHT) ?: return@runCatching null)
+    } else {
+        MediaFormat.createAudioFormat(mimeType, format.composerIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: return@runCatching null, format.composerIntegerOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: return@runCatching null)
+    }
+    format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_MAX_INPUT_SIZE)
+    format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_BIT_RATE)
+    format.composerCopyLongKeyTo(target, MediaFormat.KEY_DURATION)
+    if (isVideo) format.composerIntegerOrNull(MediaFormat.KEY_FRAME_RATE)?.takeIf { it in 1..240 }?.let { target.setInteger(MediaFormat.KEY_FRAME_RATE, it) }
+    else {
+        format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_AAC_PROFILE); format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_CHANNEL_MASK); format.composerCopyIntegerKeyTo(target, MediaFormat.KEY_PCM_ENCODING)
+    }
+    format.composerCopyStringKeyTo(target, MediaFormat.KEY_LANGUAGE)
+    for (index in 0..3) format.composerCopyByteBufferKeyTo(target, "csd-$index")
+    target
+}.getOrNull()
+
+private fun MediaFormat.composerMimeType(): String? = if (containsKey(MediaFormat.KEY_MIME)) getString(MediaFormat.KEY_MIME) else null
+private fun MediaFormat.composerMaxInputSizeOrNull(): Int? = if (containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) runCatching { getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) }.getOrNull() else null
+private fun MediaFormat.composerIntegerOrNull(key: String): Int? = if (containsKey(key)) runCatching { getInteger(key) }.getOrNull() else null
+private fun MediaFormat.composerLongOrNull(key: String): Long? = if (containsKey(key)) runCatching { getLong(key) }.getOrNull() else null
+private fun MediaFormat.composerRotationOrNull(): Int? = composerIntegerOrNull(MediaFormat.KEY_ROTATION)?.normalizedComposerVideoRotation()?.takeIf { it == 90 || it == 180 || it == 270 }
+private fun MediaFormat.composerCopyIntegerKeyTo(target: MediaFormat, key: String) { composerIntegerOrNull(key)?.let { target.setInteger(key, it) } }
+private fun MediaFormat.composerCopyLongKeyTo(target: MediaFormat, key: String) { composerLongOrNull(key)?.let { target.setLong(key, it) } }
+private fun MediaFormat.composerCopyStringKeyTo(target: MediaFormat, key: String) { if (containsKey(key)) runCatching { getString(key) }.getOrNull()?.let { target.setString(key, it) } }
+private fun MediaFormat.composerCopyByteBufferKeyTo(target: MediaFormat, key: String) {
+    if (!containsKey(key)) return
+    val source = runCatching { getByteBuffer(key) }.getOrNull() ?: return
+    val duplicate = source.duplicate(); val copy = ByteBuffer.allocate(duplicate.remaining()); copy.put(duplicate); copy.flip(); target.setByteBuffer(key, copy)
+}
+
+private fun Context.readComposerVideoRotation(uri: Uri): Int? = runCatching {
+    withComposerMetadataRetriever { retriever -> retriever.setComposerVideoSource(this, uri); retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() }
+}.getOrNull()
+
+private inline fun <T> withComposerMetadataRetriever(block: (MediaMetadataRetriever) -> T): T =
+    withQuataMediaMetadataRetriever(block)
+
+private fun MediaMetadataRetriever.setComposerVideoSource(context: Context, uri: Uri) {
+    when (uri.scheme) {
+        "content" -> {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
+                if (descriptor.length >= 0L) setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length) else setDataSource(descriptor.fileDescriptor)
+                return
+            }
+            setDataSource(context, uri)
+        }
+        "file" -> setDataSource(uri.path)
+        else -> setDataSource(uri.toString(), emptyMap())
+    }
+}
+
+private fun MediaMetadataRetriever.getScaledComposerVideoFrameAtTime(timeUs: Long, option: Int, maxDimension: Int): Bitmap? {
+    val targetSize = scaledComposerVideoFrameSize(maxDimension)
+    val rawWidth = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+    val rawHeight = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && targetSize != null) {
+        runCatching { getScaledFrameAtTime(timeUs, option, targetSize.first, targetSize.second) }.getOrNull()
+            ?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)?.let { return it }
+    }
+    return getFrameAtTime(timeUs, option)?.scaleComposerVideoPoster(maxDimension)?.orientComposerVideoFrameIfNeeded(rawWidth, rawHeight, rotation)
+}
+
+private fun Bitmap.orientComposerVideoFrameIfNeeded(rawWidth: Int, rawHeight: Int, rotationDegrees: Int): Bitmap {
+    val rotation = rotationDegrees.normalizedComposerVideoRotation()
+    if (rotation != 90 && rotation != 270 || rawWidth <= 0 || rawHeight <= 0 || width <= 0 || height <= 0) return this
+    val expectedPortrait = rawHeight < rawWidth
+    if (expectedPortrait == (height > width)) return this
+    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, Matrix().apply { postRotate(rotation.toFloat()) }, true)
+    if (rotated !== this) recycle()
+    return rotated
+}
+
+private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: Int): Pair<Int, Int>? {
+    val width = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: return null
+    val height = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: return null
+    if (width <= 0 || height <= 0) return null
+    val rotation = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.normalizedComposerVideoRotation() ?: 0
+    val displayWidth = if (rotation == 90 || rotation == 270) height else width
+    val displayHeight = if (rotation == 90 || rotation == 270) width else height
+    val scale = maxDimension.toFloat() / maxOf(displayWidth, displayHeight).toFloat()
+    val targetWidth = (displayWidth * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (displayHeight * scale).roundToInt().coerceAtLeast(1)
+    return if (rotation == 90 || rotation == 270) targetHeight to targetWidth else targetWidth to targetHeight
+}
+
+private fun Int.normalizedComposerVideoRotation(): Int = normalizedQuataVideoRotation()
+
+private fun Bitmap.scaleComposerVideoPoster(maxDimension: Int): Bitmap {
+    val largest = maxOf(width, height)
+    if (largest <= maxDimension) return this
+    val scale = maxDimension.toFloat() / largest.toFloat()
+    val scaled = Bitmap.createScaledBitmap(this, (width * scale).roundToInt().coerceAtLeast(1), (height * scale).roundToInt().coerceAtLeast(1), true)
+    if (scaled !== this) recycle()
+    return scaled
+}
+
+private const val ComposerPreviewPosterMaxDimension = 720
+private const val ComposerVideoRemuxDefaultBufferSize = 1024 * 1024
+private const val ComposerVideoRemuxFallbackFrameRate = 30
+private const val ComposerVideoRemuxMaxTrustedSampleDeltaUs = 1_000_000L
 
 private fun android.content.Context.deleteComposerOwnedImage(uri: Uri) = deleteComposerOwned(uri, "quata-prepared-image-", "quata-edited-image-")
 private fun android.content.Context.deleteComposerOwnedVideo(uri: Uri) = deleteComposerOwned(uri, "quata-prepared-video-", "quata-edited-video-")

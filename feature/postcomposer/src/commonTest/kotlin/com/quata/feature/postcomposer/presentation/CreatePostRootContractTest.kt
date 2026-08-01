@@ -45,6 +45,28 @@ class CreatePostRootContractTest {
     }
 
     @Test
+    fun publicationDispatchesExactlyOneEffectiveAuthOrSubmitCallback() {
+        var authCalls = 0
+        var submitCalls = 0
+        dispatchCreatePostPublish(false, { submitCalls++ }, { authCalls++ })
+        assertEquals(1, authCalls)
+        assertEquals(0, submitCalls)
+        dispatchCreatePostPublish(true, { submitCalls++ }, { authCalls++ })
+        assertEquals(1, authCalls)
+        assertEquals(1, submitCalls)
+    }
+
+    @Test
+    fun backCancelsOnlyWhenLoadingThenAlwaysResetsAndNavigates() {
+        val calls = mutableListOf<String>()
+        dispatchCreatePostBack(true, { calls += "cancel" }, { calls += "reset" }, { calls += "back" })
+        assertEquals(listOf("cancel", "reset", "back"), calls)
+        calls.clear()
+        dispatchCreatePostBack(false, { calls += "cancel" }, { calls += "reset" }, { calls += "back" })
+        assertEquals(listOf("reset", "back"), calls)
+    }
+
+    @Test
     fun sharedEventsBuildTheSameCompleteVideoDraftUsedByEveryHost() = runTest {
         var published = com.quata.feature.postcomposer.domain.PostComposerDraft(PostComposerType.Text)
         val viewModel = CreatePostViewModel(object : PostComposerRepository {

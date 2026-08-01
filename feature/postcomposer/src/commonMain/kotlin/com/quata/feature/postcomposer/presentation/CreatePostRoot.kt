@@ -150,12 +150,12 @@ fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy =
 data class CreatePostPlatformSlots(
     val pickImage: () -> Unit,
     val captureImage: () -> Unit,
-    val editImage: () -> Unit,
+    val editImage: (() -> Unit)?,
     val pickVideo: () -> Unit,
     val captureVideo: (() -> Unit)?,
-    val editVideo: () -> Unit,
+    val editVideo: (() -> Unit)?,
     val imagePreview: @Composable (String, Modifier) -> Unit,
-    val videoPreview: @Composable (String, Modifier) -> Unit,
+    val videoPreview: @Composable (String, Boolean, Modifier) -> Unit,
     val mediaExport: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
     val requestLocation: (((String, Double?, Double?) -> Unit) -> Unit)? = null,
     val clearOwnedMedia: (() -> Unit)? = null,
@@ -222,7 +222,7 @@ fun CreatePostRoot(
         locationOpen = false
         step = next
     }
-    fun publish(type: PostComposerType) { if (canPublish) viewModel.submit(type) else onAuthRequired() }
+    fun publish(type: PostComposerType) = dispatchCreatePostPublish(canPublish, { viewModel.submit(type) }, onAuthRequired)
     val title = when (step) {
         CreatePostStep.TypePicker -> copy.title
         CreatePostStep.Text -> copy.textTitle
@@ -305,9 +305,7 @@ fun CreatePostRoot(
             }
             if (step != CreatePostStep.TypePicker) {
                 ComposerBackButtonContent(copy.back, {
-                    if (state.isLoading) viewModel.cancelSubmit()
-                    select(CreatePostStep.TypePicker)
-                    onBack()
+                    dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
                 }, accessibility = accessibility)
             }
         },
@@ -318,6 +316,16 @@ fun CreatePostRoot(
 
 const val CreatePostTextLimit = 500
 
+fun dispatchCreatePostPublish(canPublish: Boolean, submit: () -> Unit, onAuthRequired: () -> Unit) {
+    if (canPublish) submit() else onAuthRequired()
+}
+
+fun dispatchCreatePostBack(isLoading: Boolean, cancel: () -> Unit, reset: () -> Unit, onBack: () -> Unit) {
+    if (isLoading) cancel()
+    reset()
+    onBack()
+}
+
 @Composable
 private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, publish: () -> Unit) {
     ComposerMediaPostFormContent(
@@ -327,7 +335,7 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                 title = copy.image, isLandscapeLayout = landscape,
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickImage, { Icon(Icons.Filled.PhotoLibrary, null) }, slots.pickImage, m) },
                 secondarySourceAction = { m -> ComposerActionButtonContent(copy.takePhoto, { Icon(Icons.Filled.PhotoCamera, null) }, slots.captureImage, m) },
-                editAction = state.imageUri?.let { { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, slots.editImage, m) } },
+                editAction = state.imageUri?.let { slots.editImage }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
                 afterEdit = { state.imageUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Image) } },
             )
         },
@@ -368,7 +376,7 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickVideo, { Icon(Icons.Filled.VideoLibrary, null) }, slots.pickVideo, m) },
                 secondarySourceAction = slots.captureVideo?.let { capture -> { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, capture, m) } },
                 beforeEdit = { Text(state.videoUri?.substringAfterLast('/') ?: copy.noFile, maxLines = 1) },
-                editAction = state.videoUri?.let { { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, slots.editVideo, m) } },
+                editAction = state.videoUri?.let { slots.editVideo }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
                 afterEdit = { state.videoUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Video) } },
             )
         },
@@ -380,7 +388,7 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
                         isVideo = true, description = state.text, subtitle = copy.feed, topChips = emptyList(),
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
-                        media = { slots.videoPreview(uri, Modifier.fillMaxSize()) },
+                        media = { slots.videoPreview(uri, landscape, Modifier.fillMaxSize()) },
                     )
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.videoType, copy.videoPreviewEmpty)
             })

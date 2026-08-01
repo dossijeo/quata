@@ -102,20 +102,12 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                         }
                 }
             },
-            editImage = {
-                scope.launch {
-                    dependencies.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))
-                        .composerSelectedFileOrNull()?.let { file ->
-                            imageFile = file
-                            viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
-                        }
-                }
-            },
+            editImage = null,
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
             captureVideo = null,
-            editVideo = { selectVideo(FilePickerSource.Gallery) },
+            editVideo = null,
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
-            videoPreview = { _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
+            videoPreview = { _, _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
         ),
     )
 }
