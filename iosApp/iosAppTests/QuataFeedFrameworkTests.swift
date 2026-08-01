@@ -897,8 +897,17 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-auth-host" })
     }
 
-    func testAnonymousCommunitiesActionPresentsCommonPromptBeforeAuth() {
+    func testAnonymousCommunitiesActionPresentsCommonPromptBeforeAuth() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = router
+        window.makeKeyAndVisible()
+        defer {
+            router.cancelCommunityAuthenticationPrompt()
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
         router.loadViewIfNeeded()
         router.installPublicFeed { _ in UIViewController() }
         let communities = UIViewController()
@@ -907,11 +916,40 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.showCommunities()
         XCTAssertTrue(router.children.contains { $0 === communities })
 
+        let promptPresented = expectation(description: "common authentication prompt presented")
         router.requestAuthenticationForCommunities()
-        XCTAssertNotNil(router.presentedViewController)
+        DispatchQueue.main.async {
+            guard let prompt = router.presentedViewController else { return }
+            if let coordinator = prompt.transitionCoordinator {
+                let registered = coordinator.animate(alongsideTransition: nil) { _ in promptPresented.fulfill() }
+                if !registered { promptPresented.fulfill() }
+            } else {
+                promptPresented.fulfill()
+            }
+        }
+        wait(for: [promptPresented], timeout: 2)
+
+        let prompt = try XCTUnwrap(router.presentedViewController)
+        XCTAssertEqual(prompt.modalPresentationStyle, .overFullScreen)
+        XCTAssertTrue(prompt.viewIfLoaded?.window === window)
         XCTAssertNotEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-auth-host")
 
+        let promptDismissed = expectation(description: "common authentication prompt dismissed")
         router.cancelCommunityAuthenticationPrompt()
+        DispatchQueue.main.async {
+            if let coordinator = prompt.transitionCoordinator {
+                let registered = coordinator.animate(alongsideTransition: nil) { _ in promptDismissed.fulfill() }
+                if !registered { promptDismissed.fulfill() }
+            } else {
+                promptDismissed.fulfill()
+            }
+        }
+        wait(for: [promptDismissed], timeout: 2)
+        XCTAssertNil(router.presentedViewController)
+        XCTAssertNil(prompt.viewIfLoaded?.window)
+
+        window.isHidden = true
+        window.rootViewController = nil
     }
 
     func testCancellingCommunityAuthClearsPendingAndLaterLoginDoesNotReplayRoute() {

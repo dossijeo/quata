@@ -97,12 +97,13 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
 });
 
 test('the common community profile keeps attachment and status failures recoverable across hosts', async () => {
-  const [models, rootSource, viewModel, iosRepository, iosHost, webRepository, webHost, androidRepository, androidHost] = await Promise.all([
+  const [models, rootSource, viewModel, iosRepository, iosHost, iosTests, webRepository, webHost, androidRepository, androidHost] = await Promise.all([
     source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/domain/NeighborhoodModels.kt'),
     source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileRoot.kt'),
     source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt'),
     source('feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt'),
     source('feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'),
+    source('iosApp/iosAppTests/QuataFeedFrameworkTests.swift'),
     source('web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt'),
     source('web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt'),
     source('app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt'),
@@ -125,6 +126,9 @@ test('the common community profile keeps attachment and status failures recovera
   assert.match(androidRepository, /attachmentAvailability = profileAttachmentAvailability\([\s\S]*?hasAuthenticatedSession = currentUserId != null/);
 
   assert.match(iosHost, /if \(profile == null\)[\s\S]*?TextButton\(onClick = onDismiss\) \{ Text\(dependencies\.profileStrings\.back\) \}/);
+  assert.match(iosTests, /func testAnonymousCommunitiesActionPresentsCommonPromptBeforeAuth\(\) throws \{[\s\S]*?let window = UIWindow\(frame: UIScreen\.main\.bounds\)[\s\S]*?window\.rootViewController = router[\s\S]*?window\.makeKeyAndVisible\(\)/);
+  assert.match(iosTests, /let promptPresented = expectation[\s\S]*?wait\(for: \[promptPresented\], timeout: 2\)[\s\S]*?XCTUnwrap\(router\.presentedViewController\)[\s\S]*?modalPresentationStyle, \.overFullScreen[\s\S]*?prompt\.viewIfLoaded\?\.window === window/);
+  assert.match(iosTests, /let promptDismissed = expectation[\s\S]*?cancelCommunityAuthenticationPrompt\(\)[\s\S]*?wait\(for: \[promptDismissed\], timeout: 2\)[\s\S]*?XCTAssertNil\(router\.presentedViewController\)[\s\S]*?XCTAssertNil\(prompt\.viewIfLoaded\?\.window\)[\s\S]*?window\.isHidden = true[\s\S]*?window\.rootViewController = nil/);
   assert.match(webHost, /if \(profile == null\)[\s\S]*?TextButton\(onClick = \{ model\.closeUserProfile\(\); onDismiss\(\) \}\)/);
   assert.match(androidHost, /onProfileAvatarClick = \{ user ->[\s\S]*?selectedAttachment = AttachmentPreview/);
 
