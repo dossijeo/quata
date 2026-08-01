@@ -122,6 +122,9 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
+  assert.match(runner, /fixtureState\.chatCandidateReads < 1/);
+  assert.match(runner, /body\.p_limit === 50 && body\.p_offset === 0/);
+  assert.match(runner, /chatCandidateRequests: fixtureState\.chatCandidateRequests/);
   assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);

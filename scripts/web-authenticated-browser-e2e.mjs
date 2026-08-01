@@ -451,7 +451,7 @@ async function startServer(distribution, state, configuration) {
         const accepted = request.method === "POST" &&
           request.headers.authorization === `Bearer ${FIXTURE.accessToken}` && exactKeys &&
           body.p_actor_profile_id === FIXTURE.profileId && body.p_query === "" &&
-          body.p_limit === 30 && body.p_offset === 0;
+          body.p_limit === 50 && body.p_offset === 0;
         state.chatCandidateRequests.push({
           method: request.method,
           bearer: request.headers.authorization === `Bearer ${FIXTURE.accessToken}` ? "fixture_session" : "invalid",
