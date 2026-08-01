@@ -22,7 +22,16 @@
 
 ## Revisión exacta
 
-Toda evidencia debe estar asociada al head actual. Si se añade un commit después de una revisión, esa revisión no concede GO al nuevo head aunque el cambio parezca pequeño.
+Todo gate integrado Web o iOS debe usar el commit exacto de `refs/pull/<N>/merge`. Antes de
+ejecutarlo se registran la `origin/main` exacta, `refs/pull/<N>/head` y el merge sintético. El merge
+debe tener exactamente dos padres: primero la base `main` registrada y segundo el head de PR
+registrado. El número de PR y los tres SHA completos quedan en logs, informe y capturas. Si cambia
+un padre, falta el ref o no coincide el orden, la evidencia se invalida y el gate se repite.
+
+Una compilación del head aislado solo sirve para diagnosticar la rama. No concede GO ni sustenta
+una decisión de merge. Sus informes y capturas deben identificarse como
+**DESCARTADOS: HEAD-ONLY**. La regla normativa completa permanece en el
+[modelo operativo](https://github.com/dossijeo/quata/blob/main/docs/MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md).
 
 La descripción de una PR debe indicar:
 
@@ -52,7 +61,10 @@ No se acepta un renderer alternativo o una captura fabricada para sustituir la a
 - No incluir tokens ni cabeceras de autorización.
 - Redactar teléfonos, IDs sensibles y contenido privado.
 - No almacenar claves de backend en artefactos.
-- Registrar si hubo inyección manual de configuración pública.
+- La configuración pública de despliegue solo puede inyectarse en una copia temporal servida o
+  instalada; se conserva intacto el artefacto original y se registra la inyección.
+- Ni la copia temporal ni el artefacto original pueden contener service-role keys o claves VAPID
+  privadas.
 - Detener servidores y limpiar fixtures/sesiones al terminar.
 
 Referencias:
