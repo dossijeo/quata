@@ -33,6 +33,7 @@ fun NotificationsScreen(
         emptyTitle = stringResource(R.string.notifications_empty_title),
         emptyMessage = stringResource(R.string.notifications_empty_message),
         errorTitle = stringResource(R.string.notifications_error_title),
+        retryLabel = stringResource(R.string.notifications_retry),
         relativeTime = { createdAt, now -> relativeTimeLabel(context, createdAt, now) },
         localizedBody = context::localizedChatPreview,
         photoPreview = stringResource(R.string.conversation_preview_photo),

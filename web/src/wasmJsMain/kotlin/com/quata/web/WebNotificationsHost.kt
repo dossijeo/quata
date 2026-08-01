@@ -54,6 +54,7 @@ fun WebNotificationsHost(
             emptyTitle = "Aún no hay avisos",
             emptyMessage = "La actividad nueva aparecerá aquí.",
             errorTitle = "Los avisos no están disponibles",
+            retryLabel = "Reintentar",
             relativeTime = { createdAt, now ->
                 notificationRelativeTimeLabel(createdAt, now, SpanishNotificationRelativeTimeStrings)
             },

@@ -86,6 +86,15 @@ class NotificationPresentationTest {
         assertEquals(listOf("mark", "open:conversation-7", "dismiss"), calls)
     }
 
+    @Test
+    fun errorRetryActionInvokesTheSharedRetryCallback() {
+        var retries = 0
+
+        handleNotificationRetry { retries += 1 }
+
+        assertEquals(1, retries)
+    }
+
     private fun notificationItem() = NotificationItem(
         id = "notification-1",
         conversationId = "conversation-7",
@@ -103,6 +112,7 @@ class NotificationPresentationTest {
         emptyTitle = "Vacío",
         emptyMessage = "Sin actividad",
         errorTitle = "Error",
+        retryLabel = "Reintentar",
         relativeTime = { _, _ -> "" },
         localizedBody = { it },
         photoPreview = "Foto",

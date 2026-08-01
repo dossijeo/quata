@@ -40,6 +40,7 @@ data class NotificationsStrings(
     val emptyTitle: String,
     val emptyMessage: String,
     val errorTitle: String,
+    val retryLabel: String,
     val relativeTime: (createdAt: String, nowMillis: Long) -> String,
     val localizedBody: (String) -> String,
     val photoPreview: String,
@@ -77,6 +78,7 @@ fun NotificationsContent(
     onOpenConversation: (String) -> Unit,
     onMarkRead: (NotificationItem) -> Unit,
     onDismiss: (NotificationItem) -> Unit,
+    onRetry: () -> Unit,
     canMutate: Boolean = true,
     onAuthenticationRequired: (NotificationItem) -> Unit = {},
     onDismissAuthenticationRequired: (NotificationItem) -> Unit = onAuthenticationRequired,
@@ -108,6 +110,9 @@ fun NotificationsContent(
                     state.error != null -> item("notifications-error") {
                         NotificationStatusCard(strings.errorTitle) {
                             Text(state.error, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(onClick = { handleNotificationRetry(onRetry) }) {
+                                Text(strings.retryLabel)
+                            }
                         }
                     }
                     state.items.isEmpty() -> item("notifications-empty") {
@@ -244,4 +249,8 @@ internal fun handleNotificationDismissAttempt(
     }
     onDismiss()
     return true
+}
+
+internal fun handleNotificationRetry(onRetry: () -> Unit) {
+    onRetry()
 }

@@ -21,8 +21,9 @@ import kotlin.test.assertTrue
 class NotificationsViewModelTest {
     @Test
     fun `hung first notification emission leaves loading with explicit timeout error`() = runTest {
+        val repository = HangingNotificationsRepository()
         val viewModel = NotificationsViewModel(
-            repository = HangingNotificationsRepository(),
+            repository = repository,
             dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
             initialLoadTimeoutMillis = 100,
         )
@@ -32,6 +33,7 @@ class NotificationsViewModelTest {
 
         assertFalse(viewModel.uiState.value.isLoading)
         assertEquals("notifications_initial_load_timeout", viewModel.uiState.value.error)
+        assertTrue(repository.cancelled.isCompleted)
         viewModel.close()
     }
 

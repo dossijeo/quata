@@ -7,12 +7,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.job
 
 class NotificationsViewModel(
     private val repository: NotificationsRepository,
@@ -33,6 +35,7 @@ class NotificationsViewModel(
         _uiState.value = NotificationsUiState()
         observation = scope.launch {
             var receivedFirstValue = false
+            val observerJob = coroutineContext.job
             val watchdog = launch {
                 delay(initialLoadTimeoutMillis.coerceAtLeast(1L))
                 if (!receivedFirstValue && currentAttempt == attempt) {
@@ -40,6 +43,7 @@ class NotificationsViewModel(
                         isLoading = false,
                         error = "notifications_initial_load_timeout",
                     )
+                    observerJob.cancel(InitialLoadTimeoutCancellation())
                 }
             }
             try {
@@ -88,3 +92,5 @@ class NotificationsViewModel(
         const val InitialLoadTimeoutMillis = 15_000L
     }
 }
+
+private class InitialLoadTimeoutCancellation : CancellationException("notifications_initial_load_timeout")

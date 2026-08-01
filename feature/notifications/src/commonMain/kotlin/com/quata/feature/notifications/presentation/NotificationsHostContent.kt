@@ -45,6 +45,7 @@ fun NotificationsHostContent(
             onOpenConversation = onOpenConversation,
             onMarkRead = viewModel::markRead,
             onDismiss = viewModel::dismiss,
+            onRetry = viewModel::retry,
             canMutate = canMutate,
             onAuthenticationRequired = onAuthenticationRequired,
             onDismissAuthenticationRequired = onDismissAuthenticationRequired,

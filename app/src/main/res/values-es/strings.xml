@@ -134,6 +134,7 @@
     <string name="notifications_empty_title">Aún no hay avisos</string>
     <string name="notifications_empty_message">La actividad nueva aparecerá aquí.</string>
     <string name="notifications_error_title">Los avisos no están disponibles</string>
+    <string name="notifications_retry">Reintentar</string>
     <string name="conversations_title">Chats</string>
     <string name="conversations_subtitle">Conversaciones recientes</string>
     <string name="conversations_search_placeholder">Buscar conversación...</string>
