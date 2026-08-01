@@ -52,4 +52,5 @@ fun WebOfficialEditorHost(
     }
 }
 
-private fun webOfficialTranslationGroupId(): String = js("globalThis.crypto?.randomUUID?.() || ('official-' + Date.now() + '-' + Math.random().toString(16).slice(2))")
+/** RFC-4122 v4; fail closed on browsers without Web Crypto rather than inventing a weak group id. */
+private fun webOfficialTranslationGroupId(): String = js("(() => { const c = globalThis.crypto; if (!c) throw new Error('web_crypto_unavailable'); if (c.randomUUID) return c.randomUUID(); const b = new Uint8Array(16); c.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128; const h = [...b].map(x => x.toString(16).padStart(2, '0')).join(''); return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20); })()")

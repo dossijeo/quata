@@ -478,8 +478,34 @@ private final class IosAppCompositionRoot {
         installAuthenticatedProfileSosIfAvailable()
         installCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
+        installAuthenticatedOfficialEditorIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
+    }
+
+    /// The editor is an authenticated-only fullscreen route. Its Kotlin repository verifies the
+    /// current official/admin profile again before every mutation; this factory is removed with
+    /// the authenticated shell on logout.
+    private func installAuthenticatedOfficialEditorIfAvailable() {
+        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return }
+        let repository = IosOfficialReadRepository(
+            configuration: IosOfficialRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            preferredLanguageTag: Locale.preferredLanguages.first
+        )
+        authenticatedHost.installOfficialEditorFactory { [weak self] in
+            QuataOfficialViewControllerKt.QuataOfficialEditorRootViewController(
+                dependencies: IosOfficialEditorRootDependencies(
+                    repository: repository,
+                    languageTag: Locale.preferredLanguages.first,
+                    onBack: { self?.authenticatedHost.showOfficial(postId: nil) },
+                    onPublished: { self?.authenticatedHost.showOfficial(postId: nil) }
+                )
+            )
+        }
     }
 
     private func presentPendingExternalShareIfAvailable() {

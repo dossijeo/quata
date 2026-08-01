@@ -99,7 +99,8 @@ class WebOfficialRepository(
         try {
             drafts.forEach { draft ->
                 require(draft.title.isNotBlank() && draft.contentHtml.isNotBlank()) { "web_official_draft_invalid" }
-                require(draft.mediaUrl.isNullOrBlank() || draft.mediaUrl.startsWith("https://")) { "web_official_media_not_uploaded" }
+                val mediaUrl = draft.mediaUrl
+                require(mediaUrl.isNullOrBlank() || mediaUrl.startsWith("https://")) { "web_official_media_not_uploaded" }
                 val result = client.post("official_posts", officialPostInsertPlan(profileId, draft).body!!)
                 result.requireWebOfficialSuccess()
                 (result as? WebPostgrestResult.Success)?.body?.let { body ->

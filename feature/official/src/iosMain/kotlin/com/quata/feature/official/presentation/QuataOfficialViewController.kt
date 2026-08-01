@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.ui.window.ComposeUIViewController
@@ -183,6 +188,15 @@ class IosOfficialEditorRootDependencies(
 fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
+            var allowed by remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(dependencies.repository) {
+                val profile = dependencies.repository.refreshCurrentUser().getOrNull()
+                allowed = profile?.isOfficial == true || profile?.isAdmin == true
+            }
+            if (allowed != true) {
+                Text(if (allowed == null) "Loading official editor" else "Official authorisation is required")
+                return@QuataTheme
+            }
             val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
             OfficialPostEditorRoot(
                 padding = PaddingValues(), language = language,
