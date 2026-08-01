@@ -194,6 +194,14 @@ private fun QuataWebApp(
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
+    fun changeTouchFlowEnabled(enabled: Boolean) {
+        touchFlowEnabled = enabled
+        scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
+    }
+    fun changeThemeMode(mode: QuataThemeMode) {
+        themeMode = mode
+        scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+    }
     fun completeLogin() {
         isSessionReady = true
         currentUserId = authRepository.activeProfileSessionOrNull()?.userId
@@ -445,14 +453,8 @@ private fun QuataWebApp(
                         themeMode = themeMode,
                         webPushOptedIn = webPushOptedIn,
                         accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
-                        onTouchFlowEnabledChange = { enabled ->
-                            touchFlowEnabled = enabled
-                            scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
-                        },
-                        onThemeModeChange = { mode ->
-                            themeMode = mode
-                            scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
-                        },
+                        onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
+                        onThemeModeChange = ::changeThemeMode,
                         onWebPushOptInChange = { enabled ->
                             scope.launch {
                                 val result = if (enabled) {
@@ -485,6 +487,10 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
                         WebProfileHost(
                             repository = profileRepository,
+                            touchFlowEnabled = touchFlowEnabled,
+                            themeMode = themeMode,
+                            onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
+                            onThemeModeChange = ::changeThemeMode,
                             isLoggingOut = isLoggingOut,
                             onLogout = {
                                 completeLogout()

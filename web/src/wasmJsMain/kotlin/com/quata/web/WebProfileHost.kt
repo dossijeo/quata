@@ -45,6 +45,10 @@ import kotlinx.coroutines.flow.flow
 @Composable
 fun WebProfileHost(
     repository: WebProfileRepository,
+    touchFlowEnabled: Boolean,
+    themeMode: QuataThemeMode,
+    onTouchFlowEnabledChange: (Boolean) -> Unit,
+    onThemeModeChange: (QuataThemeMode) -> Unit,
     isLoggingOut: Boolean = false,
     onLogout: (() -> Unit)? = null,
     onDeactivateAccount: () -> Unit = {},
@@ -55,10 +59,10 @@ fun WebProfileHost(
     ProfileScreenHost(
         repository = repository,
         strings = WebProfileScreenStrings,
-        touchFlowEnabled = false,
-        onTouchFlowEnabledChange = {},
-        themeMode = QuataThemeMode.System,
-        onThemeModeChange = {},
+        touchFlowEnabled = touchFlowEnabled,
+        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
         onLogout = { if (!isLoggingOut) onLogout?.invoke() },
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
