@@ -13,6 +13,7 @@ import com.quata.feature.notifications.presentation.NotificationRelativeTimeStri
 import com.quata.feature.notifications.presentation.NotificationsHostContent
 import com.quata.feature.notifications.presentation.NotificationsStrings
 import com.quata.feature.notifications.presentation.notificationRelativeTimeLabel
+import com.quata.core.text.SosPreviewCatalog
 import kotlinx.coroutines.delay
 
 /** Browser adapter only: the product screen remains [NotificationsHostContent]. */
@@ -59,6 +60,7 @@ fun WebNotificationsHost(
                 notificationRelativeTimeLabel(createdAt, now, SpanishNotificationRelativeTimeStrings)
             },
             localizedBody = { it },
+            sosPreviewCatalog = SosPreviewCatalog.Spanish,
             photoPreview = "🖼️ Foto",
             videoPreview = "🎥 Vídeo",
             documentPreview = "📄 Documento",

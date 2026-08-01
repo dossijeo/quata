@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.model.NotificationItem
+import com.quata.core.text.SosPreviewCatalog
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.notifications.domain.NotificationsRepository
 import kotlinx.coroutines.delay
@@ -56,6 +57,7 @@ fun createIosNotificationsHostDependencies(
             notificationRelativeTimeLabel(createdAt, now, SpanishNotificationRelativeTimeStrings)
         },
         localizedBody = { it },
+        sosPreviewCatalog = SosPreviewCatalog.Spanish,
         photoPreview = "🖼️ Foto",
         videoPreview = "🎥 Vídeo",
         documentPreview = "📄 Documento",

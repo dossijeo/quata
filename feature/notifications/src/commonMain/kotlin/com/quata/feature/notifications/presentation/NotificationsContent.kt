@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.model.NotificationItem
+import com.quata.core.text.SosPreviewCatalog
+import com.quata.core.text.resolveLocalizedSosPreview
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataCard
@@ -43,6 +45,7 @@ data class NotificationsStrings(
     val retryLabel: String,
     val relativeTime: (createdAt: String, nowMillis: Long) -> String,
     val localizedBody: (String) -> String,
+    val sosPreviewCatalog: SosPreviewCatalog,
     val photoPreview: String,
     val videoPreview: String,
     val documentPreview: String,
@@ -51,21 +54,22 @@ data class NotificationsStrings(
 )
 
 /**
- * Shared counterpart of Android's `localizedChatPreview` marker handling.
+ * Shared preview resolver for notification list content.
  *
- * The platform callback still owns platform-only preview conventions (such as SOS), while the
- * portable attachment markers are decoded here so Web and iOS do not expose storage tokens.
+ * SOS shortcodes take precedence over portable attachment markers so every platform follows the
+ * same safe display order and never exposes a transport shortcode.
  */
-fun NotificationsStrings.localizedNotificationBody(raw: String): String = when (raw.trim()) {
-    "[QUATA_ATTACHMENT:photo]" -> photoPreview
-    "[QUATA_ATTACHMENT:video]" -> videoPreview
-    "[QUATA_ATTACHMENT:document]" -> documentPreview
-    "[QUATA_ATTACHMENT:voice_note]",
-    "[QUATA_NOTIFICATION:chat_voice_note]" -> voiceNotePreview
-    "[QUATA_ATTACHMENT:file]",
-    "[QUATA_NOTIFICATION:chat_attachment]" -> filePreview
-    else -> localizedBody(raw)
-}
+fun NotificationsStrings.localizedNotificationBody(raw: String): String =
+    resolveLocalizedSosPreview(raw, sosPreviewCatalog) ?: when (raw.trim()) {
+        "[QUATA_ATTACHMENT:photo]" -> photoPreview
+        "[QUATA_ATTACHMENT:video]" -> videoPreview
+        "[QUATA_ATTACHMENT:document]" -> documentPreview
+        "[QUATA_ATTACHMENT:voice_note]",
+        "[QUATA_NOTIFICATION:chat_voice_note]" -> voiceNotePreview
+        "[QUATA_ATTACHMENT:file]",
+        "[QUATA_NOTIFICATION:chat_attachment]" -> filePreview
+        else -> localizedBody(raw)
+    }
 
 @Composable
 fun NotificationsContent(

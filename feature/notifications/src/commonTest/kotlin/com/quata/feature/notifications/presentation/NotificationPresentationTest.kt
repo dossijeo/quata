@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import com.quata.core.model.NotificationItem
+import com.quata.core.text.SosPreviewCatalog
 
 class NotificationPresentationTest {
     @Test
@@ -14,6 +15,16 @@ class NotificationPresentationTest {
         assertEquals("Foto", strings.localizedNotificationBody("[QUATA_ATTACHMENT:photo]"))
         assertEquals("Nota", strings.localizedNotificationBody("[QUATA_NOTIFICATION:chat_voice_note]"))
         assertEquals("Texto normal", strings.localizedNotificationBody("Texto normal"))
+    }
+
+    @Test
+    fun localizesSosBeforeAttachmentMarkersAndLeavesUnknownShortcodesUntouched() {
+        val strings = strings()
+        val sosThatLooksLikeAnAttachment = "[SOS:kind=alert;name=Ana;custom=%5BQUATA_ATTACHMENT%3Aphoto%5D]"
+
+        assertEquals("📍 Ubicacion no disponible", strings.localizedNotificationBody(sosThatLooksLikeAnAttachment))
+        assertEquals("[SOS_UNKNOWN:alert]", strings.localizedNotificationBody("[SOS_UNKNOWN:alert]"))
+        assertEquals("Foto", strings.localizedNotificationBody("[QUATA_ATTACHMENT:photo]"))
     }
 
     @Test
@@ -115,6 +126,7 @@ class NotificationPresentationTest {
         retryLabel = "Reintentar",
         relativeTime = { _, _ -> "" },
         localizedBody = { it },
+        sosPreviewCatalog = SosPreviewCatalog.Spanish,
         photoPreview = "Foto",
         videoPreview = "Vídeo",
         documentPreview = "Documento",

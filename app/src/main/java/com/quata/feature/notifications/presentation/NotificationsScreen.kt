@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.quata.R
-import com.quata.core.text.localizedChatPreview
+import com.quata.core.text.SosPreviewCatalog
 import com.quata.feature.chat.presentation.relativeTimeLabel
 import com.quata.feature.notifications.domain.NotificationsRepository
 import kotlinx.coroutines.delay
@@ -35,7 +35,8 @@ fun NotificationsScreen(
         errorTitle = stringResource(R.string.notifications_error_title),
         retryLabel = stringResource(R.string.notifications_retry),
         relativeTime = { createdAt, now -> relativeTimeLabel(context, createdAt, now) },
-        localizedBody = context::localizedChatPreview,
+        localizedBody = { it },
+        sosPreviewCatalog = SosPreviewCatalog.forLanguage(context.resources.configuration.locales[0]?.language),
         photoPreview = stringResource(R.string.conversation_preview_photo),
         videoPreview = stringResource(R.string.conversation_preview_video),
         documentPreview = stringResource(R.string.conversation_preview_document),
