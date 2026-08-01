@@ -125,7 +125,7 @@ fun QuataNeighborhoodsViewController(
 private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
     val url = user.avatarUrl?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
     var image by remember(url) { mutableStateOf<UIImage?>(null) }
-    LaunchedEffect(url) { image = url?.let(::loadIosNeighborhoodAvatarOrNull) }
+    LaunchedEffect(url) { image = if (url == null) null else loadIosNeighborhoodAvatarOrNull(url) }
     QuataAvatarFrameContent(
         name = user.displayName,
         stableId = user.id,
