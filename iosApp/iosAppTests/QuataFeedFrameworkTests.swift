@@ -255,15 +255,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
     }
 
-    func testAnonymousRouterFailsClosedForEveryProtectedRouteEvenWhenItsFactoryExists() {
+    func testAnonymousRouterFailsClosedForEveryPrivateRouteEvenWhenItsFactoryExists() {
         // This is a UIKit routing contract only. The factories are deliberately inert: it proves
         // that a private destination cannot be rendered before the real Keychain-backed session
         // exists; it does not claim any backend read or mutation succeeds.
         let protectedRoutes: [(String, (IosFeedHostContainerViewController) -> Void)] = [
             ("quata-ios-chat-host", { $0.showChat(conversationId: "conversation-1", messageId: "message-1") }),
-            ("quata-ios-notifications-host", { $0.showNotifications() }),
             ("quata-ios-profile-sos-host", { $0.showProfileSos() }),
-            ("quata-ios-communities-host", { $0.showCommunities() }),
             ("quata-ios-composer-host", { $0.showComposer() }),
             ("quata-ios-settings-host", { $0.showSettings() }),
         ]
@@ -881,6 +879,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-communities-host")
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Communities")
+    }
+
+    func testAnonymousRouterPresentsPublicNotificationsAfterItsRealFactoryIsInstalled() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let notifications = UIViewController()
+
+        // Notifications is a public read surface. Chat and account routes remain separately
+        // gated by PendingRoute.isAuthenticationRequired and by their action callbacks.
+        router.installNotificationsFactory { notifications }
+        router.showNotifications()
+
+        XCTAssertTrue(router.children.contains { $0 === notifications })
+        XCTAssertEqual(notifications.view.accessibilityIdentifier, "quata-ios-notifications-host")
+        XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-auth-host" })
     }
 
     func testAnonymousCommunitiesActionPresentsAuthAndReturnsToCommunitiesAfterSession() {
