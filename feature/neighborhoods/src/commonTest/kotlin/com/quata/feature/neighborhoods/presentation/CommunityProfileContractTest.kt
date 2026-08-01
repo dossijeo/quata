@@ -1,5 +1,7 @@
 package com.quata.feature.neighborhoods.presentation
 
+import com.quata.feature.neighborhoods.domain.ProfileAttachmentAvailability
+import com.quata.feature.neighborhoods.domain.profileAttachmentAvailability
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -20,5 +22,20 @@ class CommunityProfileContractTest {
         assertFalse(communityProfilePrivateActionAllowed(null))
         assertFalse(communityProfilePrivateActionAllowed("  "))
         assertTrue(communityProfilePrivateActionAllowed("profile"))
+    }
+
+    @Test fun `attachment availability distinguishes authentication from load failure`() {
+        assertEquals(
+            ProfileAttachmentAvailability.AuthenticationRequired,
+            profileAttachmentAvailability(hasAuthenticatedSession = false, loadSucceeded = false),
+        )
+        assertEquals(
+            ProfileAttachmentAvailability.Available,
+            profileAttachmentAvailability(hasAuthenticatedSession = true, loadSucceeded = true),
+        )
+        assertEquals(
+            ProfileAttachmentAvailability.Unavailable,
+            profileAttachmentAvailability(hasAuthenticatedSession = true, loadSucceeded = false),
+        )
     }
 }

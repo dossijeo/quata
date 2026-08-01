@@ -255,11 +255,15 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun reportProfile(profileId: String) {
+    fun reportProfile(profileId: String, onCompleted: (Boolean) -> Unit = {}) {
         scope.launch {
-            repository.reportProfile(profileId).onFailure { failure ->
-                _uiState.value = _uiState.value.copy(error = errors.reportProfile)
-            }
+            _uiState.value = _uiState.value.copy(error = null)
+            repository.reportProfile(profileId)
+                .onSuccess { onCompleted(true) }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(error = errors.reportProfile)
+                    onCompleted(false)
+                }
         }
     }
 

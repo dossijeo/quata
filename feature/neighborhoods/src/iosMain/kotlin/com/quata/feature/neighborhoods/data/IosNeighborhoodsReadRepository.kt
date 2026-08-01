@@ -18,6 +18,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodWallSnapshot
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.profileAttachmentAvailability
 import com.quata.feature.neighborhoods.domain.mergeNeighborhoodDirectory
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
@@ -218,7 +219,9 @@ class IosNeighborhoodsReadRepository(
         val currentFollowing = authSession.currentSession()?.userId?.let { currentId ->
             profileRelations("follower_profile_id", currentId).mapNotNull { it.iosNeighborhoodString("followed_profile_id") }.toSet()
         }.orEmpty()
-        val sharedAttachments = authSession.currentSession()?.userId?.let { loadSharedAttachments(it, userId, user.displayName) }.orEmpty()
+        val attachmentResult = signedInId?.let { actorId ->
+            runCatching { loadSharedAttachments(actorId, userId, user.displayName) }
+        }
         val profile = CommunityUserProfile(
             user = user.copy(
                 isFollowing = userId in currentFollowing,
@@ -227,7 +230,11 @@ class IosNeighborhoodsReadRepository(
                 postsCount = posts.size,
             ),
             posts = posts,
-            attachments = sharedAttachments,
+            attachments = attachmentResult?.getOrNull().orEmpty(),
+            attachmentAvailability = profileAttachmentAvailability(
+                hasAuthenticatedSession = signedInId != null,
+                loadSucceeded = attachmentResult?.isSuccess == true,
+            ),
             followers = followers.mapNotNull { related[it.iosNeighborhoodString("follower_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
             following = following.mapNotNull { related[it.iosNeighborhoodString("followed_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
         )
@@ -236,7 +243,8 @@ class IosNeighborhoodsReadRepository(
 
     private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
         val data = mutate("POST", "rpc/quata_chat_list_shared_attachments", iosNeighborhoodSharedAttachmentsPayload(actorId, peerId))
-        val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *> ?: return emptyList()
+        val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *>
+            ?: error("ios_attachments_response_invalid")
         return (root["files"] as? List<*>).orEmpty().mapNotNull { raw ->
             val row = raw as? Map<*, *> ?: return@mapNotNull null
             val uri = row.iosNeighborhoodString("url") ?: row.iosNeighborhoodString("file_url") ?: return@mapNotNull null

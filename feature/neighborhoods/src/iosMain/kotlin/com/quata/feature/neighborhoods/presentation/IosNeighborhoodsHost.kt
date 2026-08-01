@@ -190,6 +190,7 @@ fun QuataCommunityProfileViewController(
             onDispose { dependencies.viewModel.closeUserProfile() }
         }
         val profile = state.selectedProfile
+        var reportNotice by rememberSaveable(profileId) { mutableStateOf<String?>(null) }
         var pendingReportHandled by rememberSaveable(profileId, dependencies.pendingReportPostId) { mutableStateOf(false) }
         LaunchedEffect(profile?.user?.id, dependencies.currentUserId, dependencies.pendingReportPostId) {
             val pendingPostId = dependencies.pendingReportPostId
@@ -203,6 +204,7 @@ fun QuataCommunityProfileViewController(
             Column {
                 Text(state.error ?: dependencies.profileStrings.runtime.loadingProfile)
                 if (state.error != null) Button(onClick = { dependencies.viewModel.openUserProfile(profileId) }) { Text(dependencies.profileStrings.runtime.retry) }
+                TextButton(onClick = onDismiss) { Text(dependencies.profileStrings.back) }
             }
         } else {
             var failedAttachment by remember(profileId) { mutableStateOf<ProfileAttachment?>(null) }
@@ -233,6 +235,7 @@ fun QuataCommunityProfileViewController(
                 roleUpdatingUserId = state.roleUpdatingUserId,
                 currentUserIsAdmin = state.currentUserIsAdmin,
                 error = state.error,
+                notice = reportNotice,
                 showModeration = true,
                 showAdminControls = true,
                 onDismiss = onDismiss,
@@ -240,7 +243,12 @@ fun QuataCommunityProfileViewController(
                 onFollowUser = dependencies.viewModel::toggleFollowUser,
                 onOpenPrivateChat = { dependencies.viewModel.openPrivateChat(it, dependencies.onOpenConversation) },
                 onOpenUserProfile = dependencies.profileNavigator::openMemberProfile,
-                onReportProfile = dependencies.viewModel::reportProfile,
+                onReportProfile = { id ->
+                    reportNotice = null
+                    dependencies.viewModel.reportProfile(id) { success ->
+                        if (success) reportNotice = dependencies.profileStrings.runtime.reportSuccess
+                    }
+                },
                 onBlockProfile = { dependencies.viewModel.blockProfile(it, onDismiss) },
                 onSetRoles = dependencies.viewModel::setUserRoles,
                 onAddPostComment = dependencies.viewModel::addProfilePostComment,

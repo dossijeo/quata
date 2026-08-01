@@ -95,3 +95,40 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(readiness, /service_role/);
   assert.match(readiness, /"jwt"/);
 });
+
+test('the common community profile keeps attachment and status failures recoverable across hosts', async () => {
+  const [models, rootSource, viewModel, iosRepository, iosHost, webRepository, webHost, androidRepository, androidHost] = await Promise.all([
+    source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/domain/NeighborhoodModels.kt'),
+    source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileRoot.kt'),
+    source('feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt'),
+    source('feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt'),
+    source('feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'),
+    source('web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt'),
+    source('web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt'),
+    source('app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt'),
+    source('app/src/main/java/com/quata/feature/neighborhoods/presentation/NeighborhoodsScreen.kt'),
+  ]);
+
+  assert.match(models, /attachmentAvailability: ProfileAttachmentAvailability = ProfileAttachmentAvailability\.Available/);
+  assert.match(models, /enum class ProfileAttachmentAvailability \{ Available, AuthenticationRequired, Unavailable \}/);
+  assert.match(models, /fun profileAttachmentAvailability\([\s\S]*?!hasAuthenticatedSession -> ProfileAttachmentAvailability\.AuthenticationRequired[\s\S]*?loadSucceeded -> ProfileAttachmentAvailability\.Available[\s\S]*?else -> ProfileAttachmentAvailability\.Unavailable/);
+  for (const state of ['Available', 'AuthenticationRequired', 'Unavailable']) {
+    assert.match(rootSource, new RegExp(`ProfileAttachmentAvailability\\.${state}`));
+  }
+  assert.match(rootSource, /onProfileAvatarClick\?\.let \{ openAvatar -> \{ openAvatar\(profile\.user\) \} \}/);
+
+  assert.match(iosRepository, /val attachmentResult = signedInId\?\.let[\s\S]*?runCatching \{ loadSharedAttachments/);
+  assert.match(iosRepository, /attachmentAvailability = profileAttachmentAvailability\([\s\S]*?hasAuthenticatedSession = signedInId != null[\s\S]*?loadSucceeded = attachmentResult\?\.isSuccess == true/);
+  assert.match(webRepository, /attachmentAvailability = profileAttachmentAvailability\([\s\S]*?hasAuthenticatedSession = currentId != null[\s\S]*?loadSucceeded = attachmentResult\?\.isSuccess == true/);
+  assert.match(webRepository, /loadSharedAttachments[\s\S]*?Result<List<ProfileAttachment>> = runCatching/);
+  assert.match(androidRepository, /val attachmentResult = currentUserId\?\.let[\s\S]*?runCatching \{ loadSharedSupabaseAttachments/);
+  assert.match(androidRepository, /attachmentAvailability = profileAttachmentAvailability\([\s\S]*?hasAuthenticatedSession = currentUserId != null/);
+
+  assert.match(iosHost, /if \(profile == null\)[\s\S]*?TextButton\(onClick = onDismiss\) \{ Text\(dependencies\.profileStrings\.back\) \}/);
+  assert.match(webHost, /if \(profile == null\)[\s\S]*?TextButton\(onClick = \{ model\.closeUserProfile\(\); onDismiss\(\) \}\)/);
+  assert.match(androidHost, /onProfileAvatarClick = \{ user ->[\s\S]*?selectedAttachment = AttachmentPreview/);
+
+  assert.match(viewModel, /fun reportProfile\(profileId: String, onCompleted: \(Boolean\) -> Unit = \{\}\)/);
+  assert.match(iosHost, /if \(success\) reportNotice = dependencies\.profileStrings\.runtime\.reportSuccess/);
+  assert.match(webHost, /if \(success\) reportNotice = profileStrings\.runtime\.reportSuccess/);
+});

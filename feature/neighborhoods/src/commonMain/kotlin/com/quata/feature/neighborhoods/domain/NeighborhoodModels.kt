@@ -29,9 +29,21 @@ data class CommunityUserProfile(
     val user: NeighborhoodUser,
     val posts: List<Post>,
     val attachments: List<ProfileAttachment> = emptyList(),
+    val attachmentAvailability: ProfileAttachmentAvailability = ProfileAttachmentAvailability.Available,
     val followers: List<NeighborhoodUser> = emptyList(),
     val following: List<NeighborhoodUser> = emptyList()
 )
+
+enum class ProfileAttachmentAvailability { Available, AuthenticationRequired, Unavailable }
+
+fun profileAttachmentAvailability(
+    hasAuthenticatedSession: Boolean,
+    loadSucceeded: Boolean,
+): ProfileAttachmentAvailability = when {
+    !hasAuthenticatedSession -> ProfileAttachmentAvailability.AuthenticationRequired
+    loadSucceeded -> ProfileAttachmentAvailability.Available
+    else -> ProfileAttachmentAvailability.Unavailable
+}
 
 data class FollowUserResult(
     val userId: String,

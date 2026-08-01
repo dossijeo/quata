@@ -7,6 +7,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.profileAttachmentAvailability
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -198,7 +199,7 @@ class WebNeighborhoodsRepository(
             following.mapNotNull { it.webCommunityString("followed_profile_id") }).distinct()
         val related = if (relatedIds.isEmpty()) emptyMap() else loadProfiles(relatedIds, WebPostgrestAuthMode.Public).associateBy { it.id }
         val currentId = signedInId
-        val sharedAttachments = currentId?.let { loadSharedAttachments(it, userId, profile.displayName) }.orEmpty()
+        val attachmentResult = currentId?.let { loadSharedAttachments(it, userId, profile.displayName) }
         val currentFollowing = currentId?.let { profileRelations("follower_profile_id", it).mapNotNull { row -> row.webCommunityString("followed_profile_id") }.toSet() }.orEmpty()
         val followerUsers = followers.mapNotNull { related[it.webCommunityString("follower_profile_id")] }
             .map { it.copy(isFollowing = it.id in currentFollowing) }
@@ -213,17 +214,22 @@ class WebNeighborhoodsRepository(
         CommunityUserProfile(
             user = enriched,
             posts = posts,
-            attachments = sharedAttachments,
+            attachments = attachmentResult?.getOrNull().orEmpty(),
+            attachmentAvailability = profileAttachmentAvailability(
+                hasAuthenticatedSession = currentId != null,
+                loadSucceeded = attachmentResult?.isSuccess == true,
+            ),
             followers = followerUsers,
             following = followingUsers,
         ).also { profileCache[userId] = it to browserNowMillis() }
     }
 
-    private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): List<ProfileAttachment> {
+    private suspend fun loadSharedAttachments(actorId: String, peerId: String, senderName: String): Result<List<ProfileAttachment>> = runCatching {
         val body = webNeighborhoodSharedAttachmentsPayload(actorId, peerId)
         val result = client.rpc("quata_chat_list_shared_attachments", body)
-        val root = (result as? WebPostgrestResult.Success)?.body?.let { Json.parseToJsonElement(it).jsonObject } ?: return emptyList()
-        return root["files"]?.jsonArray.orEmpty().mapNotNull { element ->
+        val root = (result as? WebPostgrestResult.Success)?.body?.let { Json.parseToJsonElement(it).jsonObject }
+            ?: error("web_community_shared_attachments_unavailable")
+        root["files"]?.jsonArray.orEmpty().mapNotNull { element ->
             val row = element.jsonObject
             val uri = row.webCommunityString("url") ?: row.webCommunityString("file_url") ?: return@mapNotNull null
             ProfileAttachment(

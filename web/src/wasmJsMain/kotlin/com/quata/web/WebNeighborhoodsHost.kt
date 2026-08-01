@@ -135,6 +135,7 @@ private fun WebCommunityProfileRoute(
     val state by model.uiState.collectAsState()
     val profileStrings = defaultCommunityProfileStrings(browserNeighborhoodsLanguage)
     val actionScope = rememberCoroutineScope()
+    var reportNotice by remember(profileId) { mutableStateOf<String?>(null) }
     DisposableEffect(model) { onDispose(model::close) }
     LaunchedEffect(profileId) { model.openUserProfile(profileId) }
     val profile = state.selectedProfile
@@ -152,6 +153,7 @@ private fun WebCommunityProfileRoute(
         Column {
             Text(state.error ?: profileStrings.runtime.loadingProfile)
             if (state.error != null) Button(onClick = { model.openUserProfile(profileId) }) { Text(profileStrings.runtime.retry) }
+            TextButton(onClick = { model.closeUserProfile(); onDismiss() }) { Text(profileStrings.back) }
         }
         return
     }
@@ -170,6 +172,7 @@ private fun WebCommunityProfileRoute(
         roleUpdatingUserId = state.roleUpdatingUserId,
         currentUserIsAdmin = state.currentUserIsAdmin,
         error = state.error,
+        notice = reportNotice,
         showModeration = true,
         showAdminControls = true,
         onDismiss = { model.closeUserProfile(); onDismiss() },
@@ -177,7 +180,11 @@ private fun WebCommunityProfileRoute(
         onFollowUser = model::toggleFollowUser,
         onOpenPrivateChat = { model.openPrivateChat(it, onOpenConversation) },
         onOpenUserProfile = model::openUserProfile,
-        onReportProfile = model::reportProfile, onBlockProfile = { model.blockProfile(it, onDismiss) }, onSetRoles = model::setUserRoles,
+        onReportProfile = { id ->
+            reportNotice = null
+            model.reportProfile(id) { success -> if (success) reportNotice = profileStrings.runtime.reportSuccess }
+        },
+        onBlockProfile = { model.blockProfile(it, onDismiss) }, onSetRoles = model::setUserRoles,
         onAddPostComment = model::addProfilePostComment,
         avatar = { user, loading, role, click -> slots.avatar(user, loading, role.sizeDp, click) },
         attachmentItem = { attachment ->

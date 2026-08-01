@@ -7,6 +7,7 @@ import com.quata.core.model.User
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.ProfileAttachmentAvailability
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -58,6 +59,7 @@ internal class CommunityProfileCacheStore(
             user = user.toStored(),
             posts = posts.map { it.toStored() },
             attachments = attachments.map { it.toStored() },
+            attachmentAvailability = attachmentAvailability.name,
             followers = followers.map { it.toStored() },
             following = following.map { it.toStored() },
             cachedAtMillis = System.currentTimeMillis()
@@ -68,6 +70,9 @@ internal class CommunityProfileCacheStore(
             user = user.toDomain(),
             posts = posts.map { it.toDomain() },
             attachments = attachments.map { it.toDomain() },
+            attachmentAvailability = ProfileAttachmentAvailability.entries
+                .firstOrNull { it.name == attachmentAvailability }
+                ?: ProfileAttachmentAvailability.Unavailable,
             followers = followers.map { it.toDomain() },
             following = following.map { it.toDomain() }
         )
@@ -198,6 +203,7 @@ internal class CommunityProfileCacheStore(
         val user: StoredNeighborhoodUser,
         val posts: List<StoredPost> = emptyList(),
         val attachments: List<StoredProfileAttachment> = emptyList(),
+        val attachmentAvailability: String = ProfileAttachmentAvailability.Unavailable.name,
         val followers: List<StoredNeighborhoodUser> = emptyList(),
         val following: List<StoredNeighborhoodUser> = emptyList(),
         val cachedAtMillis: Long = 0L

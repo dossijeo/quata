@@ -28,6 +28,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.profileAttachmentAvailability
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -397,9 +398,9 @@ class NeighborhoodRepositoryImpl(
                 isFollowing = follow.followed_profile_id?.let { it in currentFollowingIds } == true
             )
         }
-        val attachments = currentUserId
-            ?.let { loadSharedSupabaseAttachments(it, userId, profile.displayName()) }
-            .orEmpty()
+        val attachmentResult = currentUserId?.let { actorId ->
+            runCatching { loadSharedSupabaseAttachments(actorId, userId, profile.displayName()) }
+        }
         return CommunityUserProfile(
             user = profile.toNeighborhoodUserReal(
                 isFollowing = currentUserId != null && followers.any { it.follower_profile_id == currentUserId },
@@ -408,7 +409,11 @@ class NeighborhoodRepositoryImpl(
                 postsCount = posts.size
             ),
             posts = posts,
-            attachments = attachments,
+            attachments = attachmentResult?.getOrNull().orEmpty(),
+            attachmentAvailability = profileAttachmentAvailability(
+                hasAuthenticatedSession = currentUserId != null,
+                loadSucceeded = attachmentResult?.isSuccess == true,
+            ),
             followers = followerUsers,
             following = followingUsers
         )

@@ -292,12 +292,16 @@ fun CommunityProfileScreen(
         onBlockProfile = onBlockProfile,
         onSetRoles = onSetUserRoles,
         onAddPostComment = onAddPostComment,
+        onProfileAvatarClick = { user ->
+            user.avatarUrl?.takeIf(String::isNotBlank)?.let { url ->
+                selectedAttachment = AttachmentPreview(user.displayName, url, "image/jpeg")
+            }
+        },
         avatar = { user, loading, role, click ->
             ProfileAvatar(
                 user,
-                Modifier.size(role.sizeDp.dp).clickable {
-                    if (click != null) click()
-                    else user.avatarUrl?.takeIf { it.isNotBlank() }?.let { selectedAttachment = AttachmentPreview(user.displayName, it, "image/jpeg") }
+                Modifier.size(role.sizeDp.dp).let { modifier ->
+                    if (click == null) modifier else modifier.clickable(onClick = click)
                 },
                 loading
             )

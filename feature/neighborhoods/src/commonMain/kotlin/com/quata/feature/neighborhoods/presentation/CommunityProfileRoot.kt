@@ -27,6 +27,7 @@ import com.quata.core.model.PostComment
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.ProfileAttachmentAvailability
 
 data class CommunityProfileStrings(
     val posts: String, val followers: String, val following: String,
@@ -44,6 +45,8 @@ data class CommunityProfileRuntimeStrings(
     val attachmentOpenFailed: String, val attachmentCancelled: String, val attachmentUnsupported: String,
     val image: String, val video: String, val audio: String, val document: String,
     val playAudio: String, val pauseAudio: String,
+    val attachmentAuthenticationRequired: String, val attachmentUnavailable: String,
+    val reportSuccess: String,
 )
 
 enum class CommunityProfileAvatarRole(val sizeDp: Int) { Header(92), Row(48) }
@@ -64,6 +67,8 @@ fun CommunityProfileRoot(
     attachmentItem: @Composable (ProfileAttachment) -> Unit,
     postPreview: @Composable (Post, Int, Boolean, () -> Unit) -> Unit,
     commentsDialog: @Composable (Post, List<PostComment>, (String) -> Unit, () -> Unit) -> Unit,
+    onProfileAvatarClick: ((NeighborhoodUser) -> Unit)? = null,
+    notice: String? = null,
 ) {
     var navigation by rememberSaveable(profile.user.id) { mutableStateOf(CommunityProfileNavigationState()) }
     var moderation by remember { mutableStateOf<ProfileModerationAction?>(null) }
@@ -94,7 +99,14 @@ fun CommunityProfileRoot(
                 header = {
                     CommunityProfileHeaderContent(
                         displayName = profile.user.displayName, neighborhood = profile.user.neighborhood,
-                        avatar = { avatar(profile.user, isRefreshing, CommunityProfileAvatarRole.Header, null) },
+                        avatar = {
+                            avatar(
+                                profile.user,
+                                isRefreshing,
+                                CommunityProfileAvatarRole.Header,
+                                onProfileAvatarClick?.let { openAvatar -> { openAvatar(profile.user) } },
+                            )
+                        },
                         kpis = {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 ProfileKpiContent(profile.user.postsCount, strings.posts, Modifier.weight(1f)) { dispatch(CommunityProfileNavigationEvent.ShowPosts) }
@@ -115,10 +127,21 @@ fun CommunityProfileRoot(
                         adminControls = if (showAdminControls && currentUserIsAdmin && profile.user.id != currentUserId) {
                             { Spacer(Modifier.height(14.dp)); ProfileRoleControlsContent(profile.user, roleUpdatingUserId == profile.user.id, strings.roles) { admin, official -> onSetRoles(profile.user.id, admin, official) } }
                         } else null,
-                        errorMessage = error?.let { message -> { Text(message, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } },
+                        errorMessage = when {
+                            error != null -> ({ Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) })
+                            notice != null -> ({ Text(notice, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) })
+                            else -> null
+                        },
                     )
                 },
-                attachments = { ProfileAttachmentsContent(profile.attachments, strings.attachments, attachmentItem); Spacer(Modifier.height(18.dp)) },
+                attachments = {
+                    when (profile.attachmentAvailability) {
+                        ProfileAttachmentAvailability.Available -> ProfileAttachmentsContent(profile.attachments, strings.attachments, attachmentItem)
+                        ProfileAttachmentAvailability.AuthenticationRequired -> Text(strings.runtime.attachmentAuthenticationRequired)
+                        ProfileAttachmentAvailability.Unavailable -> Text(strings.runtime.attachmentUnavailable)
+                    }
+                    Spacer(Modifier.height(18.dp))
+                },
                 gallery = if (navigation.showingPosts) {
                     {
                         val pager = rememberPagerState(pageCount = { profile.posts.size })
