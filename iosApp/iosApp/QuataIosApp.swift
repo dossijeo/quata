@@ -662,6 +662,7 @@ private final class IosAppCompositionRoot {
 
     private func installCommunitiesIfAvailable() {
         guard let communitiesRuntimeBootstrap else { return }
+        let services = platformServices.services
         authenticatedHost.installCommunitiesFactory { [weak self] in
             var hostDependencies: IosNeighborhoodsHostDependencies!
             hostDependencies = IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
@@ -677,10 +678,10 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
                     onPostReportAuthRequired: { [weak self] _ in self?.authenticatedHost.requestAuthenticationForCommunities() },
                     mediaFactory: IosFeedNativeMediaFactory.shared,
-                    shareService: platformServices.services.share,
-                    attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
-                    audioPlayer: platformServices.services.audioPlayer,
-                    videoThumbnails: platformServices.services.videoThumbnails,
+                    shareService: services.share,
+                    attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: services.documentOpener),
+                    audioPlayer: services.audioPlayer,
+                    videoThumbnails: services.videoThumbnails,
                     pendingReportPostId: nil,
                 )
             return IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(dependencies: hostDependencies)
