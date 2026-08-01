@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -167,7 +168,9 @@ fun WebChatHost(
         onTranslateMessage = { text -> openWebExternalLink(webTranslationUrl(text)) },
         onOpenMessageConversation = onOpenMessageConversation,
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
-        sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
+        sendButtonOverride = { enabled, onClick, modifier ->
+            WebNativeButton("Enviar", enabled, onClick, modifier.width(96.dp).height(48.dp))
+        },
         clipboardService = clipboardService,
         modifier = modifier,
     )
