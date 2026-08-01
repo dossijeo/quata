@@ -241,11 +241,6 @@ fun CommunityProfileScreen(
 ) {
     val isOwnProfile = profile.user.id == currentUserId
     val isFollowingLoading = followingUserId == profile.user.id
-    var navigationState by rememberSaveable(profile.user.id) { mutableStateOf(CommunityProfileNavigationState()) }
-    val showPosts = navigationState.showingPosts
-    val userListTitle = navigationState.peopleList?.let {
-        if (it == CommunityProfilePeopleList.Followers) "followers" else "following"
-    }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     var pendingProfileAction by remember { mutableStateOf<ProfileModerationAction?>(null) }
     val context = LocalContext.current
@@ -253,9 +248,6 @@ fun CommunityProfileScreen(
     val avatarUrl = profile.user.avatarUrl?.trim()?.takeIf { it.isNotBlank() }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    LaunchedEffect(showPosts) {
-        if (showPosts) listState.animateScrollToItem(2)
-    }
     ProfileModerationConfirmation(
         action = pendingProfileAction,
         strings = ProfileModerationConfirmationStrings(
@@ -274,12 +266,20 @@ fun CommunityProfileScreen(
             else onReportProfile(profile.user.id)
         }
     )
-    CommunityProfileSheetContent(
+    CommunityProfileRoot(
+        profileId = profile.user.id,
         sheetState = sheetState,
         containerColor = template.colors.background,
         contentColor = template.colors.textPrimary,
         onDismiss = onBack,
-    ) {
+    ) { navigationState, dispatch ->
+        val showPosts = navigationState.showingPosts
+        val userListTitle = navigationState.peopleList?.let {
+            if (it == CommunityProfilePeopleList.Followers) "followers" else "following"
+        }
+        LaunchedEffect(showPosts) {
+            if (showPosts) listState.animateScrollToItem(2)
+        }
         if (userListTitle != null) {
             ProfileUsersListContent(
                 title = if (userListTitle == "followers") {
@@ -289,7 +289,7 @@ fun CommunityProfileScreen(
                 },
                 users = if (userListTitle == "followers") profile.followers else profile.following,
                 currentUserId = currentUserId,
-                onBack = { navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowDetails) },
+                onBack = { dispatch(CommunityProfileNavigationEvent.ShowDetails) },
                 onFollowUser = { user ->
                     if (currentUserId == null) onAuthRequired() else onFollowUser(user.id)
                 },
@@ -327,12 +327,12 @@ fun CommunityProfileScreen(
                         },
                         kpis = {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPosts) })
+                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { dispatch(CommunityProfileNavigationEvent.ShowPosts) })
                         ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
-                            navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Followers))
+                            dispatch(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Followers))
                         })
                         ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
-                            navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Following))
+                            dispatch(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Following))
                         })
                             }
                         },

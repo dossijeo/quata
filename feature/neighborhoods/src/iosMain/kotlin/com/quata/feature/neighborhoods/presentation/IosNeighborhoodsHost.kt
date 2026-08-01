@@ -12,6 +12,12 @@ import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -118,6 +124,44 @@ fun QuataNeighborhoodsViewController(
             padding = PaddingValues(),
             closeModelOnDispose = true,
         )
+    }
+}
+
+/** UIKit route for a public member profile. It mounts the same common modal root as Android/Web. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+fun QuataCommunityProfileViewController(
+    dependencies: IosNeighborhoodsHostDependencies,
+    profileId: String,
+    onDismiss: () -> Unit,
+): UIViewController = ComposeUIViewController {
+    QuataTheme {
+        val state by dependencies.viewModel.uiState.collectAsState()
+        DisposableEffect(profileId) {
+            dependencies.viewModel.openUserProfile(profileId)
+            onDispose { dependencies.viewModel.closeUserProfile() }
+        }
+        val profile = state.selectedProfile
+        if (profile != null) {
+            val theme = com.quata.core.designsystem.theme.quataTheme()
+            CommunityProfileRoot(
+                profileId = profile.user.id,
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = theme.colors.background,
+                contentColor = theme.colors.textPrimary,
+                onDismiss = onDismiss,
+            ) { navigation, dispatch ->
+                Column {
+                    Text(profile.user.displayName)
+                    Text("${profile.user.postsCount} posts · ${profile.user.followersCount} followers")
+                    if (navigation.peopleList != null) {
+                        val people = if (navigation.peopleList == CommunityProfilePeopleList.Followers) profile.followers else profile.following
+                        people.forEach { Text(it.displayName) }
+                    } else {
+                        profile.posts.forEach { Text(it.text) }
+                    }
+                }
+            }
+        }
     }
 }
 

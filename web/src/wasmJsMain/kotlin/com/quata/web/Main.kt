@@ -526,6 +526,8 @@ private fun QuataWebApp(
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
+                                onDismissProfile = feedMemberProfileRoute::close,
+                                profileId = memberProfileId,
                             )
                         } else {
                             WebOfficialHost(
@@ -569,6 +571,8 @@ private fun QuataWebApp(
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
+                                onDismissProfile = feedMemberProfileRoute::close,
+                                profileId = memberProfileId,
                             )
                         } else {
                             WebFeedHost(

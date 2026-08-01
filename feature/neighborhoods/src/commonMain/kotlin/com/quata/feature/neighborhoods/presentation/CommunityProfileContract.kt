@@ -61,3 +61,20 @@ fun CommunityProfileRoot(
         } ?: details(navigation, dispatch)
     }
 }
+
+/** Slot form for hosts which already own the complete, lossless profile body. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommunityProfileRoot(
+    profileId: String,
+    sheetState: SheetState,
+    containerColor: Color,
+    contentColor: Color,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.(CommunityProfileNavigationState, (CommunityProfileNavigationEvent) -> Unit) -> Unit,
+) {
+    var navigation by rememberSaveable(profileId) { mutableStateOf(CommunityProfileNavigationState()) }
+    CommunityProfileSheetContent(sheetState, containerColor, contentColor, onDismiss) {
+        content(navigation) { navigation = navigation.reduce(it) }
+    }
+}
