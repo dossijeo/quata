@@ -15,7 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.presentation.OfficialEditorPlatformSlots
-import com.quata.feature.official.presentation.OfficialPostEditorRoot
+import com.quata.feature.official.presentation.OfficialPostEditorScreenHost
 import com.quata.feature.official.presentation.OfficialPostEditorStrings
 import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.domain.OfficialMediaType
@@ -45,7 +45,7 @@ fun WebOfficialEditorHost(
     when (allowed) {
         null -> Text("Loading official editor", modifier = modifier)
         false -> Text("Official authorisation is required", modifier = modifier)
-        true -> OfficialPostEditorRoot(
+        true -> OfficialPostEditorScreenHost(
             padding = PaddingValues(),
             language = OfficialPostLanguage.fromAppLanguage(webOfficialLanguageTag()),
             strings = OfficialPostEditorStrings.forLanguage(webOfficialLanguageTag()),
@@ -57,7 +57,8 @@ fun WebOfficialEditorHost(
                 videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
                 mediaPreview = { media, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
             ),
-            onSubmit = { drafts -> repository.createPosts(drafts).map { onPublished() } },
+            onSubmit = { drafts -> repository.createPosts(drafts).map { it?.id } },
+            onPublished = { onPublished() },
             onBack = onBack,
             newTranslationGroupId = ::webOfficialTranslationGroupId,
             modifier = modifier,

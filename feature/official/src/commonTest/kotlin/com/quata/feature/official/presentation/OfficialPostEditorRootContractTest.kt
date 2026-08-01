@@ -7,9 +7,11 @@ import kotlin.test.assertTrue
 class OfficialPostEditorRootContractTest {
     @Test
     fun `publication validation rejects missing title or meaningful html`() {
-        assertFalse(isOfficialEditorDraftValid("", "<p>Body</p>"))
-        assertFalse(isOfficialEditorDraftValid("Title", "<p>&nbsp;</p>"))
-        assertTrue(isOfficialEditorDraftValid("Title", "<p>Body</p>"))
+        assertTrue(isOfficialEditorDraftValid(false, "", "", "<p>Body</p>", false))
+        assertFalse(isOfficialEditorDraftValid(false, "Title", "", "<p>&nbsp;</p>", false))
+        assertFalse(isOfficialEditorDraftValid(true, "", "Summary", "", false))
+        assertTrue(isOfficialEditorDraftValid(true, "Title", "Summary", "", false))
+        assertTrue(isOfficialEditorDraftValid(true, "Title", "", "", true))
     }
 
     @Test

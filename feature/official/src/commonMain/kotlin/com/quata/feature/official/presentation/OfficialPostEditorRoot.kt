@@ -49,8 +49,9 @@ fun interface OfficialDraftTranslator {
 }
 
 /** Kept pure so all targets can enforce the same publication gate. */
-internal fun isOfficialEditorDraftValid(title: String, html: String): Boolean =
-    title.isNotBlank() && html.stripHtmlForOfficialEditor().isNotBlank()
+internal fun isOfficialEditorDraftValid(advanced: Boolean, title: String, summary: String, html: String, hasMedia: Boolean): Boolean =
+    if (advanced) title.isNotBlank() && (summary.isNotBlank() || html.stripHtmlForOfficialEditor().isNotBlank() || hasMedia)
+    else html.stripHtmlForOfficialEditor().isNotBlank()
 
 class OfficialPostEditorStrings(
     val title: String,
@@ -91,12 +92,13 @@ class OfficialPostEditorStrings(
  * from the root's point of view: it resets only after the host confirms a successful insert.
  */
 @Composable
-fun OfficialPostEditorRoot(
+fun OfficialPostEditorScreenHost(
     padding: PaddingValues,
     language: OfficialPostLanguage,
     strings: OfficialPostEditorStrings,
     slots: OfficialEditorPlatformSlots,
-    onSubmit: suspend (List<OfficialPostDraft>) -> Result<Unit>,
+    onSubmit: suspend (List<OfficialPostDraft>) -> Result<String?>,
+    onPublished: (String?) -> Unit,
     onBack: () -> Unit,
     newTranslationGroupId: () -> String,
     translator: OfficialDraftTranslator? = null,
@@ -118,13 +120,17 @@ fun OfficialPostEditorRoot(
     var feedback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    fun draft(target: OfficialPostLanguage = language, groupId: String? = null) = OfficialPostDraft(
-        title = title.trim(), summary = summary.trim(), contentHtml = html,
-        readMoreLabel = if (advanced) readMore.shortcode else "",
+    fun draft(target: OfficialPostLanguage = language, groupId: String? = null): OfficialPostDraft {
+        val blocks = html.extractOfficialEditorBlocks()
+        val effectiveTitle = if (advanced) title.trim() else blocks.firstOrNull().orEmpty().take(120)
+        val effectiveSummary = if (advanced) summary.trim() else blocks.drop(1).joinToString(" ").take(280)
+        return OfficialPostDraft(
+        title = effectiveTitle, summary = effectiveSummary, contentHtml = html,
+        readMoreLabel = if (advanced) readMore.shortcode else OfficialReadMoreOption.ReadMore.shortcode,
         language = target, translationGroupId = groupId, type = type,
         mediaUrl = media?.preparedHandle ?: media?.url, mediaType = media?.type, linkUrl = if (advanced) link.trim().ifBlank { null } else null,
-    )
-    fun valid() = isOfficialEditorDraftValid(title, html)
+    ) }
+    fun valid() = isOfficialEditorDraftValid(advanced, title, summary, html, media != null)
     fun reset() {
         advanced = false; type = OfficialPostType.Announcement; title = ""; summary = ""; html = ""; link = ""
         media?.let { selected -> slots.discardMedia?.let { discard -> scope.launch { discard(selected) } } }
@@ -132,7 +138,7 @@ fun OfficialPostEditorRoot(
     }
     fun publish(drafts: List<OfficialPostDraft>) = scope.launch {
         publishing = true
-        onSubmit(drafts).onSuccess { reset() }.onFailure { feedback = it.message ?: "Publication failed" }
+        onSubmit(drafts).onSuccess { id -> reset(); onPublished(id) }.onFailure { feedback = it.message ?: "Publication failed" }
         publishing = false
     }
 
@@ -163,11 +169,10 @@ fun OfficialPostEditorRoot(
                     readMoreControl = if (advanced) {{ OfficialEditorDropdownFieldContent(readMore.shortcode, OfficialReadMoreOption.entries.map { OfficialEditorSelectionOption(it.name, it.shortcode) }, readMoreExpanded, { readMoreExpanded = it }, { readMore = OfficialReadMoreOption.valueOf(it) }) }} else null,
                     editorAction = {
                         if (advanced) slots.richTextEditor(html) { html = it }
-                        else OfficialAdvancedTextFieldsContent(title = title, summary = summary, titleLabel = strings.titleLabel, summaryLabel = strings.summaryLabel, onTitleChange = { title = it }, onSummaryChange = { summary = it })
+                        else slots.richTextEditor(html) { html = it }
                     },
                     linkControl = if (advanced) {{ OfficialEditorLinkFieldContent(value = link, label = strings.linkLabel, onValueChange = { link = it }) }} else null,
                 )
-                if (!advanced) slots.richTextEditor(html) { html = it }
             },
             previewSection = {
                 slots.postPreview?.let { preview ->

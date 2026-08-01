@@ -158,29 +158,6 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
     }
 
 /**
- * iOS composition input for the shared Official editor shell.
- *
- * The editor fields, media picker and publication actions are intentionally injected. This avoids
- * a pretend iOS backend while allowing the shared editor hierarchy to be hosted now.
- */
-class IosOfficialEditorDependencies(
-    val title: String,
-    val content: @Composable ColumnScope.() -> Unit,
-)
-
-/** Swift-callable UIKit factory for a host-supplied Official editor built on common Compose UI. */
-fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencies): UIViewController =
-    ComposeUIViewController {
-        QuataTheme {
-            OfficialEditorScreenContent(
-                padding = PaddingValues(),
-                title = dependencies.title,
-                content = dependencies.content,
-            )
-        }
-    }
-
-/**
  * Authenticated iOS mount of the same state-owning editor used by the other targets. The UIKit
  * owner provides navigation; media controls are deliberately absent until an upload-capable
  * picker is installed, rather than presenting a button that cannot publish its selection.
@@ -216,13 +193,14 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
             }
             val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
             val editorStrings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag)
-            OfficialPostEditorRoot(
+            OfficialPostEditorScreenHost(
                 padding = PaddingValues(), language = language,
                 strings = editorStrings,
                 slots = iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway),
                 onSubmit = { drafts ->
-                    dependencies.mediaGateway.submit(dependencies.repository, drafts).map { dependencies.onPublished() }
+                    dependencies.mediaGateway.submit(dependencies.repository, drafts).map { it?.id }
                 },
+                onPublished = { dependencies.onPublished() },
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
             )
