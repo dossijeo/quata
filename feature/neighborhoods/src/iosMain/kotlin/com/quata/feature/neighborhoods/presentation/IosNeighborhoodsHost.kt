@@ -30,6 +30,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import com.quata.core.data.toFoundationData
 import com.quata.core.designsystem.theme.QuataTheme
@@ -280,16 +281,25 @@ private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: (() -> Unit)?
     )
 }
 
-private suspend fun loadIosNeighborhoodAvatarOrNull(url: String): UIImage? = runCatching {
-    iosNeighborhoodAvatarData(NSURL(string = url) ?: return@runCatching null)
-}.getOrNull()?.let { UIImage(data = it) }
+private suspend fun loadIosNeighborhoodAvatarOrNull(url: String): UIImage? =
+    iosNeighborhoodAvatarResultOrNull {
+        UIImage(data = iosNeighborhoodAvatarData(NSURL(string = url) ?: error("ios_neighborhood_avatar_url_invalid")))
+    }
+
+internal suspend fun <T> iosNeighborhoodAvatarResultOrNull(block: suspend () -> T): T? = try {
+    block()
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Throwable) {
+    null
+}
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun iosNeighborhoodAvatarData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosNeighborhoodAvatarDelegate(continuation)
     val session = NSURLSession.sessionWithConfiguration(NSURLSessionConfiguration.ephemeralSessionConfiguration(), delegate, null)
     val task = session.dataTaskWithURL(url)
-    continuation.invokeOnCancellation { task.cancel(); session.invalidateAndCancel() }
+    registerIosNeighborhoodAvatarTaskCancellation(continuation) { task.cancel(); session.invalidateAndCancel() }
     task.resume()
 }
 
@@ -312,6 +322,10 @@ private fun NSData.toNeighborhoodAvatarBytes(): ByteArray = if (length == 0uL) B
 internal fun isIosNeighborhoodAvatarUrl(value: String): Boolean = value.startsWith("https://") || value.startsWith("http://")
 
 internal fun iosNeighborhoodAvatarRequestKey(value: String?): String? = value?.trim()?.takeIf(::isIosNeighborhoodAvatarUrl)
+
+internal fun registerIosNeighborhoodAvatarTaskCancellation(continuation: CancellableContinuation<*>, cancelTask: () -> Unit) {
+    continuation.invokeOnCancellation { cancelTask() }
+}
 
 /**
  * Shared profile arrangement available to the iOS launcher once it presents a selected profile.

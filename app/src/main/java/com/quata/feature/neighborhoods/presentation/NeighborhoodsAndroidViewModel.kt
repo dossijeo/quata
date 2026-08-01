@@ -11,6 +11,7 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override val uiState: StateFlow<NeighborhoodsUiState> = delegate.uiState
     override fun startObservingCommunities() = delegate.startObservingCommunities()
     override fun stopObservingCommunities() = delegate.stopObservingCommunities()
+    override fun retryCommunities() = delegate.retryCommunities()
     override fun openChat(neighborhood: String, onOpened: (String) -> Unit) = delegate.openChat(neighborhood, onOpened)
     override fun toggleFollowUser(userId: String) = delegate.toggleFollowUser(userId)
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) = delegate.openPrivateChat(userId, onOpened)

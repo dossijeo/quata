@@ -20,7 +20,7 @@ class NeighborhoodsViewModelLifecycleTest {
         val vm = NeighborhoodsViewModel(repo, AppDispatchers(StandardTestDispatcher(testScheduler), StandardTestDispatcher(testScheduler), StandardTestDispatcher(testScheduler)))
         vm.startObservingCommunities(); runCurrent()
         assertNotNull(vm.uiState.value.error)
-        vm.stopObservingCommunities(); vm.startObservingCommunities(); runCurrent()
+        vm.retryCommunities(); runCurrent()
         assertEquals("Centro", vm.uiState.value.communities.single().name)
         vm.close()
     }

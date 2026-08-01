@@ -19,10 +19,15 @@ class NeighborhoodsScreenHostTest {
 
     @Test fun `relative activity labels cover Android calendar buckets`() {
         val now = 400L * 86_400_000L
-        assertTrue(neighborhoodTimeLabel(now - 86_400_000L, now, "Comunidades") == "Ayer")
-        assertTrue(neighborhoodTimeLabel(now - 3L * 86_400_000L, now, "Communities") == "3 days ago")
-        assertTrue(neighborhoodTimeLabel(now - 14L * 86_400_000L, now, "Communautés") == "Il y a 2 semaines")
-        assertTrue(neighborhoodTimeLabel(now - 60L * 86_400_000L, now, "Comunidades") == "Hace 2 meses")
-        assertTrue(neighborhoodTimeLabel(now - 365L * 86_400_000L, now, "Communities") == "1 year ago")
+        assertTrue(neighborhoodTimeLabel(now - 86_400_000L, now, "es-ES") == "Ayer")
+        assertTrue(neighborhoodTimeLabel(now - 3L * 86_400_000L, now, "en-US") == "3 days ago")
+        assertTrue(neighborhoodTimeLabel(now - 14L * 86_400_000L, now, "fr-FR") == "Il y a 2 semaines")
+        assertTrue(neighborhoodTimeLabel(now - 60L * 86_400_000L, now, "es") == "Hace 2 meses")
+        assertTrue(neighborhoodTimeLabel(now - 365L * 86_400_000L, now, "en") == "1 year ago")
+    }
+
+    @Test fun `wall-only community keeps chat action enabled`() {
+        val wallOnly = com.quata.feature.neighborhoods.domain.NeighborhoodCommunity("Centro", emptyList(), "wall:123", null, null, 4)
+        assertTrue(canOpenNeighborhoodChat(wallOnly, null))
     }
 }

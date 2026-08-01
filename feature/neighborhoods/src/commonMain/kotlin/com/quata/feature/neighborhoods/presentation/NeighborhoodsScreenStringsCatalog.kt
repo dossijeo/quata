@@ -10,16 +10,19 @@ fun defaultNeighborhoodsScreenStrings(languageTag: String?): NeighborhoodsScreen
     val language = languageTag.orEmpty().substringBefore('-').lowercase()
     return when (language) {
         "es" -> neighborhoodStrings(
+            language,
             "Comunidades", "Buscar comunidad", "Cargando comunidades…", "1 miembro", "miembros",
             "1 mensaje", "mensajes", "Ver miembros", "Abrir conversación", "Actividad reciente",
             "Miembros de", "Directorio de la comunidad", "Volver", "Seguir", "Siguiendo", "Chat",
         )
         "fr" -> neighborhoodStrings(
+            language,
             "Communautés", "Rechercher une communauté", "Chargement des communautés…", "1 membre", "membres",
             "1 message", "messages", "Voir les membres", "Ouvrir la conversation", "Activité récente",
             "Membres de", "Annuaire de la communauté", "Retour", "Suivre", "Suivi", "Discussion",
         )
         else -> neighborhoodStrings(
+            "en",
             "Communities", "Search communities", "Loading communities…", "1 member", "members",
             "1 message", "messages", "View members", "Open chat", "Recent activity",
             "Members of", "Community directory", "Back", "Follow", "Following", "Chat",
@@ -57,17 +60,18 @@ private fun communityProfileStrings(
 )
 
 private fun neighborhoodStrings(
+    languageTag: String,
     title: String, search: String, loading: String, oneUser: String, users: String,
     oneMessage: String, messages: String, viewUsers: String, openChat: String, activity: String,
     membersOf: String, subtitle: String, back: String, follow: String, following: String, chat: String,
 ) = NeighborhoodsScreenStrings(
-    list = NeighborhoodListStrings(title, search, loading, oneUser, { "$it $users" }, oneMessage, { "$it $messages" }, viewUsers, openChat, { timestamp -> neighborhoodTimeLabel(timestamp, kotlin.time.Clock.System.now().toEpochMilliseconds(), title) ?: activity }),
+    list = NeighborhoodListStrings(title, search, loading, oneUser, { "$it $users" }, oneMessage, { "$it $messages" }, viewUsers, openChat, { timestamp -> neighborhoodTimeLabel(timestamp, kotlin.time.Clock.System.now().toEpochMilliseconds(), languageTag) ?: activity }, retry = when (languageTag) { "es" -> "Reintentar"; "fr" -> "Réessayer"; else -> "Retry" }),
     members = NeighborhoodUsersStrings({ "$membersOf $it" }, subtitle, back, { if (it == 1) oneUser else "$it $users" }, NeighborhoodUserRowStrings(follow, following, chat)),
 )
 
-internal fun neighborhoodTimeLabel(timestamp: Long?, nowMillis: Long, localizedTitle: String): String? {
+internal fun neighborhoodTimeLabel(timestamp: Long?, nowMillis: Long, languageTag: String): String? {
     timestamp ?: return null
-    val language = when (localizedTitle) { "Comunidades" -> "es"; "Communautés" -> "fr"; else -> "en" }
+    val language = languageTag.substringBefore('-').lowercase().let { if (it in setOf("es", "fr")) it else "en" }
     val zone = TimeZone.currentSystemDefault()
     val messageDateTime = kotlin.time.Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(zone)
     val today = kotlin.time.Instant.fromEpochMilliseconds(nowMillis).toLocalDateTime(zone).date

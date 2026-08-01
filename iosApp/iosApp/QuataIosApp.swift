@@ -289,6 +289,7 @@ private final class IosAppCompositionRoot {
         installSettings()
         installWhatsNewIfAvailable()
         installCommunitiesIfAvailable()
+        installAuthenticatedNotificationsIfAvailable()
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
         if !installRestoredFeedSessionIfAvailable() {
@@ -412,6 +413,12 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     initialPostId: postId,
+                    onAuthRequired: { [weak self] in
+                        self?.authenticatedHost.presentLoginIfAvailable()
+                    },
+                    onCreatePost: { [weak self] in
+                        self?.authenticatedHost.showComposer()
+                    },
                 ),
             )
         }
@@ -437,6 +444,12 @@ private final class IosAppCompositionRoot {
                     initialPostId: postId,
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    },
+                    onAuthRequired: { [weak self] in
+                        self?.authenticatedHost.presentLoginIfAvailable()
+                    },
+                    onCreatePost: { [weak self] in
+                        self?.authenticatedHost.showComposer()
                     },
                 ),
             )
@@ -955,9 +968,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
         var isAuthenticationRequired: Bool {
             switch self {
-            case .feed, .official, .communities, .whatsNew, .releaseHistory:
+            // Anonymous browsing matches Android for these read surfaces. Their individual
+            // mutations and deep links still route through the explicit Auth callbacks.
+            case .feed, .official, .notifications, .communities, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .officialEditor, .notifications, .profileSos, .composer, .settings:
+            case .chat, .officialEditor, .profileSos, .composer, .settings:
                 return true
             }
         }
