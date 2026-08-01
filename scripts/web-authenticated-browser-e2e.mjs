@@ -64,7 +64,15 @@ const report = {
     productDml: "forbidden",
   },
 };
-const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, chatCandidateReads: 0, webLogout: 0, globalLogout: 0 };
+const fixtureState = {
+  login: 0,
+  profileReads: 0,
+  notificationInboxReads: 0,
+  chatCandidateReads: 0,
+  chatCandidateRequests: [],
+  webLogout: 0,
+  globalLogout: 0,
+};
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
 const productReadEvidence = {
@@ -280,6 +288,7 @@ try {
     notificationInboxReads: productReadEvidence.notificationInboxReads,
     notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
     chatCandidateReads: productReadEvidence.chatCandidateReads,
+    chatCandidateRequests: fixtureState.chatCandidateRequests,
     chatCandidateReadStages: productReadEvidence.chatCandidateReadStages,
     chatCandidateResponse: options.real ? "backend_2xx" : { status: 200, body: { items: [], has_more: false, next_offset: 0, actor_neighborhood: "Fixture District" } },
     blockedMutations: blockedBackendMutations.length,
@@ -438,9 +447,17 @@ async function startServer(distribution, state, configuration) {
       if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
         const body = await jsonBody(request);
         const exactKeys = Object.keys(body).sort().join(",") === "p_actor_profile_id,p_limit,p_offset,p_query";
-        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
-            !exactKeys || body.p_actor_profile_id !== FIXTURE.profileId || body.p_query !== "" ||
-            body.p_limit !== 30 || body.p_offset !== 0) {
+        const accepted = request.method === "POST" &&
+          request.headers.authorization === `Bearer ${FIXTURE.accessToken}` && exactKeys &&
+          body.p_actor_profile_id === FIXTURE.profileId && body.p_query === "" &&
+          body.p_limit === 30 && body.p_offset === 0;
+        state.chatCandidateRequests.push({
+          method: request.method,
+          bearer: request.headers.authorization === `Bearer ${FIXTURE.accessToken}` ? "fixture_session" : "invalid",
+          body,
+          status: accepted ? 200 : 405,
+        });
+        if (!accepted) {
           return json(response, 405, { error: "fixture_chat_candidate_read_forbidden" });
         }
         state.chatCandidateReads += 1;
