@@ -214,14 +214,17 @@ internal fun iosOfficialEditorPlatformSlots(
     strings: OfficialPostEditorStrings,
     gateway: IosOfficialEditorMediaGateway,
 ) = OfficialEditorPlatformSlots(
-    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+    richTextEditor = OfficialRichBodyEditor(
+        content = { html, onChanged, _ -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+        cancel = { Result.failure(UnsupportedOperationException("ios_rich_fullscreen_unavailable")) },
+    ),
     imagePicker = { picked, modifier ->
         IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, gateway, picked, modifier)
     },
     videoPicker = { picked, modifier ->
         IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, gateway, picked, modifier)
     },
-    mediaPreview = { media, onRemove, modifier ->
+    mediaPreview = { media, onRemove, _, modifier ->
         OfficialEditorMediaPreviewContent(
             removeLabel = "Remove", onRemove = onRemove,
             mediaContent = { previewModifier ->
@@ -232,4 +235,6 @@ internal fun iosOfficialEditorPlatformSlots(
         )
     },
     discardMedia = { media -> gateway.discard(media) },
+    mediaEditor = OfficialEditorCapability.Unavailable("ios_media_editor_unavailable"),
+    cardPreview = OfficialEditorCapability.Unavailable("ios_official_card_preview_unavailable"),
 )

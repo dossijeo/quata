@@ -20,6 +20,8 @@ import com.quata.feature.official.presentation.OfficialPostEditorStrings
 import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.presentation.OfficialLanguageDetector
 import com.quata.feature.official.presentation.detectOfficialLanguage
+import com.quata.feature.official.presentation.OfficialRichBodyEditor
+import com.quata.feature.official.presentation.OfficialEditorCapability
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerRequest
@@ -55,10 +57,15 @@ fun WebOfficialEditorHost(
             slots = OfficialEditorPlatformSlots(
                 // This target currently has no portable WYSIWYG bridge; the real HTML field is
                 // intentionally labelled as such instead of faking formatting controls.
-                richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+                richTextEditor = OfficialRichBodyEditor(
+                    content = { html, onChanged, _ -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+                    cancel = { Result.failure(UnsupportedOperationException("web_rich_fullscreen_unavailable")) },
+                ),
                 imagePicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) } } }) { Text("Image") } },
                 videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
-                mediaPreview = { media, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
+                mediaPreview = { media, _, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
+                mediaEditor = OfficialEditorCapability.Unavailable("web_media_editor_unavailable"),
+                cardPreview = OfficialEditorCapability.Unavailable("web_official_card_preview_unavailable"),
             ),
             onSubmit = { drafts -> repository.createPosts(drafts).map { it?.id } },
             onPublished = onPublished,

@@ -25,13 +25,34 @@ import kotlinx.coroutines.NonCancellable
  * by an empty callback: the root then omits the associated control.
  */
 class OfficialEditorPlatformSlots(
-    val richTextEditor: @Composable (html: String, onHtmlChanged: (String) -> Unit) -> Unit,
+    val richTextEditor: OfficialRichBodyEditor,
     val imagePicker: (@Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit)? = null,
     val videoPicker: (@Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit)? = null,
-    val mediaPreview: (@Composable (OfficialEditorMedia, onRemove: () -> Unit, Modifier) -> Unit)? = null,
+    val mediaPreview: (@Composable (OfficialEditorMedia, onRemove: () -> Unit, onEdit: (() -> Unit)?, Modifier) -> Unit)? = null,
     /** Releases a platform-owned prepared selection. It is deliberately absent on browser slots. */
     val discardMedia: (suspend (OfficialEditorMedia) -> Unit)? = null,
-    val postPreview: (@Composable (OfficialPostDraft, Modifier) -> Unit)? = null,
+    val mediaEditor: OfficialEditorCapability<OfficialMediaEditExporter> = OfficialEditorCapability.Unavailable("media_edit_unavailable"),
+    val cardPreview: OfficialEditorCapability<OfficialCardPreview> = OfficialEditorCapability.Unavailable("card_preview_unavailable"),
+)
+
+sealed interface OfficialEditorCapability<out T> {
+    data class Available<T>(val value: T) : OfficialEditorCapability<T>
+    data class Unavailable(val reason: String) : OfficialEditorCapability<Nothing>
+}
+
+class OfficialRichBodyEditor(
+    val content: @Composable (html: String, onHtmlChanged: (String) -> Unit, onFullscreenChanged: (Boolean) -> Unit) -> Unit,
+    val cancel: suspend () -> Result<Unit>,
+)
+
+class OfficialMediaEditExporter(
+    val supportedTypes: Set<OfficialMediaType>,
+    val editAndExport: suspend (OfficialEditorMedia) -> Result<OfficialEditorMedia>,
+    val cancel: suspend () -> Result<Unit>,
+)
+
+class OfficialCardPreview(
+    val content: @Composable (OfficialPostDraft, Modifier) -> Unit,
 )
 
 /** A local media selection. [url] must be uploadable by the platform submitter. */
@@ -137,6 +158,8 @@ fun OfficialPostEditorScreenHost(
     var translating by remember { mutableStateOf(false) }
     var publishing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
+    var bodyFullscreen by remember { mutableStateOf(false) }
+    var mediaEditing by remember { mutableStateOf(false) }
     var sourceLanguage by remember { mutableStateOf(language) }
     val scope = rememberCoroutineScope()
 
@@ -180,7 +203,24 @@ fun OfficialPostEditorScreenHost(
                     title = strings.media,
                     imagePicker = slots.imagePicker?.let { picker -> { modifier -> picker({ picked -> media?.takeIf { it != picked }?.let { old -> slots.discardMedia?.let { discard -> scope.launch { discard(old) } } }; media = picked }, modifier) } },
                     videoPicker = slots.videoPicker?.let { picker -> { modifier -> picker({ picked -> media?.takeIf { it != picked }?.let { old -> slots.discardMedia?.let { discard -> scope.launch { discard(old) } } }; media = picked }, modifier) } },
-                    preview = media?.let { selected -> slots.mediaPreview?.let { preview -> { preview(selected, { slots.discardMedia?.let { discard -> scope.launch { discard(selected) } }; media = null }, Modifier.fillMaxWidth()) } } },
+                    preview = media?.let { selected -> slots.mediaPreview?.let { preview -> {
+                        val edit = (slots.mediaEditor as? OfficialEditorCapability.Available)?.value?.takeIf { selected.type in it.supportedTypes }
+                        val onEdit = edit?.let { editor ->
+                            {
+                                if (!mediaEditing) {
+                                    mediaEditing = true
+                                    scope.launch {
+                                        try {
+                                            editor.editAndExport(selected).onSuccess { media = it }.onFailure { feedback = it.message }
+                                        } finally {
+                                            mediaEditing = false
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        preview(selected, { slots.discardMedia?.let { discard -> scope.launch { discard(selected) } }; media = null }, onEdit, Modifier.fillMaxWidth())
+                    } } },
                 )
             },
             bodySection = {
@@ -188,16 +228,15 @@ fun OfficialPostEditorScreenHost(
                     title = strings.body,
                     readMoreControl = if (advanced) {{ OfficialEditorDropdownFieldContent(readMore.shortcode, OfficialReadMoreOption.entries.map { OfficialEditorSelectionOption(it.name, it.shortcode) }, readMoreExpanded, { readMoreExpanded = it }, { readMore = OfficialReadMoreOption.valueOf(it) }) }} else null,
                     editorAction = {
-                        if (advanced) slots.richTextEditor(html) { html = it }
-                        else slots.richTextEditor(html) { html = it }
+                        slots.richTextEditor.content(html, { html = it }, { bodyFullscreen = it })
                     },
                     linkControl = if (advanced) {{ OfficialEditorLinkFieldContent(value = link, label = strings.linkLabel, onValueChange = { link = it }) }} else null,
                 )
             },
             previewSection = {
-                slots.postPreview?.let { preview ->
+                (slots.cardPreview as? OfficialEditorCapability.Available)?.value?.let { preview ->
                     OfficialEditorSectionTitleContent(strings.preview)
-                    preview(draft(), Modifier.fillMaxWidth())
+                    preview.content(draft(), Modifier.fillMaxWidth())
                 }
             },
             feedback = { feedback?.let { Text(it) } },
@@ -214,6 +253,15 @@ fun OfficialPostEditorScreenHost(
             },
         )
         androidx.compose.material3.TextButton(onClick = {
+            if (bodyFullscreen) {
+                scope.launch { slots.richTextEditor.cancel().onSuccess { bodyFullscreen = false }.onFailure { feedback = it.message } }
+                return@TextButton
+            }
+            val activeMediaEditor = (slots.mediaEditor as? OfficialEditorCapability.Available)?.value
+            if (mediaEditing && activeMediaEditor != null) {
+                scope.launch { activeMediaEditor.cancel().onSuccess { mediaEditing = false }.onFailure { feedback = it.message } }
+                return@TextButton
+            }
             media?.let { selected ->
                 slots.discardMedia?.let { discard ->
                     scope.launch(NonCancellable, start = CoroutineStart.UNDISPATCHED) { discard(selected) }
