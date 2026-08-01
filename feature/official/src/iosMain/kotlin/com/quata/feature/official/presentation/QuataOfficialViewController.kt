@@ -205,27 +205,7 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
             OfficialPostEditorRoot(
                 padding = PaddingValues(), language = language,
                 strings = editorStrings,
-                slots = OfficialEditorPlatformSlots(
-                    // A Compose text input is functional on UIKit and stores literal HTML. Rich
-                    // toolbar support is not claimed on this target until its native adapter lands.
-                    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-                    imagePicker = dependencies.mediaGateway?.let { gateway -> { picked, modifier ->
-                        IosOfficialMediaPickerButton(editorStrings.image, OfficialMediaType.Image, gateway, picked, modifier)
-                    } },
-                    videoPicker = dependencies.mediaGateway?.let { gateway -> { picked, modifier ->
-                        IosOfficialMediaPickerButton(editorStrings.video, OfficialMediaType.Video, gateway, picked, modifier)
-                    } },
-                    mediaPreview = dependencies.mediaGateway?.let {
-                        { media, onRemove, modifier ->
-                            OfficialEditorMediaPreviewContent(
-                                removeLabel = "Remove", onRemove = onRemove,
-                                mediaContent = { Text(media.displayName ?: if (media.type == OfficialMediaType.Image) "Image selected" else "Video selected") },
-                                editAction = { }, modifier = modifier,
-                            )
-                        }
-                    },
-                    discardMedia = dependencies.mediaGateway?.let { gateway -> { media -> gateway.discard(media) } },
-                ),
+                slots = iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway),
                 onSubmit = { drafts ->
                     (dependencies.mediaGateway?.submit(dependencies.repository, drafts)
                         ?: dependencies.repository.createPosts(drafts)).map { dependencies.onPublished() }
@@ -235,3 +215,26 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
             )
         }
     }
+
+internal fun iosOfficialEditorPlatformSlots(
+    strings: OfficialPostEditorStrings,
+    gateway: IosOfficialEditorMediaGateway?,
+) = OfficialEditorPlatformSlots(
+    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+    imagePicker = gateway?.let { value -> { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, value, picked, modifier)
+    } },
+    videoPicker = gateway?.let { value -> { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, value, picked, modifier)
+    } },
+    mediaPreview = gateway?.let {
+        { media, onRemove, modifier ->
+            OfficialEditorMediaPreviewContent(
+                removeLabel = "Remove", onRemove = onRemove,
+                mediaContent = { Text(media.displayName ?: if (media.type == OfficialMediaType.Image) "Image selected" else "Video selected") },
+                modifier = modifier,
+            )
+        }
+    },
+    discardMedia = gateway?.let { value -> { media -> value.discard(media) } },
+)

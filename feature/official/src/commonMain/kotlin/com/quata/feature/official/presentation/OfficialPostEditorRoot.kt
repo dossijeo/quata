@@ -17,6 +17,8 @@ import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialReadMoreOption
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
 
 /**
  * A real capability supplied by a target.  A missing capability is represented by null, never
@@ -182,7 +184,15 @@ fun OfficialPostEditorRoot(
                 })
             },
         )
-        androidx.compose.material3.TextButton(onClick = onBack) { Text(strings.back) }
+        androidx.compose.material3.TextButton(onClick = {
+            media?.let { selected ->
+                slots.discardMedia?.let { discard ->
+                    scope.launch(NonCancellable, start = CoroutineStart.UNDISPATCHED) { discard(selected) }
+                }
+            }
+            media = null
+            onBack()
+        }) { Text(strings.back) }
     }
     if (translationPrompt) OfficialTranslationPromptContent(
         title = strings.translateTitle, message = strings.translateMessage, progressLabel = strings.translating,
